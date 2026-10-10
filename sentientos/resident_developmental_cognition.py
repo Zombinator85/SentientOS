@@ -227,19 +227,66 @@ class ResidentDevelopmentalCognitionOwner:
 
     def _state(self) -> dict[str, Any]:
         state_migrated = False
-        if self.state_path.is_symlink():
-            raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
-        if not self.state_path.exists():
+        state_bytes: bytes | None = None
+        if os.name == "nt":
+            try:
+                self.state_path.parent.lstat()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                raise ResidentDevelopmentalCognitionError("composition_state_unavailable") from exc
+            else:
+                try:
+                    entries = read_regular_files(self.state_path.parent,
+                        max_entries=1, max_file_bytes=MAX_COMPOSITION_STATE_BYTES,
+                        max_total_bytes=MAX_COMPOSITION_STATE_BYTES,
+                        suffix=self.state_path.name)
+                except WindowsHandleCustodyError as exc:
+                    raise ResidentDevelopmentalCognitionError("composition_state_safe_read_failed") from exc
+                if len(entries) > 1:
+                    raise ResidentDevelopmentalCognitionError("composition_state_identity_ambiguous")
+                if entries:
+                    name, state_bytes = entries[0]
+                    if name != self.state_path.name:
+                        raise ResidentDevelopmentalCognitionError("composition_state_identity_ambiguous")
+        else:
+            if self.state_path.is_symlink():
+                raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
+            if self.state_path.exists():
+                descriptor: int | None = None
+                try:
+                    descriptor = os.open(self.state_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                                         | getattr(os, "O_NONBLOCK", 0))
+                    opened = os.fstat(descriptor)
+                    if not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_COMPOSITION_STATE_BYTES:
+                        raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
+                    chunks: list[bytes] = []
+                    remaining = MAX_COMPOSITION_STATE_BYTES + 1
+                    while remaining:
+                        chunk = os.read(descriptor, min(65_536, remaining))
+                        if not chunk:
+                            break
+                        chunks.append(chunk); remaining -= len(chunk)
+                    state_bytes = b"".join(chunks)
+                    after = os.fstat(descriptor)
+                    if (len(state_bytes) > MAX_COMPOSITION_STATE_BYTES or len(state_bytes) != opened.st_size
+                            or after.st_size != opened.st_size or after.st_mtime_ns != opened.st_mtime_ns
+                            or after.st_dev != opened.st_dev or after.st_ino != opened.st_ino):
+                        raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
+                except (OSError, ValueError) as exc:
+                    raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
+                finally:
+                    if descriptor is not None:
+                        os.close(descriptor)
+        if state_bytes is None:
             semantic = {"schema": STATE_SCHEMA, "processed_selection_ids": [], "completed_ticks": [],
                 "incomplete_ticks": []}
             state = {**semantic, "state_digest": _digest(semantic)}
         else:
             try:
-                if self.state_path.is_symlink() or not self.state_path.is_file() or self.state_path.stat().st_size > MAX_COMPOSITION_STATE_BYTES:
-                    raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
-                value = json.loads(self.state_path.read_text(encoding="utf-8"))
+                value = json.loads(state_bytes.decode("utf-8"))
                 claimed = value.pop("state_digest")
-            except (OSError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
+            except (UnicodeError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
                 raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
             if value.get("schema") not in {STATE_SCHEMA, LEGACY_STATE_SCHEMA} or claimed != _digest(value):
                 raise ResidentDevelopmentalCognitionError("composition_state_digest_mismatch")
