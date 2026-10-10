@@ -7,6 +7,8 @@ it is never canonical explicit-user retention.
 from __future__ import annotations
 
 import json
+import os
+import stat
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -341,39 +343,107 @@ class ResidentDevelopmentalCognitionOwner:
         return state
 
     def _recover_observation_ticks(self) -> dict[str, tuple[str, ...]]:
-        if self.observations_root.is_symlink():
-            raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid")
-        if not self.observations_root.exists():
+        try:
+            self.observations_root.lstat()
+        except FileNotFoundError:
             return {}
-        if self.observations_root.is_symlink() or not self.observations_root.is_dir():
-            raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid")
-        paths = sorted(self.observations_root.glob("*.json"))
-        if len(paths) > MAX_COGNITION_OBSERVATIONS:
-            raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
+        except OSError as exc:
+            raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid") from exc
+        nofollow = getattr(os, "O_NOFOLLOW", None)
+        directory_flag = getattr(os, "O_DIRECTORY", None)
+        if nofollow is None or directory_flag is None or os.open not in os.supports_dir_fd:
+            raise ResidentDevelopmentalCognitionError("cognition_observation_safe_reads_unsupported")
+        try:
+            root_fd = os.open(self.observations_root,
+                os.O_RDONLY | directory_flag | nofollow | getattr(os, "O_NONBLOCK", 0))
+        except FileNotFoundError:
+            return {}
+        except OSError as exc:
+            raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid") from exc
         total_bytes = 0
         by_tick: dict[str, list[str]] = {}
-        for path in paths:
-            if path.is_symlink() or not path.is_file():
-                raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
-            size = path.stat().st_size
-            total_bytes += size
-            if size > MAX_COGNITION_OBSERVATION_BYTES or total_bytes > MAX_COGNITION_OBSERVATION_ROOT_BYTES:
+        contexts_by_tick: dict[str, tuple[set[str], tuple[str, str]]] = {}
+        try:
+            root_stat = os.fstat(root_fd)
+            if not stat.S_ISDIR(root_stat.st_mode):
+                raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid")
+            names = sorted(name for name in os.listdir(root_fd) if name.endswith(".json"))
+            if len(names) > MAX_COGNITION_OBSERVATIONS:
                 raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
-            try:
-                value = json.loads(path.read_text(encoding="utf-8"))
-                observation_id = value.pop("observation_id")
-                observation_digest = value.pop("observation_digest")
-            except (OSError, UnicodeError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
-                raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt") from exc
-            expected_fields = set(ResidentCognitionObservation.__dataclass_fields__) - {
-                "observation_id", "observation_digest"}
-            if (not isinstance(value, dict) or set(value) != expected_fields
-                    or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
-                    or observation_digest != _digest(value)
-                    or observation_id != "devcog-" + observation_digest[7:31]
-                    or path.stem != observation_id):
-                raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
-            by_tick.setdefault(value["tick_id"], []).append(observation_id)
+            for name in names:
+                if not name or name in {".", ".."} or "/" in name or "\\" in name:
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
+                descriptor: int | None = None
+                try:
+                    descriptor = os.open(name, os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0),
+                                         dir_fd=root_fd)
+                    opened = os.fstat(descriptor)
+                    if not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_COGNITION_OBSERVATION_BYTES:
+                        raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
+                    chunks: list[bytes] = []
+                    remaining = MAX_COGNITION_OBSERVATION_BYTES + 1
+                    while remaining:
+                        chunk = os.read(descriptor, min(65_536, remaining))
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                        remaining -= len(chunk)
+                    raw = b"".join(chunks)
+                    after = os.fstat(descriptor)
+                    if (len(raw) > MAX_COGNITION_OBSERVATION_BYTES or len(raw) != opened.st_size
+                            or after.st_size != opened.st_size or after.st_mtime_ns != opened.st_mtime_ns
+                            or after.st_dev != opened.st_dev or after.st_ino != opened.st_ino):
+                        raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt")
+                    total_bytes += len(raw)
+                    if total_bytes > MAX_COGNITION_OBSERVATION_ROOT_BYTES:
+                        raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
+                    value = json.loads(raw.decode("utf-8"))
+                    observation_id = value.pop("observation_id")
+                    observation_digest = value.pop("observation_digest")
+                except ResidentDevelopmentalCognitionError:
+                    raise
+                except (OSError, UnicodeError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt") from exc
+                finally:
+                    if descriptor is not None:
+                        os.close(descriptor)
+                expected_fields = set(ResidentCognitionObservation.__dataclass_fields__) - {
+                    "observation_id", "observation_digest"}
+                if (not isinstance(value, dict) or set(value) != expected_fields
+                        or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
+                        or observation_digest != _digest(value)
+                        or observation_id != "devcog-" + observation_digest[7:31]
+                        or name != observation_id + ".json"):
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
+                tick = value["tick_id"]
+                condition = value.get("condition_id")
+                snapshot_binding = (value.get("current_snapshot_id"), value.get("current_snapshot_digest"))
+                allowed_conditions = {"prior-context", "with-history", "history_present",
+                    "history_withheld", "history_restored"}
+                if (not isinstance(condition, str) or condition not in allowed_conditions
+                        or value.get("correlation_id") !=
+                            f"{tick}:resident_developmental_cognition:{condition}"
+                        or type(value.get("prior_tick_proven")) is not bool
+                        or type(value.get("self_model_projection_present")) is not bool
+                        or not all(isinstance(item, str) and item for item in snapshot_binding)
+                        or (value.get("prior_tick_proven") is True and (
+                            value.get("self_model_projection_present") is not True
+                            or not isinstance(value.get("self_model_source_tick"), str)
+                            or value.get("self_model_source_tick") == tick))
+                        or (value.get("self_model_projection_present") is True
+                            and value.get("prior_tick_proven") is not True)):
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_lineage_invalid")
+                prior_context = contexts_by_tick.get(tick)
+                if prior_context is None:
+                    contexts_by_tick[tick] = ({str(condition)}, snapshot_binding)
+                else:
+                    conditions, prior_snapshot = prior_context
+                    if condition in conditions or snapshot_binding != prior_snapshot:
+                        raise ResidentDevelopmentalCognitionError("cognition_observation_tick_conflict")
+                    conditions.add(str(condition))
+                by_tick.setdefault(value["tick_id"], []).append(observation_id)
+        finally:
+            os.close(root_fd)
         return {tick: tuple(sorted(ids)) for tick, ids in by_tick.items()}
 
     def _save_state(self, state: Mapping[str, Any]) -> None:
