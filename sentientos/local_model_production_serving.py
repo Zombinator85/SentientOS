@@ -247,7 +247,30 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
             raise
         except (InstallationStateError, OSError, UnicodeError, ValueError, TypeError, RecursionError) as exc:
             raise ProductionServingError("serving_receipt_custody_invalid") from exc
+        legacy_receipt_fields = {
+            "schema_version", "status", "session_id", "binding",
+            "control_plane_authority_class", "admission_outcome", "model_loaded",
+            "serving_session_bound", "inference_performed",
+            "local_model_inference_authority_granted", "adjacent_authority_granted",
+            "receipt_id", "receipt_semantic_digest",
+        }
+        linked_receipt_fields = legacy_receipt_fields | {
+            "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest",
+            "model_loaded_at",
+        }
         if (not isinstance(receipt, dict) or raw != _canonical(receipt)
+                or frozenset(receipt) not in {frozenset(legacy_receipt_fields),
+                    frozenset(linked_receipt_fields)}
+                or receipt.get("status") not in {"production_current", "serving_session_bound"}
+                or (frozenset(receipt) == frozenset(linked_receipt_fields)
+                    and (not isinstance(receipt.get("model_loaded_at"), str)
+                        or not isinstance(receipt.get("serving_operation_attempt_id"), str)
+                        or not receipt.get("serving_operation_attempt_id")
+                        or not isinstance(receipt.get("serving_operation_attempt_semantic_digest"), str)
+                        or not re.fullmatch(r"[0-9a-f]{64}",
+                            receipt.get("serving_operation_attempt_semantic_digest", ""))))
+                or receipt.get("local_model_inference_authority_granted") is not False
+                or receipt.get("adjacent_authority_granted") is not False
                 or receipt.get("schema_version") != RECEIPT_SCHEMA
                 or receipt.get("receipt_semantic_digest") != semantic_digest(
                     {key: value for key, value in receipt.items() if key != "receipt_semantic_digest"})
@@ -351,39 +374,18 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
 def _reject_replayed_lifetime(handle: InstallationStateHandle, operation_id: str,
                               activation_digest: str) -> None:
     del activation_digest
-    directory = handle.fixed_object("local-model/serving/receipts")
-    try:
-        names = handle.list_regular_names(directory, max_entries=MAX_SERVING_OPERATION_ATTEMPTS)
-    except InstallationStateError as exc:
-        raise ProductionServingError("serving_receipt_custody_unavailable") from exc
-    for name in names:
-        if not name.endswith(".json"):
-            raise ProductionServingError("serving_receipt_malformed")
-        try:
-            raw = handle.read_regular_bounded(
-                directory.child(name), max_bytes=MAX_SERVING_OPERATION_ATTEMPT_BYTES)
-            receipt = json.loads(raw.decode("utf-8"))
-        except (OSError, UnicodeError, ValueError, TypeError, InstallationStateError) as exc:
-            raise ProductionServingError("serving_receipt_malformed") from exc
-        if (not isinstance(receipt, dict) or raw != _canonical(receipt)
-                or receipt.get("schema_version") != RECEIPT_SCHEMA
-                or receipt.get("receipt_semantic_digest")
-                    != semantic_digest({k: v for k, v in receipt.items()
-                        if k != "receipt_semantic_digest"})
-                or receipt.get("control_plane_authority_class") != AuthorityClass.MODEL_SERVING.value
-                or receipt.get("admission_outcome") != AdmissionOutcome.ALLOW.value
-                or receipt.get("model_loaded") is not True
-                or receipt.get("serving_session_bound") is not True
-                or receipt.get("inference_performed") is not False):
-            raise ProductionServingError("serving_receipt_malformed")
-        binding = receipt.get("binding")
-        if not isinstance(binding, dict) or binding.get("installation_identity") != handle.identity.value:
-            raise ProductionServingError("serving_receipt_installation_mismatch")
-        if binding.get("serving_operation_id") == operation_id:
+    # One canonical bounded reader checks receipt shape and exact reservation
+    # joins before deciding whether an operation ID has already been used.
+    history = read_serving_operation_history(handle, maximum=MAX_SERVING_OPERATION_ATTEMPTS)
+    for item in history:
+        attempt = item.get("attempt")
+        receipt = item.get("receipt")
+        binding = receipt.get("binding") if isinstance(receipt, Mapping) else None
+        if ((isinstance(attempt, Mapping)
+                and attempt.get("serving_operation_id") == operation_id)
+                or (isinstance(binding, Mapping)
+                    and binding.get("serving_operation_id") == operation_id)):
             raise ProductionServingError("serving_operation_reused")
-    if any(item.get("serving_operation_id") == operation_id
-            for item in read_serving_operation_attempts(handle)):
-        raise ProductionServingError("serving_operation_reused")
 
 
 def _reserve_serving_operation_attempt(handle: InstallationStateHandle, *,

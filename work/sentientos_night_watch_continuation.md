@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the invocation event-time and developmental-history projection repair, GitHub branch inspection verified `7f5034c65cc5dc1dd0ccec2edce95d5f318d7f8f` (tree `cff826a31539060f424213a6f76ca33ad07bf7ab`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before serving-receipt shape and replay verification, GitHub branch inspection verified `38a72bf88813c5aa91bd8122641c1429d6518016` (tree `24aa01a54c0b3f5a7ed0a02b4b9dbf2c76fa5228`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -583,3 +583,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the World-State projector, epistemic adapter, and developmental writeback owner. No tests, source replay, evidence admission, writeback persistence, cognition, or production verification was run.
 
 **Next implementation dependency:** inspect whether the source-bound projections and timestamps are revalidated from original World-State snapshots when durable developmental records are reconstructed, then continue with any independently fixable identity or ordering defect.
+
+
+### New checkpoint — use one strict bounded reader for serving replay decisions
+
+- Serving-operation reuse checks now consume the bounded reconciliation reader rather than a weaker second receipt parser. The reader enforces the exact historical receipt shape or exact reservation-linked shape, validates non-effect flags, verifies semantic/filename/session identity, and joins references to the corresponding attempt.
+- Historical receipts without reservation fields remain accepted under their legacy field set. New linked receipts require complete typed reservation identity and model-load event time. Partial or unknown fields are rejected.
+- Python compilation passed for the serving owner. No tests, replay attempt, model load, or production verification was run.
+
+**Next implementation dependency:** continue bounded source review of persistent developmental-history recovery and configured later-cognition consumption for identity or temporal gaps; no original observation or transition may be reconstructed from retrieval time.
