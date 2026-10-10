@@ -287,13 +287,22 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
 
 def campaign_epistemic_binding(*, proposition_id: str, result: CampaignResult) -> Any:
     from sentientos.persistent_epistemic_state import make_evidence_binding
-    relation = ("supports" if result.classification == "repeated_association_under_matched_controls" else
-                "contradicts" if result.classification in {"repeated_target_contradiction_under_matched_controls", "protected_regression_observed"} else "contextualizes")
-    return make_evidence_binding(proposition_id=proposition_id, source_artifact_id=result.result_id,
-        source_digest=result.result_digest, source_schema=result.schema_version, source_class="post_adoption_attribution_campaign",
-        observation_time=result.completed_at, evidence_relation=relation, dependency_kind="repeated_observation",
-        dependency_group=result.campaign_digest, upstream_binding_ids=(), freshness="current",
-        reliability_posture=f"{relation}:{result.classification}")
+    expected_id, expected_digest = _identity("attribution-result", result.payload())
+    _false(result.authority)
+    if (result.schema_version != RESULT_SCHEMA or result.attribution_posture != ATTRIBUTION_POSTURE
+            or result.classification not in RESULTS
+            or (result.result_id, result.result_digest) != (expected_id, expected_digest)):
+        raise AttributionCampaignError("campaign_result_identity_unverified")
+    # Control source identities/classes are caller supplied and have no
+    # authenticated issuer in this owner. Preserve the aggregate as historical
+    # context without calling it independent or fresh evidence.
+    return make_evidence_binding(proposition_id=proposition_id,
+        source_artifact_id=result.result_id, source_digest=result.result_digest,
+        source_schema=result.schema_version, source_class="post_adoption_attribution_campaign",
+        observation_time=result.completed_at, evidence_relation="contextualizes",
+        dependency_kind="unknown_dependency", dependency_group=None,
+        upstream_binding_ids=(), freshness="unknown",
+        reliability_posture="control_source_issuers_unverified")
 
 
 def developmental_evidence_record(result: CampaignResult) -> Mapping[str, Any]:
