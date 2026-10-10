@@ -666,10 +666,13 @@ class ModelReplacementArtifactStore:
             if len(entries) != 1 or entries[0][0] != filename:
                 raise DevelopmentalModelReplacementError(missing_code)
             try:
-                value = json.loads(entries[0][1].decode("utf-8"))
+                raw = entries[0][1]
+                value = json.loads(raw.decode("utf-8"))
             except (UnicodeError, json.JSONDecodeError) as exc:
                 raise DevelopmentalModelReplacementError(invalid_code) from exc
-            if not isinstance(value, dict):
+            canonical = json.dumps(value, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=True).encode("utf-8") if isinstance(value, dict) else b""
+            if not isinstance(value, dict) or canonical != raw:
                 raise DevelopmentalModelReplacementError(invalid_code)
             return value
         descriptor: int | None = None
@@ -678,7 +681,8 @@ class ModelReplacementArtifactStore:
             directory_fd = self._open_kind_directory(kind, create=False)
             descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
             metadata = os.fstat(descriptor)
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum_bytes:
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum_bytes
+                    or metadata.st_nlink != 1):
                 raise DevelopmentalModelReplacementError(invalid_code)
             chunks: list[bytes] = []
             remaining = metadata.st_size
@@ -688,8 +692,15 @@ class ModelReplacementArtifactStore:
                     raise DevelopmentalModelReplacementError(invalid_code)
                 chunks.append(chunk)
                 remaining -= len(chunk)
-            value = json.loads(b"".join(chunks).decode("utf-8"))
-            if not isinstance(value, dict):
+            raw = b"".join(chunks)
+            after = os.fstat(descriptor)
+            value = json.loads(raw.decode("utf-8"))
+            canonical = json.dumps(value, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=True).encode("utf-8") if isinstance(value, dict) else b""
+            if (not isinstance(value, dict) or canonical != raw
+                    or len(raw) != metadata.st_size or after.st_dev != metadata.st_dev
+                    or after.st_ino != metadata.st_ino or after.st_size != metadata.st_size
+                    or after.st_mtime_ns != metadata.st_mtime_ns):
                 raise DevelopmentalModelReplacementError(invalid_code)
             return value
         except FileNotFoundError as exc:
