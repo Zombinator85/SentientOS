@@ -609,8 +609,8 @@ class StrategyCognitionBackend(Protocol):
 
 
 STRATEGY_PROMPT_SCHEMA = {
-    "schema_version": "sentientos.embodied_strategy_prompt:v2",
-    "instruction": "Return only one JSON strategy proposal using the listed fields. Current World-State evidence is distinct from prior self-model and prior epistemic position; retained history is the only assigned condition difference. All three are non-authoritative context, not permission or policy. Propose only; do not claim execution, adoption, or observed consequences. Keep uncertainty explicit and do not infer physical effects from renderer output.",
+    "schema_version": "sentientos.embodied_strategy_prompt:v3",
+    "instruction": "Return only one JSON strategy proposal using the listed fields. Current World-State evidence is distinct from prior self-model and prior epistemic position; retained history is the only assigned condition difference. All three are non-authoritative context, not permission or policy. Propose only; do not claim execution, adoption, or observed consequences. Keep uncertainty explicit and do not infer physical effects from renderer output. For factual assertions drawn from retained resource lineage, cite the exact source_id and source_digest; this verifies citation identity, not claim truth. Distinguish measured, estimated, predicted, and unknown resource values. Invocation count, latency, and output size are not CPU, GPU, or energy measurements. Resource expenditure is not an objective, reward, penalty, or authorization.",
     "proposal_fields": (
         "situation_binding", "body_generation", "proposed_next_action_class",
         "requested_pose", "requested_expression", "retry_prior_strategy",
