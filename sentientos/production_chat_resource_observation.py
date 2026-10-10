@@ -26,6 +26,7 @@ from .causal_resource_principal_trust_catalog import ReadOnlyTrustedIssuerCatalo
 from .governed_local_model_invocation import validate_receipt
 from .chat_process_generation import (
     ChatProcessGenerationError,
+    read_stored_chat_process_runtime_observation,
     verify_stored_chat_process_handoff,
 )
 from .conversation_session import compact_runtime_generation_attribution
@@ -39,7 +40,9 @@ from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourceLedgerObservation,
     GovernedLocalModelResourcePolicy,
 )
-from .installation_state import InstallationStateError, InstallationStateReadOnlyView
+from .installation_state import (
+    InstallationStateError, InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView,
+)
 from .production_chat_resource_provisioning import (
     _NAMES,
     _manifest,
@@ -75,6 +78,8 @@ class ProductionChatResourceObservation:
     chat_process_generation_posture: str = "unknown"
     chat_process_recovery_transitions: tuple[Mapping[str, Any], ...] = ()
     chat_process_recovery_posture: str = "unknown"
+    chat_process_runtime_observation: Mapping[str, Any] | None = None
+    chat_process_runtime_observation_posture: str = "unknown"
 
 
 class ProductionChatResourceObservationOwner:
@@ -82,8 +87,10 @@ class ProductionChatResourceObservationOwner:
 
     __slots__ = ("_handle", "_provisioning_id")
 
-    def __init__(self, handle: InstallationStateReadOnlyView, provisioning_id: str) -> None:
-        if type(handle) is not InstallationStateReadOnlyView:
+    def __init__(self,
+                 handle: InstallationStateReadOnlyView | WindowsInstallationStateReadOnlyView,
+                 provisioning_id: str) -> None:
+        if type(handle) not in (InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView):
             raise TypeError("read_only_installation_state_view_required")
         self._handle = handle
         self._provisioning_id = validate_resource_provisioning_id(provisioning_id)
@@ -192,10 +199,22 @@ class ProductionChatResourceObservationOwner:
             else:
                 raise ProductionChatResourceObservationError(
                     "chat_process_recovery_custody_invalid:" + exc.code) from exc
+        try:
+            runtime_observation = read_stored_chat_process_runtime_observation(self._handle)
+        except ChatProcessGenerationError as exc:
+            raise ProductionChatResourceObservationError(
+                "chat_process_runtime_observation_invalid:" + str(exc)) from exc
+        if runtime_observation is None:
+            runtime_observation_posture = "unknown_missing"
+        elif runtime_observation.get("runtime_status") == "running_observed":
+            runtime_observation_posture = "historically_observed_running"
+        else:
+            runtime_observation_posture = "historically_not_verified"
         return ProductionChatResourceObservation(
             self._handle.identity.value, self._provisioning_id,
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
-            generation_attributions, generation_posture, recovery_transitions, recovery_posture)
+            generation_attributions, generation_posture, recovery_transitions, recovery_posture,
+            runtime_observation, runtime_observation_posture)
 
     def _invocation_receipts(self, allocation_digest: str
             ) -> tuple[tuple[Mapping[str, Any], ...], str, tuple[Mapping[str, Any], ...]]:

@@ -295,7 +295,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
     historical_transition_event = (
         (fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
-                "chat_process_recovery_transition"})
+                "chat_process_recovery_transition",
+                "chat_process_runtime_generation_observation"})
         or (fact.source.kind == "resource_governor"
             and fact.subject.subject_kind == "chat_process_software_generation_invocation"))
     out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition,
@@ -382,6 +383,34 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "effect_proven": False, "authority": False})
             out.append(("resident_model_transition.cognition_history_handoff",
                         _bounded(lineage), "historical_interpretation"))
+    if (fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "chat_process_runtime_generation_observation"
+            and fact.source.finding == "ok" and isinstance(fact.payload, Mapping)):
+        observation = fact.payload.get("chat_process_runtime_observation")
+        if isinstance(observation, Mapping):
+            lineage = {
+                "source_record_id": fact.source.source_id,
+                "source_record_digest": fact.source.digest,
+                "runtime_observation_digest": observation.get("observation_semantic_digest"),
+                "runtime_supervisor_generation": observation.get("runtime_supervisor_generation"),
+                "observed_at": observation.get("observed_at"),
+                "runtime_status_at_observation": observation.get("runtime_status"),
+                "process_instance_id": observation.get("process_instance_id"),
+                "handoff_id": observation.get("handoff_id"),
+                "handoff_digest": observation.get("handoff_digest"),
+                "software_generation_digest": observation.get("software_generation_digest"),
+                "source_generation_scope": observation.get("source_generation_scope"),
+                "currentness": "historical_owner_observation_only",
+                "independent_signature": False,
+                "historical_only": True, "current_truth": False,
+                "effect_proven": False, "authority": False,
+            }
+            if (isinstance(lineage["runtime_observation_digest"], str)
+                    and isinstance(lineage["handoff_digest"], str)
+                    and len(json.dumps(lineage, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+                        <= MAX_VALUE_BYTES):
+                out.append(("chat_process_runtime.historical_generation_observation",
+                    _bounded(lineage), "historical_interpretation"))
     if (fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind == "chat_process_recovery_transition"
             and fact.source.finding == "ok" and isinstance(fact.payload, Mapping)):

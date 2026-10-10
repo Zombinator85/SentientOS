@@ -380,3 +380,15 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python AST parsing passed for the modified files. No runtime, crash injection, Windows, or production verification was performed; changes remain untested.
 
 **Next implementation dependency:** determine whether an existing chat supervisor owner can publish a bounded, authenticated current-process observation into the selected installation without exposing its mutable recovery capability to the daemon. If no such issuer exists, preserve currentness as unknown and continue with another owner-level causal gap.
+
+
+### New checkpoint — compose the chat runtime's bounded point observation
+
+- Source review found the canonical chat runtime already owns both the supervisor and child adapter. The adapter's `current_runtime_handoff()` verifies its live child PID/parent/argv/environment and exact launched-source generation; the maintenance daemon does not own or substitute this identity.
+- The selected installation observer previously passed read-only views into stored handoff verification, while that verifier formed mutable-handle-only object paths. The verifier now accepts the existing POSIX and Windows read-only view APIs using fixed relative objects, without exposing writes.
+- The canonical runtime now holds one installation-scoped supervisor lock while running, preventing overlapping chat supervisors from racing the current-observation file. At startup and bounded cadence it atomically replaces one selected-installation point-observation image from its direct child check. On a failed check or orderly shutdown it records `not_verified` with the last verified handoff and an explicit reason. A crash leaves the last event time unchanged, so recovery cannot turn it fresh.
+- The selected read-only resource observer validates the image digest, installation identity, timestamp, and exact stored handoff. World-State carries it with retrieval time separate from event time; epistemic development keeps it historical/contextual with unknown freshness; later cognition and self-model can preserve it only through existing explicit source/predicate selectors.
+- The image is an owner report, not an independent signature or present-time liveness assertion. It records only child process and software-generation identity; it does not tie the maintenance daemon's code generation to the chat child or claim model activation, effect, or quality.
+- Python AST parsing passed for nine changed Python sources; trailing-whitespace scan was clean. No runtime, subprocess, concurrency, crash, Windows, behavioral, or production verification was run.
+
+**Next implementation dependency:** inspect runtime observation replay/currentness semantics and exact shutdown/recovery transitions for stale-owner races. Keep the point record historical; if currentness needs an independent issuer or trusted clock that is not present, preserve that unknown state and advance another source-supported integration.

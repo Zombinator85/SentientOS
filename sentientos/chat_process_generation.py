@@ -19,7 +19,9 @@ from typing import Any, Mapping, Sequence
 
 from .local_runtime_provisioning import semantic_digest
 from .installation_state import (
-    InstallationIdentity, InstallationStateError, InstallationStateHandle, InstallationStateRegistry,
+    InstallationIdentity, InstallationStateError, InstallationStateHandle,
+    InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView,
+    InstallationStateRegistry,
 )
 
 SCHEMA = "sentientos.chat_process_generation_handoff:v2"
@@ -29,6 +31,11 @@ HANDOFF_ID = re.compile(r"^[0-9a-f]{32}$")
 MAX_HANDOFF_BYTES = 1_048_576
 MAX_PRIOR_SNAPSHOT_BYTES = 65_536
 MAX_HANDOFF_ENTRIES = 256
+RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v1"
+RUNTIME_OBSERVATION_PATH = "local-model/chat/runtime-observations/current.json"
+RUNTIME_OBSERVATION_LOCK = "local-model/chat/runtime-observations/owner.lock"
+MAX_RUNTIME_OBSERVATION_BYTES = 65_536
+MIN_RUNTIME_OBSERVATION_REFRESH_SECONDS = 30
 MAX_SOURCE_FILES = 2_048
 MAX_SOURCE_DIRECTORIES = 8_192
 MAX_SOURCE_FILE_BYTES = 2_097_152
@@ -136,16 +143,25 @@ def _process_instance_id(*, handoff_id: str, pid: int, parent_pid: int,
         "argv_digest": argv_digest, "startup_timestamp": startup_timestamp})
 
 
-def _handoff_path(handle: InstallationStateHandle, handoff_id: str):
+def _handoff_path(handle: Any, handoff_id: str) -> Any:
     if not HANDOFF_ID.fullmatch(handoff_id):
         raise ChatProcessGenerationError("chat_process_handoff_id_invalid")
-    return handle.fixed_object(f"{RELATIVE_ROOT}/{handoff_id}.json")
+    relative = f"{RELATIVE_ROOT}/{handoff_id}.json"
+    if isinstance(handle, (InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView)):
+        return relative
+    return handle.fixed_object(relative)
 
 
-def _read_handoff(handle: InstallationStateHandle, handoff_id: str, *,
+def _read_handoff_bytes(handle: Any, path: Any) -> bytes:
+    if isinstance(handle, (InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView)):
+        return handle.read_regular_bounded(path, max_bytes=MAX_HANDOFF_BYTES)
+    return handle.read_regular_bounded(path, max_bytes=MAX_HANDOFF_BYTES)
+
+
+def _read_handoff(handle: Any, handoff_id: str, *,
                   verify_predecessor: bool = True) -> dict[str, Any]:
     try:
-        raw = handle.read_regular_bounded(_handoff_path(handle, handoff_id), max_bytes=MAX_HANDOFF_BYTES)
+        raw = _read_handoff_bytes(handle, _handoff_path(handle, handoff_id))
         value = json.loads(raw.decode("utf-8"))
     except ChatProcessGenerationError:
         raise
@@ -433,7 +449,7 @@ def _handoff_identity(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 
-def verify_chat_process_generation_lineage(*, handle: InstallationStateHandle,
+def verify_chat_process_generation_lineage(*, handle: Any,
         handoff_id: str, expected_digest: str | None = None) -> tuple[dict[str, Any], ...]:
     """Reconstruct the bounded immutable prior-snapshot chain without asserting liveness."""
     current = _read_handoff(handle, handoff_id, verify_predecessor=False)
@@ -464,7 +480,7 @@ def verify_chat_process_generation_lineage(*, handle: InstallationStateHandle,
     raise ChatProcessGenerationError("chat_process_handoff_lineage_depth_exceeded")
 
 
-def verify_stored_chat_process_handoff(*, handle: InstallationStateHandle,
+def verify_stored_chat_process_handoff(*, handle: Any,
                                        handoff_id: str, expected_digest: str) -> dict[str, Any]:
     """Verify historical owner custody without asserting the old process still runs."""
     record = _read_handoff(handle, handoff_id)
@@ -473,6 +489,127 @@ def verify_stored_chat_process_handoff(*, handle: InstallationStateHandle,
     verify_chat_process_generation_lineage(handle=handle, handoff_id=handoff_id,
         expected_digest=expected_digest)
     return _handoff_summary(record, "runtime_launcher_process_and_source_bound")
+
+
+
+def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
+        supervisor_generation: str, handoff: Mapping[str, Any],
+        status: str = "running_observed", reason_code: str | None = None) -> dict[str, Any]:
+    """Atomically publish the canonical runtime owner's bounded point observation."""
+    if type(handle) is not InstallationStateHandle:
+        raise ChatProcessGenerationError("runtime_observation_mutable_owner_required")
+    if (not isinstance(supervisor_generation, str) or not supervisor_generation
+            or len(supervisor_generation) > 128
+            or status not in {"running_observed", "not_verified"}
+            or (status == "not_verified" and not reason_code)
+            or (reason_code is not None and (not isinstance(reason_code, str)
+                or not re.fullmatch(r"[a-z0-9_]{1,80}", reason_code)))):
+        raise ChatProcessGenerationError("runtime_observation_fields_invalid")
+    if status == "running_observed":
+        if not isinstance(handoff, Mapping) or handoff.get("status") != "runtime_launcher_process_and_source_bound":
+            raise ChatProcessGenerationError("runtime_observation_handoff_unverified")
+    try:
+        historical = verify_stored_chat_process_handoff(handle=handle,
+            handoff_id=str(handoff.get("handoff_id", "")),
+            expected_digest=str(handoff.get("handoff_digest", "")))
+    except Exception as exc:
+        raise ChatProcessGenerationError("runtime_observation_handoff_invalid") from exc
+    if dict(handoff) != historical:
+        raise ChatProcessGenerationError("runtime_observation_handoff_mismatch")
+    body: dict[str, Any] = {
+        "schema_version": RUNTIME_OBSERVATION_SCHEMA,
+        "installation_identity": handle.identity.value,
+        "runtime_supervisor_generation": supervisor_generation,
+        "observed_at": datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z"),
+        "runtime_status": status,
+        "reason_code": reason_code,
+        "handoff_id": historical["handoff_id"],
+        "handoff_digest": historical["handoff_digest"],
+        "process_instance_id": historical["process_instance_id"],
+        "process_id": historical["process_id"],
+        "parent_process_id": historical["parent_process_id"],
+        "software_generation_digest": historical["software_generation_digest"],
+        "source_generation_scope": historical["source_generation_scope"],
+        "currentness_posture": "runtime_owner_observed_at_recorded_event_time",
+        "independent_signature": False,
+        "effect_authority": False,
+    }
+    body["observation_semantic_digest"] = semantic_digest(body)
+    encoded = _canonical(body)
+    if len(encoded) > MAX_RUNTIME_OBSERVATION_BYTES:
+        raise ChatProcessGenerationError("runtime_observation_too_large")
+    directory = handle.fixed_object("local-model/chat/runtime-observations")
+    handle.ensure_directory(directory)
+    lock = handle.fixed_object(RUNTIME_OBSERVATION_LOCK)
+    target = handle.fixed_object(RUNTIME_OBSERVATION_PATH)
+    try:
+        with handle.exclusive_lock(lock):
+            previous = read_stored_chat_process_runtime_observation(handle)
+            if previous is not None and all(previous.get(key) == body.get(key) for key in (
+                    "runtime_supervisor_generation", "runtime_status", "handoff_id",
+                    "handoff_digest", "reason_code")):
+                previous_time = datetime.fromisoformat(
+                    str(previous["observed_at"]).replace("Z", "+00:00"))
+                age = (datetime.now(timezone.utc) - previous_time).total_seconds()
+                if 0 <= age < MIN_RUNTIME_OBSERVATION_REFRESH_SECONDS:
+                    return previous
+            handle.durable_replace(target, encoded)
+    except InstallationStateError as exc:
+        raise ChatProcessGenerationError("runtime_observation_publication_failed") from exc
+    return body
+
+
+def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] | None:
+    """Read the selected installation's immutable-identity, replaceable status image."""
+    try:
+        path = (RUNTIME_OBSERVATION_PATH
+            if isinstance(handle, (InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView))
+            else handle.fixed_object(RUNTIME_OBSERVATION_PATH))
+        raw = handle.read_optional_regular_bounded(
+            path, max_bytes=MAX_RUNTIME_OBSERVATION_BYTES)
+    except InstallationStateError as exc:
+        raise ChatProcessGenerationError("runtime_observation_read_failed") from exc
+    if raw is None:
+        return None
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, ValueError, TypeError) as exc:
+        raise ChatProcessGenerationError("runtime_observation_malformed") from exc
+    if (not isinstance(value, dict) or raw != _canonical(value)
+            or value.get("schema_version") != RUNTIME_OBSERVATION_SCHEMA
+            or value.get("installation_identity") != handle.identity.value
+            or not isinstance(value.get("runtime_supervisor_generation"), str)
+            or not value.get("runtime_supervisor_generation")
+            or len(value["runtime_supervisor_generation"]) > 128
+            or value.get("observation_semantic_digest")
+                != semantic_digest(_without(value, "observation_semantic_digest"))
+            or value.get("runtime_status") not in {"running_observed", "not_verified"}
+            or (value.get("runtime_status") == "not_verified"
+                and not isinstance(value.get("reason_code"), str))
+            or (value.get("runtime_status") == "running_observed"
+                and value.get("reason_code") is not None)
+            or value.get("currentness_posture") != "runtime_owner_observed_at_recorded_event_time"
+            or value.get("independent_signature") is not False
+            or value.get("effect_authority") is not False):
+        raise ChatProcessGenerationError("runtime_observation_identity_invalid")
+    try:
+        timestamp = datetime.fromisoformat(str(value.get("observed_at", "")).replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise ChatProcessGenerationError("runtime_observation_time_invalid") from exc
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+        raise ChatProcessGenerationError("runtime_observation_time_invalid")
+    handoff = verify_stored_chat_process_handoff(handle=handle,
+        handoff_id=str(value.get("handoff_id", "")), expected_digest=str(value.get("handoff_digest", "")))
+    expected = {
+        "process_instance_id": handoff["process_instance_id"],
+        "process_id": handoff["process_id"],
+        "parent_process_id": handoff["parent_process_id"],
+        "software_generation_digest": handoff["software_generation_digest"],
+        "source_generation_scope": handoff["source_generation_scope"],
+    }
+    if any(value.get(key) != expected_value for key, expected_value in expected.items()):
+        raise ChatProcessGenerationError("runtime_observation_handoff_binding_mismatch")
+    return value
 
 
 def open_chat_process_handoff(*, installation_identity: str, handoff_id: str,

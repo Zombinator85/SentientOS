@@ -981,11 +981,15 @@ class RuntimeMaintenanceSurfaces:
                     verified_chat_process_generation_attributions=(
                         observation.chat_process_generation_attributions),
                     verified_chat_process_recovery_transitions=(
-                        observation.chat_process_recovery_transitions))
+                        observation.chat_process_recovery_transitions),
+                    verified_chat_process_runtime_observation=(
+                        observation.chat_process_runtime_observation))
                 records.extend(resource_records)
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records)
                             or observation.chat_process_recovery_posture.startswith("unknown_windows")
+                            or observation.chat_process_runtime_observation_posture in {
+                                "unknown_missing", "historically_not_verified"}
                             or any(item.get("terminal_receipt_digest") is None
                                 for item in observation.chat_process_recovery_transitions))
                 self._resource_observation_health = {
@@ -1000,6 +1004,8 @@ class RuntimeMaintenanceSurfaces:
                     "chat_process_recovery_posture": observation.chat_process_recovery_posture,
                     "chat_process_recovery_transition_count": len(
                         observation.chat_process_recovery_transitions),
+                    "chat_process_runtime_observation_posture":
+                        observation.chat_process_runtime_observation_posture,
                     "read_only": True, "effect_authority": False,
                 }
                 records.append({
@@ -2242,7 +2248,9 @@ def _compose_causal_introspection(
                 verified_chat_process_generation_attributions=(
                     observation.chat_process_generation_attributions),
                 verified_chat_process_recovery_transitions=(
-                    observation.chat_process_recovery_transitions))
+                    observation.chat_process_recovery_transitions),
+                verified_chat_process_runtime_observation=(
+                    observation.chat_process_runtime_observation))
             resource_record = next((item for item in records
                 if item.get("subject_kind") == "causal_resource_consumption"), None)
             if not isinstance(resource_record, Mapping) or not isinstance(resource_record.get("payload"), Mapping):

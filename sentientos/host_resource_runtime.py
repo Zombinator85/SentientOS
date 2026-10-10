@@ -21,6 +21,7 @@ from sentientos.host_resource_governor import HostResourcePressureReport, HostRe
 from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
 from sentientos.world_state_board import WorldStateSourceKind, digest, record_digest
+from sentientos.local_runtime_provisioning import semantic_digest
 
 SCHEMA_VERSION = "host_resource_observation_runtime.v1"
 RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA = "sentientos.resource_consumption_world_state_record:v2"
@@ -286,7 +287,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               max_attempts: int = 64,
                                               source_identity: Mapping[str, str] | None = None,
                                               verified_chat_process_generation_attributions: Sequence[Mapping[str, Any]] = (),
-                                              verified_chat_process_recovery_transitions: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
+                                              verified_chat_process_recovery_transitions: Sequence[Mapping[str, Any]] = (),
+                                              verified_chat_process_runtime_observation: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -688,6 +690,58 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "observed_at": None,
             "retrieved_at": observed_at,
             "payload": payload,
+        }
+        output.append({**item, "digest": record_digest(item)})
+    if verified_chat_process_runtime_observation is not None:
+        runtime = verified_chat_process_runtime_observation
+        runtime_fields = {
+            "schema_version", "installation_identity", "runtime_supervisor_generation", "observed_at",
+            "runtime_status", "reason_code", "handoff_id", "handoff_digest", "process_instance_id",
+            "process_id", "parent_process_id", "software_generation_digest", "source_generation_scope",
+            "currentness_posture", "independent_signature", "effect_authority",
+            "observation_semantic_digest",
+        }
+        if (not isinstance(runtime, Mapping) or set(runtime) != runtime_fields
+                or runtime.get("schema_version") != "sentientos.chat_process_runtime_observation:v1"
+                or runtime.get("installation_identity") != selected_source_identity.get("installation_identity")
+                or runtime.get("runtime_status") not in {"running_observed", "not_verified"}
+                or runtime.get("currentness_posture") != "runtime_owner_observed_at_recorded_event_time"
+                or runtime.get("independent_signature") is not False
+                or runtime.get("effect_authority") is not False
+                or not isinstance(runtime.get("observation_semantic_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", runtime["observation_semantic_digest"]) is None
+                or not isinstance(runtime.get("handoff_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", runtime["handoff_digest"]) is None
+                or not isinstance(runtime.get("observed_at"), str)
+                or runtime.get("observation_semantic_digest")
+                    != semantic_digest({key: value for key, value in runtime.items()
+                        if key != "observation_semantic_digest"})):
+            raise ValueError("chat_process_runtime_observation_binding_invalid")
+        item = {
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": ("chat_process_runtime_observation:"
+                + runtime["installation_identity"] + ":" + runtime["observation_semantic_digest"]),
+            "subject_kind": "chat_process_runtime_generation_observation",
+            "subject_id": str(runtime.get("process_instance_id", "")),
+            "stage": "observation",
+            "disposition": "recorded",
+            "evidence_strength": "runtime_owner_child_handoff_checked_at_event_time"
+                if runtime["runtime_status"] == "running_observed"
+                else "runtime_owner_child_identity_not_verified_at_event_time",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None,
+            "retrieved_at": observed_at,
+            "payload": {
+                "installation_identity": runtime["installation_identity"],
+                "provisioning_id": selected_source_identity.get("provisioning_id"),
+                "manifest_digest": selected_source_identity.get("manifest_digest"),
+                "chat_process_runtime_observation": dict(runtime),
+                "event_time": runtime["observed_at"],
+                "event_time_posture": "runtime_owner_observation_not_current_liveness",
+                "currentness": "unknown_after_observation_time",
+                "historical_only": True,
+                "effect_authority": False,
+            },
         }
         output.append({**item, "digest": record_digest(item)})
     return output
