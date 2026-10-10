@@ -274,7 +274,7 @@ class MaintenancePostAdoptionEvaluationOwner:
         if len(data)>MAX_ARTIFACT_BYTES: raise PostAdoptionEvaluationError("evaluation_record_oversized")
         directory_fd=self._open_kind_directory(kind,create=True); temporary_name=".evaluation-"+secrets.token_hex(16)+".tmp"; temporary_created=False
         try:
-            try: existing_fd=os.open(name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=directory_fd)
+            try: existing_fd=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|getattr(os,"O_NONBLOCK",0),dir_fd=directory_fd)
             except FileNotFoundError: existing_fd=None
             if existing_fd is not None:
                 os.close(existing_fd); prior=self._read_named(directory_fd,name)
@@ -303,7 +303,7 @@ class MaintenancePostAdoptionEvaluationOwner:
     def _read_named(directory_fd: int,name: str) -> dict[str,Any]:
         descriptor: int|None=None
         try:
-            descriptor=os.open(name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=directory_fd)
+            descriptor=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|getattr(os,"O_NONBLOCK",0),dir_fd=directory_fd)
             metadata=os.fstat(descriptor)
             if not stat.S_ISREG(metadata.st_mode) or metadata.st_size>MAX_ARTIFACT_BYTES:
                 raise PostAdoptionEvaluationError("evaluation_history_corrupt")

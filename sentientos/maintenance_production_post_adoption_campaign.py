@@ -8,6 +8,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
+import stat
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +34,7 @@ HOST_SCHEMA = "sentientos.host_collector_result:v1"
 FALSE_EFFECTS = {"git": False, "repository_mutation": False, "software_adoption": False,
     "process_replacement": False, "rollback": False, "provider_network": False,
     "host_actuation": False, "grant": False, "authority_widening": False}
+MAX_CAMPAIGN_ARTIFACT_BYTES = 1_048_576
 
 
 class ProductionCampaignError(ValueError):
@@ -47,17 +50,125 @@ def _digest(value: Any, omitted: str | None = None) -> str:
     return "sha256:" + hashlib.sha256(_bytes(body)).hexdigest()
 
 
-def _write_once(path: Path, value: Mapping[str, Any]) -> None:
-    data = _bytes(value) + b"\n"
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+def _open_directory(path: Path, *, create: bool) -> int:
+    selected = Path(os.path.abspath(os.fspath(path)))
+    if selected == Path(selected.anchor):
+        raise ProductionCampaignError("production_campaign_path_invalid")
+    if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd
+            or (create and os.mkdir not in os.supports_dir_fd)):
+        raise ProductionCampaignError("production_campaign_unsupported_platform")
+    descriptor: int | None = None
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW
     try:
-        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    except FileExistsError:
-        if path.is_symlink() or path.read_bytes() != data:
-            raise ProductionCampaignError("immutable_production_campaign_custody_conflict")
-        return
-    with os.fdopen(fd, "wb") as handle:
-        handle.write(data); handle.flush(); os.fsync(handle.fileno())
+        descriptor = os.open(os.sep, flags)
+        for component in selected.parts[1:]:
+            if create:
+                try:
+                    os.mkdir(component, 0o700, dir_fd=descriptor)
+                except FileExistsError:
+                    pass
+            next_descriptor = os.open(component, flags, dir_fd=descriptor)
+            if not stat.S_ISDIR(os.fstat(next_descriptor).st_mode):
+                os.close(next_descriptor)
+                raise ProductionCampaignError("production_campaign_path_invalid")
+            os.close(descriptor)
+            descriptor = next_descriptor
+        return descriptor
+    except ProductionCampaignError:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise
+    except OSError as exc:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise ProductionCampaignError("production_campaign_path_invalid") from exc
+
+
+def _read_bytes(path: Path) -> bytes:
+    selected = Path(os.path.abspath(os.fspath(path)))
+    if selected == Path(selected.anchor) or selected.name in {"", ".", ".."}:
+        raise ProductionCampaignError("production_campaign_path_invalid")
+    directory_fd = _open_directory(selected.parent, create=False)
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(selected.name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CAMPAIGN_ARTIFACT_BYTES:
+            raise ProductionCampaignError("production_campaign_artifact_invalid")
+        chunks: list[bytes] = []
+        remaining = metadata.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(remaining, 65_536))
+            if not chunk:
+                raise ProductionCampaignError("production_campaign_artifact_invalid")
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
+    except ProductionCampaignError:
+        raise
+    except OSError as exc:
+        raise ProductionCampaignError("production_campaign_artifact_unavailable") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(directory_fd)
+
+
+def _read_json(path: Path) -> Any:
+    try:
+        return json.loads(_read_bytes(path).decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise ProductionCampaignError("production_campaign_artifact_invalid") from exc
+
+
+def _write_once(path: Path, value: Mapping[str, Any], *, read_only: bool = False) -> None:
+    if read_only:
+        raise ProductionCampaignError("production_campaign_store_read_only")
+    data = _bytes(value) + b"\n"
+    if len(data) > MAX_CAMPAIGN_ARTIFACT_BYTES:
+        raise ProductionCampaignError("production_campaign_artifact_oversized")
+    path = Path(os.path.abspath(os.fspath(path)))
+    if path == Path(path.anchor) or path.name in {"", ".", ".."}:
+        raise ProductionCampaignError("production_campaign_path_invalid")
+    if (os.link not in os.supports_dir_fd or os.unlink not in os.supports_dir_fd
+            or os.link not in os.supports_follow_symlinks):
+        raise ProductionCampaignError("production_campaign_unsupported_platform")
+    directory_fd = _open_directory(path.parent, create=True)
+    temporary_name = ".campaign-custody-" + secrets.token_hex(16) + ".tmp"
+    temporary_created = False
+    try:
+        try:
+            existing = _read_bytes(path)
+        except ProductionCampaignError as exc:
+            if str(exc) != "production_campaign_artifact_unavailable":
+                raise
+        else:
+            if existing != data:
+                raise ProductionCampaignError("immutable_production_campaign_custody_conflict")
+            return
+        descriptor = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+            0o600, dir_fd=directory_fd)
+        temporary_created = True
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data); handle.flush(); os.fsync(handle.fileno())
+        try:
+            os.link(temporary_name, path.name, src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd, follow_symlinks=False)
+        except FileExistsError:
+            if _read_bytes(path) != data:
+                raise ProductionCampaignError("immutable_production_campaign_custody_conflict")
+        os.fsync(directory_fd)
+    except ProductionCampaignError:
+        raise
+    except OSError as exc:
+        raise ProductionCampaignError("production_campaign_publication_failed") from exc
+    finally:
+        if temporary_created:
+            try:
+                os.unlink(temporary_name, dir_fd=directory_fd); os.fsync(directory_fd)
+            except FileNotFoundError:
+                pass
+        os.close(directory_fd)
 
 
 def _record_valid(value: Mapping[str, Any], schema: str, digest_key: str) -> bool:
@@ -68,17 +179,22 @@ def _record_valid(value: Mapping[str, Any], schema: str, digest_key: str) -> boo
 class MaintenanceProductionPostAdoptionCampaign:
     """Thin persistent coordinator over the existing evaluation/campaign owners."""
 
-    def __init__(self, root: str | Path) -> None:
-        self.root = Path(root).resolve()
-        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if self.root.is_symlink():
+    def __init__(self, root: str | Path, *, read_only: bool = False) -> None:
+        self.root = Path(os.path.abspath(os.fspath(root)))
+        if self.root == Path(self.root.anchor):
             raise ProductionCampaignError("production_campaign_custody_unsafe")
-        self.evaluations = MaintenancePostAdoptionEvaluationOwner(self.root / "evaluations")
-        self.campaigns = MaintenancePostAdoptionAttributionCampaignOwner(self.root / "campaigns")
+        self.read_only = read_only
+        if not read_only:
+            descriptor = _open_directory(self.root, create=True)
+            os.close(descriptor)
+        self.evaluations = MaintenancePostAdoptionEvaluationOwner(self.root / "evaluations", read_only=read_only)
+        self.campaigns = MaintenancePostAdoptionAttributionCampaignOwner(self.root / "campaigns", read_only=read_only)
 
     def prepare(self, protocol: CampaignProtocol, evaluations: Sequence[EvaluationProtocol],
                 baselines: Sequence[Baseline]) -> Mapping[str, Any]:
         """Seal predecessor-created protocol and baseline custody before adoption."""
+        if self.read_only:
+            raise ProductionCampaignError("production_campaign_store_read_only")
         if protocol.evidence_class != "production":
             raise ProductionCampaignError("production_campaign_protocol_required")
         if tuple(x.protocol_id for x in evaluations) != protocol.evaluation_protocol_ids or \
@@ -98,9 +214,11 @@ class MaintenanceProductionPostAdoptionCampaign:
             for observable_id in (x.observable_id for x in evaluation.measurements):
                 record = baseline.source_records.get(observable_id, {})
                 path = Path(str(record.get("source_path", "")))
-                try: source_value = json.loads(path.read_text(encoding="utf-8"))
-                except (OSError, UnicodeError, json.JSONDecodeError) as exc: raise ProductionCampaignError("baseline_source_not_production") from exc
-                if (not path.is_absolute() or path.is_symlink() or record.get("source_digest") != _digest(source_value)
+                if not path.is_absolute():
+                    raise ProductionCampaignError("baseline_source_not_production")
+                try: source_value = _read_json(path)
+                except ProductionCampaignError as exc: raise ProductionCampaignError("baseline_source_not_production") from exc
+                if (record.get("source_digest") != _digest(source_value)
                         or not record.get("source_schema")):
                     raise ProductionCampaignError("baseline_source_not_production")
             self.evaluations.preregister(evaluation); self.evaluations.capture_baseline(evaluation, baseline)
@@ -112,12 +230,14 @@ class MaintenanceProductionPostAdoptionCampaign:
                                    "tree": protocol.successor_tree, "adoption_identity": protocol.adoption_identity},
             "sealed_before_adoption": True, "effects": FALSE_EFFECTS}
         body["custody_digest"] = _digest(body)
-        _write_once(self.root / "custody.json", body)
+        _write_once(self.root / "custody.json", body, read_only=self.read_only)
         return cast(Mapping[str, Any], body)
 
     def reconstruct(self, campaign_id: str) -> Mapping[str, Any]:
-        try: body = json.loads((self.root / "custody.json").read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc: raise ProductionCampaignError("campaign_custody_unavailable") from exc
+        try: body = _read_json(self.root / "custody.json")
+        except ProductionCampaignError as exc: raise ProductionCampaignError("campaign_custody_unavailable") from exc
+        if not isinstance(body, dict):
+            raise ProductionCampaignError("campaign_custody_tampered")
         supplied = dict(body); actual = supplied.pop("custody_digest", None)
         if actual != _digest(supplied) or body.get("schema_version") != SCHEMA or body.get("campaign_id") != campaign_id:
             raise ProductionCampaignError("campaign_custody_tampered")
@@ -138,20 +258,26 @@ class MaintenanceProductionPostAdoptionCampaign:
         adoption_event = evidence.get("adoption_completion_event", {})
         journal_path = Path(str(evidence.get("resident_journal", {}).get("path", "")))
         journal_bound = False
-        if journal_path.is_absolute() and journal_path.is_file() and not journal_path.is_symlink():
+        try:
+            journal_bytes = _read_bytes(journal_path) if journal_path.is_absolute() else b""
             try:
-                journal_bound = any(json.loads(line) == adoption_event for line in journal_path.read_text(encoding="utf-8").splitlines())
-            except (OSError, UnicodeError, json.JSONDecodeError):
+                journal_bound = any(json.loads(line) == adoption_event for line in journal_bytes.decode("utf-8").splitlines())
+            except (UnicodeError, json.JSONDecodeError):
                 journal_bound = False
+        except ProductionCampaignError:
+            journal_bound = False
         target_sources = evidence.get("target_sources", {}).get("records", [])
         target_sources_valid = isinstance(target_sources, list) and bool(target_sources)
         for source in target_sources if isinstance(target_sources, list) else []:
             path = Path(str(source.get("path", "")))
+            if not path.is_absolute():
+                target_sources_valid = False
+                continue
             try:
-                value = json.loads(path.read_text(encoding="utf-8"))
-                target_sources_valid = target_sources_valid and path.is_absolute() and path.is_file() and not path.is_symlink() \
-                    and source.get("digest") == _digest(value) and bool(source.get("schema")) and bool(source.get("observable_id"))
-            except (OSError, UnicodeError, json.JSONDecodeError): target_sources_valid = False
+                value = _read_json(path)
+                target_sources_valid = target_sources_valid and source.get("digest") == _digest(value) \
+                    and bool(source.get("schema")) and bool(source.get("observable_id"))
+            except ProductionCampaignError: target_sources_valid = False
         host_controls_valid = True
         host_results = {x.collector_id: x for x in collect_basic_host_observations()}
         for definition in protocol.controls:
@@ -167,13 +293,14 @@ class MaintenanceProductionPostAdoptionCampaign:
             if x.get("protocol_id") in evaluation_protocol_ids]
         evaluation_by_protocol = {x.get("protocol_id") for x in evaluations}
         unresolved_observation = any(x.get("protocol_id") not in evaluation_by_protocol for x in observations)
+        adoption_event_time = adoption_event.get("event_time") if isinstance(adoption_event, Mapping) else None
         checks = {
             "successor_generation_sealed": _record_valid(generation, GENERATION_SCHEMA, "generation_digest"),
             "successor_generation_exact": generation.get("ordinal") == protocol.successor_generation and generation.get("base_sha") == protocol.successor_revision,
             "successor_tree_exact": evidence.get("repository", {}).get("tree_sha") == protocol.successor_tree,
             "continuity_custody_valid": _record_valid(continuity, CONTINUITY_SCHEMA, "receipt_digest"),
             "resident_adoption_completed": _record_valid(adoption, ADOPTION_SCHEMA, "receipt_digest") and adoption.get("status") == "resident_ready",
-            "adoption_completion_event_valid": _record_valid(adoption_event, EVENT_SCHEMA, "event_digest") and adoption_event.get("phase") == "resident_adoption_completed" and journal_bound,
+            "adoption_completion_event_valid": _record_valid(adoption_event, EVENT_SCHEMA, "event_digest") and adoption_event.get("phase") == "resident_adoption_completed" and isinstance(adoption_event_time, str) and bool(adoption_event_time) and journal_bound,
             "launch_provenance_valid": _record_valid(provenance, PROVENANCE_SCHEMA, "provenance_digest"),
             "resident_readiness_exact": adoption.get("successor_generation_digest") == generation.get("generation_digest"),
             "continuity_exact": adoption.get("continuity_receipt_digest") == continuity.get("receipt_digest"),
@@ -196,13 +323,15 @@ class MaintenanceProductionPostAdoptionCampaign:
             "missing_prerequisites": list(blockers), "production_posture_derived": not blockers,
             "caller_declared_evidence_class_trusted": False, "effects": FALSE_EFFECTS}
         body["readiness_digest"] = _digest(body)
-        if artifact_path is not None: _write_once(Path(artifact_path), body)
+        if artifact_path is not None: _write_once(Path(artifact_path), body, read_only=self.read_only)
         return body
 
     def collect_host_control(self, campaign_id: str, trial_id: str, observable_id: str, *,
                              before_value: Any, matching_result: str, window_identity: str,
                              observed_at: str | None = None) -> ControlObservation:
         """Collect one control with the canonical read-only host collector."""
+        if self.read_only:
+            raise ProductionCampaignError("production_campaign_store_read_only")
         protocol = self.campaigns.protocol(campaign_id)
         definition = next((x for x in protocol.controls if x.observable_id == observable_id), None)
         if definition is None or "host_observation" not in definition.admissible_source_classes:
@@ -231,10 +360,12 @@ class MaintenanceProductionPostAdoptionCampaign:
                      control_match_results: Mapping[str, str], window_identity: str, observed_at: str,
                      evaluated_at: str, completed_at: str) -> Mapping[str, Any]:
         """Run the next exact trial once after independently deriving readiness."""
+        if self.read_only:
+            raise ProductionCampaignError("production_campaign_store_read_only")
         ready = self.readiness(campaign_id, evidence)
         if ready["status"] not in {"production_campaign_ready", "production_campaign_in_progress"} or ready["missing_prerequisites"]:
             raise ProductionCampaignError("production_campaign_not_ready")
-        _write_once(self.root / "qualification.json", {"evidence": evidence, "readiness": ready})
+        _write_once(self.root / "qualification.json", {"evidence": evidence, "readiness": ready}, read_only=self.read_only)
         protocol = self.campaigns.protocol(campaign_id)
         prior = [x for x in self.campaigns._read("trials") if x["campaign_id"] == campaign_id]
         if len(prior) >= len(protocol.trial_ids): raise ProductionCampaignError("campaign_already_terminal")
@@ -244,11 +375,12 @@ class MaintenanceProductionPostAdoptionCampaign:
         manifests = {x["observable_id"]: x for x in evidence["target_sources"]["records"]}
         for observable_id, record in target_source_records.items():
             manifest = manifests.get(observable_id)
-            if manifest is None or record.get("source_digest") != manifest["digest"] or record.get("source_schema") != manifest["schema"]:
+            if (manifest is None or not Path(str(manifest.get("path", ""))).is_absolute()
+                    or record.get("source_digest") != manifest["digest"] or record.get("source_schema") != manifest["schema"]):
                 raise ProductionCampaignError("target_source_record_mismatch")
         generation, continuity, adoption, provenance = (evidence[x] for x in ("generation", "continuity", "adoption", "launch_provenance"))
         journal_path = Path(str(evidence["resident_journal"]["path"]))
-        adoption_time = datetime.fromtimestamp(journal_path.stat().st_mtime, timezone.utc).isoformat()
+        adoption_time = str(evidence["adoption_completion_event"]["event_time"])
         qualification = SuccessorQualification(protocol.successor_generation, protocol.successor_revision,
             protocol.successor_tree, str(generation["generation_digest"]), str(continuity["receipt_digest"]),
             str(adoption["receipt_digest"]), str(provenance["provenance_digest"]),
@@ -268,6 +400,8 @@ class MaintenanceProductionPostAdoptionCampaign:
                 "controls": [asdict(x) for x in controls], "effects": FALSE_EFFECTS}
 
     def interrupt_next(self, campaign_id: str, *, completed_at: str) -> Mapping[str, Any]:
+        if self.read_only:
+            raise ProductionCampaignError("production_campaign_store_read_only")
         protocol = self.campaigns.protocol(campaign_id)
         prior = [x for x in self.campaigns._read("trials") if x["campaign_id"] == campaign_id]
         if len(prior) >= len(protocol.trial_ids): raise ProductionCampaignError("campaign_already_terminal")
@@ -276,14 +410,16 @@ class MaintenanceProductionPostAdoptionCampaign:
         return asdict(trial)
 
     def finalize(self, campaign_id: str, *, completed_at: str) -> Mapping[str, Any]:
+        if self.read_only:
+            raise ProductionCampaignError("production_campaign_store_read_only")
         return asdict(self.campaigns.finalize(self.campaigns.protocol(campaign_id), completed_at=completed_at))
 
     def report(self, campaign_id: str, *, proposition_id: str | None = None) -> Mapping[str, Any]:
         custody = self.reconstruct(campaign_id)
         try:
-            qualification = json.loads((self.root / "qualification.json").read_text(encoding="utf-8"))
+            qualification = _read_json(self.root / "qualification.json")
             readiness = self.readiness(campaign_id, qualification["evidence"])
-        except (OSError, json.JSONDecodeError, KeyError):
+        except (ProductionCampaignError, KeyError):
             readiness = self.readiness(campaign_id, {})
         try: result = self.campaigns.result(campaign_id)
         except ValueError: result = None

@@ -269,7 +269,7 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         temporary_created = False
         try:
             try:
-                existing_fd = os.open(path_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+                existing_fd = os.open(path_name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
             except FileNotFoundError:
                 existing_fd = None
             if existing_fd is not None:
@@ -309,7 +309,7 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
     def _read_named(directory_fd: int, name: str) -> dict[str, Any]:
         descriptor: int | None = None
         try:
-            descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+            descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
             metadata = os.fstat(descriptor)
             if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_ARTIFACT_BYTES:
                 raise AttributionCampaignError("campaign_history_corrupt")
