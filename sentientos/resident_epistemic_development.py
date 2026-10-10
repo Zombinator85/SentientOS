@@ -181,6 +181,14 @@ class ResidentEpistemicDevelopmentRuntime:
                                                "embodied_proposal_fulfillment_receipt"})
         historical_consequence_chain = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "embodied_consequence_chain")
+        historical_embodied_event_fields = {
+            "embodied_action_expectation": ("created_at",),
+            "avatar_renderer_handoff": ("commanded_at",),
+            "avatar_renderer_report": ("completed_at",),
+            "avatar_independently_observed_state": ("observed_at",),
+            "embodied_consequence_attribution": ("evaluated_at",),
+            "embodied_prediction_comparison": ("evaluated_at",),
+        }.get(fact.subject.subject_kind)
         historical_strategy_proposal = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "embodied_strategy_proposal")
         historical_strategy_review = (fact.source.kind == "embodiment"
@@ -209,10 +217,22 @@ class ResidentEpistemicDevelopmentRuntime:
             observed = _latest_historical_event_time(historical_times)
         if historical_consequence_chain and isinstance(fact.payload, Mapping):
             event_times = fact.payload.get("event_times")
-            claimed_observation_at = (event_times.get("claimed_observation_at")
-                if isinstance(event_times, Mapping) else None)
-            observed = (_latest_historical_event_time([claimed_observation_at])
-                if isinstance(claimed_observation_at, str) else None)
+            event_time_fields = ("expectation_created_at", "commanded_at",
+                "renderer_started_at", "renderer_completed_at", "claimed_observation_at",
+                "comparison_evaluated_at")
+            if isinstance(event_times, Mapping):
+                raw_times = [event_times.get(key) for key in event_time_fields
+                    if event_times.get(key) is not None]
+                observed = (_latest_historical_event_time(raw_times)
+                    if all(isinstance(value, str) for value in raw_times) and raw_times else None)
+            else:
+                observed = None
+        if (fact.source.kind == "embodiment" and historical_embodied_event_fields
+                and isinstance(fact.payload, Mapping)):
+            raw_times = [fact.payload.get(key) for key in historical_embodied_event_fields
+                if fact.payload.get(key) is not None]
+            observed = (_latest_historical_event_time(raw_times)
+                if all(isinstance(value, str) for value in raw_times) and raw_times else None)
         if (fact.source.kind == "embodiment"
                 and fact.subject.subject_kind == "developmental_model_replacement_experiment"
                 and isinstance(fact.payload, Mapping)):

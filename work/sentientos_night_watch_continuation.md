@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `9ca220102c117ee0d77b5b6da198f725bf552ca3` (tree `42a3a9c79562d734e10e16ab2487de5132179597`, parent `b0b3ce45fb68ab59eade767374348b77f82cb1f9`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `6801e6d210b7678a7095f9d0abbf4a7936f297ca` (tree `0bdeab5c291d967e7aa0a6214e3ce8cc2ac8bd8d`, parent `919cb4e7724cfea68ab0534c9600abf5d6cb9565`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -49,6 +49,7 @@ Changed Python files compile and `git diff --check` passes. No pytest, mypy, run
 - Windows read-only `ConsequenceStore` construction previously used `Path.exists()` as its only root-custody check before later handle-bound artifact reads. It now validates the explicitly configured root through `verify_explicit_directory()` and maps missing versus unsafe/unavailable roots separately; POSIX behavior is unchanged.
 - Legacy model-replacement conditions without timestamp fields now project an explicit `unknown` time posture, preserving their receipt identities without leaving an ambiguous null posture.
 - The POSIX-only initial-resident commissioning inspector's shared artifact loader no longer relies on `is_file()` plus `read_text()`. It now uses the existing bounded no-follow explicit-file reader on both platforms; commissioning authority and effect execution remain POSIX-gated.
+- Epistemic adaptation of expectation, renderer, observation, attribution and comparison records now reads event time only from their digest-bound owner payload fields. Consequence-chain summaries preserve the latest valid bound event across expectation, command, renderer, claimed observer and comparison while retaining each source time separately. Nonsemantic World-State `observed_at` metadata no longer seeds a new historical evidence identity for those records.
 
 ## Next executable task
 
