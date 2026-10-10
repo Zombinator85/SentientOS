@@ -2093,14 +2093,27 @@ class ConsequenceStore:
                 observation=observation, attribution=dict(chain["attribution"]),
                 comparison=dict(chain["comparison"]))
             records.extend(chain_records)
+            event_times = {
+                "expectation_created_at": expectation.created_at,
+                "commanded_at": chain["handoff"].get("commanded_at"),
+                "renderer_started_at": report.started_at if report is not None else None,
+                "renderer_completed_at": report.completed_at if report is not None else None,
+                "claimed_observation_at": observation.observed_at if observation is not None else None,
+                "comparison_evaluated_at": chain["attribution"].get("evaluated_at"),
+            }
             chain_record: dict[str, Any] = {
                 "source_kind": "embodiment", "source_id": chain_id,
                 "schema_version": CONSEQUENCE_CHAIN_SCHEMA, "subject_id": chain_id,
                 "subject_kind": "embodied_consequence_chain", "stage": "observation",
                 "disposition": "recorded", "evidence_strength": "digest_bound_consequence_chain",
+                # The summary's observation time is only the time claimed by a
+                # separately digest-bound observer input. Comparison and
+                # reconstruction times remain distinct and cannot refresh it.
+                "observed_at": observation.observed_at if observation is not None else None,
                 "payload": {"chain_id": chain_id, "chain_digest": chain["chain_digest"],
                     "component_source_ids": [item["source_id"] for item in chain_records],
                     "component_record_digests": [item["digest"] for item in chain_records],
+                    "event_times": event_times,
                     "independent_observation_posture": ("unverified_caller_assertion"
                         if chain.get("observation") is not None else "no_observation"),
                     "current_truth": False, "effect_proven": False},
