@@ -246,8 +246,22 @@ class ResidentEpistemicStateMutationController:
             raise EpistemicMutationError("mutation_intent_replay_blocked")
 
     def _recover_state_receipts(self) -> None:
-        if not self.intent_root.exists():
-            return
+        if os.name == "nt":
+            # Windows recovery remains an inspection-only bounded handle read.
+            if not self.intent_root.exists():
+                return
+        else:
+            # Path.exists() follows symlinks and returns false for a dangling
+            # link. Distinguish a genuinely absent intent root from invalid
+            # custody so recovery cannot silently erase interrupted state.
+            try:
+                root_stat = self.intent_root.lstat()
+            except FileNotFoundError:
+                return
+            except OSError as exc:
+                raise EpistemicMutationError("mutation_intent_root_unavailable") from exc
+            if stat.S_ISLNK(root_stat.st_mode) or not stat.S_ISDIR(root_stat.st_mode):
+                raise EpistemicMutationError("mutation_intent_root_invalid")
         self.owner.verify()
         try:
             if os.name == "nt":

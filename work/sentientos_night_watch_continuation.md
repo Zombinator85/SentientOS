@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before serving-receipt shape and replay verification, GitHub branch inspection verified `38a72bf88813c5aa91bd8122641c1429d6518016` (tree `24aa01a54c0b3f5a7ed0a02b4b9dbf2c76fa5228`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the epistemic intent-root recovery guard, GitHub branch inspection verified `3a9099c62b3cf8e3728bc4cb29a9c16522b46d89` (tree `b8171fc4650de82ccb6aa587eb8b76cb221d9385`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -592,3 +592,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the serving owner. No tests, replay attempt, model load, or production verification was run.
 
 **Next implementation dependency:** continue bounded source review of persistent developmental-history recovery and configured later-cognition consumption for identity or temporal gaps; no original observation or transition may be reconstructed from retrieval time.
+
+
+### New checkpoint — distinguish dangling intent-root custody from absence
+
+- Current source review confirms the recovered receipt publication loop already selects `evidence` for `EvidenceBindingMutationReceipt` and `state` for `EpistemicStateMutationReceipt`.
+- POSIX recovery now uses `lstat()` before treating an absent intent root as empty, rejecting symlink/non-directory custody and distinguishing a dangling symlink from genuinely absent state. The Windows branch retains its existing bounded read-only custody reader and performs no recovery write.
+- Python compilation passed for the mutation controller. No filesystem fixture, crash recovery, or production verification was run.
+
+**Next implementation dependency:** continue review of transactional recovery and predecessor identity checks in the same epistemic mutation path; keep absent, incomplete, corrupt, and conflicting custody distinct.
