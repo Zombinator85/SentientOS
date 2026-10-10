@@ -360,12 +360,17 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     if fulfillment_receipt and fulfillment_receipt.get("effect_proven") is True:
         raise EmbodiedConsequenceError("unverified_fulfillment_receipt_cannot_prove_effect")
     now = _time(evaluated_at)
+    commanded_at = handoff.get("commanded_at")
+    if commanded_at is not None and _time(commanded_at) < _time(expectation.created_at):
+        raise EmbodiedConsequenceError("command_predates_expectation")
     mismatch = False
     required = (expectation.handoff_id == handoff.get("handoff_id"), expectation.handoff_digest == handoff.get("handoff_digest"),
         expectation.correlation_id == handoff.get("correlation_id"), expectation.body_manifest_digest == handoff.get("body_manifest_digest"))
     mismatch = not all(required) or not handoff_integrity_valid
     generation_mismatch = expectation.body_generation != handoff.get("body_generation") or expectation.body_generation != current_body.get("body_generation")
     if renderer_report:
+        if commanded_at is not None and _time(renderer_report.started_at) < _time(commanded_at):
+            raise EmbodiedConsequenceError("renderer_report_predates_command")
         mismatch |= any((renderer_report.handoff_id != expectation.handoff_id, renderer_report.handoff_digest != expectation.handoff_digest,
             renderer_report.correlation_id != expectation.correlation_id, renderer_report.artifact_digest != handoff.get("artifact_sha256"),
             renderer_report.manifest_digest != expectation.body_manifest_digest))
