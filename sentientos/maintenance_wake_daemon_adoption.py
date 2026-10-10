@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
 from sentientos import maintenance_wake_cycle as wake
-from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
+from sentientos.windows_handle_custody import (WindowsHandleCustodyError,
+    read_explicit_file, verify_explicit_directory)
 
 ADOPTION_SCHEMA = "sentientos.maintenance_wake_daemon_adoption:v1"
 EVENT_SCHEMA = "sentientos.maintenance_wake_daemon_cadence_event:v1"
@@ -60,6 +61,10 @@ def _utc_text(value: datetime) -> str:
 
 def _external(path: Any, repo: Path, *, exists: bool) -> Path:
     raw = Path(str(path)).expanduser()
+    if os.name == "nt" and exists:
+        # Validate the original configured root before normalization: resolving
+        # first would turn a reparse path into an apparently ordinary target.
+        verify_explicit_directory(raw)
     if raw.is_symlink() or any(parent.is_symlink() for parent in (raw, *raw.parents) if parent.exists()):
         raise ValueError("wake_daemon_custody_symlink")
     resolved = raw.resolve(strict=exists)
@@ -99,8 +104,9 @@ def validate_adoption(value: Mapping[str, Any]) -> dict[str, Any]:
         result["adoption_config_digest"] = expected
         return result
     config_path = Path(str(value["wake_config_path"])).expanduser()
-    if config_path.is_symlink() or not config_path.is_file():
-        raise ValueError("wake_daemon_config_file_invalid")
+    # load_config uses read_explicit_file, which rejects non-regular/reparse
+    # inputs through descriptor/handle-bound custody. Avoid path-following
+    # is_file/is_symlink checks as the security decision.
     bound = wake.load_config(config_path)
     if bound["config_digest"] != value["wake_config_digest"]:
         raise ValueError("maintenance_wake_daemon_config_drift")

@@ -83,6 +83,16 @@ def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
             os.close(parent_descriptor)
 
 
+def verify_explicit_directory(path: Path) -> None:
+    """Verify one configured Windows directory through held, reparse-safe handles."""
+    if os.name != "nt":
+        raise WindowsHandleCustodyError("explicit_directory_windows_reader_on_non_windows")
+    # An empty explicit selection opens and validates the directory chain but
+    # reads no children and does not grant discovery over its contents.
+    read_regular_files(Path(path), max_entries=1, max_file_bytes=1,
+        max_total_bytes=1, selected_names=())
+
+
 def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                        max_total_bytes: int, suffix: str = ".json",
                        selected_names: tuple[str, ...] | None = None) -> list[tuple[str, bytes]]:
