@@ -909,6 +909,7 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         raise EmbodiedConsequenceError("strategy_protocol_shape_invalid")
     cognitive_context_projection = _strategy_cognitive_context(cognitive_context, protocol=protocol)
     _verify_consequence_attribution(consequence)
+    consequence_context_binding = _strategy_prior_consequence_binding(history_record, consequence)
     record_digest=history_record.get("record_digest")
     record_semantic=dict(history_record); record_semantic.pop("record_id",None); record_semantic.pop("record_digest",None)
     calculated_record_digest=digest(record_semantic)
@@ -1107,8 +1108,14 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
             break
     experiment_contradictory = proposal_contradiction or execution_contradiction
     experiment_complete = len(proposals) == len(conditions) and not experiment_contradictory
-    scoring=(score_strategy_experiment(proposals=proposals,consequence=consequence)
-        if experiment_complete else {"status":"not_scored_incomplete_execution", "authority":dict(FALSE_AUTHORITY)})
+    if not experiment_complete:
+        scoring = {"status":"not_scored_incomplete_execution", "authority":dict(FALSE_AUTHORITY)}
+    elif consequence_context_binding.get("posture") != "verified_prior_selected_history":
+        scoring = {"status":"not_scored_prior_consequence_not_bound_to_history",
+            "consequence_context_posture": consequence_context_binding.get("posture"),
+            "authority":dict(FALSE_AUTHORITY)}
+    else:
+        scoring = score_strategy_experiment(proposals=proposals, consequence=consequence)
     governed_rows = [item for item in execution_evidence if item.get("execution_posture") == "verified_governed_model_identity"]
     if experiment_contradictory:
         execution_posture = "contradictory_proposal_or_execution_evidence"
@@ -1224,7 +1231,10 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         "cognitive_execution_identity_posture":execution_posture,
         "execution_context_stable_across_conditions":execution_context_stable if callable(bind_protocol) else None,
         "execution_evidence":execution_evidence,
-        "consequence_scope":"prior_context_only_no_post_experiment_consequence_observed",
+        "consequence_scope":"prior_attribution_bound_to_selected_history_no_post_experiment_consequence_observed"
+            if consequence_context_binding.get("posture") == "verified_prior_selected_history"
+            else "prior_consequence_context_unbound_no_post_experiment_consequence_observed",
+        "consequence_context_binding":consequence_context_binding,
         "input_context_digest":digest({"protocol_digest":protocol_digest,"situation":dict(situation),"history_record_id":history_record.get("record_id"),
             "history_record_digest":record_digest,"consequence_id":consequence.get("attribution_id"),
             "consequence_digest":consequence.get("attribution_digest")}),
@@ -1242,6 +1252,70 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
     expected_id,expected_digest=_identity("consequence",semantic)
     if claimed_id!=expected_id or claimed_digest!=expected_digest or dict(value.get("authority",{}))!=dict(FALSE_AUTHORITY):
         raise EmbodiedConsequenceError("consequence_attribution_binding_invalid")
+
+
+def _strategy_prior_consequence_binding(history_record: Mapping[str, Any],
+                                        consequence: Mapping[str, Any]) -> dict[str, Any]:
+    candidate = history_record.get("candidate")
+    facts = candidate.get("selected_facts") if isinstance(candidate, Mapping) else None
+    if not isinstance(facts, (tuple, list)) or not facts:
+        return {"posture":"selected_history_facts_unavailable",
+            "attribution_id":consequence.get("attribution_id"),
+            "attribution_digest":consequence.get("attribution_digest")}
+    if len(facts) > 16:
+        return {"posture":"selected_history_fact_limit_exceeded",
+            "attribution_id":consequence.get("attribution_id"),
+            "attribution_digest":consequence.get("attribution_digest")}
+    attribution_id = consequence.get("attribution_id")
+    attribution_digest = consequence.get("attribution_digest")
+    exact_matches: list[Mapping[str, Any]] = []
+    conflicting_source = False
+    malformed_payload = False
+    for fact in facts:
+        if not isinstance(fact, Mapping):
+            continue
+        source = fact.get("source")
+        payload = fact.get("payload")
+        if not isinstance(source, Mapping) or source.get("source_id") != attribution_id:
+            continue
+        if (source.get("digest") != attribution_digest
+                or source.get("schema_version") != consequence.get("schema_version")
+                or source.get("kind") not in {"embodiment", "fulfillment"}):
+            conflicting_source = True
+            continue
+        if not isinstance(payload, Mapping):
+            malformed_payload = True
+            continue
+        try:
+            _verify_consequence_attribution(payload)
+        except EmbodiedConsequenceError:
+            malformed_payload = True
+            continue
+        if (payload.get("attribution_id") != attribution_id
+                or payload.get("attribution_digest") != attribution_digest
+                or dict(payload) != dict(consequence)):
+            malformed_payload = True
+            continue
+        exact_matches.append(fact)
+    result = {"attribution_id":attribution_id,"attribution_digest":attribution_digest,
+        "matched_fact_ids":[str(fact.get("fact_id", "")) for fact in exact_matches]}
+    if conflicting_source:
+        return {**result,"posture":"contradictory_history_source_digest"}
+    if malformed_payload:
+        return {**result,"posture":"history_consequence_payload_invalid"}
+    if len(exact_matches) != 1:
+        return {**result,"posture":"exact_history_consequence_missing_or_duplicated"}
+    try:
+        consequence_evaluated_at = _time(str(consequence.get("evaluated_at", "")))
+        history_created_at = _time(str(history_record.get("created_at", "")))
+    except EmbodiedConsequenceError:
+        return {**result,"posture":"historical_evaluation_time_unavailable"}
+    if consequence_evaluated_at >= history_created_at:
+        return {**result,"posture":"consequence_does_not_precede_selected_history"}
+    return {**result,"posture":"verified_prior_selected_history",
+        "consequence_evaluated_at":consequence.get("evaluated_at"),
+        "history_record_created_at":history_record.get("created_at"),
+        "event_time_upper_bound":"consequence_evaluation_precedes_history_record"}
 
 
 def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
