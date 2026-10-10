@@ -1,24 +1,24 @@
 # SentientOS construction campaign II continuation
 
-Non-authorizing work record. All changes are **untested and unverified for production**. Branch: `codex/construct-sentientos`.
+Non-authorizing progress record. All changes below are **untested and unverified for production**. Branch: `codex/construct-sentientos`.
 
-## Verified source checkpoint
+## Latest remote checkpoint
 
-The session began with local `63df5cd9f709e315e7606027092202c06adf0bf0` (tree `c7f340e8b06628c9dec4a6a46412a2f1d5432d19`), matching the remotely read branch tree at `b78dabb95012d1266ea3d614aeec0797e9dae646`. Shell Git transport is unavailable; GitHub API publication is in use. Latest verified remote code checkpoint before this note: `d0cb1515b701f825e5e2a73e5cfbd5089f1657cf`, tree `35c5c1f134e9c35c37a3b7275c1562cce13caf56`.
+GitHub branch `codex/construct-sentientos` was independently read after publication at commit `d2f82574f40a4a96a500e549d276816ab3ec7700`, tree `5cb1f26123726eea98c4582c1f7baf911482f4d3` (parent `78d26a8635644770d480cb2167c2c99954174b53`). Shell Git transport is unavailable; source was published through GitHub's Git-data API with a compare-and-swap branch update and the branch was then fetched again. Local historical commit IDs are not remote commit identities.
 
-## Construction completed in this session
+## Construction added in this campaign
 
-- `resident_developmental_cognition.py`: cognition observation recovery now uses Windows NT handle-relative path traversal from the local volume root, rejects reparse points and hard-linked files, binds child opens to the held directory, checks file identity and size before/after bounded reads, and holds read-only sharing to block concurrent replacement. POSIX descriptor-relative recovery remains in place. Unsupported Windows APIs/filesystems fail closed.
-- `embodied_consequence.py` and `embodiment_proposal_diagnostic.py`: the existing review-only handoff now carries bounded per-condition exact history, invocation-receipt, execution, active-model, serving, and software-generation identities from verified strategy experiment projections. This remains review context, never action authority.
-- `resident_epistemic_development.py`: consequence-chain child records, including timestamped comparison and attribution records, remain historical/contextual with unknown freshness rather than becoming current when reprojected.
-- `longitudinal_self_model.py`: digest-bound consequence classifications can be retained as historical interpretations with unknown freshness, source/fact lineage, no current-truth flag, and no effect proof. Cognition can consume them only when the existing predicate selector explicitly includes them.
+- Cross-platform bounded read custody is available through `sentientos/windows_handle_custody.py`. Windows uses held directory/file handles and rejects reparse-backed custody; POSIX explicit-file reads now walk each parent with `O_DIRECTORY|O_NOFOLLOW`, bind the leaf open to the final directory descriptor, require a single-link regular file, and check stable identity/size during bounded reads.
+- Explicitly selected proposal-review receipts can feed World-State from projection config v2. Receipt identities and canonical fields are checked; legacy v2 IDs are reconstructed from their original bound fields without treating unbound execution context as trusted. Review outcomes remain caller assertions, lack authenticated event time, and carry unknown freshness and no authority/effect proof.
+- The runtime rereads only configured review receipt IDs at each World-State tick. Missing, malformed, conflicting, oversized, or source-limit-omitted selected rows degrade that projection rather than leaving cached evidence active. The emitted health row reports read-only source custody state.
+- Review facts are historical in the epistemic adapter. Longitudinal self-model can retain a compact `embodiment.historical_proposal_review` interpretation with receipt/proposal identities, outcome, reviewer posture, bounded execution context, and source-fact lineage. The existing configured rules and predicates still gate writeback and later cognition; retained review interpretation is never current truth, authorization, execution, or proof of reviewer identity.
 
-## Checks and exact limits
+## Configuration and evidence limits
 
-Python compilation passed for changed owners and adjacent succession modules; `git diff --check` passed. No pytest, mypy, audits, matrices, runtime trials, Windows execution, or production verification were performed. The new NT API path is therefore source-implemented but not Windows-runtime verified.
+A review can reach World-State only when the explicit embodied-consequence projection config uses schema v2 and selects an absolute review log path plus exact receipt IDs. Epistemic retention requires a configured rule selecting the embodiment/review source fact; longitudinal cognition requires the predicate `embodiment.historical_proposal_review` in its allowed predicate selection (and the corresponding enabled history/cognition path). Resident cognition still applies its configured source and temporal selectors. Historical receipts have no authenticated event time; reconstruction does not make them fresh.
 
-Adjacent durable consequence, model-replacement, and post-adoption stores still require POSIX descriptor-relative custody and fail closed on Windows; the longitudinal self-model owner also uses path-based recovery and needs the shared handle-bound read path before claiming Windows continuity. No independently authenticated physical observer/consequence issuer is composed; supplied avatar observations remain caller assertions and cannot establish real effects. No real model/software successor execution is evidenced here.
+Compilation of changed Python modules and `git diff --check` passed. No pytest, mypy, runtime, Windows execution, independent cold-start, or production checks were run. No independently authenticated physical observer or reviewer issuer is composed. Windows native handles remain compile-only verified here. Durable Windows publication paths for longitudinal/developmental and some model/software transition stores remain fail-closed or POSIX-only; no live model/software successor or physical consequence is evidenced.
 
 ## Next executable task
 
-Extract the Windows handle-bound reader into a shared custody utility and apply it to longitudinal self-model reconstruction, then inspect the model-replacement and post-adoption recovery stores for safe read-only Windows support. Keep publication fail-closed until a separately sound Windows atomic/collision-safe write owner exists. No production claim until Windows runtime and production acceptance are independently performed.
+Inspect the read-only recovery paths and custody contracts in `maintenance_post_adoption_attribution_campaign.py` and `developmental_model_replacement_experiment.py`. Add Windows handle-bound reconstruction where the existing immutable journal contracts allow it, preserving fail-closed behavior for mutation/publication until a sound Windows atomic writer exists. Compile changed files only.
