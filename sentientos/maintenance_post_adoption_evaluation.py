@@ -154,13 +154,27 @@ def _compare(defn: MeasurementDefinition, before: Any, after: Any) -> str:
 
 
 def post_adoption_epistemic_binding(*, proposition_id: str, evaluation: Evaluation, observed_at: str) -> Any:
+    """Bind evaluation custody without upgrading caller-supplied observations.
+
+    ``observed_at`` remains accepted for compatibility, but the evidence time
+    is the evaluation's own digest-bound event time.  The current evaluation
+    contract does not authenticate its collector or source-record issuers, so
+    it is contextual evidence with unknown freshness and dependency.
+    """
     from sentientos.persistent_epistemic_state import make_evidence_binding
-    relation="supports" if evaluation.result=="target_expectation_satisfied" else "contradicts" if evaluation.result in {"target_expectation_contradicted","new_regression_observed"} else "contextualizes"
-    return make_evidence_binding(proposition_id=proposition_id,source_artifact_id=evaluation.evaluation_id,
-        source_digest=evaluation.evaluation_digest,source_schema=evaluation.schema_version,
-        source_class="post_adoption_evaluation",observation_time=observed_at,evidence_relation=relation,
-        dependency_kind="independently_sourced_observation",dependency_group=evaluation.observation_digest,
-        upstream_binding_ids=(),freshness="current",reliability_posture=relation)
+    evaluation_id, evaluation_digest = _identity("post-adoption-evaluation", evaluation.payload())
+    _false(evaluation.authority)
+    if (evaluation.schema_version != EVALUATION_SCHEMA
+            or (evaluation.evaluation_id, evaluation.evaluation_digest) != (evaluation_id, evaluation_digest)
+            or evaluation.result not in RESULTS):
+        raise PostAdoptionEvaluationError("evaluation_identity_unverified")
+    return make_evidence_binding(
+        proposition_id=proposition_id, source_artifact_id=evaluation.evaluation_id,
+        source_digest=evaluation.evaluation_digest, source_schema=evaluation.schema_version,
+        source_class="post_adoption_evaluation", observation_time=evaluation.evaluated_at,
+        evidence_relation="contextualizes", dependency_kind="unknown_dependency",
+        dependency_group=None, upstream_binding_ids=(), freshness="unknown",
+        reliability_posture="source_issuer_unverified")
 
 
 def improvement_signal_record(evaluation: Evaluation) -> Mapping[str,Any] | None:

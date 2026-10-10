@@ -13,7 +13,9 @@ Construction work is **untested for production**. Continue from branch `codex/co
 - `1ec6d5b5e7436fde62ad49012e27b3de8f98adb9` (remote verified): strategy proposal review adapter and digest-aware review receipts; strategy kinds remain blocked from legacy handoff.
 - `7ca153d9516069bf78b951f6bce579f9e70b9f73` (remote verified): controlled model-replacement artifacts use no-follow descriptor reads and immutable descriptor-relative publication.
 - `ef207185ab623e91b74560a171d1f4a7f48751f6` (remote verified): A/B comparison conditions now have immutable start and terminal records. Recovery reuses completed conditions, never replays a started condition without a terminal, and preserves partial/incomplete trials instead of counting them complete.
-- Ninth increment in progress: hardening campaign protocol/report/failure reads and publication with descriptor-relative no-follow custody; campaign state uses locked atomic replacement, stale-writer rejection, and an immutable bounded predecessor chain.
+- `ace50f1d842f43cac790c483b5f27ae9555699bf` (remote verified): campaign protocol/report/failure records use bounded descriptor-relative no-follow custody; campaign state is locked, atomically replaced, stale-writer checked, and retained in a bounded immutable predecessor chain for restart reconstruction. File custody is fail-closed where POSIX descriptor primitives are unavailable.
+- `ee4677c8ce36847657822bc7d19adb487f018b41` (remote verified): persistent epistemic observation adapter verifies observation content identity but records it as contextual, unknown-freshness evidence with unresolved dependency. A self-declared observer ID no longer yields current independent support.
+- Next increment in progress: post-adoption epistemic adapter now verifies the evaluation content identity and preserves its historical `evaluated_at`; unverified collector/source issuers produce only contextual, unknown-freshness evidence. Its compatibility `observed_at` argument no longer controls event time.
 
 ## Boundaries and blockers
 
@@ -25,6 +27,6 @@ Construction work is **untested for production**. Continue from branch `codex/co
 
 ## Exact next work
 
-1. Compile and review the campaign-store custody changes, commit `[untested]`, push, and verify remote SHA.
+1. Compile, commit `[untested]`, push, and verify the post-adoption adapter change.
 2. Inspect the frozen model-replacement context for missing controlled factors already represented by existing self-model, epistemic-state, resource-receipt, or software-generation owners; add only exact, source-backed bindings.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.
