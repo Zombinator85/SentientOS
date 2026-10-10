@@ -27,6 +27,7 @@ RESULTS = frozenset({"repeated_association_under_matched_controls", "repeated_ta
 TERMINAL_STATUSES = frozenset({"completed", "interrupted", "invalid"})
 MAX_ARTIFACT_BYTES = 131_072
 MAX_RECORDS_PER_KIND = 2_048
+WORLD_STATE_PROJECTION_SCHEMA = "sentientos.post_adoption_attribution_world_state_projection:v1"
 
 
 class AttributionCampaignError(ValueError):
@@ -44,6 +45,30 @@ def digest(value: Any) -> str:
 def _identity(prefix: str, payload: Mapping[str, Any]) -> tuple[str, str]:
     value = digest(payload)
     return f"{prefix}:{value[7:31]}", value
+
+
+def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str, Any]:
+    config = dict(value)
+    expected = {"schema_version", "enabled", "store_root", "campaign_ids", "config_digest"}
+    if (set(config) != expected or config.get("schema_version") != WORLD_STATE_PROJECTION_SCHEMA
+            or type(config.get("enabled")) is not bool
+            or config.get("config_digest") != digest({key:item for key,item in config.items() if key != "config_digest"})):
+        raise AttributionCampaignError("campaign_projection_config_invalid")
+    if not config["enabled"]:
+        if config["store_root"] is not None or config["campaign_ids"] != []:
+            raise AttributionCampaignError("disabled_campaign_projection_must_be_empty")
+        return config
+    root, identities = config.get("store_root"), config.get("campaign_ids")
+    prefix = "attribution-campaign:"
+    if (not isinstance(root, str) or not os.path.isabs(root) or not isinstance(identities, list)
+            or not 1 <= len(identities) <= 32
+            or any(not isinstance(item, str) or len(item) != len(prefix) + 24
+                or not item.startswith(prefix)
+                or any(character not in "0123456789abcdef" for character in item[len(prefix):])
+                for item in identities)
+            or len(identities) != len(set(identities))):
+        raise AttributionCampaignError("campaign_projection_selection_invalid")
+    return config
 
 
 def _payload(value: Any, id_field: str, digest_field: str) -> dict[str, Any]:
@@ -177,15 +202,17 @@ def _trial_outcome(evaluation: Evaluation | None, controls: Sequence[ControlObse
 
 class MaintenancePostAdoptionAttributionCampaignOwner:
     """Immutable, explicit-root custody for preregistered ordered campaigns."""
-    def __init__(self, root: str | Path) -> None:
+    def __init__(self, root: str | Path, *, read_only: bool = False) -> None:
         selected = Path(os.path.abspath(os.fspath(root)))
         if selected == Path(selected.anchor):
             raise AttributionCampaignError("campaign_custody_root_invalid")
         self.root = selected
+        self.read_only = read_only
         self._require_descriptor_storage()
-        for kind in ("protocols", "controls", "trials", "results", "signals"):
-            descriptor = self._open_kind_directory(kind, create=True)
-            os.close(descriptor)
+        if not read_only:
+            for kind in ("protocols", "controls", "trials", "results", "signals"):
+                descriptor = self._open_kind_directory(kind, create=True)
+                os.close(descriptor)
         self.verify()
 
     @staticmethod
@@ -228,6 +255,8 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
             raise AttributionCampaignError("campaign_path_invalid") from exc
 
     def _write(self, kind: str, identity: str, value: Any) -> None:
+        if self.read_only:
+            raise AttributionCampaignError("campaign_store_read_only")
         if (not isinstance(identity, str) or not identity or len(identity) > 256
                 or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-_" for character in identity)):
             raise AttributionCampaignError("campaign_record_identity_invalid")
@@ -417,6 +446,8 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         from sentientos.world_state_board import record_digest
         identities = tuple(campaign_ids)
         if (len(identities) > 32 or any(not isinstance(item, str) or not item.startswith("attribution-campaign:")
+                or len(item) != len("attribution-campaign:") + 24
+                or any(character not in "0123456789abcdef" for character in item[len("attribution-campaign:"):])
                 for item in identities) or len(identities) != len(set(identities))):
             raise AttributionCampaignError("campaign_world_state_selection_invalid")
         records: list[dict[str, Any]] = []
