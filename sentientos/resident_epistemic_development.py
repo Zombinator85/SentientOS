@@ -46,19 +46,19 @@ class EpistemicDevelopmentError(ValueError):
 
 
 def _latest_historical_event_time(values: list[str]) -> str | None:
-    """Return the latest valid instant, without guessing around bad custody."""
+    """Return the original text for the latest valid instant, or stay unknown."""
     if not values:
         return None
-    parsed: list[datetime] = []
+    parsed: list[tuple[datetime, str]] = []
     for value in values:
         try:
             instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
             if instant.tzinfo is None or instant.utcoffset() is None:
                 return None
-            parsed.append(instant.astimezone(timezone.utc))
+            parsed.append((instant.astimezone(timezone.utc), value))
         except (OverflowError, OSError, ValueError):
             return None
-    return max(parsed).isoformat().replace("+00:00", "Z")
+    return max(parsed, key=lambda item: (item[0], item[1]))[1]
 
 
 @dataclass(frozen=True)
@@ -241,8 +241,9 @@ class ResidentEpistemicDevelopmentRuntime:
                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
                 artifact_id = "resource-introspection:" + hashlib.sha256(json.dumps(stable_identity,
                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:32]
-        observed = (_latest_historical_event_time([observed])
-            if isinstance(observed, str) else None)
+        if (not isinstance(observed, str)
+                or _latest_historical_event_time([observed]) is None):
+            observed = None
         if source_integrity_conflict:
             # Keep malformed producer records visible as context, but do not
             # let a failed source binding provide an event time or support.
