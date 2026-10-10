@@ -25,7 +25,11 @@ from sentientos.maintenance_post_adoption_attribution_campaign import (
 from sentientos.maintenance_post_adoption_evaluation import (
     Baseline, EvaluationProtocol, MaintenancePostAdoptionEvaluationOwner, SuccessorQualification,
 )
-from sentientos.maintenance_resident_runtime_adoption import EVENT_SCHEMA, PROVENANCE_SCHEMA, RECEIPT_SCHEMA as ADOPTION_SCHEMA
+from sentientos.maintenance_resident_runtime_adoption import (
+    EVENT_SCHEMA, PHASES, PROVENANCE_SCHEMA, RECEIPT_SCHEMA as ADOPTION_SCHEMA,
+    MAX_RESIDENT_TRANSITION_JOURNAL_BYTES, MAX_RESIDENT_TRANSITION_ROW_BYTES,
+    MAX_RESIDENT_TRANSITION_ROWS, ZERO_DIGEST, digest as resident_digest,
+)
 
 SCHEMA = "sentientos.maintenance_production_post_adoption_campaign_custody:v1"
 READINESS_SCHEMA = "sentientos.maintenance_production_post_adoption_campaign_readiness:v1"
@@ -85,7 +89,7 @@ def _open_directory(path: Path, *, create: bool) -> int:
         raise ProductionCampaignError("production_campaign_path_invalid") from exc
 
 
-def _read_bytes(path: Path) -> bytes:
+def _read_bytes(path: Path, *, maximum_bytes: int = MAX_CAMPAIGN_ARTIFACT_BYTES) -> bytes:
     selected = Path(os.path.abspath(os.fspath(path)))
     if selected == Path(selected.anchor) or selected.name in {"", ".", ".."}:
         raise ProductionCampaignError("production_campaign_path_invalid")
@@ -94,7 +98,7 @@ def _read_bytes(path: Path) -> bytes:
     try:
         descriptor = os.open(selected.name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
         metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CAMPAIGN_ARTIFACT_BYTES:
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum_bytes:
             raise ProductionCampaignError("production_campaign_artifact_invalid")
         chunks: list[bytes] = []
         remaining = metadata.st_size
@@ -104,6 +108,10 @@ def _read_bytes(path: Path) -> bytes:
                 raise ProductionCampaignError("production_campaign_artifact_invalid")
             chunks.append(chunk)
             remaining -= len(chunk)
+        after = os.fstat(descriptor)
+        if (after.st_size != metadata.st_size or after.st_mtime_ns != metadata.st_mtime_ns
+                or after.st_dev != metadata.st_dev or after.st_ino != metadata.st_ino):
+            raise ProductionCampaignError("production_campaign_artifact_changed_during_read")
         return b"".join(chunks)
     except ProductionCampaignError:
         raise
@@ -120,6 +128,51 @@ def _read_json(path: Path) -> Any:
         return json.loads(_read_bytes(path).decode("utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise ProductionCampaignError("production_campaign_artifact_invalid") from exc
+
+
+def _resident_journal_contains_exact_event(path: Path, event: Mapping[str, Any]) -> bool:
+    """Verify the bounded resident event chain before accepting a terminal row."""
+    raw = _read_bytes(path, maximum_bytes=MAX_RESIDENT_TRANSITION_JOURNAL_BYTES)
+    try:
+        lines = raw.decode("utf-8").splitlines()
+        if len(lines) > MAX_RESIDENT_TRANSITION_ROWS:
+            return False
+        prior = ZERO_DIGEST
+        config_digest: str | None = None
+        rows: list[dict[str, Any]] = []
+        for index, line in enumerate(lines):
+            if len(line.encode("utf-8")) > MAX_RESIDENT_TRANSITION_ROW_BYTES:
+                return False
+            row = json.loads(line)
+            if not isinstance(row, dict):
+                return False
+            try:
+                event_time = datetime.fromisoformat(str(row.get("event_time", "")).replace("Z", "+00:00"))
+            except ValueError:
+                return False
+            current_config = row.get("config_digest")
+            expected_phase = PHASES[index % len(PHASES)]
+            if (row.get("schema_version") != EVENT_SCHEMA or not isinstance(current_config, str)
+                    or event_time.tzinfo is None
+                    or (config_digest is not None and current_config != config_digest)
+                    or row.get("prior_event_digest") != prior
+                    or row.get("event_digest") != resident_digest(row, "event_digest")
+                    or row.get("phase") != expected_phase):
+                return False
+            config_digest = current_config
+            start = index - index % len(PHASES)
+            if index > start:
+                first = rows[start]
+                for key in ("transition_id", "lineage_id", "predecessor_generation_digest",
+                            "successor_generation_digest", "continuity_receipt_digest",
+                            "pending_handoff_event_digest"):
+                    if row.get(key) != first.get(key):
+                        return False
+            rows.append(row)
+            prior = row["event_digest"]
+        return any(row == dict(event) for row in rows)
+    except (UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return False
 
 
 def _write_once(path: Path, value: Mapping[str, Any], *, read_only: bool = False) -> None:
@@ -357,11 +410,9 @@ class MaintenanceProductionPostAdoptionCampaign:
         journal_path = Path(str(evidence.get("resident_journal", {}).get("path", "")))
         journal_bound = False
         try:
-            journal_bytes = _read_bytes(journal_path) if journal_path.is_absolute() else b""
-            try:
-                journal_bound = any(json.loads(line) == adoption_event for line in journal_bytes.decode("utf-8").splitlines())
-            except (UnicodeError, json.JSONDecodeError):
-                journal_bound = False
+            journal_bound = (journal_path.is_absolute()
+                and isinstance(adoption_event, Mapping)
+                and _resident_journal_contains_exact_event(journal_path, adoption_event))
         except ProductionCampaignError:
             journal_bound = False
         target_sources = evidence.get("target_sources", {}).get("records", [])
