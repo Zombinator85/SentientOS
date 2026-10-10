@@ -401,7 +401,30 @@ class ResidentEpistemicStateMutationController:
             recovered_receipts.append(replace(raw_receipt, receipt_id=receipt_id,
                                                receipt_digest=receipt_digest))
         for receipt in recovered_receipts:
-            self._write_receipt("state", receipt)
+            if type(receipt) is EvidenceBindingMutationReceipt:
+                receipt_stage = "evidence"
+            elif type(receipt) is EpistemicStateMutationReceipt:
+                receipt_stage = "state"
+            else:
+                raise EpistemicMutationError("mutation_receipt_recovery_type_invalid")
+            if os.name == "nt":
+                # Windows recovery is deliberately read-only. Accept only an
+                # already published byte-identical receipt; never repair custody
+                # by writing from this inspection path.
+                directory = self.receipt_root / "receipts" / receipt_stage
+                try:
+                    published = dict(read_regular_files(directory,
+                        max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
+                        max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                        max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES))
+                except WindowsHandleCustodyError as exc:
+                    raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
+                name = f"{receipt.receipt_id}.json"
+                expected = canonical_bytes(asdict(receipt)) + b"\n"
+                if published.get(name) != expected:
+                    raise EpistemicMutationError("mutation_receipt_recovery_publication_unsupported")
+            else:
+                self._write_receipt(receipt_stage, receipt)
 
     def verify_receipts(self) -> None:
         self._recover_state_receipts()
