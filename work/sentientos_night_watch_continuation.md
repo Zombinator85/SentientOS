@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `58856ef32438188b04be37091f48c951ae2f5735` (tree `804d232d667dc004841e235697a9ee256e1c5913`, parent `9c846665218b6783866bad4472bbaa670a880a78`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `375a066de99dfbcf189b79c2e3e224b29cec9a55` (tree `13818b803a67b55132e0abf5910cf2e17736ce8b`, parent `58856ef32438188b04be37091f48c951ae2f5735`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -285,3 +285,15 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The modified serving, transition, and daemon sources passed AST compilation; remote branch verified at `58856ef32438188b04be37091f48c951ae2f5735`. No runtime or crash recovery was exercised.
 
 **Next implementation dependency:** qualify the model-transition `b_epoch_observed` and `post_restoration_observed` stages. Their generic `advance(evidence=...)` input must not become an authenticated observation or a `supports`/`contradicts` epistemic binding unless a real existing observer owner verifies its source.
+
+
+### New checkpoint — A/B cognition observations are qualified against durable owners
+
+- The transition controller now requires an observation verifier before it publishes either `b_epoch_observed` or `post_restoration_observed`, and repeats that qualification when reconstructing completed journal stages. Missing or invalid owner qualification leaves the transition interrupted/incomplete; a digest-valid journal row alone cannot attest the cognition event.
+- The daemon-composed transition operations explicitly receive the already configured resident developmental-cognition owner. The verifier reopens bounded canonical observation custody through that owner, then validates the observation ID/digest, exact tick, active model identity, and the persisted governed inference receipt through the serving installation's read-only receipt path. It binds the receipt's request identity and resident serving admission/session linkage to the exact durable session journaled for B or restored A.
+- B-epoch evidence additionally reconciles the exact durable developmental record, writeback receipt, candidate identity and candidate inference receipt. Record correlation, operation, snapshot, model/session, and output-digest links must agree with the B cognition observation. Restored-A evidence must match its exact durable cognition observation/receipt and its retrieved record ID/digest arrays; each retrieved history record is reopened and checked, including the B-epoch record.
+- Stage evidence has bounded exact field shapes. The rehearsal now supplies the authenticated observation identities and its real-owner adapter verifies the same receipt/history contracts. It also provides the historical activation and serving verifiers required by controller recovery.
+- These observations are evidence of the configured resident owners' recorded cognition and history handoff only. They do not establish independent world truth, physical consequence, learning, quality, or consciousness continuity.
+- Modified Python source files passed `py_compile`; bounded source review found no trailing whitespace. No tests, model transition rehearsal, runtime, restart/crash, Windows, external-provider, or production verification was performed. Work remains unverified for production.
+
+**Next implementation dependency:** trace the newly qualified transition-stage identities into the World-State and later-cognition projections. Ensure a completed observation stage is distinguished from a merely digest-valid journal row, and carry the verified B writeback and restored-A retrieval references as historical evidence without promoting them to current truth or authority.

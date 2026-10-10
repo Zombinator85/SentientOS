@@ -359,6 +359,7 @@ def verify_stage_serving_binding(binding: Mapping[str, Any], *, protocol: Transi
 class TransitionStageOperations(Protocol):
     def verify_historical_activation(self, activation: Mapping[str, Any]) -> Mapping[str, Any]: ...
     def verify_historical_serving_session(self, session: Mapping[str, Any]) -> Mapping[str, Any]: ...
+    def verify_transition_observation(self, stage: str, evidence: Mapping[str, Any]) -> None: ...
     def activate_successor(self, context: "TransitionStageExecutionContext | None" = None) -> Mapping[str, Any]: ...
     def serve_successor(self, activation: Mapping[str, Any]) -> Mapping[str, Any]: ...
     def activate_restored_predecessor(self, context: "TransitionStageExecutionContext | None" = None) -> Mapping[str, Any]: ...
@@ -549,6 +550,15 @@ class ResidentCognitiveModelTransitionController:
                     or session_binding.get("model_serving_admission_ref") != evidence.get("serving_admission")):
                 return "serving_stage_session_mismatch"
             return None
+        if stage in {"b_epoch_observed", "post_restoration_observed"}:
+            verifier = getattr(self.operations, "verify_transition_observation", None)
+            if not callable(verifier):
+                return "transition_observation_verifier_unavailable"
+            try:
+                verifier(stage, evidence)
+            except Exception:
+                return "transition_observation_lineage_unverified"
+            return None
         return None
 
     def _reconstruct(self) -> _Reconstructed:
@@ -678,6 +688,11 @@ class ResidentCognitiveModelTransitionController:
                 activation = next(entry["evidence"]["activation"] for entry in reversed(self.journal.entries())
                                   if entry["status"] == "completed" and entry["phase"] == "a_restoration_activation_committed")
                 supplied.update(_plain(self.operations.serve_restored_predecessor(activation)))
+            if target in {"b_epoch_observed", "post_restoration_observed"}:
+                verifier = getattr(self.operations, "verify_transition_observation", None)
+                if not callable(verifier):
+                    raise TransitionError("transition_observation_verifier_unavailable")
+                verifier(target, supplied)
             if context:
                 supplied["operator_request"] = context
             entry = self.journal.append(target, supplied)

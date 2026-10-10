@@ -38,8 +38,10 @@ class ResidentCognitiveTransitionStageOperations:
                  serving_controller_factory: Callable[..., ResidentCognitiveModelServingController]
                  = ResidentCognitiveModelServingController,
                  clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
-                 allow_synthetic_evidence_for_tests: bool = False) -> None:
+                 allow_synthetic_evidence_for_tests: bool = False,
+                 developmental_owner: Any | None = None) -> None:
         self.installation_handle = installation_handle
+        self.developmental_owner = developmental_owner
         self.control_plane_kernel = control_plane_kernel
         self.protocol, self.journal = protocol, journal
         self.gate, self.slot = gate, slot
@@ -105,6 +107,41 @@ class ResidentCognitiveTransitionStageOperations:
         receipt = verify_resident_serving_session_receipt(self.installation_handle, session)
         return {"receipt_id": receipt["receipt_id"],
                 "receipt_semantic_digest": receipt["receipt_semantic_digest"]}
+
+    def verify_transition_observation(self, stage: str, evidence: Mapping[str, Any]) -> None:
+        owner = self.developmental_owner
+        if owner is None:
+            raise TransitionError("transition_developmental_observation_owner_unavailable")
+        entries = self.journal.entries()
+        if stage == "b_epoch_observed":
+            serving_phase, model_role = "b_serving_bound", "successor_b"
+        elif stage == "post_restoration_observed":
+            serving_phase, model_role = "restored_a_serving_bound", "restored_a"
+        else:
+            raise TransitionError("transition_observation_stage_invalid")
+        session_rows = [row for row in entries
+            if row.get("status") == "completed" and row.get("phase") == serving_phase]
+        if len(session_rows) != 1:
+            raise TransitionError("transition_observation_serving_predecessor_ambiguous")
+        session = session_rows[0].get("evidence", {}).get("session")
+        if not isinstance(session, Mapping):
+            raise TransitionError("transition_observation_serving_predecessor_missing")
+        self.verify_historical_serving_session(session)
+        b_evidence = None
+        if stage == "post_restoration_observed":
+            b_rows = [row for row in entries
+                if row.get("status") == "completed" and row.get("phase") == "b_epoch_observed"]
+            if len(b_rows) != 1:
+                raise TransitionError("transition_b_epoch_predecessor_ambiguous")
+            b_evidence = b_rows[0].get("evidence")
+            if not isinstance(b_evidence, Mapping):
+                raise TransitionError("transition_b_epoch_predecessor_missing")
+        verifier = getattr(owner, "verify_transition_observation", None)
+        if not callable(verifier):
+            raise TransitionError("transition_developmental_observation_verifier_unavailable")
+        verifier(stage=stage, evidence=evidence,
+            expected_model_identity=self.protocol.value[model_role]["active_model_identity"],
+            expected_serving_session=session, b_epoch_evidence=b_evidence)
 
     def _quiescence(self) -> Mapping[str, Any]:
         for entry in reversed(self.journal.entries()):

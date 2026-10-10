@@ -466,6 +466,53 @@ class ResidentCognitiveServingInvoker:
         return GovernedLocalModelInvoker(model=model, authority_map=authority, kernel=self._serving._kernel,
             runtime_root=self._serving._handle.root / "local-model" / "resident-cognitive-serving" / "inference")
 
+    def verify_persisted_invocation_receipt(self, receipt_id: str, receipt_digest: str, *,
+                                            expected_request_id: str,
+                                            expected_request_digest: str,
+                                            expected_session_id: str,
+                                            expected_session_binding: Mapping[str, Any],
+                                            expected_active_model_identity: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Verify one historical governed receipt without loading or invoking a model."""
+        if (not isinstance(receipt_id, str) or len(receipt_id) != 30 or not receipt_id.startswith("lmrec-")
+                or not isinstance(receipt_digest, str) or not receipt_digest
+                or not isinstance(expected_request_id, str) or not expected_request_id
+                or not isinstance(expected_request_digest, str) or not expected_request_digest
+                or not isinstance(expected_session_id, str) or not expected_session_id):
+            raise ResidentCognitiveModelServingError("historical_invocation_identity_invalid")
+        try:
+            raw = self._serving._handle.read_regular(self._serving._handle.fixed_object(
+                f"local-model/resident-cognitive-serving/inference/receipts/{receipt_id}.json"))
+            if len(raw) > 1_048_576:
+                raise ResidentCognitiveModelServingError("historical_invocation_receipt_over_bound")
+            payload = json.loads(raw.decode("utf-8"))
+        except ResidentCognitiveModelServingError:
+            raise
+        except Exception as exc:
+            raise ResidentCognitiveModelServingError("historical_invocation_receipt_unavailable") from exc
+        from .governed_local_model_invocation import validate_receipt
+        if (not isinstance(payload, dict)
+                or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != raw
+                or payload.get("receipt_id") != receipt_id
+                or payload.get("receipt_digest") != receipt_digest
+                or validate_receipt(payload)[0] is not True):
+            raise ResidentCognitiveModelServingError("historical_invocation_receipt_invalid")
+        request = payload.get("request")
+        if (not isinstance(request, Mapping)
+                or request.get("request_id") != expected_request_id
+                or request.get("request_digest") != expected_request_digest
+                or request.get("active_model_identity") != dict(expected_active_model_identity)):
+            raise ResidentCognitiveModelServingError("historical_invocation_request_mismatch")
+        linkage = request.get("linkage")
+        serving = linkage.get("resident_cognitive_serving") if isinstance(linkage, Mapping) else None
+        expected_serving = {"session_id": expected_session_id,
+            "model_serving_admission_ref": expected_session_binding.get("model_serving_admission_ref"),
+            "activation_state_semantic_digest": expected_session_binding.get("activation_state_semantic_digest")}
+        if (not isinstance(serving, Mapping)
+                or dict(serving) != expected_serving
+                or serving.get("model_serving_admission_ref") != payload.get("admission_decision_ref")):
+            raise ResidentCognitiveModelServingError("historical_invocation_serving_session_mismatch")
+        return payload
+
     def build_request(self, **kwargs: Any) -> Any:
         session = self._serving.current_session()
         if session is None:
@@ -555,6 +602,11 @@ class ResidentCognitiveServingSlot:
 
     def invoke(self, request: Any, **kwargs: Any) -> Any:
         return ResidentCognitiveServingInvoker(self.current_controller).invoke(request, **kwargs)
+
+    def verify_persisted_invocation_receipt(self, receipt_id: str, receipt_digest: str, **kwargs: Any) -> Mapping[str, Any]:
+        """Read historical inference custody through the configured installation owner."""
+        return ResidentCognitiveServingInvoker(self.current_controller).verify_persisted_invocation_receipt(
+            receipt_id, receipt_digest, **kwargs)
 
     def close_current(self) -> None:
         self.current_controller.close()

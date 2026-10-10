@@ -1898,7 +1898,8 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
         installation_handle=installation_handle, control_plane_kernel=kernel,
         protocol=protocol, journal=journal, gate=gate, slot=slot,
         serving_controller_factory=serving_controller_factory, clock=clock,
-        allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
+        allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests,
+        developmental_owner=developmental_owner)
     controller = ResidentCognitiveModelTransitionController(protocol=protocol, journal=journal,
         gate=gate, slot=slot, history_snapshot=boundary, operations=operations,
         allow_synthetic_approval_for_tests=allow_synthetic_evidence_for_tests, clock=clock)

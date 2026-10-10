@@ -402,7 +402,7 @@ class ResidentDevelopmentalCognitionOwner:
             self._save_state(state)
         return state
 
-    def _recover_observation_ticks(self) -> dict[str, tuple[str, ...]]:
+    def _recover_observation_ticks(self, *, include_records: bool = False) -> Any:
         try:
             self.observations_root.lstat()
         except FileNotFoundError:
@@ -479,6 +479,7 @@ class ResidentDevelopmentalCognitionOwner:
             finally:
                 os.close(root_fd)
         by_tick: dict[str, list[str]] = {}
+        verified_records: dict[str, dict[str, Any]] = {}
         contexts_by_tick: dict[str, tuple[set[str], tuple[str, str]]] = {}
         for name, raw in entries:
             try:
@@ -525,7 +526,147 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError("cognition_observation_tick_conflict")
                 conditions.add(str(condition))
             by_tick.setdefault(value["tick_id"], []).append(observation_id)
+            verified_records[observation_id] = {
+                **value, "observation_id": observation_id,
+                "observation_digest": observation_digest}
+        if include_records:
+            return verified_records
         return {tick: tuple(sorted(ids)) for tick, ids in by_tick.items()}
+
+    def verified_cognition_observation(self, observation_id: str,
+                                       observation_digest: str | None = None) -> Mapping[str, Any]:
+        """Re-read one bounded, canonical cognition observation from configured custody."""
+        if (not isinstance(observation_id, str) or not observation_id.startswith("devcog-")
+                or (observation_digest is not None and (not isinstance(observation_digest, str) or not observation_digest.startswith("sha256:")))):
+            raise ResidentDevelopmentalCognitionError("cognition_observation_identity_invalid")
+        records = self._recover_observation_ticks(include_records=True)
+        observation = records.get(observation_id)
+        if (not isinstance(observation, Mapping)
+                or (observation_digest is not None and observation.get("observation_digest") != observation_digest)):
+            raise ResidentDevelopmentalCognitionError("cognition_observation_not_verified")
+        return dict(observation)
+
+    def verify_transition_observation(self, *, stage: str, evidence: Mapping[str, Any],
+                                     expected_model_identity: Mapping[str, Any],
+                                     expected_serving_session: Mapping[str, Any],
+                                     b_epoch_evidence: Mapping[str, Any] | None = None) -> None:
+        """Qualify A/B transition observations against durable history and invocation owners."""
+        if stage not in {"b_epoch_observed", "post_restoration_observed"}:
+            raise ResidentDevelopmentalCognitionError("transition_observation_stage_invalid")
+        allowed_fields = ({"b_tick_id", "b_observation_id", "b_observation_digest",
+            "b_record_id", "b_record_digest", "b_writeback_receipt_id",
+            "b_writeback_receipt_digest", "operator_request"} if stage == "b_epoch_observed" else
+            {"restored_a_tick_id", "restored_a_observation_id", "restored_a_observation_digest",
+            "restored_a_inference_receipt_id", "restored_a_inference_receipt_digest",
+            "retrieved_record_ids", "retrieved_record_digests", "operator_request"})
+        if not isinstance(evidence, Mapping) or set(evidence) - allowed_fields:
+            raise ResidentDevelopmentalCognitionError("transition_observation_evidence_shape_invalid")
+        if not isinstance(expected_serving_session, Mapping):
+            raise ResidentDevelopmentalCognitionError("transition_serving_session_missing")
+        session_binding = expected_serving_session.get("binding")
+        session_id = expected_serving_session.get("session_id")
+        if (not isinstance(session_binding, Mapping) or not isinstance(session_id, str)
+                or not session_id):
+            raise ResidentDevelopmentalCognitionError("transition_serving_session_invalid")
+        observation_id = evidence.get("b_observation_id") if stage == "b_epoch_observed" else evidence.get("restored_a_observation_id")
+        observation_digest = evidence.get("b_observation_digest") if stage == "b_epoch_observed" else evidence.get("restored_a_observation_digest")
+        observation = self.verified_cognition_observation(str(observation_id or ""), str(observation_digest or ""))
+        tick_id = evidence.get("b_tick_id") if stage == "b_epoch_observed" else evidence.get("restored_a_tick_id")
+        if (not isinstance(tick_id, str) or not tick_id or observation.get("tick_id") != tick_id
+                or observation.get("active_model_identity") != dict(expected_model_identity)):
+            raise ResidentDevelopmentalCognitionError("transition_observation_model_or_tick_mismatch")
+        verify_invocation = getattr(self.invoker, "verify_persisted_invocation_receipt", None)
+        if not callable(verify_invocation):
+            raise ResidentDevelopmentalCognitionError("transition_invocation_receipt_verifier_unavailable")
+
+        def verify_observation_invocation() -> Mapping[str, Any]:
+            receipt = verify_invocation(
+                str(observation.get("inference_receipt_id", "")),
+                str(observation.get("inference_receipt_digest", "")),
+                expected_request_id=str(observation.get("request_id", "")),
+                expected_request_digest=str(observation.get("request_digest", "")),
+                expected_session_id=session_id,
+                expected_session_binding=session_binding,
+                expected_active_model_identity=expected_model_identity)
+            request = receipt.get("request")
+            if (not isinstance(request, Mapping)
+                    or receipt.get("status") not in {"admitted_completed", "admitted_simulation"}
+                    or not isinstance(receipt.get("output_digest"), str)
+                    or request.get("model_id") != observation.get("model_id")
+                    or request.get("model_artifact_digest") != observation.get("model_artifact_digest")
+                    or receipt.get("output_digest") != observation.get("output_digest")):
+                raise ResidentDevelopmentalCognitionError("transition_observation_invocation_model_mismatch")
+            return receipt
+
+        observed_invocation = verify_observation_invocation()
+        if (stage == "post_restoration_observed"
+                and (evidence.get("restored_a_inference_receipt_id") != observed_invocation.get("receipt_id")
+                     or evidence.get("restored_a_inference_receipt_digest") != observed_invocation.get("receipt_digest"))):
+            raise ResidentDevelopmentalCognitionError("transition_restoration_invocation_binding_mismatch")
+        if stage == "b_epoch_observed":
+            record_id = evidence.get("b_record_id")
+            record_digest = evidence.get("b_record_digest")
+            receipt_id = evidence.get("b_writeback_receipt_id")
+            receipt_digest = evidence.get("b_writeback_receipt_digest")
+            try:
+                record = self.writeback.store.get(str(record_id))
+                receipt = self.writeback.store.get_receipt(str(receipt_id))
+            except Exception as exc:
+                raise ResidentDevelopmentalCognitionError("transition_b_epoch_writeback_missing_or_invalid") from exc
+            candidate = record.candidate
+            if (record.record_digest != record_digest
+                    or receipt.receipt_digest != receipt_digest
+                    or receipt.record_id != record.record_id
+                    or receipt.record_digest != record.record_digest
+                    or receipt.candidate_id != candidate.get("candidate_id")
+                    or receipt.candidate_digest != candidate.get("candidate_digest")
+                    or receipt.storage_verified is not True
+                    or record.correlation_id != tick_id + ":resident-developmental-writeback"
+                    or record.operation_id != "resident-developmental-writeback:" + tick_id + ":" + str(candidate.get("candidate_id"))
+                    or candidate.get("snapshot_id") != observation.get("current_snapshot_id")
+                    or candidate.get("snapshot_digest") != observation.get("current_snapshot_digest")):
+                raise ResidentDevelopmentalCognitionError("transition_b_epoch_writeback_lineage_mismatch")
+            candidate_receipt = verify_invocation(
+                str(candidate.get("inference_receipt_id", "")),
+                str(candidate.get("inference_receipt_digest", "")),
+                expected_request_id=str(candidate.get("request_id", "")),
+                expected_request_digest=str(candidate.get("request_digest", "")),
+                expected_session_id=session_id,
+                expected_active_model_identity=expected_model_identity)
+            candidate_request = candidate_receipt.get("request")
+            if (not isinstance(candidate_request, Mapping)
+                    or candidate_receipt.get("status") not in {"admitted_completed", "admitted_simulation"}
+                    or candidate_request.get("purpose") != "resident_developmental_interpretation"
+                    or candidate_request.get("correlation_id") != tick_id + ":resident-developmental_interpretation"
+                    or candidate.get("model_id") != candidate_request.get("model_id")
+                    or candidate.get("model_artifact_digest") != candidate_request.get("model_artifact_digest")
+                    or candidate_receipt.get("output_digest") != candidate.get("output_digest")):
+                raise ResidentDevelopmentalCognitionError("transition_b_epoch_candidate_invocation_mismatch")
+            return
+        if not isinstance(b_epoch_evidence, Mapping):
+            raise ResidentDevelopmentalCognitionError("transition_b_epoch_evidence_missing")
+        b_record_id = b_epoch_evidence.get("b_record_id")
+        b_record_digest = b_epoch_evidence.get("b_record_digest")
+        retrieved_ids = evidence.get("retrieved_record_ids")
+        retrieved_digests = evidence.get("retrieved_record_digests")
+        if (not isinstance(retrieved_ids, (list, tuple))
+                or not isinstance(retrieved_digests, (list, tuple))
+                or len(retrieved_ids) != len(retrieved_digests)
+                or list(retrieved_ids) != list(observation.get("retrieved_record_ids", ()))
+                or list(retrieved_digests) != list(observation.get("retrieved_record_digests", ()))
+                or len(retrieved_ids) > MAX_HISTORY
+                or len(set(retrieved_ids)) != len(retrieved_ids)
+                or not all(isinstance(item, str) and item.startswith("sha256:") for item in retrieved_digests)
+                or not any(record_id == b_record_id and record_digest == b_record_digest
+                           for record_id, record_digest in zip(retrieved_ids, retrieved_digests))):
+            raise ResidentDevelopmentalCognitionError("transition_restoration_history_binding_mismatch")
+        for record_id, expected_digest in zip(retrieved_ids, retrieved_digests):
+            try:
+                record = self.writeback.store.get(str(record_id))
+            except Exception as exc:
+                raise ResidentDevelopmentalCognitionError("transition_retrieved_history_not_durable") from exc
+            if record.record_digest != expected_digest:
+                raise ResidentDevelopmentalCognitionError("transition_retrieved_history_digest_mismatch")
 
     def _save_state(self, state: Mapping[str, Any]) -> None:
         if os.name != "posix":
