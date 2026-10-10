@@ -14,6 +14,11 @@ from .governed_local_model_invocation import (
     validate_receipt,
 )
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
+from .chat_process_generation import (
+    ChatProcessGenerationError,
+    verify_current_chat_process_handoff,
+    verify_stored_chat_process_handoff,
+)
 from .local_model_production_serving import (
     ProductionServingController,
     ProductionServingError,
@@ -40,12 +45,23 @@ def unavailable_chat_process_software_generation() -> dict[str, Any]:
 class ProductionServingInferenceController:
     """Narrow bridge; callers provide an operation, never a model or its custody."""
 
-    __slots__ = ("_serving",)
+    __slots__ = ("_serving", "_runtime_handoff_id")
 
-    def __init__(self, serving_controller: ProductionServingController) -> None:
+    def __init__(self, serving_controller: ProductionServingController, *,
+                 runtime_handoff_id: str | None = None) -> None:
         if not isinstance(serving_controller, ProductionServingController):
             raise ProductionServingInferenceError("production_serving_controller_required")
         self._serving = serving_controller
+        self._runtime_handoff_id = runtime_handoff_id
+
+    def _software_generation_attribution(self) -> dict[str, Any]:
+        if self._runtime_handoff_id is None:
+            return unavailable_chat_process_software_generation()
+        try:
+            return verify_current_chat_process_handoff(
+                handle=self._serving._handle, handoff_id=self._runtime_handoff_id)
+        except ChatProcessGenerationError as exc:
+            raise ProductionServingInferenceError("chat_process_generation_handoff_invalid") from exc
 
     def current_conversation_model_identity(self) -> Mapping[str, Any]:
         """Return stable activation/model provenance, never a worker-lifetime identity."""
@@ -116,9 +132,7 @@ class ProductionServingInferenceController:
             "artifact_sha256": binding["artifact_sha256"],
             "runtime_id": binding["runtime_id"],
             "caller_context": dict(caller_linkage or {}),
-            # No authenticated issuer currently binds this chat process instance
-            # to a running software generation.
-            "software_generation_attribution": unavailable_chat_process_software_generation(),
+            "software_generation_attribution": self._software_generation_attribution(),
         }
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
@@ -222,7 +236,23 @@ class ProductionServingInferenceController:
                     or caller_context.get("client_request_id_digest") != client_request_id_digest):
                 raise ProductionServingInferenceError("stored_invocation_client_request_binding_invalid")
         software_generation = linkage.get("software_generation_attribution")
-        if software_generation != unavailable_chat_process_software_generation():
+        if software_generation == unavailable_chat_process_software_generation():
+            pass
+        elif (isinstance(software_generation, Mapping)
+                and software_generation.get("status") == "runtime_launcher_process_and_source_bound"):
+            handoff_id = software_generation.get("handoff_id")
+            handoff_digest = software_generation.get("handoff_digest")
+            if not isinstance(handoff_id, str) or not isinstance(handoff_digest, str):
+                raise ProductionServingInferenceError("stored_invocation_software_generation_posture_invalid")
+            try:
+                historical = verify_stored_chat_process_handoff(
+                    handle=self._serving._handle, handoff_id=handoff_id,
+                    expected_digest=handoff_digest)
+            except ChatProcessGenerationError as exc:
+                raise ProductionServingInferenceError("stored_invocation_software_generation_handoff_invalid") from exc
+            if dict(historical) != dict(software_generation):
+                raise ProductionServingInferenceError("stored_invocation_software_generation_handoff_mismatch")
+        else:
             raise ProductionServingInferenceError("stored_invocation_software_generation_posture_invalid")
         assistant_output_lineage = None
         if assistant_text is not None:

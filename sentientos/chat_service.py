@@ -28,6 +28,7 @@ from .local_model_serving_inference import (
     ProductionServingInferenceController,
     unavailable_chat_process_software_generation,
 )
+from .chat_process_generation import open_chat_process_handoff
 from .production_chat_resource_context import (
     ProductionChatResourceContextOwner,
     ResourceBackedProductionChatInference,
@@ -391,7 +392,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
                               expected_activation_state_digest: str | None = None,
                               control_plane_kernel: ControlPlaneKernel | None = None,
                               resource_context_owner: ProductionChatResourceContextOwner | None = None,
-                              resource_provisioning_id: str | None = None) -> None:
+                              resource_provisioning_id: str | None = None,
+                              runtime_handoff_id: str | None = None) -> None:
     """Establish exactly one explicit hardened production serving lifetime."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
@@ -401,7 +403,14 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
     if resource_context_owner is not None and resource_provisioning_id is not None:
         raise ValueError("resource_owner_and_provisioning_id_mutually_exclusive")
     identity = InstallationIdentity.parse(installation_identity)
-    handle = InstallationStateRegistry.system().open(identity)
+    if runtime_handoff_id is not None:
+        try:
+            handle, _runtime_handoff = open_chat_process_handoff(
+                installation_identity=identity.value, handoff_id=runtime_handoff_id)
+        except Exception as exc:
+            raise RuntimeError("chat_process_generation_handoff_invalid") from exc
+    else:
+        handle = InstallationStateRegistry.system().open(identity)
     if resource_provisioning_id is not None:
         from .production_chat_resource_provisioning import load_production_chat_resource_context_owner
         resource_context_owner = load_production_chat_resource_context_owner(handle, resource_provisioning_id)
@@ -412,7 +421,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         if expected_activation_state_digest is not None:
             establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
         serving.establish(**establish_arguments)
-        inference_bridge = ProductionServingInferenceController(serving)
+        inference_bridge = ProductionServingInferenceController(
+            serving, runtime_handoff_id=runtime_handoff_id)
         inference: ChatInference = (
             inference_bridge if resource_context_owner is None
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
@@ -637,13 +647,15 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--serving-operation-id", required=True)
     parser.add_argument("--expected-activation-state-digest")
     parser.add_argument("--resource-provisioning-id")
+    parser.add_argument("--runtime-handoff-id")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
     configure_production_chat(installation_identity=args.installation_identity,
         serving_operation_id=args.serving_operation_id,
         expected_activation_state_digest=args.expected_activation_state_digest,
-        resource_provisioning_id=args.resource_provisioning_id)
+        resource_provisioning_id=args.resource_provisioning_id,
+        runtime_handoff_id=args.runtime_handoff_id)
     run(host=args.host, port=args.port)
 
 

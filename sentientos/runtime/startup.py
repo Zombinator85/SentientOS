@@ -32,7 +32,12 @@ def run_canonical_runtime(
     """
     if not 0.1 <= cadence_seconds <= 60.0:
         raise ValueError("runtime_cadence_out_of_range")
-    registry = build_runtime_service_registry(config)
+    handle = None
+    if config.enabled:
+        assert config.installation_identity is not None
+        handle = InstallationStateRegistry.system().open(
+            InstallationIdentity.parse(config.installation_identity))
+    registry = build_runtime_service_registry(config, installation_handle=handle)
     supervisor = supervisor_factory(registry, state_root=state_root)
     stopping = stop_event or threading.Event()
     previous: dict[signal.Signals, Any] = {}
@@ -51,9 +56,7 @@ def run_canonical_runtime(
             adapter = registry.adapter(SERVICE_ID)
             assert isinstance(adapter, LocalModelChatServiceAdapter)
             write_startup_snapshot(build_startup_snapshot(config, supervisor.generation), supervisor.root)
-            assert config.installation_identity is not None
-            handle = InstallationStateRegistry.system().open(
-                InstallationIdentity.parse(config.installation_identity))
+            assert handle is not None
             recovery = ProductionLocalModelChatRecoveryController(
                 supervisor, adapter, ControlPlaneKernel(), handle)
         while not stopping.wait(cadence_seconds):

@@ -319,8 +319,16 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
         if isinstance(linkage, Mapping):
             provenance = {key: linkage[key] for key in (
                 "active_model_identity_digest", "predecessor_model_identity_digest",
-                "loaded_model_identity_digest", "software_generation_attribution",
-                "assistant_output_lineage", "model_identity_continuity_posture") if key in linkage}
+                "loaded_model_identity_digest", "assistant_output_lineage",
+                "model_identity_continuity_posture") if key in linkage}
+            software = linkage.get("software_generation_attribution")
+            if isinstance(software, Mapping):
+                provenance["software_generation_attribution"] = {
+                    key: software[key] for key in (
+                        "status", "reason_code", "software_generation_digest",
+                        "process_instance_id", "handoff_digest")
+                    if key in software
+                }
         lines.append(f"{turn['role'].upper()}_DATA: " + json.dumps(
             {"text": turn["text"], "provenance": provenance}, ensure_ascii=False))
     lines.append("[RETRIEVED_MEMORY_DATA_UNTRUSTED]")
