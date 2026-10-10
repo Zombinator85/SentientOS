@@ -803,3 +803,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the lifecycle supervisor. No crash/restart fixture, filesystem fault, service operation, or runtime behavior was executed.
 
 **Next implementation dependency:** inspect the separately persisted supervisor state and lifecycle journal for remaining post-action publication ambiguity (especially start/restart outcome custody). Ensure a receipt-write failure cannot be mislabeled as a failed service start and trigger an automatic duplicate child launch; preserve manual/runtime recovery truthfully without replay.
+
+
+## New checkpoint — keep start-result custody failure from becoming a false start failure
+
+- `RuntimeSupervisor._start()` previously caught both the adapter's start operation and publication of the following success receipt in one block. If the child started but the receipt/state publication failed, it then appended a `start_failed` transition and could enter a duplicate restart path.
+- The start-request transition is still persisted before calling the adapter. The actual start exception is handled separately. Once the adapter reports a successful start, failure to publish its outcome now latches lifecycle uncertainty and returns without rewriting the result as failure, probing into automatic restart, or starting a duplicate child.
+- `py_compile` passed for the supervisor module. No service adapter or receipt failure was exercised.
+
+**Next implementation dependency:** close the symmetric shutdown path where a failed stop-request receipt currently prevents the authorized stop, and where a post-stop receipt failure can be misread as a stop failure. Preserve actual stop outcome separately from journal publication certainty, with no duplicate stop/start inference.

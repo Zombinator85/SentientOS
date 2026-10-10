@@ -276,18 +276,41 @@ class RuntimeSupervisor:
 
     def _start(self, service_id: str, restarting: bool = False) -> None:
         descriptor = self.registry.descriptors[service_id]
-        if not descriptor.enabled: self._states[service_id] = "disabled"; return
-        blocked = [d for d in descriptor.dependencies if self._states[d] != "healthy"]
+        if not descriptor.enabled:
+            self._states[service_id] = "disabled"
+            return
+        blocked = [dependency for dependency in descriptor.dependencies
+                   if self._states[dependency] != "healthy"]
         if blocked:
-            self._transition(service_id, "degraded", "dependency_blocked:" + ",".join(blocked), "dependency_degradation"); return
-        self._transition(service_id, "restarting" if restarting else "starting", "restart_attempt" if restarting else "start_requested",
-                         "restart_attempted" if restarting else "start_requested")
+            self._transition(service_id, "degraded",
+                "dependency_blocked:" + ",".join(blocked), "dependency_degradation")
+            return
+        self._transition(service_id, "restarting" if restarting else "starting",
+            "restart_attempt" if restarting else "start_requested",
+            "restart_attempted" if restarting else "start_requested")
         try:
             self._call(self.registry.adapter(service_id).start, descriptor.startup_timeout)
-            self._receipt("restart_succeeded" if restarting else "start_succeeded", service_id)
-            self._observe(service_id, restart_on_failure=False)
         except Exception as exc:
-            self._transition(service_id, "failed", f"start_failed:{type(exc).__name__}", "restart_failed" if restarting else "start_failed")
+            try:
+                self._transition(service_id, "failed",
+                    f"start_failed:{type(exc).__name__}",
+                    "restart_failed" if restarting else "start_failed")
+            except Exception:
+                # A failed start transition receipt already latches the
+                # supervisor. Do not attempt another lifecycle action here.
+                pass
+            return
+        try:
+            self._receipt("restart_succeeded" if restarting else "start_succeeded",
+                          service_id)
+        except Exception:
+            # The child may already be running. Missing success custody must not
+            # be rewritten as a failed start or trigger an automatic duplicate.
+            self.panic_latched = True
+            self._states[service_id] = "degraded"
+            self._latest[service_id] = "start_succeeded_receipt_uncertain"
+            return
+        self._observe(service_id, restart_on_failure=False)
 
     def _observe(self, service_id: str, *, restart_on_failure: bool = True) -> None:
         descriptor = self.registry.descriptors[service_id]
