@@ -19,7 +19,8 @@ Construction work is **untested for production**. Continue from branch `codex/co
 - `655288bf0beeb4d422186e97d2ba7d9414611b62` (remote verified): controlled replacement trials persist a bounded identity-only frozen-context manifest, bind validated prior self-model/epistemic projection IDs, digests, and source ticks into condition observations and World-State records, and carry the invocation's exact resource linkage fields when a governed endpoint actually supplies them. Missing sponsorship remains unknown; no allocation is created.
 - `634fb7e21ffb28501e89a7cf1aa8f325e912dde8` (remote verified): failed/incomplete governed inference now retains bounded request, invocation, and resource-linkage identities in immutable condition terminals and projected partial runs without persisting generated text or replaying a started attempt.
 - `c77397483e5d72d5115d676f2e9c99bbf29c56dd` (remote verified): repeated post-adoption attribution results now require exact result identity and remain contextual with unknown freshness/dependency because control source issuers are caller-supplied.
-- Next increment in progress: fail-closed the adjacent `production_ready` field; declared source classes are not authenticated production evidence.
+- `7f1750ab6e4e4e6acc8cca302b63e249f92d6dbb` (remote verified): repeated attribution `production_ready` remains false when this owner has only caller-declared source classes and no authenticated issuer verifier.
+- Next increment in progress: correct the campaign-state predecessor verifier so a valid revision-1 genesis with no predecessor reconstructs cleanly, while later revisions still require their retained predecessor chain.
 
 ## Boundaries and blockers
 
@@ -31,6 +32,6 @@ Construction work is **untested for production**. Continue from branch `codex/co
 
 ## Exact next work
 
-1. Compile, review, commit `[untested]`, push, and verify the production-readiness correction.
+1. Compile, review, commit `[untested]`, push, and verify the genesis-recovery correction.
 2. Continue tracing exact resource attribution in the controlled replacement endpoint; preserve unknown when no explicit sponsored allocation/consumption owner is injected.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.

@@ -367,11 +367,11 @@ class CampaignStore:
                     if previous is not None:
                         raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
                     break
-                if not isinstance(previous, str):
-                    raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
                 if expected_revision == 1:
                     if previous is None:
                         break
+                    if not isinstance(previous, str):
+                        raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
                     # A legacy pre-journal state is preserved as revision zero.
                     legacy = self._read_json(self.state_revision_path(protocol.campaign_id, 0, previous),
                         missing_code="campaign_state_predecessor_missing",
@@ -381,6 +381,8 @@ class CampaignStore:
                             or legacy.get("campaign_digest") != protocol.campaign_digest):
                         raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
                     break
+                if not isinstance(previous, str):
+                    raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
                 current = self._read_json(self.state_revision_path(protocol.campaign_id,
                     expected_revision - 1, previous), missing_code="campaign_state_predecessor_missing",
                     invalid_code="campaign_state_predecessor_invalid")
