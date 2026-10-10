@@ -1047,6 +1047,11 @@ class RuntimeMaintenanceSurfaces:
                 "observed_at": tick_key,
                 "payload": dict(self._resource_observation_health),
             })
+        # Reconcile while the proposal and resource sources are adjacent in
+        # the bounded input. The World-State source-count cap keeps earlier
+        # records; deferring this join until the end allowed unrelated later
+        # surfaces to silently evict resource lineage before epistemic select.
+        records.extend(resource_invocation_proposal_lineage_records(records))
         privilege_eval = self._host_privilege_review_evaluation
         if privilege_eval is not None:
             records.extend(privilege_review_world_state_records(privilege_eval))
@@ -1067,10 +1072,6 @@ class RuntimeMaintenanceSurfaces:
         genesis = self._feedback.get("surfaces", {}).get("genesis_forge", {})
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})
-        # Reconcile strategy-model inference receipts with the separately
-        # projected governed resource ledger before constructing World-State.
-        # The result is historical attribution only and never an effect claim.
-        records.extend(resource_invocation_proposal_lineage_records(records))
         snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
         retained_source_ids = {source.source_id for source in snapshot.sources}
         omitted_fulfillment_sources = selected_fulfillment_source_ids - retained_source_ids
