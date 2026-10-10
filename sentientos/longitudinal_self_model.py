@@ -456,6 +456,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                         "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest",
                         "serving_operation_id", "serving_session_id",
                         "serving_receipt_lineage_posture",
+                        "software_serving_operation_binding_posture",
                         "resource_allocation_digest", "resource_attempt_id",
                         "resource_effect_receipt_digest", "model_id", "model_artifact_digest",
                         "linkage_posture", "current_model_claimed")}

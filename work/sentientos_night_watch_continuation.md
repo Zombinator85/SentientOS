@@ -650,3 +650,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `host_resource_runtime.py`, `resident_developmental_writeback.py`, and `longitudinal_self_model.py`. No tests, execution, restart, model serving, cognition, platform, or production verification was performed.
 
 **Next implementation dependency:** continue checking the remaining invocation/runtime attribution joins for any path that still accepts a verified process identity without reconciling it to that invocation's exact serving operation and receipt; then inspect durable later-cognition consumption of the compact invocation claim.
+
+### New checkpoint — carry the process/serving join through runtime-linked history
+
+- Follow-up source review of `chat_service.py` confirmed production turns require `verify_stored_chat_invocation` to reproduce the exact `software_generation_attribution` bound in the persisted invocation request; the transcript layer rejects disagreement before publishing the assistant turn.
+- The runtime-observation-to-invocation join now also compares the chat-process handoff's configured serving operation with the invocation request's serving operation. A mismatch is rejected; historical inputs missing either side retain `legacy_handoff_or_invocation_operation_unknown`.
+- The linked invocation projection carries that exact-or-unknown posture through the longitudinal self-model and the compact developmental writeback projection, alongside existing receipt, allocation, attempt, process, model and bounded consumption identities.
+- Python compilation passed again for the three changed modules. The source review covered the chat turn's stored-invocation verifier handoff; no service execution, receipt recovery, inference, cognition, or production verification was performed.
+
+**Next implementation dependency:** inspect how chat-process runtime observation and invocation source records are selected into configured epistemic development and admitted developmental writeback. Confirm the new operation-binding posture survives those existing selectors without becoming current truth or same-tick cognition; continue with any concrete loss at those handoffs.

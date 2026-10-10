@@ -907,6 +907,19 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 for key in serving_reference_fields)
             if not serving_references_complete and not serving_references_absent:
                 raise ValueError("chat_process_runtime_invocation_serving_lineage_incomplete")
+            handoff_operation_id = handoff.get("configured_serving_operation_id")
+            invocation_serving_operation_id = request_linkage.get("serving_operation_id")
+            if (isinstance(handoff_operation_id, str) and handoff_operation_id
+                    and isinstance(invocation_serving_operation_id, str)
+                    and invocation_serving_operation_id
+                    and handoff_operation_id != invocation_serving_operation_id):
+                raise ValueError("chat_process_runtime_invocation_serving_operation_substitution")
+            if (isinstance(handoff_operation_id, str) and handoff_operation_id
+                    and isinstance(invocation_serving_operation_id, str)
+                    and invocation_serving_operation_id):
+                operation_binding_posture = "exact_handoff_serving_operation_match"
+            else:
+                operation_binding_posture = "legacy_handoff_or_invocation_operation_unknown"
             linked_invocations.append({
                 "invocation_receipt_id": invocation.get("receipt_id"),
                 "invocation_receipt_digest": invocation.get("receipt_digest"),
@@ -924,6 +937,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "serving_receipt_lineage_posture": (
                     "history_join_verified_by_projector" if serving_references_complete
                     else "historically_unbound"),
+                "software_serving_operation_binding_posture": operation_binding_posture,
                 "resource_allocation_digest": invocation.get("resource_allocation_digest"),
                 "resource_attempt_id": invocation.get("resource_attempt_id"),
                 "resource_consumption_receipt_digests": list(
