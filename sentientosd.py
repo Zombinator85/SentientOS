@@ -1282,10 +1282,15 @@ class RuntimeMaintenanceSurfaces:
                         status = runtime.status()
                     else:
                         serving = getattr(self._resident_cognitive_invoker, "current_controller", None)
-                        session = serving.current_session() if serving is not None else None
+                        session = serving.observed_current_session() if serving is not None else None
                         identity = session.binding.get("observed_loaded_model_identity") if session is not None else None
                         status = {"resident_model_identity": dict(identity) if isinstance(identity, Mapping) else identity,
-                            "resident_serving_session_id": session.session_id if session is not None else None}
+                            "resident_serving_session_id": session.session_id if session is not None else None,
+                            "activation_history_digest": session.binding.get("activation_history_digest") if session is not None else None,
+                            "activation_state_digest": session.binding.get("activation_state_semantic_digest") if session is not None else None,
+                            "activation_receipt_id": session.binding.get("activation_receipt_id") if session is not None else None,
+                            "activation_receipt_digest": session.binding.get("activation_receipt_semantic_digest") if session is not None else None,
+                            "activation_predecessor_state_digest": session.binding.get("activation_predecessor_state_digest") if session is not None else None}
                 except Exception as exc:
                     records.append({"source_kind": "runtime_supervisor", "source_id": f"resident_transition:{transition_id}:recovery",
                         "subject_id": transition_id, "subject_kind": "model_transition", "stage": "observation",
@@ -1346,12 +1351,19 @@ class RuntimeMaintenanceSurfaces:
                     running_provenance_identity = ((running_provenance or {}).get("provenance_manifest_digest")
                         or (running_provenance or {}).get("posture", "unknown"))
                     records.append({"source_kind": "runtime_supervisor",
-                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}:{running_provenance_identity}",
+                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}:{status.get('activation_history_digest') or 'activation_lineage_unavailable'}:{running_provenance_identity}",
                         "subject_id": str(status.get("resident_serving_session_id") or "resident-serving-session"),
                         "subject_kind": "observed_running_model", "stage": "observation",
                         "disposition": "observed", "evidence_strength": "serving_session_observation",
                         "payload": {"running_model_identity_observed": session_identity,
                             "serving_session_id": status.get("resident_serving_session_id"),
+                            "activation_state_digest": status.get("activation_state_digest"),
+                            "activation_receipt_id": status.get("activation_receipt_id"),
+                            "activation_receipt_semantic_digest": status.get("activation_receipt_digest"),
+                            "activation_predecessor_state_digest": status.get("activation_predecessor_state_digest"),
+                            "activation_history_digest": status.get("activation_history_digest"),
+                            "activation_history_posture": ("verified_selection_history_digest"
+                                if isinstance(status.get("activation_history_digest"), str) else "unavailable"),
                             "transition_id": transition_id,
                             "event_time_posture": "serving_session_time_not_retained",
                             "model_development_provenance": (running_provenance or
@@ -1376,6 +1388,39 @@ class RuntimeMaintenanceSurfaces:
                 "payload": {"recovery_posture": "transition_custody_unavailable",
                     "error_class": self._resident_transition_custody_error, "replay_forbidden": True},
                 "observed_at": None, "effect_claimed": False, "effect_proven": False})
+
+        # A running-model observation is useful even when the optional transition
+        # experiment is not composed. It remains a read-only session observation;
+        # absence of an authenticated development-provenance owner stays explicit.
+        if protocol is None or journal is None:
+            serving = getattr(self._resident_cognitive_invoker, "current_controller", None)
+            session = serving.observed_current_session() if serving is not None else None
+            if session is not None:
+                binding = session.binding
+                loaded_identity = binding.get("observed_loaded_model_identity")
+                activation_history_digest = binding.get("activation_history_digest")
+                activation_digest = binding.get("activation_state_semantic_digest")
+                session_source = (f"resident_serving_session:{session.session_id}:"
+                    f"{activation_history_digest or 'activation_lineage_unavailable'}")
+                records.append({"source_kind": "runtime_supervisor", "source_id": session_source,
+                    "subject_id": session.session_id, "subject_kind": "observed_running_model",
+                    "stage": "observation", "disposition": "observed",
+                    "evidence_strength": "current_serving_owner_session",
+                    "payload": {"running_model_identity_observed": loaded_identity,
+                        "serving_session_id": session.session_id,
+                        "activation_state_digest": activation_digest,
+                        "activation_generation": binding.get("activation_generation"),
+                        "activation_receipt_id": binding.get("activation_receipt_id"),
+                        "activation_receipt_semantic_digest": binding.get("activation_receipt_semantic_digest"),
+                        "activation_predecessor_state_digest": binding.get("activation_predecessor_state_digest"),
+                        "activation_history_digest": activation_history_digest,
+                        "activation_history_posture": ("verified_selection_history_digest"
+                            if isinstance(activation_history_digest, str)
+                            else "unavailable"),
+                        "model_development_provenance": {"posture": "unavailable_no_transition_protocol"},
+                        "event_time_posture": "serving_session_time_not_retained",
+                        "authority": False, "effect_proven": False},
+                    "observed_at": None, "effect_claimed": False, "effect_proven": False})
 
         software_controller = self._resident_software_transition_controller
         software_config = (software_controller.config if software_controller is not None
@@ -2295,7 +2340,7 @@ def _compose_causal_introspection(
                     "outstanding_stage": (evidence.get("attempted_stage") or evidence.get("failed_stage")
                         or evidence.get("interrupted_stage")), "replay_forbidden": unresolved is not None}
                 serving = getattr(runtime_surfaces._resident_cognitive_invoker, "current_controller", None)
-                session = serving.current_session() if serving is not None else None
+                session = serving.observed_current_session() if serving is not None else None
                 identity = session.binding.get("observed_loaded_model_identity") if session is not None else None
                 status = {"resident_model_identity": dict(identity) if isinstance(identity, Mapping) else identity,
                     "resident_serving_session_id": session.session_id if session is not None else None}

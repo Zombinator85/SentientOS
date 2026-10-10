@@ -196,20 +196,22 @@ class ProductionServingController:
             return None
         return self._session
 
-    def serving_is_current(self) -> bool:
-        """Inspect currentness without invalidating, unloading, or exposing custody.
-
-        Lifecycle readiness is observation only.  The inference handoff continues to
-        use :meth:`current_session`, whose mutating invalidation remains fail closed.
-        """
+    def observed_current_session(self) -> ServingSession | None:
+        """Return a current opaque session without invalidating or unloading it."""
         session = self._session
         if session is None:
-            return False
+            return None
         try:
             verified = _verified(self._handle, self._allow_synthetic)
         except ProductionServingError:
-            return False
-        return self._same_activation(verified, session) and self._alive()
+            return None
+        if not self._same_activation(verified, session) or not self._alive():
+            return None
+        return session
+
+    def serving_is_current(self) -> bool:
+        """Inspect readiness without invalidating, unloading, or exposing model custody."""
+        return self.observed_current_session() is not None
 
     def _current_inference_model(self, expected: ServingSession) -> Any:
         """Package-private handoff for the separately governed inference bridge."""
