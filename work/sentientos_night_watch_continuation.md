@@ -171,3 +171,15 @@ UTC tick ordering is now checked in durable self-model and resident-history sele
 3. For truncated assistant output, only the original backend-output digest and separate persisted transcript-text digest exist. Proving the deterministic transformation would require a receipt-bound returned-output digest or retained output material; no change was made that widens transcript retention.
 
 Continue with the next source-backed lifecycle gap while preserving these limits.
+
+
+### New checkpoint — compose the chat runtime's actual child-launch owner
+
+- Source review located the existing canonical launcher in `sentientos/runtime/startup.py` and `LocalModelChatServiceAdapter`; this supersedes the earlier note that no launch owner existed. The runtime opens the configured installation handle before child construction and injects that exact owner into the adapter.
+- The adapter publishes a bounded (256 launch records; 1 MiB per record; bounded Python source member/count/total sizes), immutable installation-scoped handoff after `Popen`. It binds the child PID and parent PID, fixed argv, executable path, working directory, launch timestamp, environment digest, and a content digest over the `sentientos/` and `scripts/` Python source files. The child waits briefly for the parent's record and verifies its live process identity, environment, argv and current source bundle before serving; the inference owner repeats live verification before each local-model call.
+- Production invocation receipts carry the launch handoff, software-source generation digest and process-instance identity as separate lineage from model activation/loaded-model identities. Installation-scoped receipt recovery validates the historical immutable handoff without claiming that an old process is still running. Normal direct/manual chat remains explicitly unattributed because it has no parent-issued record.
+- Publication is POSIX-only and fails closed; no Windows write path was added. This is a local runtime-owner handoff over installation custody, not hardware/OS memory attestation; its explicit generation scope is SentientOS and scripts Python source, not the Python interpreter or third-party dependencies.
+- The package command enters explicit configuration, but the separately supervised canonical runtime remains opt-in. No runtime was launched during this construction pass.
+- Changed modules compile and no-index diff whitespace checks pass. No tests, runtime execution, concurrency/crash exercise, Windows execution, model activation, provider access, or production verification.
+
+**Next implementation dependency:** connect the current and predecessor handoff identities through `ProductionLocalModelChatRecoveryController` and its durable startup/recovery records. A subsequent launch is individually attributable now, but the recovery receipt does not yet explicitly join the previous chat-process generation to its successor, especially across supervisor restarts. Preserve the existing separately admitted restart path and never infer continuity from a serving operation alone.
