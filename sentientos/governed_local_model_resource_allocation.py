@@ -273,7 +273,13 @@ class GovernedLocalModelResourceLedgerObservation:
     _snapshot: Mapping[str, object]
 
     def observation_snapshot(self) -> Mapping[str, object]:
-        return self._snapshot
+        return {
+            "schema": self._snapshot["schema"],
+            "ledger_digest": self._snapshot["ledger_digest"],
+            "allocations": tuple(dict(item) for item in self._snapshot["allocations"]),
+            "attempts": tuple(dict(item) for item in self._snapshot["attempts"]),
+            "receipts": tuple(dict(item) for item in self._snapshot["receipts"]),
+        }
 
 
 class GovernedLocalModelResourceLedger:

@@ -121,6 +121,8 @@ class ProductionChatResourceObservationOwner:
         except ValueError as exc:
             raise ProductionChatResourceObservationError("resource_ledger_invalid") from exc
         snapshot = ledger.observation_snapshot()
+        if len(snapshot["allocations"]) != 1:
+            raise ProductionChatResourceObservationError("resource_bundle_allocation_count_mismatch")
         allocation = next((GovernedLocalModelResourceAllocation.from_mapping(item)
                           for item in snapshot["allocations"]
                           if isinstance(item, Mapping) and item.get("allocation_id") == manifest["allocation_id"]), None)
