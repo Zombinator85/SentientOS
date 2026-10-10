@@ -153,7 +153,22 @@ def _compare(defn: MeasurementDefinition, before: Any, after: Any) -> str:
     return "expected_change_absent"
 
 
-def post_adoption_epistemic_binding(*, proposition_id: str, evaluation: Evaluation, observed_at: str) -> Any:
+def _evaluation_result(comparisons: Sequence[Mapping[str, Any]], missing: Sequence[str]) -> str:
+    outcomes = {str(item.get("result")) for item in comparisons}
+    protected_regression = any(item.get("protected_invariant") and item.get("result") == "regression_observed"
+        for item in comparisons)
+    if missing: return "insufficient_evidence"
+    if protected_regression:
+        return "new_regression_observed" if outcomes <= {"expected_change_observed", "regression_observed"} else "mixed_outcome"
+    if outcomes == {"expected_change_observed"}: return "target_expectation_satisfied"
+    if outcomes == {"unchanged"}: return "no_detectable_change"
+    if outcomes <= {"expected_change_absent", "unchanged"}: return "target_expectation_contradicted"
+    if "unmeasurable" in outcomes: return "measurement_failed"
+    return "mixed_outcome"
+
+
+def post_adoption_epistemic_binding(*, proposition_id: str, evaluation: Evaluation, observed_at: str,
+                                    owner: "MaintenancePostAdoptionEvaluationOwner") -> Any:
     """Bind evaluation custody without upgrading caller-supplied observations.
 
     ``observed_at`` remains accepted for compatibility, but the evidence time
@@ -162,6 +177,8 @@ def post_adoption_epistemic_binding(*, proposition_id: str, evaluation: Evaluati
     it is contextual evidence with unknown freshness and dependency.
     """
     from sentientos.persistent_epistemic_state import make_evidence_binding
+    if owner.evaluation(evaluation.evaluation_id, evaluation.evaluation_digest) != evaluation:
+        raise PostAdoptionEvaluationError("evaluation_not_recovered_from_durable_custody")
     evaluation_id, evaluation_digest = _identity("post-adoption-evaluation", evaluation.payload())
     _false(evaluation.authority)
     if (evaluation.schema_version != EVALUATION_SCHEMA
@@ -233,6 +250,17 @@ class MaintenancePostAdoptionEvaluationOwner:
         if len(rows)!=1: raise PostAdoptionEvaluationError("baseline_not_found")
         return Baseline(**rows[0])
 
+    def evaluation(self, evaluation_id: str, evaluation_digest: str) -> Evaluation:
+        self.verify()
+        rows = [row for row in self._read("evaluations")
+            if row.get("evaluation_id") == evaluation_id and row.get("evaluation_digest") == evaluation_digest]
+        if len(rows) != 1:
+            raise PostAdoptionEvaluationError("evaluation_not_found")
+        value = dict(rows[0])
+        for field in ("comparisons", "missing_evidence", "contradictions", "reconstruction_lineage"):
+            value[field] = tuple(value[field])
+        return Evaluation(**value)
+
     def observe(self, protocol: EvaluationProtocol, baseline: Baseline, qualification: SuccessorQualification, *, observations: Mapping[str,Any], source_records: Mapping[str,Mapping[str,str]], measurement_laws: Mapping[str,str], observed_at: str, collector_id: str) -> PostAdoptionObservation:
         if self._read("evaluations") and any(x["protocol_id"]==protocol.protocol_id for x in self._read("evaluations")): raise PostAdoptionEvaluationError("completed_evaluation_replay_forbidden")
         if (qualification.successor_generation!=protocol.expected_successor_generation or qualification.successor_commit!=protocol.landed_commit or qualification.successor_tree!=protocol.landed_tree or qualification.readiness_status!="resident_adoption_completed"):
@@ -257,14 +285,7 @@ class MaintenancePostAdoptionEvaluationOwner:
             if item.required and item.observable_id not in observation.observations: missing.append(item.observable_id); result="unmeasurable"
             else: result=_compare(item,before,after)
             comparisons.append({"observable_id":item.observable_id,"expected_value":item.expected_value,"predecessor_value":before,"successor_value":after,"comparator":item.comparator,"measurement_law":item.measurement_law,"protected_invariant":item.protected_invariant,"result":result,"source_record":observation.source_records.get(item.observable_id)})
-        outcomes={x["result"] for x in comparisons}; protected_regression=any(x["protected_invariant"] and x["result"]=="regression_observed" for x in comparisons)
-        if missing: result="insufficient_evidence"
-        elif protected_regression: result="new_regression_observed" if outcomes<={"expected_change_observed","regression_observed"} else "mixed_outcome"
-        elif outcomes=={"expected_change_observed"}: result="target_expectation_satisfied"
-        elif outcomes=={"unchanged"}: result="no_detectable_change"
-        elif outcomes<={"expected_change_absent","unchanged"}: result="target_expectation_contradicted"
-        elif "unmeasurable" in outcomes: result="measurement_failed"
-        else: result="mixed_outcome"
+        result = _evaluation_result(comparisons, missing)
         lineage=(protocol.protocol_digest,baseline.baseline_digest,observation.continuity_receipt_digest,
             observation.adoption_receipt_digest,observation.readiness_receipt_digest,observation.observation_digest)
         raw=Evaluation("","",protocol.protocol_id,protocol.protocol_digest,protocol.maintenance_task_id,
@@ -288,16 +309,135 @@ class MaintenancePostAdoptionEvaluationOwner:
         self._write("recommendations",rid,value); return value
 
     def verify(self) -> Mapping[str,int]:
-        protocols={}
+        protocols: dict[str, EvaluationProtocol] = {}
         for raw in self._read("protocols"):
-            value=dict(raw); value["measurements"]=tuple(value["measurements"]); rebuilt=make_protocol(**{k:v for k,v in value.items() if k not in {"protocol_id","protocol_digest","schema_version","authority"}})
-            if rebuilt.protocol_digest!=value["protocol_digest"]: raise PostAdoptionEvaluationError("protocol_digest_mismatch")
-            protocols[value["protocol_id"]]=value
-        baselines={x["baseline_digest"]:x for x in self._read("baselines")}; observations={x["observation_digest"]:x for x in self._read("observations")}
-        for raw in self._read("evaluations"):
-            if raw["protocol_id"] not in protocols or raw["baseline_digest"] not in baselines or raw["observation_digest"] not in observations or raw["result"] not in RESULTS or digest({k:v for k,v in raw.items() if k not in {"evaluation_id","evaluation_digest"}})!=raw["evaluation_digest"]: raise PostAdoptionEvaluationError("evaluation_history_corrupt")
-            _false(raw["authority"])
-        return {"protocols":len(protocols),"baselines":len(baselines),"observations":len(observations),"evaluations":len(self._read("evaluations")),"signals":len(self._read("signals")),"recommendations":len(self._read("recommendations"))}
+            try:
+                value = dict(raw)
+                value["measurements"] = tuple(MeasurementDefinition(**item) for item in value["measurements"])
+                value["signal_ids"] = tuple(value["signal_ids"])
+                value["required_evidence_sources"] = tuple(value["required_evidence_sources"])
+                rebuilt = make_protocol(**{k:v for k,v in value.items()
+                    if k not in {"protocol_id","protocol_digest","schema_version","authority"}})
+                if (rebuilt.protocol_id != value.get("protocol_id")
+                        or rebuilt.protocol_digest != value.get("protocol_digest")
+                        or rebuilt.schema_version != value.get("schema_version")
+                        or canonical_bytes(asdict(rebuilt)) != canonical_bytes(raw)
+                        or value["protocol_id"] in protocols):
+                    raise PostAdoptionEvaluationError("protocol_digest_mismatch")
+                _false(value["authority"])
+                protocols[value["protocol_id"]] = rebuilt
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PostAdoptionEvaluationError("protocol_digest_mismatch") from exc
+
+        baseline_rows = self._read("baselines")
+        baselines: dict[str, Baseline] = {}
+        for raw in baseline_rows:
+            try:
+                protocol = protocols[raw["protocol_id"]]
+                value = dict(raw)
+                rebuilt = make_baseline(protocol, **{k:v for k,v in value.items()
+                    if k not in {"baseline_id","baseline_digest","schema_version","authority",
+                                 "protocol_id","protocol_digest","predecessor_generation"}})
+                if (rebuilt.baseline_id != value.get("baseline_id")
+                        or rebuilt.baseline_digest != value.get("baseline_digest")
+                        or rebuilt.schema_version != value.get("schema_version")
+                        or canonical_bytes(asdict(rebuilt)) != canonical_bytes(raw)
+                        or value["baseline_digest"] in baselines):
+                    raise PostAdoptionEvaluationError("baseline_digest_mismatch")
+                _false(value["authority"])
+                baselines[value["baseline_digest"]] = rebuilt
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PostAdoptionEvaluationError("baseline_digest_mismatch") from exc
+
+        observation_rows = self._read("observations")
+        observations: dict[str, PostAdoptionObservation] = {}
+        for raw in observation_rows:
+            try:
+                protocol = protocols[raw["protocol_id"]]
+                baseline = baselines[raw["baseline_digest"]]
+                observation = PostAdoptionObservation(**dict(raw))
+                expected_id, expected_digest = _identity("post-adoption-observation", observation.payload())
+                laws = {item.observable_id:item.measurement_law for item in protocol.measurements}
+                if (observation.observation_id != expected_id or observation.observation_digest != expected_digest
+                        or observation.schema_version != OBSERVATION_SCHEMA
+                        or observation.protocol_digest != protocol.protocol_digest
+                        or baseline.protocol_id != protocol.protocol_id
+                        or baseline.protocol_digest != protocol.protocol_digest
+                        or observation.predecessor_generation != protocol.predecessor_generation
+                        or observation.successor_generation != protocol.expected_successor_generation
+                        or observation.predecessor_revision != baseline.source_revision
+                        or observation.successor_revision != protocol.landed_commit
+                        or observation.successor_tree != protocol.landed_tree
+                        or dict(observation.measurement_laws) != laws
+                        or set(observation.observations) - set(laws)
+                        or set(observation.source_records) - set(laws)
+                        or observation.observation_digest in observations):
+                    raise PostAdoptionEvaluationError("observation_lineage_invalid")
+                _false(observation.authority)
+                observations[observation.observation_digest] = observation
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PostAdoptionEvaluationError("observation_lineage_invalid") from exc
+
+        evaluation_rows = self._read("evaluations")
+        evaluations: dict[str, Evaluation] = {}
+        for raw in evaluation_rows:
+            try:
+                value = dict(raw)
+                for field in ("comparisons", "missing_evidence", "contradictions", "reconstruction_lineage"):
+                    value[field] = tuple(value[field])
+                evaluation = Evaluation(**value)
+                protocol = protocols[evaluation.protocol_id]
+                baseline = baselines[evaluation.baseline_digest]
+                observation = observations[evaluation.observation_digest]
+                expected_id, expected_digest = _identity("post-adoption-evaluation", evaluation.payload())
+                expected_lineage = (protocol.protocol_digest, baseline.baseline_digest,
+                    observation.continuity_receipt_digest, observation.adoption_receipt_digest,
+                    observation.readiness_receipt_digest, observation.observation_digest)
+                expected_missing = tuple(sorted(item.observable_id for item in protocol.measurements
+                    if item.required and item.observable_id not in observation.observations))
+                expected_comparisons = tuple({
+                    "observable_id":item.observable_id, "expected_value":item.expected_value,
+                    "predecessor_value":baseline.observations.get(item.observable_id),
+                    "successor_value":observation.observations.get(item.observable_id),
+                    "comparator":item.comparator, "measurement_law":item.measurement_law,
+                    "protected_invariant":item.protected_invariant,
+                    "result":("unmeasurable" if item.required and item.observable_id not in observation.observations
+                        else _compare(item, baseline.observations.get(item.observable_id),
+                            observation.observations.get(item.observable_id))),
+                    "source_record":observation.source_records.get(item.observable_id),
+                } for item in protocol.measurements)
+                expected_result = _evaluation_result(expected_comparisons, expected_missing)
+                expected_contradictions = tuple(sorted(item["observable_id"] for item in expected_comparisons
+                    if item["result"] in {"expected_change_absent", "regression_observed"}))
+                if (evaluation.evaluation_id != expected_id or evaluation.evaluation_digest != expected_digest
+                        or evaluation.schema_version != EVALUATION_SCHEMA
+                        or evaluation.protocol_digest != protocol.protocol_digest
+                        or baseline.protocol_id != protocol.protocol_id
+                        or baseline.protocol_digest != protocol.protocol_digest
+                        or observation.protocol_id != protocol.protocol_id
+                        or evaluation.task_id != protocol.maintenance_task_id
+                        or evaluation.predecessor_generation != protocol.predecessor_generation
+                        or evaluation.successor_generation != observation.successor_generation
+                        or evaluation.predecessor_revision != baseline.source_revision
+                        or evaluation.successor_revision != observation.successor_revision
+                        or evaluation.validation_result_digest != protocol.validation_result_digest
+                        or evaluation.evaluated_at <= observation.observed_at
+                        or evaluation.reconstruction_lineage != expected_lineage
+                        or canonical_bytes(evaluation.comparisons) != canonical_bytes(expected_comparisons)
+                        or evaluation.missing_evidence != expected_missing
+                        or evaluation.contradictions != expected_contradictions
+                        or evaluation.result != expected_result
+                        or evaluation.attribution_posture != "controlled_before_after_correlation_not_experimental_causation"
+                        or (evaluation.evaluation_id in evaluations
+                            or any(item.protocol_id == evaluation.protocol_id for item in evaluations.values()))):
+                    raise PostAdoptionEvaluationError("evaluation_history_corrupt")
+                _false(evaluation.authority)
+                evaluations[evaluation.evaluation_id] = evaluation
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PostAdoptionEvaluationError("evaluation_history_corrupt") from exc
+        return {"protocols":len(protocols),"baselines":len(baselines),"observations":len(observations),
+            "evaluations":len(evaluations),"signals":len(self._read("signals")),
+            "recommendations":len(self._read("recommendations"))}
 
 
 __all__=["MaintenancePostAdoptionEvaluationOwner","MeasurementDefinition","EvaluationProtocol","Baseline","SuccessorQualification","PostAdoptionObservation","Evaluation","RollbackRecommendation","make_protocol","make_baseline","improvement_signal_record","post_adoption_epistemic_binding","PostAdoptionEvaluationError","FALSE_AUTHORITY","COMPARATORS","RESULTS"]
