@@ -679,6 +679,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--expected-activation-state-digest")
     parser.add_argument("--resource-provisioning-id")
     parser.add_argument("--runtime-handoff-id")
+    parser.add_argument("--expected-software-generation-digest")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)

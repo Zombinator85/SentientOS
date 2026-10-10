@@ -258,7 +258,8 @@ def publish_chat_process_handoff(*, handle: InstallationStateHandle, handoff_id:
                                  working_directory: str | Path, process_id: int,
                                  parent_process_id: int, startup_timestamp: str,
                                  python_executable: str, repository_root: str | Path,
-                                 prior_startup_snapshot: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                                 prior_startup_snapshot: Mapping[str, Any] | None = None,
+                                 source_snapshot: tuple[str, Sequence[Mapping[str, Any]]] | None = None) -> dict[str, Any]:
     """Publish immutable launch evidence from the actual child-owning runtime adapter."""
     if type(handle) is not InstallationStateHandle:
         raise ChatProcessGenerationError("authenticated_installation_handle_required")
@@ -267,7 +268,15 @@ def publish_chat_process_handoff(*, handle: InstallationStateHandle, handoff_id:
     if not HANDOFF_ID.fullmatch(handoff_id) or not argv or any(not isinstance(item, str) or not item for item in argv):
         raise ChatProcessGenerationError("chat_process_launch_identity_invalid")
     root = Path(repository_root)
-    generation_digest, members = source_generation(root)
+    current_generation_digest, current_members = source_generation(root)
+    if source_snapshot is None:
+        generation_digest, members = current_generation_digest, current_members
+    else:
+        generation_digest, source_members = source_snapshot
+        members = tuple(dict(item) for item in source_members)
+        if (generation_digest != current_generation_digest
+                or members != current_members):
+            raise ChatProcessGenerationError("chat_process_source_changed_during_launch")
     argv_digest = _digest(list(argv))
     record: dict[str, Any] = {"schema_version": SCHEMA, "handoff_id": handoff_id,
         "installation_identity": handle.identity.value, "issuer": "LocalModelChatServiceAdapter",

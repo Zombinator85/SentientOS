@@ -23,8 +23,8 @@ from sentientos.local_model_production_serving import _operation_id
 from sentientos.local_model_production_serving import _semantic_digest
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.chat_process_generation import (
-    publish_chat_process_handoff, verify_stored_chat_process_handoff,
-    verify_supervised_chat_process_handoff,
+    publish_chat_process_handoff, source_generation,
+    verify_stored_chat_process_handoff, verify_supervised_chat_process_handoff,
 )
 
 from .services import ChildProcessServiceAdapter, HealthResult
@@ -132,7 +132,8 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
     @staticmethod
     def _launcher_argv(config: LocalModelChatStartup, *, root: Path,
                        expected_activation_state_digest: str | None = None,
-                       runtime_handoff_id: str | None = None) -> tuple[str, ...]:
+                       runtime_handoff_id: str | None = None,
+                       expected_source_generation_digest: str | None = None) -> tuple[str, ...]:
         assert config.installation_identity is not None and config.serving_operation_id is not None
         argv: tuple[str, ...] = (sys.executable, str(root / "scripts" / "local_model_chat.py"),
                 "--installation-identity", config.installation_identity,
@@ -142,6 +143,8 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
             argv += ("--expected-activation-state-digest", expected_activation_state_digest)
         if runtime_handoff_id is not None:
             argv += ("--runtime-handoff-id", runtime_handoff_id)
+        if expected_source_generation_digest is not None:
+            argv += ("--expected-software-generation-digest", expected_source_generation_digest)
         if config.resource_provisioning_id is not None:
             argv += ("--resource-provisioning-id", config.resource_provisioning_id)
         return argv
@@ -168,6 +171,12 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
     def start(self) -> None:
         if self._process is not None and self._process.poll() is None:
             return
+        source_snapshot = None
+        if self._installation_handle is not None and self._handoff_id is not None:
+            source_snapshot = source_generation(self._root)
+            self._argv = self._launcher_argv(self._config, root=self._root,
+                runtime_handoff_id=self._handoff_id,
+                expected_source_generation_digest=source_snapshot[0])
         super().start()
         if self._installation_handle is None or self._handoff_id is None:
             return
@@ -181,7 +190,8 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                 working_directory=self._cwd, process_id=process.pid, parent_process_id=os.getpid(),
                 startup_timestamp=startup_timestamp, python_executable=self._argv[0],
                 repository_root=self._root,
-                prior_startup_snapshot=self._prior_startup_snapshot)
+                prior_startup_snapshot=self._prior_startup_snapshot,
+                source_snapshot=source_snapshot)
         except Exception:
             self.force_stop()
             raise
