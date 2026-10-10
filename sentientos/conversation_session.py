@@ -24,6 +24,7 @@ SCHEMA = "sentientos.conversation_session:v1"
 MAX_TURN_BYTES = 64 * 1024
 MAX_SESSION_BYTES = 8 * 1024 * 1024
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,63}$")
+_TURN_ID = re.compile(r"^turn-[0-9a-f]{24}$")
 
 
 def _now() -> str:
@@ -132,13 +133,55 @@ class ConversationSessionStore:
                 raise FileNotFoundError(session_id) from exc
             raise ValueError("session_read_invalid") from exc
         try: loaded: object = json.loads(raw)
-        except json.JSONDecodeError as exc: raise ValueError("malformed_session") from exc
+        except (UnicodeError, json.JSONDecodeError) as exc: raise ValueError("malformed_session") from exc
         if not isinstance(loaded, dict): raise ValueError("invalid_session")
         payload: dict[str, Any] = loaded
         if payload.get("schema_version") != SCHEMA or payload.get("session_id") != session_id: raise ValueError("invalid_session")
         turns = payload.get("turns")
-        if not isinstance(turns, list) or [t.get("sequence") for t in turns] != list(range(1, len(turns) + 1)):
+        model_identity = payload.get("model_identity")
+        if (not isinstance(model_identity, Mapping)
+                or payload.get("model_identity_digest") != _digest(dict(model_identity))):
+            raise ValueError("invalid_session_model_identity")
+        if (not isinstance(turns, list) or any(not isinstance(turn, Mapping) for turn in turns)
+                or [turn.get("sequence") for turn in turns] != list(range(1, len(turns) + 1))):
             raise ValueError("invalid_turn_sequence")
+        seen_ids: set[str] = set()
+        for turn in turns:
+            text = turn.get("text")
+            role = turn.get("role")
+            linkage = turn.get("linkage", {})
+            timestamp = turn.get("timestamp")
+            try:
+                instant = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+            except (OverflowError, OSError, ValueError) as exc:
+                raise ValueError("invalid_turn_timestamp") from exc
+            if (role not in {"user", "assistant"} or not isinstance(text, str) or not text
+                    or len(text.encode("utf-8")) > MAX_TURN_BYTES
+                    or turn.get("byte_count") != len(text.encode("utf-8"))
+                    or turn.get("character_count") != len(text)
+                    or turn.get("text_digest") != _digest({"text": text})
+                    or not isinstance(linkage, Mapping) or not isinstance(timestamp, str)
+                    or instant.tzinfo is None or instant.utcoffset() is None):
+                raise ValueError("invalid_turn_record")
+            turn_id = turn.get("turn_id")
+            if not isinstance(turn_id, str) or not _TURN_ID.fullmatch(turn_id) or turn_id in seen_ids:
+                raise ValueError("invalid_turn_identity")
+            seen_ids.add(turn_id)
+            active_identity = linkage.get("active_model_identity")
+            if (active_identity is not None and (not isinstance(active_identity, Mapping)
+                    or linkage.get("active_model_identity_digest") != _digest(dict(active_identity)))):
+                raise ValueError("invalid_turn_model_identity")
+            loaded_identity = linkage.get("loaded_model_identity")
+            if (loaded_identity is not None and (not isinstance(loaded_identity, Mapping)
+                    or linkage.get("loaded_model_identity_digest") != _digest(dict(loaded_identity)))):
+                raise ValueError("invalid_turn_loaded_model_identity")
+            predecessor_digest = linkage.get("predecessor_model_identity_digest")
+            if (predecessor_digest is not None
+                    and (not isinstance(predecessor_digest, str) or len(predecessor_digest) != 64
+                         or any(character not in "0123456789abcdef" for character in predecessor_digest))):
+                raise ValueError("invalid_turn_model_predecessor")
+        if payload.get("revision") != len(turns):
+            raise ValueError("invalid_session_revision")
         return payload
 
     def append_turn(self, session_id: str, *, role: str, text: str, linkage: Mapping[str, Any] | None = None,
