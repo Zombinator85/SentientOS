@@ -198,8 +198,14 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
         )
         data_root = sentientos_data_dir()
+        # Conversation transcripts are bound to the installation whose exact
+        # serving lifetime produced them.  The canonical memory store remains
+        # at its established user-data root because explicit retention is a
+        # separate, user-scoped contract.
+        conversation_root = handle.fixed_object("chat/conversations")
+        handle.ensure_directory(conversation_root)
         service = PersistentConversationService(inference=inference,
-            session_store=ConversationSessionStore(data_root / "conversations"),
+            session_store=ConversationSessionStore(conversation_root.path),
             memory_store=CanonicalMemoryStore(data_root / "memory"))
     except Exception:
         if serving is not None:
