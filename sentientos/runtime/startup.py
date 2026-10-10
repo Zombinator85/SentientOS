@@ -4,7 +4,7 @@ from __future__ import annotations
 import signal
 import threading
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
@@ -12,7 +12,8 @@ from sentientos.installation_state import InstallationIdentity, InstallationStat
 from .local_model_chat_service import (SERVICE_ID, LocalModelChatServiceAdapter,
                                        LocalModelChatStartup, build_runtime_service_registry)
 from .local_model_chat_recovery import (ProductionLocalModelChatRecoveryController,
-                                        build_startup_snapshot, write_startup_snapshot)
+                                        LocalModelChatRecoveryError, build_startup_snapshot,
+                                        read_startup_snapshot, write_startup_snapshot)
 from .supervisor import RuntimeSupervisor
 
 
@@ -39,6 +40,17 @@ def run_canonical_runtime(
             InstallationIdentity.parse(config.installation_identity))
     registry = build_runtime_service_registry(config, installation_handle=handle)
     supervisor = supervisor_factory(registry, state_root=state_root)
+    previous_snapshot: dict[str, Any] | None = None
+    if config.enabled:
+        try:
+            previous_snapshot = read_startup_snapshot(supervisor.root)
+        except LocalModelChatRecoveryError as exc:
+            if exc.code != "runtime_startup_snapshot_unavailable":
+                raise
+    if config.enabled and previous_snapshot is not None:
+        adapter = registry.adapter(SERVICE_ID)
+        assert isinstance(adapter, LocalModelChatServiceAdapter)
+        adapter.bind_prior_startup_snapshot(previous_snapshot)
     stopping = stop_event or threading.Event()
     previous: dict[signal.Signals, Any] = {}
 
@@ -56,6 +68,8 @@ def run_canonical_runtime(
             adapter = registry.adapter(SERVICE_ID)
             assert isinstance(adapter, LocalModelChatServiceAdapter)
             handoff = adapter.current_runtime_handoff()
+            if not isinstance(handoff, Mapping):
+                raise RuntimeError("chat_process_runtime_handoff_unavailable")
             write_startup_snapshot(build_startup_snapshot(
                 config, supervisor.generation, runtime_handoff=handoff), supervisor.root)
             assert handle is not None

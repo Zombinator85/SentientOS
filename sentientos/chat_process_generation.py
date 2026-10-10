@@ -21,7 +21,8 @@ from .installation_state import (
     InstallationIdentity, InstallationStateError, InstallationStateHandle, InstallationStateRegistry,
 )
 
-SCHEMA = "sentientos.chat_process_generation_handoff:v1"
+SCHEMA = "sentientos.chat_process_generation_handoff:v2"
+LEGACY_SCHEMA = "sentientos.chat_process_generation_handoff:v1"
 RELATIVE_ROOT = "local-model/chat/runtime-handoffs"
 HANDOFF_ID = re.compile(r"^[0-9a-f]{32}$")
 MAX_HANDOFF_BYTES = 1_048_576
@@ -139,7 +140,8 @@ def _handoff_path(handle: InstallationStateHandle, handoff_id: str):
     return handle.fixed_object(f"{RELATIVE_ROOT}/{handoff_id}.json")
 
 
-def _read_handoff(handle: InstallationStateHandle, handoff_id: str) -> dict[str, Any]:
+def _read_handoff(handle: InstallationStateHandle, handoff_id: str, *,
+                  verify_predecessor: bool = True) -> dict[str, Any]:
     try:
         raw = handle.read_regular_bounded(_handoff_path(handle, handoff_id), max_bytes=MAX_HANDOFF_BYTES)
         value = json.loads(raw.decode("utf-8"))
@@ -147,12 +149,22 @@ def _read_handoff(handle: InstallationStateHandle, handoff_id: str) -> dict[str,
         raise
     except Exception as exc:
         raise ChatProcessGenerationError("chat_process_handoff_unavailable") from exc
-    expected_fields = {"schema_version", "handoff_id", "installation_identity", "issuer",
+    base_fields = {"schema_version", "handoff_id", "installation_identity", "issuer",
         "source_root", "software_generation_digest", "source_members", "process_id",
         "parent_process_id", "startup_timestamp", "python_executable", "argv_digest",
         "working_directory", "environment_digest", "process_instance_id", "handoff_digest"}
-    if (not isinstance(value, dict) or set(value) != expected_fields
-            or value.get("schema_version") != SCHEMA or value.get("handoff_id") != handoff_id):
+    lineage_fields = {"prior_snapshot_handoff", "prior_snapshot_digest",
+        "prior_snapshot_supervisor_generation", "predecessor_relation",
+        "prior_process_overlap_status"}
+    if not isinstance(value, dict) or value.get("handoff_id") != handoff_id:
+        raise ChatProcessGenerationError("chat_process_handoff_shape_invalid")
+    if value.get("schema_version") == LEGACY_SCHEMA:
+        expected_fields = base_fields
+    elif value.get("schema_version") == SCHEMA:
+        expected_fields = base_fields | lineage_fields
+    else:
+        raise ChatProcessGenerationError("chat_process_handoff_shape_invalid")
+    if set(value) != expected_fields:
         raise ChatProcessGenerationError("chat_process_handoff_shape_invalid")
     if raw != _canonical(value):
         raise ChatProcessGenerationError("chat_process_handoff_noncanonical")
@@ -161,6 +173,39 @@ def _read_handoff(handle: InstallationStateHandle, handoff_id: str) -> dict[str,
         raise ChatProcessGenerationError("chat_process_handoff_digest_mismatch")
     if value.get("installation_identity") != handle.identity.value or value.get("issuer") != "LocalModelChatServiceAdapter":
         raise ChatProcessGenerationError("chat_process_handoff_installation_mismatch")
+    if value.get("schema_version") == SCHEMA:
+        prior = value.get("prior_snapshot_handoff")
+        snapshot_digest = value.get("prior_snapshot_digest")
+        prior_supervisor = value.get("prior_snapshot_supervisor_generation")
+        relation = value.get("predecessor_relation")
+        if prior is None:
+            if (snapshot_digest is not None or prior_supervisor is not None
+                    or relation != "prior_snapshot_handoff_unavailable"
+                    or value.get("prior_process_overlap_status") != "unknown"):
+                raise ChatProcessGenerationError("chat_process_handoff_predecessor_invalid")
+        elif (not isinstance(prior, dict)
+                or set(prior) != {"handoff_id", "handoff_digest", "process_instance_id",
+                    "software_generation_digest", "process_id", "parent_process_id",
+                    "startup_timestamp", "source_generation_scope"}
+                or not isinstance(snapshot_digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", snapshot_digest)
+                or not isinstance(prior_supervisor, str) or not prior_supervisor
+                or relation != "prior_snapshot_reference_not_direct"
+                or value.get("prior_process_overlap_status") != "unknown"):
+            raise ChatProcessGenerationError("chat_process_handoff_predecessor_invalid")
+        else:
+            if prior["handoff_id"] == handoff_id:
+                raise ChatProcessGenerationError("chat_process_handoff_predecessor_cycle")
+            if verify_predecessor:
+                predecessor_record = _read_handoff(handle, str(prior["handoff_id"]),
+                    verify_predecessor=False)
+                if prior["handoff_digest"] != predecessor_record["handoff_digest"]:
+                    raise ChatProcessGenerationError("chat_process_handoff_predecessor_digest_mismatch")
+                for key in ("process_instance_id", "software_generation_digest",
+                        "process_id", "parent_process_id", "startup_timestamp",
+                        "source_generation_scope"):
+                    if prior.get(key) != predecessor_record.get(key):
+                        raise ChatProcessGenerationError("chat_process_handoff_predecessor_identity_mismatch")
     members = value.get("source_members")
     if (not isinstance(members, list) or not members or len(members) > MAX_SOURCE_FILES
             or any(not isinstance(item, dict) or set(item) != {"path", "sha256", "size_bytes"}
@@ -201,7 +246,10 @@ def publish_chat_process_handoff(*, handle: InstallationStateHandle, handoff_id:
                                  argv: Sequence[str], environment: Mapping[str, str],
                                  working_directory: str | Path, process_id: int,
                                  parent_process_id: int, startup_timestamp: str,
-                                 python_executable: str, repository_root: str | Path) -> dict[str, Any]:
+                                 python_executable: str, repository_root: str | Path,
+                                 prior_snapshot_handoff: Mapping[str, Any] | None = None,
+                                 prior_snapshot_digest: str | None = None,
+                                 prior_snapshot_supervisor_generation: str | None = None) -> dict[str, Any]:
     """Publish immutable launch evidence from the actual child-owning runtime adapter."""
     if type(handle) is not InstallationStateHandle:
         raise ChatProcessGenerationError("authenticated_installation_handle_required")
@@ -218,7 +266,26 @@ def publish_chat_process_handoff(*, handle: InstallationStateHandle, handoff_id:
         "source_members": list(members), "process_id": process_id, "parent_process_id": parent_process_id,
         "startup_timestamp": startup_timestamp, "python_executable": os.path.realpath(python_executable),
         "argv_digest": argv_digest, "working_directory": str(Path(working_directory).resolve()),
-        "environment_digest": _digest(dict(environment))}
+        "environment_digest": _digest(dict(environment)),
+        "prior_snapshot_handoff": None, "prior_snapshot_digest": None,
+        "prior_snapshot_supervisor_generation": None,
+        "predecessor_relation": "prior_snapshot_handoff_unavailable",
+        "prior_process_overlap_status": "unknown"}
+    if prior_snapshot_handoff is not None:
+        prior = _handoff_identity(prior_snapshot_handoff)
+        verified_prior = verify_stored_chat_process_handoff(handle=handle,
+            handoff_id=str(prior["handoff_id"]), expected_digest=str(prior["handoff_digest"]))
+        if any(prior[key] != verified_prior[key] for key in prior):
+            raise ChatProcessGenerationError("chat_process_predecessor_handoff_mismatch")
+        if (not isinstance(prior_snapshot_digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", prior_snapshot_digest)
+                or not isinstance(prior_snapshot_supervisor_generation, str)
+                or not prior_snapshot_supervisor_generation):
+            raise ChatProcessGenerationError("chat_process_predecessor_snapshot_binding_invalid")
+        record["prior_snapshot_handoff"] = prior
+        record["prior_snapshot_digest"] = prior_snapshot_digest
+        record["prior_snapshot_supervisor_generation"] = prior_snapshot_supervisor_generation
+        record["predecessor_relation"] = "prior_snapshot_reference_not_direct"
     record["process_instance_id"] = _process_instance_id(handoff_id=handoff_id,
         pid=process_id, parent_pid=parent_process_id, argv_digest=argv_digest,
         startup_timestamp=startup_timestamp)
@@ -252,6 +319,27 @@ def publish_chat_process_handoff(*, handle: InstallationStateHandle, handoff_id:
     return record
 
 
+
+def _handoff_summary(record: Mapping[str, Any], status: str) -> dict[str, Any]:
+    summary: dict[str, Any] = {"status": status,
+        "handoff_id": record["handoff_id"], "handoff_digest": record["handoff_digest"],
+        "process_instance_id": record["process_instance_id"],
+        "software_generation_digest": record["software_generation_digest"],
+        "process_id": record["process_id"], "parent_process_id": record["parent_process_id"],
+        "startup_timestamp": record["startup_timestamp"],
+        "source_generation_scope": "sentientos_and_scripts_python_sources"}
+    if record.get("schema_version") == SCHEMA:
+        summary["prior_snapshot_generation"] = {
+            "handoff": record["prior_snapshot_handoff"],
+            "startup_snapshot_digest": record["prior_snapshot_digest"],
+            "supervisor_generation": record["prior_snapshot_supervisor_generation"],
+            "relation": record["predecessor_relation"],
+            "overlap_status": record["prior_process_overlap_status"],
+            "direct_predecessorship": "not_proven",
+            "intervening_runtime_generations": "unknown"}
+    return summary
+
+
 def verify_current_chat_process_handoff(*, handle: InstallationStateHandle,
                                          handoff_id: str) -> dict[str, Any]:
     """Check this child process against the parent's immutable launch record."""
@@ -266,13 +354,7 @@ def verify_current_chat_process_handoff(*, handle: InstallationStateHandle,
     generation_digest, _members = source_generation(record["source_root"])
     if generation_digest != record["software_generation_digest"]:
         raise ChatProcessGenerationError("chat_process_source_generation_changed")
-    return {"status": "runtime_launcher_process_and_source_bound",
-        "handoff_id": handoff_id, "handoff_digest": record["handoff_digest"],
-        "process_instance_id": record["process_instance_id"],
-        "software_generation_digest": record["software_generation_digest"],
-        "process_id": record["process_id"], "parent_process_id": record["parent_process_id"],
-        "startup_timestamp": record["startup_timestamp"],
-        "source_generation_scope": "sentientos_and_scripts_python_sources"}
+    return _handoff_summary(record, "runtime_launcher_process_and_source_bound")
 
 
 
@@ -302,13 +384,17 @@ def verify_supervised_chat_process_handoff(*, handle: InstallationStateHandle, h
     generation_digest, _members = source_generation(record["source_root"])
     if generation_digest != record["software_generation_digest"]:
         raise ChatProcessGenerationError("chat_process_source_generation_changed")
-    return {"status": "runtime_launcher_child_launch_and_source_bound",
-        "handoff_id": handoff_id, "handoff_digest": record["handoff_digest"],
-        "process_instance_id": record["process_instance_id"],
-        "software_generation_digest": record["software_generation_digest"],
-        "process_id": record["process_id"], "parent_process_id": record["parent_process_id"],
-        "startup_timestamp": record["startup_timestamp"],
-        "source_generation_scope": "sentientos_and_scripts_python_sources"}
+    return _handoff_summary(record, "runtime_launcher_child_launch_and_source_bound")
+
+
+
+def _handoff_identity(value: Mapping[str, Any]) -> dict[str, Any]:
+    fields = ("handoff_id", "handoff_digest", "process_instance_id",
+        "software_generation_digest", "process_id", "parent_process_id",
+        "startup_timestamp", "source_generation_scope")
+    if any(key not in value for key in fields):
+        raise ChatProcessGenerationError("chat_process_generation_edge_handoff_incomplete")
+    return {key: value[key] for key in fields}
 
 
 def verify_stored_chat_process_handoff(*, handle: InstallationStateHandle,
@@ -317,13 +403,7 @@ def verify_stored_chat_process_handoff(*, handle: InstallationStateHandle,
     record = _read_handoff(handle, handoff_id)
     if record["handoff_digest"] != expected_digest:
         raise ChatProcessGenerationError("chat_process_handoff_identity_mismatch")
-    return {"status": "runtime_launcher_process_and_source_bound",
-        "handoff_id": handoff_id, "handoff_digest": record["handoff_digest"],
-        "process_instance_id": record["process_instance_id"],
-        "software_generation_digest": record["software_generation_digest"],
-        "process_id": record["process_id"], "parent_process_id": record["parent_process_id"],
-        "startup_timestamp": record["startup_timestamp"],
-        "source_generation_scope": "sentientos_and_scripts_python_sources"}
+    return _handoff_summary(record, "runtime_launcher_process_and_source_bound")
 
 
 def open_chat_process_handoff(*, installation_identity: str, handoff_id: str,

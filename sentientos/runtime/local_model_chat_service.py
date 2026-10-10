@@ -16,14 +16,15 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 
 from sentientos.installation_state import InstallationIdentity, InstallationStateHandle
 from sentientos.local_model_production_serving import _operation_id
 from sentientos.local_model_production_serving import _semantic_digest
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.chat_process_generation import (
-    publish_chat_process_handoff, verify_supervised_chat_process_handoff,
+    publish_chat_process_handoff, verify_stored_chat_process_handoff,
+    verify_supervised_chat_process_handoff,
 )
 
 from .services import ChildProcessServiceAdapter, HealthResult
@@ -88,6 +89,9 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         self._root = root
         self._installation_handle = installation_handle
         self._handoff_id = uuid.uuid4().hex if installation_handle is not None else None
+        self._prior_snapshot_handoff: dict[str, object] | None = None
+        self._prior_snapshot_digest: str | None = None
+        self._prior_snapshot_supervisor_generation: str | None = None
         environment = dict(os.environ)
         for key in ("PYTHONHOME", "PYTHONSTARTUP", "PYTHONINSPECT", "PYTHONUSERBASE"):
             environment.pop(key, None)
@@ -99,6 +103,34 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         self._readiness_url = f"http://{config.host}:{config.port}/readyz"
         self._probe = probe or _probe_readiness
         self._stopped = False
+
+    def bind_prior_startup_snapshot(self, snapshot: Mapping[str, object]) -> None:
+        if self._installation_handle is None:
+            raise ValueError("chat_process_handoff_installation_handle_required")
+        if snapshot.get("installation_identity") != self._installation_handle.identity.value:
+            raise ValueError("chat_process_predecessor_installation_mismatch")
+        snapshot_digest = snapshot.get("snapshot_semantic_digest")
+        supervisor_generation = snapshot.get("runtime_supervisor_generation")
+        if (not isinstance(snapshot_digest, str) or len(snapshot_digest) != 64
+                or any(character not in "0123456789abcdef" for character in snapshot_digest)
+                or not isinstance(supervisor_generation, str) or not supervisor_generation):
+            raise ValueError("chat_process_predecessor_snapshot_invalid")
+        predecessor = snapshot.get("chat_process_handoff")
+        if predecessor is not None and not isinstance(predecessor, Mapping):
+            raise ValueError("chat_process_predecessor_handoff_malformed")
+        if isinstance(predecessor, Mapping):
+            historical = verify_stored_chat_process_handoff(
+                handle=self._installation_handle,
+                handoff_id=str(predecessor.get("handoff_id", "")),
+                expected_digest=str(predecessor.get("handoff_digest", "")))
+            for key in ("handoff_id", "handoff_digest", "process_instance_id",
+                    "software_generation_digest", "process_id", "parent_process_id",
+                    "startup_timestamp", "source_generation_scope"):
+                if predecessor.get(key) != historical.get(key):
+                    raise ValueError("chat_process_predecessor_handoff_mismatch")
+            self._prior_snapshot_handoff = dict(predecessor)
+            self._prior_snapshot_digest = snapshot_digest
+            self._prior_snapshot_supervisor_generation = supervisor_generation
 
     @staticmethod
     def _launcher_argv(config: LocalModelChatStartup, *, root: Path,
@@ -151,7 +183,10 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                 handoff_id=self._handoff_id, argv=self._argv, environment=self._launch_environment,
                 working_directory=self._cwd, process_id=process.pid, parent_process_id=os.getpid(),
                 startup_timestamp=startup_timestamp, python_executable=self._argv[0],
-                repository_root=self._root)
+                repository_root=self._root,
+                prior_snapshot_handoff=self._prior_snapshot_handoff,
+                prior_snapshot_digest=self._prior_snapshot_digest,
+                prior_snapshot_supervisor_generation=self._prior_snapshot_supervisor_generation)
         except Exception:
             self.force_stop()
             raise
