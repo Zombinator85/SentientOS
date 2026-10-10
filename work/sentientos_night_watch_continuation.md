@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before exact serving-model binding comparison, GitHub branch inspection verified `2798ee9b1776d6a06a93f8dad29a01bf273a54a4` (tree `490d31b2b3b3e15f23dcdfa4d562fc88391bb615`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before compacting longitudinal runtime invocation history, GitHub branch inspection verified `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -629,3 +629,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the inference bridge and World-State projector. No runtime receipt was reconciled, invocation recovered, or production behavior verified.
 
 **Next implementation dependency:** inspect caller-level recovery paths for legacy invocation and serving records after this stronger join; preserve their explicit unknown posture without allowing incomplete new linkage.
+
+
+### New checkpoint — bound longitudinal retention for runtime-linked invocations
+
+- Longitudinal self-model history now keeps a bounded subset of linked runtime invocations and consumption receipt digests, plus whole-list digests, totals, and explicit omitted counts/posture. Active model identity is retained by exact digest; serving receipt/attempt, process, software-generation, model, and resource identities remain directly attributable.
+- This prevents the previous all-or-nothing value-size check from dropping the entire runtime lineage when retained receipt lists become large. The World-State source record digest still binds the full original list; the history interpretation remains non-authorizing and historical.
+- Python compilation passed for the longitudinal self-model. No World-State reconciliation, persistence/restart, cognition, or production verification was run.
+
+**Next implementation dependency:** verify the final remote branch and continue bounded review of source-linked records for any remaining whole-claim drops; preserve explicit omission evidence.

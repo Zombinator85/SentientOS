@@ -390,12 +390,16 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         observation = fact.payload.get("chat_process_runtime_observation")
         linked_invocations = fact.payload.get("linked_invocation_receipts", ())
         if isinstance(observation, Mapping) and isinstance(linked_invocations, (list, tuple)):
-            if len(linked_invocations) > 16 or any(not isinstance(item, Mapping)
-                    for item in linked_invocations):
-                linked_invocations = ()
+            source_links = list(linked_invocations)
+            linked_invocation_source_digest = digest_payload(source_links)
+            link_posture = "complete"
+            if len(source_links) > 16 or any(not isinstance(item, Mapping) for item in source_links):
+                selected_linked_invocations = []
+                link_posture = "source_link_collection_invalid"
             else:
-                linked_invocations = [{
-                    key: item.get(key) for key in (
+                selected_linked_invocations = []
+                for item in source_links[:2]:
+                    selected = {key: item.get(key) for key in (
                         "invocation_receipt_id", "invocation_receipt_digest",
                         "invocation_request_id", "invocation_request_digest",
                         "serving_receipt_id", "serving_receipt_semantic_digest",
@@ -403,10 +407,28 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                         "serving_operation_id", "serving_session_id",
                         "serving_receipt_lineage_posture",
                         "resource_allocation_digest", "resource_attempt_id",
-                        "resource_consumption_receipt_digests", "resource_effect_receipt_digest",
-                        "model_id", "model_artifact_digest", "active_model_identity_at_invocation",
-                        "linkage_posture", "current_model_claimed")
-                } for item in linked_invocations]
+                        "resource_effect_receipt_digest", "model_id", "model_artifact_digest",
+                        "linkage_posture", "current_model_claimed")}
+                    consumption = item.get("resource_consumption_receipt_digests", ())
+                    if not isinstance(consumption, (list, tuple)):
+                        link_posture = "source_link_collection_invalid"
+                        selected["resource_consumption_receipt_digests"] = None
+                    else:
+                        selected["resource_consumption_receipt_digests"] = list(consumption[:4])
+                        selected["resource_consumption_receipt_digests_digest"] = (
+                            digest_payload(list(consumption)))
+                        selected["resource_consumption_receipt_digests_total"] = len(consumption)
+                        selected["resource_consumption_receipt_digests_omitted"] = max(
+                            0, len(consumption) - 4)
+                        if len(consumption) > 4:
+                            link_posture = "bounded_subset_with_source_digest"
+                    model_identity = item.get("active_model_identity_at_invocation")
+                    selected["active_model_identity_digest"] = (
+                        digest_payload(dict(model_identity))
+                        if isinstance(model_identity, Mapping) else None)
+                    selected_linked_invocations.append(selected)
+                if len(source_links) > len(selected_linked_invocations):
+                    link_posture = "bounded_subset_with_source_digest"
             lineage = {
                 "source_record_id": fact.source.source_id,
                 "source_record_digest": fact.source.digest,
@@ -430,7 +452,12 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "software_generation_digest": observation.get("software_generation_digest"),
                 "source_generation_scope": observation.get("source_generation_scope"),
                 "invocation_linkage_posture": fact.payload.get("invocation_linkage_posture"),
-                "linked_invocation_receipts": linked_invocations,
+                "linked_invocation_receipts": selected_linked_invocations,
+                "linked_invocation_receipts_source_digest": linked_invocation_source_digest,
+                "linked_invocation_receipts_total": len(source_links),
+                "linked_invocation_receipts_omitted": max(
+                    0, len(source_links) - len(selected_linked_invocations)),
+                "linked_invocation_receipts_posture": link_posture,
                 "current_model_claimed": False,
                 "currentness": "historical_owner_observation_only",
                 "independent_signature": False,
