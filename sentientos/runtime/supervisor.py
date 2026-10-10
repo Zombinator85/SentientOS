@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import tempfile
 import threading
@@ -205,7 +206,77 @@ class RuntimeSupervisor:
                 row.get("event") != "registry_snapshot" for row in rows):
             self._recovery_failure("lifecycle_receipt_without_state_anchor")
             return
+        self._reconcile_restart_history(rows, state_sequence)
         self._sequence = max(state_sequence, journal_sequence)
+
+    def _reconcile_restart_history(self, rows: list[dict[str, object]],
+                                   state_sequence: int) -> None:
+        """Recover only journaled retry debits newer than the state snapshot.
+
+        The snapshot sequence is the publication boundary: schedule rows at or
+        below it are already represented in the snapshot; rows after it were
+        durably appended before a crash and must each consume one retry slot.
+        Receipt sequence, rather than timestamp deduplication, preserves two
+        legitimate retries even when a coarse/injected clock gives them the
+        same timestamp.
+        """
+        now = self._clock()
+        if not math.isfinite(now):
+            self._recovery_failure("restart_recovery_clock_invalid")
+            return
+        for row in rows:
+            if row.get("event") != "restart_scheduled":
+                continue
+            event_sequence = row.get("sequence")
+            if type(event_sequence) is not int:
+                self._recovery_failure("restart_schedule_sequence_invalid")
+                return
+            if event_sequence <= state_sequence:
+                continue
+            service_id = row.get("service_id")
+            if not isinstance(service_id, str) or service_id not in self.registry.descriptors:
+                self._recovery_failure("restart_schedule_service_invalid")
+                return
+            descriptor = self.registry.descriptors[service_id]
+            detail = row.get("detail")
+            if not isinstance(detail, Mapping):
+                self._recovery_failure("restart_schedule_detail_invalid")
+                return
+            scheduled_at = detail.get("restart_at")
+            if scheduled_at is None:
+                try:
+                    event_time = datetime.fromisoformat(
+                        str(row.get("timestamp")).replace("Z", "+00:00"))
+                    scheduled_at = event_time.timestamp()
+                except (OverflowError, OSError, ValueError):
+                    self._recovery_failure("restart_schedule_timestamp_invalid")
+                    return
+            if type(scheduled_at) not in (int, float):
+                self._recovery_failure("restart_schedule_timestamp_invalid")
+                return
+            try:
+                scheduled_at = float(scheduled_at)
+            except (OverflowError, ValueError):
+                self._recovery_failure("restart_schedule_timestamp_invalid")
+                return
+            if not math.isfinite(scheduled_at):
+                self._recovery_failure("restart_schedule_timestamp_invalid")
+                return
+            if now - scheduled_at > descriptor.rolling_restart_window:
+                continue
+            history = self._restarts.get(service_id)
+            if not isinstance(history, list):
+                self._recovery_failure("restart_state_history_invalid")
+                return
+            if any(type(value) not in (int, float) or not math.isfinite(float(value))
+                   for value in history):
+                self._recovery_failure("restart_state_history_invalid")
+                return
+            active_history = [float(value) for value in history
+                              if now - float(value) <= descriptor.rolling_restart_window]
+            active_history.append(scheduled_at)
+            active_history.sort()
+            self._restarts[service_id] = active_history
 
     def _atomic(self, payload: object) -> None:
         fd, tmp = tempfile.mkstemp(prefix=".supervisor-", dir=self.root)
@@ -357,15 +428,23 @@ class RuntimeSupervisor:
     def _restart(self, service_id: str) -> None:
         d = self.registry.descriptors[service_id]
         if self.panic_latched or d.restart_policy != "on_failure" or service_id in self._exhausted: return
-        now = self._clock(); history = [x for x in self._restarts[service_id] if now - x <= d.rolling_restart_window]
+        now = self._clock()
+        history = [value for value in self._restarts[service_id]
+                   if now - value <= d.rolling_restart_window]
         self._restarts[service_id] = history
         if len(history) >= d.restart_budget:
-            self._exhausted.add(service_id); self._transition(service_id, "failed", "restart_budget_exhausted", "restart_budget_exhausted"); return
+            self._exhausted.add(service_id)
+            self._transition(service_id, "failed", "restart_budget_exhausted",
+                "restart_budget_exhausted")
+            return
         delay = min(d.max_backoff, d.min_backoff * (2 ** len(history)))
-        self._receipt("restart_scheduled", service_id, {"backoff_seconds": delay, "used": len(history), "budget": d.restart_budget})
-        self._sleep(delay)
-        history.append(self._clock())
+        scheduled_at = self._clock()
+        history.append(scheduled_at)
         self._restarts[service_id] = history
+        self._receipt("restart_scheduled", service_id, {
+            "backoff_seconds": delay, "used": len(history) - 1,
+            "budget": d.restart_budget, "restart_at": scheduled_at})
+        self._sleep(delay)
         try:
             self._call(self.registry.adapter(service_id).force_stop, d.shutdown_timeout)
         except Exception as exc:

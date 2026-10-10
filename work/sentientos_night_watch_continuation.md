@@ -840,3 +840,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the invocation owner, serving inference bridge, and read-only observer. No receipt limit, concurrent call, provider, or production behavior was executed.
 
 **Next implementation dependency:** continue source review of the durable chat request/history boundary with the new preflight outcome: ensure capacity refusal creates no pending user turn that later appears as successful cognition, and preserves existing same-request no-replay semantics after genuine post-effect failures.
+
+
+
+## New checkpoint — recover restart-budget debits from lifecycle journal
+
+- The durable lifecycle journal can contain a restart schedule receipt whose state snapshot replacement was interrupted. The prior recovery path attempted timestamp-based duplicate detection; equal timestamps from a coarse or injected clock could collapse distinct retry operations and undercount the restart budget.
+- Restart recovery now uses the validated journal sequence and snapshot sequence as the publication boundary. It restores every in-window `restart_scheduled` receipt newer than the snapshot exactly once, while rows already covered by the snapshot are not replayed. Equal timestamps remain distinct receipt identities.
+- Recovery rejects invalid/non-finite clocks, schedule timestamps, and restart-history values into the supervisor's existing panic/degraded recovery posture. It does not execute stop or restart effects during reconstruction.
+- `python -m py_compile` passed for the changed supervisor source. No runtime service behavior or test suite was executed; construction remains unverified for production.
+
+**Next implementation dependency:** continue bounded source review of supervisor restart-state persistence and lifecycle receipt recovery, focusing on validating the durable state snapshot's shape and restart-history values before they influence service retry decisions.
