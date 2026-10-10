@@ -379,6 +379,18 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         if _time(observation.observed_at) < _time(renderer_report.started_at if renderer_report else expectation.created_at):
             raise EmbodiedConsequenceError("observation_predates_command")
     rows, counts = _compare(expectation, observation)
+    # A comparison cannot predate the evidence it interprets. Keep evaluation
+    # time distinct from event time, but reject a caller-supplied clock that
+    # would reverse the causal ordering of the persisted chain.
+    latest_evidence_time = max(
+        _time(expectation.created_at),
+        *(_time(value) for value in (
+            renderer_report.completed_at if renderer_report is not None else None,
+            observation.observed_at if observation is not None else None,
+        ) if value is not None),
+    )
+    if now < latest_evidence_time:
+        raise EmbodiedConsequenceError("comparison_predates_evidence")
     stale = now > _time(expectation.expires_at)
     if generation_mismatch: classification = "body_generation_mismatch"
     elif mismatch: classification = "correlation_mismatch"
