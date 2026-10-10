@@ -11,12 +11,14 @@ import os
 import re
 import tempfile
 import uuid
-import fcntl
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any, Mapping, Sequence
+
+from .platform_fcntl import fcntl, require_flock
+from .windows_handle_custody import read_explicit_file
 
 SCHEMA = "sentientos.conversation_session:v1"
 MAX_TURN_BYTES = 64 * 1024
@@ -34,6 +36,8 @@ def _digest(value: object) -> str:
 
 
 def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:
+    if os.name != "posix":
+        raise ValueError("conversation_publication_unsupported_platform")
     raw = (json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     if len(raw) > MAX_SESSION_BYTES:
         raise ValueError("session_size_limit")
@@ -82,6 +86,10 @@ class ConversationSessionStore:
         self.lock_timeout_seconds = lock_timeout_seconds
 
     def _locked(self, session_id: str) -> IO[str]:
+        try:
+            require_flock()
+        except OSError as exc:
+            raise ValueError("conversation_lock_custody_unsupported_platform") from exc
         handle = (self.root / f".{session_id}.lock").open("a+")
         deadline = time.monotonic() + self.lock_timeout_seconds
         while True:
@@ -113,8 +121,14 @@ class ConversationSessionStore:
 
     def load(self, session_id: str) -> dict[str, Any]:
         path = self._path(session_id)
-        raw = path.read_bytes()
-        if len(raw) > MAX_SESSION_BYTES: raise ValueError("session_size_limit")
+        try:
+            raw = read_explicit_file(path, max_bytes=MAX_SESSION_BYTES)
+        except OSError as exc:
+            raise ValueError("session_read_unavailable") from exc
+        except ValueError as exc:
+            if str(exc) == "explicit_file_missing":
+                raise FileNotFoundError(session_id) from exc
+            raise ValueError("session_read_invalid") from exc
         try: loaded: object = json.loads(raw)
         except json.JSONDecodeError as exc: raise ValueError("malformed_session") from exc
         if not isinstance(loaded, dict): raise ValueError("invalid_session")
