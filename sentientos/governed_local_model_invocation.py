@@ -149,9 +149,9 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     legacy_semantic_keys = ["request", "status", "reason_codes", "output_digest",
         "output_size_bytes", "generation_config", "admission_decision_ref", "purpose",
         "output_truncated", "fallback_occurred", "effects"]
-    if schema is None:
+    if "schema_version" not in payload:
         # Historical v1 receipts intentionally omit schema_version and bind
-        # exactly the pre-v2 field set. Do not reinterpret their identities.
+        # exactly the pre-v2 field set. An explicit null is not legacy.
         semantic = {key: payload.get(key) for key in legacy_semantic_keys}
     elif schema == INVOCATION_RECEIPT_SCHEMA:
         semantic = {key: payload.get(key) for key in (

@@ -19,8 +19,10 @@ else:
 
 from .change_narrator import ChangeNarrator, build_default_change_narrator
 from .event_stream import history as boot_history
-from .governed_local_model_invocation import GovernedLocalModelInvoker
-from .governed_local_model_invocation import LocalModelInvocationReceipt
+from .governed_local_model_invocation import (
+    GovernedLocalModelInvoker, LocalModelInvocationBudget,
+    LocalModelInvocationReceipt, LocalModelPostEffectCustodyError,
+)
 from .installation_state import InstallationIdentity, InstallationStateRegistry
 from .control_plane_kernel import ControlPlaneKernel
 from .local_model_production_serving import ProductionServingController
@@ -36,9 +38,6 @@ from .conversation_session import (
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, sentientos_data_dir)
-from .governed_local_model_invocation import (
-    LocalModelInvocationBudget, LocalModelPostEffectCustodyError,
-)
 from .local_model_authority import digest_payload
 
 LOGGER = logging.getLogger(__name__)

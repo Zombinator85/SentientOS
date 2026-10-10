@@ -711,3 +711,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the invocation and chat service modules. No persistence fault, sink fault, HTTP request, inference call, or recovery run was performed.
 
 **Next implementation dependency:** perform the bounded source review of retry/idempotency in the persistent conversation store against these 503 outcomes. Confirm the stored user turn prevents re-entering the same invocation after a post-effect custody error and preserves the pending/incomplete request rather than fabricating an assistant result.
+
+### New checkpoint — confirm transcript retry suppression and strict v1 detection
+
+- Source review confirms the chat service appends a canonical idempotent user-request turn before calling inference. If post-effect custody failure prevents an assistant turn, a retry with that same request ID finds the pending turn and returns `chat_request_interrupted_no_replay`; it does not call inference again.
+- The request ID remains optional, so a separately submitted request without it is treated as a new user action. The post-effect 503 warns against automatic retry; the source does not guess that two distinct user messages are duplicates.
+- Invocation receipt validation now treats only an omitted `schema_version` as historical v1. An explicit null or unknown version is rejected instead of being routed through legacy digest semantics.
+- The stored-invocation verifier and installation observer both call the shared version-aware `validate_receipt`. Python compilation passed for the invocation and chat service modules; no chat turn or retry was executed.
+
+**Next implementation dependency:** inspect the durable resource-ledger receipt publication/recovery contract for the same distinction between a not-yet-published final linkage and a genuinely legacy unlinked invocation; maintain explicit degraded posture across restart.
