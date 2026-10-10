@@ -785,3 +785,11 @@ Source review confirms this process handoff and recurring observation path alrea
 - The existing resource observer reads one canonical installation runtime-observation image, validates its semantic digest, and labels it historical (`historically_observed_running` or `historically_not_verified`). The World-State projection uses the observation's own event time and semantic digest in its source identity; replay of the same image is stable, while a new health observation receives a new event identity. The epistemic adapter preserves the event time but treats runtime-observation evidence as contextual, unknown-freshness interpretation.
 - The observer's bounded invocation directory rejects entry overflow and per-file byte overflow rather than silently projecting a partial complete set.
 - The next source-level recovery gap is the adjacent runtime lifecycle journal: supervisor sequence state and append-only lifecycle receipts are published separately, and recovery currently trusts the state file without reconciling a possibly appended receipt. Inspect and repair sequence/idempotency recovery without replaying service starts or other lifecycle actions.
+
+
+## New source finding — lifecycle sequence recovery gap
+
+- `RuntimeSupervisor._receipt()` currently increments its in-memory sequence, appends/fsyncs one lifecycle JSONL row, and then atomically persists the sequence snapshot. `_load()` restores only the snapshot's sequence and does not reconcile the durable journal. A crash after journal append but before snapshot replacement can therefore cause the next process to reuse an already durable sequence.
+- The lifecycle journal is append-only and not a service-start command queue. Recovery must reconcile identity/sequence only and must not replay starts, restarts, or effects.
+
+**Next implementation dependency:** make lifecycle journal publication and restart sequence recovery idempotent and bounded, preserving legacy receipt rows and fail-closed behavior on malformed/conflicting history.
