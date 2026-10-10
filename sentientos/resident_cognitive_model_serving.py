@@ -133,6 +133,51 @@ class ServingSession:
         return {"session_id": self.session_id, "binding": dict(self.binding), "status": self.status}
 
 
+def verify_resident_serving_session_receipt(handle: InstallationStateHandle,
+        session: Mapping[str, Any]) -> dict[str, Any]:
+    """Verify exact durable serving and privilege receipts for a historical session."""
+    if not isinstance(handle, InstallationStateHandle):
+        raise ResidentCognitiveModelServingError("authenticated_installation_handle_required")
+    session_id, binding = session.get("session_id"), session.get("binding")
+    if (not isinstance(session_id, str) or not session_id.startswith("resident-serving-session-")
+            or not isinstance(binding, Mapping) or session.get("status") != "production_current"
+            or binding.get("installation_identity") != handle.identity.value):
+        raise ResidentCognitiveModelServingError("historical_serving_session_invalid")
+    body = {"schema_version": RECEIPT_SCHEMA, **dict(session),
+        "control_plane_authority_class": AuthorityClass.MODEL_SERVING.value,
+        "admission_outcome": "allow", "model_loaded": True, "resident_serving_bound": True,
+        "inference_performed": False, "local_model_inference_authority_granted": False,
+        "canonical_activation_mutated": False, "production_chat_serving_mutated": False,
+        "cognitive_model_transition_performed": False, "adjacent_authority_granted": False}
+    receipt = {**body, "receipt_id": "resident-serving-receipt-" + semantic_digest(body)[:24]}
+    receipt["receipt_semantic_digest"] = semantic_digest(receipt)
+    raw = handle.read_regular(handle.fixed_object(
+        f"local-model/resident-cognitive-serving/receipts/{receipt['receipt_id']}.json"))
+    if len(raw) > 1_048_576:
+        raise ResidentCognitiveModelServingError("historical_serving_receipt_over_bound")
+    try:
+        stored = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, ValueError) as exc:
+        raise ResidentCognitiveModelServingError("historical_serving_receipt_malformed") from exc
+    if raw != _canonical(stored) or stored != receipt:
+        raise ResidentCognitiveModelServingError("historical_serving_receipt_mismatch")
+    witness = {"schema_version": WITNESS_SCHEMA, "session_id": session_id,
+        "receipt_id": receipt["receipt_id"], "receipt_semantic_digest": receipt["receipt_semantic_digest"],
+        "admission_decision_ref": binding.get("model_serving_admission_ref"),
+        "authority_class": AuthorityClass.MODEL_SERVING.value, "inference_performed": False}
+    witness["witness_semantic_digest"] = semantic_digest(witness)
+    witness_raw = handle.read_regular(handle.fixed_object(f"logs/privileges/{receipt['receipt_id']}.json"))
+    if len(witness_raw) > 65_536:
+        raise ResidentCognitiveModelServingError("historical_serving_witness_over_bound")
+    try:
+        stored_witness = json.loads(witness_raw.decode("utf-8"))
+    except (UnicodeError, ValueError) as exc:
+        raise ResidentCognitiveModelServingError("historical_serving_witness_malformed") from exc
+    if witness_raw != _canonical(stored_witness) or stored_witness != witness:
+        raise ResidentCognitiveModelServingError("historical_serving_witness_mismatch")
+    return receipt
+
+
 class ResidentCognitiveModelServingController:
     """Owns at most one exact-runtime model and never exposes that model publicly."""
 

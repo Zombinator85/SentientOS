@@ -12,6 +12,7 @@ from .local_model_production_activation import (
 from .local_runtime_provisioning import semantic_digest
 from .resident_cognitive_model_serving import (
     ResidentCognitiveModelServingController, ResidentCognitiveServingSlot,
+    verify_resident_serving_session_receipt,
 )
 from .resident_cognitive_model_transition_experiment import (
     ResidentCognitionQuiescenceGate, TransitionError, TransitionJournal,
@@ -100,6 +101,11 @@ class ResidentCognitiveTransitionStageOperations:
             self.installation_handle, activation,
             allow_synthetic_evidence_for_tests=self.allow_synthetic_evidence_for_tests)
 
+    def verify_historical_serving_session(self, session: Mapping[str, Any]) -> Mapping[str, Any]:
+        receipt = verify_resident_serving_session_receipt(self.installation_handle, session)
+        return {"receipt_id": receipt["receipt_id"],
+                "receipt_semantic_digest": receipt["receipt_semantic_digest"]}
+
     def _quiescence(self) -> Mapping[str, Any]:
         for entry in reversed(self.journal.entries()):
             if entry["status"] == "completed" and entry["phase"] in {"a_quiesced", "b_quiesced"}:
@@ -129,7 +135,11 @@ class ResidentCognitiveTransitionStageOperations:
         bound = self.slot.bind_transition_verified(controller, gate=self.gate,
             quiescence=self._quiescence(), stage_binding=binding,
             protocol=self.protocol, stage=stage)
+        durable_receipt = verify_resident_serving_session_receipt(
+            self.installation_handle, bound.to_dict())
         return {"stage_binding": dict(binding), "session": bound.to_dict(),
+                "serving_receipt_id": durable_receipt["receipt_id"],
+                "serving_receipt_semantic_digest": durable_receipt["receipt_semantic_digest"],
                 "serving_admission": bound.binding["model_serving_admission_ref"]}
 
     def activate_successor(self, context: TransitionStageExecutionContext | None = None) -> Mapping[str, Any]:

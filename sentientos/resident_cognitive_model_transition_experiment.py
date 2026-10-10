@@ -358,6 +358,7 @@ def verify_stage_serving_binding(binding: Mapping[str, Any], *, protocol: Transi
 
 class TransitionStageOperations(Protocol):
     def verify_historical_activation(self, activation: Mapping[str, Any]) -> Mapping[str, Any]: ...
+    def verify_historical_serving_session(self, session: Mapping[str, Any]) -> Mapping[str, Any]: ...
     def activate_successor(self, context: "TransitionStageExecutionContext | None" = None) -> Mapping[str, Any]: ...
     def serve_successor(self, activation: Mapping[str, Any]) -> Mapping[str, Any]: ...
     def activate_restored_predecessor(self, context: "TransitionStageExecutionContext | None" = None) -> Mapping[str, Any]: ...
@@ -520,6 +521,17 @@ class ResidentCognitiveModelTransitionController:
             session_id, session_binding = session.get("session_id"), session.get("binding")
             if not isinstance(session_binding, Mapping):
                 return "serving_stage_session_binding_missing"
+            receipt_verifier = getattr(self.operations, "verify_historical_serving_session", None)
+            if not callable(receipt_verifier):
+                return "serving_receipt_verifier_unavailable"
+            try:
+                serving_receipt = receipt_verifier(session)
+            except Exception:
+                return "serving_receipt_unverified"
+            if (serving_receipt.get("receipt_id") != evidence.get("serving_receipt_id")
+                    or serving_receipt.get("receipt_semantic_digest")
+                    != evidence.get("serving_receipt_semantic_digest")):
+                return "serving_receipt_binding_mismatch"
             activation_state = {key: value for key, value in prior_activation.items()
                 if key not in {"receipt_id", "receipt_semantic_digest", "activation_history_digest",
                                "commissioning_active_model_identity", "activation_transition_stage"}}

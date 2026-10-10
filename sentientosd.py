@@ -1311,7 +1311,8 @@ class RuntimeMaintenanceSurfaces:
                             "transition_protocol_digest": protocol_value.get("protocol_digest"),
                             "developmental_history_boundary": (protocol_value.get("initial_history_boundary", {}).get("boundary_digest")
                                 if isinstance(protocol_value.get("initial_history_boundary"), Mapping) else None),
-                            "replay_forbidden": True}
+                            "replay_forbidden": True,
+                            "stage_semantic_recovery_posture": health.get("status", "unknown")}
                         successor_provenance = provenance_bindings.get("successor_b",
                             {"posture": "unavailable_not_protocol_bound"})
                         payload["proposed_successor_model_development_provenance"] = successor_provenance
@@ -1333,6 +1334,8 @@ class RuntimeMaintenanceSurfaces:
                         if (binding is not None and entry.get("status") == "completed"
                                 and phase in {"b_serving_bound", "restored_a_serving_bound"}):
                             payload["serving_binding_digest"] = binding.get("binding_digest")
+                            payload["serving_receipt_id"] = evidence.get("serving_receipt_id")
+                            payload["serving_receipt_semantic_digest"] = evidence.get("serving_receipt_semantic_digest")
                             payload["serving_activation_receipt_id"] = binding.get("activation_receipt_id")
                             payload["serving_activation_receipt_digest"] = binding.get("activation_receipt_digest")
                             payload["serving_activation_history_digest"] = binding.get("activation_history_digest")
@@ -1343,7 +1346,7 @@ class RuntimeMaintenanceSurfaces:
                             "source_id": f"resident_transition:{transition_id}:{entry.get('entry_digest')}:{provenance_identity}",
                             "subject_id": transition_id, "subject_kind": "resident_model_transition",
                             "stage": "observation", "disposition": disposition,
-                            "evidence_strength": "validated_transition_journal_entry", "payload": payload,
+                            "evidence_strength": "digest_valid_transition_journal_entry", "payload": payload,
                             "observed_at": entry.get("event_time"), "effect_claimed": False, "effect_proven": False})
                 session_identity = status.get("resident_model_identity")
                 if session_identity is not None:
