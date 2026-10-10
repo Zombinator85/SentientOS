@@ -95,13 +95,42 @@ def _source_staleness(kind:str, observed_at:str|None, declared:Any, now:datetime
 
 class WorldStateBoardBuilder:
     def __init__(self, *, allowed_roots:Sequence[Path|str]=(), max_source_count:int=64, max_artifact_size:int=1048576, clock:Callable[[],datetime]|None=None):
+        if (type(max_source_count) is not int or max_source_count < 1
+                or type(max_artifact_size) is not int or max_artifact_size < 1):
+            raise ValueError("world_state_bounds_invalid")
         self.allowed_roots=tuple(str(Path(r).resolve()) for r in allowed_roots); self.max_source_count=max_source_count; self.max_artifact_size=max_artifact_size; self.clock=clock or (lambda: datetime.now(timezone.utc))
     def build(self, records:Sequence[Mapping[str,Any]]=(), *, manifest_id:str="world-state-manifest") -> WorldStateSnapshot:
         now=self.clock(); sources=[]; facts=[]; conflicts=[]; lineage=[]; seen={}
         if len(records)>self.max_source_count: records=records[:self.max_source_count]; conflicts.append(WorldStateConflict("conflict-source-count","manifest_bounds","manifest",(),"error","maximum source count exceeded"))
         for i,r in enumerate(records):
+            if not isinstance(r, Mapping):
+                conflicts.append(WorldStateConflict(_sid("conflict",("invalid-source-record", i)),
+                    "invalid_source_record", f"record:{i}", (), "error", "source record is not a mapping"))
+                continue
             kind=str(r.get("source_kind", r.get("kind","capability_registry")))
             if kind not in {k.value for k in WorldStateSourceKind}: raise ValueError(f"unsupported source kind: {kind}")
+            try:
+                record_size = len(_canon(r).encode("utf-8"))
+            except (RecursionError, TypeError, ValueError):
+                record_size = self.max_artifact_size + 1
+            if record_size > self.max_artifact_size:
+                raw_source_id = r.get("source_id")
+                sid = (str(raw_source_id) if isinstance(raw_source_id, str)
+                    and 0 < len(raw_source_id) <= 256 else f"{kind}:oversized:{i}")
+                raw_digest = r.get("digest")
+                dg = (raw_digest if isinstance(raw_digest, str) and len(raw_digest) <= 256
+                    else "oversized-or-unavailable")
+                sources.append(WorldStateSourceRef(sid, kind, "oversized", dg,
+                    False, "redacted", "unknown", "artifact-too-large"))
+                if sid in seen and seen[sid] != dg:
+                    conflicts.append(WorldStateConflict(_sid("conflict",(sid, seen[sid], dg)),
+                        "source_digest_mismatch", sid, (), "error",
+                        "one semantic source id has different digests"))
+                seen[sid] = dg
+                conflicts.append(WorldStateConflict(_sid("conflict",(sid, dg, "artifact-too-large")),
+                    "source_artifact_oversized", sid, (), "error",
+                    "source record exceeds configured artifact bound"))
+                continue
             sid=str(r.get("source_id") or f"{kind}:{i}"); content={k:v for k,v in r.items() if k not in {"digest","observed_at","retrieved_at","latency","absolute_path","temporary_root","process_id","dashboard_request_time","output_location"}}
             dg=str(r.get("digest") or record_digest(r)); finding="ok"
             if r.get("digest") and r.get("digest") != record_digest(r): finding="digest-mismatch"
