@@ -2123,10 +2123,10 @@ class ConsequenceStore:
                 "schema_version": CONSEQUENCE_CHAIN_SCHEMA, "subject_id": chain_id,
                 "subject_kind": "embodied_consequence_chain", "stage": "observation",
                 "disposition": "recorded", "evidence_strength": "digest_bound_consequence_chain",
-                # The summary's observation time is only the time claimed by a
-                # separately digest-bound observer input. Comparison and
-                # reconstruction times remain distinct and cannot refresh it.
-                "observed_at": observation.observed_at if observation is not None else None,
+                # World-State treats top-level observed_at as nonsemantic
+                # metadata. Keep the claimed observation time only in the
+                # digest-bound event_times payload below.
+                "observed_at": None,
                 "payload": {"chain_id": chain_id, "chain_digest": chain["chain_digest"],
                     "component_source_ids": [item["source_id"] for item in chain_records],
                     "component_record_digests": [item["digest"] for item in chain_records],

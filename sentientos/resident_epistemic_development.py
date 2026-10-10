@@ -179,6 +179,8 @@ class ResidentEpistemicDevelopmentRuntime:
                                                "embodied_consequence_attribution",
                                                "embodied_prediction_comparison",
                                                "embodied_proposal_fulfillment_receipt"})
+        historical_consequence_chain = (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind == "embodied_consequence_chain")
         historical_strategy_proposal = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "embodied_strategy_proposal")
         historical_strategy_review = (fact.source.kind == "embodiment"
@@ -200,6 +202,12 @@ class ResidentEpistemicDevelopmentRuntime:
                 historical_times.extend(str(item) for item in fact.payload.get("event_times", ())
                     if isinstance(item, str))
             observed = _latest_historical_event_time(historical_times)
+        if historical_consequence_chain and isinstance(fact.payload, Mapping):
+            event_times = fact.payload.get("event_times")
+            claimed_observation_at = (event_times.get("claimed_observation_at")
+                if isinstance(event_times, Mapping) else None)
+            observed = (_latest_historical_event_time([claimed_observation_at])
+                if isinstance(claimed_observation_at, str) else None)
         if historical_resource_introspection and isinstance(fact.payload, Mapping):
             observations = fact.payload.get("observations", ())
             latest_event = next((item.get("value") for item in observations
