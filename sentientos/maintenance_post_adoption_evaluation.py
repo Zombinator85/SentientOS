@@ -8,6 +8,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
+import stat
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -25,6 +27,8 @@ COMPARATORS = frozenset({"equals","true","false","present","absent","increase","
 RESULTS = frozenset({"target_expectation_satisfied","target_expectation_contradicted","mixed_outcome",
     "new_regression_observed","no_detectable_change","insufficient_evidence","measurement_failed","indeterminate"})
 ADOPTION_RECEIPT_SCHEMA = "sentientos.maintenance_resident_runtime_adoption_receipt:v2"
+MAX_ARTIFACT_BYTES = 131_072
+MAX_RECORDS_PER_KIND = 2_048
 
 
 class PostAdoptionEvaluationError(ValueError): pass
@@ -207,28 +211,138 @@ def improvement_signal_record(evaluation: Evaluation) -> Mapping[str,Any] | None
 
 class MaintenancePostAdoptionEvaluationOwner:
     """Immutable explicit-root custody; each protocol/successor pair terminates once."""
-    def __init__(self, root: str|Path) -> None:
-        self.root=Path(root).resolve(); self.root.mkdir(parents=True,exist_ok=True,mode=0o700)
-        if self.root.is_symlink(): raise PostAdoptionEvaluationError("evaluation_custody_unsafe")
-        for name in ("protocols","baselines","observations","evaluations","signals","recommendations"): (self.root/name).mkdir(exist_ok=True,mode=0o700)
+    def __init__(self, root: str|Path, *, read_only: bool=False) -> None:
+        self.root = Path(os.path.abspath(os.fspath(root)))
+        if self.root == Path(self.root.anchor):
+            raise PostAdoptionEvaluationError("evaluation_custody_root_invalid")
+        self.read_only = read_only
+        self._require_descriptor_storage()
+        if not read_only:
+            for kind in ("protocols","baselines","observations","evaluations","signals","recommendations"):
+                descriptor = self._open_kind_directory(kind, create=True)
+                os.close(descriptor)
         self.verify()
 
+    @staticmethod
+    def _require_descriptor_storage() -> None:
+        required = (os.open, os.mkdir, os.link, os.unlink)
+        if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW")
+                or any(function not in os.supports_dir_fd for function in required)
+                or os.scandir not in os.supports_fd
+                or os.link not in os.supports_follow_symlinks):
+            raise PostAdoptionEvaluationError("evaluation_unsupported_platform")
+
+    def _open_kind_directory(self, kind: str, *, create: bool) -> int:
+        if kind not in {"protocols","baselines","observations","evaluations","signals","recommendations"}:
+            raise PostAdoptionEvaluationError("evaluation_path_invalid")
+        self._require_descriptor_storage()
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(os.sep, flags)
+            for component in (*self.root.parts[1:], kind):
+                if create:
+                    try:
+                        os.mkdir(component, 0o700, dir_fd=descriptor)
+                    except FileExistsError:
+                        pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+                if not stat.S_ISDIR(os.fstat(next_descriptor).st_mode):
+                    os.close(next_descriptor)
+                    raise PostAdoptionEvaluationError("evaluation_path_invalid")
+                os.close(descriptor)
+                descriptor = next_descriptor
+            return descriptor
+        except PostAdoptionEvaluationError:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise
+        except OSError as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if isinstance(exc, FileNotFoundError):
+                raise PostAdoptionEvaluationError("evaluation_custody_missing") from exc
+            raise PostAdoptionEvaluationError("evaluation_path_invalid") from exc
+
     def _write(self, kind: str, identity: str, value: Any) -> None:
-        path=self.root/kind/(identity.replace(":","-")+".json"); data=canonical_bytes(asdict(value) if not isinstance(value,Mapping) else value)+b"\n"
-        try: fd=os.open(path,os.O_CREAT|os.O_EXCL|os.O_WRONLY|getattr(os,"O_NOFOLLOW",0),0o600)
-        except FileExistsError:
-            if path.read_bytes()!=data: raise PostAdoptionEvaluationError("immutable_evaluation_record_conflict")
-            return
-        with os.fdopen(fd,"wb") as handle: handle.write(data); handle.flush(); os.fsync(handle.fileno())
+        if self.read_only:
+            raise PostAdoptionEvaluationError("evaluation_store_read_only")
+        if (not isinstance(identity,str) or not identity or len(identity)>256
+                or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-_" for character in identity)):
+            raise PostAdoptionEvaluationError("evaluation_record_identity_invalid")
+        name=identity.replace(":","-")+".json"; data=canonical_bytes(asdict(value) if not isinstance(value,Mapping) else value)+b"\n"
+        if len(data)>MAX_ARTIFACT_BYTES: raise PostAdoptionEvaluationError("evaluation_record_oversized")
+        directory_fd=self._open_kind_directory(kind,create=True); temporary_name=".evaluation-"+secrets.token_hex(16)+".tmp"; temporary_created=False
+        try:
+            try: existing_fd=os.open(name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=directory_fd)
+            except FileNotFoundError: existing_fd=None
+            if existing_fd is not None:
+                os.close(existing_fd); prior=self._read_named(directory_fd,name)
+                if canonical_bytes(prior)+b"\n"!=data: raise PostAdoptionEvaluationError("immutable_evaluation_record_conflict")
+                return
+            descriptor=os.open(temporary_name,os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600,dir_fd=directory_fd)
+            temporary_created=True
+            with os.fdopen(descriptor,"wb") as handle: handle.write(data); handle.flush(); os.fsync(handle.fileno())
+            try: os.link(temporary_name,name,src_dir_fd=directory_fd,dst_dir_fd=directory_fd,follow_symlinks=False)
+            except FileExistsError:
+                prior=self._read_named(directory_fd,name)
+                if canonical_bytes(prior)+b"\n"!=data: raise PostAdoptionEvaluationError("immutable_evaluation_record_conflict")
+                return
+            os.fsync(directory_fd)
+        except PostAdoptionEvaluationError:
+            raise
+        except OSError as exc:
+            raise PostAdoptionEvaluationError("evaluation_publication_failed") from exc
+        finally:
+            if temporary_created:
+                try: os.unlink(temporary_name,dir_fd=directory_fd); os.fsync(directory_fd)
+                except FileNotFoundError: pass
+            os.close(directory_fd)
+
+    @staticmethod
+    def _read_named(directory_fd: int,name: str) -> dict[str,Any]:
+        descriptor: int|None=None
+        try:
+            descriptor=os.open(name,os.O_RDONLY|os.O_NOFOLLOW,dir_fd=directory_fd)
+            metadata=os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size>MAX_ARTIFACT_BYTES:
+                raise PostAdoptionEvaluationError("evaluation_history_corrupt")
+            chunks=[]; remaining=metadata.st_size
+            while remaining:
+                chunk=os.read(descriptor,min(remaining,65_536))
+                if not chunk: raise PostAdoptionEvaluationError("evaluation_history_corrupt")
+                chunks.append(chunk); remaining-=len(chunk)
+            raw=b"".join(chunks)
+            if len(raw)!=metadata.st_size: raise PostAdoptionEvaluationError("evaluation_history_corrupt")
+            value=json.loads(raw.decode("utf-8"))
+            if not isinstance(value,dict): raise PostAdoptionEvaluationError("evaluation_history_corrupt")
+            return value
+        except PostAdoptionEvaluationError: raise
+        except (OSError,UnicodeError,json.JSONDecodeError) as exc: raise PostAdoptionEvaluationError("evaluation_history_corrupt") from exc
+        finally:
+            if descriptor is not None: os.close(descriptor)
 
     def _read(self, kind: str) -> list[dict[str,Any]]:
-        values=[]
-        for path in sorted((self.root/kind).glob("*.json")):
-            if path.is_symlink(): raise PostAdoptionEvaluationError("evaluation_history_corrupt")
-            try: value=json.loads(path.read_text())
-            except (OSError,json.JSONDecodeError) as exc: raise PostAdoptionEvaluationError("evaluation_history_corrupt") from exc
-            values.append(value)
-        return values
+        directory_fd=self._open_kind_directory(kind,create=False)
+        try:
+            names=[]
+            with os.scandir(directory_fd) as entries:
+                for entry in entries:
+                    if entry.name.endswith(".json"):
+                        if len(names)>=MAX_RECORDS_PER_KIND:
+                            raise PostAdoptionEvaluationError("evaluation_retention_limit_exceeded")
+                        names.append(entry.name)
+            names.sort()
+            identity_field={"protocols":"protocol_id","baselines":"baseline_id","observations":"observation_id",
+                "evaluations":"evaluation_id","signals":"source_artifact","recommendations":"recommendation_id"}[kind]
+            values=[]
+            for name in names:
+                value=self._read_named(directory_fd,name); identity=value.get(identity_field)
+                if not isinstance(identity,str) or name!=identity.replace(":","-")+".json":
+                    raise PostAdoptionEvaluationError("evaluation_history_corrupt")
+                values.append(value)
+            return values
+        finally: os.close(directory_fd)
 
     def preregister(self, protocol: EvaluationProtocol) -> EvaluationProtocol:
         _false(protocol.authority)
@@ -322,6 +436,10 @@ class MaintenancePostAdoptionEvaluationOwner:
             stored = self.evaluation(existing[0]["evaluation_id"], existing[0]["evaluation_digest"])
             if stored != value:
                 raise PostAdoptionEvaluationError("evaluation_terminal_conflict")
+            signal = improvement_signal_record(stored)
+            if signal:
+                self._write("signals", stored.evaluation_id,
+                    {**signal, "signal_handoff_only":True, "repository_mutation_performed":False})
             return stored
         self._write("evaluations",eid,value)
         signal=improvement_signal_record(value)
@@ -463,9 +581,59 @@ class MaintenancePostAdoptionEvaluationOwner:
                 evaluations[evaluation.evaluation_id] = evaluation
             except (KeyError, TypeError, ValueError) as exc:
                 raise PostAdoptionEvaluationError("evaluation_history_corrupt") from exc
+        expected_signals = {
+            evaluation.evaluation_id: {
+                **signal, "signal_handoff_only": True, "repository_mutation_performed": False
+            }
+            for evaluation in evaluations.values()
+            if (signal := improvement_signal_record(evaluation)) is not None
+        }
+        signal_rows = self._read("signals")
+        if (any(row.get("source_artifact") not in expected_signals
+                    or canonical_bytes(row) != canonical_bytes(expected_signals[row["source_artifact"]])
+                    for row in signal_rows)):
+            raise PostAdoptionEvaluationError("signal_lineage_invalid")
+
+        recommendation_rows = self._read("recommendations")
+        recommendation_ids: set[str] = set()
+        for raw in recommendation_rows:
+            try:
+                recommendation = RollbackRecommendation(**dict(raw))
+                evaluation = evaluations[recommendation.evaluation_id]
+                body = {
+                    "evaluation_id": evaluation.evaluation_id,
+                    "current_generation": evaluation.successor_generation,
+                    "predecessor_generation": evaluation.predecessor_generation,
+                    "predecessor_revision": evaluation.predecessor_revision,
+                    "rationale": recommendation.rationale,
+                    "urgency": recommendation.urgency,
+                    "operator_decision_required": True,
+                    "executes_rollback": False,
+                    "authority": dict(FALSE_AUTHORITY),
+                    "schema_version": ROLLBACK_SCHEMA,
+                }
+                expected_id, expected_digest = _identity("rollback-recommendation", body)
+                expected = RollbackRecommendation(expected_id, expected_digest,
+                    evaluation.evaluation_id, evaluation.successor_generation,
+                    evaluation.predecessor_generation, evaluation.predecessor_revision,
+                    recommendation.rationale, recommendation.urgency, True, False,
+                    dict(FALSE_AUTHORITY))
+                if (recommendation.recommendation_id != expected_id
+                        or recommendation.recommendation_digest != expected_digest
+                        or recommendation.current_generation != evaluation.successor_generation
+                        or recommendation.predecessor_generation != evaluation.predecessor_generation
+                        or recommendation.predecessor_revision != evaluation.predecessor_revision
+                        or evaluation.result not in {"new_regression_observed", "mixed_outcome"}
+                        or canonical_bytes(asdict(recommendation)) != canonical_bytes(asdict(expected))
+                        or recommendation.recommendation_id in recommendation_ids):
+                    raise PostAdoptionEvaluationError("rollback_recommendation_lineage_invalid")
+                _false(recommendation.authority)
+                recommendation_ids.add(recommendation.recommendation_id)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PostAdoptionEvaluationError("rollback_recommendation_lineage_invalid") from exc
         return {"protocols":len(protocols),"baselines":len(baselines),"observations":len(observations),
-            "evaluations":len(evaluations),"signals":len(self._read("signals")),
-            "recommendations":len(self._read("recommendations"))}
+            "evaluations":len(evaluations),"signals":len(signal_rows),
+            "recommendations":len(recommendation_rows)}
 
 
 __all__=["MaintenancePostAdoptionEvaluationOwner","MeasurementDefinition","EvaluationProtocol","Baseline","SuccessorQualification","PostAdoptionObservation","Evaluation","RollbackRecommendation","make_protocol","make_baseline","improvement_signal_record","post_adoption_epistemic_binding","PostAdoptionEvaluationError","FALSE_AUTHORITY","COMPARATORS","RESULTS"]
