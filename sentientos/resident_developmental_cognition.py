@@ -758,10 +758,13 @@ class ResidentDevelopmentalCognitionOwner:
             priority = 3
         elif strategy_resource_lineage_verified:
             priority = 3
-        elif subject_kind in {"resident_model_transition", "software_generation_transition"}:
+        elif (source_kind == "runtime_supervisor"
+                and subject_kind in {"resident_model_transition", "software_generation_transition"}
+                and payload.get("stage_semantically_verified") is True):
             priority = 4
-        elif subject_kind in {"resident_model_transition_recovery", "software_generation_transition_recovery"}:
-            priority = 5
+        elif subject_kind in {"resident_model_transition", "software_generation_transition",
+                              "resident_model_transition_recovery", "software_generation_transition_recovery"}:
+            priority = 6
         elif (source_kind == "embodiment"
                 and subject_kind == "developmental_model_replacement_experiment"):
             priority = 4

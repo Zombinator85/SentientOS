@@ -48,6 +48,8 @@ PAYLOAD_PREDICATES = {
     "activated_model_identity": ("activated_model_identity",),
     "running_model_identity_observed": ("running_model_identity_observed",),
     "transition_protocol_digest": ("transition_protocol_digest",),
+    "transition_observation_posture": ("transition_observation_posture",),
+    "transition_stage_semantic_status": ("stage_semantically_verified",),
     "activation_receipt_id": ("activation_receipt_id",),
     "activation_receipt_digest": ("activation_receipt_digest",),
     "activation_state_digest": ("activation_state_digest",),
@@ -288,12 +290,16 @@ def _claim_id(key: str, value: Any, fact_ids: Sequence[str]) -> str:
 
 
 def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
-    out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition, "current_state")]
+    historical_transition_event = (
+        fact.source.kind == "runtime_supervisor"
+        and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition"})
+    out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition,
+        "historical_interpretation" if historical_transition_event else "current_state")]
     for predicate, keys in PAYLOAD_PREDICATES.items():
         for key in keys:
             if key in fact.payload:
                 out.append((predicate, _bounded(fact.payload[key]), "lineage"
-                    if any(token in predicate for token in ("generation", "model", "resource"))
+                    if any(token in predicate for token in ("generation", "model", "resource", "transition"))
                     else "configuration"))
                 break
     if fact.effect_proven and "observed_consequence" in fact.payload:

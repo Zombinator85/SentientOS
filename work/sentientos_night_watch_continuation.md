@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `7874a28876c2ef3ce8a744bc0984ded528f9eb3e` (tree `0a59a4c35aa05e54e24741a4c5286f6422ab7896`, parent `32c645e589df3b0310260d689c0f04df0e6875b4`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `6b68666c78df3c9be42d995aee07d3b3218537f7` (tree `a7c458b294ed4e006723126c94c7d7bcb2cc5320`, parent `7874a28876c2ef3ce8a744bc0984ded528f9eb3e`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -318,3 +318,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Both changed Python files passed `py_compile`. No epistemic runtime, state mutation, self-model reconciliation, cognition, tests, restart/crash, model transition, or production verification was run. Construction remains unverified for production.
 
 **Next implementation dependency:** review software-generation transition and chat restart lineage alongside model activation/serving history. Connect their separate verified predecessor and successor references into one historical transition interpretation only where exact owner evidence supports the relation; keep process overlap, model continuity, and running-generation claims unknown without their respective runtime observers.
+
+
+### New checkpoint — transition events stay historical in epistemic and self-model paths
+
+- The epistemic adapter now treats all model and software transition journal rows as historical event context. It preserves a valid journal event time but labels it as a transition-stage time; for the B/restored-A observation rows it explicitly says that time is not the cognition/inference event time. These events never gain `current` freshness from a fresh snapshot. Their evidence relation is contextual and dependency remains unknown; only the exact qualified observation rows receive the more specific owner-verified historical reliability posture.
+- The longitudinal self-model assigns historical interpretation scope to transition journal dispositions rather than representing a past completed stage as current state. It records the per-stage qualification flag/posture as lineage and only forms a grouped cognition-history claim from an exact owner-qualified source row.
+- Resident cognition now prioritizes only semantically verified transition journal rows. Unqualified transition and recovery records fall back behind other exact current identities and causal evidence.
+- Three modified Python files passed `py_compile`; no runtime integration or tests were executed. Construction remains unverified for production.
+
+**Next implementation dependency:** inspect and compose the existing software-generation and chat-recovery lineage with model succession. Preserve their distinct event owners and process-generation evidence, and create only source-bound historical context where a real shared binding exists. If no owner can prove a cross-lineage relation, keep the chains separate and identify the missing issuer/binding.
