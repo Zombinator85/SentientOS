@@ -66,8 +66,75 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
     subject = fact.get("subject")
     original = fact.get("payload")
     if (not isinstance(source, Mapping) or source.get("kind") != "resource_governor"
-            or not isinstance(subject, Mapping) or subject.get("subject_kind") != "causal_resource_consumption"
-            or not isinstance(original, Mapping) or not isinstance(original.get("ledger_digest"), str)):
+            or not isinstance(subject, Mapping) or not isinstance(original, Mapping)):
+        return dict(fact)
+    if subject.get("subject_kind") in {
+            "strategy_invocation_resource_lineage",
+            "model_replacement_invocation_resource_lineage"}:
+        # Joined attribution records can carry a sizeable frozen-history
+        # context. The writeback request has a smaller independent byte bound,
+        # so retain exact causal identities and a digest of the unabridged
+        # source payload while bounding optional context lists here.
+        linkage = original.get("resource_linkage")
+        if not isinstance(linkage, Mapping):
+            return dict(fact)
+        request_context = original.get("task_context")
+        context = dict(request_context) if isinstance(request_context, Mapping) else {}
+        history_ids = context.get("history_record_ids")
+        omitted_history_count = 0
+        if isinstance(history_ids, (list, tuple)):
+            full_history_digest = digest(list(history_ids))
+            omitted_history_count = max(0, len(history_ids) - 32)
+            context["history_record_ids"] = list(history_ids[:32])
+            if omitted_history_count:
+                context["history_record_ids_digest"] = full_history_digest
+                context["history_record_ids_omitted"] = omitted_history_count
+        compact_linkage = {key: linkage.get(key) for key in (
+            "request_id", "request_digest", "purpose", "model_id", "model_artifact_digest",
+            "allocation_digest", "attempt_id", "consumption_receipt_digests",
+            "linkage_digest", "effect_receipt_id", "effect_receipt_digest") if key in linkage}
+        receipt_digests = compact_linkage.get("consumption_receipt_digests")
+        omitted_receipt_count = 0
+        if isinstance(receipt_digests, (list, tuple)):
+            full_receipt_digest = digest(list(receipt_digests))
+            omitted_receipt_count = max(0, len(receipt_digests) - 16)
+            compact_linkage["consumption_receipt_digests"] = list(receipt_digests[:16])
+            if omitted_receipt_count:
+                compact_linkage["consumption_receipt_digests_digest"] = full_receipt_digest
+                compact_linkage["consumption_receipt_digests_omitted"] = omitted_receipt_count
+        raw_event_times = original.get("event_times", ())
+        event_times = raw_event_times if isinstance(raw_event_times, (list, tuple)) else ()
+        selected_times = list(event_times[-16:])
+        projection_posture = "complete" if not omitted_history_count and not omitted_receipt_count \
+            and len(event_times) <= 16 else "bounded_context_incomplete"
+        summary = {
+            "resource_linkage": compact_linkage,
+            "resource_record": original.get("resource_record"),
+            "allocation_identity": original.get("allocation_identity"),
+            "principal_id": original.get("principal_id"),
+            "principal_binding_digest": original.get("principal_binding_digest"),
+            "model_attribution": original.get("model_attribution"),
+            "software_attribution": original.get("software_attribution"),
+            "task_context": context,
+            "event_times": selected_times,
+            "lineage_findings": list(original.get("lineage_findings", ()))[:16],
+            "shared_host_cpu_gpu_attribution": original.get("shared_host_cpu_gpu_attribution"),
+            "interpretation": original.get("interpretation"),
+            "current_truth": False, "authority": False,
+            "lineage_projection_posture": projection_posture,
+        }
+        projection_binding = {"schema_version": "sentientos.resource_interpretation_projection:v1",
+            "source_fact_id": str(fact.get("fact_id", "")),
+            "source_payload_digest": digest(dict(original)),
+            "source_record_digest": str(source.get("digest", "")),
+            "projected_payload_digest": digest(summary)}
+        projection_binding["projection_digest"] = digest(projection_binding)
+        summary["interpretation_projection"] = projection_binding
+        projected = dict(fact)
+        projected["payload"] = summary
+        return projected
+    if (subject.get("subject_kind") != "causal_resource_consumption"
+            or not isinstance(original.get("ledger_digest"), str)):
         return dict(fact)
     allocations = tuple(item for item in original.get("allocations", ()) if isinstance(item, Mapping))
     attempts = tuple(item for item in original.get("attempts", ()) if isinstance(item, Mapping))
