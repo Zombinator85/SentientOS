@@ -540,9 +540,47 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         and (item["payload"]["resource_linkage"].get("posture") != "legacy_or_unlinked_invocation"
             or any(item["payload"]["resource_linkage"].get(key) for key in (
                 "allocation_digest", "attempt_id", "consumption_receipt_digests", "linkage_digest")))]
-    linked_candidates.sort(key=lambda item: str(item.get("source_id", "")))
-    omitted_candidates = linked_candidates[max_records:]
-    proposal_rows = linked_candidates[:max_records]
+    receipt_event_times: dict[str, set[str]] = {}
+    for resource in resource_rows:
+        resource_payload = resource.get("payload")
+        if (resource.get("digest") != record_digest(resource)
+                or not isinstance(resource_payload, Mapping)
+                or resource_payload.get("lineage_posture") != "verified"
+                or resource_payload.get("recovery_posture") != "reconciled_or_restored"
+                or resource_payload.get("retention_posture") != "complete"):
+            continue
+        for receipt in resource_payload.get("consumption_receipts", ()):
+            if (isinstance(receipt, Mapping) and isinstance(receipt.get("receipt_digest"), str)
+                    and isinstance(receipt.get("observed_at"), str)):
+                receipt_event_times.setdefault(str(receipt["receipt_digest"]), set()).add(
+                    str(receipt["observed_at"]))
+
+    def candidate_event_order(item: Mapping[str, Any]) -> tuple[int, float, str]:
+        payload = item.get("payload")
+        linkage = payload.get("resource_linkage") if isinstance(payload, Mapping) else None
+        receipt_digests = linkage.get("consumption_receipt_digests") if isinstance(linkage, Mapping) else None
+        if not isinstance(receipt_digests, (tuple, list)) or not receipt_digests:
+            return (0, float("-inf"), str(item.get("source_id", "")))
+        instants: list[float] = []
+        for receipt_digest in receipt_digests:
+            candidates = receipt_event_times.get(str(receipt_digest), set())
+            if len(candidates) != 1:
+                return (0, float("-inf"), str(item.get("source_id", "")))
+            try:
+                event_time = datetime.fromisoformat(next(iter(candidates)).replace("Z", "+00:00"))
+                if event_time.tzinfo is None or event_time.utcoffset() is None:
+                    return (0, float("-inf"), str(item.get("source_id", "")))
+                instants.append(event_time.astimezone(timezone.utc).timestamp())
+            except (OverflowError, OSError, ValueError):
+                return (0, float("-inf"), str(item.get("source_id", "")))
+        return (1, max(instants), str(item.get("source_id", "")))
+
+    # Keep the newest receipt-bound events inside the projection bound. Unknown
+    # or conflicting timestamps sort before actual parsed event times; they do
+    # not receive a synthetic current timestamp. Omission remains digest-bound.
+    linked_candidates.sort(key=candidate_event_order)
+    omitted_candidates = linked_candidates[:-max_records]
+    proposal_rows = linked_candidates[-max_records:]
     output: list[dict[str, Any]] = []
     for proposal in proposal_rows[-max_records:]:
         payload = proposal.get("payload")
