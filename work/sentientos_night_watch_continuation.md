@@ -48,6 +48,7 @@ Changed Python files compile and `git diff --check` passes. No pytest, mypy, run
 - Resident developmental cognition now selects verified model-replacement run evidence ahead of generic World-State facts and selects consequence chains/comparisons before strategy proposals, after active running identities and resource/transition evidence. It requires the `embodiment` source kind for these priorities, preserving source-kind distinctions.
 - Windows read-only `ConsequenceStore` construction previously used `Path.exists()` as its only root-custody check before later handle-bound artifact reads. It now validates the explicitly configured root through `verify_explicit_directory()` and maps missing versus unsafe/unavailable roots separately; POSIX behavior is unchanged.
 - Legacy model-replacement conditions without timestamp fields now project an explicit `unknown` time posture, preserving their receipt identities without leaving an ambiguous null posture.
+- The POSIX-only initial-resident commissioning inspector's shared artifact loader no longer relies on `is_file()` plus `read_text()`. It now uses the existing bounded no-follow explicit-file reader on both platforms; commissioning authority and effect execution remain POSIX-gated.
 
 ## Next executable task
 

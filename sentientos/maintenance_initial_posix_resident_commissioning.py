@@ -22,6 +22,7 @@ from sentientos import maintenance_authority_continuity as continuity
 from sentientos import maintenance_resident_runtime_adoption as resident
 from sentientos import maintenance_successor_generation_adoption as successor
 from sentientos import maintenance_wake_daemon_adoption as wake
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 from sentientos.control_plane_kernel import (
     AdmissionOutcome, AuthorityClass, ControlActionRequest, ControlPlaneKernel,
     LifecyclePhase,
@@ -38,6 +39,7 @@ STARTUP_SCHEMA = "sentientos.maintenance_initial_posix_resident_startup_ready:v1
 STARTUP_GATE_ENV = "SENTIENTOS_INITIAL_RESIDENT_COMMISSIONING_INTENT"
 STARTUP_ROOT_ENV = "SENTIENTOS_INITIAL_RESIDENT_COMMISSIONING_CUSTODY"
 ZERO_DIGEST = "sha256:" + "0" * 64
+MAX_COMMISSIONING_INPUT_BYTES = 1_048_576
 EFFECTS = tuple(sorted((
     "exact_initial_resident_repository_state_read", "exact_posix_resident_host_capability_read",
     "exact_initial_maintenance_authority_profile_read", "bounded_initial_resident_commissioning_custody_write",
@@ -75,9 +77,12 @@ def digest(value: Any, omitted: str | None = None) -> str:
 
 def _load(path: str | Path, code: str) -> dict[str, Any]:
     source = Path(path)
-    if source.is_symlink() or not source.is_file(): raise CommissioningError(code)
-    try: value = json.loads(source.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc: raise CommissioningError(code) from exc
+    try:
+        raw = read_explicit_file(source, max_bytes=MAX_COMMISSIONING_INPUT_BYTES)
+        value = json.loads(raw.decode("utf-8"))
+    except (WindowsHandleCustodyError, OSError, UnicodeError, json.JSONDecodeError,
+            RecursionError) as exc:
+        raise CommissioningError(code) from exc
     if not isinstance(value, dict): raise CommissioningError(code)
     return value
 
