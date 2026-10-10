@@ -161,6 +161,14 @@ class ResidentCognitiveModelServingController:
             return False
         if session.binding.get("activation_history_digest") != verified.get("activation_history_digest"):
             return False
+        if self._model is None:
+            return False
+        try:
+            loaded_identity = _identity(self._model.active_identity)
+        except Exception:
+            return False
+        if loaded_identity != session.binding.get("observed_loaded_model_identity"):
+            return False
         return True
 
     def _alive(self) -> bool:

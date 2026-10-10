@@ -18,6 +18,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Iterator, Mapping, Protocol, Sequence, cast
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
+from .local_runtime_provisioning import semantic_digest
 
 SCHEMA = "sentientos.resident_cognitive_model_transition_protocol:v1"
 SCHEMA_V2 = "sentientos.resident_cognitive_model_transition_protocol:v2"
@@ -457,9 +458,91 @@ class ResidentCognitiveModelTransitionController:
         self.allow_synthetic_approval_for_tests, self.clock = allow_synthetic_approval_for_tests, clock
         self._state = self._reconstruct()
 
+    def _completed_stage_evidence_error(self, stage: str, evidence: Mapping[str, Any],
+                                        prior_activation: Mapping[str, Any] | None) -> str | None:
+        activation_stages = {"b_activation_committed": ("successor_b", "A->B"),
+                             "a_restoration_activation_committed": ("restored_a", "B->A")}
+        serving_stages = {"b_serving_bound": ("successor_b", "b_serving_operation_id"),
+                          "restored_a_serving_bound": ("restored_a", "restored_a_serving_operation_id")}
+        if stage in activation_stages:
+            role, marker = activation_stages[stage]
+            activation = evidence.get("activation")
+            expected = self.protocol.value.get(role)
+            if not isinstance(activation, Mapping) or not isinstance(expected, Mapping):
+                return "activation_stage_evidence_missing"
+            if (evidence.get("activation_transition_stage") != marker
+                    or activation.get("model_loaded") is not False
+                    or activation.get("serving_started") is not False
+                    or activation.get("inference_performed") is not False
+                    or not isinstance(activation.get("state_semantic_digest"), str)
+                    or not isinstance(activation.get("receipt_id"), str)
+                    or not isinstance(activation.get("receipt_semantic_digest"), str)
+                    or not isinstance(activation.get("activation_history_digest"), str)
+                    or activation.get("commissioning_active_model_identity") != expected.get("active_model_identity")):
+                return "activation_stage_identity_mismatch"
+            verifier = getattr(self.operations, "verify_historical_activation", None)
+            if not callable(verifier):
+                return "activation_history_verifier_unavailable"
+            try:
+                verified_identity = verifier(activation)
+            except Exception:
+                return "activation_history_lineage_unverified"
+            if not isinstance(verified_identity, Mapping) or dict(verified_identity) != expected.get("active_model_identity"):
+                return "activation_commissioning_identity_mismatch"
+            return None
+        if stage in serving_stages:
+            if not isinstance(prior_activation, Mapping):
+                return "serving_stage_activation_predecessor_missing"
+            role, operation_key = serving_stages[stage]
+            expected = self.protocol.value.get(role)
+            binding, session = evidence.get("stage_binding"), evidence.get("session")
+            if not isinstance(expected, Mapping) or not isinstance(binding, Mapping) or not isinstance(session, Mapping):
+                return "serving_stage_evidence_missing"
+            binding_body = dict(binding)
+            claimed_binding_digest = binding_body.pop("binding_digest", None)
+            if (binding.get("schema_version") != BINDING_SCHEMA
+                    or digest(binding_body) != claimed_binding_digest
+                    or binding.get("protocol_id") != self.protocol.value.get("protocol_id")
+                    or binding.get("protocol_digest") != self.protocol.value.get("protocol_digest")
+                    or binding.get("transition_id") != self.protocol.value.get("transition_id")
+                    or binding.get("stage") != stage
+                    or binding.get("installation_identity") != self.protocol.value.get("installation_identity")
+                    or binding.get("expected_model_identity") != _plain(expected)
+                    or binding.get("serving_operation_id") != self.protocol.value.get(operation_key)
+                    or binding.get("activation_state_digest") != prior_activation.get("state_semantic_digest")
+                    or binding.get("activation_generation") != prior_activation.get("generation")
+                    or binding.get("activation_receipt_id") != prior_activation.get("receipt_id")
+                    or binding.get("activation_receipt_digest") != prior_activation.get("receipt_semantic_digest")
+                    or binding.get("activation_history_digest") != prior_activation.get("activation_history_digest")
+                    or any(binding.get(key) is not False for key in ("grants_activation", "grants_model_serving", "grants_inference"))):
+                return "serving_stage_binding_mismatch"
+            session_id, session_binding = session.get("session_id"), session.get("binding")
+            if not isinstance(session_binding, Mapping):
+                return "serving_stage_session_binding_missing"
+            activation_state = {key: value for key, value in prior_activation.items()
+                if key not in {"receipt_id", "receipt_semantic_digest", "activation_history_digest",
+                               "commissioning_active_model_identity", "activation_transition_stage"}}
+            if (session_id != "resident-serving-session-" + semantic_digest(dict(session_binding))[:24]
+                    or session.get("status") != "production_current"
+                    or session_binding.get("installation_identity") != binding.get("installation_identity")
+                    or session_binding.get("serving_operation_id") != binding.get("serving_operation_id")
+                    or session_binding.get("activation_state_semantic_digest") != prior_activation.get("state_semantic_digest")
+                    or session_binding.get("activation_generation") != prior_activation.get("generation")
+                    or session_binding.get("activation_receipt_id") != prior_activation.get("receipt_id")
+                    or session_binding.get("activation_receipt_semantic_digest") != prior_activation.get("receipt_semantic_digest")
+                    or session_binding.get("activation_history_digest") != prior_activation.get("activation_history_digest")
+                    or session_binding.get("activation_state") != activation_state
+                    or session_binding.get("observed_loaded_model_identity") != expected.get("active_model_identity")
+                    or session_binding.get("model_serving_admission_ref") != evidence.get("serving_admission")):
+                return "serving_stage_session_mismatch"
+            return None
+        return None
+
     def _reconstruct(self) -> _Reconstructed:
         phase, outstanding, token = PHASES[0], None, None
         blocked, reason = False, None
+        latest_activation: Mapping[str, Any] | None = None
+        latest_serving_session_id: str | None = None
         for entry in self.journal.entries():
             status, entry_phase, evidence = entry["status"], entry["phase"], entry["evidence"]
             if status == "attempted":
@@ -470,6 +553,20 @@ class ResidentCognitiveModelTransitionController:
                 expected = PHASES[PHASES.index(phase)+1] if phase != PHASES[-1] else None
                 if entry_phase != expected or (outstanding is not None and outstanding != entry_phase):
                     raise TransitionError("journal_stage_order_invalid")
+                failure = self._completed_stage_evidence_error(entry_phase, evidence, latest_activation)
+                if failure is not None:
+                    return _Reconstructed(entry_phase, True, failure, entry_phase, token)
+                if entry_phase in {"b_activation_committed", "a_restoration_activation_committed"}:
+                    latest_activation = evidence.get("activation")
+                    latest_serving_session_id = None
+                elif entry_phase in {"b_serving_bound", "restored_a_serving_bound"}:
+                    session_value = evidence.get("session")
+                    latest_serving_session_id = (session_value.get("session_id")
+                        if isinstance(session_value, Mapping) and isinstance(session_value.get("session_id"), str) else None)
+                elif entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"}:
+                    if (latest_serving_session_id is None
+                            or evidence.get("verified_session_id") != latest_serving_session_id):
+                        return _Reconstructed(entry_phase, True, "resumed_session_binding_mismatch", entry_phase, token)
                 phase, outstanding = entry_phase, None
                 token = evidence if entry_phase in {"a_quiesced", "b_quiesced"} else None if entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"} else token
             elif status == "effected":

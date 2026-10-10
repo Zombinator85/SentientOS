@@ -561,6 +561,46 @@ def verify_commissioning_model_identity(handle: InstallationStateHandle, commiss
     return dict(identity)
 
 
+def verify_historical_activation_selection(handle: InstallationStateHandle, activation: Mapping[str, Any], *,
+        allow_synthetic_evidence_for_tests: bool = False) -> dict[str, Any]:
+    """Verify one earlier activation against the current digest-checked transaction chain."""
+    current = verify_current_activation(handle,
+        allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
+    history = current.get("activation_history")
+    if not isinstance(history, (tuple, list)):
+        raise ProductionActivationError("activation_history_unavailable")
+    matches = [index for index, item in enumerate(history)
+        if item.get("activation_state_digest") == activation.get("state_semantic_digest")
+        and item.get("activation_generation") == activation.get("generation")
+        and item.get("activation_receipt_id") == activation.get("receipt_id")
+        and item.get("activation_receipt_semantic_digest") == activation.get("receipt_semantic_digest")]
+    if len(matches) != 1:
+        raise ProductionActivationError("historical_activation_not_in_current_chain")
+    index = matches[0]
+    prefix_digest = semantic_digest({"activation_history": list(history[:index + 1])})
+    if activation.get("activation_history_digest") != prefix_digest:
+        raise ProductionActivationError("historical_activation_prefix_mismatch")
+    item = history[index]
+    tx = _json(handle.read_regular(handle.fixed_object(
+        f"local-model/activation/transactions/{item['transaction_id']}.json")),
+        "activation_transaction_malformed")
+    _validate_envelope(tx, "transaction_semantic_digest", "activation_transaction_invalid")
+    state = tx.get("intended_state")
+    if not isinstance(state, Mapping) or any(activation.get(key) != value for key, value in state.items()):
+        raise ProductionActivationError("historical_activation_state_mismatch")
+    receipt = _receipt(handle, str(state.get("commissioning_receipt_id")),
+        allow_synthetic_for_tests=allow_synthetic_evidence_for_tests)
+    if receipt.get("receipt_semantic_digest") != state.get("commissioning_receipt_semantic_digest"):
+        raise ProductionActivationError("historical_commissioning_receipt_mismatch")
+    identity = receipt.get("observed_active_model_identity")
+    if not isinstance(identity, Mapping):
+        raise ProductionActivationError("historical_commissioning_identity_missing")
+    claimed_identity = activation.get("commissioning_active_model_identity")
+    if not isinstance(claimed_identity, Mapping) or dict(claimed_identity) != dict(identity):
+        raise ProductionActivationError("historical_commissioning_identity_mismatch")
+    return dict(identity)
+
+
 def verify_current_activation(handle: InstallationStateHandle, *,
         allow_synthetic_evidence_for_tests: bool = False) -> dict[str, Any]:
     """Read-only verification of current selection and its exact activation predecessor chain."""

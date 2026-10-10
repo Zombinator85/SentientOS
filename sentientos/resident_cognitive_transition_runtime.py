@@ -7,6 +7,7 @@ from typing import Any, Callable, Mapping, cast
 
 from .local_model_production_activation import (
     activate_production, verify_commissioning_model_identity, verify_current_activation,
+    verify_historical_activation_selection,
 )
 from .local_runtime_provisioning import semantic_digest
 from .resident_cognitive_model_serving import (
@@ -93,6 +94,11 @@ class ResidentCognitiveTransitionStageOperations:
                 "external_activation_approval_evidence_id": approval["approval_evidence_id"],
                 "external_activation_approval_semantic_digest": approval["approval_semantic_digest"],
                 "activation_transition_stage": suffix}
+
+    def verify_historical_activation(self, activation: Mapping[str, Any]) -> Mapping[str, Any]:
+        return verify_historical_activation_selection(
+            self.installation_handle, activation,
+            allow_synthetic_evidence_for_tests=self.allow_synthetic_evidence_for_tests)
 
     def _quiescence(self) -> Mapping[str, Any]:
         for entry in reversed(self.journal.entries()):
