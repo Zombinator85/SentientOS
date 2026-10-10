@@ -195,3 +195,12 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The launch issuer is a local launcher/custody observation, not a cryptographic platform attestation or proof of in-memory imported modules, interpreter, or third-party dependency generation.
 
 **Next implementation dependency:** inspect the actual startup/recovery receipt consumers for a safe read-only way to expose the reconstructed process-generation lineage to later chat cognition after restart, without mixing it into canonical retained user memory or claiming direct succession. Also review the recovery transaction’s crash window between successful readiness, startup-snapshot replacement, and final recovery receipt publication; represent incomplete progress without effect replay or false completion.
+
+### New checkpoint — recovered software provenance enters later cognition
+
+- Current production chat now verifies the newly written invocation receipt through the existing durable receipt verifier before attributing software generation to the assistant turn. It no longer substitutes the historical “unavailable” posture for a live child handoff.
+- The next chat turn receives a compact, depth-bounded projection of the latest receipt-verified software-generation chain in a separate provenance-only context block. The projection is non-authorizing, marks prior-snapshot references and overlap limits, and remains distinct from canonical retained user memory. Request linkage binds the predecessor handoff and software-generation digests.
+- The context change uses the existing session serializer and verified invocation owner; no model prompt assembler or canonical memory contract was changed.
+- Changed Python files compile; no tests or runtime checks were run. This remains unverified construction.
+
+**Next implementation dependency:** recovery currently advances the startup snapshot after the restarted child is observed ready but publishes its final durable recovery receipt afterward. Add bounded, immutable recovery-phase custody so a crash between those publications can be reconstructed without replaying a restart or claiming readiness that was never durably recorded. Preserve exact predecessor/successor handoffs and incomplete outcomes.
