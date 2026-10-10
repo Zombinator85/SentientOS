@@ -22,8 +22,10 @@ For this documentation update, published `main` was observed at
 `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`; the frozen construction source is
 `84c5687c841e83187d8017c4b84fd6b038937432` with tree
 `20c7a14e8909c63d108c94f07cc088357a16943e`; and the atlas index selects that
-immutable source snapshot. The earlier `b7df2a07` census remains preserved in the
-historical chain.
+immutable source snapshot. Construction source commit `4c8e5f9be021e70b8cfc700454dc4780632f20b8`
+adds the opt-in resource-consumption observer after that census; it is not folded
+into the immutable atlas and has only compilation checks. The earlier `b7df2a07`
+census remains preserved in the historical chain.
 Production evidence is separate and requires qualifying real execution or
 observation. An implementation or composed path does not establish a production
 event, consequence, learning, or improvement. The atlas captures source structure;

@@ -48,10 +48,11 @@ This checkout keeps four different reference points visible:
 
 - **Published `main`:** `197e2a4ceeb13ab59a88fd531283355e15e1fd7d` at the time of this review.
 - **Frozen construction source:** `84c5687c841e83187d8017c4b84fd6b038937432`, tree `20c7a14e8909c63d108c94f07cc088357a16943e`; the new atlas is bound to this exact source tree.
+- **Resource-observation construction source:** `4c8e5f9be021e70b8cfc700454dc4780632f20b8`, tree `9d2d672356cc0c88df6bcbd27e871b02a36b7d6d`; it adds an opt-in read-only installation-custody bridge and keeps retrieval timestamps outside semantic evidence identity. It remains unverified for production.
 - **Selected atlas snapshot:** `84c5687c841e83187d8017c4b84fd6b038937432`, an immutable census selected by [`system_atlas_index.md`](docs/architecture/system_atlas_index.md). “Current” in that index means selected snapshot, not a mutable census.
 - **Production evidence:** a separate predicate requiring qualifying real executions or observations. Source, synthetic fixtures, and a composed operator path do not by themselves establish production events or outcomes.
 
-The construction source contains bounded resident World-State, epistemic-development, developmental-history, later-cognition, model-succession, software-succession, and causal-observation mechanisms at varying levels of composition. The exact owner map and the unclosed resource-ledger-to-daemon evidence bridge are in the [source-bound atlas](docs/architecture/repository_system_atlas_84c5687c.md) and [technical overview](docs/architecture/public_technical_overview.md). No production event or benefit follows from source composition alone.
+The frozen atlas source's resource-ledger-to-daemon gap is now addressed in the later construction source: when both resource-observation selectors are explicitly set, the daemon validates a bounded read-only view of the selected installation's resource ledger and invocation receipts and places their historical identities in World-State before cognition. The immutable [source-bound atlas](docs/architecture/repository_system_atlas_84c5687c.md) still describes its exact earlier tree. This code has compilation checks only; no production event or benefit follows from it.
 
 ## Read next
 
