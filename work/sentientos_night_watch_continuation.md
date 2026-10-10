@@ -768,3 +768,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the ledger and observer modules. No concurrency, capacity boundary, backend call, restart, or persistence failure was executed.
 
 **Next implementation dependency:** inspect the process-generation handoff and recovered cognition path for the remaining boundary between historical child-reported software identity and an independently observed running chat process. Preserve the explicit unknown state unless a real OS-held process owner can bind the observation; do not substitute the daemon's identity or repository commit.
+
+
+## New checkpoint — compose supervisor-observed chat process generation
+
+- The chat child adapter already held the exact `Popen` process, checked `poll()`, and could verify the launch argv/environment, child PID/parent PID, executable path, and source-generation bytes. The canonical installation observation writer and resident read-only consumer also existed, but the runtime lifecycle supervisor never invoked that writer.
+- `RuntimeSupervisor` now calls an optional adapter observation hook with its own generation during health observation. `LocalModelChatServiceAdapter` uses its held child process and exact supervised handoff to publish `running_observed`; if the child has exited, it publishes `not_verified` against the historical handoff. The existing installation observation reader delivers this row through the resource observer into World-State.
+- This is a point observation at the owner-recorded event time. Its digest and installation custody do not independently sign the process, and later reconstruction does not claim the process remains live. The code preserves `independent_signature: false`, no effect authority, and does not infer current serving/model identity from process presence.
+- `py_compile` passed for the lifecycle supervisor and chat service adapter. No supervisor, child process, installation writer, or daemon runtime was executed.
+
+**Next implementation dependency:** inspect the lifecycle-to-World-State readback for timestamp posture and duplicate behavior after repeated health observations and daemon restarts. Confirm each new owner observation has a new event identity while replay of one stored observation remains identity-stable and historical; then continue into any directly connected cognition consumer gap.

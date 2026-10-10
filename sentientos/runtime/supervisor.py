@@ -193,13 +193,25 @@ class RuntimeSupervisor:
             self._receipt("dependency_recovery", service_id, {"dependencies": dependencies})
         started = time.monotonic()
         try:
-            result = self._call(self.registry.adapter(service_id).health, descriptor.health_timeout)
+            adapter = self.registry.adapter(service_id)
+            result = self._call(adapter.health, descriptor.health_timeout)
             if not isinstance(result, HealthResult): raise TypeError("invalid_health_result")
         except Exception as exc: result = HealthResult(False, f"health_failed:{type(exc).__name__}")
         latency = time.monotonic() - started
+        metadata = dict(result.metadata or {})
+        runtime_observer = getattr(self.registry.adapter(service_id),
+            "publish_runtime_generation_observation", None)
+        if callable(runtime_observer):
+            try:
+                metadata["chat_process_runtime_generation_observation"] = runtime_observer(
+                    supervisor_generation=self.generation)
+            except Exception as exc:
+                metadata["chat_process_runtime_generation_observation"] = {
+                    "status": "degraded", "reason_code": type(exc).__name__,
+                    "independent_signature": False, "effect_authority": False}
         self._health[service_id] = {"sequence": self._sequence + 1, "timestamp": self._clock(), "latency_seconds": latency,
                                     "ready": result.ready, "reason": result.reason, "dependency_state": dependencies,
-                                    "metadata": dict(result.metadata or {})}
+                                    "metadata": metadata}
         if result.ready:
             self._transition(service_id, "healthy", result.reason)
         else:

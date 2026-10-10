@@ -23,8 +23,9 @@ from sentientos.local_model_production_serving import _operation_id
 from sentientos.local_model_production_serving import _semantic_digest
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.chat_process_generation import (
-    publish_chat_process_handoff, source_generation,
-    verify_stored_chat_process_handoff, verify_supervised_chat_process_handoff,
+    publish_chat_process_handoff, publish_chat_process_runtime_observation,
+    source_generation, verify_stored_chat_process_handoff,
+    verify_supervised_chat_process_handoff,
 )
 
 from .services import ChildProcessServiceAdapter, HealthResult
@@ -210,6 +211,26 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                 python_executable=self._argv[0], repository_root=self._root)
         except Exception as exc:
             raise RuntimeError("chat_process_runtime_handoff_invalid") from exc
+
+    def publish_runtime_generation_observation(self, *, supervisor_generation: str) -> Mapping[str, object]:
+        """Record the supervisor's point observation of this exact child process."""
+        if self._installation_handle is None or self._handoff_id is None:
+            return {"status": "unknown_unconfigured",
+                "independent_signature": False, "effect_authority": False}
+        process = self._process
+        running = process is not None and process.poll() is None
+        if running:
+            handoff = self.current_runtime_handoff()
+            status, reason = "running_observed", None
+        else:
+            handoff = verify_stored_chat_process_handoff(
+                handle=self._installation_handle, handoff_id=self._handoff_id)
+            status, reason = "not_verified", "child_process_not_running"
+        return publish_chat_process_runtime_observation(
+            handle=self._installation_handle,
+            supervisor_generation=supervisor_generation,
+            handoff=handoff, status=status, reason_code=reason,
+            configured_serving_receipt_posture="not_observed")
 
     @property
     def startup_configuration(self) -> LocalModelChatStartup:
