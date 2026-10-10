@@ -169,6 +169,17 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "causal_resources")
         historical_unverified_owner_record = (fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "post_adoption_attribution_campaign")
+        historical_transition_observation = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "resident_model_transition"
+            and isinstance(fact.payload, Mapping)
+            and fact.payload.get("transition_phase") in {"b_epoch_observed", "post_restoration_observed"})
+        qualified_transition_observation = (
+            historical_transition_observation
+            and fact.disposition == "completed"
+            and fact.payload.get("transition_observation_posture")
+                == "owner_verified_durable_cognition_history_handoff")
+
         historical_undated_consequence = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind in {"embodied_strategy_experiment",
                                                "developmental_model_replacement_experiment",
@@ -201,7 +212,9 @@ class ResidentEpistemicDevelopmentRuntime:
                 "source_observation_time_mismatch"}
             for conflict in snapshot.conflicts))
         unverified_source_context = (historical_undated_consequence
-            or historical_unverified_owner_record or historical_strategy_proposal
+            or historical_unverified_owner_record
+            or (historical_transition_observation and not qualified_transition_observation)
+            or historical_strategy_proposal
             or historical_strategy_review or unverified_embodiment_observation
             or incomplete_resource_lineage or source_integrity_conflict)
         stable_source_digest = fact.source.digest
@@ -312,7 +325,9 @@ class ResidentEpistemicDevelopmentRuntime:
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
-            "event_time_posture": "historical_or_unknown" if historical_resource_fact or historical_resource_introspection
+            "event_time_posture": "transition_stage_time_not_cognition_event_time"
+                if historical_transition_observation else "historical_or_unknown"
+                if historical_resource_fact or historical_resource_introspection
                 or historical_undated_consequence or historical_unverified_owner_record
                 or historical_strategy_proposal or historical_strategy_review
                 or source_integrity_conflict
@@ -330,6 +345,7 @@ class ResidentEpistemicDevelopmentRuntime:
         source_staleness = str(fact.source.staleness or "unknown").lower()
         if (not historical_resource_fact and not historical_resource_introspection
                 and not historical_undated_consequence and not historical_unverified_owner_record
+                and not historical_transition_observation
                 and not historical_strategy_proposal and not historical_strategy_review
                 and not unverified_embodiment_observation
                 and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
@@ -342,12 +358,16 @@ class ResidentEpistemicDevelopmentRuntime:
             source_artifact_id=artifact_id, source_digest=stable_source_digest,
             source_schema=fact.source.schema_version, source_class=fact.source.kind,
             observation_time=observed,
-            evidence_relation="contextualizes" if unverified_source_context else rule.evidence_relation,
-            dependency_kind=("unknown_dependency" if unverified_source_context else rule.dependency_kind),
+            evidence_relation="contextualizes" if (unverified_source_context or historical_transition_observation) else rule.evidence_relation,
+            dependency_kind=("unknown_dependency" if (unverified_source_context or historical_transition_observation)
+                else rule.dependency_kind),
             dependency_group=(rule.independence_basis if rule.dependency_kind == "independently_sourced_observation"
-                and not unverified_source_context else None),
+                and not unverified_source_context and not historical_transition_observation else None),
             upstream_binding_ids=(), freshness=freshness,
-            reliability_posture=("proposal_source_not_world_truth" if historical_strategy_proposal
+            reliability_posture=("qualified_historical_transition_owner_observation"
+                if qualified_transition_observation
+                else "unqualified_transition_observation_context" if historical_transition_observation
+                else "proposal_source_not_world_truth" if historical_strategy_proposal
                 else "unverified_review_context_only" if historical_strategy_review
                 else "resource_lineage_incomplete_context_only" if incomplete_resource_lineage
                 else "unverified_source_context_only" if unverified_source_context

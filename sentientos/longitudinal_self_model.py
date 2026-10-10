@@ -298,6 +298,79 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 break
     if fact.effect_proven and "observed_consequence" in fact.payload:
         out.append(("observed_consequence", _bounded(fact.payload["observed_consequence"]), "observed_consequence"))
+    # Preserve the verified model-transition observation/history join as one
+    # historical claim. Independent payload predicates above remain selectors;
+    # this grouped claim exists only when the exact source row is qualified.
+    if (fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "resident_model_transition"
+            and fact.source.finding == "ok"
+            and fact.disposition == "completed"
+            and fact.payload.get("transition_observation_posture")
+                == "owner_verified_durable_cognition_history_handoff"):
+        payload = fact.payload
+        phase = payload.get("transition_phase")
+        common = {"transition_id": payload.get("transition_id"),
+            "transition_protocol_digest": payload.get("transition_protocol_digest"),
+            "journal_entry_digest": payload.get("journal_entry_digest"),
+            "transition_phase": phase,
+            "predecessor_model_identity": payload.get("predecessor_model_identity"),
+            "proposed_successor_model_identity": payload.get("proposed_successor_model_identity"),
+            "source_record_id": fact.source.source_id,
+            "source_record_digest": fact.source.digest,
+            "transition_stage_event_time": payload.get("event_time"),
+            "cognition_observation_event_time": None,
+            "event_time_posture": "journal_stage_time_not_inference_receipt_time"}
+        if phase == "b_epoch_observed":
+            pairs = (
+                (payload.get("b_epoch_observation_id"), payload.get("b_epoch_observation_digest")),
+                (payload.get("b_epoch_developmental_record_id"), payload.get("b_epoch_developmental_record_digest")),
+                (payload.get("b_epoch_writeback_receipt_id"), payload.get("b_epoch_writeback_receipt_digest")),
+            )
+            tick = payload.get("b_epoch_tick_id")
+            if (isinstance(tick, str) and tick
+                    and all(isinstance(identity, str) and identity for pair in pairs for identity in pair)):
+                lineage = {**common, "tick_id": tick,
+                    "cognition_observation_id": pairs[0][0],
+                    "cognition_observation_digest": pairs[0][1],
+                    "developmental_record_id": pairs[1][0],
+                    "developmental_record_digest": pairs[1][1],
+                    "writeback_receipt_id": pairs[2][0],
+                    "writeback_receipt_digest": pairs[2][1]}
+            else:
+                lineage = {}
+        elif phase == "post_restoration_observed":
+            retrieved_ids = payload.get("retrieved_record_ids")
+            retrieved_digests = payload.get("retrieved_record_digests")
+            pairs = ((payload.get("restored_a_observation_id"),
+                      payload.get("restored_a_observation_digest")),
+                     (payload.get("restored_a_inference_receipt_id"),
+                      payload.get("restored_a_inference_receipt_digest")))
+            if (isinstance(payload.get("restored_a_tick_id"), str)
+                    and payload.get("restored_a_tick_id")
+                    and all(isinstance(identity, str) and identity for pair in pairs for identity in pair)
+                    and isinstance(retrieved_ids, (list, tuple))
+                    and isinstance(retrieved_digests, (list, tuple))
+                    and len(retrieved_ids) == len(retrieved_digests) <= 16
+                    and all(isinstance(identity, str) and identity for identity in retrieved_ids)
+                    and len(set(retrieved_ids)) == len(retrieved_ids)
+                    and all(isinstance(identity, str) and identity for identity in retrieved_digests)):
+                lineage = {**common, "tick_id": payload["restored_a_tick_id"],
+                    "cognition_observation_id": pairs[0][0],
+                    "cognition_observation_digest": pairs[0][1],
+                    "inference_receipt_id": pairs[1][0],
+                    "inference_receipt_digest": pairs[1][1],
+                    "retrieved_record_ids": list(retrieved_ids),
+                    "retrieved_record_digests": list(retrieved_digests)}
+            else:
+                lineage = {}
+        else:
+            lineage = {}
+        if lineage and len(json.dumps(lineage, sort_keys=True, separators=(",", ":")).encode("utf-8")) <= MAX_VALUE_BYTES:
+            lineage.update({"source_binding_posture": "world_state_source_digest_verified",
+                "historical_only": True, "current_truth": False,
+                "effect_proven": False, "authority": False})
+            out.append(("resident_model_transition.cognition_history_handoff",
+                        _bounded(lineage), "historical_interpretation"))
     # Keep deterministic comparison results available to later cognition as
     # explicitly historical interpretation. They do not prove an effect or
     # become current merely because a projection was reconstructed recently.

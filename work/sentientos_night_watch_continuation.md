@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `32c645e589df3b0310260d689c0f04df0e6875b4` (tree `ab1cdb4667511192dae4b4c3088b4cdf23daa0db`, parent `375a066de99dfbcf189b79c2e3e224b29cec9a55`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `7874a28876c2ef3ce8a744bc0984ded528f9eb3e` (tree `0a59a4c35aa05e54e24741a4c5286f6422ab7896`, parent `32c645e589df3b0310260d689c0f04df0e6875b4`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -308,3 +308,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The changed transition-controller and daemon sources passed `py_compile`. No runtime, crash/restart, cognition, World-State builder execution, tests, model activation, or production verification was performed. Work remains unverified for production.
 
 **Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retaining existing opt-in and next-tick gates. Then continue into model/software cross-generation continuity and adjacent causal owner gaps.
+
+
+### New checkpoint — qualified transition lineage stays historical downstream
+
+- Resident epistemic development now recognizes the B-epoch and restored-A cognition handoff rows as historical transition observations. It preserves the journal stage event time while labeling it explicitly as not the underlying cognition/inference event time. A completed owner-qualified handoff binds context only, has unknown freshness, and is excluded from the current-evidence path even when a newly built snapshot calls its source fresh. Unqualified or incomplete transition observations remain contextual and unverified.
+- The longitudinal self-model now offers a single compact, source-digest-bound `resident_model_transition.cognition_history_handoff` claim when the exact World-State source row has the owner-qualified posture. The claim carries either B's cognition → developmental record → writeback receipt, or restored-A cognition → inference receipt → retrieved record ID/digest set. It keeps predecessor/successor and protocol identity separate, distinguishes journal stage time from cognition time, and declares historical-only, no truth/effect/authority. Existing predicate allowlists still determine consumption.
+- The resident cognition current projection already carries the configured World-State fact payload; its deterministic selection key prioritizes transition and succession evidence among eligible sources. The new self-model claim supplies a grouped lineage view only when explicitly configured for the corresponding predicate.
+- Both changed Python files passed `py_compile`. No epistemic runtime, state mutation, self-model reconciliation, cognition, tests, restart/crash, model transition, or production verification was run. Construction remains unverified for production.
+
+**Next implementation dependency:** review software-generation transition and chat restart lineage alongside model activation/serving history. Connect their separate verified predecessor and successor references into one historical transition interpretation only where exact owner evidence supports the relation; keep process overlap, model continuity, and running-generation claims unknown without their respective runtime observers.
