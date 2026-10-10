@@ -651,12 +651,34 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
-    configure_production_chat(installation_identity=args.installation_identity,
-        serving_operation_id=args.serving_operation_id,
-        expected_activation_state_digest=args.expected_activation_state_digest,
-        resource_provisioning_id=args.resource_provisioning_id,
-        runtime_handoff_id=args.runtime_handoff_id)
-    run(host=args.host, port=args.port)
+    if args.runtime_handoff_id is None:
+        configure_production_chat(installation_identity=args.installation_identity,
+            serving_operation_id=args.serving_operation_id,
+            expected_activation_state_digest=args.expected_activation_state_digest,
+            resource_provisioning_id=args.resource_provisioning_id)
+        run(host=args.host, port=args.port)
+        return
+
+    # Supervised children share one installation-scoped lifetime lock. This prevents
+    # a replacement daemon from treating a second child as a successor while an
+    # orphaned predecessor may still be serving.
+    try:
+        handle, _handoff = open_chat_process_handoff(
+            installation_identity=args.installation_identity,
+            handoff_id=args.runtime_handoff_id)
+        handoff_directory = handle.fixed_object("local-model/chat/runtime-handoffs")
+        handle.ensure_directory(handoff_directory)
+        process_lock = handle.fixed_object(
+            "local-model/chat/runtime-handoffs/active-chat-process.lock")
+        with handle.exclusive_lock(process_lock, blocking=False):
+            configure_production_chat(installation_identity=args.installation_identity,
+                serving_operation_id=args.serving_operation_id,
+                expected_activation_state_digest=args.expected_activation_state_digest,
+                resource_provisioning_id=args.resource_provisioning_id,
+                runtime_handoff_id=args.runtime_handoff_id)
+            run(host=args.host, port=args.port)
+    except Exception as exc:
+        raise RuntimeError("supervised_chat_process_lifetime_unavailable") from exc
 
 
 def run(host: str = "0.0.0.0", port: int = 5000) -> None:
