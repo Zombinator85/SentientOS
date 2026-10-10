@@ -308,6 +308,31 @@ class ConversationSessionStore:
         return sorted(result, key=lambda item: (str(item["latest_activity_at"]), str(item["session_id"])), reverse=True)[:max(0, limit)]
 
 
+def compact_runtime_generation_attribution(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Persist exact receipt-linked identities without duplicating the nested chain per turn."""
+    fields = ("status", "reason_code", "software_generation_digest",
+              "process_instance_id", "handoff_id", "handoff_digest",
+              "startup_timestamp", "source_generation_scope")
+    result = {key: value[key] for key in fields if key in value}
+    prior = value.get("prior_snapshot_generation")
+    if isinstance(prior, Mapping):
+        predecessor = prior.get("handoff")
+        prior_summary = {key: prior[key] for key in (
+            "startup_snapshot_digest", "supervisor_generation", "relation",
+            "overlap_status", "direct_predecessorship",
+            "intervening_runtime_generations") if key in prior}
+        if isinstance(predecessor, Mapping):
+            prior_summary.update({
+                "prior_handoff_id": predecessor.get("handoff_id"),
+                "prior_handoff_digest": predecessor.get("handoff_digest"),
+                "prior_process_instance_id": predecessor.get("process_instance_id"),
+                "prior_software_generation_digest": predecessor.get("software_generation_digest"),
+                "prior_lineage_digest": _digest(dict(predecessor)),
+            })
+        result["prior_snapshot_generation"] = prior_summary
+    return result
+
+
 def _runtime_generation_evidence(value: Mapping[str, Any], *, depth: int = 0) -> dict[str, Any]:
     """Keep a bounded, non-authorizing projection of verified launch lineage."""
     fields = ("status", "reason_code", "software_generation_digest",

@@ -30,7 +30,10 @@ from .production_chat_resource_context import (
     ProductionChatResourceContextOwner,
     ResourceBackedProductionChatInference,
 )
-from .conversation_session import ConversationSessionStore, assemble_local_chat_context
+from .conversation_session import (
+    ConversationSessionStore, assemble_local_chat_context,
+    compact_runtime_generation_attribution,
+)
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, sentientos_data_dir)
 from .governed_local_model_invocation import LocalModelInvocationBudget
@@ -341,7 +344,9 @@ class PersistentConversationService:
                         stored_runtime_lineage is None
                         or (isinstance(observed_runtime_lineage, Mapping)
                             and isinstance(stored_runtime_lineage, Mapping)
-                            and dict(observed_runtime_lineage) == dict(stored_runtime_lineage))
+                            and (dict(observed_runtime_lineage) == dict(stored_runtime_lineage)
+                                or compact_runtime_generation_attribution(observed_runtime_lineage)
+                                    == dict(stored_runtime_lineage)))
                     )
                     if (output_lineage_matches and runtime_lineage_matches
                             and isinstance(observed_prior_identity, Mapping)
@@ -381,7 +386,8 @@ class PersistentConversationService:
                      "active_model_identity_digest": serving_identity_digest,
                      "loaded_model_identity": dict(invoked_identity),
                      "loaded_model_identity_digest": loaded_identity_digest,
-                     "software_generation_attribution": dict(software_generation_attribution),
+                     "software_generation_attribution": compact_runtime_generation_attribution(
+                         software_generation_attribution),
                      "assistant_output_lineage": assistant_output_lineage,
                      "predecessor_model_identity_digest": predecessor_identity_digest,
                      "model_identity_continuity_posture": continuity_posture,
