@@ -9,6 +9,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import stat
 import tempfile
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
@@ -24,6 +26,17 @@ STRATEGY_SCHEMA = "sentientos.embodied_strategy_proposal:v1"
 EXPERIMENT_SCHEMA = "sentientos.embodied_strategy_experiment:v1"
 EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_result:v1"
 MAX_STRATEGY_CONTEXT_BYTES = 1_048_576
+MAX_CONSEQUENCE_ARTIFACT_BYTES = 2_097_152
+_CONSEQUENCE_KINDS = {"expectations", "reports", "observations", "attributions", "comparisons", "strategy-experiments"}
+_CONSEQUENCE_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}:[0-9a-f]{24}\Z")
+_ARTIFACT_IDENTITIES = {
+    "expectations": ("expectation_id", "expectation_digest", "expectation"),
+    "reports": ("report_id", "report_digest", "renderer-report"),
+    "observations": ("observation_id", "observation_digest", "independent-observation"),
+    "attributions": ("attribution_id", "attribution_digest", "consequence"),
+    "comparisons": ("comparison_id", "comparison_digest", "prediction-comparison"),
+    "strategy-experiments": ("experiment_result_id", "experiment_result_digest", "strategy-experiment"),
+}
 FALSE_AUTHORITY = {"effect_authority": False, "adoption_authority": False,
                    "observation_authority": False, "goal_authority": False,
                    "authoring_authority": False, "execution_authority": False}
@@ -573,27 +586,74 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
 
 class ConsequenceStore:
     """Immutable exact-chain store for consequence and experiment artifacts."""
-    def __init__(self, root: Path) -> None: self.root=Path(root)
+    def __init__(self, root: Path) -> None:
+        selected=Path(root)
+        if selected.is_symlink(): raise EmbodiedConsequenceError("consequence_store_root_symlink")
+        selected.mkdir(parents=True,exist_ok=True,mode=0o700)
+        if selected.is_symlink() or not selected.is_dir(): raise EmbodiedConsequenceError("consequence_store_root_invalid")
+        self.root=selected.resolve()
+
+    def _path(self, kind: str, identity: str) -> Path:
+        if kind not in _CONSEQUENCE_KINDS or not isinstance(identity,str) or not _CONSEQUENCE_ID.fullmatch(identity):
+            raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
+        directory=self.root/kind
+        directory.mkdir(mode=0o700,exist_ok=True)
+        if directory.is_symlink() or not directory.is_dir():
+            raise EmbodiedConsequenceError("consequence_artifact_directory_invalid")
+        return directory/f"{identity}.json"
+
+    @staticmethod
+    def _read(path: Path) -> bytes:
+        flags=os.O_RDONLY|getattr(os,"O_NOFOLLOW",0)
+        try: descriptor=os.open(path,flags)
+        except OSError as exc: raise EmbodiedConsequenceError("stored_artifact_missing_or_unsafe") from exc
+        try:
+            metadata=os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size>MAX_CONSEQUENCE_ARTIFACT_BYTES:
+                raise EmbodiedConsequenceError("stored_artifact_unbounded_or_not_regular")
+            chunks=[]; remaining=MAX_CONSEQUENCE_ARTIFACT_BYTES+1
+            while remaining:
+                chunk=os.read(descriptor,min(65536,remaining))
+                if not chunk: break
+                chunks.append(chunk); remaining-=len(chunk)
+            data=b"".join(chunks)
+            if len(data)>MAX_CONSEQUENCE_ARTIFACT_BYTES:
+                raise EmbodiedConsequenceError("stored_artifact_unbounded_or_not_regular")
+            return data
+        finally: os.close(descriptor)
+
     def put(self, kind: str, identity: str, value: Mapping[str, Any]) -> Path:
-        path=self.root/kind/f"{identity}.json"; path.parent.mkdir(parents=True,exist_ok=True)
+        path=self._path(kind,identity)
+        id_field,digest_field,prefix=_ARTIFACT_IDENTITIES[kind]
+        semantic=dict(value); claimed_id=semantic.pop(id_field,None); claimed_digest=semantic.pop(digest_field,None)
+        expected_id,expected_digest=_identity(prefix,semantic)
+        if claimed_id!=identity or claimed_id!=expected_id or claimed_digest!=expected_digest:
+            raise EmbodiedConsequenceError("artifact_identity_or_digest_invalid")
         data=canonical_bytes(value)+b"\n"
-        if path.exists():
-            if path.read_bytes()!=data: raise EmbodiedConsequenceError("artifact_identity_collision")
-            return path
+        if len(data)>MAX_CONSEQUENCE_ARTIFACT_BYTES: raise EmbodiedConsequenceError("artifact_size_bound_exceeded")
         fd,temp=tempfile.mkstemp(dir=path.parent,prefix=".consequence-")
         try:
             with os.fdopen(fd,"wb") as handle: handle.write(data); handle.flush(); os.fsync(handle.fileno())
-            os.replace(temp,path)
+            try: os.link(temp,path)
+            except FileExistsError:
+                if self._read(path)!=data: raise EmbodiedConsequenceError("artifact_identity_collision")
+            try:
+                directory_fd=os.open(path.parent,os.O_RDONLY|getattr(os,"O_DIRECTORY",0))
+                try: os.fsync(directory_fd)
+                finally: os.close(directory_fd)
+            except OSError: pass
         finally:
             if os.path.exists(temp): os.unlink(temp)
         return path
     def get(self, kind: str, identity: str, *, digest_field: str) -> dict[str, Any]:
-        path=self.root/kind/f"{identity}.json"
-        try: value=json.loads(path.read_text())
-        except (OSError,json.JSONDecodeError) as exc: raise EmbodiedConsequenceError("stored_artifact_missing_or_corrupt") from exc
-        claimed=value.get(digest_field); semantic=dict(value); semantic.pop(digest_field,None)
-        id_fields={"expectation_digest":"expectation_id","report_digest":"report_id","observation_digest":"observation_id",
-                   "attribution_digest":"attribution_id","comparison_digest":"comparison_id","experiment_result_digest":"experiment_result_id"}
-        semantic.pop(id_fields[digest_field],None)
-        if claimed!=digest(semantic): raise EmbodiedConsequenceError("stored_artifact_digest_mismatch")
+        path=self._path(kind,identity)
+        id_field,expected_digest_field,prefix=_ARTIFACT_IDENTITIES[kind]
+        if digest_field!=expected_digest_field: raise EmbodiedConsequenceError("artifact_digest_selector_invalid")
+        try: value=json.loads(self._read(path).decode("utf-8"))
+        except (UnicodeError,json.JSONDecodeError) as exc: raise EmbodiedConsequenceError("stored_artifact_missing_or_corrupt") from exc
+        if not isinstance(value,dict): raise EmbodiedConsequenceError("stored_artifact_shape_invalid")
+        claimed=value.get(digest_field); semantic=dict(value); semantic.pop(digest_field,None); claimed_id=semantic.pop(id_field,None)
+        calculated_id,calculated_digest=_identity(prefix,semantic)
+        if (claimed!=calculated_digest or claimed_id!=identity or calculated_id!=identity):
+            raise EmbodiedConsequenceError("stored_artifact_digest_mismatch_or_identity_invalid")
         return cast(dict[str, Any], value)
