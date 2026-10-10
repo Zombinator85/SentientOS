@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `375a066de99dfbcf189b79c2e3e224b29cec9a55` (tree `13818b803a67b55132e0abf5910cf2e17736ce8b`, parent `58856ef32438188b04be37091f48c951ae2f5735`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `32c645e589df3b0310260d689c0f04df0e6875b4` (tree `ab1cdb4667511192dae4b4c3088b4cdf23daa0db`, parent `375a066de99dfbcf189b79c2e3e224b29cec9a55`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -297,3 +297,14 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Modified Python source files passed `py_compile`; bounded source review found no trailing whitespace. No tests, model transition rehearsal, runtime, restart/crash, Windows, external-provider, or production verification was performed. Work remains unverified for production.
 
 **Next implementation dependency:** trace the newly qualified transition-stage identities into the World-State and later-cognition projections. Ensure a completed observation stage is distinguished from a merely digest-valid journal row, and carry the verified B writeback and restored-A retrieval references as historical evidence without promoting them to current truth or authority.
+
+
+### New checkpoint — semantic stage qualification is projected into World-State
+
+- Transition recovery now returns a bounded list of journal-entry digests that passed the controller's stage-semantic reconstruction. A completed observation stage is included only after the developmental owner reopens the canonical cognition observation, governed invocation receipt, exact serving session, and B writeback or restored-A retrieved history chain.
+- The daemon matches those qualified digests to exact journal rows. World-State marks observation stages as `owner_verified_durable_cognition_history_handoff` only when the specific entry digest is present in the controller's verified set. Legacy, incomplete, or blocked rows remain explicitly `unqualified_or_incomplete`; their caller-supplied evidence identities are not copied into the observation payload.
+- Qualified B rows preserve exact tick, cognition-observation, developmental-record, and writeback-receipt identities. Qualified restored-A rows preserve the cognition observation/inference receipt and exact retrieved history ID/digest pairs. Existing configured source-kind and epistemic selectors still control whether these historical records are consumed; qualification supplies provenance, not truth, authority, goals, or currentness.
+- The verified digest list is bounded to the newest 128 journal entries, matching the daemon's bounded transition projection. Older valid history remains in durable journal custody but is not individually emitted by this bounded World-State view.
+- The changed transition-controller and daemon sources passed `py_compile`. No runtime, crash/restart, cognition, World-State builder execution, tests, model activation, or production verification was performed. Work remains unverified for production.
+
+**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retaining existing opt-in and next-tick gates. Then continue into model/software cross-generation continuity and adjacent causal owner gaps.

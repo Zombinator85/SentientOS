@@ -446,6 +446,7 @@ class _Reconstructed:
     reason: str | None
     outstanding_stage: str | None
     token: Mapping[str, Any] | None
+    semantically_verified_stage_entry_digests: tuple[str, ...] = ()
 
 
 class ResidentCognitiveModelTransitionController:
@@ -564,6 +565,7 @@ class ResidentCognitiveModelTransitionController:
     def _reconstruct(self) -> _Reconstructed:
         phase, outstanding, token = PHASES[0], None, None
         blocked, reason = False, None
+        semantically_verified: list[str] = []
         latest_activation: Mapping[str, Any] | None = None
         latest_serving_session_id: str | None = None
         for entry in self.journal.entries():
@@ -578,7 +580,9 @@ class ResidentCognitiveModelTransitionController:
                     raise TransitionError("journal_stage_order_invalid")
                 failure = self._completed_stage_evidence_error(entry_phase, evidence, latest_activation)
                 if failure is not None:
-                    return _Reconstructed(entry_phase, True, failure, entry_phase, token)
+                    return _Reconstructed(entry_phase, True, failure, entry_phase, token,
+                        tuple(semantically_verified[-128:]))
+                semantically_verified.append(str(entry.get("entry_digest")))
                 if entry_phase in {"b_activation_committed", "a_restoration_activation_committed"}:
                     latest_activation = evidence.get("activation")
                     latest_serving_session_id = None
@@ -589,7 +593,8 @@ class ResidentCognitiveModelTransitionController:
                 elif entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"}:
                     if (latest_serving_session_id is None
                             or evidence.get("verified_session_id") != latest_serving_session_id):
-                        return _Reconstructed(entry_phase, True, "resumed_session_binding_mismatch", entry_phase, token)
+                        return _Reconstructed(entry_phase, True, "resumed_session_binding_mismatch", entry_phase, token,
+                            tuple(semantically_verified[-128:]))
                 phase, outstanding = entry_phase, None
                 token = evidence if entry_phase in {"a_quiesced", "b_quiesced"} else None if entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"} else token
             elif status == "effected":
@@ -607,7 +612,8 @@ class ResidentCognitiveModelTransitionController:
             blocked, reason = True, reason or "unresolved_attempt"
         if token is not None and not self.gate.verifies(token):
             blocked, reason = True, "live_quiescence_custody_mismatch"
-        return _Reconstructed(phase, blocked, reason, outstanding, token)
+        return _Reconstructed(phase, blocked, reason, outstanding, token,
+            tuple(semantically_verified[-128:]))
 
     @property
     def phase(self) -> str:
@@ -721,4 +727,6 @@ class ResidentCognitiveModelTransitionController:
                                  "replay_forbidden": self._state.blocked,
                                  "quiesced": self.gate.quiesced,
                                  "journal_head": entries[-1]["entry_digest"] if entries else "GENESIS",
+                                 "semantically_verified_stage_entry_digests": list(
+                                     self._state.semantically_verified_stage_entry_digests),
                                  "read_only": True})

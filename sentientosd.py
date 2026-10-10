@@ -1313,6 +1313,35 @@ class RuntimeMaintenanceSurfaces:
                                 if isinstance(protocol_value.get("initial_history_boundary"), Mapping) else None),
                             "replay_forbidden": True,
                             "stage_semantic_recovery_posture": health.get("status", "unknown")}
+                        qualified_digests = health.get("semantically_verified_stage_entry_digests", ())
+                        stage_semantically_verified = (entry.get("entry_digest") in qualified_digests
+                            if isinstance(qualified_digests, (list, tuple, set, frozenset)) else False)
+                        payload["stage_semantically_verified"] = stage_semantically_verified
+                        if phase in {"b_epoch_observed", "post_restoration_observed"}:
+                            payload["transition_observation_posture"] = (
+                                "owner_verified_durable_cognition_history_handoff"
+                                if stage_semantically_verified and disposition == "completed"
+                                else "unqualified_or_incomplete")
+                            if stage_semantically_verified and disposition == "completed":
+                                if phase == "b_epoch_observed":
+                                    payload.update({
+                                        "b_epoch_tick_id": evidence.get("b_tick_id"),
+                                        "b_epoch_observation_id": evidence.get("b_observation_id"),
+                                        "b_epoch_observation_digest": evidence.get("b_observation_digest"),
+                                        "b_epoch_developmental_record_id": evidence.get("b_record_id"),
+                                        "b_epoch_developmental_record_digest": evidence.get("b_record_digest"),
+                                        "b_epoch_writeback_receipt_id": evidence.get("b_writeback_receipt_id"),
+                                        "b_epoch_writeback_receipt_digest": evidence.get("b_writeback_receipt_digest")})
+                                else:
+                                    payload.update({
+                                        "restored_a_tick_id": evidence.get("restored_a_tick_id"),
+                                        "restored_a_observation_id": evidence.get("restored_a_observation_id"),
+                                        "restored_a_observation_digest": evidence.get("restored_a_observation_digest"),
+                                        "restored_a_inference_receipt_id": evidence.get("restored_a_inference_receipt_id"),
+                                        "restored_a_inference_receipt_digest": evidence.get("restored_a_inference_receipt_digest"),
+                                        "retrieved_record_ids": list(evidence.get("retrieved_record_ids", ())),
+                                        "retrieved_record_digests": list(evidence.get("retrieved_record_digests", ()))})
+
                         successor_provenance = provenance_bindings.get("successor_b",
                             {"posture": "unavailable_not_protocol_bound"})
                         payload["proposed_successor_model_development_provenance"] = successor_provenance
@@ -1346,7 +1375,10 @@ class RuntimeMaintenanceSurfaces:
                             "source_id": f"resident_transition:{transition_id}:{entry.get('entry_digest')}:{provenance_identity}",
                             "subject_id": transition_id, "subject_kind": "resident_model_transition",
                             "stage": "observation", "disposition": disposition,
-                            "evidence_strength": "digest_valid_transition_journal_entry", "payload": payload,
+                            "evidence_strength": ("owner_verified_transition_cognition_history_handoff"
+                                if phase in {"b_epoch_observed", "post_restoration_observed"}
+                                and stage_semantically_verified and disposition == "completed"
+                                else "digest_valid_transition_journal_entry"), "payload": payload,
                             "observed_at": entry.get("event_time"), "effect_claimed": False, "effect_proven": False})
                 session_identity = status.get("resident_model_identity")
                 if session_identity is not None:
