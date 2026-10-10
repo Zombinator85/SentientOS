@@ -123,6 +123,8 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
             "resource_linkage": compact_linkage,
             "resource_record": original.get("resource_record"),
             "allocation_identity": original.get("allocation_identity"),
+            "invocation_receipt_id": original.get("invocation_receipt_id"),
+            "invocation_receipt_digest": original.get("invocation_receipt_digest"),
             "principal_id": original.get("principal_id"),
             "principal_binding_digest": original.get("principal_binding_digest"),
             "model_attribution": original.get("model_attribution"),

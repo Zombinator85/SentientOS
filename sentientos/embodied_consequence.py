@@ -1499,7 +1499,65 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
         source=fact.get("source"); subject=fact.get("subject"); payload=fact.get("payload")
         if not isinstance(source,Mapping) or not isinstance(subject,Mapping) or not isinstance(payload,Mapping):
             verified=False; continue
-        if source.get("kind")!="resource_governor" or subject.get("subject_kind")!="causal_resource_consumption":
+        if source.get("kind")!="resource_governor":
+            continue
+        subject_kind = subject.get("subject_kind")
+        if subject_kind in {"strategy_invocation_resource_lineage",
+                            "model_replacement_invocation_resource_lineage"}:
+            linkage=payload.get("resource_linkage")
+            resource_record=payload.get("resource_record")
+            allocation=payload.get("allocation_identity")
+            if not all(isinstance(value,Mapping) for value in (linkage,resource_record,allocation)):
+                verified=False
+                continue
+            receipts=linkage.get("consumption_receipt_digests")
+            linkage_body={"receipt_digest":linkage.get("effect_receipt_digest"),
+                "allocation_digest":linkage.get("allocation_digest"),
+                "attempt_id":linkage.get("attempt_id"),
+                "consumption_receipt_digests":tuple(receipts) if isinstance(receipts,(list,tuple)) else ()}
+            linkage_digest=hashlib.sha256(canonical_bytes(linkage_body)).hexdigest()
+            binding={"fact_id":fact.get("fact_id"),"source_id":source.get("source_id"),
+                "source_digest":source.get("digest"),"lineage_subject_kind":subject_kind,
+                "resource_record_source_id":resource_record.get("source_id"),
+                "resource_record_digest":resource_record.get("record_digest"),
+                "ledger_digest":resource_record.get("ledger_digest"),
+                "principal_id":payload.get("principal_id"),
+                "principal_binding_digest":payload.get("principal_binding_digest"),
+                "allocation_digest":allocation.get("allocation_digest"),
+                "attempt_id":linkage.get("attempt_id"),
+                "invocation_receipt_id":payload.get("invocation_receipt_id"),
+                "invocation_receipt_digest":linkage.get("effect_receipt_digest"),
+                "consumption_receipt_digests":tuple(receipts) if isinstance(receipts,(list,tuple)) else (),
+                "model_attribution":payload.get("model_attribution"),
+                "software_attribution":payload.get("software_attribution"),
+                "event_times":tuple(payload.get("event_times",())) if isinstance(payload.get("event_times",()),(list,tuple)) else (),
+                "history_context_posture":payload.get("lineage_projection_posture"),
+                "lineage_posture":"verified" if fact.get("disposition")=="verified" else "incomplete",
+                "lineage_findings":tuple(payload.get("lineage_findings",()))}
+            resource_facts.append(binding)
+            if (fact.get("disposition")!="verified" or binding["lineage_findings"]
+                    or payload.get("lineage_projection_posture") not in {"complete","bounded_context_incomplete"}
+                    or not source.get("digest") or not resource_record.get("source_id")
+                    or not resource_record.get("record_digest") or not resource_record.get("ledger_digest")
+                    or not payload.get("principal_id") or not payload.get("principal_binding_digest")
+                    or not linkage.get("allocation_digest") or not linkage.get("attempt_id")
+                    or not linkage.get("effect_receipt_id") or not linkage.get("effect_receipt_digest")
+                    or not isinstance(receipts,(list,tuple)) or not receipts or len(receipts)>16
+                    or any(not isinstance(item,str) or not item for item in receipts)
+                    or len(receipts)!=len(set(receipts))
+                    or linkage.get("linkage_digest")!=linkage_digest
+                    or allocation.get("allocation_digest")!=linkage.get("allocation_digest")
+                    or allocation.get("principal_id")!=payload.get("principal_id")
+                    or allocation.get("principal_binding_digest")!=payload.get("principal_binding_digest")):
+                verified=False
+            model=payload.get("model_attribution")
+            if (not isinstance(model,Mapping) or not model.get("model_id")
+                    or not model.get("model_artifact_digest")
+                    or model.get("model_id")!=linkage.get("model_id")
+                    or model.get("model_artifact_digest")!=linkage.get("model_artifact_digest")):
+                verified=False
+            continue
+        if subject_kind!="causal_resource_consumption":
             continue
         allocation_values=payload.get("allocations",())
         attempt_values=payload.get("attempts",())
@@ -1530,6 +1588,10 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
         posture="resource_evidence_lineage_incomplete"
     elif len(resource_facts)!=len(facts):
         posture="mixed_selected_history"
+    elif any(item.get("lineage_subject_kind") for item in resource_facts):
+        posture=("resource_invocation_lineage_history_context_bounded"
+            if any(item.get("history_context_posture")!="complete" for item in resource_facts)
+            else "resource_invocation_lineage_history")
     else:
         posture="resource_only_receipt_bound_history"
     return {"posture":posture,"selected_fact_ids":fact_ids,
