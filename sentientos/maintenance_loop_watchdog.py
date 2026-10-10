@@ -6,7 +6,7 @@ dispatches it through a closed table of the repository's maintenance components.
 """
 from __future__ import annotations
 
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os

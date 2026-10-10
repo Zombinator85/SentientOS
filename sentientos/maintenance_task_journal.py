@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os

@@ -5,7 +5,7 @@ scheduler, authenticates a client, or performs Git/publication mutations.
 """
 from __future__ import annotations
 
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os

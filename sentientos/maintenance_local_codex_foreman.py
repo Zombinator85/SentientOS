@@ -6,7 +6,8 @@ under caller supplied external state/workspace roots.
 """
 from __future__ import annotations
 
-import argparse, fcntl, hashlib, json, os, shutil, signal, subprocess, sys, time
+from sentientos.platform_fcntl import fcntl
+import argparse,  hashlib, json, os, shutil, signal, subprocess, sys, time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Callable, cast

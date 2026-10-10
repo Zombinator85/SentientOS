@@ -7,7 +7,7 @@ writes, its private lock, and its digest-chained receipt journal.
 from __future__ import annotations
 
 from dataclasses import fields
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os

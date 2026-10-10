@@ -11,7 +11,7 @@ import json
 import os
 import threading
 import time
-import fcntl
+from sentientos.platform_fcntl import FLOCK_SUPPORTED, fcntl, require_flock
 import stat
 from datetime import datetime, timezone
 from pathlib import Path
@@ -159,6 +159,7 @@ def _prepare_private_directory(path: Path) -> None:
 def build_successor_adoption(config: Mapping[str, Any], current: Mapping[str, Any],
                              predecessor: Mapping[str, Any], successor: Mapping[str, Any]) -> dict[str, Any]:
     """Build the canonical, immutable N+1 component closure from N's schemas."""
+    require_flock()
     cfg = validate_config(config); root = Path(cfg["successor_configuration_root"]) / f"generation-{successor['ordinal']}"
     state = Path(cfg["state_root"]) / f"generation-{successor['ordinal']}"
     for directory in (root, state): _prepare_private_directory(directory)
@@ -261,6 +262,7 @@ def verified_successor(config: Mapping[str, Any], current: Mapping[str, Any]) ->
 
 def _owner_lock_free(adoption: Mapping[str, Any]) -> bool:
     """Prove absence of an effectful owner and reject ambiguous wake intent."""
+    require_flock()
     wake_daemon.inspect(adoption)
     path = Path(str(adoption["cadence_state_root"])) / "wake-daemon-owner.lock"
     path.touch(exist_ok=True)
@@ -293,6 +295,9 @@ class MaintenanceSuccessorGenerationOwner:
 
     def start(self) -> bool:
         if not self.config["enabled"]: return False
+        if not FLOCK_SUPPORTED:
+            self._set("degraded", reason="posix_flock_unavailable")
+            return False
         current, adoption = reconstruct_current(self.config)
         if len(_journal(self.config)) % len(PHASES) == 0:
             self._owner = self._factory(adoption)
@@ -311,6 +316,7 @@ class MaintenanceSuccessorGenerationOwner:
             self._stop.wait(float(self.config["observation_delay_seconds"]))
 
     def handoff_once(self) -> dict[str, Any]:
+        require_flock()
         current, current_adoption = reconstruct_current(self.config)
         if Path(self.config["stop_marker"]).exists() or Path(current_adoption["stop_marker"]).exists(): self._set("paused"); return {"status": "paused", "effect_count": 0}
         rows = _journal(self.config); pending = rows[len(rows) - len(rows) % len(PHASES):] if len(rows) % len(PHASES) else []

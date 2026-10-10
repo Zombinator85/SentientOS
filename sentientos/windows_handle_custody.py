@@ -24,6 +24,8 @@ def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
         entries = read_regular_files(source.parent, max_entries=1,
             max_file_bytes=max_bytes, max_total_bytes=max_bytes,
             selected_names=(source.name,))
+        if not entries:
+            raise WindowsHandleCustodyError("explicit_file_missing")
         if len(entries) != 1 or entries[0][0] != source.name:
             raise WindowsHandleCustodyError("explicit_file_missing_or_ambiguous")
         return entries[0][1]

@@ -5,7 +5,8 @@ publication in the local commit/enqueue path.
 """
 from __future__ import annotations
 
-import argparse, fcntl, hashlib, json, os, re, shutil, subprocess, tempfile, time
+from sentientos.platform_fcntl import fcntl
+import argparse,  hashlib, json, os, re, shutil, subprocess, tempfile, time
 from pathlib import Path
 from typing import Any, Mapping, Sequence, cast
 

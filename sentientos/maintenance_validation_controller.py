@@ -6,7 +6,8 @@ under caller-supplied external state roots and never commits or publishes.
 """
 from __future__ import annotations
 
-import argparse, base64, fcntl, fnmatch, hashlib, json, math, os, shutil, signal, subprocess, sys, time
+from sentientos.platform_fcntl import fcntl
+import argparse, base64,  fnmatch, hashlib, json, math, os, shutil, signal, subprocess, sys, time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Callable, cast

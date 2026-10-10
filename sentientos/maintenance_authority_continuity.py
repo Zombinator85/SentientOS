@@ -9,7 +9,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import fcntl
+from sentientos.platform_fcntl import fcntl, require_flock
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, cast
@@ -40,10 +41,13 @@ def digest(value: Any, omitted: str | None = None) -> str:
 
 
 def _load(path: str | Path) -> dict[str, Any]:
-    p = Path(path)
-    if p.is_symlink() or not p.is_file():
-        raise ValueError("continuity_input_not_regular")
-    return cast(dict[str, Any], json.loads(p.read_text(encoding="utf-8")))
+    try:
+        value = json.loads(read_explicit_file(Path(path), max_bytes=1_048_576).decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("continuity_input_not_regular") from exc
+    if not isinstance(value, dict):
+        raise ValueError("continuity_input_not_object")
+    return cast(dict[str, Any], value)
 
 
 def _time(value: object) -> datetime:
@@ -258,6 +262,7 @@ def _derive_next_locked(policy_path: str | Path, completion_path: str | Path, su
 def derive_next(policy_path: str | Path, completion_path: str | Path, successor_path: str | Path, evaluation_time: str) -> dict[str, Any]:
     """Serialize and derive one transition, including exact partial-pair recovery."""
     try:
+        require_flock()
         policy = validate_policy(_load(policy_path))
         lock_path = Path(policy["generation_root"]) / ".continuity-derive.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
