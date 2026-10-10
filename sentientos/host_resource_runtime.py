@@ -582,7 +582,15 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "authority_map_digest", "artifact_id", "artifact_sha256", "runtime_id")
         serving_binding = ({key: serving[key] for key in serving_fields if key in serving}
             if isinstance(serving, Mapping) else {})
+        invocation_event_time = invocation.get("observed_at")
+        invocation_event_time = invocation_event_time if isinstance(invocation_event_time, str) else None
+        payload["event_time"] = invocation_event_time
+        payload["event_time_posture"] = (
+            "invocation_receipt_observed_at_unbound_metadata"
+            if invocation_event_time is not None else "historical_invocation_time_unknown")
         payload["chat_model_serving_lineage"] = {
+            "event_time": invocation_event_time,
+            "event_time_posture": payload["event_time_posture"],
             "invocation_receipt_id": attribution["invocation_receipt_id"],
             "invocation_receipt_digest": attribution["invocation_receipt_digest"],
             "invocation_request_id": attribution["invocation_request_id"],

@@ -65,12 +65,56 @@ def _runtime_history_projection(fact: Mapping[str, Any]) -> dict[str, Any] | Non
     source = fact.get("source")
     subject = fact.get("subject")
     original = fact.get("payload")
-    if (not isinstance(source, Mapping) or source.get("kind") != "runtime_supervisor"
+    if (not isinstance(source, Mapping)
+            or source.get("kind") not in {"runtime_supervisor", "resource_governor"}
             or not isinstance(subject, Mapping) or not isinstance(original, Mapping)):
         return None
     kind = subject.get("subject_kind")
     summary: dict[str, Any]
-    if kind == "chat_process_runtime_generation_observation":
+    if kind == "chat_process_software_generation_invocation":
+        if source.get("kind") != "resource_governor":
+            return None
+        lineage = original.get("chat_model_serving_lineage")
+        if not isinstance(lineage, Mapping):
+            return None
+        serving_identity = lineage.get("serving_identity")
+        serving_identity = serving_identity if isinstance(serving_identity, Mapping) else {}
+        consumption = lineage.get("resource_consumption_receipt_digests", ())
+        if not isinstance(consumption, (list, tuple)):
+            return None
+        summary = {
+            "event_time": original.get("event_time"),
+            "event_time_posture": original.get("event_time_posture"),
+            "chat_model_serving_lineage": {
+                key: lineage.get(key) for key in (
+                    "invocation_receipt_id", "invocation_receipt_digest",
+                    "invocation_request_id", "invocation_request_digest",
+                    "installation_identity", "provisioning_id", "resource_allocation_digest",
+                    "resource_attempt_id", "resource_linkage_digest",
+                    "software_handoff_id", "software_handoff_digest",
+                    "software_process_instance_id", "software_generation_digest",
+                    "software_generation_startup_timestamp", "model_id",
+                    "model_artifact_digest", "relation_posture", "currentness",
+                    "effect_authority", "event_time", "event_time_posture")},
+            "serving_identity": {key: serving_identity.get(key) for key in (
+                "serving_session_id", "serving_operation_id", "serving_receipt_id",
+                "serving_receipt_semantic_digest", "serving_operation_attempt_id",
+                "serving_operation_attempt_semantic_digest", "activation_state_semantic_digest",
+                "activation_generation", "activation_receipt_id",
+                "activation_receipt_semantic_digest", "model_serving_admission_ref",
+                "model_id", "artifact_id", "artifact_sha256", "runtime_id")},
+            "resource_consumption_receipt_digests": list(consumption[:8]),
+            "resource_consumption_receipt_digests_digest": digest(list(consumption)),
+            "resource_consumption_receipt_digests_omitted": max(0, len(consumption) - 8),
+            "projection_posture": "complete" if len(consumption) <= 8
+                else "bounded_tail_incomplete",
+            "active_model_identity_digest": (
+                digest(dict(lineage["active_model_identity"]))
+                if isinstance(lineage.get("active_model_identity"), Mapping) else None),
+            "historical_only": True, "current_truth": False, "authority": False,
+            "effect_proven": False,
+        }
+    elif kind == "chat_process_runtime_generation_observation":
         observation = original.get("chat_process_runtime_observation")
         links = original.get("linked_invocation_receipts", ())
         if not isinstance(observation, Mapping) or not isinstance(links, (list, tuple)):
@@ -859,7 +903,15 @@ class ResidentDevelopmentalWritebackController:
                                     "sentientos.runtime_history_projection:v1"}
                                 or (projection.get("schema_version")
                                     == "sentientos.runtime_history_projection:v1"
-                                    and source.get("kind") != "runtime_supervisor")
+                                    and not (
+                                        (source.get("kind") == "runtime_supervisor"
+                                            and subject.get("subject_kind") in {
+                                                "chat_process_runtime_generation_observation",
+                                                "chat_process_recovery_transition",
+                                                "serving_operation_history"})
+                                        or (source.get("kind") == "resource_governor"
+                                            and subject.get("subject_kind")
+                                                == "chat_process_software_generation_invocation")))
                                 or projection.get("source_fact_id") != fact.get("fact_id")
                                 or projection.get("source_record_digest") != source.get("digest")
                                 or projection.get("projected_payload_digest") != digest(payload_value)):

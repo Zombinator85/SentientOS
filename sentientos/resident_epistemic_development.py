@@ -291,8 +291,12 @@ class ResidentEpistemicDevelopmentRuntime:
             observed = (_latest_historical_event_time([source_event_time])
                 if isinstance(source_event_time, str) else None)
         elif fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
-            historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
-                                if isinstance(item, Mapping) and item.get("observed_at")]
+            if fact.subject.subject_kind == "chat_process_software_generation_invocation":
+                source_event_time = fact.payload.get("event_time")
+                historical_times = [source_event_time] if isinstance(source_event_time, str) else []
+            else:
+                historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
+                                    if isinstance(item, Mapping) and item.get("observed_at")]
             if resource_invocation_lineage:
                 historical_times.extend(str(item) for item in fact.payload.get("event_times", ())
                     if isinstance(item, str))

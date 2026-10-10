@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the bounded developmental-history runtime projection, GitHub branch inspection verified `931cb58c7b1782c9032ee713ca361bb8b7505868` (tree `35425891cd6fdcbf400c9b9e4ca4900dff183a05`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the invocation event-time and developmental-history projection repair, GitHub branch inspection verified `7f5034c65cc5dc1dd0ccec2edce95d5f318d7f8f` (tree `cff826a31539060f424213a6f76ca33ad07bf7ab`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -573,3 +573,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the developmental writeback module. No tests, candidate generation, admission, persistence/restart, cognition, or production verification was run.
 
 **Next implementation dependency:** check source-level continuity of these projections through durable candidate recovery and later-tick cognition; ensure projection lineage is revalidated against the original selected World-State snapshot instead of trusting only an admitted projection object.
+
+
+### New checkpoint — retain invocation event time without upgrading its evidentiary status
+
+- Chat-process invocation World-State rows now carry the source receipt's `observed_at` as event-time metadata, or keep the time unknown. Its posture states explicitly that this timestamp is not part of the invocation receipt's semantic digest.
+- The epistemic adapter carries this event time into historical evidence binding while its resource-source freshness remains non-current. It does not use reconstruction time.
+- Bounded developmental-history projection now retains this event time, exact serving receipt/attempt and process-generation lineage, and up to eight consumption-receipt digests with a digest/count for any omitted tail. Malformed receipt-digest collections do not get projected.
+- Python compilation passed for the World-State projector, epistemic adapter, and developmental writeback owner. No tests, source replay, evidence admission, writeback persistence, cognition, or production verification was run.
+
+**Next implementation dependency:** inspect whether the source-bound projections and timestamps are revalidated from original World-State snapshots when durable developmental records are reconstructed, then continue with any independently fixable identity or ordering defect.
