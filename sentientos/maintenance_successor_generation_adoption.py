@@ -26,6 +26,7 @@ from sentientos import maintenance_candidate_collector as collector
 from sentientos import maintenance_autonomy_cycle as autonomy
 from sentientos import maintenance_health_probe as health
 from sentientos import maintenance_wake_cycle as wake
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 CONFIG_SCHEMA = "sentientos.maintenance_successor_generation_adoption_config:v1"
 HANDOFF_SCHEMA = "sentientos.maintenance_successor_generation_handoff_event:v1"
@@ -33,6 +34,9 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 PHASES = ("handoff_intent_recorded", "predecessor_quiescence_requested",
           "predecessor_confirmed_quiescent", "successor_start_attempted",
           "successor_confirmed_started", "handoff_completed")
+MAX_HANDOFF_JOURNAL_BYTES = 16_777_216
+MAX_HANDOFF_JOURNAL_ROWS = 65_536
+MAX_HANDOFF_JOURNAL_LINE_BYTES = 65_536
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -45,10 +49,11 @@ def digest(value: Any, omitted: str | None = None) -> str:
 
 
 def _load(path: str | Path) -> dict[str, Any]:
-    source = Path(path)
-    if source.is_symlink() or not source.is_file():
-        raise ValueError("successor_adoption_input_not_regular")
-    value = json.loads(source.read_text(encoding="utf-8"))
+    try:
+        raw = read_explicit_file(Path(path), max_bytes=65_536)
+        value = json.loads(raw.decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("successor_adoption_input_not_regular") from exc
     if not isinstance(value, dict):
         raise ValueError("successor_adoption_input_not_object")
     return value
@@ -97,14 +102,25 @@ def load_config(path: str | Path) -> dict[str, Any]: return validate_config(_loa
 
 def _journal(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
     path = Path(str(cfg["handoff_journal_path"])); rows: list[dict[str, Any]] = []; prior = ZERO_DIGEST
-    if not path.exists(): return rows
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            row = json.loads(line); claimed = row.pop("event_digest")
+        raw = read_explicit_file(path, max_bytes=MAX_HANDOFF_JOURNAL_BYTES)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) == "explicit_file_missing":
+            return rows
+        raise ValueError("successor_handoff_journal_corrupt") from exc
+    try:
+        lines = raw.splitlines()
+        if len(lines) > MAX_HANDOFF_JOURNAL_ROWS or any(not line or len(line) > MAX_HANDOFF_JOURNAL_LINE_BYTES for line in lines):
+            raise ValueError
+        for line in lines:
+            row = json.loads(line.decode("utf-8")); claimed = row.pop("event_digest")
             if row.get("schema_version") != HANDOFF_SCHEMA or row.get("config_digest") != cfg["config_digest"] or row.get("prior_event_digest") != prior or digest(row) != claimed:
                 raise ValueError
-            row["event_digest"] = claimed; rows.append(row); prior = claimed
-    except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            row["event_digest"] = claimed
+            if canonical_bytes(row) + b"\n" != line:
+                raise ValueError
+            rows.append(row); prior = claimed
+    except (UnicodeError, ValueError, KeyError, json.JSONDecodeError) as exc:
         raise ValueError("successor_handoff_journal_corrupt") from exc
     # Completed transactions are six exact phases; only the last may be a prefix.
     for index, row in enumerate(rows):

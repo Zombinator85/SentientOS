@@ -70,6 +70,8 @@ def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
         return data
     except WindowsHandleCustodyError:
         raise
+    except FileNotFoundError as exc:
+        raise WindowsHandleCustodyError("explicit_file_missing") from exc
     except OSError as exc:
         raise WindowsHandleCustodyError("explicit_file_unavailable") from exc
     finally:
@@ -171,6 +173,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN_REPARSE_POINT = 0x20, 0x00200000
     OBJ_CASE_INSENSITIVE, OBJ_DONT_REPARSE = 0x40, 0x1000
     STATUS_NO_MORE_FILES = 0x80000006
+    STATUS_OBJECT_NAME_NOT_FOUND = 0xC0000034
+    STATUS_OBJECT_PATH_NOT_FOUND = 0xC000003A
     FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 
     def fail(code: str, cause: BaseException | None = None) -> None:
@@ -191,6 +195,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         options = (FILE_DIRECTORY_FILE if directory else FILE_NON_DIRECTORY_FILE) | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT
         status = nt_create(ctypes.byref(handle), access, ctypes.byref(attrs), ctypes.byref(iosb), None,
             0, FILE_SHARE_READ, FILE_OPEN, options, None, 0)
+        if (status & 0xFFFFFFFF) in {STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND}:
+            fail("explicit_file_missing")
         if status < 0 or not handle.value:
             fail("cognition_observation_windows_open_failed")
         return int(handle.value)
