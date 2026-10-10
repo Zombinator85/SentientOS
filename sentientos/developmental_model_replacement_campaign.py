@@ -2,15 +2,23 @@
 from __future__ import annotations
 
 import json
+import os
+import re
+import secrets
+import stat
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence, cast
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # Keep imports usable on Windows; custody fails closed there.
+    _fcntl = None
 
 from .developmental_model_replacement_experiment import (
     CONDITION_ORDER, NON_CLAIMS, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, _digest,
 )
-from .local_model_authority import atomic_write_json
 
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v1"
 STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
@@ -20,6 +28,9 @@ MAX_TRIALS = 32
 CAMPAIGN_NON_CLAIMS = NON_CLAIMS + (
     "statistical_significance", "hypothesis_probability", "longitudinal_development",
 )
+MAX_CAMPAIGN_ARTIFACT_BYTES = 4_194_304
+MAX_CAMPAIGN_STATE_REVISIONS = 256
+_CAMPAIGN_ID = re.compile(r"model-replacement-campaign-[0-9a-f]{24}\Z")
 AGGREGATION_RULES = (
     "exact_verified_trial_artifacts_only", "ordered_counting_without_inference",
     "preserve_negative_unstable_and_invalid_outcomes",
@@ -84,43 +95,295 @@ class CampaignProtocol:
 
 class CampaignStore:
     def __init__(self, root: Path) -> None:
-        self.root = Path(root) / "developmental_experiments" / "model_replacement_campaigns"
+        selected_root = Path(root)
+        if selected_root.is_symlink() or any(parent.is_symlink() for parent in selected_root.parents):
+            raise DevelopmentalModelReplacementError("campaign_store_root_symlink")
+        self.state_root = selected_root.resolve()
+        self.root = self.state_root / "developmental_experiments" / "model_replacement_campaigns"
         self.protocols, self.states = self.root / "protocols", self.root / "state"
         self.failures, self.reports = self.root / "failures", self.root / "reports"
+        self.state_history = self.root / "state-history"
 
     @staticmethod
-    def immutable(path: Path, value: Mapping[str, Any]) -> None:
-        if path.exists():
-            try: prior = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError) as exc: raise DevelopmentalModelReplacementError("campaign_artifact_tampered") from exc
-            if prior != dict(value): raise DevelopmentalModelReplacementError("campaign_artifact_identity_collision")
-        else: atomic_write_json(path, value)
+    def _require_descriptor_storage() -> None:
+        required = (os.open, os.mkdir, os.link, os.rename, os.unlink)
+        if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW")
+                or any(function not in os.supports_dir_fd for function in required)
+                or _fcntl is None):
+            raise DevelopmentalModelReplacementError("campaign_store_unsupported_platform")
+
+    def _open_kind_directory(self, kind: str, *, create: bool) -> int:
+        if kind not in {"protocols", "state", "state-history", "failures", "reports"}:
+            raise DevelopmentalModelReplacementError("campaign_store_path_invalid")
+        self._require_descriptor_storage()
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(os.sep, flags)
+            components = (*self.state_root.parts[1:], "developmental_experiments",
+                "model_replacement_campaigns", kind)
+            for component in components:
+                if create:
+                    try:
+                        os.mkdir(component, 0o700, dir_fd=descriptor)
+                    except FileExistsError:
+                        pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+                if not stat.S_ISDIR(os.fstat(next_descriptor).st_mode):
+                    os.close(next_descriptor)
+                    raise DevelopmentalModelReplacementError("campaign_store_path_invalid")
+                os.close(descriptor)
+                descriptor = next_descriptor
+            return descriptor
+        except DevelopmentalModelReplacementError:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise
+        except OSError as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise DevelopmentalModelReplacementError("campaign_store_path_invalid") from exc
+
+    def _artifact_location(self, path: Path) -> tuple[str, str]:
+        try:
+            relative = path.relative_to(self.root)
+        except ValueError as exc:
+            raise DevelopmentalModelReplacementError("campaign_store_path_invalid") from exc
+        if len(relative.parts) != 2 or relative.parts[0] not in {"protocols", "state", "state-history", "failures", "reports"}:
+            raise DevelopmentalModelReplacementError("campaign_store_path_invalid")
+        filename = relative.parts[1]
+        if not filename or filename in {".", ".."} or "/" in filename or "\\" in filename:
+            raise DevelopmentalModelReplacementError("campaign_store_path_invalid")
+        return relative.parts[0], filename
+
+    def _read_json(self, path: Path, *, missing_code: str, invalid_code: str) -> dict[str, Any]:
+        kind, filename = self._artifact_location(path)
+        directory_fd: int | None = None
+        descriptor: int | None = None
+        try:
+            directory_fd = self._open_kind_directory(kind, create=False)
+            descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory_fd)
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CAMPAIGN_ARTIFACT_BYTES:
+                raise DevelopmentalModelReplacementError(invalid_code)
+            remaining = metadata.st_size
+            chunks: list[bytes] = []
+            while remaining:
+                chunk = os.read(descriptor, min(remaining, 65536))
+                if not chunk:
+                    raise DevelopmentalModelReplacementError(invalid_code)
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            value = json.loads(b"".join(chunks).decode("utf-8"))
+            if not isinstance(value, dict):
+                raise DevelopmentalModelReplacementError(invalid_code)
+            return value
+        except DevelopmentalModelReplacementError:
+            raise
+        except FileNotFoundError as exc:
+            raise DevelopmentalModelReplacementError(missing_code) from exc
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise DevelopmentalModelReplacementError(invalid_code) from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+
+    def _write_immutable(self, path: Path, value: Mapping[str, Any]) -> None:
+        normalized = json.loads(json.dumps(dict(value), sort_keys=True))
+        encoded = json.dumps(normalized, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=True).encode("utf-8")
+        if len(encoded) > MAX_CAMPAIGN_ARTIFACT_BYTES:
+            raise DevelopmentalModelReplacementError("campaign_artifact_size_limit_exceeded")
+        kind, filename = self._artifact_location(path)
+        directory_fd = self._open_kind_directory(kind, create=True)
+        temporary_name = ".campaign-" + secrets.token_hex(16) + ".tmp"
+        temporary_created = False
+        try:
+            try:
+                prior = self._read_json(path, missing_code="campaign_artifact_missing",
+                    invalid_code="campaign_artifact_tampered")
+            except DevelopmentalModelReplacementError as exc:
+                if str(exc) != "campaign_artifact_missing":
+                    raise
+                prior = None
+            if prior is not None:
+                if prior != normalized:
+                    raise DevelopmentalModelReplacementError("campaign_artifact_identity_collision")
+                return
+            descriptor = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+                0o600, dir_fd=directory_fd)
+            temporary_created = True
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.link(temporary_name, filename, src_dir_fd=directory_fd,
+                    dst_dir_fd=directory_fd, follow_symlinks=False)
+            except FileExistsError:
+                prior = self._read_json(path, missing_code="campaign_artifact_missing",
+                    invalid_code="campaign_artifact_tampered")
+                if prior != normalized:
+                    raise DevelopmentalModelReplacementError("campaign_artifact_identity_collision")
+            os.fsync(directory_fd)
+        except OSError as exc:
+            raise DevelopmentalModelReplacementError("campaign_artifact_publication_failed") from exc
+        finally:
+            if temporary_created:
+                try:
+                    os.unlink(temporary_name, dir_fd=directory_fd)
+                except FileNotFoundError:
+                    pass
+            os.close(directory_fd)
+
+    def immutable(self, path: Path, value: Mapping[str, Any]) -> None:
+        self._write_immutable(path, value)
 
     def protocol_path(self, campaign_id: str) -> Path: return self.protocols / f"{campaign_id}.json"
     def state_path(self, campaign_id: str) -> Path: return self.states / f"{campaign_id}.json"
 
+    def state_revision_path(self, campaign_id: str, revision: int, state_digest: str) -> Path:
+        if (not _CAMPAIGN_ID.fullmatch(campaign_id) or type(revision) is not int
+                or revision < 0 or revision > MAX_CAMPAIGN_STATE_REVISIONS
+                or not isinstance(state_digest, str) or len(state_digest) != 71
+                or not state_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in state_digest[7:])):
+            raise DevelopmentalModelReplacementError("campaign_state_identity_invalid")
+        return self.state_history / f"{campaign_id}-r{revision}-{state_digest[7:]}.json"
+
     def persist_protocol(self, protocol: CampaignProtocol) -> None:
-        protocol.verify(); self.immutable(self.protocol_path(protocol.campaign_id), asdict(protocol))
+        protocol.verify(); self._write_immutable(self.protocol_path(protocol.campaign_id), asdict(protocol))
 
     def verify_protocol(self, protocol: CampaignProtocol) -> None:
-        try: actual = json.loads(self.protocol_path(protocol.campaign_id).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc: raise DevelopmentalModelReplacementError("campaign_protocol_custody_changed") from exc
+        actual = self._read_json(self.protocol_path(protocol.campaign_id),
+            missing_code="campaign_protocol_custody_changed", invalid_code="campaign_protocol_custody_changed")
         if actual != json.loads(json.dumps(asdict(protocol))): raise DevelopmentalModelReplacementError("campaign_protocol_custody_changed")
 
     def write_state(self, protocol: CampaignProtocol, body: Mapping[str, Any]) -> dict[str, Any]:
         semantic = {key: value for key, value in body.items() if key not in {"state_digest", "campaign_id", "campaign_digest", "schema_version"}}
         semantic = {**semantic, "campaign_id": protocol.campaign_id, "campaign_digest": protocol.campaign_digest,
                     "schema_version": STATE_SCHEMA}
-        value = {**semantic, "state_digest": _digest(semantic)}
-        atomic_write_json(self.state_path(protocol.campaign_id), value)
-        return value
+        if not _CAMPAIGN_ID.fullmatch(protocol.campaign_id):
+            raise DevelopmentalModelReplacementError("campaign_state_identity_invalid")
+        kind, filename = self._artifact_location(self.state_path(protocol.campaign_id))
+        directory_fd = self._open_kind_directory(kind, create=True)
+        lock_fd: int | None = None
+        temporary_name = ".campaign-state-" + secrets.token_hex(16) + ".tmp"
+        temporary_created = False
+        try:
+            lock_fd = os.open(".state.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
+                0o600, dir_fd=directory_fd)
+            _fcntl.flock(lock_fd, _fcntl.LOCK_EX)
+            try:
+                prior = self._read_json(self.state_path(protocol.campaign_id),
+                    missing_code="campaign_state_missing", invalid_code="campaign_state_tampered")
+            except DevelopmentalModelReplacementError as exc:
+                if str(exc) != "campaign_state_missing":
+                    raise
+                prior = None
+            supplied_digest = body.get("state_digest")
+            if prior is None:
+                if supplied_digest is not None:
+                    raise DevelopmentalModelReplacementError("campaign_state_stale_writer")
+                semantic.update({"state_revision": 1, "previous_state_digest": None})
+            else:
+                self.load_state(protocol)
+                prior_semantic = {key: item for key, item in prior.items() if key != "state_digest"}
+                if (prior.get("state_digest") != _digest(prior_semantic)
+                        or prior.get("campaign_digest") != protocol.campaign_digest):
+                    raise DevelopmentalModelReplacementError("campaign_state_tampered")
+                if supplied_digest != prior.get("state_digest"):
+                    raise DevelopmentalModelReplacementError("campaign_state_stale_writer")
+                prior_revision = prior.get("state_revision", 0)
+                if type(prior_revision) is not int or not 0 <= prior_revision < MAX_CAMPAIGN_STATE_REVISIONS:
+                    raise DevelopmentalModelReplacementError("campaign_state_revision_invalid")
+                self._write_immutable(self.state_revision_path(protocol.campaign_id,
+                    prior_revision, str(prior["state_digest"])), prior)
+                semantic.update({"state_revision": prior_revision + 1,
+                    "previous_state_digest": prior["state_digest"]})
+            value = {**semantic, "state_digest": _digest(semantic)}
+            self._write_immutable(self.state_revision_path(protocol.campaign_id,
+                value["state_revision"], value["state_digest"]), value)
+            encoded = json.dumps(value, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=True).encode("utf-8")
+            if len(encoded) > MAX_CAMPAIGN_ARTIFACT_BYTES:
+                raise DevelopmentalModelReplacementError("campaign_state_size_limit_exceeded")
+            descriptor = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+                0o600, dir_fd=directory_fd)
+            temporary_created = True
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.rename(temporary_name, filename, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+            os.fsync(directory_fd)
+            return value
+        except OSError as exc:
+            raise DevelopmentalModelReplacementError("campaign_state_publication_failed") from exc
+        finally:
+            if temporary_created:
+                try:
+                    os.unlink(temporary_name, dir_fd=directory_fd)
+                except FileNotFoundError:
+                    pass
+            if lock_fd is not None:
+                try:
+                    _fcntl.flock(lock_fd, _fcntl.LOCK_UN)
+                finally:
+                    os.close(lock_fd)
+            os.close(directory_fd)
 
     def load_state(self, protocol: CampaignProtocol) -> dict[str, Any]:
-        try: value = json.loads(self.state_path(protocol.campaign_id).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc: raise DevelopmentalModelReplacementError("campaign_state_unavailable") from exc
+        value = self._read_json(self.state_path(protocol.campaign_id),
+            missing_code="campaign_state_unavailable", invalid_code="campaign_state_tampered")
         semantic = {k: v for k, v in value.items() if k != "state_digest"}
-        if value.get("state_digest") != _digest(semantic) or value.get("campaign_digest") != protocol.campaign_digest:
+        revision = value.get("state_revision", 0)
+        predecessor = value.get("previous_state_digest")
+        if (value.get("state_digest") != _digest(semantic)
+                or value.get("campaign_digest") != protocol.campaign_digest
+                or type(revision) is not int or revision < 0
+                or (revision == 0 and predecessor is not None)
+                or (predecessor is not None and (not isinstance(predecessor, str)
+                    or not predecessor.startswith("sha256:")))
+                or (revision > 1 and predecessor is None)):
             raise DevelopmentalModelReplacementError("campaign_state_tampered")
+        if revision > 0:
+            current = value
+            for expected_revision in range(revision, -1, -1):
+                current_revision = current.get("state_revision", 0)
+                current_digest = current.get("state_digest")
+                if current_revision != expected_revision or not isinstance(current_digest, str):
+                    raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
+                snapshot = self._read_json(self.state_revision_path(protocol.campaign_id,
+                    expected_revision, current_digest), missing_code="campaign_state_predecessor_missing",
+                    invalid_code="campaign_state_predecessor_invalid")
+                snapshot_semantic = {key: item for key, item in snapshot.items() if key != "state_digest"}
+                if snapshot != current or current_digest != _digest(snapshot_semantic):
+                    raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
+                previous = current.get("previous_state_digest")
+                if expected_revision == 0:
+                    if previous is not None:
+                        raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
+                    break
+                if not isinstance(previous, str):
+                    raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
+                if expected_revision == 1:
+                    if previous is None:
+                        break
+                    # A legacy pre-journal state is preserved as revision zero.
+                    legacy = self._read_json(self.state_revision_path(protocol.campaign_id, 0, previous),
+                        missing_code="campaign_state_predecessor_missing",
+                        invalid_code="campaign_state_predecessor_invalid")
+                    legacy_semantic = {key: item for key, item in legacy.items() if key != "state_digest"}
+                    if (legacy.get("state_digest") != previous or _digest(legacy_semantic) != previous
+                            or legacy.get("campaign_digest") != protocol.campaign_digest):
+                        raise DevelopmentalModelReplacementError("campaign_state_predecessor_invalid")
+                    break
+                current = self._read_json(self.state_revision_path(protocol.campaign_id,
+                    expected_revision - 1, previous), missing_code="campaign_state_predecessor_missing",
+                    invalid_code="campaign_state_predecessor_invalid")
         return cast(dict[str, Any], value)
 
 
@@ -142,8 +405,10 @@ class DevelopmentalModelReplacementCampaign:
     def reconstruct(cls, *, experiment: DevelopmentalModelReplacementExperiment,
                     artifact_root: Path, campaign_id: str) -> "DevelopmentalModelReplacementCampaign":
         store = CampaignStore(artifact_root)
-        try: raw = json.loads(store.protocol_path(campaign_id).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc: raise DevelopmentalModelReplacementError("campaign_protocol_custody_changed") from exc
+        if not isinstance(campaign_id, str) or not _CAMPAIGN_ID.fullmatch(campaign_id):
+            raise DevelopmentalModelReplacementError("campaign_protocol_identity_invalid")
+        raw = store._read_json(store.protocol_path(campaign_id),
+            missing_code="campaign_protocol_custody_changed", invalid_code="campaign_protocol_custody_changed")
         try:
             raw["trial_ids"] = tuple(raw["trial_ids"]); raw["condition_order"] = tuple(raw["condition_order"])
             raw["aggregation_rules"] = tuple(raw["aggregation_rules"]); raw["non_claims"] = tuple(raw["non_claims"])

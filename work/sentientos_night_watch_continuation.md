@@ -12,7 +12,8 @@ Construction work is **untested for production**. Continue from branch `codex/co
 - `6fd32f7064a8d60dadac7c2316f82a08950b38a9` (remote verified): consequence artifact reads now use no-follow descriptor traversal.
 - `1ec6d5b5e7436fde62ad49012e27b3de8f98adb9` (remote verified): strategy proposal review adapter and digest-aware review receipts; strategy kinds remain blocked from legacy handoff.
 - `7ca153d9516069bf78b951f6bce579f9e70b9f73` (remote verified): controlled model-replacement artifacts use no-follow descriptor reads and immutable descriptor-relative publication.
-- Eighth increment in progress: durable per-condition start/terminal custody for A/B comparisons; completed observations are reused after restart, a started nonterminal condition is never replayed, partial runs are content-addressed and projected as incomplete/contradictory, and campaign recovery reconciles an in-progress trial without marking partial output complete.
+- `ef207185ab623e91b74560a171d1f4a7f48751f6` (remote verified): A/B comparison conditions now have immutable start and terminal records. Recovery reuses completed conditions, never replays a started condition without a terminal, and preserves partial/incomplete trials instead of counting them complete.
+- Ninth increment in progress: hardening campaign protocol/report/failure reads and publication with descriptor-relative no-follow custody; campaign state uses locked atomic replacement, stale-writer rejection, and an immutable bounded predecessor chain.
 
 ## Boundaries and blockers
 
@@ -24,6 +25,6 @@ Construction work is **untested for production**. Continue from branch `codex/co
 
 ## Exact next work
 
-1. Compile the per-condition recovery changes, commit `[untested]`, push, and verify remote SHA.
-2. Review the campaign state store’s adjacent path-based custody, then check for any other directly connected restart gap.
+1. Compile and review the campaign-store custody changes, commit `[untested]`, push, and verify remote SHA.
+2. Inspect the frozen model-replacement context for missing controlled factors already represented by existing self-model, epistemic-state, resource-receipt, or software-generation owners; add only exact, source-backed bindings.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.
