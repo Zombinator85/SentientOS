@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `eea03733b56d02bbadecd99742cec2c9d095a9b6` (tree `61e42e181dc8ce8e1d0678b92312e15498b9d956`, parent `3225711b38c6c4b669ec2f38af8232d5b4698e80`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `f39b1062e978453867c0405eee344dd46a4f0755` (tree `7f142dcc621d073770e6799551a8a2d9b9029e6b`, parent `eea03733b56d02bbadecd99742cec2c9d095a9b6`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -92,3 +92,8 @@ UTC tick ordering is now checked in durable self-model and resident-history sele
 ### New checkpoint — preserve host observation event time
 
 - The epistemic adapter now reads host snapshot event time only from the digest-bound snapshot payload, never the World-State retrieval timestamp. Missing or malformed source time remains unknown; host resource evidence remains historical with unknown freshness.
+
+### New checkpoint — separate declared from running software lineage
+
+- Model-replacement World-State evidence now retains the exact `repository_generation_identity` already bound by its frozen causal context under the explicitly declared name and posture `frozen_context_declaration_not_running_observation`.
+- The observed/running software-generation identity remains `None` with its existing unbound posture. The self-model exposes the declaration only under separate opt-in lineage predicates; a commit or declared context cannot imply the running generation.

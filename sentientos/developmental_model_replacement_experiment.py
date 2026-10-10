@@ -1289,6 +1289,10 @@ class ModelReplacementArtifactStore:
                 "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
                 "causal_context_id": protocol.causal_context_id,
                 "causal_context_digest": protocol.causal_context_digest,
+                "declared_repository_generation_identity": self.context.repository_generation_identity,
+                "declared_repository_generation_posture": (
+                    "frozen_context_declaration_not_running_observation"
+                    if self.context.repository_generation_identity is not None else "unknown"),
                 "software_generation_identity": None,
                 "software_generation_posture": "not_bound_by_selected_protocol",
                 "model_a_id": protocol.model_a_identity.model_id,

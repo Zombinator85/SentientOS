@@ -41,6 +41,8 @@ FORBIDDEN_PREDICATES = {
 PAYLOAD_PREDICATES = {
     "software_generation": ("software_generation", "runtime_generation"),
     "cognitive_model_identity": ("cognitive_model_id", "serving_model", "model_id"),
+    "declared_repository_generation_identity": ("declared_repository_generation_identity",),
+    "declared_repository_generation_posture": ("declared_repository_generation_posture",),
     "predecessor_model_identity": ("predecessor_model_identity",),
     "proposed_successor_model_identity": ("proposed_successor_model_identity",),
     "activated_model_identity": ("activated_model_identity",),
