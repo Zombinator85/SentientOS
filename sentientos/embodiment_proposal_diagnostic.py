@@ -201,11 +201,26 @@ def build_embodied_proposal_review_summary(*, path: Path, review_receipt_path: P
         known = {str(row.get("proposal_id")): row for row in proposals}
         for proposal in strategy_proposals:
             identity = str(proposal.get("proposal_id") or "")
+            context = {key:proposal.get(key) for key in (
+                "source_experiment_result_id", "source_experiment_result_digest", "source_experiment_condition")}
             existing = known.get(identity)
             if existing is not None:
                 if existing.get("proposal_digest") != proposal.get("proposal_digest"):
                     raise ValueError("strategy_proposal_review_identity_conflict")
+                existing_refs = existing.get("source_event_refs", ())
+                incoming_refs = proposal.get("source_event_refs", ())
+                references = set(item for item in existing_refs if isinstance(item, str)) \
+                    if isinstance(existing_refs, (list, tuple)) else set()
+                references.update(item for item in incoming_refs if isinstance(item, str)) \
+                    if isinstance(incoming_refs, (list, tuple)) else None
+                existing["source_event_refs"] = sorted(references)
+                contexts_value = existing.get("source_experiment_contexts", ())
+                contexts = list(contexts_value) if isinstance(contexts_value, (list, tuple)) else []
+                if context not in contexts:
+                    contexts.append(context)
+                existing["source_experiment_contexts"] = contexts
                 continue
+            proposal["source_experiment_contexts"] = [context]
             proposals.append(proposal)
             known[identity] = proposal
     review_rows = list_recent_embodied_proposal_review_receipts(path=review_receipt_path or DEFAULT_REVIEW_RECEIPT_LOG, limit=limit)

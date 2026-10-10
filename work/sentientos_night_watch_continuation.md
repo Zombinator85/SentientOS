@@ -1,6 +1,6 @@
 # SentientOS night-watch continuation
 
-This is a non-authorizing construction log. All changes remain **unverified for production**. Branch: `codex/construct-sentientos`. The attached night-watch campaign named `329efdfd4237e6c8e9ea9ad2b66d1c6d5482e34d` as its source census; this session resumed the already advanced branch at `66193082067bcc96aa1439ddbc232a556ecd5ffe`. Latest remotely verified checkpoint before the current uncommitted proposal projection is `540f7fe46c6105c68a49e67c38c5a04c0629a9c0`.
+This is a non-authorizing construction log. All changes remain **unverified for production**. Branch: `codex/construct-sentientos`. The attached night-watch campaign named `329efdfd4237e6c8e9ea9ad2b66d1c6d5482e34d` as its source census; this session resumed the already advanced branch at `66193082067bcc96aa1439ddbc232a556ecd5ffe`. Latest remotely verified checkpoint is `3d0f4385442c43c334229a116e87139c9e40920f`.
 
 ## Preserved causal work
 
@@ -13,15 +13,15 @@ This is a non-authorizing construction log. All changes remain **unverified for 
 - `82a13670`: controls must be consumed by their terminal trial; partial controls are preserved when interrupted and cannot be silently aggregated.
 - `540f7fe4`: host-control observations use collector invocation time; compatibility time input cannot backdate them.
 
-## Current uncommitted increment
+## Latest proposal-continuity increment
 
 The selected durable strategy-experiment projection now emits individually digest-bound strategy-proposal records with exact experiment, condition, model/software, governed invocation, and resource-linkage identities where present. Proposals remain undated when no verified invocation time exists, carry no effect claim, and enter epistemic development with unknown freshness/dependency. The existing proposal-review diagnostic can explicitly select these durable proposals from an injected `ConsequenceStore`; proposal digests and experiment provenance flow to the review-only receipt shape. Unsupported strategy proposals remain blocked from legacy feedback/action handoffs.
 
-Compilation checks for the changed modules and `git diff --check` passed. No tests, runtime experiments, production checks, provider calls, effects, or Windows runtime checks were performed.
+`3d0f4385` remotely verifies the proposal projection/review bridge. Compilation checks for the changed modules and `git diff --check` passed. No tests, runtime experiments, production checks, provider calls, effects, or Windows runtime checks were performed. Current local change (not yet committed): review diagnostics aggregate identical strategy proposal identities across selected experiments while retaining each exact experiment/condition reference; review source-reference inputs are bounded.
 
 ## Genuine blockers and next work
 
 - No independently authenticated physical observer/issuer or real consequence receipt owner is composed. Caller-provided embodiment observations remain unverified, contextual evidence; no successful physical consequence may be inferred.
 - No independently issued strategy/action authorization exists in this chain. Do not map strategy proposals into legacy feedback-action candidates or fabricate execution.
 - Source-authenticated production measurements and actual running-successor observations remain unavailable; `production_ready` stays false.
-- Next: compile and checkpoint the current strategy-proposal World-State/review bridge, then inspect the existing downstream developmental writeback and later-cognition selectors for exact proposal identity and temporal behavior. Continue only through source-supported connections; do not treat construction as runtime verification.
+- Next: compile, checkpoint, and push the source-reference aggregation. Then inspect the existing downstream developmental writeback and later-cognition selectors for exact proposal identity and temporal behavior. Continue only through source-supported connections; do not treat construction as runtime verification.

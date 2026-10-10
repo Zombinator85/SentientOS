@@ -562,6 +562,10 @@ def strategy_proposal_review_record(value: EmbodiedStrategyProposal, *,
     grants no admission, fulfillment, or execution authority.
     """
     verify_strategy_proposal(value)
+    if (len(source_event_refs) > 16
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in source_event_refs)):
+        raise EmbodiedConsequenceError("strategy_review_source_reference_bounds_invalid")
     return {
         "proposal_id": value.strategy_id,
         "proposal_digest": value.strategy_digest,
