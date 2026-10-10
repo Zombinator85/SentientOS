@@ -30,6 +30,7 @@ _IDENTITY_RE = re.compile(r"[a-z][a-z0-9-]{0,62}\Z")
 _WINDOWS_RESERVED = frozenset(
     {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
 )
+_READ_ONLY_VIEW_TOKEN = object()
 
 
 class InstallationStateError(RuntimeError):
@@ -153,6 +154,14 @@ class InstallationStateRegistry:
             _secure_mkdir_chain(self._base, (INSTALLATIONS_DIRECTORY, identity.value, STATE_DIRECTORY))
         _verify_absolute_directory_chain(root)
         return InstallationStateHandle._authenticated(identity, root, self)
+
+    def open_read_only(self, identity: InstallationIdentity) -> "InstallationStateReadOnlyView":
+        """Open one installation identity through an API with no state-mutation operations."""
+        _require_platform_contract()
+        root = self.state_root_for(identity)
+        _verify_absolute_directory_chain(root)
+        handle = InstallationStateHandle._authenticated(identity, root, self)
+        return InstallationStateReadOnlyView._from_handle(handle)
 
 
 @dataclass(frozen=True, init=False)
@@ -334,6 +343,37 @@ class InstallationStateHandle:
             raise InstallationStateError("state_object_binding_mismatch")
 
 
+class InstallationStateReadOnlyView:
+    """Read-only capability view over fixed installation custody objects."""
+
+    __slots__ = ("_handle",)
+
+    def __init__(self, handle: InstallationStateHandle, *, _token: object = None) -> None:
+        if _token is not _READ_ONLY_VIEW_TOKEN or type(handle) is not InstallationStateHandle:
+            raise InstallationStateError("read_only_view_construction_forbidden")
+        self._handle = handle
+
+    @classmethod
+    def _from_handle(cls, handle: InstallationStateHandle) -> "InstallationStateReadOnlyView":
+        return cls(handle, _token=_READ_ONLY_VIEW_TOKEN)
+
+    @property
+    def identity(self) -> InstallationIdentity:
+        return self._handle.identity
+
+    def read_optional_regular_bounded(self, relative: str, *, max_bytes: int) -> bytes | None:
+        return self._handle.read_optional_regular_bounded(
+            self._handle.fixed_object(relative), max_bytes=max_bytes)
+
+    def read_regular_bounded(self, relative: str, *, max_bytes: int) -> bytes:
+        return self._handle.read_regular_bounded(
+            self._handle.fixed_object(relative), max_bytes=max_bytes)
+
+    def list_regular_names(self, relative: str, *, max_entries: int) -> tuple[str, ...]:
+        return self._handle.list_regular_names(
+            self._handle.fixed_object(relative), max_entries=max_entries)
+
+
 class ExclusiveStateLock:
     """Kernel-backed exclusive lock whose pathname is only an identity anchor."""
 
@@ -391,6 +431,8 @@ def _verify_absolute_directory_chain(path: Path) -> None:
             next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
                               dir_fd=fd)
             os.close(fd); fd = next_fd
+    except FileNotFoundError as exc:
+        raise InstallationStateError("installation_state_root_missing") from exc
     except OSError as exc:
         raise InstallationStateError("installation_state_root_unsafe") from exc
     finally:

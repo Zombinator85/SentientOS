@@ -33,7 +33,7 @@ from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, validate_receipt
-from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.installation_state import InstallationIdentity, InstallationStateError, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config as load_resident_serving_config)
 from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate, ResidentCognitiveModelTransitionController, TransitionError, TransitionJournal, developmental_history_boundary)
 from sentientos.resident_cognitive_transition_operator import (JOURNAL_CUSTODY as RESIDENT_TRANSITION_JOURNAL_CUSTODY, LiveTransitionConfig, LiveTransitionOperatorRuntime, journal_identity as resident_transition_journal_identity, load_verified_protocol)
@@ -628,6 +628,20 @@ class RuntimeMaintenanceSurfaces:
                     "observed_at": tick_key,
                     "payload": dict(self._resource_observation_health),
                 })
+        elif self._resource_observation_health.get("status") != "disabled":
+            records.append({
+                "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+                "source_id": "production_chat_resource_observation:health",
+                "subject_kind": "read_only_resource_custody_source",
+                "subject_id": str(self._resource_observation_health.get("provisioning_id")
+                                   or "configured_resource_provisioning"),
+                "stage": "observation",
+                "disposition": str(self._resource_observation_health.get("status", "invalid")),
+                "evidence_strength": "source_integrity_status",
+                "effect_claimed": False, "effect_proven": False,
+                "observed_at": tick_key,
+                "payload": dict(self._resource_observation_health),
+            })
         privilege_eval = self._host_privilege_review_evaluation
         if privilege_eval is not None:
             records.extend(privilege_review_world_state_records(privilege_eval))
@@ -1866,7 +1880,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             }
         else:
             try:
-                handle = InstallationStateRegistry.system().open(
+                handle = InstallationStateRegistry.system().open_read_only(
                     InstallationIdentity.parse(observation_installation))
                 resource_observation_owner = ProductionChatResourceObservationOwner(
                     handle, observation_provisioning)
@@ -1874,6 +1888,12 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                     "status": "degraded", "reason_code": "source_not_yet_observed",
                     "installation_identity": handle.identity.value,
                     "provisioning_id": observation_provisioning,
+                    "read_only": True, "effect_authority": False,
+                }
+            except InstallationStateError as exc:
+                resource_observation_configuration_status = {
+                    "status": "missing" if exc.code == "installation_state_root_missing" else "invalid",
+                    "reason_code": exc.code,
                     "read_only": True, "effect_authority": False,
                 }
             except Exception as exc:

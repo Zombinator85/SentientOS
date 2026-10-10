@@ -29,7 +29,7 @@ from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourceLedgerObservation,
     GovernedLocalModelResourcePolicy,
 )
-from .installation_state import InstallationStateError, InstallationStateHandle
+from .installation_state import InstallationStateError, InstallationStateReadOnlyView
 from .production_chat_resource_provisioning import (
     _NAMES,
     _manifest,
@@ -68,9 +68,9 @@ class ProductionChatResourceObservationOwner:
 
     __slots__ = ("_handle", "_provisioning_id")
 
-    def __init__(self, handle: InstallationStateHandle, provisioning_id: str) -> None:
-        if type(handle) is not InstallationStateHandle:
-            raise TypeError("authenticated_installation_state_handle_required")
+    def __init__(self, handle: InstallationStateReadOnlyView, provisioning_id: str) -> None:
+        if type(handle) is not InstallationStateReadOnlyView:
+            raise TypeError("read_only_installation_state_view_required")
         self._handle = handle
         self._provisioning_id = validate_resource_provisioning_id(provisioning_id)
 
@@ -80,7 +80,7 @@ class ProductionChatResourceObservationOwner:
         def read(name: str, *, bound: int = 256 * 1024) -> bytes:
             try:
                 value = self._handle.read_optional_regular_bounded(
-                    self._handle.fixed_object(prefix + _NAMES[name]), max_bytes=bound)
+                    prefix + _NAMES[name], max_bytes=bound)
             except InstallationStateError as exc:
                 if exc.code == "state_parent_missing":
                     raise ProductionChatResourceObservationError("resource_bundle_missing", status="missing") from exc
@@ -111,7 +111,7 @@ class ProductionChatResourceObservationOwner:
             raise ProductionChatResourceObservationError("manifest_policy_mismatch")
         try:
             ledger_bytes = self._handle.read_optional_regular_bounded(
-                self._handle.fixed_object(prefix + _NAMES["ledger"]), max_bytes=MAX_LEDGER_BYTES)
+                prefix + _NAMES["ledger"], max_bytes=MAX_LEDGER_BYTES)
         except InstallationStateError as exc:
             raise ProductionChatResourceObservationError(exc.code) from exc
         if ledger_bytes is None:
@@ -155,9 +155,9 @@ class ProductionChatResourceObservationOwner:
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture)
 
     def _invocation_receipts(self, allocation_digest: str) -> tuple[tuple[Mapping[str, Any], ...], str]:
-        directory = self._handle.fixed_object("local-model/inference/receipts")
         try:
-            names = self._handle.list_regular_names(directory, max_entries=MAX_INVOCATION_RECEIPTS)
+            names = self._handle.list_regular_names(
+                "local-model/inference/receipts", max_entries=MAX_INVOCATION_RECEIPTS)
         except InstallationStateError as exc:
             if exc.code == "state_directory_missing":
                 return (), "degraded_missing_receipt_directory"
@@ -170,7 +170,7 @@ class ProductionChatResourceObservationOwner:
                 raise ProductionChatResourceObservationError("invocation_receipt_name_invalid")
             try:
                 raw = self._handle.read_regular_bounded(
-                    directory.child(name), max_bytes=MAX_INVOCATION_RECEIPT_BYTES)
+                    f"local-model/inference/receipts/{name}", max_bytes=MAX_INVOCATION_RECEIPT_BYTES)
             except InstallationStateError as exc:
                 raise ProductionChatResourceObservationError("invocation_receipt_read_invalid") from exc
             try:
