@@ -1,7 +1,6 @@
 """Bounded, recovery-first composition of the Windows live maintenance APIs."""
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
@@ -10,6 +9,15 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # Windows commissioning uses its native byte-range lock.
+    _fcntl = None
+try:
+    import msvcrt as _msvcrt
+except ImportError:  # POSIX deployments do not need msvcrt.
+    _msvcrt = None
 
 from sentientos import maintenance_wake_cycle as wake
 from sentientos import maintenance_windows_deployment as deployment
@@ -82,13 +90,38 @@ def _state(root: Path, manifest_digest: str) -> dict[str, Any]:
 @contextmanager
 def _lock(root: Path) -> Iterator[None]:
     handle = (root / "commissioning.lock").open("a+b")
+    lock_kind: str | None = None
     try:
-        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError as exc:
+        if _fcntl is not None:
+            _fcntl.flock(handle, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+            lock_kind = "fcntl"
+        elif _msvcrt is not None:
+            # msvcrt locks a byte starting at the current file position. Keep
+            # a durable byte so every process locks the same range.
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0"); handle.flush()
+            handle.seek(0)
+            _msvcrt.locking(handle.fileno(), _msvcrt.LK_NBLCK, 1)
+            lock_kind = "msvcrt"
+        else:
+            raise ValueError("commissioning_lock_unsupported_platform")
+    except OSError as exc:
         handle.close(); raise ValueError("commissioning_active") from exc
-    try: yield
+    except BaseException:
+        handle.close()
+        raise
+    try:
+        yield
     finally:
-        fcntl.flock(handle, fcntl.LOCK_UN); handle.close()
+        try:
+            if lock_kind == "fcntl" and _fcntl is not None:
+                _fcntl.flock(handle, _fcntl.LOCK_UN)
+            elif lock_kind == "msvcrt" and _msvcrt is not None:
+                handle.seek(0)
+                _msvcrt.locking(handle.fileno(), _msvcrt.LK_UNLCK, 1)
+        finally:
+            handle.close()
 
 
 def _stop_paths(state_root: Path, index: Mapping[str, Any] | None = None) -> list[Path]:

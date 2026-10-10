@@ -11,6 +11,7 @@ from typing import Any, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
+from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 SCHEMA = "sentientos.longitudinal_self_model:v1"
 RECONCILIATION_SCHEMA = "sentientos.longitudinal_self_model_reconciliation:v1"
@@ -385,14 +386,26 @@ class LongitudinalSelfModelOwner:
             return ()
         if not stat.S_ISDIR(entries_mode):
             raise LongitudinalSelfModelError("reconciliation_custody_root_invalid")
-        paths = sorted(self.entries.glob("*.json"))
-        if len(paths) > MAX_RECONCILIATION_ENTRIES:
-            raise LongitudinalSelfModelError("reconciliation_entry_limit_exceeded")
+        if os.name == "nt":
+            try:
+                windows_entries = read_regular_files(self.entries,
+                    max_entries=MAX_RECONCILIATION_ENTRIES,
+                    max_file_bytes=MAX_RECONCILIATION_BYTES,
+                    max_total_bytes=MAX_RECONCILIATION_CUSTODY_BYTES)
+            except WindowsHandleCustodyError as exc:
+                raise LongitudinalSelfModelError("reconciliation_windows_recovery_failed") from exc
+            entry_rows: list[tuple[str, bytes | None, Path | None]] = [
+                (name, data, None) for name, data in windows_entries]
+        else:
+            paths = sorted(self.entries.glob("*.json"))
+            if len(paths) > MAX_RECONCILIATION_ENTRIES:
+                raise LongitudinalSelfModelError("reconciliation_entry_limit_exceeded")
+            entry_rows = [(path.name, None, path) for path in paths]
         loaded: list[SelfModelReconciliation] = []
         total_bytes = 0
-        for path in paths:
+        for name, windows_data, path in entry_rows:
             try:
-                entry_bytes = self._read_entry(path)
+                entry_bytes = windows_data if windows_data is not None else self._read_entry(path)
                 total_bytes += len(entry_bytes)
                 if total_bytes > MAX_RECONCILIATION_CUSTODY_BYTES:
                     raise LongitudinalSelfModelError("reconciliation_custody_limit_exceeded")
@@ -413,7 +426,7 @@ class LongitudinalSelfModelOwner:
                 raise LongitudinalSelfModelError("reconciliation_digest_mismatch")
             expected_id = "self-reconciliation-" + reconciliation.reconciliation_digest[7:31]
             expected_path = f"{reconciliation.generation:020d}-{expected_id}.json"
-            if reconciliation.reconciliation_id != expected_id or path.name != expected_path:
+            if reconciliation.reconciliation_id != expected_id or name != expected_path:
                 raise LongitudinalSelfModelError("reconciliation_identity_mismatch")
             loaded.append(reconciliation)
         for index, item in enumerate(loaded):
