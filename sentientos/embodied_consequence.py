@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
+from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 try:
     import fcntl as _fcntl
@@ -1606,15 +1607,16 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
 class ConsequenceStore:
     """Immutable exact-chain store for consequence and experiment artifacts."""
     def __init__(self, root: Path, *, create_root: bool = True) -> None:
-        self._require_secure_platform()
+        if create_root or os.name != "nt":
+            self._require_secure_platform()
         selected=Path(root)
-        if selected.is_symlink(): raise EmbodiedConsequenceError("consequence_store_root_symlink")
+        if os.name != "nt" and selected.is_symlink(): raise EmbodiedConsequenceError("consequence_store_root_symlink")
         if create_root:
             selected.mkdir(parents=True,exist_ok=True,mode=0o700)
         elif not selected.exists():
             raise EmbodiedConsequenceError("consequence_store_root_missing")
-        if selected.is_symlink() or not selected.is_dir(): raise EmbodiedConsequenceError("consequence_store_root_invalid")
-        self.root=selected.resolve()
+        if os.name != "nt" and (selected.is_symlink() or not selected.is_dir()): raise EmbodiedConsequenceError("consequence_store_root_invalid")
+        self.root=selected.absolute() if os.name == "nt" else selected.resolve()
         self._read_only = not create_root
 
     @staticmethod
@@ -1629,9 +1631,12 @@ class ConsequenceStore:
                 "consequence_store_unsupported_platform:secure_descriptor_relative_publication_unavailable")
 
     def _path(self, kind: str, identity: str, *, create_directory: bool = True) -> Path:
-        self._require_secure_platform()
+        if not (os.name == "nt" and self._read_only):
+            self._require_secure_platform()
         if kind not in _CONSEQUENCE_KINDS or not isinstance(identity,str) or not _CONSEQUENCE_ID.fullmatch(identity):
             raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
+        if os.name == "nt" and self._read_only:
+            return self.root / kind / f"{identity}.json"
         directory_fd = self._open_kind_directory(kind, create=create_directory)
         os.close(directory_fd)
         return self.root/kind/f"{identity}.json"
@@ -1688,6 +1693,22 @@ class ConsequenceStore:
             os.close(root_fd)
 
     def _read(self, path: Path) -> bytes:
+        if os.name == "nt" and self._read_only:
+            kind = path.parent.name
+            identity = path.name[:-5] if path.name.endswith(".json") else ""
+            if (path.parent.parent != self.root or kind not in _CONSEQUENCE_KINDS
+                    or not _CONSEQUENCE_ID.fullmatch(identity)):
+                raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
+            try:
+                entries = read_regular_files(path.parent, max_entries=1,
+                    max_file_bytes=MAX_CONSEQUENCE_ARTIFACT_BYTES,
+                    max_total_bytes=MAX_CONSEQUENCE_ARTIFACT_BYTES,
+                    selected_names=(path.name,))
+            except WindowsHandleCustodyError as exc:
+                raise EmbodiedConsequenceError("consequence_artifact_windows_read_failed") from exc
+            if len(entries) != 1 or entries[0][0] != path.name:
+                raise EmbodiedConsequenceError("stored_artifact_missing_or_ambiguous")
+            return entries[0][1]
         self._require_secure_platform()
         kind = path.parent.name
         identity = path.name[:-5] if path.name.endswith(".json") else ""

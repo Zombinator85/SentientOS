@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
 
 from .local_model_authority import digest_payload
+from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PURPOSE = "resident_developmental_model_replacement_experiment"
 CONTEXT_SCHEMA = "sentientos.developmental_model_replacement_context:v1"
@@ -524,9 +525,9 @@ class GovernedCognitiveEndpoint(Protocol):
 class ModelReplacementArtifactStore:
     def __init__(self, state_root: Path, *, read_only: bool = False) -> None:
         selected_root = Path(state_root)
-        if selected_root.is_symlink() or any(parent.is_symlink() for parent in selected_root.parents):
+        if os.name != "nt" and (selected_root.is_symlink() or any(parent.is_symlink() for parent in selected_root.parents)):
             raise DevelopmentalModelReplacementError("artifact_store_state_root_symlink")
-        self.state_root = selected_root.resolve()
+        self.state_root = selected_root.absolute() if os.name == "nt" else selected_root.resolve()
         self.root = self.state_root / "developmental_experiments" / "model_replacement"
         self.protocols = self.root / "protocols"
         self.contexts = self.root / "contexts"
@@ -655,6 +656,22 @@ class ModelReplacementArtifactStore:
     def _read_artifact_json(self, path: Path, *, maximum_bytes: int,
                             missing_code: str, invalid_code: str) -> dict[str, Any]:
         kind, filename = self._artifact_location(path)
+        if os.name == "nt" and self.read_only:
+            try:
+                entries = read_regular_files(path.parent, max_entries=1,
+                    max_file_bytes=maximum_bytes, max_total_bytes=maximum_bytes,
+                    selected_names=(filename,))
+            except WindowsHandleCustodyError as exc:
+                raise DevelopmentalModelReplacementError(invalid_code) from exc
+            if len(entries) != 1 or entries[0][0] != filename:
+                raise DevelopmentalModelReplacementError(missing_code)
+            try:
+                value = json.loads(entries[0][1].decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise DevelopmentalModelReplacementError(invalid_code) from exc
+            if not isinstance(value, dict):
+                raise DevelopmentalModelReplacementError(invalid_code)
+            return value
         descriptor: int | None = None
         directory_fd: int | None = None
         try:

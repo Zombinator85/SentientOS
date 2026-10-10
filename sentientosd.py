@@ -100,6 +100,7 @@ from sentientos.maintenance_resident_runtime_adoption import MaintenanceResident
 from sentientos.maintenance_resident_runtime_adoption import TRANSITION_ENV as RESIDENT_TRANSITION_ENV
 from sentientos.maintenance_resident_runtime_adoption import inspect_transition_custody as inspect_resident_transition_custody
 from sentientos.maintenance_initial_posix_resident_commissioning import STARTUP_GATE_ENV, await_initial_commissioning_gate
+from sentientos.windows_handle_custody import read_regular_files
 
 LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
@@ -115,27 +116,35 @@ def _load_embodied_consequence_projection(path: str | None) -> tuple[Any | None,
     """Load an explicit, bounded read-only view of selected durable experiments."""
     if path is None:
         return None, (), (), None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
-    if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+    if os.name not in {"posix", "nt"} or (os.name == "posix" and not hasattr(os, "O_NOFOLLOW")):
         return None, (), (), None, (), {"status": "unsupported", "reason_code": "secure_descriptor_reads_unavailable",
                           "read_only": True, "effect_authority": False}
     descriptor: int | None = None
     try:
         config_path = Path(path)
-        descriptor = os.open(config_path, os.O_RDONLY | os.O_NOFOLLOW)
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 65_536:
-            raise ValueError("projection_config_not_bounded_regular_file")
-        chunks: list[bytes] = []
-        remaining = 65_537
-        while remaining:
-            chunk = os.read(descriptor, min(16_384, remaining))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        raw = b"".join(chunks)
-        if len(raw) > 65_536 or len(raw) != metadata.st_size:
-            raise ValueError("projection_config_size_mismatch")
+        if os.name == "nt":
+            entries = read_regular_files(config_path.parent,
+                max_entries=1, max_file_bytes=65_536, max_total_bytes=65_536,
+                selected_names=(config_path.name,))
+            if len(entries) != 1 or entries[0][0] != config_path.name:
+                raise ValueError("projection_config_missing_or_ambiguous")
+            raw = entries[0][1]
+        else:
+            descriptor = os.open(config_path, os.O_RDONLY | os.O_NOFOLLOW)
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 65_536:
+                raise ValueError("projection_config_not_bounded_regular_file")
+            chunks: list[bytes] = []
+            remaining = 65_537
+            while remaining:
+                chunk = os.read(descriptor, min(16_384, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+            if len(raw) > 65_536 or len(raw) != metadata.st_size:
+                raise ValueError("projection_config_size_mismatch")
         config = validate_world_state_projection_config(json.loads(raw.decode("utf-8")))
         if not config["enabled"]:
             return None, (), (), None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
