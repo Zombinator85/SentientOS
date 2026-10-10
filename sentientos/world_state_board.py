@@ -58,15 +58,20 @@ def _sid(prefix:str, payload:Any)->str: return f"{prefix}-{digest(payload)[:16]}
 def to_dict(o:Any)->Any: return json.loads(_canon(o))
 def _parse_time(s:str|None):
     if not s: return None
-    try: return datetime.fromisoformat(s.replace("Z","+00:00"))
+    try:
+        parsed = datetime.fromisoformat(s.replace("Z","+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None: return None
+        return parsed.astimezone(timezone.utc)
     except ValueError: return None
 
 def staleness_for(kind:str, observed_at:str|None, now:datetime)->str:
     historical={"specification_amendment","repository_mutation_handoff","genesis_candidate"}
     if kind in historical: return "not_applicable"
+    if now.tzinfo is None or now.utcoffset() is None: return "unknown"
     t=_parse_time(observed_at)
     if t is None: return "undated"
-    age=(now-t).total_seconds()
+    age=(now.astimezone(timezone.utc)-t).total_seconds()
+    if age < 0: return "unknown"
     if age < 3600: return "fresh"
     if age < 86400: return "aging"
     if age < 7*86400: return "stale"
