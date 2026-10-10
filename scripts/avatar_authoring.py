@@ -19,6 +19,7 @@ from sentientos.embodied_consequence import (
     evaluate_consequence, run_strategy_experiment, verify_independent_observation,
     verify_renderer_report,
 )
+from sentientos.local_model_authority import atomic_write_json
 
 
 def _read(path: str) -> dict[str, Any]:
@@ -48,7 +49,7 @@ def _observation(path: str) -> IndependentConsequenceObservation:
 
 def _write(path: str | None, value: Mapping[str, Any]) -> None:
     data=json.dumps(value,sort_keys=True,separators=(",",":"))
-    if path: Path(path).write_text(data+"\n",encoding="utf-8")
+    if path: atomic_write_json(Path(path),value)
     print(data)
 
 
