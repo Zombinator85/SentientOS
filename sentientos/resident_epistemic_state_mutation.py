@@ -184,7 +184,7 @@ class ResidentEpistemicStateMutationController:
             if descriptor is not None: os.close(descriptor)
 
     @staticmethod
-    def _publish_immutable(path: Path, raw: bytes, *, collision: str) -> None:
+    def _publish_immutable(path: Path, raw: bytes, *, collision: str) -> bool:
         if os.name != "posix":
             raise EpistemicMutationError("mutation_custody_publication_unsupported_platform")
         if len(raw) > MAX_MUTATION_CUSTODY_FILE_BYTES:
@@ -202,10 +202,11 @@ class ResidentEpistemicStateMutationController:
             except FileExistsError:
                 if ResidentEpistemicStateMutationController._read_bounded(path) != raw:
                     raise EpistemicMutationError(collision)
-                return
+                return False
             directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
             try: os.fsync(directory)
             finally: os.close(directory)
+            return True
         except EpistemicMutationError:
             raise
         except OSError as exc:
@@ -224,8 +225,10 @@ class ResidentEpistemicStateMutationController:
         intent_id, intent_digest = _identity("epistemic-intent", semantic)
         payload = {**semantic, "intent_id": intent_id, "intent_digest": intent_digest}
         filename = intent_id.split(":", 1)[1] + ".json"
-        self._publish_immutable(self.intent_root / filename,
+        published = self._publish_immutable(self.intent_root / filename,
             canonical_bytes(payload) + b"\n", collision="mutation_intent_identity_collision")
+        if not published:
+            raise EpistemicMutationError("mutation_intent_replay_blocked")
 
     def _write_evidence_intent(self, *, binding: EvidenceBinding,
                                admission: AdmissionEvidence, operation_id: str,
@@ -237,8 +240,10 @@ class ResidentEpistemicStateMutationController:
         intent_id, intent_digest = _identity("epistemic-intent", semantic)
         payload = {**semantic, "intent_id": intent_id, "intent_digest": intent_digest}
         filename = intent_id.split(":", 1)[1] + ".json"
-        self._publish_immutable(self.intent_root / filename,
+        published = self._publish_immutable(self.intent_root / filename,
             canonical_bytes(payload) + b"\n", collision="mutation_intent_identity_collision")
+        if not published:
+            raise EpistemicMutationError("mutation_intent_replay_blocked")
 
     def _recover_state_receipts(self) -> None:
         if not self.intent_root.exists():
