@@ -7,7 +7,6 @@ current truth.
 from __future__ import annotations
 
 import hashlib
-import fcntl
 import json
 import os
 import re
@@ -17,6 +16,11 @@ from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # Windows hosted development has no POSIX fcntl module.
+    _fcntl = None
 
 EXPECTATION_SCHEMA = "sentientos.embodied_action_expectation:v1"
 REPORT_SCHEMA = "sentientos.avatar_renderer_report:v1"
@@ -480,15 +484,19 @@ class GovernedStrategyCognitionBackend:
                  inference_budget: Mapping[str, Any], caller: str,
                  resident_runtime_owner: Any | None = None) -> None:
         from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
-        from .maintenance_resident_runtime_adoption import MaintenanceResidentRuntimeAdoptionController
         from .resident_cognitive_model_serving import ResidentCognitiveModelServingInvoker, ResidentCognitiveServingSlot
         if not isinstance(caller, str) or not caller.strip() or len(caller) > 128:
             raise EmbodiedConsequenceError("governed_strategy_caller_invalid")
         if type(invoker) not in {GovernedLocalModelInvoker, ResidentCognitiveModelServingInvoker,
                 ResidentCognitiveServingSlot}:
             raise EmbodiedConsequenceError("existing_governed_local_invoker_required")
-        if resident_runtime_owner is not None and type(resident_runtime_owner) is not MaintenanceResidentRuntimeAdoptionController:
-            raise EmbodiedConsequenceError("resident_software_generation_owner_required")
+        if resident_runtime_owner is not None:
+            try:
+                from .maintenance_resident_runtime_adoption import MaintenanceResidentRuntimeAdoptionController
+            except ImportError as exc:
+                raise EmbodiedConsequenceError("resident_software_generation_owner_unsupported_on_platform") from exc
+            if type(resident_runtime_owner) is not MaintenanceResidentRuntimeAdoptionController:
+                raise EmbodiedConsequenceError("resident_software_generation_owner_required")
         try:
             self.budget = LocalModelInvocationBudget(**dict(inference_budget))
         except (TypeError, ValueError) as exc:
@@ -1377,19 +1385,35 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
 class ConsequenceStore:
     """Immutable exact-chain store for consequence and experiment artifacts."""
     def __init__(self, root: Path) -> None:
+        self._require_secure_platform()
         selected=Path(root)
         if selected.is_symlink(): raise EmbodiedConsequenceError("consequence_store_root_symlink")
         selected.mkdir(parents=True,exist_ok=True,mode=0o700)
         if selected.is_symlink() or not selected.is_dir(): raise EmbodiedConsequenceError("consequence_store_root_invalid")
         self.root=selected.resolve()
 
-    def _path(self, kind: str, identity: str) -> Path:
+    @staticmethod
+    def _require_secure_platform() -> None:
+        required_dir_fd = (os.open, os.stat, os.link, os.unlink)
+        supported = (os.name == "posix" and _fcntl is not None
+            and hasattr(os, "O_NOFOLLOW")
+            and all(function in os.supports_dir_fd for function in required_dir_fd)
+            and os.listdir in os.supports_fd)
+        if not supported:
+            raise EmbodiedConsequenceError(
+                "consequence_store_unsupported_platform:secure_descriptor_relative_publication_unavailable")
+
+    def _path(self, kind: str, identity: str, *, create_directory: bool = True) -> Path:
+        self._require_secure_platform()
         if kind not in _CONSEQUENCE_KINDS or not isinstance(identity,str) or not _CONSEQUENCE_ID.fullmatch(identity):
             raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
         directory=self.root/kind
-        try: os.mkdir(directory,0o700)
-        except FileExistsError: pass
+        if create_directory:
+            try: os.mkdir(directory,0o700)
+            except FileExistsError: pass
         try: metadata=directory.lstat()
+        except FileNotFoundError as exc:
+            raise EmbodiedConsequenceError("stored_artifact_missing") from exc
         except OSError as exc: raise EmbodiedConsequenceError("consequence_artifact_directory_invalid") from exc
         if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
             raise EmbodiedConsequenceError("consequence_artifact_directory_invalid")
@@ -1397,6 +1421,7 @@ class ConsequenceStore:
 
     @staticmethod
     def _read(path: Path) -> bytes:
+        ConsequenceStore._require_secure_platform()
         flags=os.O_RDONLY|getattr(os,"O_NOFOLLOW",0)
         try: descriptor=os.open(path,flags)
         except OSError as exc: raise EmbodiedConsequenceError("stored_artifact_missing_or_unsafe") from exc
@@ -1417,6 +1442,7 @@ class ConsequenceStore:
 
     def _publish_immutable(self, path: Path, data: bytes) -> bool:
         """Publish immutable evidence atomically without exceeding its kind cap."""
+        self._require_secure_platform()
         directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
         try:
             directory_fd = os.open(path.parent, directory_flags)
@@ -1435,7 +1461,8 @@ class ConsequenceStore:
                         or (lock_metadata.st_dev, lock_metadata.st_ino)
                             != (lock_path_metadata.st_dev, lock_path_metadata.st_ino)):
                     raise EmbodiedConsequenceError("consequence_artifact_lock_invalid")
-                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                assert _fcntl is not None
+                _fcntl.flock(lock_fd, _fcntl.LOCK_EX)
             except OSError as exc:
                 raise EmbodiedConsequenceError("consequence_artifact_lock_unavailable") from exc
             try:
@@ -1493,7 +1520,9 @@ class ConsequenceStore:
                 try: os.unlink(temporary_name, dir_fd=directory_fd)
                 except FileNotFoundError: pass
             if lock_fd is not None:
-                try: fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                try:
+                    assert _fcntl is not None
+                    _fcntl.flock(lock_fd, _fcntl.LOCK_UN)
                 except OSError: pass
                 os.close(lock_fd)
             os.close(directory_fd)
@@ -1510,7 +1539,7 @@ class ConsequenceStore:
         self._publish_immutable(path, data)
         return path
     def get(self, kind: str, identity: str, *, digest_field: str) -> dict[str, Any]:
-        path=self._path(kind,identity)
+        path=self._path(kind,identity,create_directory=False)
         id_field,expected_digest_field,prefix=_ARTIFACT_IDENTITIES[kind]
         if digest_field!=expected_digest_field: raise EmbodiedConsequenceError("artifact_digest_selector_invalid")
         try: value=json.loads(self._read(path).decode("utf-8"))
@@ -1522,6 +1551,69 @@ class ConsequenceStore:
             raise EmbodiedConsequenceError("stored_artifact_digest_mismatch_or_identity_invalid")
         return cast(dict[str, Any], value)
 
+    def world_state_records(self, *, experiment_result_ids: Sequence[str]) -> list[dict[str, Any]]:
+        """Project only explicitly selected, verified durable experiments as historical evidence.
+
+        Selection is injected by an existing trusted owner; this method never
+        discovers a directory or upgrades recovery time into event time.
+        """
+        from sentientos.world_state_board import record_digest
+
+        identities = tuple(experiment_result_ids)
+        if (len(identities) > 32 or any(not isinstance(identity, str) for identity in identities)
+                or len(identities) != len(set(identities))):
+            raise EmbodiedConsequenceError("strategy_experiment_projection_selection_invalid")
+        records: list[dict[str, Any]] = []
+        for identity in identities:
+            result = self.get("strategy-experiments", identity,
+                digest_field="experiment_result_digest")
+            if result.get("schema_version") != EXPERIMENT_RESULT_SCHEMA:
+                raise EmbodiedConsequenceError("stored_strategy_experiment_schema_invalid")
+            protocol = result.get("protocol")
+            if not isinstance(protocol, Mapping):
+                raise EmbodiedConsequenceError("stored_strategy_experiment_protocol_invalid")
+            if (result.get("protocol_digest") != digest(dict(protocol))
+                    or result.get("authority") != dict(FALSE_AUTHORITY)
+                    or result.get("improvement_claimed") is not False
+                    or result.get("no_retries") is not True):
+                raise EmbodiedConsequenceError("stored_strategy_experiment_binding_invalid")
+            posture = result.get("experiment_completion_posture")
+            if posture not in {"completed", "incomplete", "contradictory"}:
+                raise EmbodiedConsequenceError("stored_strategy_experiment_posture_invalid")
+            record: dict[str, Any] = {
+                "source_kind": "embodiment",
+                "source_id": identity,
+                "schema_version": EXPERIMENT_RESULT_SCHEMA,
+                "subject_id": identity,
+                "subject_kind": "embodied_strategy_experiment",
+                "stage": "observation",
+                "disposition": posture,
+                "evidence_strength": "verified_immutable_experiment_record",
+                # The experiment artifact does not carry an authenticated event
+                # timestamp. Keep the projection undated rather than assigning
+                # reconstruction or current tick time.
+                "payload": {
+                    "experiment_result_id": identity,
+                    "experiment_result_digest": result["experiment_result_digest"],
+                    "protocol_id": protocol.get("protocol_id"),
+                    "protocol_digest": result.get("protocol_digest"),
+                    "history_record_id": result.get("withheld_record_id"),
+                    "history_record_digest": result.get("withheld_record_digest"),
+                    "validity": result.get("validity"),
+                    "temporal_separation_posture": result.get("temporal_separation_posture"),
+                    "cognitive_context_binding": result.get("cognitive_context_binding"),
+                    "execution_posture": result.get("cognitive_execution_identity_posture"),
+                    "evidence_scope": result.get("evidence_scope"),
+                    "effect_proven": False,
+                    "current_truth": False,
+                },
+                "effect_claimed": False,
+                "effect_proven": False,
+            }
+            record["digest"] = record_digest(record)
+            records.append(record)
+        return records
+
     @staticmethod
     def _strategy_condition_id(protocol_id: str, condition: str) -> str:
         if condition not in ("history_present", "history_withheld", "history_restored"):
@@ -1530,7 +1622,7 @@ class ConsequenceStore:
 
     def _checkpoint(self, kind: str, identity: str, *, digest_field: str,
                     expected_schema: str) -> dict[str, Any] | None:
-        path = self._path(kind, identity)
+        path = self._path(kind, identity, create_directory=False)
         if not os.path.lexists(path):
             return None
         try:
