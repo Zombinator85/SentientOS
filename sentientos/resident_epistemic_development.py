@@ -154,8 +154,7 @@ class ResidentEpistemicDevelopmentRuntime:
         if fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
             historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
                                 if isinstance(item, Mapping) and item.get("observed_at")]
-            if historical_times:
-                observed = max(historical_times)
+            observed = max(historical_times) if historical_times else None
         if historical_resource_introspection and isinstance(fact.payload, Mapping):
             observations = fact.payload.get("observations", ())
             latest_event = next((item.get("value") for item in observations
@@ -185,13 +184,10 @@ class ResidentEpistemicDevelopmentRuntime:
                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
                 artifact_id = "resource-introspection:" + hashlib.sha256(json.dumps(stable_identity,
                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:32]
-        # Resource receipts without an event timestamp remain undated. Never
-        # replace missing historical time with the snapshot reconstruction
-        # clock; that would manufacture currentness during recovery.
-        observed = observed or ("undated" if historical_resource_fact or historical_resource_introspection
-                                or historical_undated_consequence or historical_unverified_owner_record
-                                or unverified_embodiment_observation
-                                else str(snapshot.custody.get("observed_at", "")))
+        # A snapshot's reconstruction clock is not a source event time. Preserve
+        # missing event time as a stable semantic value for every source kind.
+        missing_source_time = observed is None
+        observed = observed or "undated"
         provenance = json.dumps({"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
@@ -199,6 +195,7 @@ class ResidentEpistemicDevelopmentRuntime:
             "event_time_posture": "historical_or_unknown" if historical_resource_fact or historical_resource_introspection
                 or historical_undated_consequence or historical_unverified_owner_record
                 else "source_time_unverified" if unverified_embodiment_observation
+                else "source_time_missing" if missing_source_time
                 else "source_observed"},
             sort_keys=True, separators=(",", ":"))
         proof = make_epistemic_evidence_source_proof(source_artifact_id=artifact_id,
