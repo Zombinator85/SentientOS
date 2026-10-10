@@ -1,5 +1,11 @@
 # SentientOS project thesis
 
+## Reading architectural intent and status
+
+This thesis preserves the project's destination; source and evidence determine how much of it is presently realized. For this documentation update, the inspected published `main` is `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`, and the inspected construction source baseline is `68171603fab7e2ddcb89f5bf90e6ac582810ffec` on `codex/construct-sentientos`. The atlas index selects the immutable census at `b7df2a07b67373e709ab43c09a4631eff1f064c4`; that census predates the later construction commits and is not a current census of them. Production evidence is separate from all three: only qualifying real execution or observation can establish it. See the [technical overview](public_technical_overview.md) for the present composition map and exact navigation.
+
+The north star is a continuing, world-coupled developmental operating environment in which experience can become retained organization that affects later cognition, strategy, procedure, and conduct across replaceable machinery. This is an architectural and research aim, not a runtime belief or motivational directive. Do not narrow the aim to what happens to be implemented, or inflate an implementation claim into an observed consequence.
+
 ## 1. Research object
 
 SentientOS is an AI-centered operating system and developmental machine-cognition substrate designed so that a persistent causal system, rather than any particular cognitive model, can carry history, evidence, authority, software lineage, resource causality, environment, consequence, and developmental state across changes in its cognitive machinery.
@@ -26,7 +32,7 @@ hardware -> firmware / boot -> SentientOS native kernel / trusted substrate
 -> World-State / memory / cognition -> cognitive model(s)
 ```
 
-Hosted operation is current and useful. Native operation is literal architectural intent. Current main is not a mature general-purpose bare-metal OS, does not replace Windows/Linux in production, and lacks complete hardware/device support and general native resource enforcement. Hosted and native work belong to one lineage: hosted interfaces should preserve concepts that can lower toward native enforcement rather than erase meaning that must later be reconstructed.
+Hosted operation is current and useful. Native operation is literal architectural intent. The inspected construction source baseline is not a mature general-purpose bare-metal OS, does not replace Windows/Linux in production, and lacks complete hardware/device support and general native resource enforcement. Hosted and native work belong to one lineage: hosted interfaces should preserve concepts that can lower toward native enforcement rather than erase meaning that must later be reconstructed.
 
 Three meanings of *kernel* must not collapse:
 
@@ -88,7 +94,7 @@ Not every arrow is currently live. SentientOS increasingly has the organs; the r
 
 ### Current bounded writeback
 
-Current main contains this resident path:
+At the inspected construction source baseline, the resident path includes:
 
 ```text
 World-State evidence -> bounded deterministic selection
@@ -243,7 +249,7 @@ Evidence must preserve negative and unstable results. Useful claims require inte
 
 ## 14. Current maturity and open bridges
 
-Current main includes resident parent supervision, bounded developmental writeback, later-tick temporal composition, history intervention, model replacement, model-development provenance, and repeated replication instrumentation. It also includes governed software succession, World-State, local cognitive compute custody, federation artifacts, and resource principals.
+The inspected construction source baseline includes resident parent supervision, bounded developmental writeback, later-tick temporal composition, history intervention, model replacement, model-development provenance, and repeated replication instrumentation. It also includes governed software succession, World-State, local cognitive compute custody, federation artifacts, and resource principals.
 
 Those facts do not collapse maturity predicates:
 

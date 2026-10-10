@@ -1,10 +1,12 @@
-# Public technical overview: current main
+# Public technical overview: architecture and evidence boundaries
 
-This document answers what exists and runs at the SHA selected by the [current atlas index](system_atlas_index.md). The [project thesis](sentientos_project_thesis.md) explains why; historical atlases and the [reviewer index](reviewer_release_readiness_index.md) retain source and proof archaeology.
+This page maps the inspected construction source baseline `68171603fab7e2ddcb89f5bf90e6ac582810ffec` on `codex/construct-sentientos`. The published `main` observed for this review is `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`. The [atlas index](system_atlas_index.md) selects an immutable census at `b7df2a07b67373e709ab43c09a4631eff1f064c4`, which is older than the construction baseline; its use of “current” means selected snapshot, not a census of later commits. Production evidence is a separate predicate: source composition and synthetic exercises do not establish a qualifying production event or outcome. The [project thesis](sentientos_project_thesis.md) explains the destination; historical atlases and the [reviewer index](reviewer_release_readiness_index.md) retain source and proof archaeology. A fresh source-backed atlas census is still needed for the construction tree.
+
+The intended destination is a continuing, world-coupled developmental operating environment: retained experience should be able to affect later cognition, strategy, procedure, and conduct across replaceable models and software. This is a research and architecture aim, not a runtime belief or motivational directive. Do not let implementation limits redefine the destination, and do not let the destination inflate claims about what source or evidence demonstrates.
 
 ## Architecture and maturity vocabulary
 
-Current deployment is **hosted SentientOS**: hardware -> Windows/Linux host kernel -> SentientOS services/runtime -> cognitive model(s). The repository also contains native paths and a literal **native SentientOS** architecture, but current main is not a mature general-purpose native OS and does not provide complete hardware support or general native resource enforcement.
+Current deployment architecture is **hosted SentientOS**: hardware -> Windows/Linux host kernel -> SentientOS services/runtime -> cognitive model(s). The repository also contains native paths and a literal **native SentientOS** architecture, but the inspected construction source baseline is not a mature general-purpose native OS and does not provide complete hardware support or general native resource enforcement.
 
 Claims use four primary predicates: **implemented**, **composed**, **production-evidenced**, and **projected**. Finer predicates—callable, resident, default-active, authorized, and effectful—remain useful. One never implies the next.
 
@@ -22,7 +24,7 @@ prior self-model + developmental history + canonical memory where selected
 -> consequence -> separately admitted developmental or epistemic update
 ```
 
-Persistent epistemic state has an owner, durable generations, dependency correction, source calibration, and prior-only projection machinery. `sentientosd.py` now explicitly composes a verified, bounded projection into `ResidentDevelopmentalCognitionOwner.run_tick`; configuration remains independent from cognition enablement. This closes read composition only, not automatic epistemic writeback or production longitudinal evidence.
+Persistent epistemic state has an owner, durable generations, dependency correction, source calibration, and prior-only projection machinery. `sentientosd.py` explicitly composes a verified, bounded prior projection into `ResidentDevelopmentalCognitionOwner.run_tick`. A separately configured World-State evidence adapter can admit evidence append, construct a deterministic qualitative candidate, and use separate admission for an exact-predecessor CAS state mutation; the changed position is eligible only on a later tick. This is configured, bounded composition, not automatic activation or truth determination, and does not establish production longitudinal benefit.
 
 The longitudinal self-model does have an optional live path. Ordering is a temporal self-certification firewall:
 
@@ -174,7 +176,7 @@ Local cognition can use mature inference machinery. Native SentientOS does not r
 
 ## Current truthful bottom line
 
-Current main has real bounded resident developmental writeback and controlled history/model/replication instruments, plus bounded resident maintenance supervision and software succession. The complete developmental organism remains causally open. Production repeated evidence, a governed real resident A→B activation transition, general resource allocation/enforcement, and mature native operation remain future work.
+The inspected construction source baseline has bounded resident developmental writeback and controlled history/model/replication instruments, plus bounded resident maintenance supervision and software succession. The complete developmental organism remains causally open. Production repeated evidence, a governed real resident A→B activation transition, general resource allocation/enforcement, and mature native operation remain future work.
 
 SentientOS is not wholly formally verified. Its bounded authority/effect gates are reference-monitor-like, but the repository does not claim universal or complete mediation. Current succession is not unrestricted recursive self-improvement.
 | Federation adaptation | Candidates, local variants, lineage and dissemination implemented | Forced convergence, remote authority, or production fleet |
