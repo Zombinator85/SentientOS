@@ -6,13 +6,13 @@ decision; only then can immutable external custody and one launch be attempted.
 """
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
 import stat
 import subprocess
 import time
+from sentientos.platform_fcntl import FLOCK_SUPPORTED
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -126,7 +126,7 @@ def doctor(value: Mapping[str, Any], *, platform_name: str | None = None) -> dic
         return {"schema_version": "sentientos.maintenance_initial_posix_resident_doctor:v1",
                 "status": "initial_resident_commissioning_not_ready", "reason_codes": [exc.code], "read_only": True}
     posix = (os.name if platform_name is None else platform_name) == "posix"
-    if not posix or not hasattr(fcntl, "flock"): reasons.append("posix_locking_required")
+    if not posix or not FLOCK_SUPPORTED: reasons.append("posix_locking_required")
     repo = Path(m["repository_root"]); custody = Path(m["custody_root"])
     try:
         if _unsafe_symlink(repo) or repo.resolve(strict=True) != repo: reasons.append("repository_symlink_or_realpath_mismatch")
