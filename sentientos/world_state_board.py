@@ -57,12 +57,12 @@ def record_digest(record: Mapping[str, Any]) -> str:
 def _sid(prefix:str, payload:Any)->str: return f"{prefix}-{digest(payload)[:16]}"
 def to_dict(o:Any)->Any: return json.loads(_canon(o))
 def _parse_time(s:str|None):
-    if not s: return None
+    if not isinstance(s, str) or not s: return None
     try:
         parsed = datetime.fromisoformat(s.replace("Z","+00:00"))
         if parsed.tzinfo is None or parsed.utcoffset() is None: return None
         return parsed.astimezone(timezone.utc)
-    except ValueError: return None
+    except (OverflowError, ValueError): return None
 
 def staleness_for(kind:str, observed_at:str|None, now:datetime)->str:
     historical={"specification_amendment","repository_mutation_handoff","genesis_candidate"}
