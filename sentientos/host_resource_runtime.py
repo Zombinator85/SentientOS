@@ -436,6 +436,151 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
              "observed_at": None, "retrieved_at": observed_at, "payload": payload}
     return [{**record, "digest": record_digest(record)}]
 
+
+def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, Any]],
+        *, max_records: int = 16) -> list[dict[str, Any]]:
+    """Join selected strategy proposals to the exact projected resource ledger.
+
+    This is a read-only cross-source reconciliation. It emits historical
+    attribution only; the invocation receipt is not an external consequence,
+    and missing or tail-truncated ledger evidence stays degraded.
+    """
+    if not 1 <= max_records <= 32:
+        raise ValueError("resource_proposal_join_bound_invalid")
+    from sentientos.local_model_authority import digest_payload
+
+    resource_rows = [dict(item) for item in records
+        if item.get("source_kind") == WorldStateSourceKind.RESOURCE_GOVERNOR.value
+        and item.get("subject_kind") == "causal_resource_consumption"]
+    proposal_rows = [dict(item) for item in records
+        if item.get("source_kind") == "embodiment"
+        and item.get("subject_kind") == "embodied_strategy_proposal"]
+    output: list[dict[str, Any]] = []
+    for proposal in proposal_rows[-max_records:]:
+        payload = proposal.get("payload")
+        if not isinstance(payload, Mapping):
+            continue
+        linkage = payload.get("resource_linkage")
+        if not isinstance(linkage, Mapping) or linkage.get("posture") != (
+                "invocation_receipt_bound_ledger_corroboration_not_performed"):
+            continue
+        findings: list[str] = []
+        allocations: list[Mapping[str, Any]] = []
+        ledger_receipts: list[Mapping[str, Any]] = []
+        if proposal.get("digest") != record_digest(proposal):
+            findings.append("strategy_proposal_record_digest_invalid")
+        matches: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
+        for resource in resource_rows:
+            resource_payload = resource.get("payload")
+            if resource.get("digest") != record_digest(resource) or not isinstance(resource_payload, Mapping):
+                continue
+            for invocation in resource_payload.get("invocation_receipts", ()):
+                if (isinstance(invocation, Mapping)
+                        and invocation.get("receipt_id") == linkage.get("effect_receipt_id")
+                        and invocation.get("receipt_digest") == linkage.get("effect_receipt_digest")):
+                    matches.append((resource, invocation))
+        resource_record: Mapping[str, Any] | None = None
+        invocation_row: Mapping[str, Any] | None = None
+        if len(matches) != 1:
+            findings.append("resource_invocation_projection_missing_or_ambiguous")
+        else:
+            resource_record, invocation_row = matches[0]
+            resource_payload = resource_record["payload"]
+            raw_expected_receipts = linkage.get("consumption_receipt_digests", ())
+            expected_receipts = tuple(str(item) for item in raw_expected_receipts) if isinstance(
+                raw_expected_receipts, (list, tuple)) else ()
+            if (invocation_row.get("request_id") != linkage.get("request_id")
+                    or invocation_row.get("request_digest") != linkage.get("request_digest")
+                    or invocation_row.get("resource_allocation_digest") != linkage.get("allocation_digest")
+                    or invocation_row.get("resource_attempt_id") != linkage.get("attempt_id")
+                    or tuple(invocation_row.get("resource_consumption_receipt_digests") or ()) != expected_receipts):
+                findings.append("resource_invocation_linkage_substitution")
+            if (resource_payload.get("lineage_posture") != "verified"
+                    or resource_payload.get("recovery_posture") != "reconciled_or_restored"
+                    or resource_payload.get("retention_posture") != "complete"
+                    or resource_payload.get("incomplete_attempt_count") != 0):
+                findings.append("resource_ledger_projection_incomplete")
+            allocations = [item for item in resource_payload.get("allocations", ())
+                if isinstance(item, Mapping) and item.get("allocation_digest") == linkage.get("allocation_digest")]
+            if len(allocations) != 1:
+                findings.append("resource_allocation_missing_or_ambiguous")
+            attempts = [item for item in resource_payload.get("attempts", ())
+                if isinstance(item, Mapping) and item.get("attempt_id") == linkage.get("attempt_id")]
+            if len(attempts) != 1 or (allocations and attempts
+                    and attempts[0].get("allocation_id") != allocations[0].get("allocation_id")):
+                findings.append("resource_attempt_missing_or_substituted")
+            ledger_receipts = [item for item in resource_payload.get("consumption_receipts", ())
+                if isinstance(item, Mapping) and item.get("receipt_digest") in expected_receipts]
+            if (len(ledger_receipts) != len(expected_receipts)
+                    or len({item.get("receipt_digest") for item in ledger_receipts}) != len(expected_receipts)
+                    or any(item.get("attempt_id") != linkage.get("attempt_id")
+                        or item.get("allocation_digest") != linkage.get("allocation_digest")
+                        or (allocations and item.get("principal_binding_digest") != allocations[0].get("principal_binding_digest"))
+                        for item in ledger_receipts)):
+                findings.append("resource_consumption_receipt_missing_or_substituted")
+            reconciled = [item for item in ledger_receipts if item.get("state") == "reconciled"
+                and item.get("effect_receipt_digest") == linkage.get("effect_receipt_digest")]
+            if len(reconciled) != 1:
+                findings.append("resource_effect_receipt_not_reconciled")
+            if resource_record.get("digest") != record_digest(resource_record):
+                findings.append("resource_world_state_record_digest_invalid")
+
+        semantic_linkage = {key: linkage.get(key) for key in (
+            "request_id", "request_digest", "purpose", "model_id", "model_artifact_digest",
+            "allocation_digest", "attempt_id", "consumption_receipt_digests", "linkage_digest",
+            "effect_receipt_id", "effect_receipt_digest")}
+        if not isinstance(semantic_linkage["consumption_receipt_digests"], (list, tuple)):
+            findings.append("invocation_consumption_linkage_shape_invalid")
+            expected_receipt_digests: tuple[str, ...] = ()
+        else:
+            expected_receipt_digests = tuple(str(item)
+                for item in semantic_linkage["consumption_receipt_digests"])
+        authenticated_linkage = {"receipt_digest": semantic_linkage["effect_receipt_digest"],
+            "allocation_digest": semantic_linkage["allocation_digest"],
+            "attempt_id": semantic_linkage["attempt_id"],
+            "consumption_receipt_digests": expected_receipt_digests}
+        if (not semantic_linkage["effect_receipt_id"]
+                or not semantic_linkage["effect_receipt_digest"]
+                or not semantic_linkage["allocation_digest"]
+                or not semantic_linkage["attempt_id"]
+                or not expected_receipt_digests
+                or semantic_linkage["linkage_digest"] != digest_payload(authenticated_linkage)):
+            findings.append("invocation_resource_linkage_digest_invalid")
+        resource_ref = ({"source_id": resource_record.get("source_id"),
+            "record_digest": resource_record.get("digest"),
+            "ledger_digest": resource_record.get("payload", {}).get("ledger_digest")}
+            if resource_record is not None else None)
+        join = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            "source_id": "strategy-resource-lineage:" + digest({
+                "proposal_id": proposal.get("subject_id"),
+                "invocation_receipt_digest": linkage.get("effect_receipt_digest")})[:24],
+            "schema_version": "sentientos.strategy_invocation_resource_lineage:v1",
+            "subject_id": str(proposal.get("subject_id", "")),
+            "subject_kind": "strategy_invocation_resource_lineage",
+            "stage": "observation", "disposition": "verified" if not findings else "degraded",
+            "evidence_strength": "reconciled_resource_lineage" if not findings else "incomplete_resource_lineage",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": resource_record.get("retrieved_at") if resource_record else None,
+            "payload": {"strategy_proposal_id": proposal.get("subject_id"),
+                "strategy_proposal_record_digest": proposal.get("digest"),
+                "invocation_receipt_id": payload.get("invocation_receipt_id"),
+                "invocation_receipt_digest": linkage.get("effect_receipt_digest"),
+                "resource_linkage": semantic_linkage, "resource_record": resource_ref,
+                "principal_binding_digest": (allocations[0].get("principal_binding_digest")
+                    if resource_record is not None and len(allocations) == 1 else None),
+                "event_times": sorted(str(item.get("observed_at")) for item in ledger_receipts
+                    if isinstance(item.get("observed_at"), str)) if resource_record is not None else [],
+                "lineage_findings": sorted(set(findings)),
+                "shared_host_cpu_gpu_attribution": "unknown_without_independent_observation",
+                "interpretation": "resource_use_for_strategy_inference_not_external_consequence",
+                "current_truth": False, "authority": False},
+        }
+        join["digest"] = record_digest(join)
+        if len(json.dumps(join, sort_keys=True, separators=(",", ":")).encode("utf-8")) > 32_768:
+            raise ValueError("resource_proposal_join_record_oversized")
+        output.append(join)
+    return output
+
 def render_markdown(e: HostResourceRuntimeEvaluation) -> str:
     s=summary_for_evaluation(e)
     return "\n".join(["# Host Resource Observation Runtime", "", f"- Evaluation: `{e.evaluation_id}`", f"- Admission: `{e.epoch.admission_outcome}` / `{e.epoch.admission_decision_ref}`", f"- Collectors: `{s['collector_status_counts']}`", f"- Pressure: `{', '.join(e.pressure_report.pressure_labels)}`", f"- Policy: `{e.policy_decision.status}`", "- Effects: `none`; proposals are not fulfillment.", ""])

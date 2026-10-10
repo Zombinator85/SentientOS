@@ -569,6 +569,14 @@ class ResidentDevelopmentalCognitionOwner:
             and payload.get("recovery_posture") == "reconciled_or_restored"
             and payload.get("attribution_posture") == "receipt_bound_only"
         )
+        strategy_resource_lineage_verified = (
+            source_kind == "resource_governor"
+            and subject_kind == "strategy_invocation_resource_lineage"
+            and fact.disposition == "verified"
+            and isinstance(payload.get("resource_linkage"), Mapping)
+            and bool(payload.get("principal_binding_digest"))
+            and payload.get("lineage_findings") == []
+        )
         if subject_kind in {"observed_running_model", "observed_running_software_generation"}:
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
@@ -577,6 +585,8 @@ class ResidentDevelopmentalCognitionOwner:
                 and payload["proposed_successor_model_development_provenance"].get("identity_binding_verified") is True):
             priority = 2
         elif resource_lineage_verified:
+            priority = 3
+        elif strategy_resource_lineage_verified:
             priority = 3
         elif subject_kind in {"resident_model_transition", "software_generation_transition"}:
             priority = 4

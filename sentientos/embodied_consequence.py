@@ -2052,6 +2052,7 @@ class ConsequenceStore:
                 event_time = None
                 receipt_id = receipt_digest = None
                 resource_linkage = None
+                invocation_request_context_linkage = None
                 if execution:
                     association = dict(execution)
                     claimed_association = association.pop("association_digest", None)
@@ -2095,7 +2096,40 @@ class ConsequenceStore:
                         receipt_id = receipt.get("receipt_id")
                         receipt_digest = receipt.get("receipt_digest")
                         event_time = receipt.get("observed_at")
-                        resource_linkage = dict(linkage) if isinstance(linkage, Mapping) else None
+                        invocation_request_context_linkage = (dict(linkage)
+                            if isinstance(linkage, Mapping) else None)
+                        linked_allocation = receipt.get("resource_allocation_digest")
+                        linked_attempt = receipt.get("resource_attempt_id")
+                        linked_consumption = receipt.get("resource_consumption_receipt_digests")
+                        linked_digest = receipt.get("resource_linkage_digest")
+                        if (linked_allocation is not None or linked_attempt is not None
+                                or bool(linked_consumption)):
+                            # validate_receipt above authenticates this binding
+                            # against the invocation receipt digest. This does
+                            # not claim that the separate resource ledger was
+                            # available here or independently reconciled.
+                            resource_linkage = {
+                                "posture": "invocation_receipt_bound_ledger_corroboration_not_performed",
+                                "request_id": request.get("request_id"),
+                                "request_digest": request.get("request_digest"),
+                                "purpose": request.get("purpose"),
+                                "model_id": request.get("model_id"),
+                                "model_artifact_digest": request.get("model_artifact_digest"),
+                                "allocation_digest": linked_allocation,
+                                "attempt_id": linked_attempt,
+                                "consumption_receipt_digests": list(linked_consumption or ()),
+                                "linkage_digest": linked_digest,
+                                "effect_receipt_id": receipt.get("receipt_id"),
+                                "effect_receipt_digest": receipt_digest,
+                            }
+                        else:
+                            resource_linkage = {
+                                "posture": "legacy_or_unlinked_invocation",
+                                "allocation_digest": None, "attempt_id": None,
+                                "consumption_receipt_digests": [], "linkage_digest": None,
+                                "effect_receipt_id": receipt.get("receipt_id"),
+                                "effect_receipt_digest": receipt_digest,
+                            }
                 proposal_record: dict[str, Any] = {
                     "source_kind":"embodiment",
                     "source_id":f"strategy-experiment-proposal:{identity}:{proposal.strategy_id}",
@@ -2139,6 +2173,7 @@ class ConsequenceStore:
                         "invocation_receipt_id":receipt_id,
                         "invocation_receipt_digest":receipt_digest,
                         "resource_linkage":resource_linkage,
+                        "invocation_request_context_linkage":invocation_request_context_linkage,
                         "event_time_posture":"invocation_receipt_time" if event_time else "undated",
                         "effect_proven":False,
                         "current_truth":False,
@@ -2221,7 +2256,8 @@ class ConsequenceStore:
                     "declared_model_id", "declared_model_artifact_digest",
                     "active_model_identity_digest", "serving_identity_posture",
                     "serving_identity_digest", "declared_software_generation",
-                    "software_generation_posture", "software_execution_provenance_digest")}
+                    "software_generation_posture", "software_execution_provenance_digest",
+                    "resource_linkage", "invocation_request_context_linkage")}
                 key = (str(projected.get("subject_id", "")), str(payload.get("strategy_digest", "")))
                 if not all(key) or context["condition"] not in {
                         "history_present", "history_withheld", "history_restored"}:

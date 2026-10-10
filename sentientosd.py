@@ -70,7 +70,9 @@ from sentientos.maintenance_post_adoption_attribution_campaign import (
     MaintenancePostAdoptionAttributionCampaignOwner,
     validate_world_state_projection_config as validate_post_adoption_projection_config,
 )
-from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records, resource_consumption_world_state_records
+from sentientos.host_resource_runtime import (HostResourceRuntimeCoordinator,
+    HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records,
+    resource_consumption_world_state_records, resource_invocation_proposal_lineage_records)
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
 from sentientos.production_chat_resource_observation import (
     ProductionChatResourceObservationError,
@@ -1065,6 +1067,10 @@ class RuntimeMaintenanceSurfaces:
         genesis = self._feedback.get("surfaces", {}).get("genesis_forge", {})
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})
+        # Reconcile strategy-model inference receipts with the separately
+        # projected governed resource ledger before constructing World-State.
+        # The result is historical attribution only and never an effect claim.
+        records.extend(resource_invocation_proposal_lineage_records(records))
         snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
         retained_source_ids = {source.source_id for source in snapshot.sources}
         omitted_fulfillment_sources = selected_fulfillment_source_ids - retained_source_ids

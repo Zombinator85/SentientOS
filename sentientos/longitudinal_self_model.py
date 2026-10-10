@@ -61,6 +61,7 @@ PAYLOAD_PREDICATES = {
     "software_successor_repository_tree": ("successor_repository_tree",),
     "software_successor_launch_provenance": ("successor_launch_provenance_digest",),
     "software_readiness_receipt": ("readiness_receipt_digest",),
+    "resource_consumption_lineage": ("resource_linkage",),
     "running_software_process_instance": ("process_instance_id",),
     "running_software_repository_commit": ("repository_commit",),
     "running_software_repository_tree": ("repository_tree",),
@@ -102,6 +103,7 @@ _REVIEW_CONTEXT_FIELDS = (
     "declared_model_id", "declared_model_artifact_digest", "active_model_identity_digest",
     "serving_identity_posture", "serving_identity_digest", "declared_software_generation",
     "software_generation_posture", "software_execution_provenance_digest",
+    "resource_linkage", "invocation_request_context_linkage",
 )
 
 
@@ -265,7 +267,9 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
     for predicate, keys in PAYLOAD_PREDICATES.items():
         for key in keys:
             if key in fact.payload:
-                out.append((predicate, _bounded(fact.payload[key]), "lineage" if "generation" in predicate or "model" in predicate else "configuration"))
+                out.append((predicate, _bounded(fact.payload[key]), "lineage"
+                    if any(token in predicate for token in ("generation", "model", "resource"))
+                    else "configuration"))
                 break
     if fact.effect_proven and "observed_consequence" in fact.payload:
         out.append(("observed_consequence", _bounded(fact.payload["observed_consequence"]), "observed_consequence"))
