@@ -287,6 +287,9 @@ class ResidentDevelopmentalCognitionOwner:
         else:
             try:
                 value = json.loads(state_bytes.decode("utf-8"))
+                if (not isinstance(value, dict)
+                        or json.dumps(value, indent=2, sort_keys=True).encode("utf-8") + b"\n" != state_bytes):
+                    raise ResidentDevelopmentalCognitionError("composition_state_noncanonical")
                 claimed = value.pop("state_digest")
             except (UnicodeError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
                 raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
@@ -471,6 +474,9 @@ class ResidentDevelopmentalCognitionOwner:
         for name, raw in entries:
             try:
                 value = json.loads(raw.decode("utf-8"))
+                if (not isinstance(value, dict)
+                        or json.dumps(value, indent=2, sort_keys=True).encode("utf-8") + b"\n" != raw):
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_noncanonical")
                 observation_id = value.pop("observation_id")
                 observation_digest = value.pop("observation_digest")
             except (UnicodeError, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
@@ -513,6 +519,8 @@ class ResidentDevelopmentalCognitionOwner:
         return {tick: tuple(sorted(ids)) for tick, ids in by_tick.items()}
 
     def _save_state(self, state: Mapping[str, Any]) -> None:
+        if os.name != "posix":
+            raise ResidentDevelopmentalCognitionError("composition_state_publication_unsupported_platform")
         semantic = {k: v for k, v in state.items() if k != "state_digest"}
         if (len(semantic.get("processed_selection_ids", ())) > MAX_RECOVERED_FACT_IDS
                 or len(semantic.get("completed_ticks", ())) + len(semantic.get("incomplete_ticks", ())) > MAX_RECOVERED_TICKS):
@@ -742,6 +750,8 @@ class ResidentDevelopmentalCognitionOwner:
                  prior_epistemic_state: EpistemicCognitiveProjection | None = None) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
+        if os.name != "posix":
+            raise ResidentDevelopmentalCognitionError("composition_publication_unsupported_platform")
         validation = validate_snapshot(snapshot)
         if not validation.valid:
             raise ResidentDevelopmentalCognitionError("invalid_world_state_snapshot")

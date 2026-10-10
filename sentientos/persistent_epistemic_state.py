@@ -242,6 +242,8 @@ class EpistemicCalibrationEvent:
 
 
 def _write_new(path: Path, value: Mapping[str, Any]) -> None:
+    if os.name == "nt":
+        raise EpistemicStateError("epistemic_publication_unsupported_platform")
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     if path.parent.is_symlink() or path.parent.parent.is_symlink() or not path.parent.is_dir():
         raise EpistemicStateError("epistemic_custody_root_invalid")
@@ -319,6 +321,12 @@ class PersistentEpistemicStateOwner:
         self.root = Path(root); self.allowed_namespaces = frozenset(allowed_namespaces)
         if not self.allowed_namespaces: raise EpistemicStateError("allowed_namespaces_required")
         if self.root.is_symlink(): raise EpistemicStateError("epistemic_custody_root_invalid")
+        if os.name == "nt":
+            # Existing records remain reconstructable through held Windows
+            # handles. Do not manufacture empty custody directories or permit
+            # publication until a matching atomic Windows writer exists.
+            self.verify()
+            return
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         if self.root.is_symlink() or not self.root.is_dir(): raise EpistemicStateError("epistemic_custody_root_invalid")
         for part in RECORD_COLLECTIONS:
@@ -336,6 +344,8 @@ class PersistentEpistemicStateOwner:
                 raise EpistemicStateError("epistemic_history_corrupt") from exc
             if not isinstance(value, dict):
                 raise EpistemicStateError("epistemic_history_corrupt")
+            if canonical_bytes(value) + b"\n" != data:
+                raise EpistemicStateError("epistemic_record_noncanonical")
             if not self._collection_identity_matches(kind, value, filename):
                 raise EpistemicStateError("epistemic_record_path_identity_mismatch")
             values.append(value)

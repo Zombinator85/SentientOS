@@ -360,6 +360,8 @@ class LongitudinalSelfModelOwner:
                 os.close(descriptor)
 
     def _publish_entry(self, path: Path, result: SelfModelReconciliation) -> None:
+        if os.name != "posix":
+            raise LongitudinalSelfModelError("reconciliation_publication_unsupported_platform")
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         if path.parent.is_symlink() or not path.parent.is_dir():
             raise LongitudinalSelfModelError("reconciliation_custody_root_invalid")
@@ -421,6 +423,9 @@ class LongitudinalSelfModelOwner:
                 if total_bytes > MAX_RECONCILIATION_CUSTODY_BYTES:
                     raise LongitudinalSelfModelError("reconciliation_custody_limit_exceeded")
                 raw = json.loads(entry_bytes.decode("utf-8"))
+                if (not isinstance(raw, dict)
+                        or json.dumps(raw, sort_keys=True, indent=2).encode("utf-8") + b"\n" != entry_bytes):
+                    raise LongitudinalSelfModelError("reconciliation_record_noncanonical")
                 claims = tuple(SelfModelClaim(**{
                     **claim,
                     "source_evidence_ids": tuple(claim["source_evidence_ids"]),
