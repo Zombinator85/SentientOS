@@ -149,6 +149,9 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "embodied_strategy_proposal")
         unverified_embodiment_observation = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "avatar_independently_observed_state")
+        unverified_source_context = (historical_undated_consequence
+            or historical_unverified_owner_record or historical_strategy_proposal
+            or unverified_embodiment_observation)
         stable_source_digest = fact.source.digest
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
@@ -223,16 +226,14 @@ class ResidentEpistemicDevelopmentRuntime:
             source_artifact_id=artifact_id, source_digest=stable_source_digest,
             source_schema=fact.source.schema_version, source_class=fact.source.kind,
             observation_time=observed,
-            evidence_relation="contextualizes" if historical_strategy_proposal else rule.evidence_relation,
-            dependency_kind=("unknown_dependency" if unverified_embodiment_observation
-                or historical_strategy_proposal
-                or historical_unverified_owner_record else rule.dependency_kind),
+            evidence_relation="contextualizes" if unverified_source_context else rule.evidence_relation,
+            dependency_kind=("unknown_dependency" if unverified_source_context else rule.dependency_kind),
             dependency_group=(rule.independence_basis if rule.dependency_kind == "independently_sourced_observation"
-                and not unverified_embodiment_observation and not historical_unverified_owner_record
-                and not historical_strategy_proposal else None),
+                and not unverified_source_context else None),
             upstream_binding_ids=(), freshness=freshness,
-            reliability_posture="proposal_source_not_world_truth" if historical_strategy_proposal
-                else rule.reliability_posture)
+            reliability_posture=("proposal_source_not_world_truth" if historical_strategy_proposal
+                else "unverified_source_context_only" if unverified_source_context
+                else rule.reliability_posture))
         return proof, binding
 
     def _issue(self, *, admission_id: str, effects: tuple[str, ...], subject_id: str,
