@@ -35,3 +35,10 @@ Construction work is **untested for production**. Continue from branch `codex/co
 1. Compile, review, commit `[untested]`, push, and verify the genesis-recovery correction.
 2. Continue tracing exact resource attribution in the controlled replacement endpoint; preserve unknown when no explicit sponsored allocation/consumption owner is injected.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.
+
+- `ce34efb3fb07a54df147c87a9d496490570250c8` (remote verified): campaign-state predecessor reconstruction accepts a valid revision-1 genesis with no predecessor and still validates later retained links.
+- Current local change (not yet committed): legacy completed model-replacement condition observations remain recoverable when they predate optional expanded prior-cognition/resource-linkage fields. The exact frozen-context, current-projection, protocol, terminal and observation digests remain required; optional linkage is verified fully when present. This avoids turning older immutable evidence into a false tamper result while retaining unknown/missing attribution.
+
+## Next executable work
+
+Compile and inspect the compatibility change, commit and push it, then inspect adjacent model-replacement and post-adoption attribution paths for recovery/causal handoffs that can be strengthened without authenticated external observers, resource-ledger ownership, or effect authority. Preserve unknown status where those owners are not composed. No runtime acceptance was performed.

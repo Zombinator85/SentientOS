@@ -1066,17 +1066,22 @@ class ModelReplacementArtifactStore:
                             or terminal.get("observation") != observations[len(completed_observations)]):
                         raise DevelopmentalModelReplacementError("trial_condition_lineage_conflict")
                     if prior_bindings is not None and frozen_context is not None:
-                        for key, expected_value in prior_bindings.items():
-                            if terminal["observation"].get(key) != expected_value:
-                                raise DevelopmentalModelReplacementError("trial_prior_cognition_binding_conflict")
+                        if any(key in terminal["observation"] for key in prior_bindings):
+                            for key, expected_value in prior_bindings.items():
+                                if terminal["observation"].get(key) != expected_value:
+                                    raise DevelopmentalModelReplacementError("trial_prior_cognition_binding_conflict")
                         if (terminal["observation"].get("current_projection_id") != frozen_context["current_projection_id"]
                                 or terminal["observation"].get("current_projection_digest") != frozen_context["current_projection_digest"]):
                             raise DevelopmentalModelReplacementError("trial_current_projection_binding_conflict")
                     if context_lineage_posture == "verified_persisted_frozen_context":
-                        resource_binding = _resource_receipt_binding(terminal["observation"])
-                        if any(terminal["observation"].get(key) != expected_value
-                                for key, expected_value in resource_binding.items()):
-                            raise DevelopmentalModelReplacementError("trial_resource_linkage_binding_conflict")
+                        resource_fields = {"resource_allocation_digest", "resource_attempt_id",
+                            "resource_consumption_receipt_digests", "resource_linkage_digest",
+                            "resource_attribution_posture"}
+                        if resource_fields.intersection(terminal["observation"]):
+                            resource_binding = _resource_receipt_binding(terminal["observation"])
+                            if any(terminal["observation"].get(key) != expected_value
+                                    for key, expected_value in resource_binding.items()):
+                                raise DevelopmentalModelReplacementError("trial_resource_linkage_binding_conflict")
                     completed_observations.append(cast(Mapping[str, Any], terminal["observation"]))
                 else:
                     saw_terminal_status = True
