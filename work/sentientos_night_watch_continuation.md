@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before joining runtime invocations to serving receipts in World-State, GitHub branch inspection verified `a4108dfba089a3a92c2aebaa8660140f7a674a2f` (tree `aa7177dae8727eec90436638cf08f25ee76cef0d`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before exact serving-model binding comparison, GitHub branch inspection verified `2798ee9b1776d6a06a93f8dad29a01bf273a54a4` (tree `490d31b2b3b3e15f23dcdfa4d562fc88391bb615`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -620,3 +620,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the World-State projector, daemon composition, longitudinal self-model, and developmental writeback owner. No tests, live observation, cognition, recovery, or production verification was run.
 
 **Next implementation dependency:** continue cross-owner recovery review for any remaining serving/invocation substitution path; keep identity joins exact before either World-State or durable history publication.
+
+
+### New checkpoint — reject serving receipt model/activation substitution
+
+- Both World-State projection and stored chat-invocation recovery now compare the invocation's full serving linkage against the matched canonical serving receipt binding: installation, operation/session, activation digest and generation, predecessor, activation receipt, serving admission, authority-map digest, model, artifact, runtime, and loaded-model identity.
+- The invocation's direct linkage must also equal its upstream current-serving lifetime mapping. Exact receipt and attempt IDs/digests remain required for linked records; legacy unbound records are not promoted.
+- Python compilation passed for the inference bridge and World-State projector. No runtime receipt was reconciled, invocation recovered, or production behavior verified.
+
+**Next implementation dependency:** inspect caller-level recovery paths for legacy invocation and serving records after this stronger join; preserve their explicit unknown posture without allowing incomplete new linkage.

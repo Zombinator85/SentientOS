@@ -598,17 +598,28 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             receipt = history.get("receipt")
             attempt = history.get("attempt")
             binding = receipt.get("binding") if isinstance(receipt, Mapping) else None
+            serving_binding_fields = (
+                "installation_identity", "serving_operation_id", "activation_state_semantic_digest",
+                "activation_generation", "activation_predecessor_state_digest",
+                "activation_receipt_id", "activation_receipt_semantic_digest",
+                "model_serving_admission_ref", "authority_map_digest", "model_id",
+                "artifact_id", "artifact_sha256", "runtime_id", "observed_loaded_model_identity",
+            )
             if (history.get("status") != "serving_receipt_verified"
                     or history.get("attempt_semantic_digest") != attempt_digest
                     or not isinstance(attempt, Mapping) or attempt.get("attempt_id") != attempt_id
                     or not isinstance(binding, Mapping)
-                    or binding.get("serving_operation_id") != request_linkage.get("serving_operation_id")
+                    or any(request_linkage.get(key) != binding.get(key)
+                        for key in serving_binding_fields)
                     or receipt.get("session_id") != request_linkage.get("serving_session_id")):
                 raise ValueError("chat_process_invocation_serving_lineage_mismatch")
             serving_lineage_posture = "verified_receipt_and_reservation"
         upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
         serving = (upstream.get("current_serving_lifetime")
             if isinstance(upstream, Mapping) else None)
+        if (serving_lineage_posture == "verified_receipt_and_reservation"
+                and (not isinstance(serving, Mapping) or dict(serving) != dict(request_linkage))):
+            raise ValueError("chat_process_invocation_serving_lifetime_binding_mismatch")
         serving_fields = ("serving_session_id", "serving_operation_id", "installation_identity",
             "activation_state_semantic_digest", "activation_generation",
             "activation_predecessor_state_digest", "activation_receipt_id",

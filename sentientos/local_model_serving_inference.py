@@ -276,13 +276,22 @@ class ProductionServingInferenceController:
                 raise ProductionServingInferenceError("stored_invocation_serving_receipt_unavailable")
             serving_history_item = matching_history[0]
             serving_receipt = serving_history_item["receipt"]
+            serving_binding = serving_receipt.get("binding")
+            serving_binding_fields = (
+                "installation_identity", "serving_operation_id", "activation_state_semantic_digest",
+                "activation_generation", "activation_predecessor_state_digest",
+                "activation_receipt_id", "activation_receipt_semantic_digest",
+                "model_serving_admission_ref", "authority_map_digest", "model_id",
+                "artifact_id", "artifact_sha256", "runtime_id", "observed_loaded_model_identity",
+            )
             if (serving_history_item.get("status") != "serving_receipt_verified"
                     or serving_receipt.get("session_id") != lifetime.get("serving_session_id")
                     or serving_history_item.get("attempt_semantic_digest") != serving_attempt_digest
                     or not isinstance(serving_history_item.get("attempt"), Mapping)
                     or serving_history_item["attempt"].get("attempt_id") != serving_attempt_id
-                    or serving_receipt.get("binding", {}).get("serving_operation_id")
-                        != lifetime.get("serving_operation_id")):
+                    or not isinstance(serving_binding, Mapping)
+                    or any(lifetime.get(key) != serving_binding.get(key)
+                        for key in serving_binding_fields)):
                 raise ProductionServingInferenceError("stored_invocation_serving_receipt_lineage_mismatch")
             serving_receipt_lineage = {
                 "status": "reservation_and_serving_receipt_verified",
