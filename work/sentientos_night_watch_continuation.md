@@ -102,3 +102,9 @@ UTC tick ordering is now checked in durable self-model and resident-history sele
 
 - Canonical consequence serialization rejects non-JSON non-finite floats. Numeric-tolerance policies must be finite and representable; exact comparisons retain recursive type-sensitive semantics. Numeric deltas outside the finite float range remain `indeterminate` instead of producing misleading output.
 - No numeric measurements or observed outcomes were generated; the change only tightens how supplied evidence is compared.
+
+### New checkpoint — enforce epistemic tick cutoff across recovery
+
+- The resident daemon captured durable epistemic state before cognition, but its owner selected each proposition's latest generation without checking that generation's persisted update tick against the current cognition tick. On clock rollback or interrupted/recovered sequencing, a future-dated latest state could enter a projection.
+- `PersistentEpistemicStateOwner.cognitive_projection` now accepts an optional exact current tick and excludes a proposition when its latest generation is at or after that tick. It does not fall back to an older generation for that proposition. The resident daemon passes the timezone-aware current tick as the same integer epoch seconds used by epistemic development; missing/naive times fail closed. Existing direct owner callers retain the legacy capture behavior when no cutoff is supplied.
+- This is construction-only. Python compilation and diff whitespace checks passed for the edited modules; no behavior tests or production verification were run. Next inspect adjacent durable writeback/developmental-history chronology boundaries for equivalent recovery-time gaps, then proceed to a more consequential causal continuity connection.

@@ -1532,8 +1532,12 @@ class RuntimeMaintenanceSurfaces:
                     raise ValueError(self._epistemic_state_configuration_error)
                 if (self._epistemic_state_owner is not None
                         and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
+                    cognition_instant = datetime.fromisoformat(tick_id.replace("Z", "+00:00"))
+                    if cognition_instant.tzinfo is None or cognition_instant.utcoffset() is None:
+                        raise ValueError("resident_cognition_tick_timezone_required")
                     prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
-                        max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]))
+                        max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
+                        current_tick=int(cognition_instant.timestamp()))
                 result = self._resident_developmental_owner.run_tick(
                     snapshot=self._world_state_snapshot, tick_id=tick_id,
                     prior_self_model=prior_self_model,

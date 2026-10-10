@@ -491,7 +491,8 @@ class PersistentEpistemicStateOwner:
             raise EpistemicStateError("epistemic_active_evidence_lineage_mismatch")
         return tuple(sorted(active))
 
-    def cognitive_projection(self, *, max_states: int) -> EpistemicCognitiveProjection | None:
+    def cognitive_projection(self, *, max_states: int,
+                             current_tick: int | None = None) -> EpistemicCognitiveProjection | None:
         """Capture a verified, bounded prior projection without changing custody.
 
         The update files visible in the first inventory are the chronology boundary:
@@ -503,6 +504,9 @@ class PersistentEpistemicStateOwner:
         if (not isinstance(max_states, int) or isinstance(max_states, bool)
                 or not 1 <= max_states <= MAX_EPISTEMIC_RECORDS_PER_COLLECTION):
             raise EpistemicStateError("epistemic_projection_bound_invalid")
+        if current_tick is not None and (not isinstance(current_tick, int)
+                or isinstance(current_tick, bool) or current_tick < 0):
+            raise EpistemicStateError("epistemic_projection_tick_invalid")
         self.verify()
         update_bytes = self._collection_bytes("updates")
         state_bytes = self._collection_bytes("states")
@@ -524,11 +528,21 @@ class PersistentEpistemicStateOwner:
             previous = latest.get(state.proposition_id)
             if previous is None or state.generation > previous.generation:
                 latest[state.proposition_id] = state
+        # Select the actual latest generation first. If it was written at or
+        # after this cognition tick, omit that proposition entirely rather
+        # than falling back to an older generation and presenting stale state
+        # as the current prior position. This remains effective after restart,
+        # because the cutoff is compared with the authenticated update event's
+        # persisted tick, not process-local ordering.
+        if current_tick is not None:
+            latest = {proposition_id: state for proposition_id, state in latest.items()
+                if paired[state.state_digest].tick < current_tick}
         selected = tuple(sorted(latest.values(), key=lambda item: item.proposition_id)[:max_states])
         if not selected:
             return None
         source_tick = max(paired[state.state_digest].tick for state in selected)
-        return make_cognitive_projection(selected, source_tick=source_tick, current_tick=source_tick + 1)
+        projection_tick = current_tick if current_tick is not None else source_tick + 1
+        return make_cognitive_projection(selected, source_tick=source_tick, current_tick=projection_tick)
 
     def commit_update(self, *, proposition_id: str, expected_predecessor_digest: str | None, stance: str,
                       reason: str, active_binding_ids: Sequence[str], added_binding_ids: Sequence[str] = (),
