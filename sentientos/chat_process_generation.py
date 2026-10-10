@@ -254,7 +254,7 @@ def publish_chat_process_handoff(*, handle: InstallationStateHandle, handoff_id:
 
 def verify_current_chat_process_handoff(*, handle: InstallationStateHandle,
                                          handoff_id: str) -> dict[str, Any]:
-    """Check a parent's immutable launch identity against this live process and source bytes."""
+    """Check this child process against the parent's immutable launch record."""
     record = _read_handoff(handle, handoff_id)
     argv = [sys.executable, *sys.argv]
     if (os.getpid() != record["process_id"] or os.getppid() != record["parent_process_id"]
@@ -267,6 +267,42 @@ def verify_current_chat_process_handoff(*, handle: InstallationStateHandle,
     if generation_digest != record["software_generation_digest"]:
         raise ChatProcessGenerationError("chat_process_source_generation_changed")
     return {"status": "runtime_launcher_process_and_source_bound",
+        "handoff_id": handoff_id, "handoff_digest": record["handoff_digest"],
+        "process_instance_id": record["process_instance_id"],
+        "software_generation_digest": record["software_generation_digest"],
+        "process_id": record["process_id"], "parent_process_id": record["parent_process_id"],
+        "startup_timestamp": record["startup_timestamp"],
+        "source_generation_scope": "sentientos_and_scripts_python_sources"}
+
+
+
+def verify_supervised_chat_process_handoff(*, handle: InstallationStateHandle, handoff_id: str,
+        process_id: int, parent_process_id: int, argv: Sequence[str],
+        environment: Mapping[str, str], working_directory: str | Path,
+        python_executable: str | Path, repository_root: str | Path) -> dict[str, Any]:
+    """Verify the launcher-owned record against the exact child Popen arguments.
+
+    This is deliberately distinct from verify_current_chat_process_handoff:
+    only the child can compare its own PID, parent, argv and environment to itself.
+    A parent may verify its immutable launch record and source bytes, while its
+    Popen.poll() check supplies the separate process-liveness observation.
+    """
+    record = _read_handoff(handle, handoff_id)
+    expected = {
+        "process_id": process_id,
+        "parent_process_id": parent_process_id,
+        "argv_digest": _digest(list(argv)),
+        "environment_digest": _digest(dict(environment)),
+        "working_directory": str(Path(working_directory).resolve()),
+        "python_executable": os.path.realpath(str(python_executable)),
+        "source_root": str(Path(repository_root)),
+    }
+    if any(record.get(key) != value for key, value in expected.items()):
+        raise ChatProcessGenerationError("chat_process_launcher_record_mismatch")
+    generation_digest, _members = source_generation(record["source_root"])
+    if generation_digest != record["software_generation_digest"]:
+        raise ChatProcessGenerationError("chat_process_source_generation_changed")
+    return {"status": "runtime_launcher_child_launch_and_source_bound",
         "handoff_id": handoff_id, "handoff_digest": record["handoff_digest"],
         "process_instance_id": record["process_instance_id"],
         "software_generation_digest": record["software_generation_digest"],

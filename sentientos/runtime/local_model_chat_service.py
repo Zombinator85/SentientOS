@@ -23,7 +23,7 @@ from sentientos.local_model_production_serving import _operation_id
 from sentientos.local_model_production_serving import _semantic_digest
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.chat_process_generation import (
-    publish_chat_process_handoff, verify_current_chat_process_handoff,
+    publish_chat_process_handoff, verify_supervised_chat_process_handoff,
 )
 
 from .services import ChildProcessServiceAdapter, HealthResult
@@ -159,9 +159,15 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
     def current_runtime_handoff(self) -> dict[str, object] | None:
         if self._installation_handle is None or self._handoff_id is None:
             return None
+        process = self._process
+        if process is None or process.poll() is not None:
+            raise RuntimeError("chat_process_runtime_handoff_child_not_running")
         try:
-            return verify_current_chat_process_handoff(
-                handle=self._installation_handle, handoff_id=self._handoff_id)
+            return verify_supervised_chat_process_handoff(
+                handle=self._installation_handle, handoff_id=self._handoff_id,
+                process_id=process.pid, parent_process_id=os.getpid(), argv=self._argv,
+                environment=self._launch_environment, working_directory=self._cwd,
+                python_executable=self._argv[0], repository_root=self._root)
         except Exception as exc:
             raise RuntimeError("chat_process_runtime_handoff_invalid") from exc
 
