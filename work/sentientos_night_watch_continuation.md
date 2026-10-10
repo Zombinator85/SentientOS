@@ -232,3 +232,12 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Remote branch verified at `c3b1746908aa3aa19fcb93bac0b43a582955fd61`.
 
 **Next implementation dependency:** inspect cross-restart model-serving receipt composition after the new source binding, then correct any concrete mismatch between generation evidence, serving identity, and recovered chat cognition. Preserve direct predecessor and overlap as unknown where no owner can establish them.
+
+### New checkpoint — bounded transcript storage keeps receipt reconstruction authoritative
+
+- Assistant session turns now persist a compact software-generation summary and exact predecessor snapshot/handoff digests instead of copying the nested lineage on every turn. The durable invocation receipt remains the authoritative full chain.
+- On later turns, the existing receipt verifier reconstructs the full software lineage; compatibility accepts prior full summaries and current compact summaries only when they match the verified receipt. The full bounded chain is then emitted into a separate provenance-only cognition block, not canonical memory.
+- This avoids repeated chain growth against the existing 8 MiB session bound without dropping receipt custody or changing user-retention authority. Python compilation only; no tests or runtime execution.
+- Remote branch verified at `da56d4b2ebd9c7c2bd98ecdf7139135b7873ce44`.
+
+**Next implementation dependency:** inspect the model-serving and succession owner interfaces for any remaining state where a software handoff could be mistaken for an active model, or where recovered model-transition receipts are not cross-bound to their own predecessor/successor evidence. Keep the two lineages separate.
