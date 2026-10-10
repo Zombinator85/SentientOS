@@ -409,6 +409,14 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "runtime_supervisor_generation": observation.get("runtime_supervisor_generation"),
                 "observed_at": observation.get("observed_at"),
                 "runtime_status_at_observation": observation.get("runtime_status"),
+                "configured_serving_receipt_posture_at_observation": observation.get("configured_serving_receipt_posture"),
+                "serving_receipt_at_observation": (
+                    {key: observation["serving_receipt"].get(key) for key in (
+                        "receipt_id", "receipt_semantic_digest", "session_id",
+                        "serving_operation_id", "model_identity_in_receipt",
+                        "selection_posture")}
+                    if isinstance(observation.get("serving_receipt"), Mapping) else None),
+                "model_identity_in_receipt_is_current_claim": False,
                 "process_instance_id": observation.get("process_instance_id"),
                 "handoff_id": observation.get("handoff_id"),
                 "handoff_digest": observation.get("handoff_digest"),

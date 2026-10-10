@@ -36,6 +36,8 @@ RECEIPT_SCHEMA = "sentientos.local_model_chat_recovery_receipt:v1"
 PHASE_SCHEMA = "sentientos.local_model_chat_recovery_phase:v1"
 MAX_PHASE_RECORD_BYTES = 262_144
 MAX_PHASE_RECORDS = 256
+MAX_SERVING_RECEIPTS = 256
+MAX_SERVING_RECEIPT_BYTES = 262_144
 SNAPSHOT_SCHEMA = "sentientos.local_model_chat_runtime_startup:v1"
 MAX_STARTUP_SNAPSHOT_BYTES = 131_072
 PRINCIPAL = "deterministic_local_model_chat_recovery_controller"
@@ -209,31 +211,56 @@ def _read_json(handle: InstallationStateHandle, relative: str, code: str) -> dic
     return value
 
 
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("duplicate_json_key")
+        value[key] = item
+    return value
+
+
 def verified_serving_receipts(handle: InstallationStateHandle) -> tuple[dict[str, Any], ...]:
+    """Read a fixed, bounded set of immutable serving receipts without following links."""
     directory = handle.fixed_object("local-model/serving/receipts")
     try:
-        names = handle.list_regular_names(directory)
+        names = handle.list_regular_names(directory, max_entries=MAX_SERVING_RECEIPTS)
     except InstallationStateError as exc:
         raise LocalModelChatRecoveryError("serving_receipt_custody_unavailable") from exc
     receipts: list[dict[str, Any]] = []
     for name in names:
         if not name.endswith(".json"):
             raise LocalModelChatRecoveryError("serving_receipt_malformed")
-        receipt = _read_json(handle, f"local-model/serving/receipts/{name}", "serving_receipt_malformed")
-        digest = receipt.get("receipt_semantic_digest")
-        if (receipt.get("schema_version") != "sentientos.local_model_serving_session_receipt:v1"
+        try:
+            raw = handle.read_regular_bounded(
+                handle.fixed_object(f"local-model/serving/receipts/{name}"),
+                max_bytes=MAX_SERVING_RECEIPT_BYTES)
+            receipt = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_object)
+        except LocalModelChatRecoveryError:
+            raise
+        except (UnicodeError, ValueError, TypeError, RecursionError, InstallationStateError) as exc:
+            raise LocalModelChatRecoveryError("serving_receipt_malformed") from exc
+        digest = receipt.get("receipt_semantic_digest") if isinstance(receipt, dict) else None
+        binding = receipt.get("binding") if isinstance(receipt, dict) else None
+        if (not isinstance(receipt, dict) or raw != _canonical(receipt)
+                or receipt.get("schema_version") != "sentientos.local_model_serving_session_receipt:v1"
+                or not isinstance(receipt.get("receipt_id"), str)
+                or receipt.get("receipt_id") != name[:-5]
+                or receipt.get("receipt_id") != "serving-receipt-" + semantic_digest({
+                    key: item for key, item in receipt.items()
+                    if key not in {"receipt_id", "receipt_semantic_digest"}})[:24]
                 or digest != semantic_digest(_without(receipt, "receipt_semantic_digest"))
                 or receipt.get("control_plane_authority_class") != AuthorityClass.MODEL_SERVING.value
                 or receipt.get("admission_outcome") != "allow" or receipt.get("model_loaded") is not True
                 or receipt.get("serving_session_bound") is not True
-                or receipt.get("inference_performed") is not False):
+                or receipt.get("inference_performed") is not False
+                or not isinstance(binding, dict)
+                or binding.get("installation_identity") != handle.identity.value
+                or not isinstance(receipt.get("session_id"), str)
+                or receipt.get("session_id") != "serving-session-" + semantic_digest(binding)[:24]):
             raise LocalModelChatRecoveryError("serving_receipt_malformed")
-        binding = receipt.get("binding")
-        if not isinstance(binding, dict) or binding.get("installation_identity") != handle.identity.value:
-            raise LocalModelChatRecoveryError("serving_receipt_installation_mismatch")
         receipts.append(receipt)
     return tuple(receipts)
-
 
 def exact_prior_serving_receipt(handle: InstallationStateHandle, operation_id: str) -> dict[str, Any]:
     operation_id = _operation_id(operation_id)

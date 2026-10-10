@@ -702,15 +702,43 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         output.append({**item, "digest": record_digest(item)})
     if verified_chat_process_runtime_observation is not None:
         runtime = verified_chat_process_runtime_observation
-        runtime_fields = {
+        base_runtime_fields = {
             "schema_version", "installation_identity", "runtime_supervisor_generation", "observed_at",
             "runtime_status", "reason_code", "handoff_id", "handoff_digest", "process_instance_id",
             "process_id", "parent_process_id", "software_generation_digest", "source_generation_scope",
             "currentness_posture", "independent_signature", "effect_authority",
             "observation_semantic_digest",
         }
+        runtime_schema = runtime.get("schema_version") if isinstance(runtime, Mapping) else None
+        if runtime_schema == "sentientos.chat_process_runtime_observation:v1":
+            runtime_fields = base_runtime_fields
+        elif runtime_schema == "sentientos.chat_process_runtime_observation:v2":
+            runtime_fields = base_runtime_fields | {"configured_serving_receipt_posture", "serving_receipt"}
+        else:
+            runtime_fields = set()
+        serving = runtime.get("serving_receipt") if isinstance(runtime, Mapping) else None
+        serving_posture = runtime.get("configured_serving_receipt_posture") if isinstance(runtime, Mapping) else None
+        serving_valid = (
+            (runtime_schema == "sentientos.chat_process_runtime_observation:v1"
+                and serving is None and serving_posture is None)
+            or (runtime_schema == "sentientos.chat_process_runtime_observation:v2"
+                and (
+                    (serving_posture == "selected_receipt_for_configured_operation"
+                        and isinstance(serving, Mapping)
+                        and serving.get("selection_posture") == serving_posture
+                        and serving.get("model_loaded_in_receipt") is True
+                        and isinstance(serving.get("receipt_id"), str)
+                        and isinstance(serving.get("receipt_semantic_digest"), str)
+                        and isinstance(serving.get("serving_operation_id"), str)
+                        and isinstance(serving.get("model_identity_in_receipt"), Mapping))
+                    or (serving is None and serving_posture in {
+                        "not_observed", "configured_operation_not_verified",
+                        "configured_operation_receipt_unavailable",
+                        "configured_operation_receipt_invalid", "runtime_not_verified"})
+                ))
+        )
         if (not isinstance(runtime, Mapping) or set(runtime) != runtime_fields
-                or runtime.get("schema_version") != "sentientos.chat_process_runtime_observation:v1"
+                or not serving_valid
                 or runtime.get("installation_identity") != selected_source_identity.get("installation_identity")
                 or runtime.get("runtime_status") not in {"running_observed", "not_verified"}
                 or runtime.get("currentness_posture") != "runtime_owner_observed_at_recorded_event_time"

@@ -17,8 +17,25 @@ from .local_model_chat_service import (SERVICE_ID, LocalModelChatServiceAdapter,
                                        LocalModelChatStartup, build_runtime_service_registry)
 from .local_model_chat_recovery import (ProductionLocalModelChatRecoveryController,
                                         LocalModelChatRecoveryError, build_startup_snapshot,
-                                        read_startup_snapshot, write_startup_snapshot)
+                                        exact_prior_serving_receipt, read_startup_snapshot,
+                                        write_startup_snapshot)
 from .supervisor import RuntimeSupervisor
+
+
+def _configured_serving_receipt_observation(adapter: LocalModelChatServiceAdapter,
+        handle: Any) -> tuple[str, Mapping[str, Any] | None, str | None]:
+    """Select the receipt named by the process configuration without claiming current serving."""
+    operation_id = adapter.startup_configuration.serving_operation_id
+    if not isinstance(operation_id, str) or not operation_id:
+        return "configured_operation_receipt_invalid", None, None
+    try:
+        receipt = exact_prior_serving_receipt(handle, operation_id)
+    except LocalModelChatRecoveryError as exc:
+        posture = ("configured_operation_receipt_unavailable"
+            if exc.code == "prior_serving_receipt_missing"
+            else "configured_operation_receipt_invalid")
+        return posture, None, operation_id
+    return "selected_receipt_for_configured_operation", receipt, operation_id
 
 
 def run_canonical_runtime(
@@ -87,7 +104,8 @@ def _run_canonical_runtime_owned(
                 publish_chat_process_runtime_observation(
                     handle=handle, supervisor_generation=supervisor.generation,
                     handoff=predecessor_handoff, status="not_verified",
-                    reason_code="new_supervisor_has_not_verified_child")
+                    reason_code="new_supervisor_has_not_verified_child",
+                    configured_serving_receipt_posture="runtime_not_verified")
             except ChatProcessGenerationError:
                 # Invalid old custody remains visible as invalid to the
                 # read-only observer; startup does not repair or rewrite it.
@@ -128,10 +146,15 @@ def _run_canonical_runtime_owned(
             write_startup_snapshot(build_startup_snapshot(
                 config, supervisor.generation, runtime_handoff=handoff), supervisor.root)
             assert handle is not None
+            serving_posture, serving_receipt, serving_operation_id = (
+                _configured_serving_receipt_observation(adapter, handle))
             try:
                 publish_chat_process_runtime_observation(handle=handle,
                     supervisor_generation=supervisor.generation, handoff=handoff,
-                    status="running_observed")
+                    status="running_observed",
+                    configured_serving_receipt_posture=serving_posture,
+                    serving_receipt=serving_receipt,
+                    expected_serving_operation_id=serving_operation_id)
             except ChatProcessGenerationError:
                 # The supervised chat runtime remains governed by its own
                 # lifecycle. A failed optional observation is not converted
@@ -150,16 +173,22 @@ def _run_canonical_runtime_owned(
                             publish_chat_process_runtime_observation(
                                 handle=handle, supervisor_generation=supervisor.generation,
                                 handoff=last_handoff, status="not_verified",
-                                reason_code="current_handoff_unavailable")
+                                reason_code="current_handoff_unavailable",
+                                configured_serving_receipt_posture="runtime_not_verified")
                         except ChatProcessGenerationError:
                             pass
                 else:
                     if isinstance(observed_handoff, Mapping):
                         last_handoff = dict(observed_handoff)
+                        serving_posture, serving_receipt, serving_operation_id = (
+                            _configured_serving_receipt_observation(adapter, handle))
                         try:
                             publish_chat_process_runtime_observation(
                                 handle=handle, supervisor_generation=supervisor.generation,
-                                handoff=observed_handoff, status="running_observed")
+                                handoff=observed_handoff, status="running_observed",
+                                configured_serving_receipt_posture=serving_posture,
+                                serving_receipt=serving_receipt,
+                                expected_serving_operation_id=serving_operation_id)
                         except ChatProcessGenerationError:
                             pass
                 recovery.process_pending()
@@ -170,7 +199,8 @@ def _run_canonical_runtime_owned(
                 publish_chat_process_runtime_observation(
                     handle=handle, supervisor_generation=supervisor.generation,
                     handoff=last_handoff, status="not_verified",
-                    reason_code="supervisor_shutdown")
+                    reason_code="supervisor_shutdown",
+                    configured_serving_receipt_posture="runtime_not_verified")
             except ChatProcessGenerationError:
                 pass
         for signum, handler in previous.items():

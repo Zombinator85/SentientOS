@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before this identity-continuity increment, GitHub branch inspection verified `498b28a51e11acf0ea30580a539dfa02a9afdaa2` (tree `dcb34e35bb60baa1b00e539f82a2197cb91b565b`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the current process-serving lineage increment, GitHub branch inspection verified `9481de90791b904ae86dd030bdaf3fe5167ac3d9` (tree `46ba3e75f6c65e12528d0918f8bc94044d789449`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -423,3 +423,15 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for `host_resource_runtime.py`. No World-State execution, replay/recovery exercise, tests, or production verification was performed.
 
 **Next implementation dependency:** re-fetch the branch and compare the actual source files after publication, then review the remaining historical-vs-current serving identity boundary. The existing chat API exposes no current model identity; do not infer it from process readiness.
+
+
+### New checkpoint — bind process launch to configured serving receipt without a current-model claim
+
+- The canonical chat-process runtime point now carries the exact immutable serving receipt selected by the launched adapter's serving-operation ID, when that receipt is present and unambiguous. The projection binds installation, receipt ID and semantic digest, session ID, operation ID, and the model identity inside the historical load receipt.
+- This records configured-operation/load lineage alongside the existing process handoff and source-generation digest. It explicitly does not claim that the receipt proves a currently serving model: `/readyz` remains coarse, and the observer does not infer running model identity from that response, a Git commit, or the maintenance daemon.
+- Runtime observation custody moved to schema v2 with exact-field verification; the prior v1 observation schema remains read-compatible. World-State preserves the v2 receipt reference, and longitudinal cognition carries it as historical serving-receipt lineage with current-model claim false.
+- Exact serving-receipt recovery is now capped at 256 files and 262,144 bytes per receipt, rejects duplicate JSON keys and noncanonical bytes, and recomputes receipt/session identities before selecting an operation. Over-limit, malformed, missing, or ambiguous custody remains unavailable/invalid rather than guessed.
+- The previously identified state-receipt recovery stage issue was checked against current source: evidence-binding receipts publish to `evidence`, state-mutation receipts to `state`; Windows recovery remains read-only and accepts only byte-identical already-published receipts.
+- Python compilation passed for the changed Python modules. No runtime, API, subprocess, recovery, Windows, concurrency, World-State execution, or production verification was performed.
+
+**Next implementation dependency:** inspect whether the configured operation ID is preserved in the stored child-launch evidence in a way a later daemon can independently verify, rather than relying on the runtime owner's observation binding. If argv/environment is committed only as a digest, keep the operation-to-process association as an owner claim and pursue another source-supported causal link; do not elevate it to independently observed model continuity.

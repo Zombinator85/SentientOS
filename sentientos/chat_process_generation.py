@@ -31,7 +31,8 @@ HANDOFF_ID = re.compile(r"^[0-9a-f]{32}$")
 MAX_HANDOFF_BYTES = 1_048_576
 MAX_PRIOR_SNAPSHOT_BYTES = 65_536
 MAX_HANDOFF_ENTRIES = 256
-RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v1"
+RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v2"
+LEGACY_RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v1"
 RUNTIME_OBSERVATION_PATH = "local-model/chat/runtime-observations/current.json"
 RUNTIME_OBSERVATION_LOCK = "local-model/chat/runtime-observations/owner.lock"
 MAX_RUNTIME_OBSERVATION_BYTES = 65_536
@@ -494,14 +495,28 @@ def verify_stored_chat_process_handoff(*, handle: Any,
 
 def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
         supervisor_generation: str, handoff: Mapping[str, Any],
-        status: str = "running_observed", reason_code: str | None = None) -> dict[str, Any]:
+        status: str = "running_observed", reason_code: str | None = None,
+        configured_serving_receipt_posture: str = "not_observed",
+        serving_receipt: Mapping[str, Any] | None = None,
+        expected_serving_operation_id: str | None = None) -> dict[str, Any]:
     """Atomically publish the canonical runtime owner's bounded point observation."""
     if type(handle) is not InstallationStateHandle:
         raise ChatProcessGenerationError("runtime_observation_mutable_owner_required")
     if (not isinstance(supervisor_generation, str) or not supervisor_generation
             or len(supervisor_generation) > 128
             or status not in {"running_observed", "not_verified"}
+            or configured_serving_receipt_posture not in {
+                "not_observed", "selected_receipt_for_configured_operation",
+                "configured_operation_not_verified", "configured_operation_receipt_unavailable", "configured_operation_receipt_invalid",
+                "runtime_not_verified"}
             or (status == "not_verified" and not reason_code)
+            or (serving_receipt is not None and (
+                status != "running_observed"
+                or configured_serving_receipt_posture != "selected_receipt_for_configured_operation"
+                or not isinstance(expected_serving_operation_id, str)
+                or not expected_serving_operation_id))
+            or (configured_serving_receipt_posture == "selected_receipt_for_configured_operation"
+                and serving_receipt is None)
             or (reason_code is not None and (not isinstance(reason_code, str)
                 or not re.fullmatch(r"[a-z0-9_]{1,80}", reason_code)))):
         raise ChatProcessGenerationError("runtime_observation_fields_invalid")
@@ -516,6 +531,47 @@ def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
         raise ChatProcessGenerationError("runtime_observation_handoff_invalid") from exc
     if dict(handoff) != historical:
         raise ChatProcessGenerationError("runtime_observation_handoff_mismatch")
+    serving_projection = None
+    if serving_receipt is not None:
+        receipt_binding = serving_receipt.get("binding")
+        if (serving_receipt.get("schema_version")
+                != "sentientos.local_model_serving_session_receipt:v1"
+                or not isinstance(serving_receipt.get("receipt_id"), str)
+                or not isinstance(serving_receipt.get("session_id"), str)
+                or re.fullmatch(r"serving-receipt-[0-9a-f]{24}",
+                    str(serving_receipt.get("receipt_id", ""))) is None
+                or serving_receipt.get("receipt_id") != "serving-receipt-" + semantic_digest({
+                    key: value for key, value in serving_receipt.items()
+                    if key not in {"receipt_id", "receipt_semantic_digest"}})[:24]
+                or serving_receipt.get("session_id") != "serving-session-" + semantic_digest(receipt_binding)[:24]
+                or serving_receipt.get("receipt_semantic_digest")
+                    != semantic_digest({key: value for key, value in serving_receipt.items()
+                        if key != "receipt_semantic_digest"})
+                or serving_receipt.get("control_plane_authority_class") != "model_serving"
+                or serving_receipt.get("admission_outcome") != "allow"
+                or serving_receipt.get("model_loaded") is not True
+                or serving_receipt.get("serving_session_bound") is not True
+                or serving_receipt.get("inference_performed") is not False
+                or not isinstance(receipt_binding, Mapping)
+                or receipt_binding.get("installation_identity") != handle.identity.value
+                or receipt_binding.get("serving_operation_id") != expected_serving_operation_id):
+            raise ChatProcessGenerationError("runtime_observation_configured_operation_receipt_invalid")
+        identity_fields = (
+            "model_id", "artifact_id", "runtime_id", "authority_map_digest",
+            "activation_state_semantic_digest", "activation_generation",
+            "activation_receipt_id", "activation_receipt_semantic_digest")
+        model_identity = {key: receipt_binding.get(key) for key in identity_fields}
+        if any(value is None for value in model_identity.values()):
+            raise ChatProcessGenerationError("runtime_observation_serving_identity_incomplete")
+        serving_projection = {
+            "receipt_id": serving_receipt["receipt_id"],
+            "receipt_semantic_digest": serving_receipt["receipt_semantic_digest"],
+            "session_id": serving_receipt.get("session_id"),
+            "serving_operation_id": expected_serving_operation_id,
+            "model_identity_in_receipt": model_identity,
+            "model_loaded_in_receipt": True,
+            "selection_posture": "selected_receipt_for_configured_operation",
+        }
     body: dict[str, Any] = {
         "schema_version": RUNTIME_OBSERVATION_SCHEMA,
         "installation_identity": handle.identity.value,
@@ -523,6 +579,8 @@ def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
         "observed_at": datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z"),
         "runtime_status": status,
         "reason_code": reason_code,
+        "configured_serving_receipt_posture": configured_serving_receipt_posture,
+        "serving_receipt": serving_projection,
         "handoff_id": historical["handoff_id"],
         "handoff_digest": historical["handoff_digest"],
         "process_instance_id": historical["process_instance_id"],
@@ -546,8 +604,9 @@ def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
         with handle.exclusive_lock(lock):
             previous = read_stored_chat_process_runtime_observation(handle)
             if previous is not None and all(previous.get(key) == body.get(key) for key in (
-                    "runtime_supervisor_generation", "runtime_status", "handoff_id",
-                    "handoff_digest", "reason_code")):
+                    "schema_version", "runtime_supervisor_generation", "runtime_status", "handoff_id",
+                    "handoff_digest", "reason_code", "configured_serving_receipt_posture",
+                    "serving_receipt")):
                 previous_time = datetime.fromisoformat(
                     str(previous["observed_at"]).replace("Z", "+00:00"))
                 age = (datetime.now(timezone.utc) - previous_time).total_seconds()
@@ -576,7 +635,7 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
     except (UnicodeError, ValueError, TypeError) as exc:
         raise ChatProcessGenerationError("runtime_observation_malformed") from exc
     if (not isinstance(value, dict) or raw != _canonical(value)
-            or value.get("schema_version") != RUNTIME_OBSERVATION_SCHEMA
+            or value.get("schema_version") not in {RUNTIME_OBSERVATION_SCHEMA, LEGACY_RUNTIME_OBSERVATION_SCHEMA}
             or value.get("installation_identity") != handle.identity.value
             or not isinstance(value.get("runtime_supervisor_generation"), str)
             or not value.get("runtime_supervisor_generation")
@@ -592,6 +651,19 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
             or value.get("independent_signature") is not False
             or value.get("effect_authority") is not False):
         raise ChatProcessGenerationError("runtime_observation_identity_invalid")
+    base_fields = {
+        "schema_version", "installation_identity", "runtime_supervisor_generation",
+        "observed_at", "runtime_status", "reason_code", "handoff_id", "handoff_digest",
+        "process_instance_id", "process_id", "parent_process_id",
+        "software_generation_digest", "source_generation_scope", "currentness_posture",
+        "independent_signature", "effect_authority", "observation_semantic_digest",
+    }
+    if value["schema_version"] == LEGACY_RUNTIME_OBSERVATION_SCHEMA:
+        expected_fields = base_fields
+    else:
+        expected_fields = base_fields | {"configured_serving_receipt_posture", "serving_receipt"}
+    if set(value) != expected_fields:
+        raise ChatProcessGenerationError("runtime_observation_shape_invalid")
     try:
         timestamp = datetime.fromisoformat(str(value.get("observed_at", "")).replace("Z", "+00:00"))
     except (TypeError, ValueError) as exc:
@@ -609,6 +681,73 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
     }
     if any(value.get(key) != expected_value for key, expected_value in expected.items()):
         raise ChatProcessGenerationError("runtime_observation_handoff_binding_mismatch")
+    serving = value.get("serving_receipt")
+    if serving is not None:
+        if (not isinstance(serving, Mapping)
+                or value.get("configured_serving_receipt_posture") != "selected_receipt_for_configured_operation"
+                or serving.get("selection_posture") != "selected_receipt_for_configured_operation"
+                or serving.get("model_loaded_in_receipt") is not True
+                or set(serving) != {"receipt_id", "receipt_semantic_digest", "session_id",
+                    "serving_operation_id", "model_identity_in_receipt", "model_loaded_in_receipt",
+                    "selection_posture"}):
+            raise ChatProcessGenerationError("runtime_observation_serving_projection_invalid")
+        serving_id = serving.get("receipt_id")
+        serving_digest = serving.get("receipt_semantic_digest")
+        if (not isinstance(serving_id, str)
+                or re.fullmatch(r"serving-receipt-[0-9a-f]{24}", serving_id) is None
+                or not isinstance(serving_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", serving_digest) is None
+                or not isinstance(serving.get("session_id"), str)
+                or re.fullmatch(r"serving-session-[0-9a-f]{24}",
+                    serving["session_id"]) is None
+                or not isinstance(serving.get("serving_operation_id"), str)
+                or not serving["serving_operation_id"] or len(serving["serving_operation_id"]) > 128):
+            raise ChatProcessGenerationError("runtime_observation_serving_identity_invalid")
+        path = f"local-model/serving/receipts/{serving_id}.json"
+        try:
+            receipt_path = (path if isinstance(handle, (
+                InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView))
+                else handle.fixed_object(path))
+            serving_raw = handle.read_regular_bounded(receipt_path, max_bytes=262_144)
+            serving_record = json.loads(serving_raw.decode("utf-8"))
+        except Exception as exc:
+            raise ChatProcessGenerationError("runtime_observation_configured_operation_receipt_unavailable") from exc
+        serving_canonical = (json.dumps(serving_record, sort_keys=True, separators=(",", ":"))
+            + "\n").encode("utf-8") if isinstance(serving_record, dict) else b""
+        if (not isinstance(serving_record, dict) or serving_raw != serving_canonical
+                or serving_record.get("receipt_id") != serving_id
+                or serving_record.get("receipt_semantic_digest") != serving_digest
+                or serving_digest != semantic_digest({key: item for key, item in serving_record.items()
+                    if key != "receipt_semantic_digest"})
+                or serving_record.get("schema_version")
+                    != "sentientos.local_model_serving_session_receipt:v1"
+                or serving_record.get("control_plane_authority_class") != "model_serving"
+                or serving_record.get("admission_outcome") != "allow"
+                or serving_record.get("model_loaded") is not True
+                or serving_record.get("serving_session_bound") is not True
+                or serving_record.get("inference_performed") is not False):
+            raise ChatProcessGenerationError("runtime_observation_configured_operation_receipt_invalid")
+        binding = serving_record.get("binding")
+        if (not isinstance(binding, Mapping)
+                or serving_record.get("receipt_id") != "serving-receipt-" + semantic_digest({
+                    key: item for key, item in serving_record.items()
+                    if key not in {"receipt_id", "receipt_semantic_digest"}})[:24]
+                or serving_record.get("session_id") != "serving-session-" + semantic_digest(binding)[:24]
+                or binding.get("installation_identity") != handle.identity.value
+                or binding.get("serving_operation_id") != serving.get("serving_operation_id")
+                or serving_record.get("session_id") != serving.get("session_id")):
+            raise ChatProcessGenerationError("runtime_observation_serving_receipt_binding_mismatch")
+        fields = serving.get("model_identity_in_receipt")
+        expected_model_fields = {"model_id", "artifact_id", "runtime_id",
+            "authority_map_digest", "activation_state_semantic_digest", "activation_generation",
+            "activation_receipt_id", "activation_receipt_semantic_digest"}
+        if (not isinstance(fields, Mapping) or set(fields) != expected_model_fields
+                or any(binding.get(key) != item for key, item in fields.items())):
+            raise ChatProcessGenerationError("runtime_observation_serving_model_identity_mismatch")
+    elif value.get("configured_serving_receipt_posture") not in {
+            None, "not_observed", "configured_operation_not_verified",
+            "configured_operation_receipt_unavailable", "configured_operation_receipt_invalid", "runtime_not_verified"}:
+        raise ChatProcessGenerationError("runtime_observation_serving_posture_invalid")
     return value
 
 
