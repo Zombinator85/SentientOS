@@ -397,6 +397,12 @@ class GovernedLocalModelResourceLedger:
                     raise GovernedLocalModelResourceError("provisional_attempt_has_receipt")
                 continue
             if attempt["status"] == "restored":
+                # Earlier versions published the restored status and its
+                # zero-call receipt separately. A crash between those atomic
+                # writes leaves truthful but incomplete custody; keep the
+                # allocation readable and let the observer mark it incomplete.
+                if not history:
+                    continue
                 if (states != ["attempted_not_begun"]
                         or history[0].effect_receipt_digest is not None
                         or history[0].resource_specific_measurement.get("generation_attempted") is not False
@@ -569,18 +575,43 @@ class GovernedLocalModelResourceAllocator:
             self.ledger._persist_candidate(candidate)
         return attempt_id
 
-    def _receipt(self, *, allocation: GovernedLocalModelResourceAllocation, attempt_id: str, state: str,
-                 observed_at: str, measurement: Mapping[str, object], effect_receipt_digest: str | None = None) -> GovernedLocalModelResourceConsumptionReceipt:
+    def _append_receipt_candidate(self, candidate: dict[str, Any], *,
+                                  allocation: GovernedLocalModelResourceAllocation,
+                                  attempt_id: str, state: str, observed_at: str,
+                                  measurement: Mapping[str, object],
+                                  effect_receipt_digest: str | None = None
+                                  ) -> GovernedLocalModelResourceConsumptionReceipt:
+        attempts = candidate.get("attempts")
+        receipts = candidate.get("receipts")
+        attempt = attempts.get(attempt_id) if isinstance(attempts, dict) else None
+        if (not isinstance(attempt, dict)
+                or attempt.get("allocation_id") != allocation.allocation_id
+                or not isinstance(receipts, list)):
+            raise GovernedLocalModelResourceError("attempt_allocation_mismatch")
+        prior = next((receipt["receipt_digest"] for receipt in reversed(receipts)
+                      if isinstance(receipt, Mapping) and receipt.get("attempt_id") == attempt_id), None)
+        body = {"allocation_digest": allocation.allocation_digest,
+                "principal_binding_digest": allocation.principal_binding_digest,
+                "attempt_id": attempt_id, "resource_specific_measurement": dict(measurement),
+                "state": state, "observed_at": observed_at,
+                "previous_receipt_digest": prior,
+                "effect_receipt_digest": effect_receipt_digest}
+        receipt_digest = _digest(body)
+        receipt = GovernedLocalModelResourceConsumptionReceipt.from_mapping({
+            "receipt_id": "lmresrec-" + receipt_digest[:24], **body,
+            "receipt_digest": receipt_digest})
+        receipts.append(receipt.to_dict())
+        return receipt
+
+    def _receipt(self, *, allocation: GovernedLocalModelResourceAllocation, attempt_id: str,
+                 state: str, observed_at: str, measurement: Mapping[str, object],
+                 effect_receipt_digest: str | None = None
+                 ) -> GovernedLocalModelResourceConsumptionReceipt:
         with self.ledger._lock:
-            attempt = self.ledger._state["attempts"].get(attempt_id)
-            if attempt is None or attempt["allocation_id"] != allocation.allocation_id: raise GovernedLocalModelResourceError("attempt_allocation_mismatch")
-            prior = next((r["receipt_digest"] for r in reversed(self.ledger._state["receipts"]) if r["attempt_id"] == attempt_id), None)
-            body = {"allocation_digest": allocation.allocation_digest, "principal_binding_digest": allocation.principal_binding_digest,
-                    "attempt_id": attempt_id, "resource_specific_measurement": dict(measurement), "state": state,
-                    "observed_at": observed_at, "previous_receipt_digest": prior, "effect_receipt_digest": effect_receipt_digest}
-            digest = _digest(body); receipt = GovernedLocalModelResourceConsumptionReceipt.from_mapping({"receipt_id": "lmresrec-" + digest[:24], **body, "receipt_digest": digest})
             candidate = self.ledger._candidate()
-            candidate["receipts"].append(receipt.to_dict())
+            receipt = self._append_receipt_candidate(candidate, allocation=allocation,
+                attempt_id=attempt_id, state=state, observed_at=observed_at,
+                measurement=measurement, effect_receipt_digest=effect_receipt_digest)
             self.ledger._persist_candidate(candidate)
             return receipt
 
@@ -595,36 +626,65 @@ class GovernedLocalModelResourceAllocator:
                 "configured_bounds": allocation.resource_specific_bounds.to_dict(), "invocation_outcome": invocation_outcome,
                 "actual_token_count": None}
 
-    def record_backend_entry(self, allocation: GovernedLocalModelResourceAllocation, attempt_id: str, *, observed_at: str) -> GovernedLocalModelResourceConsumptionReceipt:
+    def record_backend_entry(self, allocation: GovernedLocalModelResourceAllocation,
+                             attempt_id: str, *, observed_at: str
+                             ) -> GovernedLocalModelResourceConsumptionReceipt:
         with self.ledger._lock:
-            attempt = self.ledger._state["attempts"].get(attempt_id)
-            if attempt is None or attempt["allocation_id"] != allocation.allocation_id: raise GovernedLocalModelResourceError("attempt_allocation_mismatch")
-            if attempt["status"] != "provisional": raise GovernedLocalModelResourceError("backend_entry_transition_invalid")
             candidate = self.ledger._candidate()
-            candidate["attempts"][attempt_id]["status"] = "begun"
+            attempt = candidate["attempts"].get(attempt_id)
+            if (not isinstance(attempt, dict)
+                    or attempt.get("allocation_id") != allocation.allocation_id):
+                raise GovernedLocalModelResourceError("attempt_allocation_mismatch")
+            if attempt.get("status") != "provisional":
+                raise GovernedLocalModelResourceError("backend_entry_transition_invalid")
+            attempt["status"] = "begun"
+            measurement = self.measurement(allocation, generation_attempted=True,
+                call_units_consumed=1, invocation_outcome="backend_entry")
+            receipt = self._append_receipt_candidate(candidate, allocation=allocation,
+                attempt_id=attempt_id, state="attempt_begun", observed_at=observed_at,
+                measurement=measurement)
             self.ledger._persist_candidate(candidate)
-        return self._receipt(allocation=allocation, attempt_id=attempt_id, state="attempt_begun", observed_at=observed_at,
-                             measurement=self.measurement(allocation, generation_attempted=True, call_units_consumed=1, invocation_outcome="backend_entry"))
+            return receipt
 
-    def reconcile_not_begun(self, allocation: GovernedLocalModelResourceAllocation, attempt_id: str, *, observed_at: str) -> GovernedLocalModelResourceConsumptionReceipt:
+    def reconcile_not_begun(self, allocation: GovernedLocalModelResourceAllocation,
+                             attempt_id: str, *, observed_at: str
+                             ) -> GovernedLocalModelResourceConsumptionReceipt:
         with self.ledger._lock:
-            attempt = self.ledger._state["attempts"].get(attempt_id)
-            if attempt is None or attempt["allocation_id"] != allocation.allocation_id: raise GovernedLocalModelResourceError("attempt_allocation_mismatch")
-            if attempt["status"] != "provisional": raise GovernedLocalModelResourceError("backend_entry_already_recorded")
             candidate = self.ledger._candidate()
-            candidate["attempts"][attempt_id]["status"] = "restored"
+            attempt = candidate["attempts"].get(attempt_id)
+            if (not isinstance(attempt, dict)
+                    or attempt.get("allocation_id") != allocation.allocation_id):
+                raise GovernedLocalModelResourceError("attempt_allocation_mismatch")
+            if attempt.get("status") != "provisional":
+                raise GovernedLocalModelResourceError("backend_entry_already_recorded")
+            attempt["status"] = "restored"
+            measurement = self.measurement(allocation, generation_attempted=False,
+                call_units_consumed=0, invocation_outcome="serving_guard_rejected")
+            receipt = self._append_receipt_candidate(candidate, allocation=allocation,
+                attempt_id=attempt_id, state="attempted_not_begun", observed_at=observed_at,
+                measurement=measurement)
             self.ledger._persist_candidate(candidate)
-        return self._receipt(allocation=allocation, attempt_id=attempt_id, state="attempted_not_begun", observed_at=observed_at,
-                             measurement=self.measurement(allocation, generation_attempted=False, call_units_consumed=0, invocation_outcome="serving_guard_rejected"))
+            return receipt
 
-    def append_receipt(self, allocation: GovernedLocalModelResourceAllocation, attempt_id: str, *, state: str,
-                       observed_at: str, measurement: Mapping[str, object], effect_receipt_digest: str | None = None) -> GovernedLocalModelResourceConsumptionReceipt:
-        if state == "attempted_not_begun": raise GovernedLocalModelResourceError("use_reconcile_not_begun")
-        attempt = self.ledger._state["attempts"].get(attempt_id)
-        if attempt is None or attempt["status"] != "begun": raise GovernedLocalModelResourceError("backend_entry_required")
-        if measurement.get("generation_attempted") is not True or measurement.get("call_units_consumed") != 1: raise GovernedLocalModelResourceError("post_entry_consumption_required")
-        return self._receipt(allocation=allocation, attempt_id=attempt_id, state=state, observed_at=observed_at,
-                             measurement=measurement, effect_receipt_digest=effect_receipt_digest)
+    def append_receipt(self, allocation: GovernedLocalModelResourceAllocation, attempt_id: str, *,
+                       state: str, observed_at: str, measurement: Mapping[str, object],
+                       effect_receipt_digest: str | None = None
+                       ) -> GovernedLocalModelResourceConsumptionReceipt:
+        if state == "attempted_not_begun":
+            raise GovernedLocalModelResourceError("use_reconcile_not_begun")
+        if (measurement.get("generation_attempted") is not True
+                or measurement.get("call_units_consumed") != 1):
+            raise GovernedLocalModelResourceError("post_entry_consumption_required")
+        with self.ledger._lock:
+            candidate = self.ledger._candidate()
+            attempt = candidate["attempts"].get(attempt_id)
+            if (not isinstance(attempt, dict) or attempt.get("status") != "begun"):
+                raise GovernedLocalModelResourceError("backend_entry_required")
+            receipt = self._append_receipt_candidate(candidate, allocation=allocation,
+                attempt_id=attempt_id, state=state, observed_at=observed_at,
+                measurement=measurement, effect_receipt_digest=effect_receipt_digest)
+            self.ledger._persist_candidate(candidate)
+            return receipt
 
 
 __all__ = ["ALLOCATOR_ID", "RESOURCE_KIND", "GovernedLocalModelAllocationValidity",

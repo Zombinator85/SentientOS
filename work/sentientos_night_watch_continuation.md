@@ -738,3 +738,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the edited ledger module. No restart, ledger fixture, allocation, or fault-injection behavior was executed; construction remains unverified for production.
 
 **Next implementation dependency:** inspect the existing resource-ledger read-only snapshot and bounded projection for how validation failure and incomplete begun attempts reach World-State after process restart. Ensure invalid custody is represented as degraded/unavailable rather than dropped as if no resource history existed, and that a valid incomplete attempt remains explicitly incomplete without freshening its historical event time.
+
+
+## New checkpoint — make attempt status and first receipt one atomic publication
+
+- Backend-entry (`begun` plus its first one-call receipt) and serving-guard rejection (`restored` plus its zero-call receipt) were previously written as two separate atomic ledger images. A crash between those writes could leave a status-only image that the observer rejected entirely.
+- Each transition now builds one candidate image containing both status and digest-bound first receipt, validates the complete candidate, and publishes it once. The generic receipt appender also validates from the same locked candidate. A failure before replacement leaves the prior provisional attempt; an uncertain post-replacement fsync keeps the published candidate in memory and on disk without entitlement rollback.
+- Recovery continues to accept historical begun-without-receipt and restored-without-receipt images from the old two-write implementation as incomplete custody, rather than rejecting the entire ledger. The existing projection reports those attempts as incomplete/degraded; it never synthesizes receipt evidence. New writes no longer create those split states.
+- `py_compile` passed for the edited ledger module. No crash, filesystem, or resource call was executed. Construction remains unverified for production.
+
+**Next implementation dependency:** continue the bounded source review of resource evidence projection and epistemic consumption. Confirm source invalidity, incomplete attempts, and retention omissions stay visible as degraded context, and old ledger event times remain historical after repeated reconstruction. Then inspect the next causal continuity owner exposed by that path.
