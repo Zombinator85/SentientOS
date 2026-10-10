@@ -835,6 +835,7 @@ class RuntimeMaintenanceSurfaces:
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
+        selected_resource_lineage_source_ids: set[str] = set()
         selected_embodied_source_ids: set[str] = set()
         selected_proposal_review_source_ids: set[str] = set()
         selected_fulfillment_source_ids: set[str] = set()
@@ -1051,7 +1052,10 @@ class RuntimeMaintenanceSurfaces:
         # the bounded input. The World-State source-count cap keeps earlier
         # records; deferring this join until the end allowed unrelated later
         # surfaces to silently evict resource lineage before epistemic select.
-        records.extend(resource_invocation_proposal_lineage_records(records))
+        resource_lineage_records = resource_invocation_proposal_lineage_records(records)
+        records.extend(resource_lineage_records)
+        selected_resource_lineage_source_ids.update(str(item.get("source_id", ""))
+            for item in resource_lineage_records)
         privilege_eval = self._host_privilege_review_evaluation
         if privilege_eval is not None:
             records.extend(privilege_review_world_state_records(privilege_eval))
@@ -1072,8 +1076,38 @@ class RuntimeMaintenanceSurfaces:
         genesis = self._feedback.get("surfaces", {}).get("genesis_forge", {})
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})
+        # The board cap is intentionally bounded. Order the most direct
+        # resource evidence and its attributed joins first so unrelated
+        # surfaces cannot silently evict the causal inputs to cognition.
+        def board_source_priority(item: Mapping[str, Any]) -> int:
+            source_kind = item.get("source_kind")
+            subject_kind = item.get("subject_kind")
+            if source_kind == WorldStateSourceKind.RESOURCE_GOVERNOR.value:
+                if subject_kind == "causal_resource_consumption": return 0
+                if subject_kind in {"strategy_invocation_resource_lineage",
+                        "model_replacement_invocation_resource_lineage",
+                        "resource_invocation_lineage_retention"}: return 1
+            if (source_kind == WorldStateSourceKind.EMBODIMENT.value
+                    and subject_kind in {"embodied_strategy_proposal",
+                        "developmental_model_replacement_experiment"}):
+                return 2
+            return 3
+
+        records.sort(key=board_source_priority)
         snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
         retained_source_ids = {source.source_id for source in snapshot.sources}
+        omitted_resource_lineage_sources = (selected_resource_lineage_source_ids
+            - retained_source_ids)
+        degraded_resource_lineage_sources = any(item.get("disposition") != "verified"
+            for item in resource_lineage_records)
+        self._feedback.setdefault("surfaces", {})["resource_invocation_lineage_projection"] = {
+            "status": "degraded" if omitted_resource_lineage_sources
+                or degraded_resource_lineage_sources else
+                "verified" if selected_resource_lineage_source_ids else "not_selected",
+            "selected_record_count": len(selected_resource_lineage_source_ids),
+            "omitted_source_count": len(omitted_resource_lineage_sources),
+            "read_only": True, "effect_authority": False,
+        }
         omitted_fulfillment_sources = selected_fulfillment_source_ids - retained_source_ids
         if omitted_fulfillment_sources:
             self._embodied_fulfillment_projection_status = {
