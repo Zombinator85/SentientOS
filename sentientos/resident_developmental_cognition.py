@@ -756,6 +756,15 @@ class ResidentDevelopmentalCognitionOwner:
             and isinstance(payload.get("chat_process_handoff"), Mapping)
             and isinstance(payload.get("invocation_receipt_digest"), str)
         )
+        chat_process_recovery_lineage = (
+            source_kind == "runtime_supervisor"
+            and subject_kind == "chat_process_recovery_transition"
+            and isinstance(payload.get("chat_process_recovery_transition"), Mapping)
+            and payload["chat_process_recovery_transition"].get("phase_evidence_posture")
+                == "canonical_installation_custody_and_digest_chain_checked_not_independently_signed"
+            and payload["chat_process_recovery_transition"].get("effect_authority") is False
+            and payload["chat_process_recovery_transition"].get("inference_performed") is False
+        )
         if subject_kind in {"observed_running_model", "observed_running_software_generation"}:
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
@@ -770,6 +779,8 @@ class ResidentDevelopmentalCognitionOwner:
         elif (source_kind == "runtime_supervisor"
                 and subject_kind in {"resident_model_transition", "software_generation_transition"}
                 and payload.get("stage_semantically_verified") is True):
+            priority = 4
+        elif chat_process_recovery_lineage:
             priority = 4
         elif subject_kind in {"resident_model_transition", "software_generation_transition",
                               "resident_model_transition_recovery", "software_generation_transition_recovery"}:

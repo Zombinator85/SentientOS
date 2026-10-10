@@ -285,7 +285,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               max_invocation_receipts: int = 256,
                                               max_attempts: int = 64,
                                               source_identity: Mapping[str, str] | None = None,
-                                              verified_chat_process_generation_attributions: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
+                                              verified_chat_process_generation_attributions: Sequence[Mapping[str, Any]] = (),
+                                              verified_chat_process_recovery_transitions: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -306,6 +307,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         raise ValueError("resource_invocation_receipt_bound_exceeded")
     if len(verified_chat_process_generation_attributions) > 256:
         raise ValueError("chat_process_generation_attribution_bound_exceeded")
+    if len(verified_chat_process_recovery_transitions) > 256:
+        raise ValueError("chat_process_recovery_transition_bound_exceeded")
     invocation_by_id: dict[str, Mapping[str, Any]] = {}
     for invocation in invocation_receipts:
         if not isinstance(invocation, Mapping):
@@ -607,6 +610,79 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "evidence_strength": "child_handoff_bound_completed_invocation_receipt",
             "effect_claimed": False, "effect_proven": False,
             "observed_at": None, "retrieved_at": observed_at,
+            "payload": payload,
+        }
+        output.append({**item, "digest": record_digest(item)})
+    recovery_required_fields = {
+        "request_id", "request_semantic_digest", "intent_id", "intent_semantic_digest",
+        "approval_id", "approval_semantic_digest", "installation_identity",
+        "runtime_supervisor_generation", "prior_serving_receipt_id",
+        "prior_serving_receipt_semantic_digest", "attempt_phase_digest", "readiness_phase_digest",
+        "completion_phase_digest", "attempt_started_at", "readiness_observed_at",
+        "snapshot_advanced_at", "advanced_snapshot_digest", "decision_outcome_claimed",
+        "decision_reference_claimed", "decision_posture", "predecessor_chat_process_handoff",
+        "successor_chat_process_handoff", "handoff_lineage_posture", "terminal_receipt_digest",
+        "terminal_status", "phase_posture", "phase_evidence_posture", "runtime_currentness",
+        "effect_authority", "inference_performed",
+    }
+    seen_recovery: dict[str, Mapping[str, Any]] = {}
+    for transition in verified_chat_process_recovery_transitions:
+        if not isinstance(transition, Mapping) or set(transition) != recovery_required_fields:
+            raise ValueError("chat_process_recovery_transition_shape_invalid")
+        request_id = transition.get("request_id")
+        attempt_digest = transition.get("attempt_phase_digest")
+        if (not isinstance(request_id, str) or not request_id
+                or not isinstance(attempt_digest, str) or re.fullmatch(r"[0-9a-f]{64}", attempt_digest) is None
+                or transition.get("installation_identity") != selected_source_identity.get("installation_identity")
+                or transition.get("decision_posture") != "phase_claim_not_reauthorized"
+                or transition.get("phase_evidence_posture")
+                    != "canonical_installation_custody_and_digest_chain_checked_not_independently_signed"
+                or transition.get("runtime_currentness")
+                    != "historical_process_identity_not_reobserved_during_recovery"
+                or transition.get("effect_authority") is not False
+                or transition.get("inference_performed") is not False):
+            raise ValueError("chat_process_recovery_transition_binding_invalid")
+        prior_transition = seen_recovery.get(request_id)
+        if prior_transition is not None:
+            if dict(prior_transition) != dict(transition):
+                raise ValueError("chat_process_recovery_transition_identity_conflict")
+            raise ValueError("chat_process_recovery_transition_duplicate")
+        seen_recovery[request_id] = transition
+    for transition in verified_chat_process_recovery_transitions:
+        request_id = str(transition["request_id"])
+        payload = {
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "manifest_digest": selected_source_identity.get("manifest_digest"),
+            "chat_process_recovery_transition": dict(transition),
+            "phase_event_times": {
+                "attempt_started_at": transition.get("attempt_started_at"),
+                "readiness_observed_at": transition.get("readiness_observed_at"),
+                "snapshot_advanced_at": transition.get("snapshot_advanced_at"),
+            },
+            "observation_time": None,
+            "retrieval_time": observed_at,
+            "historical_only": True,
+            "phase_claim_is_not_reauthorization": True,
+            "runtime_currentness": transition.get("runtime_currentness"),
+            "effect_authority": False,
+            "inference_performed": False,
+        }
+        terminal_present = isinstance(transition.get("terminal_receipt_digest"), str)
+        item = {
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": ("chat_process_recovery:" + str(selected_source_identity.get("installation_identity", ""))
+                + ":" + request_id + ":" + attempt_digest),
+            "subject_kind": "chat_process_recovery_transition",
+            "subject_id": request_id,
+            "stage": "observation",
+            "disposition": "recorded" if terminal_present else "incomplete",
+            "evidence_strength": "phase_chain_with_terminal_receipt" if terminal_present
+                else "phase_chain_terminal_receipt_missing",
+            "effect_claimed": False,
+            "effect_proven": False,
+            "observed_at": None,
+            "retrieved_at": observed_at,
             "payload": payload,
         }
         output.append({**item, "digest": record_digest(item)})

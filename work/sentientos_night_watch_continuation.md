@@ -357,3 +357,14 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The observer module compiled successfully; no runtime or production behavior was exercised.
 
 **Next implementation dependency:** inspect authenticated chat recovery phase receipts and determine whether their interrupted operation identity can be connected to the exact predecessor/successor handoffs already retained in invocation and launcher lineage.
+
+### New checkpoint — persisted chat recovery phases reach historical cognition
+
+- Fresh GitHub branch inspection before edits verified `codex/construct-sentientos` at `8e9f2f2a04e23094fd1ca9ee81a6b270d3370dc5`, tree `201a5ef48d4877526ba75d4e74f635822cc3d14f`.
+- The explicitly identified `resident_epistemic_state_mutation.py` recovery-stage issue is already corrected in that source: evidence-binding receipts publish/verify in the `evidence` stage and state-mutation receipts in `state`; Windows recovery accepts only byte-identical existing custody and performs no repair write. No duplicate patch was needed.
+- Added a read-only inspector beside the actual local chat-recovery owner. It enumerates bounded installation-scoped attempt/readiness/completion, request, and terminal receipt custody; validates canonical bytes, semantic digests, request/approval binding, phase predecessor digests, historical timestamps, and stored predecessor/successor chat handoffs. It never reauthorizes restart, writes a terminal receipt, resumes the child, or asserts current process liveness.
+- Recovery projection now reaches the selected installation resource observer, World-State, the existing runtime-supervisor source selection, epistemic development, and longitudinal self-model as historical transition lineage. Source selectors and proposition/predicate allowlists remain opt-in. Phase decision references are carried as claims, explicitly not re-adjudicated admission; local self-digests are not independent signatures. Historical phase time is distinct from retrieval time, and freshness stays unknown.
+- A phase chain without its terminal receipt remains explicitly incomplete. Windows read-only directory-enumeration ambiguity remains unknown rather than being called empty or verified. No model/resource data or user memory is inferred from recovery records.
+- The modified sources passed Python AST parsing and had no trailing whitespace at this checkpoint. No runtime, Windows, restart/crash, suite, external provider, model activation, or production verification was performed. Work remains unverified for production.
+
+**Next implementation dependency:** link recovery readiness to the exact successor serving receipt already emitted by the serving owner, then validate that link during recovery projection. Do not infer a live process or model solely from a persisted receipt.

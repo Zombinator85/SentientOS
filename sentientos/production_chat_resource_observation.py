@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 import re
 from typing import Any, Mapping
 
@@ -28,6 +29,10 @@ from .chat_process_generation import (
     verify_stored_chat_process_handoff,
 )
 from .conversation_session import compact_runtime_generation_attribution
+from .runtime.local_model_chat_recovery import (
+    LocalModelChatRecoveryError,
+    inspect_chat_recovery_phase_custody,
+)
 from .governed_local_model_resource_allocation import (
     GovernedLocalModelResourceAllocation,
     GovernedLocalModelResourceLedger,
@@ -68,6 +73,8 @@ class ProductionChatResourceObservation:
     invocation_receipt_posture: str
     chat_process_generation_attributions: tuple[Mapping[str, Any], ...] = ()
     chat_process_generation_posture: str = "unknown"
+    chat_process_recovery_transitions: tuple[Mapping[str, Any], ...] = ()
+    chat_process_recovery_posture: str = "unknown"
 
 
 class ProductionChatResourceObservationOwner:
@@ -170,10 +177,25 @@ class ProductionChatResourceObservationOwner:
             generation_posture = "partial_legacy_or_unavailable"
         else:
             generation_posture = "unknown_legacy_or_unavailable"
+        try:
+            recovery_transitions = inspect_chat_recovery_phase_custody(self._handle, max_records=256)
+            recovery_posture = ("verified_phase_custody" if recovery_transitions
+                else "unknown_no_phase_custody")
+        except LocalModelChatRecoveryError as exc:
+            # The Windows view intentionally exposes only held-handle reads;
+            # its directory API cannot distinguish an absent optional phase
+            # directory from an unreadable one. Do not turn that ambiguity into
+            # a claim that there were no recovery transitions.
+            if os.name == "nt" and "directory" in exc.code:
+                recovery_transitions = ()
+                recovery_posture = "unknown_windows_read_only_phase_enumeration_unavailable"
+            else:
+                raise ProductionChatResourceObservationError(
+                    "chat_process_recovery_custody_invalid:" + exc.code) from exc
         return ProductionChatResourceObservation(
             self._handle.identity.value, self._provisioning_id,
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
-            generation_attributions, generation_posture)
+            generation_attributions, generation_posture, recovery_transitions, recovery_posture)
 
     def _invocation_receipts(self, allocation_digest: str
             ) -> tuple[tuple[Mapping[str, Any], ...], str, tuple[Mapping[str, Any], ...]]:

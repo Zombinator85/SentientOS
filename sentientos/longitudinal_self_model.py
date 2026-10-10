@@ -294,7 +294,8 @@ def _claim_id(key: str, value: Any, fact_ids: Sequence[str]) -> str:
 def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
     historical_transition_event = (
         (fact.source.kind == "runtime_supervisor"
-            and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition"})
+            and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
+                "chat_process_recovery_transition"})
         or (fact.source.kind == "resource_governor"
             and fact.subject.subject_kind == "chat_process_software_generation_invocation"))
     out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition,
@@ -381,6 +382,56 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "effect_proven": False, "authority": False})
             out.append(("resident_model_transition.cognition_history_handoff",
                         _bounded(lineage), "historical_interpretation"))
+    if (fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "chat_process_recovery_transition"
+            and fact.source.finding == "ok" and isinstance(fact.payload, Mapping)):
+        transition = fact.payload.get("chat_process_recovery_transition")
+        if isinstance(transition, Mapping):
+            def handoff_lineage(value: Any) -> dict[str, Any] | None:
+                if not isinstance(value, Mapping):
+                    return None
+                keys = ("handoff_id", "handoff_digest", "process_instance_id",
+                    "software_generation_digest", "startup_timestamp", "source_generation_scope")
+                projected = {key: value[key] for key in keys if key in value}
+                return projected if {"handoff_id", "handoff_digest"}.issubset(projected) else None
+            lineage = {
+                "source_record_id": fact.source.source_id,
+                "source_record_digest": fact.source.digest,
+                "request_id": transition.get("request_id"),
+                "request_semantic_digest": transition.get("request_semantic_digest"),
+                "intent_id": transition.get("intent_id"),
+                "intent_semantic_digest": transition.get("intent_semantic_digest"),
+                "approval_id": transition.get("approval_id"),
+                "approval_semantic_digest": transition.get("approval_semantic_digest"),
+                "runtime_supervisor_generation": transition.get("runtime_supervisor_generation"),
+                "prior_serving_receipt_id": transition.get("prior_serving_receipt_id"),
+                "prior_serving_receipt_semantic_digest": transition.get("prior_serving_receipt_semantic_digest"),
+                "attempt_phase_digest": transition.get("attempt_phase_digest"),
+                "readiness_phase_digest": transition.get("readiness_phase_digest"),
+                "completion_phase_digest": transition.get("completion_phase_digest"),
+                "attempt_started_at": transition.get("attempt_started_at"),
+                "readiness_observed_at": transition.get("readiness_observed_at"),
+                "snapshot_advanced_at": transition.get("snapshot_advanced_at"),
+                "advanced_snapshot_digest": transition.get("advanced_snapshot_digest"),
+                "predecessor_chat_process_handoff": handoff_lineage(
+                    transition.get("predecessor_chat_process_handoff")),
+                "successor_chat_process_handoff": handoff_lineage(
+                    transition.get("successor_chat_process_handoff")),
+                "handoff_lineage_posture": transition.get("handoff_lineage_posture"),
+                "phase_posture": transition.get("phase_posture"),
+                "terminal_receipt_digest": transition.get("terminal_receipt_digest"),
+                "terminal_status": transition.get("terminal_status"),
+                "decision_posture": transition.get("decision_posture"),
+                "runtime_currentness": transition.get("runtime_currentness"),
+                "historical_only": True, "current_truth": False,
+                "effect_proven": False, "authority": False,
+            }
+            if (isinstance(lineage["request_id"], str)
+                    and isinstance(lineage["attempt_phase_digest"], str)
+                    and len(json.dumps(lineage, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+                        <= MAX_VALUE_BYTES):
+                out.append(("chat_process_recovery.historical_phase_lineage",
+                    _bounded(lineage), "historical_interpretation"))
     # Keep deterministic comparison results available to later cognition as
     # explicitly historical interpretation. They do not prove an effect or
     # become current merely because a projection was reconstructed recently.

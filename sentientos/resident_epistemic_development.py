@@ -173,6 +173,12 @@ class ResidentEpistemicDevelopmentRuntime:
             fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition"}
             and isinstance(fact.payload, Mapping))
+        historical_chat_recovery_event = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "chat_process_recovery_transition"
+            and isinstance(fact.payload, Mapping)
+            and fact.payload.get("phase_evidence_posture")
+                == "canonical_installation_custody_and_digest_chain_checked_not_independently_signed")
         historical_transition_observation = (
             historical_transition_event
             and fact.subject.subject_kind == "resident_model_transition"
@@ -216,6 +222,7 @@ class ResidentEpistemicDevelopmentRuntime:
             for conflict in snapshot.conflicts))
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record
+            or historical_chat_recovery_event
             or (historical_transition_observation and not qualified_transition_observation)
             or historical_strategy_proposal
             or historical_strategy_review or unverified_embodiment_observation
@@ -258,7 +265,14 @@ class ResidentEpistemicDevelopmentRuntime:
             observed = (_latest_historical_event_time(raw_times)
                 if all(isinstance(value, str) for value in raw_times) and raw_times else None)
         if fact.source.kind == "runtime_supervisor":
-            if fact.subject.subject_kind in {"resident_model_transition",
+            if fact.subject.subject_kind == "chat_process_recovery_transition" and isinstance(fact.payload, Mapping):
+                phase_times = fact.payload.get("phase_event_times")
+                values = ([phase_times.get(key) for key in (
+                    "attempt_started_at", "readiness_observed_at", "snapshot_advanced_at")
+                    if phase_times.get(key) is not None] if isinstance(phase_times, Mapping) else [])
+                observed = (_latest_historical_event_time(values)
+                    if values and all(isinstance(value, str) for value in values) else None)
+            elif fact.subject.subject_kind in {"resident_model_transition",
                     "software_generation_transition"} and isinstance(fact.payload, Mapping):
                 event_time = fact.payload.get("event_time")
                 observed = (_latest_historical_event_time([event_time])
@@ -328,7 +342,8 @@ class ResidentEpistemicDevelopmentRuntime:
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
-            "event_time_posture": "transition_stage_time_not_cognition_event_time"
+            "event_time_posture": "chat_recovery_phase_time_not_process_liveness_or_inference_time"
+                if historical_chat_recovery_event else "transition_stage_time_not_cognition_event_time"
                 if historical_transition_observation else "historical_transition_stage_event_time"
                 if historical_transition_event else "historical_or_unknown"
                 if historical_resource_fact or historical_resource_introspection
@@ -349,7 +364,7 @@ class ResidentEpistemicDevelopmentRuntime:
         source_staleness = str(fact.source.staleness or "unknown").lower()
         if (not historical_resource_fact and not historical_resource_introspection
                 and not historical_undated_consequence and not historical_unverified_owner_record
-                and not historical_transition_event
+                and not historical_transition_event and not historical_chat_recovery_event
                 and not historical_strategy_proposal and not historical_strategy_review
                 and not unverified_embodiment_observation
                 and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
