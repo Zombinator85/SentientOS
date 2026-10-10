@@ -141,7 +141,8 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "causal_resources")
         historical_undated_consequence = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind in {"embodied_strategy_experiment",
-                                               "developmental_model_replacement_experiment"})
+                                               "developmental_model_replacement_experiment",
+                                               "embodied_consequence_chain"})
         stable_source_digest = fact.source.digest
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,

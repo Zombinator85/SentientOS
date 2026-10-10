@@ -24,6 +24,7 @@ MAX_PROVENANCE_ARTIFACT_BYTES = 262_144
 MAX_PROVENANCE_CLAIMS = 128
 MAX_PROTOCOL_ARTIFACT_BYTES = 1_048_576
 MAX_RUN_ARTIFACT_BYTES = 4_194_304
+MAX_WORLD_STATE_PROJECTION_RECORDS = 48
 CONDITION_ORDER = (
     "model_a_history_present", "model_a_history_withheld",
     "model_b_history_present", "model_b_history_withheld",
@@ -292,7 +293,10 @@ class GovernedCognitiveEndpoint(Protocol):
 
 class ModelReplacementArtifactStore:
     def __init__(self, state_root: Path, *, read_only: bool = False) -> None:
-        self.state_root = Path(state_root).resolve()
+        selected_root = Path(state_root)
+        if selected_root.is_symlink() or any(parent.is_symlink() for parent in selected_root.parents):
+            raise DevelopmentalModelReplacementError("artifact_store_state_root_symlink")
+        self.state_root = selected_root.resolve()
         self.root = self.state_root / "developmental_experiments" / "model_replacement"
         self.protocols = self.root / "protocols"
         self.provenance = self.root / "provenance"
@@ -522,7 +526,11 @@ class ModelReplacementArtifactStore:
         try:
             value = self._read_artifact_json(path, maximum_bytes=MAX_RUN_ARTIFACT_BYTES,
                 missing_code="trial_run_artifact_unavailable", invalid_code="trial_run_artifact_invalid")
-        except (OSError, json.JSONDecodeError, DevelopmentalModelReplacementError) as exc:
+        except DevelopmentalModelReplacementError as exc:
+            if str(exc) == "trial_run_artifact_invalid":
+                raise DevelopmentalModelReplacementError("trial_run_artifact_tampered") from exc
+            raise DevelopmentalModelReplacementError("trial_run_artifact_unavailable") from exc
+        except (OSError, json.JSONDecodeError) as exc:
             raise DevelopmentalModelReplacementError("trial_run_artifact_unavailable") from exc
         semantic = {key: item for key, item in value.items() if key not in {"run_id", "run_digest"}}
         if (value.get("run_id") != run_id or value.get("run_digest") != run_digest
@@ -553,15 +561,19 @@ class ModelReplacementArtifactStore:
             normalized_protocol = json.loads(json.dumps(asdict(protocol), sort_keys=True))
             if normalized_protocol != dict(protocol_value):
                 raise DevelopmentalModelReplacementError("run_projection_protocol_binding_mismatch")
+            provenance_a = self.load_verified_provenance(protocol.model_a_provenance_digest,
+                protocol.model_a_identity)
+            provenance_b = self.load_verified_provenance(protocol.model_b_provenance_digest,
+                protocol.model_b_identity)
             raw_observations = run.get("observations")
             if not isinstance(raw_observations, list) or len(raw_observations) != len(CONDITION_ORDER):
                 raise DevelopmentalModelReplacementError("run_projection_observation_count_invalid")
             observations: list[dict[str, Any]] = []
             expected_models = (protocol.model_a_identity, protocol.model_a_identity,
                 protocol.model_b_identity, protocol.model_b_identity, protocol.model_a_identity)
-            expected_provenance_digests = (protocol.model_a_provenance.manifest_digest,
-                protocol.model_a_provenance.manifest_digest, protocol.model_b_provenance.manifest_digest,
-                protocol.model_b_provenance.manifest_digest, protocol.model_a_provenance.manifest_digest)
+            expected_provenance_digests = (protocol.model_a_provenance_digest,
+                protocol.model_a_provenance_digest, protocol.model_b_provenance_digest,
+                protocol.model_b_provenance_digest, protocol.model_a_provenance_digest)
             expected_history = (True, False, True, False, True)
             for expected_condition, expected_model, expected_provenance_digest, with_history, raw in zip(
                     CONDITION_ORDER, expected_models, expected_provenance_digests,
@@ -571,23 +583,26 @@ class ModelReplacementArtifactStore:
                 semantic = {key: value for key, value in raw.items()
                     if key not in {"observation_id", "observation_digest"}}
                 calculated = _digest(semantic)
-                expected_history_ids = list(protocol.context.history_record_ids) if with_history else []
-                expected_history_digests = list(protocol.context.history_record_digests) if with_history else []
+                history_ids = raw.get("history_record_ids")
+                history_digests = raw.get("history_record_digests")
                 generation_parameters = raw.get("actual_generation_parameters")
                 if (raw.get("condition_id") != expected_condition
                         or raw.get("observation_digest") != calculated
                         or raw.get("observation_id") != "model-replacement-observation-" + calculated[7:31]
                         or raw.get("protocol_id") != protocol.protocol_id
                         or raw.get("protocol_digest") != protocol.protocol_digest
-                        or raw.get("causal_context_id") != protocol.context.context_id
-                        or raw.get("causal_context_digest") != protocol.context.context_digest
+                        or raw.get("causal_context_id") != protocol.causal_context_id
+                        or raw.get("causal_context_digest") != protocol.causal_context_digest
                         or raw.get("model_identity_digest") != expected_model.identity_digest
                         or raw.get("model_provenance_manifest_digest") != expected_provenance_digest
-                        or raw.get("current_projection_id") != protocol.context.current_projection_id
-                        or raw.get("current_projection_digest") != protocol.context.current_projection_digest
+                        or not isinstance(history_ids, list) or not isinstance(history_digests, list)
+                        or len(history_ids) != len(history_digests)
+                        or (not with_history and (history_ids or history_digests))
+                        or (with_history and any(not isinstance(item, str) or not item
+                            for item in (*history_ids, *history_digests)))
                         or raw.get("history_withheld") is not (not with_history)
-                        or raw.get("history_record_ids") != expected_history_ids
-                        or raw.get("history_record_digests") != expected_history_digests
+                        or not all(isinstance(raw.get(key), str) and raw.get(key) for key in (
+                            "current_projection_id", "current_projection_digest"))
                         or not all(isinstance(raw.get(key), str) and raw.get(key) for key in (
                             "inference_receipt_id", "inference_receipt_digest", "output_digest",
                             "request_id", "request_digest", "correlation_id"))
@@ -602,6 +617,13 @@ class ModelReplacementArtifactStore:
                     "history_record_ids", "history_record_digests", "inference_receipt_id",
                     "inference_receipt_digest", "output_digest")})
             outputs = [str(item.get("output_digest") or "") for item in observations]
+            if (observations[0].get("history_record_ids") != observations[2].get("history_record_ids")
+                    or observations[0].get("history_record_digests") != observations[2].get("history_record_digests")
+                    or observations[0].get("history_record_ids") != observations[4].get("history_record_ids")
+                    or observations[0].get("history_record_digests") != observations[4].get("history_record_digests")
+                    or len({(item.get("current_projection_id"), item.get("current_projection_digest"))
+                            for item in observations}) != 1):
+                raise DevelopmentalModelReplacementError("run_projection_frozen_context_conflict")
             differences = {"history_effect_model_a": outputs[0] != outputs[1],
                 "history_effect_model_b": outputs[2] != outputs[3],
                 "model_difference_with_history": outputs[0] != outputs[2],
@@ -618,15 +640,20 @@ class ModelReplacementArtifactStore:
             payload = {
                 "run_id": run_id, "run_digest": run_digest,
                 "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
-                "causal_context_id": protocol.context.context_id,
-                "causal_context_digest": protocol.context.context_digest,
-                "software_generation_identity": protocol.context.repository_generation_identity,
+                "causal_context_id": protocol.causal_context_id,
+                "causal_context_digest": protocol.causal_context_digest,
+                "software_generation_identity": None,
+                "software_generation_posture": "not_bound_by_selected_protocol",
                 "model_a_id": protocol.model_a_identity.model_id,
                 "model_a_identity_digest": protocol.model_a_identity.identity_digest,
                 "model_b_id": protocol.model_b_identity.model_id,
                 "model_b_identity_digest": protocol.model_b_identity.identity_digest,
-                "model_a_provenance_digest": protocol.model_a_provenance.manifest_digest,
-                "model_b_provenance_digest": protocol.model_b_provenance.manifest_digest,
+                "model_a_provenance_digest": protocol.model_a_provenance_digest,
+                "model_a_provenance_availability": provenance_a.availability,
+                "model_a_provenance_claim_count": len(provenance_a.claims),
+                "model_b_provenance_digest": protocol.model_b_provenance_digest,
+                "model_b_provenance_availability": provenance_b.availability,
+                "model_b_provenance_claim_count": len(provenance_b.claims),
                 "observations": observations, "differences": differences,
                 "classification": classification,
                 "claims_posture": run.get("claims_posture"),
@@ -645,6 +672,8 @@ class ModelReplacementArtifactStore:
                 "effect_claimed": False, "effect_proven": False}
             record["digest"] = record_digest(record)
             records.append(record)
+        if len(records) > MAX_WORLD_STATE_PROJECTION_RECORDS:
+            raise DevelopmentalModelReplacementError("run_projection_record_budget_exceeded")
         return records
 
 

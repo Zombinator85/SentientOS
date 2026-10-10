@@ -1,21 +1,24 @@
 # SentientOS night-watch continuation
 
-Construction is unverified for production. Start from the latest branch HEAD and inspect `git status` before editing.
+Construction work is **untested for production**. Continue from branch `codex/construct-sentientos`; inspect status before editing. Original source HEAD: `329efdfd4237e6c8e9ea9ad2b66d1c6d5482e34d`.
 
-## Checkpoint
+## Completed checkpoints
 
-- Campaign start: `329efdfd4237e6c8e9ea9ad2b66d1c6d5482e34d` on `codex/construct-sentientos`.
-- Focus: portable import of embodied consequence code without weakening immutable custody on POSIX.
-- First pushed increment: `b40fd789c22162d2faac85ecadaaa3f287246912` makes `sentientos/embodied_consequence.py` import-safe without POSIX `fcntl`, keeps secure immutable storage fail-closed when descriptor-relative publication is unavailable, makes missing read-only checkpoint lookups non-mutating, and adds a bounded projection of explicitly selected, digest-verified experiment artifacts without reconstruction-time substitution.
-- Second increment in progress: `sentientosd.py` accepts read-only stores and exact result IDs from an explicit, bounded, digest-sealed config; `resident_epistemic_development.py` preserves undated strategy and model-replacement evidence instead of assigning snapshot time. The model-replacement projection rechecks the stored protocol and five condition identities, context/history/model/provenance links, receipt references, output digests, and comparison classification. Missing/disabled/invalid/unsupported source states remain distinct, and malformed records degrade projection without changing effect authority.
-- Source review confirmed the existing tick order is cognition before same-tick epistemic development, with durable prior state projected into cognition when enabled. The current legacy proposal/review/fulfillment pipeline does not support the embodied strategy schema; preserve that type boundary.
-- Adjacent portability blocker: `sentientosd.py` imports multiple other POSIX `fcntl` maintenance modules unconditionally. This change does not claim whole-daemon Windows importability or alter those owners.
-- Only permitted validation performed: `python -m py_compile` on changed Python modules; passed. No tests, runtime import checks, or Windows execution were performed.
+- `b40fd789c22162d2faac85ecadaaa3f287246912` (remote verified): `sentientos/embodied_consequence.py` imports without POSIX `fcntl`; consequence file custody keeps its descriptor-relative POSIX guarantees and fails closed when unavailable. Read-only lookups do not create storage.
+- `c4dbce7ca8a1eea89e7de77a46ae8543278b93f0` (remote verified): exact opt-in selectors project digest-verified strategy experiment and controlled model-replacement artifacts into World-State. Their absent event times remain undated through epistemic adaptation.
+- Third increment compiled: durable immutable consequence-chain bundle; exact chain projection; model-comparison linkage validation; stable undated chain summary; explicit source/record byte and projection-count budgets; daemon reports degraded if World-State’s 128-source cap omits selected projected records. `evaluate_consequence` never upgrades descriptive fulfillment to effect proof. `py_compile` and `git diff --check` passed; no runtime behavior was exercised.
 
-## Exact continuation point
+## Boundaries and blockers
 
-1. Commit and push the in-progress explicit selector and model-comparison projection; compile changed files only.
-2. Review the new startup config and explicit source ID injection; never add ambient discovery.
-3. Strategy proposal/review remains a blocked typed handoff: legacy review and fulfillment contracts don't bind the embodied strategy digest or provide an authenticated reviewer issuer. Do not route strategies through legacy feedback candidates.
-4. Confirm evidence selector semantics; these records are undated and freshness-unknown. Existing tick order makes authorized same-tick updates eligible to cognition only on a later tick.
-5. Update this record, commit coherent increments with `[untested]`, push to `codex/construct-sentientos`, verify remote custody, and continue to adjacent source-backed gaps.
+- Cognition executes before same-tick epistemic development; retained state is only eligible for later cognition through the existing configured owner path.
+- Legacy proposal review/fulfillment types do not authenticate or bind embodied strategy proposal digests. Do not cast strategies into those types or issue authority.
+- No independently authoritative physical-effect receipt owner is composed; consequence records remain effect-unproven.
+- `sentientosd.py` imports other POSIX-only maintenance owners. Only the consequence module import is made portable; whole-daemon Windows importability is not established.
+- Model-replacement protocol does not bind software generation; preserve it as unknown.
+
+## Exact next work
+
+1. Commit `[untested]`, push, and verify remote SHA.
+2. Continue with explicit observer authenticity: current observation objects are digest-bound but not issued by an authenticated observation owner; prevent their source-class label alone from claiming independent causal attribution. Search for an existing issuer before adding any interface.
+3. Inspect descriptor-safe read paths in `ConsequenceStore`; preserve fail-closed behavior and immutable publication.
+4. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.

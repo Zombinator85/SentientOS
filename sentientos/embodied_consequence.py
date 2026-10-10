@@ -23,6 +23,7 @@ except ImportError:  # Windows hosted development has no POSIX fcntl module.
     _fcntl = None
 
 EXPECTATION_SCHEMA = "sentientos.embodied_action_expectation:v1"
+HANDOFF_SCHEMA = "sentientos.avatar_renderer_handoff:v1"
 REPORT_SCHEMA = "sentientos.avatar_renderer_report:v1"
 OBSERVATION_SCHEMA = "sentientos.avatar_independent_observation:v1"
 ATTRIBUTION_SCHEMA = "sentientos.embodied_consequence_attribution:v1"
@@ -33,12 +34,16 @@ LEGACY_EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_resul
 EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_result:v2"
 STRATEGY_CONDITION_START_SCHEMA = "sentientos.embodied_strategy_condition_start:v1"
 STRATEGY_CONDITION_RESULT_SCHEMA = "sentientos.embodied_strategy_condition_result:v1"
+CONSEQUENCE_CHAIN_SCHEMA = "sentientos.embodied_consequence_chain:v1"
 WORLD_STATE_PROJECTION_CONFIG_SCHEMA = "sentientos.embodied_consequence_world_state_projection_config:v1"
 MAX_STRATEGY_CONTEXT_BYTES = 1_048_576
 MAX_CONSEQUENCE_ARTIFACT_BYTES = 2_097_152
 MAX_CONSEQUENCE_ARTIFACTS_PER_KIND = 4096
+MAX_WORLD_STATE_PROJECTION_RECORDS = 48
+MAX_WORLD_STATE_PROJECTION_RECORD_BYTES = 32_768
 _CONSEQUENCE_KINDS = {"expectations", "reports", "observations", "attributions", "comparisons",
-    "strategy-experiments", "strategy-experiment-starts", "strategy-experiment-conditions"}
+    "strategy-experiments", "strategy-experiment-starts", "strategy-experiment-conditions",
+    "consequence-chains"}
 _CONSEQUENCE_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}:[0-9a-f]{24}\Z")
 _ARTIFACT_IDENTITIES = {
     "expectations": ("expectation_id", "expectation_digest", "expectation"),
@@ -47,6 +52,7 @@ _ARTIFACT_IDENTITIES = {
     "attributions": ("attribution_id", "attribution_digest", "consequence"),
     "comparisons": ("comparison_id", "comparison_digest", "prediction-comparison"),
     "strategy-experiments": ("experiment_result_id", "experiment_result_digest", "strategy-experiment"),
+    "consequence-chains": ("chain_id", "chain_digest", "consequence-chain"),
 }
 FALSE_AUTHORITY = {"effect_authority": False, "adoption_authority": False,
                    "observation_authority": False, "goal_authority": False,
@@ -143,6 +149,30 @@ def verify_expectation(value: EmbodiedActionExpectation, *, identity_required: b
             raise EmbodiedConsequenceError("comparison_tolerance_invalid")
     if identity_required and (value.expectation_id, value.expectation_digest) != _identity("expectation", value.semantic_payload()):
         raise EmbodiedConsequenceError("expectation_digest_mismatch")
+
+
+def verify_renderer_handoff(value: Mapping[str, Any]) -> None:
+    fields = {"schema_version", "body_generation", "artifact_sha256", "body_manifest_digest",
+        "renderer_interface_id", "requested_test_pose", "requested_test_expression", "correlation_id",
+        "commanded_at", "evidence_class", "renderer_reported", "independently_observed", "authority",
+        "handoff_id", "handoff_digest"}
+    if (set(value) != fields or value.get("schema_version") != HANDOFF_SCHEMA
+            or type(value.get("body_generation")) is not int or value["body_generation"] < 1
+            or value.get("evidence_class") != "commanded_output"
+            or value.get("renderer_reported") is not False
+            or value.get("independently_observed") is not False
+            or dict(value.get("authority") or {}) != dict(FALSE_AUTHORITY)
+            or any(not isinstance(value.get(key), str) or not value.get(key) for key in (
+                "artifact_sha256", "body_manifest_digest", "renderer_interface_id",
+                "requested_test_pose", "requested_test_expression", "correlation_id"))):
+        raise EmbodiedConsequenceError("renderer_handoff_shape_invalid")
+    if value.get("commanded_at") is not None:
+        _time(value["commanded_at"])
+    semantic = {key: item for key, item in value.items() if key not in {"handoff_id", "handoff_digest"}}
+    expected_id = "handoff:" + digest(semantic)[7:31]
+    expected_digest = digest({key: item for key, item in value.items() if key != "handoff_digest"})
+    if value.get("handoff_id") != expected_id or value.get("handoff_digest") != expected_digest:
+        raise EmbodiedConsequenceError("renderer_handoff_digest_mismatch")
 
 
 @dataclass(frozen=True)
@@ -312,15 +342,25 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
                          observation: IndependentConsequenceObservation | None = None,
                          fulfillment_receipt: Mapping[str, Any] | None = None,
                          causal_principal_binding_digest: str | None = None,
-                         measured_evidence: Sequence[Mapping[str, Any]] = (), evaluated_at: str) -> tuple[dict[str, Any], dict[str, Any]]:
+                         measured_evidence: Sequence[Mapping[str, Any]] = (), evaluated_at: str,
+                         consequence_store: Any | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
     verify_expectation(expectation)
+    handoff_integrity_valid = True
+    try:
+        verify_renderer_handoff(handoff)
+    except EmbodiedConsequenceError:
+        # Preserve typed mismatch outcomes for tampered handoffs; the record
+        # remains unfit for World-State publication until its full lineage is valid.
+        handoff_integrity_valid = False
     if renderer_report: verify_renderer_report(renderer_report)
     if observation: verify_independent_observation(observation)
+    if fulfillment_receipt and fulfillment_receipt.get("effect_proven") is True:
+        raise EmbodiedConsequenceError("unverified_fulfillment_receipt_cannot_prove_effect")
     now = _time(evaluated_at)
     mismatch = False
     required = (expectation.handoff_id == handoff.get("handoff_id"), expectation.handoff_digest == handoff.get("handoff_digest"),
         expectation.correlation_id == handoff.get("correlation_id"), expectation.body_manifest_digest == handoff.get("body_manifest_digest"))
-    mismatch = not all(required)
+    mismatch = not all(required) or not handoff_integrity_valid
     generation_mismatch = expectation.body_generation != handoff.get("body_generation") or expectation.body_generation != current_body.get("body_generation")
     if renderer_report:
         mismatch |= any((renderer_report.handoff_id != expectation.handoff_id, renderer_report.handoff_digest != expectation.handoff_digest,
@@ -350,8 +390,10 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     elif observation: causal = "independent_environment_observation"
     elif renderer_report: causal = "renderer_internal_only"
     else: causal = "causal_attribution_insufficient"
-    effect_proven = bool(fulfillment_receipt and fulfillment_receipt.get("effect_proven") is True)
-    proven = fulfillment_receipt.get("observed_consequence") if effect_proven and fulfillment_receipt else None
+    # No independently authoritative physical-effect receipt owner is composed
+    # here. A descriptive fulfillment row cannot establish an actual effect.
+    effect_proven = False
+    proven = None
     comparison_base = {"schema_version":COMPARISON_SCHEMA,"expectation_id":expectation.expectation_id,
         "expectation_digest":expectation.expectation_digest,"observation_id":observation.observation_id if observation else None,
         "observation_digest":observation.observation_digest if observation else None,"observable_results":rows,"counts":counts,
@@ -369,12 +411,67 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         "effect_proven":effect_proven,"causal_principal_binding_digest":causal_principal_binding_digest,
         "measured_evidence":list(measured_evidence),"evaluated_at":evaluated_at,"authority":dict(FALSE_AUTHORITY)}
     attribution_base["attribution_id"], attribution_base["attribution_digest"] = _identity("consequence", attribution_base)
+    if consequence_store is not None:
+        persist_chain = getattr(consequence_store, "put_consequence_chain", None)
+        if not callable(persist_chain):
+            raise EmbodiedConsequenceError("consequence_store_owner_invalid")
+        persist_chain(expectation=expectation, handoff=handoff, renderer_report=renderer_report,
+            observation=observation, attribution=attribution_base, comparison=comparison_base)
     return attribution_base, comparison_base
 
 
 def world_state_records(*, expectation: EmbodiedActionExpectation, handoff: Mapping[str, Any],
                         renderer_report: AvatarRendererReport | None, observation: IndependentConsequenceObservation | None,
                         attribution: Mapping[str, Any], comparison: Mapping[str, Any]) -> list[dict[str, Any]]:
+    verify_expectation(expectation)
+    verify_renderer_handoff(handoff)
+    if renderer_report is not None:
+        verify_renderer_report(renderer_report)
+    if observation is not None:
+        verify_independent_observation(observation)
+    _verify_consequence_attribution(attribution)
+    semantic_comparison = {key: value for key, value in comparison.items()
+        if key not in {"comparison_id", "comparison_digest"}}
+    expected_comparison_id, expected_comparison_digest = _identity("prediction-comparison", semantic_comparison)
+    if (comparison.get("schema_version") != COMPARISON_SCHEMA
+            or comparison.get("comparison_id") != expected_comparison_id
+            or comparison.get("comparison_digest") != expected_comparison_digest
+            or dict(comparison.get("authority") or {}) != dict(FALSE_AUTHORITY)
+            or comparison.get("expectation_id") != expectation.expectation_id
+            or comparison.get("expectation_digest") != expectation.expectation_digest
+            or comparison.get("observation_id") != (observation.observation_id if observation else None)
+            or comparison.get("observation_digest") != (observation.observation_digest if observation else None)
+            or attribution.get("expectation_id") != expectation.expectation_id
+            or attribution.get("expectation_digest") != expectation.expectation_digest
+            or attribution.get("handoff_id") != handoff.get("handoff_id")
+            or attribution.get("handoff_digest") != handoff.get("handoff_digest")
+            or attribution.get("comparison_id") != expected_comparison_id
+            or attribution.get("comparison_digest") != expected_comparison_digest
+            or attribution.get("observation_id") != (observation.observation_id if observation else None)
+            or attribution.get("observation_digest") != (observation.observation_digest if observation else None)
+            or expectation.handoff_id != handoff.get("handoff_id")
+            or expectation.handoff_digest != handoff.get("handoff_digest")
+            or expectation.correlation_id != handoff.get("correlation_id")
+            or expectation.body_manifest_digest != handoff.get("body_manifest_digest")
+            or (renderer_report is not None and (
+                renderer_report.handoff_id != handoff.get("handoff_id")
+                or renderer_report.handoff_digest != handoff.get("handoff_digest")
+                or renderer_report.correlation_id != handoff.get("correlation_id")
+                or renderer_report.artifact_digest != handoff.get("artifact_sha256")
+                or renderer_report.manifest_digest != expectation.body_manifest_digest))
+            or (observation is not None and (
+                observation.expectation_id != expectation.expectation_id
+                or observation.expectation_digest != expectation.expectation_digest
+                or observation.handoff_id != handoff.get("handoff_id")
+                or observation.handoff_digest != handoff.get("handoff_digest")
+                or observation.correlation_id != handoff.get("correlation_id")
+                or (renderer_report is not None and (
+                    observation.renderer_report_id != renderer_report.report_id
+                    or observation.renderer_report_digest != renderer_report.report_digest))))
+            or attribution.get("renderer_report_id") != (renderer_report.report_id if renderer_report else None)
+            or attribution.get("renderer_report_digest") != (renderer_report.report_digest if renderer_report else None)
+            or attribution.get("effect_proven") is not False):
+        raise EmbodiedConsequenceError("consequence_world_state_lineage_invalid")
     records = [{"source_kind":"embodiment","source_id":expectation.expectation_id,"schema_version":EXPECTATION_SCHEMA,
         "digest":expectation.expectation_digest,"subject_id":expectation.expectation_id,"subject_kind":"embodied_action_expectation",
         "stage":"proposal","disposition":"preregistered","observed_at":expectation.created_at,"effect_claimed":False,"effect_proven":False,"payload":asdict(expectation)},
@@ -1387,6 +1484,7 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
     """Validate explicit selection of immutable experiment evidence for World-State."""
     config = dict(value)
     fields = {"schema_version", "enabled", "store_root", "experiment_result_ids",
+        "consequence_chain_ids",
         "model_replacement_state_root", "model_replacement_runs", "config_digest"}
     if (set(config) != fields or config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA
             or type(config.get("enabled")) is not bool
@@ -1395,12 +1493,14 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
         raise EmbodiedConsequenceError("world_state_projection_config_invalid")
     if not config["enabled"]:
         if (config["store_root"] is not None or config["experiment_result_ids"] != []
+                or config["consequence_chain_ids"] != []
                 or config["model_replacement_state_root"] is not None
                 or config["model_replacement_runs"] != []):
             raise EmbodiedConsequenceError("disabled_world_state_projection_must_be_empty")
         return config
     root = config.get("store_root")
     identities = config.get("experiment_result_ids")
+    chain_ids = config.get("consequence_chain_ids")
     replacement_root = config.get("model_replacement_state_root")
     replacement_runs = config.get("model_replacement_runs")
     if (not isinstance(identities, list) or len(identities) > 32
@@ -1408,8 +1508,13 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
                    or not identity.startswith("strategy-experiment:")
                    or not _CONSEQUENCE_ID.fullmatch(identity) for identity in identities)
             or len(identities) != len(set(identities))
-            or (identities and (not isinstance(root, str) or not Path(root).is_absolute()))
-            or (not identities and root is not None)
+            or not isinstance(chain_ids, list) or len(chain_ids) > 32
+            or any(not isinstance(identity, str)
+                   or not identity.startswith("consequence-chain:")
+                   or not _CONSEQUENCE_ID.fullmatch(identity) for identity in chain_ids)
+            or len(chain_ids) != len(set(chain_ids))
+            or (identities or chain_ids) and (not isinstance(root, str) or not Path(root).is_absolute())
+            or not (identities or chain_ids) and root is not None
             or not isinstance(replacement_runs, list) or len(replacement_runs) > 32):
         raise EmbodiedConsequenceError("world_state_projection_selection_invalid")
     if replacement_runs:
@@ -1432,7 +1537,14 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
             seen.add(item["run_id"])
     elif replacement_root is not None:
         raise EmbodiedConsequenceError("model_replacement_projection_root_without_runs")
-    if not identities and not replacement_runs:
+    # A consequence chain produces at most seven records (expectation, handoff,
+    # optional renderer report, optional independent observation, attribution,
+    # comparison, and chain summary). Reserve an explicit aggregate budget so
+    # the World-State builder cannot silently truncate selected evidence.
+    projected_record_bound = (7 * len(chain_ids) + len(identities) + len(replacement_runs))
+    if projected_record_bound > MAX_WORLD_STATE_PROJECTION_RECORDS:
+        raise EmbodiedConsequenceError("world_state_projection_record_budget_exceeded")
+    if not identities and not chain_ids and not replacement_runs:
         raise EmbodiedConsequenceError("world_state_projection_selection_empty")
     return config
 
@@ -1483,6 +1595,7 @@ class ConsequenceStore:
         ConsequenceStore._require_secure_platform()
         flags=os.O_RDONLY|getattr(os,"O_NOFOLLOW",0)
         try: descriptor=os.open(path,flags)
+        except FileNotFoundError as exc: raise EmbodiedConsequenceError("stored_artifact_missing") from exc
         except OSError as exc: raise EmbodiedConsequenceError("stored_artifact_missing_or_unsafe") from exc
         try:
             metadata=os.fstat(descriptor)
@@ -1614,7 +1727,62 @@ class ConsequenceStore:
             raise EmbodiedConsequenceError("stored_artifact_digest_mismatch_or_identity_invalid")
         return cast(dict[str, Any], value)
 
-    def world_state_records(self, *, experiment_result_ids: Sequence[str]) -> list[dict[str, Any]]:
+    def put_consequence_chain(self, *, expectation: EmbodiedActionExpectation,
+                              handoff: Mapping[str, Any], renderer_report: AvatarRendererReport | None,
+                              observation: IndependentConsequenceObservation | None,
+                              attribution: Mapping[str, Any], comparison: Mapping[str, Any]) -> dict[str, Any]:
+        """Persist one validated consequence lineage bundle as a single immutable artifact."""
+        projected = world_state_records(expectation=expectation, handoff=handoff,
+            renderer_report=renderer_report, observation=observation,
+            attribution=attribution, comparison=comparison)
+        semantic: dict[str, Any] = {
+            "schema_version": CONSEQUENCE_CHAIN_SCHEMA,
+            "expectation": asdict(expectation), "handoff": dict(handoff),
+            "renderer_report": asdict(renderer_report) if renderer_report is not None else None,
+            "observation": asdict(observation) if observation is not None else None,
+            "attribution": dict(attribution), "comparison": dict(comparison),
+            "world_state_record_digests": [record["digest"] for record in projected],
+            "effect_proven": False,
+        }
+        identity, chain_digest = _identity("consequence-chain", semantic)
+        record = {**semantic, "chain_id": identity, "chain_digest": chain_digest}
+        self.put("consequence-chains", identity, record)
+        return record
+
+    def load_verified_consequence_chain(self, chain_id: str) -> dict[str, Any]:
+        record = self.get("consequence-chains", chain_id, digest_field="chain_digest")
+        if (record.get("schema_version") != CONSEQUENCE_CHAIN_SCHEMA
+                or record.get("effect_proven") is not False):
+            raise EmbodiedConsequenceError("stored_consequence_chain_invalid")
+        try:
+            expectation_value = dict(record["expectation"])
+            for name in ("observable_fields",):
+                expectation_value[name] = tuple(expectation_value[name])
+            expectation = EmbodiedActionExpectation(**expectation_value)
+            report_value = record.get("renderer_report")
+            report = None
+            if report_value is not None:
+                report_payload = dict(report_value)
+                report_payload["warnings"] = tuple(report_payload["warnings"])
+                report_payload["errors"] = tuple(report_payload["errors"])
+                report = AvatarRendererReport(**report_payload)
+            observation_value = record.get("observation")
+            observation = (IndependentConsequenceObservation(**dict(observation_value))
+                if observation_value is not None else None)
+            projected = world_state_records(expectation=expectation,
+                handoff=dict(record["handoff"]), renderer_report=report,
+                observation=observation, attribution=dict(record["attribution"]),
+                comparison=dict(record["comparison"]))
+        except EmbodiedConsequenceError:
+            raise
+        except (KeyError, TypeError, ValueError) as exc:
+            raise EmbodiedConsequenceError("stored_consequence_chain_shape_invalid") from exc
+        if [item["digest"] for item in projected] != record.get("world_state_record_digests"):
+            raise EmbodiedConsequenceError("stored_consequence_chain_projection_conflict")
+        return record
+
+    def world_state_records(self, *, experiment_result_ids: Sequence[str] = (),
+                            consequence_chain_ids: Sequence[str] = ()) -> list[dict[str, Any]]:
         """Project only explicitly selected, verified durable experiments as historical evidence.
 
         Selection is injected by an existing trusted owner; this method never
@@ -1623,10 +1791,46 @@ class ConsequenceStore:
         from sentientos.world_state_board import record_digest
 
         identities = tuple(experiment_result_ids)
-        if (len(identities) > 32 or any(not isinstance(identity, str) for identity in identities)
-                or len(identities) != len(set(identities))):
+        chain_ids = tuple(consequence_chain_ids)
+        if (len(identities) > 32 or len(chain_ids) > 32
+                or any(not isinstance(identity, str) for identity in (*identities, *chain_ids))
+                or len(identities) != len(set(identities))
+                or len(chain_ids) != len(set(chain_ids))):
             raise EmbodiedConsequenceError("strategy_experiment_projection_selection_invalid")
         records: list[dict[str, Any]] = []
+        for chain_id in chain_ids:
+            chain = self.load_verified_consequence_chain(chain_id)
+            expectation_value = dict(chain["expectation"])
+            expectation_value["observable_fields"] = tuple(expectation_value["observable_fields"])
+            expectation = EmbodiedActionExpectation(**expectation_value)
+            report_value = chain.get("renderer_report")
+            report = None
+            if report_value is not None:
+                report_payload = dict(report_value)
+                report_payload["warnings"] = tuple(report_payload["warnings"])
+                report_payload["errors"] = tuple(report_payload["errors"])
+                report = AvatarRendererReport(**report_payload)
+            observation_value = chain.get("observation")
+            observation = (IndependentConsequenceObservation(**dict(observation_value))
+                if observation_value is not None else None)
+            chain_records = world_state_records(expectation=expectation,
+                handoff=dict(chain["handoff"]), renderer_report=report,
+                observation=observation, attribution=dict(chain["attribution"]),
+                comparison=dict(chain["comparison"]))
+            records.extend(chain_records)
+            chain_record: dict[str, Any] = {
+                "source_kind": "embodiment", "source_id": chain_id,
+                "schema_version": CONSEQUENCE_CHAIN_SCHEMA, "subject_id": chain_id,
+                "subject_kind": "embodied_consequence_chain", "stage": "observation",
+                "disposition": "recorded", "evidence_strength": "digest_bound_consequence_chain",
+                "payload": {"chain_id": chain_id, "chain_digest": chain["chain_digest"],
+                    "component_source_ids": [item["source_id"] for item in chain_records],
+                    "component_record_digests": [item["digest"] for item in chain_records],
+                    "current_truth": False, "effect_proven": False},
+                "effect_claimed": False, "effect_proven": False,
+            }
+            chain_record["digest"] = record_digest(chain_record)
+            records.append(chain_record)
         for identity in identities:
             result = self.get("strategy-experiments", identity,
                 digest_field="experiment_result_digest")
@@ -1677,6 +1881,11 @@ class ConsequenceStore:
             if len(canonical_bytes(record)) > 32_768:
                 raise EmbodiedConsequenceError("strategy_experiment_world_state_record_oversized")
             records.append(record)
+        if len(records) > MAX_WORLD_STATE_PROJECTION_RECORDS:
+            raise EmbodiedConsequenceError("world_state_projection_record_budget_exceeded")
+        if any(len(canonical_bytes(record)) > MAX_WORLD_STATE_PROJECTION_RECORD_BYTES
+               for record in records):
+            raise EmbodiedConsequenceError("world_state_projection_record_oversized")
         return records
 
     @staticmethod

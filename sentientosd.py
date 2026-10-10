@@ -106,12 +106,12 @@ EPISTEMIC_STATE_CONFIG_ENV = "SENTIENTOS_EPISTEMIC_STATE_CONFIG"
 EMBODIED_CONSEQUENCE_PROJECTION_CONFIG_ENV = "SENTIENTOS_EMBODIED_CONSEQUENCE_PROJECTION_CONFIG"
 
 
-def _load_embodied_consequence_projection(path: str | None) -> tuple[Any | None, tuple[str, ...], Any | None, tuple[tuple[str, str], ...], dict[str, Any]]:
+def _load_embodied_consequence_projection(path: str | None) -> tuple[Any | None, tuple[str, ...], tuple[str, ...], Any | None, tuple[tuple[str, str], ...], dict[str, Any]]:
     """Load an explicit, bounded read-only view of selected durable experiments."""
     if path is None:
-        return None, (), None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
+        return None, (), (), None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
     if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
-        return None, (), None, (), {"status": "unsupported", "reason_code": "secure_descriptor_reads_unavailable",
+        return None, (), (), None, (), {"status": "unsupported", "reason_code": "secure_descriptor_reads_unavailable",
                           "read_only": True, "effect_authority": False}
     descriptor: int | None = None
     try:
@@ -133,32 +133,35 @@ def _load_embodied_consequence_projection(path: str | None) -> tuple[Any | None,
             raise ValueError("projection_config_size_mismatch")
         config = validate_world_state_projection_config(json.loads(raw.decode("utf-8")))
         if not config["enabled"]:
-            return None, (), None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
+            return None, (), (), None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
         identities = tuple(config["experiment_result_ids"])
+        chain_ids = tuple(config["consequence_chain_ids"])
         store = (ConsequenceStore(Path(config["store_root"]), create_root=False)
-            if identities else None)
+            if identities or chain_ids else None)
         # Verify selected artifacts at startup; the tick path re-verifies before
         # projection so replacement or corruption is reported at observation.
         if store is not None:
-            store.world_state_records(experiment_result_ids=identities)
+            store.world_state_records(experiment_result_ids=identities,
+                consequence_chain_ids=chain_ids)
         model_runs = tuple((item["run_id"], item["run_digest"])
             for item in config["model_replacement_runs"])
         model_store = (ModelReplacementArtifactStore(Path(config["model_replacement_state_root"]),
             read_only=True) if model_runs else None)
         if model_store is not None:
             model_store.world_state_records(run_refs=model_runs)
-        return store, identities, model_store, model_runs, {"status": "verified",
+        return store, identities, chain_ids, model_store, model_runs, {"status": "verified",
             "selected_strategy_result_count": len(identities),
+            "selected_consequence_chain_count": len(chain_ids),
             "selected_model_replacement_run_count": len(model_runs),
             "config_digest": config["config_digest"], "read_only": True, "effect_authority": False}
     except FileNotFoundError:
-        return None, (), None, (), {"status": "missing", "reason_code": "projection_config_or_store_missing",
+        return None, (), (), None, (), {"status": "missing", "reason_code": "projection_config_or_store_missing",
                           "read_only": True, "effect_authority": False}
     except Exception as exc:
         reason = str(exc)
         status = ("unsupported" if reason.startswith("consequence_store_unsupported_platform") else
-                  "missing" if reason == "consequence_store_root_missing" else "invalid")
-        return None, (), None, (), {"status": status, "reason_code": reason[:128] or type(exc).__name__,
+                  "missing" if any(token in reason for token in ("missing", "unavailable")) else "invalid")
+        return None, (), (), None, (), {"status": status, "reason_code": reason[:128] or type(exc).__name__,
                           "read_only": True, "effect_authority": False}
     finally:
         if descriptor is not None:
@@ -325,7 +328,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, governed_resource_ledger: GovernedLocalModelResourceLedger | None = None, governed_invocation_receipts: tuple[Mapping[str, Any], ...] = (), resource_observation_owner: ProductionChatResourceObservationOwner | None = None, resource_observation_configuration_status: Mapping[str, Any] | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, embodied_consequence_store: Any | None = None, embodied_consequence_result_ids: tuple[str, ...] = (), model_replacement_artifact_store: Any | None = None, model_replacement_run_refs: tuple[tuple[str, str], ...] = (), embodied_consequence_projection_status: Mapping[str, Any] | None = None, causal_introspection_runtime: Any | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, governed_resource_ledger: GovernedLocalModelResourceLedger | None = None, governed_invocation_receipts: tuple[Mapping[str, Any], ...] = (), resource_observation_owner: ProductionChatResourceObservationOwner | None = None, resource_observation_configuration_status: Mapping[str, Any] | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, embodied_consequence_store: Any | None = None, embodied_consequence_result_ids: tuple[str, ...] = (), embodied_consequence_chain_ids: tuple[str, ...] = (), model_replacement_artifact_store: Any | None = None, model_replacement_run_refs: tuple[tuple[str, str], ...] = (), embodied_consequence_projection_status: Mapping[str, Any] | None = None, causal_introspection_runtime: Any | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -348,7 +351,12 @@ class RuntimeMaintenanceSurfaces:
                 or len(embodied_consequence_result_ids) > 32
                 or any(not isinstance(identity, str) for identity in embodied_consequence_result_ids)
                 or len(embodied_consequence_result_ids) != len(set(embodied_consequence_result_ids))
-                or (embodied_consequence_result_ids and embodied_consequence_store is None)
+                or not isinstance(embodied_consequence_chain_ids, tuple)
+                or len(embodied_consequence_chain_ids) > 32
+                or any(not isinstance(identity, str) for identity in embodied_consequence_chain_ids)
+                or len(embodied_consequence_chain_ids) != len(set(embodied_consequence_chain_ids))
+                or ((embodied_consequence_result_ids or embodied_consequence_chain_ids)
+                    and embodied_consequence_store is None)
                 or not isinstance(model_replacement_run_refs, tuple)
                 or len(model_replacement_run_refs) > 32
                 or any(not isinstance(item, tuple) or len(item) != 2
@@ -359,6 +367,7 @@ class RuntimeMaintenanceSurfaces:
             raise ValueError("embodied_consequence_projection_injection_invalid")
         self._embodied_consequence_store = embodied_consequence_store
         self._embodied_consequence_result_ids = embodied_consequence_result_ids
+        self._embodied_consequence_chain_ids = embodied_consequence_chain_ids
         self._model_replacement_artifact_store = model_replacement_artifact_store
         self._model_replacement_run_refs = model_replacement_run_refs
         self._embodied_consequence_projection_status = dict(embodied_consequence_projection_status or {
@@ -626,6 +635,7 @@ class RuntimeMaintenanceSurfaces:
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
+        selected_embodied_source_ids: set[str] = set()
         records.extend(self._resident_succession_world_state_records(tick_key))
         if self._causal_introspection_runtime is not None:
             # Generation, not a parsed tick string, enforces the temporal firewall.
@@ -635,10 +645,14 @@ class RuntimeMaintenanceSurfaces:
         if self._embodiment_evidence_owner is not None:
             # Explicit injection only: no ambient discovery and no avatar daemon startup.
             records.extend(self._embodiment_evidence_owner.world_state_records())
-        if self._embodied_consequence_store is not None and self._embodied_consequence_result_ids:
+        if self._embodied_consequence_store is not None and (self._embodied_consequence_result_ids
+                or self._embodied_consequence_chain_ids):
             try:
-                records.extend(self._embodied_consequence_store.world_state_records(
-                    experiment_result_ids=self._embodied_consequence_result_ids))
+                projected = self._embodied_consequence_store.world_state_records(
+                    experiment_result_ids=self._embodied_consequence_result_ids,
+                    consequence_chain_ids=self._embodied_consequence_chain_ids)
+                records.extend(projected)
+                selected_embodied_source_ids.update(str(item["source_id"]) for item in projected)
                 self._embodied_consequence_projection_status = {
                     **self._embodied_consequence_projection_status, "status": "verified",
                     "read_only": True, "effect_authority": False}
@@ -650,8 +664,10 @@ class RuntimeMaintenanceSurfaces:
                 self._embodied_consequence_projection_status)
         if self._model_replacement_artifact_store is not None and self._model_replacement_run_refs:
             try:
-                records.extend(self._model_replacement_artifact_store.world_state_records(
-                    run_refs=self._model_replacement_run_refs))
+                projected = self._model_replacement_artifact_store.world_state_records(
+                    run_refs=self._model_replacement_run_refs)
+                records.extend(projected)
+                selected_embodied_source_ids.update(str(item["source_id"]) for item in projected)
             except Exception as exc:
                 self._embodied_consequence_projection_status = {
                     **self._embodied_consequence_projection_status, "status": "degraded",
@@ -772,6 +788,18 @@ class RuntimeMaintenanceSurfaces:
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})
         snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
+        retained_source_ids = {source.source_id for source in snapshot.sources}
+        omitted_embodied_sources = selected_embodied_source_ids - retained_source_ids
+        if omitted_embodied_sources:
+            self._embodied_consequence_projection_status = {
+                **self._embodied_consequence_projection_status,
+                "status": "degraded",
+                "reason_code": "world_state_source_limit_omitted_selected_projection",
+                "omitted_source_count": len(omitted_embodied_sources),
+                "read_only": True, "effect_authority": False,
+            }
+            self._feedback["surfaces"]["embodied_consequence_projection"] = dict(
+                self._embodied_consequence_projection_status)
         self._world_state_snapshot = snapshot
         out_dir = self._runtime_state_root / "world_state_board"
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -2078,11 +2106,12 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     resident_serving_error = None
     resident_serving_path = os.environ.get(RESIDENT_SERVING_CONFIG_ENV)
     resident_transition_live_path = os.environ.get(RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV)
-    consequence_store, consequence_result_ids, model_replacement_store, model_replacement_run_refs, consequence_projection_status = (
+    consequence_store, consequence_result_ids, consequence_chain_ids, model_replacement_store, model_replacement_run_refs, consequence_projection_status = (
         _load_embodied_consequence_projection(os.environ.get(EMBODIED_CONSEQUENCE_PROJECTION_CONFIG_ENV)))
     consequence_projection_kwargs = {
         "embodied_consequence_store": consequence_store,
         "embodied_consequence_result_ids": consequence_result_ids,
+        "embodied_consequence_chain_ids": consequence_chain_ids,
         "model_replacement_artifact_store": model_replacement_store,
         "model_replacement_run_refs": model_replacement_run_refs,
         "embodied_consequence_projection_status": consequence_projection_status,
