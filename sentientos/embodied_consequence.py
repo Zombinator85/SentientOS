@@ -481,6 +481,7 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
                               and history_record.get("policy") is False)
     situation_digest=digest(dict(situation))
     situation_binding_verified=protocol.get("renderer_situation_digest")==situation_digest
+    evidence_scope=_history_evidence_scope(history_record)
     conditions=("history_present","history_withheld","history_restored")
     proposals=[]
     for condition in conditions:
@@ -502,6 +503,7 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         "input_context_digest":digest({"situation":dict(situation),"history_record_id":history_record.get("record_id"),
             "history_record_digest":record_digest,"consequence_id":consequence.get("attribution_id"),
             "consequence_digest":consequence.get("attribution_digest")}),
+        "evidence_scope":evidence_scope,
         "validity":"controlled_context_identity_consistent" if history_binding_verified and situation_binding_verified else "context_binding_incomplete",
         "proposals":[asdict(p) for p in proposals],"scoring":scoring,"no_retries":True,"improvement_claimed":False,"authority":dict(FALSE_AUTHORITY)}
     payload["experiment_result_id"],payload["experiment_result_digest"]=_identity("strategy-experiment",payload)
@@ -513,6 +515,58 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
     expected_id,expected_digest=_identity("consequence",semantic)
     if claimed_id!=expected_id or claimed_digest!=expected_digest or dict(value.get("authority",{}))!=dict(FALSE_AUTHORITY):
         raise EmbodiedConsequenceError("consequence_attribution_binding_invalid")
+
+
+def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
+    candidate=record.get("candidate")
+    if not isinstance(candidate,Mapping):
+        return {"posture":"incomplete_record_candidate","resource_fact_count":0,"resource_bindings":[]}
+    fact_ids=tuple(candidate.get("selected_fact_ids",()))
+    facts=tuple(candidate.get("selected_facts",()))
+    if (not facts or len(facts)>16 or len(facts)!=len(fact_ids)
+            or tuple(str(item.get("fact_id","")) for item in facts if isinstance(item,Mapping))!=fact_ids):
+        return {"posture":"selected_fact_identity_incomplete","resource_fact_count":0,"resource_bindings":[]}
+    resource_facts=[]; verified=True
+    for fact in facts:
+        if not isinstance(fact,Mapping):
+            verified=False; continue
+        source=fact.get("source"); subject=fact.get("subject"); payload=fact.get("payload")
+        if not isinstance(source,Mapping) or not isinstance(subject,Mapping) or not isinstance(payload,Mapping):
+            verified=False; continue
+        if source.get("kind")!="resource_governor" or subject.get("subject_kind")!="causal_resource_consumption":
+            continue
+        allocation_values=payload.get("allocations",())
+        attempt_values=payload.get("attempts",())
+        receipt_values=payload.get("consumption_receipts",())
+        invocation_values=payload.get("invocation_receipts",())
+        if not all(isinstance(value,(tuple,list)) for value in
+                   (allocation_values,attempt_values,receipt_values,invocation_values)):
+            verified=False; continue
+        binding={"fact_id":fact.get("fact_id"),"source_id":source.get("source_id"),
+            "source_digest":source.get("digest"),"ledger_digest":payload.get("ledger_digest"),
+            "allocation_digests":tuple(str(item.get("allocation_digest","")) for item in allocation_values if isinstance(item,Mapping)),
+            "attempt_ids":tuple(str(item.get("attempt_id","")) for item in attempt_values if isinstance(item,Mapping)),
+            "consumption_receipts":tuple((str(item.get("receipt_id","")),str(item.get("receipt_digest","")))
+                for item in receipt_values if isinstance(item,Mapping)),
+            "invocation_receipts":tuple((str(item.get("receipt_id","")),str(item.get("receipt_digest","")))
+                for item in invocation_values if isinstance(item,Mapping)),
+            "lineage_posture":payload.get("lineage_posture"),"recovery_posture":payload.get("recovery_posture"),
+            "measurement_attribution":payload.get("shared_host_usage_attribution")}
+        resource_facts.append(binding)
+        if (binding["lineage_posture"]!="verified" or binding["recovery_posture"]!="reconciled_or_restored"
+                or not binding["source_digest"] or not binding["ledger_digest"]):
+            verified=False
+    if not resource_facts:
+        posture="no_resource_evidence_in_selected_record"
+    elif not verified:
+        posture="resource_evidence_lineage_incomplete"
+    elif len(resource_facts)!=len(facts):
+        posture="mixed_selected_history"
+    else:
+        posture="resource_only_receipt_bound_history"
+    return {"posture":posture,"selected_fact_ids":fact_ids,
+        "selected_fact_count":len(facts),"resource_fact_count":len(resource_facts),
+        "resource_bindings":resource_facts}
 
 
 class ConsequenceStore:
