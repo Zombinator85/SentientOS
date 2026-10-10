@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the current process-serving lineage increment, GitHub branch inspection verified `9481de90791b904ae86dd030bdaf3fe5167ac3d9` (tree `46ba3e75f6c65e12528d0918f8bc94044d789449`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the child-launch operation binding increment, GitHub branch inspection verified `0daf1e9abb65c2ee3543332b20fc31a942ff0a41` (tree `ecd74a91e068dbd822d6d2d9739bb8bdf97dc92a`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -435,3 +435,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for the changed Python modules. No runtime, API, subprocess, recovery, Windows, concurrency, World-State execution, or production verification was performed.
 
 **Next implementation dependency:** inspect whether the configured operation ID is preserved in the stored child-launch evidence in a way a later daemon can independently verify, rather than relying on the runtime owner's observation binding. If argv/environment is committed only as a digest, keep the operation-to-process association as an owner claim and pursue another source-supported causal link; do not elevate it to independently observed model continuity.
+
+### New checkpoint — persist the configured serving operation in child launch custody
+
+- New chat-process handoffs use schema v3 and store a bounded exact launch-argument vector alongside its digest. The verifier checks the vector digest and extracts exactly one configured serving-operation ID; the live child still independently checks its own PID, parent, arguments, environment, and source bundle against that handoff before chat configuration.
+- The read-only stored-handoff summary now exposes the operation ID only for v3 custody. The runtime observation schema v3 carries that same value and its reader reopens the handoff and requires equality before admitting the configured serving-receipt reference. Parent configuration, handoff, serving receipt, and process/source identity therefore have an exact, recoverable join when produced under the new schema.
+- Existing v1/v2 handoffs and runtime-observation v1/v2 records remain readable. Older handoffs have no stored exact argument vector or operation ID, so those histories retain an explicit configured_operation_not_verified posture and do not receive an inferred receipt association.
+- The process observation remains historical and owner-produced. It does not prove current model service, independent attestation, inference, effect, or authority. Resource-backed invocation receipts remain the source for model identity at actual invocation.
+- Python compilation passed for the updated generation, startup, World-State projection, and longitudinal self-model sources. No subprocess, recovery, schema migration, concurrency, Windows, World-State execution, or production verification was run.
+
+**Next implementation dependency:** inspect model-transition recovery and serving receipt joins for operation-ID reuse or predecessor gaps across process replacement. Keep any handoff continuity distinct from model continuity and carry only observed invocation identity into later cognition.

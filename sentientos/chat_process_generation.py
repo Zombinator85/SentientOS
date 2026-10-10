@@ -24,14 +24,19 @@ from .installation_state import (
     InstallationStateRegistry,
 )
 
-SCHEMA = "sentientos.chat_process_generation_handoff:v2"
+SCHEMA = "sentientos.chat_process_generation_handoff:v3"
+V2_SCHEMA = "sentientos.chat_process_generation_handoff:v2"
 LEGACY_SCHEMA = "sentientos.chat_process_generation_handoff:v1"
 RELATIVE_ROOT = "local-model/chat/runtime-handoffs"
 HANDOFF_ID = re.compile(r"^[0-9a-f]{32}$")
 MAX_HANDOFF_BYTES = 1_048_576
 MAX_PRIOR_SNAPSHOT_BYTES = 65_536
 MAX_HANDOFF_ENTRIES = 256
-RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v2"
+MAX_LAUNCH_ARGUMENTS = 128
+MAX_LAUNCH_ARGUMENT_BYTES = 4096
+MAX_LAUNCH_ARGUMENT_TOTAL_BYTES = 32_768
+RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v3"
+V2_RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v2"
 LEGACY_RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v1"
 RUNTIME_OBSERVATION_PATH = "local-model/chat/runtime-observations/current.json"
 RUNTIME_OBSERVATION_LOCK = "local-model/chat/runtime-observations/owner.lock"
@@ -51,7 +56,7 @@ def _canonical(value: Mapping[str, Any]) -> bytes:
     try:
         return json.dumps(dict(value), sort_keys=True, separators=(",", ":"),
                           ensure_ascii=False, allow_nan=False).encode("utf-8") + b"\n"
-    except (TypeError, ValueError, RecursionError) as exc:
+    except (TypeError, ValueError, RecursionError, UnicodeError) as exc:
         raise ChatProcessGenerationError("chat_process_handoff_noncanonical_value") from exc
 
 
@@ -159,6 +164,18 @@ def _read_handoff_bytes(handle: Any, path: Any) -> bytes:
     return handle.read_regular_bounded(path, max_bytes=MAX_HANDOFF_BYTES)
 
 
+def _configured_serving_operation(argv: Sequence[str]) -> str | None:
+    positions = [index for index, argument in enumerate(argv)
+        if argument == "--serving-operation-id"]
+    if len(positions) != 1 or positions[0] + 1 >= len(argv):
+        return None
+    value = argv[positions[0] + 1]
+    if (not isinstance(value, str) or not value or value != value.strip()
+            or len(value) > 128 or any(character in value for character in "*?[]{}")):
+        return None
+    return value
+
+
 def _read_handoff(handle: Any, handoff_id: str, *,
                   verify_predecessor: bool = True) -> dict[str, Any]:
     try:
@@ -179,8 +196,11 @@ def _read_handoff(handle: Any, handoff_id: str, *,
         raise ChatProcessGenerationError("chat_process_handoff_shape_invalid")
     if value.get("schema_version") == LEGACY_SCHEMA:
         expected_fields = base_fields
-    elif value.get("schema_version") == SCHEMA:
+    elif value.get("schema_version") == V2_SCHEMA:
         expected_fields = base_fields | lineage_fields
+    elif value.get("schema_version") == SCHEMA:
+        expected_fields = base_fields | lineage_fields | {
+            "launch_argv", "configured_serving_operation_id"}
     else:
         raise ChatProcessGenerationError("chat_process_handoff_shape_invalid")
     if set(value) != expected_fields:
@@ -192,7 +212,7 @@ def _read_handoff(handle: Any, handoff_id: str, *,
         raise ChatProcessGenerationError("chat_process_handoff_digest_mismatch")
     if value.get("installation_identity") != handle.identity.value or value.get("issuer") != "LocalModelChatServiceAdapter":
         raise ChatProcessGenerationError("chat_process_handoff_installation_mismatch")
-    if value.get("schema_version") == SCHEMA:
+    if value.get("schema_version") in {V2_SCHEMA, SCHEMA}:
         prior = value.get("prior_snapshot_handoff")
         snapshot_digest = value.get("prior_snapshot_digest")
         prior_supervisor = value.get("prior_snapshot_supervisor_generation")
@@ -251,6 +271,18 @@ def _read_handoff(handle: Any, handoff_id: str, *,
             or members != sorted(members, key=lambda item: item["path"])
             or value.get("software_generation_digest") != "sha256:" + _digest(members)):
         raise ChatProcessGenerationError("chat_process_handoff_source_manifest_invalid")
+    if value.get("schema_version") == SCHEMA:
+        launch_argv = value.get("launch_argv")
+        if (not isinstance(launch_argv, list) or not launch_argv
+                or len(launch_argv) > MAX_LAUNCH_ARGUMENTS
+                or any(not isinstance(argument, str) or not argument
+                    or len(argument.encode("utf-8")) > MAX_LAUNCH_ARGUMENT_BYTES
+                    for argument in launch_argv)
+                or len(_canonical(launch_argv)) > MAX_LAUNCH_ARGUMENT_TOTAL_BYTES
+                or _digest(launch_argv) != value.get("argv_digest")
+                or _configured_serving_operation(launch_argv)
+                    != value.get("configured_serving_operation_id")):
+            raise ChatProcessGenerationError("chat_process_handoff_launch_arguments_invalid")
     if (type(value.get("process_id")) is not int or value["process_id"] < 1
             or type(value.get("parent_process_id")) is not int or value["parent_process_id"] < 1
             or not isinstance(value.get("python_executable"), str)
@@ -295,9 +327,18 @@ def publish_chat_process_handoff(*, handle: InstallationStateHandle, handoff_id:
                 or members != current_members):
             raise ChatProcessGenerationError("chat_process_source_changed_during_launch")
     argv_digest = _digest(list(argv))
+    configured_operation = _configured_serving_operation(argv)
+    launch_arguments = list(argv)
+    if (configured_operation is None or len(launch_arguments) > MAX_LAUNCH_ARGUMENTS
+            or any(len(argument.encode("utf-8")) > MAX_LAUNCH_ARGUMENT_BYTES
+                for argument in launch_arguments)
+            or len(_canonical(launch_arguments)) > MAX_LAUNCH_ARGUMENT_TOTAL_BYTES):
+        raise ChatProcessGenerationError("chat_process_launch_arguments_unbounded_or_unbound")
     record: dict[str, Any] = {"schema_version": SCHEMA, "handoff_id": handoff_id,
         "installation_identity": handle.identity.value, "issuer": "LocalModelChatServiceAdapter",
         "source_root": str(root), "software_generation_digest": generation_digest,
+        "launch_argv": launch_arguments,
+        "configured_serving_operation_id": configured_operation,
         "source_members": list(members), "process_id": process_id, "parent_process_id": parent_process_id,
         "startup_timestamp": startup_timestamp, "python_executable": os.path.realpath(python_executable),
         "argv_digest": argv_digest, "working_directory": str(Path(working_directory).resolve()),
@@ -380,7 +421,7 @@ def _handoff_summary(record: Mapping[str, Any], status: str) -> dict[str, Any]:
         "process_id": record["process_id"], "parent_process_id": record["parent_process_id"],
         "startup_timestamp": record["startup_timestamp"],
         "source_generation_scope": "sentientos_and_scripts_python_sources"}
-    if record.get("schema_version") == SCHEMA:
+    if record.get("schema_version") in {V2_SCHEMA, SCHEMA}:
         summary["prior_snapshot_generation"] = {
             "handoff": record["prior_snapshot_handoff"],
             "startup_snapshot_digest": record["prior_snapshot_digest"],
@@ -389,6 +430,8 @@ def _handoff_summary(record: Mapping[str, Any], status: str) -> dict[str, Any]:
             "overlap_status": record["prior_process_overlap_status"],
             "direct_predecessorship": "not_proven",
             "intervening_runtime_generations": "unknown"}
+    if record.get("schema_version") == SCHEMA:
+        summary["configured_serving_operation_id"] = record["configured_serving_operation_id"]
     return summary
 
 
@@ -531,6 +574,14 @@ def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
         raise ChatProcessGenerationError("runtime_observation_handoff_invalid") from exc
     if dict(handoff) != historical:
         raise ChatProcessGenerationError("runtime_observation_handoff_mismatch")
+    historical_operation = historical.get("configured_serving_operation_id")
+    if expected_serving_operation_id is not None and (
+            expected_serving_operation_id != historical_operation):
+        raise ChatProcessGenerationError("runtime_observation_serving_operation_handoff_mismatch")
+    if serving_receipt is not None and (
+            expected_serving_operation_id is None
+            or expected_serving_operation_id != historical_operation):
+        raise ChatProcessGenerationError("runtime_observation_serving_operation_handoff_mismatch")
     serving_projection = None
     if serving_receipt is not None:
         receipt_binding = serving_receipt.get("binding")
@@ -581,6 +632,7 @@ def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
         "reason_code": reason_code,
         "configured_serving_receipt_posture": configured_serving_receipt_posture,
         "serving_receipt": serving_projection,
+        "configured_serving_operation_id": historical.get("configured_serving_operation_id"),
         "handoff_id": historical["handoff_id"],
         "handoff_digest": historical["handoff_digest"],
         "process_instance_id": historical["process_instance_id"],
@@ -635,7 +687,8 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
     except (UnicodeError, ValueError, TypeError) as exc:
         raise ChatProcessGenerationError("runtime_observation_malformed") from exc
     if (not isinstance(value, dict) or raw != _canonical(value)
-            or value.get("schema_version") not in {RUNTIME_OBSERVATION_SCHEMA, LEGACY_RUNTIME_OBSERVATION_SCHEMA}
+            or value.get("schema_version") not in {RUNTIME_OBSERVATION_SCHEMA,
+                V2_RUNTIME_OBSERVATION_SCHEMA, LEGACY_RUNTIME_OBSERVATION_SCHEMA}
             or value.get("installation_identity") != handle.identity.value
             or not isinstance(value.get("runtime_supervisor_generation"), str)
             or not value.get("runtime_supervisor_generation")
@@ -660,8 +713,11 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
     }
     if value["schema_version"] == LEGACY_RUNTIME_OBSERVATION_SCHEMA:
         expected_fields = base_fields
-    else:
+    elif value["schema_version"] == V2_RUNTIME_OBSERVATION_SCHEMA:
         expected_fields = base_fields | {"configured_serving_receipt_posture", "serving_receipt"}
+    else:
+        expected_fields = base_fields | {"configured_serving_receipt_posture", "serving_receipt",
+            "configured_serving_operation_id"}
     if set(value) != expected_fields:
         raise ChatProcessGenerationError("runtime_observation_shape_invalid")
     try:
@@ -681,6 +737,10 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
     }
     if any(value.get(key) != expected_value for key, expected_value in expected.items()):
         raise ChatProcessGenerationError("runtime_observation_handoff_binding_mismatch")
+    if (value.get("schema_version") == RUNTIME_OBSERVATION_SCHEMA
+            and value.get("configured_serving_operation_id")
+                != handoff.get("configured_serving_operation_id")):
+        raise ChatProcessGenerationError("runtime_observation_serving_operation_handoff_mismatch")
     serving = value.get("serving_receipt")
     if serving is not None:
         if (not isinstance(serving, Mapping)

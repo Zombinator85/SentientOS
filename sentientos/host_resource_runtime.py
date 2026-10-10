@@ -712,8 +712,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         runtime_schema = runtime.get("schema_version") if isinstance(runtime, Mapping) else None
         if runtime_schema == "sentientos.chat_process_runtime_observation:v1":
             runtime_fields = base_runtime_fields
-        elif runtime_schema == "sentientos.chat_process_runtime_observation:v2":
+        elif runtime_schema in {"sentientos.chat_process_runtime_observation:v2",
+                "sentientos.chat_process_runtime_observation:v3"}:
             runtime_fields = base_runtime_fields | {"configured_serving_receipt_posture", "serving_receipt"}
+            if runtime_schema == "sentientos.chat_process_runtime_observation:v3":
+                runtime_fields = runtime_fields | {"configured_serving_operation_id"}
         else:
             runtime_fields = set()
         serving = runtime.get("serving_receipt") if isinstance(runtime, Mapping) else None
@@ -721,7 +724,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         serving_valid = (
             (runtime_schema == "sentientos.chat_process_runtime_observation:v1"
                 and serving is None and serving_posture is None)
-            or (runtime_schema == "sentientos.chat_process_runtime_observation:v2"
+            or (runtime_schema in {"sentientos.chat_process_runtime_observation:v2",
+                    "sentientos.chat_process_runtime_observation:v3"}
                 and (
                     (serving_posture == "selected_receipt_for_configured_operation"
                         and isinstance(serving, Mapping)
@@ -737,8 +741,18 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         "configured_operation_receipt_invalid", "runtime_not_verified"})
                 ))
         )
+        operation_binding_valid = (
+            runtime_schema != "sentientos.chat_process_runtime_observation:v3"
+            or (runtime.get("configured_serving_operation_id") is None
+                or isinstance(runtime.get("configured_serving_operation_id"), str)
+                and bool(runtime.get("configured_serving_operation_id"))
+                and len(runtime["configured_serving_operation_id"]) <= 128)
+            and (serving is None
+                or runtime.get("configured_serving_operation_id")
+                    == serving.get("serving_operation_id"))
+        )
         if (not isinstance(runtime, Mapping) or set(runtime) != runtime_fields
-                or not serving_valid
+                or not serving_valid or not operation_binding_valid
                 or runtime.get("installation_identity") != selected_source_identity.get("installation_identity")
                 or runtime.get("runtime_status") not in {"running_observed", "not_verified"}
                 or runtime.get("currentness_posture") != "runtime_owner_observed_at_recorded_event_time"

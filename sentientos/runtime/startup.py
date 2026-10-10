@@ -23,11 +23,12 @@ from .supervisor import RuntimeSupervisor
 
 
 def _configured_serving_receipt_observation(adapter: LocalModelChatServiceAdapter,
-        handle: Any) -> tuple[str, Mapping[str, Any] | None, str | None]:
-    """Select the receipt named by the process configuration without claiming current serving."""
-    operation_id = adapter.startup_configuration.serving_operation_id
-    if not isinstance(operation_id, str) or not operation_id:
-        return "configured_operation_receipt_invalid", None, None
+        handle: Any, handoff: Mapping[str, Any]) -> tuple[str, Mapping[str, Any] | None, str | None]:
+    """Select a receipt only when the stored launch handoff names the same operation."""
+    operation_id = handoff.get("configured_serving_operation_id")
+    adapter_operation = adapter.startup_configuration.serving_operation_id
+    if not isinstance(operation_id, str) or operation_id != adapter_operation:
+        return "configured_operation_not_verified", None, None
     try:
         receipt = exact_prior_serving_receipt(handle, operation_id)
     except LocalModelChatRecoveryError as exc:
@@ -147,7 +148,7 @@ def _run_canonical_runtime_owned(
                 config, supervisor.generation, runtime_handoff=handoff), supervisor.root)
             assert handle is not None
             serving_posture, serving_receipt, serving_operation_id = (
-                _configured_serving_receipt_observation(adapter, handle))
+                _configured_serving_receipt_observation(adapter, handle, handoff))
             try:
                 publish_chat_process_runtime_observation(handle=handle,
                     supervisor_generation=supervisor.generation, handoff=handoff,
@@ -181,7 +182,7 @@ def _run_canonical_runtime_owned(
                     if isinstance(observed_handoff, Mapping):
                         last_handoff = dict(observed_handoff)
                         serving_posture, serving_receipt, serving_operation_id = (
-                            _configured_serving_receipt_observation(adapter, handle))
+                            _configured_serving_receipt_observation(adapter, handle, observed_handoff))
                         try:
                             publish_chat_process_runtime_observation(
                                 handle=handle, supervisor_generation=supervisor.generation,

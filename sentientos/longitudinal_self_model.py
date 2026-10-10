@@ -410,6 +410,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "observed_at": observation.get("observed_at"),
                 "runtime_status_at_observation": observation.get("runtime_status"),
                 "configured_serving_receipt_posture_at_observation": observation.get("configured_serving_receipt_posture"),
+                "configured_serving_operation_id_at_observation": observation.get(
+                    "configured_serving_operation_id"),
                 "serving_receipt_at_observation": (
                     {key: observation["serving_receipt"].get(key) for key in (
                         "receipt_id", "receipt_semantic_digest", "session_id",
