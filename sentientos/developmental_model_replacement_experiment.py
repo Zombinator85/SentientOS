@@ -211,6 +211,22 @@ def _resource_receipt_binding(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "resource_consumption_receipt_digests": list(values),
         "resource_linkage_digest": linkage,
         "resource_attribution_posture": "linkage_digest_bound_ledger_reconciliation_pending"}
+
+
+def _inference_failure_evidence(receipt: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep bounded receipt identities from a failed call, never generated text."""
+    value: dict[str, Any] = {"status": "failed_or_incomplete_inference_receipt"}
+    for key in ("status", "fallback_occurred", "request_id", "request_digest",
+            "inference_receipt_id", "inference_receipt_digest", "output_digest",
+            "resource_allocation_digest", "resource_attempt_id", "resource_linkage_digest"):
+        item = receipt.get(key)
+        if isinstance(item, (str, bool)) and (not isinstance(item, str) or len(item) <= 256):
+            value[key] = item
+    consumption = receipt.get("resource_consumption_receipt_digests")
+    if isinstance(consumption, (tuple, list)) and len(consumption) <= 16:
+        if all(isinstance(item, str) and len(item) <= 128 for item in consumption):
+            value["resource_consumption_receipt_digests"] = list(consumption)
+    return value
 COMPARISONS = (
     "history_effect_model_a", "history_effect_model_b",
     "model_difference_with_history", "model_difference_without_history",
@@ -230,6 +246,10 @@ EPISTEMIC_POSTURES = frozenset({
 
 class DevelopmentalModelReplacementError(ValueError):
     """A fail-closed experimental-control or custody violation."""
+
+    def __init__(self, code: str, *, evidence: Mapping[str, Any] | None = None) -> None:
+        self.evidence = dict(evidence) if evidence is not None else None
+        super().__init__(code)
 
 
 def _digest(value: Any) -> str:
@@ -874,9 +894,14 @@ class ModelReplacementArtifactStore:
 
     def finish_condition(self, *, start: Mapping[str, Any], status: str,
                          observation: Mapping[str, Any] | None,
-                         failure_posture: str | None = None) -> dict[str, Any]:
+                         failure_posture: str | None = None,
+                         failure_evidence: Mapping[str, Any] | None = None) -> dict[str, Any]:
         if status not in {"completed", "incomplete", "contradictory"}:
             raise DevelopmentalModelReplacementError("condition_terminal_status_invalid")
+        if (status == "completed" and (failure_evidence is not None or failure_posture is not None)
+                or (failure_evidence is not None and len(json.dumps(dict(failure_evidence),
+                    sort_keys=True, separators=(",", ":")).encode()) > 16_384)):
+            raise DevelopmentalModelReplacementError("condition_failure_evidence_invalid")
         condition_id = str(start.get("condition_id") or "")
         verified_start, existing = self.read_condition(condition_id=condition_id,
             expected_input_digest=str(start.get("input_digest") or ""))
@@ -885,7 +910,8 @@ class ModelReplacementArtifactStore:
         if existing is not None:
             expected = {"status": status,
                 "observation": dict(observation) if observation is not None else None,
-                "failure_posture": failure_posture}
+                "failure_posture": failure_posture,
+                "failure_evidence": dict(failure_evidence) if failure_evidence is not None else None}
             if any(existing.get(key) != value for key, value in expected.items()):
                 raise DevelopmentalModelReplacementError("condition_terminal_conflict")
             return existing
@@ -897,7 +923,9 @@ class ModelReplacementArtifactStore:
             "condition_start_digest": start["condition_start_digest"],
             "status": status,
             "observation": dict(observation) if observation is not None else None,
-            "failure_posture": failure_posture, "authority": False}
+            "failure_posture": failure_posture,
+            "failure_evidence": dict(failure_evidence) if failure_evidence is not None else None,
+            "authority": False}
         record = {**semantic, "condition_result_digest": _digest(semantic)}
         self._write(self.condition_results / f"{condition_id}.json", record)
         return record
@@ -944,7 +972,13 @@ class ModelReplacementArtifactStore:
                 or result.get("condition_result_digest") != _digest(result_semantic)
                 or result.get("status") not in {"completed", "incomplete", "contradictory"}
                 or (result.get("status") == "completed" and not isinstance(result.get("observation"), Mapping))
-                or (result.get("status") == "incomplete" and result.get("observation") is not None)):
+                or (result.get("status") == "incomplete" and result.get("observation") is not None)
+                or (result.get("status") == "completed" and result.get("failure_evidence") is not None)
+                or (result.get("status") == "completed" and result.get("failure_posture") is not None)
+                or (result.get("failure_evidence") is not None
+                    and (not isinstance(result.get("failure_evidence"), Mapping)
+                        or len(json.dumps(result["failure_evidence"], sort_keys=True,
+                            separators=(",", ":")).encode()) > 16_384))):
             raise DevelopmentalModelReplacementError("condition_terminal_lineage_invalid")
         return start, result
 
@@ -1051,6 +1085,8 @@ class ModelReplacementArtifactStore:
                             or status_value == "contradictory" and (terminal is None
                                 or terminal.get("status") != "contradictory")
                             or status.get("condition_result_digest") != (terminal.get("condition_result_digest")
+                                if terminal is not None else None)
+                            or status.get("failure_evidence") != (terminal.get("failure_evidence")
                                 if terminal is not None else None)
                             or status_value == "contradictory"
                                 and status.get("contradictory_observation_digest") != (
@@ -1284,14 +1320,17 @@ class DevelopmentalModelReplacementExperiment:
         if endpoint.current_identity() != expected:
             raise DevelopmentalModelReplacementError("model_identity_drift")
         if receipt.get("status") != "admitted_completed" or receipt.get("fallback_occurred"):
-            raise DevelopmentalModelReplacementError("governed_inference_not_completed")
+            raise DevelopmentalModelReplacementError("governed_inference_not_completed",
+                evidence=_inference_failure_evidence(receipt))
         actual = receipt.get("actual_generation_parameters")
         if not isinstance(actual, Mapping) or actual.get("temperature") != 0:
-            raise DevelopmentalModelReplacementError("experiment_generation_configuration_drift")
+            raise DevelopmentalModelReplacementError("experiment_generation_configuration_drift",
+                evidence=_inference_failure_evidence(receipt))
         required = ("request_id", "request_digest", "inference_receipt_id",
                     "inference_receipt_digest", "output_digest")
         if not all(receipt.get(key) for key in required):
-            raise DevelopmentalModelReplacementError("inference_receipt_incomplete")
+            raise DevelopmentalModelReplacementError("inference_receipt_incomplete",
+                evidence=_inference_failure_evidence(receipt))
         semantic = {"condition_id": condition, "trial_id": trial_id,
                     "protocol_id": self.protocol.protocol_id,
                     "protocol_digest": self.protocol.protocol_digest,
@@ -1428,7 +1467,8 @@ class DevelopmentalModelReplacementExperiment:
                 row = {"condition": condition, "condition_id": condition_id,
                     "condition_input_digest": terminal["input_digest"],
                     "status": status, "condition_start_digest": terminal["condition_start_digest"],
-                    "condition_result_digest": terminal["condition_result_digest"]}
+                    "condition_result_digest": terminal["condition_result_digest"],
+                    "failure_evidence": terminal.get("failure_evidence")}
                 condition_statuses.append(row)
                 if status != "completed":
                     return self._persist_partial_run(trial_id=trial_id, observations=observations,
@@ -1492,12 +1532,14 @@ class DevelopmentalModelReplacementExperiment:
                 terminal = self.store.finish_condition(start=start,
                     status="contradictory" if contradictory else "incomplete",
                     observation=raw_observation if contradictory else None,
-                    failure_posture=failure_posture)
+                    failure_posture=failure_posture,
+                    failure_evidence=getattr(exc, "evidence", None))
                 condition_statuses.append({"condition": condition, "condition_id": condition_id,
                     "condition_input_digest": terminal["input_digest"],
                     "status": terminal["status"],
                     "condition_start_digest": terminal["condition_start_digest"],
                     "condition_result_digest": terminal["condition_result_digest"],
+                    "failure_evidence": terminal.get("failure_evidence"),
                     "contradictory_observation_digest": (raw_observation.get("observation_digest")
                         if contradictory and isinstance(raw_observation, Mapping) else None),
                     "failure_posture": failure_posture})

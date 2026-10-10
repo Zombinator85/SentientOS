@@ -16,7 +16,8 @@ Construction work is **untested for production**. Continue from branch `codex/co
 - `ace50f1d842f43cac790c483b5f27ae9555699bf` (remote verified): campaign protocol/report/failure records use bounded descriptor-relative no-follow custody; campaign state is locked, atomically replaced, stale-writer checked, and retained in a bounded immutable predecessor chain for restart reconstruction. File custody is fail-closed where POSIX descriptor primitives are unavailable.
 - `ee4677c8ce36847657822bc7d19adb487f018b41` (remote verified): persistent epistemic observation adapter verifies observation content identity but records it as contextual, unknown-freshness evidence with unresolved dependency. A self-declared observer ID no longer yields current independent support.
 - `75c64e397e1d7cd95ae5c9d702222747c16602a8` (remote verified): post-adoption epistemic adapter verifies evaluation content identity and preserves historical `evaluated_at`; unverified collector/source issuers produce only contextual, unknown-freshness evidence. Its compatibility `observed_at` argument no longer controls event time.
-- Next increment in progress: controlled replacement trials persist a bounded identity-only frozen-context manifest, bind validated prior self-model/epistemic projection IDs, digests, and source ticks into condition observations and World-State records, and carry the invocation's exact resource linkage fields when a governed endpoint actually supplies them. Missing sponsorship remains unknown; no allocation is created.
+- `655288bf0beeb4d422186e97d2ba7d9414611b62` (remote verified): controlled replacement trials persist a bounded identity-only frozen-context manifest, bind validated prior self-model/epistemic projection IDs, digests, and source ticks into condition observations and World-State records, and carry the invocation's exact resource linkage fields when a governed endpoint actually supplies them. Missing sponsorship remains unknown; no allocation is created.
+- Next increment in progress: retain bounded invocation/consumption identities from failed or incomplete governed inference in the immutable condition terminal, so restart recovery and World-State preserve evidence of an attempted condition without replaying it.
 
 ## Boundaries and blockers
 
@@ -28,6 +29,6 @@ Construction work is **untested for production**. Continue from branch `codex/co
 
 ## Exact next work
 
-1. Compile, review, commit `[untested]`, push, and verify the controlled-context checkpoint.
+1. Compile, review, commit `[untested]`, push, and verify failed-inference custody.
 2. Continue tracing exact resource attribution in the controlled replacement endpoint; preserve unknown when no explicit sponsored allocation/consumption owner is injected.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.
