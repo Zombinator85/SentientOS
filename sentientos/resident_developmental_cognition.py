@@ -602,7 +602,7 @@ class ResidentDevelopmentalCognitionOwner:
         elif (source_kind == "embodiment" and subject_kind in {
                 "embodied_consequence_chain", "embodied_consequence_attribution",
                 "embodied_prediction_comparison"}):
-            priority = 5
+            priority = 4
         elif subject_kind in {"embodied_strategy_proposal", "embodied_strategy_proposal_review",
                               "embodied_proposal_fulfillment_receipt"}:
             priority = 5

@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `7352b98216bc59c91c3c0e89e636fd9b1422804d` (tree `56cd5ae39608b69445f5208c80f1971c0185c130`, parent `f09376eea0d536c9ace310d95991a0a93a5d7d1f`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `28b98cf85b804214878c999490baf3466019dec9` (tree `8242d727b744d9e678cc69c73f0790338a0903e2`, parent `7352b98216bc59c91c3c0e89e636fd9b1422804d`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -63,3 +63,11 @@ The daemon computes proposal/resource lineage immediately after collecting those
 - Python compilation and diff whitespace checks passed for the changed files. This is source construction only; no runtime, platform, behavioral, or production verification was performed.
 
 Next inspect exact JSON-type behavior in the embodied prediction comparator, then follow source-bound per-field results through existing correction/history projection without trusting caller-asserted observer independence. Keep observer issuer authentication as an external dependency.
+
+### New checkpoint — prioritize retained outcome evidence
+
+- Resident cognition now selects digest-verified consequence-chain, attribution, and comparison facts ahead of proposal/review/fulfillment rows when bounded fact selection requires truncation, after current identity, resource, transition, and controlled model-replacement evidence.
+- This priority only affects the existing explicit source-kind selection. Contradictory or incomplete comparisons remain historical evidence and do not gain freshness, truth, objectives, or permission.
+- Compilation and whitespace checks passed for the modified Python modules. Runtime and production behavior remain unverified.
+
+Next inspect and repair JSON-type-sensitive exact comparison semantics in the source owner, then preserve source-authenticated correction lineage through its existing durable path. Continue to fail closed on unauthenticated observer claims.
