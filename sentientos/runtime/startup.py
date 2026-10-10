@@ -10,6 +10,7 @@ from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.installation_state import InstallationIdentity, InstallationStateError, InstallationStateRegistry
 from sentientos.chat_process_generation import (
     ChatProcessGenerationError, publish_chat_process_runtime_observation,
+    read_stored_chat_process_runtime_observation, verify_stored_chat_process_handoff,
 )
 
 from .local_model_chat_service import (SERVICE_ID, LocalModelChatServiceAdapter,
@@ -71,6 +72,26 @@ def _run_canonical_runtime_owned(
 ) -> int:
     registry = build_runtime_service_registry(config, installation_handle=handle)
     supervisor = supervisor_factory(registry, state_root=state_root)
+    if handle is not None:
+        try:
+            previous_runtime_observation = read_stored_chat_process_runtime_observation(handle)
+        except ChatProcessGenerationError:
+            previous_runtime_observation = None
+        if (isinstance(previous_runtime_observation, Mapping)
+                and previous_runtime_observation.get("runtime_status") == "running_observed"):
+            try:
+                predecessor_handoff = verify_stored_chat_process_handoff(
+                    handle=handle,
+                    handoff_id=str(previous_runtime_observation.get("handoff_id", "")),
+                    expected_digest=str(previous_runtime_observation.get("handoff_digest", "")))
+                publish_chat_process_runtime_observation(
+                    handle=handle, supervisor_generation=supervisor.generation,
+                    handoff=predecessor_handoff, status="not_verified",
+                    reason_code="new_supervisor_has_not_verified_child")
+            except ChatProcessGenerationError:
+                # Invalid old custody remains visible as invalid to the
+                # read-only observer; startup does not repair or rewrite it.
+                pass
     previous_snapshot: dict[str, Any] | None = None
     if config.enabled:
         try:

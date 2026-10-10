@@ -392,3 +392,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python AST parsing passed for nine changed Python sources; trailing-whitespace scan was clean. No runtime, subprocess, concurrency, crash, Windows, behavioral, or production verification was run.
 
 **Next implementation dependency:** inspect runtime observation replay/currentness semantics and exact shutdown/recovery transitions for stale-owner races. Keep the point record historical; if currentness needs an independent issuer or trusted clock that is not present, preserve that unknown state and advance another source-supported integration.
+
+
+### New checkpoint — startup withdraws stale running claims
+
+- The installation-scoped runtime-owner lock now fences overlapping canonical chat supervisors. A new owner reads the prior point observation before launching a child; if it was previously recorded as running, the new owner atomically replaces it with `not_verified`, tied to the exact stored prior handoff and the new supervisor generation. This says only that the new runtime has not checked that child; it does not claim the old process exited.
+- Invalid prior custody is not repaired or overwritten. A process crash leaves its old event timestamp unchanged; the read-only consumer keeps the record historical and epistemic freshness unknown.
+- Source review of `chat_service.py` confirms `/readyz` intentionally exposes coarse readiness without serving identity. Current model identity therefore remains unavailable to the parent except through exact serving receipts and completed invocation receipts. The implementation leaves that boundary intact.
+- The changed startup module passed Python AST parsing. No runtime, concurrent-owner, orphan-process, restart, or production verification was performed.
+
+**Next implementation dependency:** continue preserving the distinction between a child process observation and a current model-serving observation. No current model identity issuer is exposed by the chat API; retain invocation/serving-receipt lineage and move to another existing owner connection rather than infer it.
