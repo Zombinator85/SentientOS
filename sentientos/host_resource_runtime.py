@@ -814,11 +814,35 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             request = invocation.get("request") if isinstance(invocation, Mapping) else None
             if not isinstance(invocation, Mapping) or not isinstance(request, Mapping):
                 raise ValueError("chat_process_runtime_invocation_join_missing")
+            request_linkage = request.get("linkage")
+            request_linkage = request_linkage if isinstance(request_linkage, Mapping) else {}
+            serving_reference_fields = (
+                "serving_receipt_id", "serving_receipt_semantic_digest",
+                "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest")
+            serving_references_complete = all(
+                isinstance(request_linkage.get(key), str) and request_linkage.get(key)
+                for key in serving_reference_fields)
+            serving_references_absent = all(request_linkage.get(key) is None
+                for key in serving_reference_fields)
+            if not serving_references_complete and not serving_references_absent:
+                raise ValueError("chat_process_runtime_invocation_serving_lineage_incomplete")
             linked_invocations.append({
                 "invocation_receipt_id": invocation.get("receipt_id"),
                 "invocation_receipt_digest": invocation.get("receipt_digest"),
                 "invocation_request_id": request.get("request_id"),
                 "invocation_request_digest": request.get("request_digest"),
+                "serving_receipt_id": request_linkage.get("serving_receipt_id"),
+                "serving_receipt_semantic_digest": request_linkage.get(
+                    "serving_receipt_semantic_digest"),
+                "serving_operation_attempt_id": request_linkage.get(
+                    "serving_operation_attempt_id"),
+                "serving_operation_attempt_semantic_digest": request_linkage.get(
+                    "serving_operation_attempt_semantic_digest"),
+                "serving_operation_id": request_linkage.get("serving_operation_id"),
+                "serving_session_id": request_linkage.get("serving_session_id"),
+                "serving_receipt_lineage_posture": (
+                    "reservation_and_receipt_references_present" if serving_references_complete
+                    else "historically_unbound"),
                 "resource_allocation_digest": invocation.get("resource_allocation_digest"),
                 "resource_attempt_id": invocation.get("resource_attempt_id"),
                 "resource_consumption_receipt_digests": list(

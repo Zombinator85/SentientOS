@@ -398,6 +398,10 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                     key: item.get(key) for key in (
                         "invocation_receipt_id", "invocation_receipt_digest",
                         "invocation_request_id", "invocation_request_digest",
+                        "serving_receipt_id", "serving_receipt_semantic_digest",
+                        "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest",
+                        "serving_operation_id", "serving_session_id",
+                        "serving_receipt_lineage_posture",
                         "resource_allocation_digest", "resource_attempt_id",
                         "resource_consumption_receipt_digests", "resource_effect_receipt_digest",
                         "model_id", "model_artifact_digest", "active_model_identity_at_invocation",

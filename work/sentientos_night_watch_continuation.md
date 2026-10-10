@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the recovery-phase event-time repair, GitHub branch inspection verified `35baf8e3c429deff41cc0b6900d7192eff529b6e` (tree `20f0ff421c4b288633c8be9a1d97cd6cd9792601`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the longitudinal serving-lineage projection repair, GitHub branch inspection verified `879649947ce52f92e7bfd74bab894ddea2aeffaf` (tree `eb4899a8fc6b8b520d4a1428d6f940dd840b8633`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -555,3 +555,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the epistemic adapter. No recovery replay, evidence admission, writeback, cognition, or production verification was run.
 
 **Next implementation dependency:** continue source review for developmental-history selection size and lineage loss on these runtime recovery records; retain exact predecessor/successor operation and serving-receipt identities with bounded projections.
+
+
+### New checkpoint — retain serving lineage in runtime observation history
+
+- The bounded chat-process runtime observation's linked invocation rows now carry serving receipt ID/digest, reservation ID/digest, serving operation ID, and serving-session ID from the authenticated invocation linkage.
+- The projector rejects partially populated serving references and marks historical invocations with no such linkage as unbound. The longitudinal self-model copies these exact identities into its historical runtime-generation interpretation.
+- Python compilation passed for the World-State projector and longitudinal self-model. No runtime observation, restart, evidence admission, developmental writeback, cognition, or production verification was run.
+
+**Next implementation dependency:** review current transcript/developmental-history recovery boundaries for any remaining source-level loss or ambiguous event ordering in the process-generation chain. Do not convert its bounded source digest into full interpreter/dependency identity or current truth.
