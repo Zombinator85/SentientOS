@@ -312,7 +312,8 @@ def compact_runtime_generation_attribution(value: Mapping[str, Any]) -> dict[str
     """Persist exact receipt-linked identities without duplicating the nested chain per turn."""
     fields = ("status", "reason_code", "software_generation_digest",
               "process_instance_id", "handoff_id", "handoff_digest",
-              "startup_timestamp", "source_generation_scope")
+              "startup_timestamp", "source_generation_scope",
+              "configured_serving_operation_id")
     result = {key: value[key] for key in fields if key in value}
     prior = value.get("prior_snapshot_generation")
     if isinstance(prior, Mapping):
@@ -327,6 +328,8 @@ def compact_runtime_generation_attribution(value: Mapping[str, Any]) -> dict[str
                 "prior_handoff_digest": predecessor.get("handoff_digest"),
                 "prior_process_instance_id": predecessor.get("process_instance_id"),
                 "prior_software_generation_digest": predecessor.get("software_generation_digest"),
+                "prior_configured_serving_operation_id": predecessor.get(
+                    "configured_serving_operation_id"),
                 "prior_lineage_digest": _digest(dict(predecessor)),
             })
         result["prior_snapshot_generation"] = prior_summary
@@ -352,7 +355,8 @@ def _runtime_generation_evidence(value: Mapping[str, Any], *, depth: int = 0) ->
             lineage["handoff"] = {
                 key: predecessor[key] for key in (
                     "software_generation_digest", "process_instance_id",
-                    "handoff_id", "handoff_digest") if key in predecessor}
+                    "handoff_id", "handoff_digest",
+                    "configured_serving_operation_id") if key in predecessor}
             lineage["lineage_truncated"] = True
         result["prior_snapshot_generation"] = lineage
     return result
@@ -379,7 +383,8 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
                 provenance["software_generation_attribution"] = {
                     key: software[key] for key in (
                         "status", "reason_code", "software_generation_digest",
-                        "process_instance_id", "handoff_digest")
+                        "process_instance_id", "handoff_digest",
+                        "configured_serving_operation_id")
                     if key in software
                 }
         lines.append(f"{turn['role'].upper()}_DATA: " + json.dumps(

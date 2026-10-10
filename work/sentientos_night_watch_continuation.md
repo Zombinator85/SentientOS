@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the recovery-operation lineage increment, GitHub branch inspection verified `2bc5e986f7025ac6cf5df886cc9ca576c7613c25` (tree `3c081fa3d412336a1bad016ab98c99373b2bb101`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the transcript continuation increment, GitHub branch inspection verified `95ce3b2e3c0bd82d176580a6a94f0372c62e489d` (tree `66abbc9012e735065e8a11a721cac49416cd70c7`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -455,3 +455,12 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for recovery, World-State, self-model, startup, and process-generation sources. No recovery replay, child process, transition, Windows, World-State execution, or production behavior was tested.
 
 **Next implementation dependency:** trace actual invocation receipts and transcript lineage across a recovered successor generation. Confirm the exact process handoff and serving operation carried by each invocation, preserve the prior transcript's history linkage, and keep any missing runtime observation explicitly unknown.
+
+### New checkpoint — retain the serving operation in per-turn transcript lineage
+
+- Persistent assistant-turn lineage now retains the serving-operation ID from the verified process handoff alongside its process instance, handoff digest, and exact software-generation digest. The compact prior-generation summary carries the predecessor operation ID and hashes the full predecessor handoff.
+- Chat context provenance includes the configured operation ID only as runtime-generation evidence. It does not convert that ID into a model-currentness, model-quality, or authority claim. Invocation receipts remain the evidence for the model actually used by a turn.
+- Older transcript entries without the operation field remain readable; absence stays unknown. Stored-vs-recovered lineage checks continue to compare the exact compact projection, so a substituted operation ID breaks continuity instead of being silently accepted.
+- Python compilation passed for the conversation-session source. No transcript replay, inference, restart, or production verification was performed.
+
+**Next implementation dependency:** trace persisted assistant-turn linkage against the completed invocation receipt after restart and ensure later chat composition cannot accept a transcript operation ID that is inconsistent with the recovered receipt's process handoff.
