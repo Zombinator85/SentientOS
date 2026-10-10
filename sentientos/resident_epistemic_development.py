@@ -143,6 +143,8 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind in {"embodied_strategy_experiment",
                                                "developmental_model_replacement_experiment",
                                                "embodied_consequence_chain"})
+        unverified_embodiment_observation = (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind == "avatar_independently_observed_state")
         stable_source_digest = fact.source.digest
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
@@ -192,7 +194,8 @@ class ResidentEpistemicDevelopmentRuntime:
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
             "event_time_posture": "historical_or_unknown" if historical_resource_fact or historical_resource_introspection
-                or historical_undated_consequence else "source_observed"},
+                or historical_undated_consequence else "source_time_unverified" if unverified_embodiment_observation
+                else "source_observed"},
             sort_keys=True, separators=(",", ":"))
         proof = make_epistemic_evidence_source_proof(source_artifact_id=artifact_id,
             source_digest=stable_source_digest, source_schema=fact.source.schema_version,
@@ -203,7 +206,7 @@ class ResidentEpistemicDevelopmentRuntime:
         # healthy source may be represented as current.
         source_staleness = str(fact.source.staleness or "unknown").lower()
         if (not historical_resource_fact and not historical_resource_introspection
-                and not historical_undated_consequence
+                and not historical_undated_consequence and not unverified_embodiment_observation
                 and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
             freshness = "current"
         elif source_staleness in {"aging", "stale", "expired"}:

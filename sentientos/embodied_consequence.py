@@ -386,8 +386,11 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     elif counts["contradicted"]: classification = "expectation_contradicted"
     elif counts["missing"] or counts["indeterminate"]: classification = "indeterminate"
     else: classification = "expectation_satisfied"
+    # The observation contract currently binds a source string and digest but
+    # no authenticated observer issuer. Preserve the claim as evidence while
+    # refusing to promote that caller-supplied label into independent causal
+    # attribution.
     if observation and classification == "expectation_contradicted": causal = "external_interference_possible"
-    elif observation: causal = "independent_environment_observation"
     elif renderer_report: causal = "renderer_internal_only"
     else: causal = "causal_attribution_insufficient"
     # No independently authoritative physical-effect receipt owner is composed
@@ -407,7 +410,9 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         "body_generation":expectation.body_generation,"current_body_pointer_digest":current_body.get("pointer_digest"),
         "classification":classification,"causal_attribution_posture":causal,"commanded_value":dict(expectation.requested),
         "predicted_value":dict(expectation.predicted_observables),"renderer_reported_value":dict(renderer_report.applied) if renderer_report else None,
-        "independently_observed_value":dict(observation.observed) if observation else None,"proven_consequence_value":proven,
+        "independently_observed_value":dict(observation.observed) if observation else None,
+        "observation_independence_posture": "unverified_caller_assertion" if observation else "no_observation",
+        "proven_consequence_value":proven,
         "effect_proven":effect_proven,"causal_principal_binding_digest":causal_principal_binding_digest,
         "measured_evidence":list(measured_evidence),"evaluated_at":evaluated_at,"authority":dict(FALSE_AUTHORITY)}
     attribution_base["attribution_id"], attribution_base["attribution_digest"] = _identity("consequence", attribution_base)
@@ -1826,6 +1831,8 @@ class ConsequenceStore:
                 "payload": {"chain_id": chain_id, "chain_digest": chain["chain_digest"],
                     "component_source_ids": [item["source_id"] for item in chain_records],
                     "component_record_digests": [item["digest"] for item in chain_records],
+                    "independent_observation_posture": ("unverified_caller_assertion"
+                        if chain.get("observation") is not None else "no_observation"),
                     "current_truth": False, "effect_proven": False},
                 "effect_claimed": False, "effect_proven": False,
             }
