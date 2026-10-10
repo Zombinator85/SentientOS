@@ -187,10 +187,14 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "embodied_strategy_proposal_review")
         unverified_embodiment_observation = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "avatar_independently_observed_state")
+        source_integrity_conflict = (fact.source.finding != "ok" or any(
+            conflict.subject_id == fact.source.source_id
+            and conflict.conflict_type == "source_digest_mismatch"
+            for conflict in snapshot.conflicts))
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record or historical_strategy_proposal
             or historical_strategy_review or unverified_embodiment_observation
-            or incomplete_resource_lineage)
+            or incomplete_resource_lineage or source_integrity_conflict)
         stable_source_digest = fact.source.digest
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
@@ -236,6 +240,10 @@ class ResidentEpistemicDevelopmentRuntime:
                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
                 artifact_id = "resource-introspection:" + hashlib.sha256(json.dumps(stable_identity,
                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:32]
+        if source_integrity_conflict:
+            # Keep malformed producer records visible as context, but do not
+            # let a failed source binding provide an event time or support.
+            observed = None
         # A snapshot's reconstruction clock is not a source event time. Preserve
         # missing event time as a stable semantic value for every source kind.
         missing_source_time = observed is None
@@ -247,6 +255,7 @@ class ResidentEpistemicDevelopmentRuntime:
             "event_time_posture": "historical_or_unknown" if historical_resource_fact or historical_resource_introspection
                 or historical_undated_consequence or historical_unverified_owner_record
                 or historical_strategy_proposal or historical_strategy_review
+                or source_integrity_conflict
                 else "source_time_unverified" if unverified_embodiment_observation
                 else "source_time_missing" if missing_source_time
                 else "source_observed"},
