@@ -7,6 +7,7 @@ import logging
 import os
 import signal
 import stat
+import tempfile
 import time
 from contextlib import suppress
 from dataclasses import asdict
@@ -101,7 +102,7 @@ from sentientos.maintenance_resident_runtime_adoption import MaintenanceResident
 from sentientos.maintenance_resident_runtime_adoption import TRANSITION_ENV as RESIDENT_TRANSITION_ENV
 from sentientos.maintenance_resident_runtime_adoption import inspect_transition_custody as inspect_resident_transition_custody
 from sentientos.maintenance_initial_posix_resident_commissioning import STARTUP_GATE_ENV, await_initial_commissioning_gate
-from sentientos.windows_handle_custody import read_explicit_file, read_regular_files
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
@@ -610,6 +611,8 @@ class RuntimeMaintenanceSurfaces:
         deduplicates by receipt ID, and never invokes a model or grants effect
         authority. The next World-State build carries the exact receipt fields.
         """
+        if os.name != "posix":
+            raise ValueError("registered_invocation_receipt_publication_unsupported_platform")
         valid, findings = validate_receipt(receipt)
         if not valid:
             raise ValueError("invalid_governed_invocation_receipt:" + ",".join(findings))
@@ -629,11 +632,26 @@ class RuntimeMaintenanceSurfaces:
     def _recover_governed_invocation_receipts(self, supplied: tuple[Mapping[str, Any], ...]) -> tuple[dict[str, Any], ...]:
         """Recover evidence only; no model call, ledger mutation, or replay."""
         recovered: list[dict[str, Any]] = []
-        if self._governed_invocation_receipts_path.exists():
-            raw = json.loads(self._governed_invocation_receipts_path.read_text(encoding="utf-8"))
-            if not isinstance(raw, list) or len(raw) > 256:
+        try:
+            raw_bytes = read_explicit_file(self._governed_invocation_receipts_path,
+                max_bytes=16_777_216)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                raw_bytes = None
+            else:
+                raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
+        if raw_bytes is not None:
+            try:
+                raw = json.loads(raw_bytes.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
+            if (not isinstance(raw, list) or len(raw) > 256
+                    or any(not isinstance(item, Mapping) for item in raw)
+                    or json.dumps(raw, sort_keys=True, separators=(",", ":")).encode("utf-8") != raw_bytes):
                 raise ValueError("registered_invocation_receipts_artifact_invalid")
-            recovered.extend(dict(item) for item in raw if isinstance(item, Mapping))
+            recovered.extend(dict(item) for item in raw)
+        if len(supplied) > 256:
+            raise ValueError("registered_invocation_receipts_retention_limit_exceeded")
         for item in supplied:
             candidate = dict(item)
             receipt_id = str(candidate.get("receipt_id") or "")
@@ -649,11 +667,28 @@ class RuntimeMaintenanceSurfaces:
         return tuple(recovered[-256:])
 
     def _persist_governed_invocation_receipts(self) -> None:
+        if os.name != "posix":
+            raise ValueError("registered_invocation_receipt_publication_unsupported_platform")
         path = self._governed_invocation_receipts_path
         path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(".json.tmp")
-        temporary.write_text(json.dumps(list(self._governed_invocation_receipts), sort_keys=True, separators=(",", ":")), encoding="utf-8")
-        os.replace(temporary, path)
+        payload = json.dumps(list(self._governed_invocation_receipts), sort_keys=True,
+            separators=(",", ":")).encode("utf-8")
+        if len(payload) > 16_777_216:
+            raise ValueError("registered_invocation_receipts_size_limit_exceeded")
+        descriptor, temporary = tempfile.mkstemp(prefix=".registered-invocation-receipts-",
+            suffix=".tmp", dir=str(path.parent))
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(payload); handle.flush(); os.fsync(handle.fileno())
+            os.replace(temporary, path)
+            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            try: os.unlink(temporary)
+            except FileNotFoundError: pass
 
     def identify_improvement_signals(self) -> SignalPlaneEvaluation:
         records = collect_repository_evidence(repo_root=self._repo_root, artifacts=self._improvement_evidence_sources)

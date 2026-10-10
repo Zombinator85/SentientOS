@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction code is **untested and unverified 
 
 ## Latest remote checkpoint
 
-GitHub Git-data publication advanced the branch to `be1efa3c835b5e7bb3584fe31e25d51f2e01c718`, tree `d2758e5c25708a6120f67ce5b29fedf805970c92` (parent `0faa3900fa96b7f3b051d6643ff8289060a90d89`), using a compare-and-swap ref update. The commit was fetched by SHA and the branch-selected continuation file was reread after publication. The local historical Git checkout has a stale parent; local commit IDs are not remote commit identities.
+GitHub Git-data publication advanced the branch to `290070f2b31acad0806adb0f30a022bb0bc900ba`, tree `0e667ae93f2747d99fce720152f3271a69850b56` (parent `be1efa3c835b5e7bb3584fe31e25d51f2e01c718`), using a compare-and-swap ref update. The commit was fetched by SHA and the branch-selected continuation file was reread after publication. The local historical Git checkout has a stale parent; local commit IDs are not remote commit identities.
 
 ## Construction added after that checkpoint
 
@@ -16,6 +16,7 @@ GitHub Git-data publication advanced the branch to `be1efa3c835b5e7bb3584fe31e25
 - The durable epistemic owner can verify existing Windows custody without creating directories; all record publication fails closed on Windows until an equivalent atomic writer is available. Epistemic rows, resident cognition state/observation rows, and longitudinal-self-model history rows now reject noncanonical bytes during recovery. Resident cognition declines enabled execution on platforms where its state/observation publication path is not supported, before invoking the model.
 - Developmental-history writeback can read and verify bounded canonical record custody on Windows but refuses new record/receipt publication there. Recovery cannot turn a missing receipt into a durable success on that platform. POSIX record recovery also enforces aggregate retention bytes.
 - Developmental-history-intervention protocols/runs now have bounded canonical descriptor/handle reads and identity/digest reconstruction. Publication is POSIX-only; resident cognition already gates the operation before inference where publication is unsupported.
+- Runtime admission custody now has a 4 MiB / bounded-row ledger reader with canonical serialization, duplicate identity/sequence rejection, and revocation-to-admission binding checks. Snapshot publication fails closed outside POSIX. The daemon's registered invocation receipt cache uses bounded handle-safe recovery, rejects malformed/noncanonical selections, and refuses unsupported-platform publication.
 - The post-adoption and model-replacement readers retained their preceding bounded, canonical, read-only behavior. This work does not make their writers or live transition effects Windows-capable.
 
 ## Verification and limits
@@ -24,4 +25,4 @@ Python compilation for changed modules, static import-closure inspection, and `g
 
 ## Next executable task
 
-Trace runtime admission custody and the actual configured daemon composition around resident cognition. Check that Windows read-only recovery does not accidentally issue new admission, writeback, or inference when any dependent owner lacks atomic publication. Continue to keep model adoption and inference effects behind their existing independent owners.
+Trace the software and cognitive-model transition custody composed by daemon startup, including transition journals and the post-exec readiness boundary. Keep Windows read-only inspection separate from replacement, process-start, grant issuance, or model invocation when durable mutation support is missing. Then follow any remaining source-backed causal integration gap.

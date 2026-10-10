@@ -9,9 +9,13 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from sentientos.codex_task_authority_admission import TaskAuthorityDefinition, authority_definition_digest
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 SCHEMA = "sentientos.runtime_admission_ledger:v1"
 ISSUER_ID = "sentientos.control_plane.runtime_admission_authority:v1"
+MAX_LEDGER_BYTES = 4_194_304
+MAX_ADMISSIONS = 8_192
+MAX_REVOCATIONS = 8_192
 
 
 class AdmissionError(ValueError): pass
@@ -50,24 +54,54 @@ class AdmissionLedger:
     def __init__(self, path: Path) -> None: self.path = path
 
     def load(self) -> tuple[tuple[AdmissionEvidence, ...], tuple[RevocationEvidence, ...]]:
-        if not self.path.exists(): return (), ()
         try:
-            payload = json.loads(self.path.read_text(encoding="utf-8")); claimed = payload.pop("ledger_digest")
-            if payload.get("schema") != SCHEMA or claimed != _digest(payload): raise ValueError
+            raw = read_explicit_file(self.path, max_bytes=MAX_LEDGER_BYTES)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing": return (), ()
+            raise AdmissionError("corrupt_admission_ledger") from exc
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+            if (not isinstance(payload, dict)
+                    or json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                        ensure_ascii=False).encode("utf-8") != raw):
+                raise ValueError
+            claimed = payload.pop("ledger_digest")
+            if set(payload) != {"schema", "admissions", "revocations"} or payload.get("schema") != SCHEMA or claimed != _digest(payload): raise ValueError
+            if (not isinstance(payload["admissions"], list) or len(payload["admissions"]) > MAX_ADMISSIONS
+                    or not isinstance(payload["revocations"], list) or len(payload["revocations"]) > MAX_REVOCATIONS):
+                raise ValueError
             admissions = tuple(AdmissionEvidence(**{**row, "effects": tuple(row["effects"])}) for row in payload["admissions"])
             revocations = tuple(RevocationEvidence(**row) for row in payload["revocations"])
             if any(item.binding_digest != _seal(item) for item in admissions): raise ValueError
             if any(item.binding_digest != _seal(item) for item in revocations): raise ValueError
+            if (len({item.admission_id for item in admissions}) != len(admissions)
+                    or len({item.revocation_id for item in revocations}) != len(revocations)
+                    or any(not item.effects or tuple(sorted(set(item.effects))) != item.effects for item in admissions)):
+                raise ValueError
             orders = [x.issued_sequence for x in admissions] + [x.sequence for x in revocations]
             if len(orders) != len(set(orders)) or any(x < 1 for x in orders): raise ValueError
+            by_id = {item.admission_id: item for item in admissions}
+            if any((item.admission_id not in by_id
+                    or item.capability_id != by_id[item.admission_id].capability_id
+                    or item.principal_id != by_id[item.admission_id].principal_id
+                    or item.subject_id != by_id[item.admission_id].subject_id
+                    or item.sequence <= by_id[item.admission_id].issued_sequence)
+                    for item in revocations):
+                raise ValueError
             return admissions, revocations
-        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise AdmissionError("corrupt_admission_ledger") from exc
 
     def save(self, admissions: tuple[AdmissionEvidence, ...], revocations: tuple[RevocationEvidence, ...]) -> None:
+        if os.name != "posix":
+            raise AdmissionError("admission_ledger_publication_unsupported_platform")
+        if len(admissions) > MAX_ADMISSIONS or len(revocations) > MAX_REVOCATIONS:
+            raise AdmissionError("admission_ledger_retention_limit_exceeded")
         payload: dict[str, Any] = {"schema": SCHEMA, "admissions": [asdict(x) for x in admissions], "revocations": [asdict(x) for x in revocations]}
         payload["ledger_digest"] = _digest(payload)
         raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        if len(raw) > MAX_LEDGER_BYTES:
+            raise AdmissionError("admission_ledger_size_limit_exceeded")
         self.path.parent.mkdir(parents=True, exist_ok=True); temporary = self.path.with_name(f".{self.path.name}.{os.getpid()}.tmp")
         try:
             with temporary.open("xb") as stream: stream.write(raw); stream.flush(); os.fsync(stream.fileno())
