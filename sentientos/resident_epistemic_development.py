@@ -158,11 +158,13 @@ class ResidentEpistemicDevelopmentRuntime:
                                                "embodied_prediction_comparison"})
         historical_strategy_proposal = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "embodied_strategy_proposal")
+        historical_strategy_review = (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind == "embodied_strategy_proposal_review")
         unverified_embodiment_observation = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "avatar_independently_observed_state")
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record or historical_strategy_proposal
-            or unverified_embodiment_observation)
+            or historical_strategy_review or unverified_embodiment_observation)
         stable_source_digest = fact.source.digest
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
@@ -210,7 +212,7 @@ class ResidentEpistemicDevelopmentRuntime:
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
             "event_time_posture": "historical_or_unknown" if historical_resource_fact or historical_resource_introspection
                 or historical_undated_consequence or historical_unverified_owner_record
-                or historical_strategy_proposal
+                or historical_strategy_proposal or historical_strategy_review
                 else "source_time_unverified" if unverified_embodiment_observation
                 else "source_time_missing" if missing_source_time
                 else "source_observed"},
@@ -225,7 +227,7 @@ class ResidentEpistemicDevelopmentRuntime:
         source_staleness = str(fact.source.staleness or "unknown").lower()
         if (not historical_resource_fact and not historical_resource_introspection
                 and not historical_undated_consequence and not historical_unverified_owner_record
-                and not historical_strategy_proposal
+                and not historical_strategy_proposal and not historical_strategy_review
                 and not unverified_embodiment_observation
                 and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
             freshness = "current"
@@ -243,6 +245,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 and not unverified_source_context else None),
             upstream_binding_ids=(), freshness=freshness,
             reliability_posture=("proposal_source_not_world_truth" if historical_strategy_proposal
+                else "unverified_review_context_only" if historical_strategy_review
                 else "unverified_source_context_only" if unverified_source_context
                 else rule.reliability_posture))
         return proof, binding

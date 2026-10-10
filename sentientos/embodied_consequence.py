@@ -37,6 +37,7 @@ STRATEGY_CONDITION_START_SCHEMA = "sentientos.embodied_strategy_condition_start:
 STRATEGY_CONDITION_RESULT_SCHEMA = "sentientos.embodied_strategy_condition_result:v1"
 CONSEQUENCE_CHAIN_SCHEMA = "sentientos.embodied_consequence_chain:v1"
 WORLD_STATE_PROJECTION_CONFIG_SCHEMA = "sentientos.embodied_consequence_world_state_projection_config:v1"
+WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V2 = "sentientos.embodied_consequence_world_state_projection_config:v2"
 MAX_STRATEGY_CONTEXT_BYTES = 1_048_576
 MAX_CONSEQUENCE_ARTIFACT_BYTES = 2_097_152
 MAX_CONSEQUENCE_ARTIFACTS_PER_KIND = 4096
@@ -1538,10 +1539,13 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
 def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str, Any]:
     """Validate explicit selection of immutable experiment evidence for World-State."""
     config = dict(value)
-    fields = {"schema_version", "enabled", "store_root", "experiment_result_ids",
+    base_fields = {"schema_version", "enabled", "store_root", "experiment_result_ids",
         "consequence_chain_ids",
         "model_replacement_state_root", "model_replacement_runs", "config_digest"}
+    review_fields = {"proposal_review_log_path", "proposal_review_receipt_ids"}
+    fields = base_fields | (review_fields if config.get("schema_version") == WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V2 else set())
     if (set(config) != fields or config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA
+            and config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V2
             or type(config.get("enabled")) is not bool
             or config.get("config_digest") != digest({key: item for key, item in config.items()
                                                        if key != "config_digest"})):
@@ -1550,7 +1554,9 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
         if (config["store_root"] is not None or config["experiment_result_ids"] != []
                 or config["consequence_chain_ids"] != []
                 or config["model_replacement_state_root"] is not None
-                or config["model_replacement_runs"] != []):
+                or config["model_replacement_runs"] != []
+                or (config.get("proposal_review_log_path") is not None
+                    or config.get("proposal_review_receipt_ids", []) != [])):
             raise EmbodiedConsequenceError("disabled_world_state_projection_must_be_empty")
         return config
     root = config.get("store_root")
@@ -1558,6 +1564,8 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
     chain_ids = config.get("consequence_chain_ids")
     replacement_root = config.get("model_replacement_state_root")
     replacement_runs = config.get("model_replacement_runs")
+    review_path = config.get("proposal_review_log_path")
+    review_ids = config.get("proposal_review_receipt_ids", [])
     if (not isinstance(identities, list) or len(identities) > 32
             or any(not isinstance(identity, str)
                    or not identity.startswith("strategy-experiment:")
@@ -1570,7 +1578,13 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
             or len(chain_ids) != len(set(chain_ids))
             or (identities or chain_ids) and (not isinstance(root, str) or not Path(root).is_absolute())
             or not (identities or chain_ids) and root is not None
-            or not isinstance(replacement_runs, list) or len(replacement_runs) > 32):
+            or not isinstance(replacement_runs, list) or len(replacement_runs) > 32
+            or not isinstance(review_ids, list) or len(review_ids) > 32
+            or any(not isinstance(item, str) or len(item) != 29 or not item.startswith("eprr_")
+                or any(character not in "0123456789abcdef" for character in item[5:]) for item in review_ids)
+            or len(review_ids) != len(set(review_ids))
+            or (review_ids and (not isinstance(review_path, str) or not Path(review_path).is_absolute()))
+            or (not review_ids and review_path is not None)):
         raise EmbodiedConsequenceError("world_state_projection_selection_invalid")
     if replacement_runs:
         prefix = "model-replacement-run-"
@@ -1596,10 +1610,10 @@ def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str
     # optional renderer report, optional independent observation, attribution,
     # comparison, and chain summary). Reserve an explicit aggregate budget so
     # the World-State builder cannot silently truncate selected evidence.
-    projected_record_bound = (7 * len(chain_ids) + len(identities) + len(replacement_runs))
+    projected_record_bound = (7 * len(chain_ids) + len(identities) + len(replacement_runs) + len(review_ids))
     if projected_record_bound > MAX_WORLD_STATE_PROJECTION_RECORDS:
         raise EmbodiedConsequenceError("world_state_projection_record_budget_exceeded")
-    if not identities and not chain_ids and not replacement_runs:
+    if not identities and not chain_ids and not replacement_runs and not review_ids:
         raise EmbodiedConsequenceError("world_state_projection_selection_empty")
     return config
 

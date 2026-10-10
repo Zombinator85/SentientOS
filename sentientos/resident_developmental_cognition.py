@@ -574,7 +574,7 @@ class ResidentDevelopmentalCognitionOwner:
             priority = 4
         elif subject_kind in {"resident_model_transition_recovery", "software_generation_transition_recovery"}:
             priority = 5
-        elif subject_kind == "embodied_strategy_proposal":
+        elif subject_kind in {"embodied_strategy_proposal", "embodied_strategy_proposal_review"}:
             priority = 5
         else:
             priority = 6
