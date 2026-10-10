@@ -550,6 +550,17 @@ def _verified_activation_history(handle: InstallationStateHandle, current_state:
     return tuple(history)
 
 
+def verify_commissioning_model_identity(handle: InstallationStateHandle, commissioning_receipt_id: str, *,
+        allow_synthetic_evidence_for_tests: bool = False) -> dict[str, Any]:
+    """Read the digest-verified commissioned identity for a pre-effect transition check."""
+    receipt = _receipt(handle, commissioning_receipt_id,
+                       allow_synthetic_for_tests=allow_synthetic_evidence_for_tests)
+    identity = receipt.get("observed_active_model_identity")
+    if not isinstance(identity, Mapping):
+        raise ProductionActivationError("commissioning_model_identity_missing")
+    return dict(identity)
+
+
 def verify_current_activation(handle: InstallationStateHandle, *,
         allow_synthetic_evidence_for_tests: bool = False) -> dict[str, Any]:
     """Read-only verification of current selection and its exact activation predecessor chain."""
@@ -566,8 +577,15 @@ def verify_current_activation(handle: InstallationStateHandle, *,
     receipt = _json(handle.read_regular(handle.fixed_object(
         f"local-model/activation/receipts/{latest['activation_receipt_id']}.json")),
         "activation_receipt_malformed")
+    commissioning_identity = commissioning.get("observed_active_model_identity")
+    if not isinstance(commissioning_identity, Mapping):
+        raise ProductionActivationError("commissioning_model_identity_missing")
+    history_digest = semantic_digest({"activation_history": list(history)})
     return {"status": "current_local_model_activation_verified", "active_state": state,
-            "activation_receipt": receipt, "activation_history": history, "catalog_proof": proof,
-            "model_loaded": False, "serving_started": False, "inference_performed": False}
+            "activation_receipt": receipt, "activation_history": history,
+            "activation_history_digest": history_digest,
+            "commissioning_active_model_identity": dict(commissioning_identity),
+            "catalog_proof": proof, "model_loaded": False, "serving_started": False,
+            "inference_performed": False}
 
 

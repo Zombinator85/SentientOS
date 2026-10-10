@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
-from .local_model_production_activation import activate_production, verify_current_activation
+from .local_model_production_activation import (
+    activate_production, verify_commissioning_model_identity, verify_current_activation,
+)
 from .local_runtime_provisioning import semantic_digest
 from .resident_cognitive_model_serving import (
     ResidentCognitiveModelServingController, ResidentCognitiveServingSlot,
@@ -16,11 +18,13 @@ from .resident_cognitive_model_transition_experiment import (
 )
 
 
-def _activation(result: Mapping[str, Any], *, activation_history_digest: str) -> dict[str, Any]:
+def _activation(result: Mapping[str, Any], *, activation_history_digest: str,
+               commissioning_model_identity: Mapping[str, Any]) -> dict[str, Any]:
     state, receipt = result["active_state"], result["activation_receipt"]
     return {**dict(state), "receipt_id": receipt["receipt_id"],
             "receipt_semantic_digest": receipt["receipt_semantic_digest"],
-            "activation_history_digest": activation_history_digest}
+            "activation_history_digest": activation_history_digest,
+            "commissioning_active_model_identity": dict(commissioning_model_identity)}
 
 
 class ResidentCognitiveTransitionStageOperations:
@@ -52,6 +56,13 @@ class ResidentCognitiveTransitionStageOperations:
         commissioning_receipt_id = str(approval.get("commissioning_receipt_id", ""))
         if not correlation_id or not commissioning_receipt_id:
             raise TransitionError("external_activation_approval_binding_incomplete")
+        expected_model = (self.protocol.value["successor_b"] if suffix == "A->B"
+                          else self.protocol.value["restored_a"])
+        commissioned_identity = verify_commissioning_model_identity(
+            self.installation_handle, commissioning_receipt_id,
+            allow_synthetic_evidence_for_tests=self.allow_synthetic_evidence_for_tests)
+        if commissioned_identity != expected_model.get("active_model_identity"):
+            raise TransitionError("transition_commissioning_identity_mismatch")
         result = activate_production(
             installation_handle=self.installation_handle,
             commissioning_receipt_id=commissioning_receipt_id,
@@ -72,8 +83,12 @@ class ResidentCognitiveTransitionStageOperations:
         if not isinstance(history, (tuple, list)) or not history:
             raise TransitionError("activation_history_unavailable")
         history_digest = semantic_digest({"activation_history": list(history)})
+        commissioned_identity = verified.get("commissioning_active_model_identity")
+        if not isinstance(commissioned_identity, Mapping) or dict(commissioned_identity) != expected_model.get("active_model_identity"):
+            raise TransitionError("transition_commissioning_identity_mismatch")
         return {"activation": _activation(cast(Mapping[str, Any], result),
-                                          activation_history_digest=history_digest),
+                                          activation_history_digest=history_digest,
+                                          commissioning_model_identity=commissioned_identity),
                 "activation_admission": result["activation_receipt"]["model_activation_admission_ref"],
                 "external_activation_approval_evidence_id": approval["approval_evidence_id"],
                 "external_activation_approval_semantic_digest": approval["approval_semantic_digest"],
@@ -89,6 +104,15 @@ class ResidentCognitiveTransitionStageOperations:
 
     def _serve(self, *, activation: Mapping[str, Any], identity: Mapping[str, Any],
                operation_id: str, stage: str) -> Mapping[str, Any]:
+        selected = verify_current_activation(
+            self.installation_handle,
+            allow_synthetic_evidence_for_tests=self.allow_synthetic_evidence_for_tests)
+        if (selected["active_state"].get("state_semantic_digest") != activation.get("state_semantic_digest")
+                or selected["activation_receipt"].get("receipt_id") != activation.get("receipt_id")
+                or selected["activation_receipt"].get("receipt_semantic_digest") != activation.get("receipt_semantic_digest")
+                or selected.get("activation_history_digest") != activation.get("activation_history_digest")
+                or selected.get("commissioning_active_model_identity") != identity.get("active_model_identity")):
+            raise TransitionError("transition_selection_lineage_mismatch")
         controller = self.serving_controller_factory(
             self.installation_handle, self.control_plane_kernel)
         session = controller.establish(
