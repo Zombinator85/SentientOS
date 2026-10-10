@@ -147,7 +147,10 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     allocation = payload.get("resource_allocation_digest")
     attempt = payload.get("resource_attempt_id")
     consumption = payload.get("resource_consumption_receipt_digests")
-    has_linkage = any(value is not None for value in (allocation, attempt, consumption))
+    # ``to_dict`` emits an empty consumption tuple/list on legacy, unlinked
+    # receipts.  Empty means absence; a nonempty tuple still requires the full
+    # allocation/attempt binding below.
+    has_linkage = allocation is not None or attempt is not None or bool(consumption)
     if payload.get("resource_linkage_digest") is not None and not has_linkage:
         reasons.append("resource_linkage_fields_missing")
     if has_linkage:

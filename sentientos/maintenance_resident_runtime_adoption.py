@@ -342,6 +342,67 @@ class MaintenanceResidentRuntimeAdoptionController:
 
     def health(self) -> dict[str, Any]: return dict(self._health)
 
+    def current_execution_provenance(self) -> dict[str, Any]:
+        """Return current, owner-verified process and software generation identity.
+
+        This is read-only evidence for causal attribution.  A commit or manifest
+        by itself is not accepted: the captured launch provenance must still
+        describe this process, the configured generation, and a clean exact
+        repository state when queried.
+        """
+        if not self.config["enabled"] or self._baseline is None:
+            raise ValueError("resident_execution_provenance_unavailable")
+        self._within_lifecycle()
+        baseline = self._baseline
+        try:
+            stored = _load_object(baseline["provenance_path"], "resident_launch_provenance_missing")
+        except (KeyError, OSError, ValueError) as exc:
+            raise ValueError("resident_launch_provenance_unavailable") from exc
+        if (stored.get("schema_version") != PROVENANCE_SCHEMA
+                or stored.get("provenance_digest") != digest(stored, "provenance_digest")
+                or stored.get("provenance_digest") != baseline.get("provenance_digest")
+                or stored.get("process_instance_id") != baseline.get("process_instance_id")):
+            raise ValueError("resident_launch_provenance_invalid")
+        observation = dict(self._process_observer())
+        expected_argv = [self.config["python_executable"], "-m", self.config["daemon_module"]]
+        if (observation.get("pid") != stored.get("pid")
+                or observation.get("startup_timestamp") != stored.get("startup_timestamp")
+                or observation.get("python_executable") != stored.get("python_executable")
+                or observation.get("daemon_entrypoint") != stored.get("daemon_entrypoint")
+                or observation.get("module_spec_origin") != stored.get("module_spec_origin")
+                or observation.get("cwd") != stored.get("cwd")
+                or observation.get("argv") != expected_argv):
+            raise ValueError("resident_process_identity_changed")
+        process_instance = digest({"pid": observation["pid"], "startup_timestamp": observation["startup_timestamp"],
+            "generation_digest": stored["represented_generation_digest"], "argv": expected_argv,
+            "python_executable": observation["python_executable"],
+            "daemon_entrypoint": observation["daemon_entrypoint"],
+            "module_spec_origin": observation.get("module_spec_origin")})
+        if process_instance != stored.get("process_instance_id"):
+            raise ValueError("resident_process_instance_binding_mismatch")
+        environment = observation.get("environment")
+        if not isinstance(environment, Mapping) or digest(dict(environment)) != stored.get("environment_identity_digest"):
+            raise ValueError("resident_process_environment_changed")
+        canonical = self._canonical_current()
+        repository = self._repository(canonical)
+        if (canonical.get("generation_digest") != stored.get("represented_generation_digest")
+                or repository.get("observed_commit_sha") != stored.get("observed_commit_sha")
+                or repository.get("observed_tree_sha") != stored.get("observed_tree_sha")
+                or repository.get("observed_symbolic_ref") != stored.get("observed_symbolic_ref")
+                or repository.get("clean_working_tree") is not True):
+            raise ValueError("resident_software_generation_not_current")
+        return {"schema_version": stored["schema_version"],
+            "process_instance_id": stored["process_instance_id"],
+            "provenance_digest": stored["provenance_digest"],
+            "represented_generation_digest": stored["represented_generation_digest"],
+            "represented_generation_base_sha": stored["represented_generation_base_sha"],
+            "manifest_digest": stored["manifest_digest"],
+            "observed_commit_sha": stored["observed_commit_sha"],
+            "observed_tree_sha": stored["observed_tree_sha"],
+            "startup_timestamp": stored["startup_timestamp"],
+            "repository_identity": stored["repository_identity"],
+            "config_digest": stored["config_digest"]}
+
     def _within_lifecycle(self) -> None:
         if self._clock() - self._started > float(self.config["maximum_wall_clock_seconds"]):
             raise ValueError("resident_lifecycle_bound_exhausted")

@@ -417,6 +417,13 @@ class ResidentCognitiveServingInvoker:
         session = self._serving.current_session()
         if session is None:
             raise ResidentCognitiveModelServingError("current_resident_serving_session_required")
+        linkage = getattr(request, "linkage", None)
+        bound_session = linkage.get("resident_cognitive_serving") if isinstance(linkage, Mapping) else None
+        expected_session = {"session_id": session.session_id,
+            "model_serving_admission_ref": session.binding["model_serving_admission_ref"],
+            "activation_state_semantic_digest": session.binding["activation_state_semantic_digest"]}
+        if not isinstance(bound_session, Mapping) or dict(bound_session) != expected_session:
+            raise ResidentCognitiveModelServingError("inference_request_serving_session_mismatch")
         invoker = self._invoker(session)
         def current() -> None:
             self._serving._current_inference_model(session)
