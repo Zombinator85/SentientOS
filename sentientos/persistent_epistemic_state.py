@@ -10,9 +10,11 @@ import json
 import os
 import stat
 import tempfile
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
+from .platform_fcntl import fcntl, require_flock
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROPOSITION_SCHEMA = "sentientos.epistemic_proposition:v1"
@@ -29,7 +31,7 @@ DEPENDENCIES = frozenset({"same_source_derivation", "shared_upstream_evidence", 
 STANCES = frozenset({"unknown", "suspended", "provisionally_supported", "supported", "contested", "provisionally_contradicted", "contradicted", "superseded"})
 UPDATE_REASONS = frozenset({"initialization", "new_evidence", "evidence_withdrawal", "contradiction_arrival", "duplicate_evidence_correction", "dependency_correction", "source_reliability_revision", "proposition_refinement", "update_rule_correction", "calibration_outcome", "operator_error_correction"})
 FALSE_AUTHORITY = {"policy": False, "goal": False, "permission": False, "effect_admission": False, "adoption": False, "memory_retention": False, "truth_oracle": False}
-RECORD_COLLECTIONS = frozenset({"propositions", "bindings", "states", "updates", "relations", "calibrations"})
+RECORD_COLLECTIONS = frozenset({"propositions", "bindings", "states", "updates", "relations", "calibrations", "transactions"})
 MAX_EPISTEMIC_RECORD_BYTES = 1_048_576
 MAX_EPISTEMIC_RECORDS_PER_COLLECTION = 65_536
 MAX_EPISTEMIC_COLLECTION_BYTES = 67_108_864
@@ -379,6 +381,13 @@ class PersistentEpistemicStateOwner:
             identity = value.get("calibration_id")
             if not _valid_identity(identity, "epistemic-calibration"): return False
             expected = f"{identity}.json"
+        elif kind == "transactions":
+            transaction_semantic = {key: value.get(key) for key in ("state", "event")}
+            identity, transaction_digest = _identity("epistemic-transaction", transaction_semantic)
+            if (value.get("transaction_id") != identity
+                    or value.get("transaction_digest") != transaction_digest):
+                return False
+            expected = f"{identity.split(':', 1)[1]}.json"
         else:
             return False
         return filename == expected
@@ -421,6 +430,57 @@ class PersistentEpistemicStateOwner:
                 or after.st_dev != entries_mode.st_dev):
             raise EpistemicStateError("epistemic_collection_changed_during_read")
         return tuple(records)
+
+    def _recover_transactions(self) -> None:
+        """Complete only digest-valid state/event pairs from immutable intents."""
+        prepared: list[tuple[EpistemicState, EpistemicUpdateEvent]] = []
+        generation_bindings: dict[tuple[str, int], tuple[str, str]] = {}
+        for raw in self._read("transactions"):
+            if set(raw) != {"transaction_id", "transaction_digest", "state", "event"}:
+                raise EpistemicStateError("epistemic_transaction_shape_invalid")
+            state_raw, event_raw = raw.get("state"), raw.get("event")
+            if not isinstance(state_raw, dict) or not isinstance(event_raw, dict):
+                raise EpistemicStateError("epistemic_transaction_shape_invalid")
+            semantic = {"state": state_raw, "event": event_raw}
+            transaction_id, transaction_digest = _identity("epistemic-transaction", semantic)
+            if (raw.get("transaction_id"), raw.get("transaction_digest")) != (
+                    transaction_id, transaction_digest):
+                raise EpistemicStateError("epistemic_transaction_digest_mismatch")
+            try:
+                normalized_state = dict(state_raw)
+                normalized_state["support_binding_ids"] = tuple(normalized_state["support_binding_ids"])
+                normalized_state["contradiction_binding_ids"] = tuple(normalized_state["contradiction_binding_ids"])
+                normalized_event = dict(event_raw)
+                normalized_event["added_binding_ids"] = tuple(normalized_event["added_binding_ids"])
+                normalized_event["removed_binding_ids"] = tuple(normalized_event["removed_binding_ids"])
+                state = EpistemicState(**normalized_state)
+                event = EpistemicUpdateEvent(**normalized_event)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise EpistemicStateError("epistemic_transaction_record_invalid") from exc
+            expected_state = _identity("epistemic-state", state.payload())
+            expected_event = _identity("epistemic-update", event.identity_payload())
+            if ((state.state_id, state.state_digest) != expected_state
+                    or (event.event_id, event.event_digest) != expected_event
+                    or state.proposition_id != event.proposition_id
+                    or state.generation != event.generation
+                    or state.predecessor_state_digest != event.prior_state_digest
+                    or state.state_digest != event.successor_state_digest
+                    or state.last_update_event_id != event.event_id
+                    or not isinstance(event.tick, int) or isinstance(event.tick, bool) or event.tick < 0):
+                raise EpistemicStateError("epistemic_transaction_lineage_invalid")
+            generation = (state.proposition_id, state.generation)
+            pair = (state.state_digest, event.event_digest)
+            previous = generation_bindings.get(generation)
+            if previous is not None and previous != pair:
+                raise EpistemicStateError("epistemic_transaction_generation_conflict")
+            generation_bindings[generation] = pair
+            prepared.append((state, event))
+        if prepared and os.name != "posix":
+            raise EpistemicStateError("epistemic_transaction_recovery_unsupported_platform")
+        for state, event in sorted(prepared, key=lambda pair: (
+                pair[0].proposition_id, pair[0].generation, pair[0].state_id)):
+            _write_new(self.root / "states" / f"{state.generation:012d}-{state.state_id}.json", asdict(state))
+            _write_new(self.root / "updates" / f"{event.generation:012d}-{event.event_id}.json", asdict(event))
 
     def register_proposition(self, proposition: EpistemicProposition) -> None:
         expected = make_proposition(**{k:v for k,v in asdict(proposition).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
@@ -473,6 +533,40 @@ class PersistentEpistemicStateOwner:
                 "contradiction_binding_ids": tuple(v["contradiction_binding_ids"])})
                 for v in self._read("states") if v["proposition_id"] == proposition_id]
         return max(states, key=lambda x:x.generation) if states else None
+
+    @contextmanager
+    def _mutation_lock(self) -> Iterator[None]:
+        """Serialize state-generation compare-and-swap across local processes."""
+        if os.name != "posix":
+            raise EpistemicStateError("epistemic_mutation_unsupported_platform")
+        descriptor: int | None = None
+        try:
+            require_flock()
+            nofollow = getattr(os, "O_NOFOLLOW", None)
+            if nofollow is None:
+                raise EpistemicStateError("epistemic_mutation_nofollow_unsupported")
+            flags = os.O_CREAT | os.O_RDWR | nofollow
+            descriptor = os.open(self.root / ".epistemic-mutation.lock", flags, 0o600)
+            opened = os.fstat(descriptor)
+            if not stat.S_ISREG(opened.st_mode):
+                raise EpistemicStateError("epistemic_mutation_lock_invalid")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except EpistemicStateError:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise
+        except OSError as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise EpistemicStateError("epistemic_mutation_lock_unavailable") from exc
+        assert descriptor is not None
+        try:
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
 
     def update_events(self, proposition_id: str) -> tuple[EpistemicUpdateEvent, ...]:
         return tuple(sorted((EpistemicUpdateEvent(**{**v,
@@ -550,6 +644,21 @@ class PersistentEpistemicStateOwner:
                       reliability_changes: Mapping[str,str] = {}, update_rule_id: str = "qualitative_explicit:v1",
                       update_rule_revision: str | None = None, candidate: EpistemicUpdateCandidate | None = None,
                       correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
+        with self._mutation_lock():
+            return self._commit_update_locked(proposition_id=proposition_id,
+                expected_predecessor_digest=expected_predecessor_digest, stance=stance, reason=reason,
+                active_binding_ids=active_binding_ids, added_binding_ids=added_binding_ids,
+                removed_binding_ids=removed_binding_ids, dependency_changes=dependency_changes,
+                reliability_changes=reliability_changes, update_rule_id=update_rule_id,
+                update_rule_revision=update_rule_revision, candidate=candidate,
+                correlation_id=correlation_id, tick=tick, recorded_at=recorded_at, confidence=confidence)
+
+    def _commit_update_locked(self, *, proposition_id: str, expected_predecessor_digest: str | None, stance: str,
+                      reason: str, active_binding_ids: Sequence[str], added_binding_ids: Sequence[str] = (),
+                      removed_binding_ids: Sequence[str] = (), dependency_changes: Mapping[str,str] = {},
+                      reliability_changes: Mapping[str,str] = {}, update_rule_id: str = "qualitative_explicit:v1",
+                      update_rule_revision: str | None = None, candidate: EpistemicUpdateCandidate | None = None,
+                      correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
         self.verify(); self.proposition(proposition_id); prior=self.current_state(proposition_id)
         actual=prior.state_digest if prior else None
         if actual != expected_predecessor_digest: raise EpistemicStateError("epistemic_state_compare_and_swap_failed")
@@ -595,7 +704,14 @@ class PersistentEpistemicStateOwner:
         event=EpistemicUpdateEvent(eid,edg,proposition_id,actual,sdg,reason,tuple(sorted(added_binding_ids)),
             tuple(sorted(removed_binding_ids)),dict(dependency_changes),dict(reliability_changes),update_rule_revision,
             candidate.candidate_id if candidate else None,"deterministically_validated",correlation_id,tick,generation,dict(FALSE_AUTHORITY))
-        _write_new(self.root/"states"/f"{generation:012d}-{sid}.json",asdict(state)); _write_new(self.root/"updates"/f"{generation:012d}-{eid}.json",asdict(event))
+        transaction_semantic = {"state": asdict(state), "event": asdict(event)}
+        transaction_id, transaction_digest = _identity("epistemic-transaction", transaction_semantic)
+        transaction = {**transaction_semantic, "transaction_id": transaction_id,
+                       "transaction_digest": transaction_digest}
+        transaction_filename = transaction_id.split(":", 1)[1] + ".json"
+        _write_new(self.root / "transactions" / transaction_filename, transaction)
+        _write_new(self.root/"states"/f"{generation:012d}-{sid}.json",asdict(state))
+        _write_new(self.root/"updates"/f"{generation:012d}-{eid}.json",asdict(event))
         return state,event
 
     def record_calibration(self, **kwargs: Any) -> EpistemicCalibrationEvent:
@@ -612,6 +728,7 @@ class PersistentEpistemicStateOwner:
         _write_new(self.root/"calibrations"/f"{cid}.json",asdict(value)); return value
 
     def verify(self) -> Mapping[str,int]:
+        self._recover_transactions()
         propositions={}
         for raw in self._read("propositions"):
             proposition_value=EpistemicProposition(**raw); expected_proposition=make_proposition(**{k:v for k,v in raw.items() if k not in {"proposition_id","proposition_digest","schema_version"}})
