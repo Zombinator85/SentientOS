@@ -213,6 +213,18 @@ class ResidentEpistemicDevelopmentRuntime:
                 if isinstance(event_times, Mapping) else None)
             observed = (_latest_historical_event_time([claimed_observation_at])
                 if isinstance(claimed_observation_at, str) else None)
+        if (fact.source.kind == "embodiment"
+                and fact.subject.subject_kind == "developmental_model_replacement_experiment"
+                and isinstance(fact.payload, Mapping)):
+            observations = fact.payload.get("observations")
+            if isinstance(observations, (list, tuple)):
+                event_times = [item.get("inference_event_time") for item in observations
+                    if isinstance(item, Mapping) and isinstance(item.get("inference_event_time"), str)]
+                malformed_time = any(isinstance(item, Mapping)
+                    and item.get("inference_event_time") is not None
+                    and not isinstance(item.get("inference_event_time"), str) for item in observations)
+                observed = (None if malformed_time else
+                    _latest_historical_event_time(event_times) if event_times else None)
         if historical_resource_introspection and isinstance(fact.payload, Mapping):
             observations = fact.payload.get("observations", ())
             if not isinstance(observations, (list, tuple)):

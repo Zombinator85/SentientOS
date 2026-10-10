@@ -10,6 +10,7 @@ import os
 import secrets
 import stat
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
 
@@ -212,6 +213,21 @@ def _resource_receipt_binding(receipt: Mapping[str, Any]) -> dict[str, Any]:
         "resource_consumption_receipt_digests": list(values),
         "resource_linkage_digest": linkage,
         "resource_attribution_posture": "linkage_digest_bound_ledger_reconciliation_pending"}
+
+
+def _inference_event_time(value: Any) -> str | None:
+    """Keep the receipt's historical timestamp text, or preserve unknown time."""
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value or len(value) > 64:
+        raise DevelopmentalModelReplacementError("inference_event_time_invalid")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (OverflowError, ValueError) as exc:
+        raise DevelopmentalModelReplacementError("inference_event_time_invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise DevelopmentalModelReplacementError("inference_event_time_timezone_required")
+    return value
 
 
 def _inference_failure_evidence(receipt: Mapping[str, Any]) -> dict[str, Any]:
@@ -1139,7 +1155,7 @@ class ModelReplacementArtifactStore:
         return cast(dict[str, Any], value)
 
     def world_state_records(self, *, run_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
-        """Project explicitly selected immutable A/B runs as undated evidence."""
+        """Project explicitly selected immutable A/B runs without recovery-time freshness."""
         from .world_state_board import record_digest
 
         references = tuple(run_refs)
@@ -1196,6 +1212,7 @@ class ModelReplacementArtifactStore:
                 history_ids = raw.get("history_record_ids")
                 history_digests = raw.get("history_record_digests")
                 generation_parameters = raw.get("actual_generation_parameters")
+                event_time = _inference_event_time(raw.get("inference_event_time"))
                 if (raw.get("condition_id") != expected_condition
                         or raw.get("observation_digest") != calculated
                         or raw.get("observation_id") != "model-replacement-observation-" + calculated[7:31]
@@ -1218,6 +1235,7 @@ class ModelReplacementArtifactStore:
                             "request_id", "request_digest", "correlation_id"))
                         or raw.get("correlation_id") != f"{protocol.protocol_id}:{run.get('trial_id')}:{expected_condition}"
                         or not isinstance(generation_parameters, Mapping)
+                        or event_time != raw.get("inference_event_time")
                         or generation_parameters.get("temperature") != 0):
                     raise DevelopmentalModelReplacementError("run_projection_observation_binding_invalid")
                 observations.append({key: raw.get(key) for key in (
@@ -1226,7 +1244,7 @@ class ModelReplacementArtifactStore:
                     "request_id", "request_digest",
                     "current_projection_id", "current_projection_digest", "history_withheld",
                     "history_record_ids", "history_record_digests", "inference_receipt_id",
-                    "inference_receipt_digest", "output_digest",
+                    "inference_receipt_digest", "inference_event_time", "output_digest",
                     "model_id", "model_artifact_digest",
                     "prior_self_model_projection_id", "prior_self_model_projection_digest",
                     "prior_self_model_source_tick", "prior_epistemic_projection_id",
@@ -1384,6 +1402,7 @@ class DevelopmentalModelReplacementExperiment:
                     "request_digest": receipt["request_digest"],
                     "inference_receipt_id": receipt["inference_receipt_id"],
                     "inference_receipt_digest": receipt["inference_receipt_digest"],
+                    "inference_event_time": _inference_event_time(receipt.get("observed_at")),
                     "output_digest": receipt["output_digest"],
                     "actual_generation_parameters": dict(actual),
                     "authority_record_digest": expected.authority_record_digest,
@@ -1406,6 +1425,7 @@ class DevelopmentalModelReplacementExperiment:
         history_digests = list(self.context.history_record_digests) if with_history else []
         correlation = f"{self.protocol.protocol_id}:{trial_id}:{condition}"
         generation = value.get("actual_generation_parameters")
+        event_time = _inference_event_time(value.get("inference_event_time"))
         prior_bindings = _prior_cognition_bindings(self.context.current_projection_payload)
         resource_fields = {"resource_allocation_digest", "resource_attempt_id",
             "resource_consumption_receipt_digests", "resource_linkage_digest",
@@ -1429,6 +1449,7 @@ class DevelopmentalModelReplacementExperiment:
                 or value.get("history_record_ids") != history_ids
                 or value.get("history_record_digests") != history_digests
                 or value.get("history_withheld") is not (not with_history)
+                or event_time != value.get("inference_event_time")
                 or (resource_binding is not None and any(value.get(key) != expected_value
                     for key, expected_value in resource_binding.items()))
                 or (has_prior_bindings and any(value.get(key) != expected_value
