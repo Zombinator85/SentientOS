@@ -345,6 +345,12 @@ class ResidentDevelopmentalCognitionOwner:
             saved_tick = row.get("tick_id")
             if not isinstance(saved_tick, str) or not saved_tick or saved_tick in incomplete or saved_tick in ticks:
                 raise ResidentDevelopmentalCognitionError("composition_tick_identity_ambiguous")
+            if row.get("status") == "in_progress":
+                # The durable marker is written before any cognition call. If
+                # it is still present on the next owner entry, completion was
+                # interrupted; preserve that fact and never retry this tick.
+                row["status"] = "interrupted_recovered"
+                changed = True
             incomplete[saved_tick] = row
         for record, receipt in recovered:
             candidate = record.candidate
@@ -803,6 +809,15 @@ class ResidentDevelopmentalCognitionOwner:
         if len(state["completed_ticks"]) + len(state["incomplete_ticks"]) >= MAX_RECOVERED_TICKS:
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
 
+        # Publish the exact snapshot/tick intent before any local-model call.
+        # A crash before the first durable cognition observation must remain
+        # distinguishable from a tick that never began, and the same tick may
+        # not be replayed after restart. A future tick can continue normally.
+        state["incomplete_ticks"].append({"tick_id": tick_id,
+            "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+            "status": "in_progress"})
+        self._save_state(state)
+
         # Capture prior history before any candidate from this tick can exist.
         prior = self._prior_projection(state, tick_id)
         current = self._current_projection(snapshot)
@@ -903,6 +918,8 @@ class ResidentDevelopmentalCognitionOwner:
                 # Persist each exact fact-evidence identity so changing the batch
                 # bound cannot make an already interpreted fact eligible again.
                 state["processed_selection_ids"].extend(fact_ids)
+        state["incomplete_ticks"] = [row for row in state["incomplete_ticks"]
+                                      if row.get("tick_id") != tick_id]
         state["completed_ticks"].append({"tick_id": tick_id, "snapshot_id": snapshot.snapshot_id,
                                          "snapshot_digest": snapshot.digest, "record_id": record_id,
                                          "receipt_id": receipt_id})
