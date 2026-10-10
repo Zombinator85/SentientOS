@@ -38,6 +38,7 @@ MAX_PHASE_RECORD_BYTES = 262_144
 MAX_PHASE_RECORDS = 256
 MAX_SERVING_RECEIPTS = 256
 MAX_SERVING_RECEIPT_BYTES = 262_144
+MAX_RECOVERY_OPERATION_SCAN_BYTES = 16 * 1024 * 1024
 SNAPSHOT_SCHEMA = "sentientos.local_model_chat_runtime_startup:v1"
 MAX_STARTUP_SNAPSHOT_BYTES = 131_072
 PRINCIPAL = "deterministic_local_model_chat_recovery_controller"
@@ -273,15 +274,83 @@ def exact_prior_serving_receipt(handle: InstallationStateHandle, operation_id: s
     return matches[0]
 
 
-def require_fresh_operation(handle: InstallationStateHandle, replacement: str, prior: str) -> str:
+def _attempted_recovery_operation_exists(handle: InstallationStateHandle,
+        replacement: str, *, excluding_request_id: str | None) -> bool:
+    """Fail closed if an interrupted durable attempt already reserved this operation."""
+    total_bytes = 0
+    try:
+        names = handle.list_regular_names(
+            handle.fixed_object("local-model/recovery/phases/attempts"),
+            max_entries=MAX_PHASE_RECORDS)
+    except InstallationStateError as exc:
+        if exc.code in {"state_directory_missing", "state_parent_missing"}:
+            return False
+        raise LocalModelChatRecoveryError("recovery_operation_reservation_unavailable") from exc
+    for name in names:
+        if not isinstance(name, str) or not name.endswith(".json") or len(name) > 180:
+            raise LocalModelChatRecoveryError("recovery_operation_attempt_name_invalid")
+        request_id = name[:-5]
+        try:
+            phase_raw = handle.read_regular_bounded(
+                handle.fixed_object("local-model/recovery/phases/attempts/" + name),
+                max_bytes=MAX_PHASE_RECORD_BYTES)
+            total_bytes += len(phase_raw)
+            if total_bytes > MAX_RECOVERY_OPERATION_SCAN_BYTES:
+                raise LocalModelChatRecoveryError("recovery_operation_reservation_limit_exceeded")
+            phase = json.loads(phase_raw.decode("utf-8"), object_pairs_hook=_unique_object)
+            if (not isinstance(phase, dict) or phase_raw != _canonical(phase)
+                    or phase.get("schema_version") != PHASE_SCHEMA
+                    or phase.get("phase") != "attempts"
+                    or phase.get("request_id") != request_id
+                    or phase.get("installation_identity") != handle.identity.value
+                    or phase.get("phase_semantic_digest")
+                        != semantic_digest(_without(phase, "phase_semantic_digest"))):
+                raise LocalModelChatRecoveryError("recovery_operation_attempt_invalid")
+            request_raw = handle.read_regular_bounded(
+                handle.fixed_object(f"local-model/recovery/requests/{request_id}.json"),
+                max_bytes=MAX_PHASE_RECORD_BYTES)
+            total_bytes += len(request_raw)
+            if total_bytes > MAX_RECOVERY_OPERATION_SCAN_BYTES:
+                raise LocalModelChatRecoveryError("recovery_operation_reservation_limit_exceeded")
+            request = json.loads(request_raw.decode("utf-8"), object_pairs_hook=_unique_object)
+        except LocalModelChatRecoveryError:
+            raise
+        except (UnicodeError, ValueError, TypeError, RecursionError, InstallationStateError) as exc:
+            raise LocalModelChatRecoveryError("recovery_operation_reservation_unavailable") from exc
+        if total_bytes > MAX_RECOVERY_OPERATION_SCAN_BYTES:
+            raise LocalModelChatRecoveryError("recovery_operation_reservation_limit_exceeded")
+        intent = request.get("intent") if isinstance(request, dict) else None
+        if (not isinstance(request, dict) or request_raw != _canonical(request)
+                or request.get("schema_version") != REQUEST_SCHEMA
+                or request.get("request_id") != request_id
+                or request.get("request_semantic_digest")
+                    != semantic_digest(_without(request, "request_semantic_digest"))
+                or not isinstance(intent, Mapping)
+                or intent.get("intent_semantic_digest")
+                    != semantic_digest(_without(intent, "intent_semantic_digest"))
+                or phase.get("intent_id") != intent.get("intent_id")
+                or phase.get("intent_semantic_digest") != intent.get("intent_semantic_digest")):
+            raise LocalModelChatRecoveryError("recovery_operation_request_binding_invalid")
+        operation = intent.get("replacement_serving_operation_id")
+        if not isinstance(operation, str) or not operation:
+            raise LocalModelChatRecoveryError("recovery_operation_intent_invalid")
+        if request_id != excluding_request_id and operation == replacement:
+            return True
+    return False
+
+
+def require_fresh_operation(handle: InstallationStateHandle, replacement: str, prior: str, *,
+        excluding_request_id: str | None = None) -> str:
     replacement = _operation_id(replacement)
     if replacement == prior:
         raise LocalModelChatRecoveryError("replacement_serving_operation_not_fresh")
     if any(item["binding"].get("serving_operation_id") == replacement
            for item in verified_serving_receipts(handle)):
         raise LocalModelChatRecoveryError("replacement_serving_operation_reused")
+    if _attempted_recovery_operation_exists(
+            handle, replacement, excluding_request_id=excluding_request_id):
+        raise LocalModelChatRecoveryError("replacement_serving_operation_attempt_already_recorded")
     return replacement
-
 
 def _activation_provenance(verified: Mapping[str, Any]) -> dict[str, Any]:
     state, receipt = verified["active_state"], verified["activation_receipt"]
@@ -799,7 +868,7 @@ class ProductionLocalModelChatRecoveryController:
                 elif observed_handoff is not None or "prior_chat_process_handoff" in intent:
                     raise LocalModelChatRecoveryError("chat_process_predecessor_handoff_unbound")
                 replacement = require_fresh_operation(self._handle, str(intent["replacement_serving_operation_id"]),
-                                                      str(snapshot["serving_operation_id"]))
+                    str(snapshot["serving_operation_id"]), excluding_request_id=request_id)
                 current = _current_activation(self._handle); provenance = _activation_provenance(current)
                 reconstructed = build_recovery_intent(snapshot=snapshot, prior_receipt=prior,
                     activation=current, replacement_serving_operation_id=replacement,

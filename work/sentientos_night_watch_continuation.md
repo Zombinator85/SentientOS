@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the invocation-operation cross-check increment, GitHub branch inspection verified `99f41080101dc2bc242ba1edecb7a4f2ff2175d9` (tree `f204d00c91198320afc2a9f159a6c6019760c2e0`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the interrupted-operation reservation increment, GitHub branch inspection verified `9d46d3727512c16207d3a3685c1193a6ffc16118` (tree `299acd1307c793d341753169dd86a3c097321f9e`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -473,3 +473,13 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for chat-service and serving-inference sources. No model load, inference, transcript replay, process restart, or production verification was run.
 
 **Next implementation dependency:** review the transition controller's crash boundaries between child replacement, successor serving receipt, readiness phase, and snapshot publication. Preserve the current incomplete-phase semantics and close any source-backed gap that could leave an accepted transcript or later cognition with an unbound successor identity.
+
+### New checkpoint — interrupted recovery reserves its serving operation
+
+- Fresh-operation checks now scan the bounded durable recovery-attempt journal before allowing a replacement serving-operation ID. Any prior attempt using that ID blocks reuse even if a crash occurred before a serving receipt was published.
+- The scan reopens each matching request and canonical attempt phase, verifies request/intent/phase identities and installation binding, and fails closed on missing or conflicting custody. It caps attempts at 256 entries and total parsed bytes at 16 MiB.
+- The active request is excluded only while its own pre-restart freshness check runs; the installation-scoped recovery lock serializes competing requests, and a later attempt sees the earlier durable reservation. A crash before attempt publication has not yet restarted the child and does not reserve an operation.
+- This prevents process replacement from replaying an already-attempted operation. It does not retry or complete an interrupted attempt.
+- Python compilation passed for recovery custody. No crash injection, lock race, process restart, model load, or production verification was run.
+
+**Next implementation dependency:** inspect the primary serving owner's own crash window between model load and durable serving-receipt publication. Recovery-level attempt reservations protect explicit restart operations; determine whether initial serving operation IDs need the same durable non-replay reservation at the serving owner boundary.
