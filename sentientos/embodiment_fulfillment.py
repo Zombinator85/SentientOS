@@ -2,16 +2,23 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from sentientos.embodiment_governance_bridge import embodied_governance_bridge_candidate_ref
 from sentientos.ledger_api import append_audit_record
+from sentientos.world_state_board import record_digest
+from sentientos.windows_handle_custody import read_explicit_file
 
 CANDIDATE_SCHEMA_VERSION = "embodiment.fulfillment_candidate.v1"
-RECEIPT_SCHEMA_VERSION = "embodiment.fulfillment_receipt.v1"
+LEGACY_RECEIPT_SCHEMA_VERSION = "embodiment.fulfillment_receipt.v1"
+RECEIPT_SCHEMA_VERSION = "embodiment.fulfillment_receipt.v2"
 DEFAULT_FULFILLMENT_RECEIPT_LOG = Path("logs/embodiment_fulfillment_receipts.jsonl")
+MAX_FULFILLMENT_LOG_BYTES = 16_777_216
+MAX_FULFILLMENT_RECEIPTS_PER_PROJECTION = 32
+MAX_FULFILLMENT_RECEIPT_BYTES = 32_768
 
 _FULFILLMENT_KIND_BY_BRIDGE_KIND = {
     "memory_governance_review_candidate": "memory_fulfillment_candidate",
@@ -129,17 +136,8 @@ def resolve_embodied_fulfillment_candidates(*, governance_bridge_candidates: Seq
 
 def build_embodied_fulfillment_receipt(*, fulfillment_candidate: Mapping[str, Any], fulfillment_outcome: str, fulfiller_kind: str, created_at: float | None = None, fulfiller_ref: str | None = None, fulfiller_label: str | None = None, fulfillment_rationale: str | None = None) -> dict[str, Any]:
     outcome = classify_embodied_fulfillment_outcome(fulfillment_outcome)
-    material = {
-        "fulfillment_candidate_id": fulfillment_candidate.get("fulfillment_candidate_id"),
-        "fulfillment_outcome": outcome,
-        "fulfiller_kind": fulfiller_kind,
-        "fulfiller_ref": fulfiller_ref,
-        "fulfiller_label": fulfiller_label,
-    }
-    receipt_id = "efr_" + hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:24]
-    return {
+    body = {
         "schema_version": RECEIPT_SCHEMA_VERSION,
-        "fulfillment_receipt_id": receipt_id,
         "source_fulfillment_candidate_id": fulfillment_candidate.get("fulfillment_candidate_id"),
         "source_fulfillment_candidate_ref": embodied_fulfillment_candidate_ref(fulfillment_candidate),
         "source_governance_bridge_candidate_ref": fulfillment_candidate.get("source_governance_bridge_candidate_ref"),
@@ -168,6 +166,114 @@ def build_embodied_fulfillment_receipt(*, fulfillment_candidate: Mapping[str, An
         "does_not_admit_work": True,
         "does_not_execute_or_route_work": True,
     }
+    if (not isinstance(body["source_fulfillment_candidate_id"], str)
+            or not body["source_fulfillment_candidate_id"]
+            or not isinstance(body["fulfillment_outcome"], str)
+            or not isinstance(body["fulfiller_kind"], str)
+            or not math.isfinite(float(body["created_at"]))
+            or len(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False).encode("utf-8")) > MAX_FULFILLMENT_RECEIPT_BYTES):
+        raise ValueError("fulfillment_receipt_material_invalid")
+    receipt_id = "efr_" + hashlib.sha256(json.dumps(body, sort_keys=True,
+        separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+    sealed = {**body, "fulfillment_receipt_id": receipt_id}
+    sealed["fulfillment_receipt_digest"] = "sha256:" + hashlib.sha256(json.dumps(
+        sealed, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+    if len(json.dumps(sealed, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False).encode("utf-8")) + 1 > MAX_FULFILLMENT_RECEIPT_BYTES:
+        raise ValueError("fulfillment_receipt_material_invalid")
+    return sealed
+
+
+def verify_embodied_fulfillment_receipt(record: Mapping[str, Any]) -> bool:
+    if (not isinstance(record, Mapping) or record.get("schema_version") != RECEIPT_SCHEMA_VERSION
+            or record.get("fulfillment_outcome") not in ALLOWED_FULFILLMENT_OUTCOMES
+            or record.get("fulfillment_receipt_is_not_effect") is not True
+            or record.get("receipt_does_not_prove_side_effect") is not True
+            or any(record.get(key) is not True for key in ("non_authoritative", "does_not_write_memory",
+                "does_not_trigger_feedback", "does_not_commit_retention", "does_not_admit_work",
+                "does_not_execute_or_route_work"))):
+        return False
+    try:
+        value = dict(record)
+        claimed_digest = value.pop("fulfillment_receipt_digest")
+        receipt_id = value.pop("fulfillment_receipt_id")
+        encoded = json.dumps(value, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False).encode("utf-8")
+        if (len(json.dumps(dict(record), sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False).encode("utf-8")) + 1 > MAX_FULFILLMENT_RECEIPT_BYTES
+                or not isinstance(record.get("source_fulfillment_candidate_id"), str)
+                or not record["source_fulfillment_candidate_id"]
+                or not isinstance(record.get("created_at"), (int, float))
+                or not math.isfinite(float(record["created_at"]))
+                or not isinstance(record.get("fulfiller_kind"), str)
+                or not record["fulfiller_kind"]):
+            return False
+        expected_id = "efr_" + hashlib.sha256(encoded).hexdigest()[:24]
+        expected_digest = "sha256:" + hashlib.sha256(json.dumps(
+            {**value, "fulfillment_receipt_id": receipt_id}, sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
+        return (receipt_id == expected_id and claimed_digest == expected_digest
+            and (record.get("source_fulfillment_candidate_ref") ==
+                 "fulfillment_candidate:" + record["source_fulfillment_candidate_id"]))
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def fulfillment_receipt_world_state_record(record: Mapping[str, Any]) -> dict[str, Any]:
+    if not verify_embodied_fulfillment_receipt(record):
+        raise ValueError("fulfillment_receipt_binding_invalid")
+    receipt_id = str(record["fulfillment_receipt_id"])
+    semantic = {"source_kind": "embodiment", "source_id": f"fulfillment-receipt:{receipt_id}",
+        "schema_version": RECEIPT_SCHEMA_VERSION, "subject_id": str(record.get("source_proposal_id")
+            or record["source_fulfillment_candidate_id"]),
+        "subject_kind": "embodied_proposal_fulfillment_receipt", "stage": "observation",
+        "disposition": str(record["fulfillment_outcome"]), "evidence_strength": "digest_bound_fulfillment_claim",
+        "staleness": "unknown", "effect_claimed": False, "effect_proven": False,
+        "payload": {**dict(record), "event_time_posture": "receipt_creation_not_effect_time",
+            "observer_issuer_posture": "fulfiller_claim_unverified",
+            "actual_effect_observed": False, "authority": False, "effect_proven": False}}
+    semantic["digest"] = record_digest(semantic)
+    return semantic
+
+
+def load_selected_fulfillment_world_state_records(*, path: Path,
+        fulfillment_receipt_ids: Sequence[str]) -> list[dict[str, Any]]:
+    identities = tuple(fulfillment_receipt_ids)
+    if (len(identities) > MAX_FULFILLMENT_RECEIPTS_PER_PROJECTION
+            or len(identities) != len(set(identities))
+            or any(not isinstance(item, str) or len(item) != 28 or not item.startswith("efr_")
+                or any(character not in "0123456789abcdef" for character in item[4:])
+                for item in identities)):
+        raise ValueError("fulfillment_receipt_selection_invalid")
+    if not identities:
+        return []
+    raw = read_explicit_file(path, max_bytes=MAX_FULFILLMENT_LOG_BYTES)
+    if len(raw.splitlines()) > 65_536:
+        raise ValueError("fulfillment_receipt_log_line_limit_exceeded")
+    selected, found = set(identities), {}
+    for line in raw.splitlines(keepends=True):
+        if not line.endswith(b"\n") or len(line) > MAX_FULFILLMENT_RECEIPT_BYTES:
+            raise ValueError("fulfillment_receipt_log_row_invalid")
+        try:
+            row = json.loads(line.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("fulfillment_receipt_log_corrupt") from exc
+        if not isinstance(row, dict) or json.dumps(row, sort_keys=True,
+                separators=(",", ":")).encode("utf-8") + b"\n" != line:
+            raise ValueError("fulfillment_receipt_log_noncanonical")
+        receipt_id = row.get("fulfillment_receipt_id")
+        if receipt_id not in selected:
+            continue
+        if not verify_embodied_fulfillment_receipt(row):
+            raise ValueError("fulfillment_receipt_binding_invalid")
+        prior = found.get(receipt_id)
+        if prior is not None and prior != row:
+            raise ValueError("fulfillment_receipt_identity_conflict")
+        found[receipt_id] = row
+    if set(found) != selected:
+        raise FileNotFoundError("selected_fulfillment_receipt_missing")
+    return [fulfillment_receipt_world_state_record(found[item]) for item in identities]
 
 
 def append_embodied_fulfillment_receipt(*, path: Path = DEFAULT_FULFILLMENT_RECEIPT_LOG, receipt: Mapping[str, Any]) -> dict[str, Any]:
@@ -249,4 +355,4 @@ def summarize_embodied_fulfillment_status(*, fulfillment_candidates: Sequence[Ma
     }
 
 
-__all__ = [k for k in globals().keys() if k.startswith(("CANDIDATE_", "RECEIPT_", "DEFAULT_", "build_", "resolve_", "embodied_", "classify_", "append_", "list_", "summarize_", "ALLOWED_"))]
+__all__ = [k for k in globals().keys() if k.startswith(("CANDIDATE_", "RECEIPT_", "DEFAULT_", "MAX_FULFILLMENT_", "build_", "verify_", "fulfillment_receipt_", "load_selected_", "resolve_", "embodied_", "classify_", "append_", "list_", "summarize_", "ALLOWED_"))]

@@ -155,7 +155,8 @@ class ResidentEpistemicDevelopmentRuntime:
                                                "avatar_renderer_handoff",
                                                "avatar_renderer_report",
                                                "embodied_consequence_attribution",
-                                               "embodied_prediction_comparison"})
+                                               "embodied_prediction_comparison",
+                                               "embodied_proposal_fulfillment_receipt"})
         historical_strategy_proposal = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "embodied_strategy_proposal")
         historical_strategy_review = (fact.source.kind == "embodiment"

@@ -95,6 +95,7 @@ HISTORICAL_CONSEQUENCE_CLASSES = frozenset({
     "body_generation_mismatch", "correlation_mismatch",
 })
 HISTORICAL_REVIEW_SUBJECTS = frozenset({"embodied_strategy_proposal_review"})
+HISTORICAL_FULFILLMENT_SUBJECTS = frozenset({"embodied_proposal_fulfillment_receipt"})
 _REVIEW_CONTEXT_FIELDS = (
     "condition", "history_record_id", "history_record_digest", "invocation_receipt_id",
     "invocation_receipt_digest", "execution_evidence_digest", "execution_posture",
@@ -305,6 +306,22 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             value["source_execution_contexts"] = []
             value["source_event_refs"] = []
         out.append(("embodiment.historical_proposal_review", _bounded(value),
+                    "historical_interpretation"))
+    if (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind in HISTORICAL_FULFILLMENT_SUBJECTS):
+        value = {"fulfillment_receipt_id": fact.payload.get("fulfillment_receipt_id"),
+            "fulfillment_receipt_digest": fact.payload.get("fulfillment_receipt_digest"),
+            "source_fulfillment_candidate_id": fact.payload.get("source_fulfillment_candidate_id"),
+            "source_governance_bridge_candidate_ref": fact.payload.get("source_governance_bridge_candidate_ref"),
+            "source_handoff_candidate_ref": fact.payload.get("source_handoff_candidate_ref"),
+            "source_proposal_id": fact.payload.get("source_proposal_id"),
+            "source_review_receipt_id": fact.payload.get("source_review_receipt_id"),
+            "fulfillment_outcome": fact.payload.get("fulfillment_outcome"),
+            "fulfiller_kind": fact.payload.get("fulfiller_kind"),
+            "event_time_posture": fact.payload.get("event_time_posture"),
+            "observer_issuer_posture": fact.payload.get("observer_issuer_posture"),
+            "actual_effect_observed": False, "effect_proven": False}
+        out.append(("embodiment.historical_fulfillment_claim", _bounded(value),
                     "historical_interpretation"))
     return out
 
