@@ -1570,7 +1570,7 @@ class ConsequenceStore:
 
     @staticmethod
     def _require_secure_platform() -> None:
-        required_dir_fd = (os.open, os.stat, os.link, os.unlink)
+        required_dir_fd = (os.open, os.mkdir, os.stat, os.link, os.unlink)
         supported = (os.name == "posix" and _fcntl is not None
             and hasattr(os, "O_NOFOLLOW")
             and all(function in os.supports_dir_fd for function in required_dir_fd)
@@ -1583,25 +1583,79 @@ class ConsequenceStore:
         self._require_secure_platform()
         if kind not in _CONSEQUENCE_KINDS or not isinstance(identity,str) or not _CONSEQUENCE_ID.fullmatch(identity):
             raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
-        directory=self.root/kind
-        if create_directory:
-            try: os.mkdir(directory,0o700)
-            except FileExistsError: pass
-        try: metadata=directory.lstat()
-        except FileNotFoundError as exc:
-            raise EmbodiedConsequenceError("stored_artifact_missing") from exc
-        except OSError as exc: raise EmbodiedConsequenceError("consequence_artifact_directory_invalid") from exc
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
-            raise EmbodiedConsequenceError("consequence_artifact_directory_invalid")
-        return directory/f"{identity}.json"
+        directory_fd = self._open_kind_directory(kind, create=create_directory)
+        os.close(directory_fd)
+        return self.root/kind/f"{identity}.json"
 
-    @staticmethod
-    def _read(path: Path) -> bytes:
+    def _open_root_directory(self) -> int:
+        """Walk the configured canonical root without following any path symlink."""
         ConsequenceStore._require_secure_platform()
-        flags=os.O_RDONLY|getattr(os,"O_NOFOLLOW",0)
-        try: descriptor=os.open(path,flags)
-        except FileNotFoundError as exc: raise EmbodiedConsequenceError("stored_artifact_missing") from exc
-        except OSError as exc: raise EmbodiedConsequenceError("stored_artifact_missing_or_unsafe") from exc
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(os.sep, flags)
+            for component in self.root.parts[1:]:
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+                metadata = os.fstat(next_descriptor)
+                if not stat.S_ISDIR(metadata.st_mode):
+                    os.close(next_descriptor)
+                    raise EmbodiedConsequenceError("consequence_store_root_invalid")
+                os.close(descriptor)
+                descriptor = next_descriptor
+            return descriptor
+        except EmbodiedConsequenceError:
+            if "descriptor" in locals():
+                os.close(descriptor)
+            raise
+        except OSError as exc:
+            if "descriptor" in locals():
+                os.close(descriptor)
+            raise EmbodiedConsequenceError("consequence_store_root_invalid") from exc
+
+    def _open_kind_directory(self, kind: str, *, create: bool) -> int:
+        if kind not in _CONSEQUENCE_KINDS:
+            raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
+        root_fd = self._open_root_directory()
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            if create:
+                try:
+                    os.mkdir(kind, 0o700, dir_fd=root_fd)
+                except FileExistsError:
+                    pass
+            try:
+                directory_fd = os.open(kind, flags, dir_fd=root_fd)
+            except FileNotFoundError as exc:
+                raise EmbodiedConsequenceError("stored_artifact_missing") from exc
+            metadata = os.fstat(directory_fd)
+            if not stat.S_ISDIR(metadata.st_mode):
+                os.close(directory_fd)
+                raise EmbodiedConsequenceError("consequence_artifact_directory_invalid")
+            return directory_fd
+        except EmbodiedConsequenceError:
+            raise
+        except OSError as exc:
+            raise EmbodiedConsequenceError("consequence_artifact_directory_invalid") from exc
+        finally:
+            os.close(root_fd)
+
+    def _read(self, path: Path) -> bytes:
+        self._require_secure_platform()
+        kind = path.parent.name
+        identity = path.name[:-5] if path.name.endswith(".json") else ""
+        if (path.parent.parent != self.root or kind not in _CONSEQUENCE_KINDS
+                or not _CONSEQUENCE_ID.fullmatch(identity)):
+            raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
+        directory_fd = self._open_kind_directory(kind, create=False)
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            try:
+                descriptor = os.open(path.name, flags, dir_fd=directory_fd)
+            except FileNotFoundError as exc:
+                raise EmbodiedConsequenceError("stored_artifact_missing") from exc
+            except OSError as exc:
+                raise EmbodiedConsequenceError("stored_artifact_missing_or_unsafe") from exc
+        finally:
+            os.close(directory_fd)
         try:
             metadata=os.fstat(descriptor)
             if not stat.S_ISREG(metadata.st_mode) or metadata.st_size>MAX_CONSEQUENCE_ARTIFACT_BYTES:
@@ -1622,11 +1676,9 @@ class ConsequenceStore:
         if self._read_only:
             raise EmbodiedConsequenceError("consequence_store_read_only")
         self._require_secure_platform()
-        directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-        try:
-            directory_fd = os.open(path.parent, directory_flags)
-        except OSError as exc:
-            raise EmbodiedConsequenceError("consequence_artifact_directory_invalid") from exc
+        if path.parent.parent != self.root or path.parent.name not in _CONSEQUENCE_KINDS:
+            raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
+        directory_fd = self._open_kind_directory(path.parent.name, create=False)
         lock_fd: int | None = None
         temporary_name: str | None = None
         try:
@@ -1909,10 +1961,12 @@ class ConsequenceStore:
             if str(exc) == "stored_artifact_missing":
                 return None
             raise
-        if not os.path.lexists(path):
-            return None
         try:
             value = json.loads(self._read(path).decode("utf-8"))
+        except EmbodiedConsequenceError as exc:
+            if str(exc) == "stored_artifact_missing":
+                return None
+            raise
         except (UnicodeError, json.JSONDecodeError) as exc:
             raise EmbodiedConsequenceError("strategy_condition_checkpoint_corrupt") from exc
         if not isinstance(value, dict) or value.get("schema_version") != expected_schema:
