@@ -561,6 +561,43 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         source_id = ("chat_process_invocation:" + str(attribution["invocation_receipt_id"])
             + ":" + str(attribution["invocation_receipt_digest"])
             + ":" + str(handoff.get("handoff_digest", "")))
+        upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
+        serving = (upstream.get("current_serving_lifetime")
+            if isinstance(upstream, Mapping) else None)
+        serving_fields = ("serving_session_id", "serving_operation_id", "installation_identity",
+            "activation_state_semantic_digest", "activation_generation",
+            "activation_predecessor_state_digest", "activation_receipt_id",
+            "activation_receipt_semantic_digest", "model_serving_admission_ref",
+            "authority_map_digest", "artifact_id", "artifact_sha256", "runtime_id")
+        serving_binding = ({key: serving[key] for key in serving_fields if key in serving}
+            if isinstance(serving, Mapping) else {})
+        payload["chat_model_serving_lineage"] = {
+            "invocation_receipt_id": attribution["invocation_receipt_id"],
+            "invocation_receipt_digest": attribution["invocation_receipt_digest"],
+            "invocation_request_id": attribution["invocation_request_id"],
+            "invocation_request_digest": attribution["invocation_request_digest"],
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+            "resource_attempt_id": invocation.get("resource_attempt_id"),
+            "resource_consumption_receipt_digests": list(
+                invocation.get("resource_consumption_receipt_digests") or ()),
+            "resource_linkage_digest": invocation.get("resource_linkage_digest"),
+            "software_handoff_id": handoff.get("handoff_id"),
+            "software_handoff_digest": handoff.get("handoff_digest"),
+            "software_process_instance_id": handoff.get("process_instance_id"),
+            "software_generation_digest": handoff.get("software_generation_digest"),
+            "software_generation_startup_timestamp": handoff.get("startup_timestamp"),
+            "serving_identity": serving_binding,
+            "active_model_identity": (request.get("active_model_identity")
+                if isinstance(request, Mapping) else None),
+            "model_id": request.get("model_id") if isinstance(request, Mapping) else None,
+            "model_artifact_digest": request.get("model_artifact_digest")
+                if isinstance(request, Mapping) else None,
+            "relation_posture": "co_bound_by_completed_invocation_request_and_receipt",
+            "currentness": "historical_only",
+            "effect_authority": False,
+        }
         item = {
             "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
             "source_id": source_id,

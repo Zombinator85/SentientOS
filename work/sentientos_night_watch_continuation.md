@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before this increment, GitHub branch inspection most recently verified `644a2dd7d58cc60d5e6af2e8837ef308f2ab9917` (tree `58b09bf61ad88917aa35ea4d3d0904442d6997f1`). The next source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+Before this increment, GitHub branch inspection most recently verified `a9d758d10d2082c810ebc0ddcc52584b610eb111` (tree `d1a7f506f20fdaff0f15976a95939d1b5f718f43`). The next source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -340,3 +340,12 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Construction work is untested and unverified for production. Syntax compilation and source/diff review are the only checks in this pass.
 
 **Next implementation dependency:** inspect the authenticated chat generation predecessor handoff chain and resident model/software succession projection for a common installation-level history owner. Preserve the chat handoff’s explicit direct_predecessorship=not_proven, overlap_status=unknown, and unknown intervening generations; do not join those process handoffs to model transitions without an exact shared transition binding.
+
+
+### New construction checkpoint — same invocation binds software, model, and resource identities
+
+- The chat invocation projection now carries one compact lineage object that links its exact invocation/request digests and process-generation handoff to the receipt-bound active model and serving-lifetime identities, plus allocation, attempt, and consumption receipt references. The complete installation handoff remains recoverable by its immutable ID/digest; only bounded predecessor references are copied into World-State.
+- The grouped claim is selectable through existing resident cognition configuration and retained by the existing longitudinal self-model as historical lineage. The source record does not represent a current running process or model, a consequence outside local inference, user memory, or new authority.
+- Changed Python files compiled successfully. Source whitespace review passed. No tests or runtime execution were performed; work remains unverified for production.
+
+**Next implementation dependency:** inspect the chat recovery phase predecessor/successor receipts against these invocation-bound serving identities. Reconstruct the strongest historical relation the existing owners prove, and retain unknown status if a serving lifetime or transition stage cannot be linked to the exact chat process handoff.

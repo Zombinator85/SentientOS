@@ -41,6 +41,7 @@ FORBIDDEN_PREDICATES = {
 PAYLOAD_PREDICATES = {
     "software_generation": ("software_generation", "runtime_generation"),
     "chat_process_generation_attribution": ("verified_chat_process_generation_attributions",),
+    "chat_model_serving_lineage": ("chat_model_serving_lineage",),
     "cognitive_model_identity": ("cognitive_model_id", "serving_model", "model_id"),
     "declared_repository_generation_identity": ("declared_repository_generation_identity",),
     "declared_repository_generation_posture": ("declared_repository_generation_posture",),
