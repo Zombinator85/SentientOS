@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `6dfdbfb91cd3690e09c604cc24405616098a4427` (tree `77e0a2c273586a22b385c329d9628e51050abb7f`, parent `f39b1062e978453867c0405eee344dd46a4f0755`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `1206aa182e7e59ee5d01224196432df68191303c` (tree `8a993201935bb24228635589fc86d898957e329c`, parent `6dfdbfb91cd3690e09c604cc24405616098a4427`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
