@@ -555,24 +555,25 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 receipt_event_times.setdefault(str(receipt["receipt_digest"]), set()).add(
                     str(receipt["observed_at"]))
 
-    def candidate_event_order(item: Mapping[str, Any]) -> tuple[int, float, str]:
+    def candidate_event_order(item: Mapping[str, Any]) -> tuple[int, datetime, str]:
+        unknown_time = datetime.min.replace(tzinfo=timezone.utc)
         payload = item.get("payload")
         linkage = payload.get("resource_linkage") if isinstance(payload, Mapping) else None
         receipt_digests = linkage.get("consumption_receipt_digests") if isinstance(linkage, Mapping) else None
         if not isinstance(receipt_digests, (tuple, list)) or not receipt_digests:
-            return (0, float("-inf"), str(item.get("source_id", "")))
-        instants: list[float] = []
+            return (0, unknown_time, str(item.get("source_id", "")))
+        instants: list[datetime] = []
         for receipt_digest in receipt_digests:
             candidates = receipt_event_times.get(str(receipt_digest), set())
             if len(candidates) != 1:
-                return (0, float("-inf"), str(item.get("source_id", "")))
+                return (0, unknown_time, str(item.get("source_id", "")))
             try:
                 event_time = datetime.fromisoformat(next(iter(candidates)).replace("Z", "+00:00"))
                 if event_time.tzinfo is None or event_time.utcoffset() is None:
-                    return (0, float("-inf"), str(item.get("source_id", "")))
-                instants.append(event_time.astimezone(timezone.utc).timestamp())
+                    return (0, unknown_time, str(item.get("source_id", "")))
+                instants.append(event_time.astimezone(timezone.utc))
             except (OverflowError, OSError, ValueError):
-                return (0, float("-inf"), str(item.get("source_id", "")))
+                return (0, unknown_time, str(item.get("source_id", "")))
         return (1, max(instants), str(item.get("source_id", "")))
 
     # Keep the newest receipt-bound events inside the projection bound. Unknown
