@@ -597,8 +597,11 @@ class ConsequenceStore:
         if kind not in _CONSEQUENCE_KINDS or not isinstance(identity,str) or not _CONSEQUENCE_ID.fullmatch(identity):
             raise EmbodiedConsequenceError("consequence_artifact_selector_invalid")
         directory=self.root/kind
-        directory.mkdir(mode=0o700,exist_ok=True)
-        if directory.is_symlink() or not directory.is_dir():
+        try: os.mkdir(directory,0o700)
+        except FileExistsError: pass
+        try: metadata=directory.lstat()
+        except OSError as exc: raise EmbodiedConsequenceError("consequence_artifact_directory_invalid") from exc
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
             raise EmbodiedConsequenceError("consequence_artifact_directory_invalid")
         return directory/f"{identity}.json"
 
