@@ -861,3 +861,15 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the supervisor source. No runtime behavior or production recovery was executed; this construction work is unverified.
 
 **Next implementation dependency:** review the supervised chat process handoff and later resident evidence consumer against actual restart and source-generation semantics; preserve its bounded point-observation claim and explicitly unknown independent runtime identity where no OS issuer exists.
+
+
+## New checkpoint — validate process-generation boundaries in lifecycle recovery
+
+- Lifecycle receipt recovery already validates bounded canonical rows and contiguous sequence. It now also requires every new supervisor generation after the first recorded generation to begin with exactly one `registry_snapshot` bound to the active registry digest; generation IDs cannot reappear after a later generation. A legacy journal may retain a first generation without an explicit anchor, but later generation changes cannot silently splice into it.
+- This is a custody/lineage check only. Recovery does not replay process actions or infer that an old service remains active.
+- Rechecked the requested mutation-receipt recovery defect at this source: `EvidenceBindingMutationReceipt` is published under `evidence`, and `EpistemicStateMutationReceipt` under `state`; no correction was needed. The Windows path continues bounded read-only receipt inspection.
+- Re-read the actual chat generation path. The runtime adapter checks its exact child `Popen`, launch identity, and measured `sentientos/` plus `scripts/` Python source manifest at an observation event. Installation World-State projection binds matching invocation receipts to that handoff, and resident epistemic adaptation labels the projection historical rather than current liveness. This remains an owner-produced point observation, not independent OS attestation.
+- Installation-scoped handoff publication remains explicitly unsupported outside POSIX, and no independent cross-platform process issuer exists in the inspected source. That dependency is left unknown rather than substituting the maintenance daemon's generation or a Git/model identity.
+- `python -m py_compile` passed for the supervisor source. No tests, runtime observations, process actions, or production verification were run.
+
+**Next implementation dependency:** determine whether the installation-scoped chat launch/runtime observation can be made truthful on Windows using an existing write-capable owner contract. If not, preserve explicit unsupported/degraded posture and continue the broader downstream causal-history path without claiming cross-platform running-generation proof.

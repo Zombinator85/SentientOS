@@ -135,6 +135,8 @@ class RuntimeSupervisor:
         if raw and not raw.endswith(b"\n"):
             raise ValueError("lifecycle_receipt_journal_partial_tail")
         rows: list[dict[str, object]] = []
+        seen_generations: set[str] = set()
+        current_generation: str | None = None
         for sequence, line in enumerate(raw.splitlines(), start=1):
             if not line or len(line) > MAX_LIFECYCLE_RECEIPT_BYTES:
                 raise ValueError("lifecycle_receipt_row_size_or_shape_invalid")
@@ -157,6 +159,25 @@ class RuntimeSupervisor:
             event_time = datetime.fromisoformat(row["timestamp"].replace("Z", "+00:00"))
             if event_time.tzinfo is None or event_time.utcoffset() is None:
                 raise ValueError("lifecycle_receipt_timestamp_invalid")
+            generation = row["generation"]
+            event = row["event"]
+            if event == "registry_snapshot":
+                if (row.get("service_id") is not None
+                        or row["detail"] != {"registry_digest": self.registry.digest()}
+                        or generation == current_generation
+                        or generation in seen_generations):
+                    raise ValueError("lifecycle_registry_snapshot_invalid")
+                current_generation = generation
+                seen_generations.add(generation)
+            elif current_generation is None:
+                # Retain compatibility with a legacy journal whose first
+                # recorded event predates explicit generation anchors.
+                current_generation = generation
+                seen_generations.add(generation)
+            elif generation != current_generation:
+                if generation in seen_generations:
+                    raise ValueError("lifecycle_generation_reused")
+                raise ValueError("lifecycle_generation_missing_registry_snapshot")
             rows.append(row)
         return rows
 
