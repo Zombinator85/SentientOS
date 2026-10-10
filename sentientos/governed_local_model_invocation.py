@@ -354,9 +354,12 @@ class GovernedLocalModelInvoker:
                 if persist:
                     self._persist(request, receipt, decision_payload, include_output=include_output_in_receipt)
             except GovernedLocalModelResourceError:
-                # Backend entry is irreversible.  Never restore it merely because
-                # post-effect resource bookkeeping lost custody.
-                receipt = replace(receipt, status="resource_reconciliation_failure", reason_codes=(*receipt.reason_codes, "resource_reconciliation_failed"))
+                # Backend entry is irreversible and its canonical invocation
+                # receipt may already be persisted. Do not mutate its status or
+                # digest after persistence. Propagate the custody failure to the
+                # caller; the ledger's unreconciled attempt remains visible and
+                # is never replayed or replenished during observation/recovery.
+                raise
         if self._evidence_sink is not None:
             self._evidence_sink(receipt.to_dict(include_output=False))
         return receipt

@@ -685,3 +685,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the invocation owner, resource World-State projector, and epistemic adapter. No receipt was created, replayed, admitted, or reconciled; no tests or runtime/production verification were performed.
 
 **Next implementation dependency:** review all post-construction invocation receipt transitions and evidence-sink paths to ensure an immutable receipt's ID/digest never changes after persistence or effect-receipt linkage.
+
+### New checkpoint — keep invocation identity immutable through resource reconciliation failure
+
+- Source review found that when post-backend resource reconciliation failed, the invoker replaced the already-persisted invocation receipt's status in memory. That produced a different receipt ID/digest for the evidence sink/caller while disk retained the original receipt.
+- The invoker now propagates the resource-custody error without mutating the canonical inference receipt. Backend execution remains represented by the original receipt; the resource ledger's partial/open attempt remains the truthful failure evidence and is not replayed.
+- If a new v2 receipt is found beside a reconciled ledger effect receipt but lacks its final resource-linkage fields, World-State now marks the lineage degraded. Unlinked schema-less historical receipts remain compatible.
+- Python compilation passed for the invocation and World-State resource projector. No backend call, failure injection, receipt publication, ledger recovery, or production verification was performed.
+
+**Next implementation dependency:** inspect the downstream caller's handling of the propagated post-effect custody exception to ensure it cannot silently retry or report that inference never occurred; keep the persisted invocation and incomplete resource attempt available as separate evidence.

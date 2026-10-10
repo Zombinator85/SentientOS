@@ -389,6 +389,18 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         # remain valid invocation evidence; they cannot be verified as resource
         # linked, but must not be reported as a lineage failure.
         if allocation_digest is None and attempt_id is None and not receipt_digests:
+            # Legacy unlinked invocation receipts remain compatible, but a new
+            # schema-v2 receipt paired with a ledger effect receipt must retain
+            # its linkage fields. A crash between ledger reconciliation and
+            # final receipt publication is incomplete custody, not legacy data.
+            if (invocation.get("schema_version")
+                    == "sentientos.local_model_invocation_receipt:v2"
+                    and any(isinstance(item, Mapping)
+                        and item.get("state") == "reconciled"
+                        and item.get("effect_receipt_digest") == invocation.get("receipt_digest")
+                        for item in raw_receipts)):
+                lineage_findings.append(
+                    f"invocation_resource_linkage_missing:{invocation.get('receipt_id')}")
             continue
         allocation = allocation_by_digest.get(str(allocation_digest))
         if allocation is None:
