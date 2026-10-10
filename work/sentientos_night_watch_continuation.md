@@ -851,3 +851,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the changed supervisor source. No runtime service behavior or test suite was executed; construction remains unverified for production.
 
 **Next implementation dependency:** continue bounded source review of supervisor restart-state persistence and lifecycle receipt recovery, focusing on validating the durable state snapshot's shape and restart-history values before they influence service retry decisions.
+
+
+## New checkpoint — bound and validate supervisor state recovery
+
+- Supervisor state snapshots are now read with an 8 MiB cap and must match the canonical serialized form and exact v1 field set. Service-state, health, retry-history, exhausted-service, and latest-reason maps are checked against the registered service set before recovery uses any values.
+- Restart-history entries must be finite numeric timestamps and cannot exceed the service's configured retry budget. The atomic state writer applies the same byte cap and rejects non-finite JSON values before replacing the snapshot.
+- Invalid or contradictory state continues to use the existing panic recovery posture; lifecycle actions are not replayed. The restart journal remains the source for sequence recovery and only post-snapshot scheduled events restore retry debits.
+- `python -m py_compile` passed for the supervisor source. No runtime behavior or production recovery was executed; this construction work is unverified.
+
+**Next implementation dependency:** review the supervised chat process handoff and later resident evidence consumer against actual restart and source-generation semantics; preserve its bounded point-observation claim and explicitly unknown independent runtime identity where no OS issuer exists.

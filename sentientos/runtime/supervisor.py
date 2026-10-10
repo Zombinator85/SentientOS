@@ -28,6 +28,7 @@ STATES = frozenset({"registered", "starting", "healthy", "degraded", "unhealthy"
 RESTART_POLICIES = frozenset({"on_failure", "never"})
 MAX_LIFECYCLE_JOURNAL_BYTES = 8 * 1024 * 1024
 MAX_LIFECYCLE_RECEIPT_BYTES = 64 * 1024
+MAX_LIFECYCLE_STATE_BYTES = 8 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -165,22 +166,62 @@ class RuntimeSupervisor:
         state_generation: str | None = None
         if state_exists:
             try:
-                payload = json.loads(self._state_path.read_text(encoding="utf-8"))
-                if (not isinstance(payload, dict)
+                with self._state_path.open("rb") as stream:
+                    raw_state = stream.read(MAX_LIFECYCLE_STATE_BYTES + 1)
+                if len(raw_state) > MAX_LIFECYCLE_STATE_BYTES:
+                    raise ValueError("runtime_supervisor_state_size_bound_exceeded")
+                payload = json.loads(raw_state.decode("utf-8"))
+                expected_fields = {"schema", "registry_digest", "generation", "sequence",
+                    "panic_latched", "service_states", "latest_health", "restart_histories",
+                    "exhausted_services", "latest_reasons"}
+                service_ids = set(self._states)
+                state_map = payload.get("service_states") if isinstance(payload, dict) else None
+                health_map = payload.get("latest_health") if isinstance(payload, dict) else None
+                restart_map = payload.get("restart_histories") if isinstance(payload, dict) else None
+                exhausted = payload.get("exhausted_services") if isinstance(payload, dict) else None
+                latest_reasons = payload.get("latest_reasons") if isinstance(payload, dict) else None
+                if (not isinstance(payload, dict) or set(payload) != expected_fields
+                        or raw_state != (json.dumps(payload, sort_keys=True,
+                            allow_nan=False) + "\n").encode("utf-8")
                         or payload.get("schema") != "sentientos.runtime_supervisor_state:v1"
                         or payload.get("registry_digest") != self.registry.digest()
                         or type(payload.get("sequence")) is not int or payload["sequence"] < 0
                         or not isinstance(payload.get("generation"), str)
-                        or not payload["generation"]):
+                        or not payload["generation"] or len(payload["generation"]) > 128
+                        or type(payload.get("panic_latched")) is not bool
+                        or not isinstance(state_map, dict) or set(state_map) != service_ids
+                        or any(value not in STATES for value in state_map.values())
+                        or not isinstance(health_map, dict)
+                        or not set(health_map) <= service_ids
+                        or any(not isinstance(value, dict) for value in health_map.values())
+                        or not isinstance(restart_map, dict) or set(restart_map) != service_ids
+                        or not isinstance(exhausted, list)
+                        or exhausted != sorted(set(exhausted))
+                        or not set(exhausted) <= service_ids
+                        or not isinstance(latest_reasons, dict)
+                        or set(latest_reasons) != service_ids
+                        or any(not isinstance(value, str) for value in latest_reasons.values())):
                     raise ValueError("runtime_supervisor_state_invalid")
-                self.panic_latched = bool(payload["panic_latched"])
+                for service_id, history in restart_map.items():
+                    if (not isinstance(history, list)
+                            or len(history) > self.registry.descriptors[service_id].restart_budget):
+                        raise ValueError("runtime_supervisor_restart_history_invalid")
+                    for item in history:
+                        if type(item) not in (int, float):
+                            raise ValueError("runtime_supervisor_restart_history_invalid")
+                        try:
+                            finite = math.isfinite(float(item))
+                        except (OverflowError, ValueError):
+                            finite = False
+                        if not finite:
+                            raise ValueError("runtime_supervisor_restart_history_invalid")
+                self.panic_latched = payload["panic_latched"]
                 state_sequence = payload["sequence"]
                 state_generation = payload["generation"]
-                self._restarts = {key: [float(item) for item in payload["restart_histories"].get(key, [])]
+                self._restarts = {key: [float(item) for item in restart_map[key]]
                     for key in self._states}
-                self._exhausted = set(payload.get("exhausted_services", [])) & set(self._states)
-                self._latest.update({key: str(value)
-                    for key, value in payload.get("latest_reasons", {}).items() if key in self._states})
+                self._exhausted = set(exhausted)
+                self._latest.update(latest_reasons)
                 if self.panic_latched:
                     self._states = {key: "panic_stopped" if descriptor.enabled else "disabled"
                         for key, descriptor in self.registry.descriptors.items()}
@@ -279,10 +320,16 @@ class RuntimeSupervisor:
             self._restarts[service_id] = active_history
 
     def _atomic(self, payload: object) -> None:
+        encoded = (json.dumps(payload, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+        if len(encoded) > MAX_LIFECYCLE_STATE_BYTES:
+            raise ValueError("runtime_supervisor_state_size_bound_exceeded")
         fd, tmp = tempfile.mkstemp(prefix=".supervisor-", dir=self.root)
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as stream:
-                json.dump(payload, stream, sort_keys=True); stream.write("\n"); stream.flush(); os.fsync(stream.fileno())
+            with os.fdopen(fd, "wb") as stream:
+                written = stream.write(encoded)
+                if written != len(encoded):
+                    raise OSError("short_runtime_supervisor_state_write")
+                stream.flush(); os.fsync(stream.fileno())
             os.replace(tmp, self._state_path)
             directory = os.open(self.root, os.O_RDONLY); os.fsync(directory); os.close(directory)
         finally:
