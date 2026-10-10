@@ -6,6 +6,8 @@ World-State truth, policy, authority, goals, or canonical explicit user memory.
 from __future__ import annotations
 
 import json
+import os
+import stat
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +25,7 @@ from .governed_local_model_invocation import (
 from .local_model_authority import atomic_write_json, digest_payload
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
 from .world_state_board import WorldStateSnapshot, digest, to_dict, validate_snapshot
+from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 SCHEMA_VERSION = "sentientos.resident_developmental_writeback:v1"
 PRINCIPAL = "deterministic_resident_developmental_writeback_controller"
@@ -34,10 +37,18 @@ MAX_RETRIEVAL_RECORDS = 16
 MAX_INTERPRETATION_CHARS = 4000
 MAX_DURABLE_RECORDS = 4096
 MAX_DURABLE_RECORD_BYTES = 1_048_576
+MAX_DURABLE_RECORD_ROOT_BYTES = 134_217_728
 
 
 class DevelopmentalWritebackError(ValueError):
     """Fail-closed runtime boundary violation."""
+
+
+def _valid_store_identity(value: Any, prefix: str) -> bool:
+    marker = prefix + ":"
+    return (isinstance(value, str) and len(value) == len(marker) + 24
+            and value.startswith(marker)
+            and all(character in "0123456789abcdef" for character in value[len(marker):]))
 
 
 def _digest(value: Any) -> str:
@@ -260,6 +271,8 @@ class DevelopmentalHistoryStore:
         return record
 
     def get(self, record_id: str) -> DevelopmentalRecord:
+        if not _valid_store_identity(record_id, "devrec"):
+            raise DevelopmentalWritebackError("record_identity_invalid")
         path = self.records_root / f"{record_id}.json"
         try: record = DevelopmentalRecord(**self._read_json(path))
         except (OSError, TypeError, KeyError, json.JSONDecodeError) as exc:
@@ -281,6 +294,8 @@ class DevelopmentalHistoryStore:
         return receipt
 
     def get_receipt(self, receipt_id: str) -> WritebackReceipt:
+        if not _valid_store_identity(receipt_id, "devreceipt"):
+            raise DevelopmentalWritebackError("receipt_identity_invalid")
         try: receipt = WritebackReceipt(**self._read_json(self.receipts_root / f"{receipt_id}.json"))
         except (OSError, TypeError, KeyError, json.JSONDecodeError) as exc:
             raise DevelopmentalWritebackError("receipt_missing_or_corrupt") from exc
@@ -288,9 +303,45 @@ class DevelopmentalHistoryStore:
 
     @staticmethod
     def _read_json(path: Path) -> dict[str, Any]:
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_DURABLE_RECORD_BYTES:
-            raise DevelopmentalWritebackError("stored_payload_unbounded_or_not_regular")
-        value = json.loads(path.read_text(encoding="utf-8"))
+        if os.name == "nt":
+            try:
+                entries = read_regular_files(path.parent, max_entries=1,
+                    max_file_bytes=MAX_DURABLE_RECORD_BYTES, max_total_bytes=MAX_DURABLE_RECORD_BYTES,
+                    selected_names=(path.name,))
+            except WindowsHandleCustodyError as exc:
+                raise DevelopmentalWritebackError("stored_payload_windows_recovery_failed") from exc
+            if len(entries) != 1 or entries[0][0] != path.name:
+                raise DevelopmentalWritebackError("stored_payload_missing_or_ambiguous")
+            data = entries[0][1]
+        else:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_DURABLE_RECORD_BYTES:
+                raise DevelopmentalWritebackError("stored_payload_unbounded_or_not_regular")
+            descriptor: int | None = None
+            try:
+                descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                                     | getattr(os, "O_NONBLOCK", 0))
+                before = os.fstat(descriptor)
+                if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_DURABLE_RECORD_BYTES:
+                    raise DevelopmentalWritebackError("stored_payload_unbounded_or_not_regular")
+                chunks: list[bytes] = []
+                remaining = MAX_DURABLE_RECORD_BYTES + 1
+                while remaining:
+                    chunk = os.read(descriptor, min(65_536, remaining))
+                    if not chunk:
+                        break
+                    chunks.append(chunk); remaining -= len(chunk)
+                data = b"".join(chunks)
+                after = os.fstat(descriptor)
+                if (len(data) != before.st_size or after.st_size != before.st_size
+                        or after.st_mtime_ns != before.st_mtime_ns
+                        or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+                    raise DevelopmentalWritebackError("stored_payload_changed_during_read")
+            except OSError as exc:
+                raise DevelopmentalWritebackError("stored_payload_unavailable") from exc
+            finally:
+                if descriptor is not None:
+                    os.close(descriptor)
+        value = json.loads(data.decode("utf-8"))
         if not isinstance(value, dict): raise DevelopmentalWritebackError("stored_payload_not_object")
         return value
 
@@ -299,6 +350,24 @@ class DevelopmentalHistoryStore:
             return ()
         if self.records_root.is_symlink() or not self.records_root.is_dir():
             raise DevelopmentalWritebackError("durable_record_root_invalid")
+        if os.name == "nt":
+            try:
+                entries = read_regular_files(self.records_root,
+                    max_entries=MAX_DURABLE_RECORDS, max_file_bytes=MAX_DURABLE_RECORD_BYTES,
+                    max_total_bytes=MAX_DURABLE_RECORD_ROOT_BYTES)
+            except WindowsHandleCustodyError as exc:
+                raise DevelopmentalWritebackError("durable_record_windows_recovery_failed") from exc
+            recovered: list[DevelopmentalRecord] = []
+            for name, data in entries:
+                try:
+                    record = DevelopmentalRecord(**json.loads(data.decode("utf-8")))
+                except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
+                    raise DevelopmentalWritebackError("record_missing_or_corrupt") from exc
+                self._verify_record(record)
+                if name != record.record_id + ".json":
+                    raise DevelopmentalWritebackError("durable_record_path_identity_mismatch")
+                recovered.append(record)
+            return tuple(recovered)
         paths = sorted(self.records_root.glob("*.json"))
         if len(paths) > MAX_DURABLE_RECORDS:
             raise DevelopmentalWritebackError("durable_record_limit_exceeded")

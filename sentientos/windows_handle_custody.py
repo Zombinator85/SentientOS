@@ -15,7 +15,8 @@ class WindowsHandleCustodyError(ValueError):
 
 
 def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
-                       max_total_bytes: int, suffix: str = ".json") -> list[tuple[str, bytes]]:
+                       max_total_bytes: int, suffix: str = ".json",
+                       selected_names: tuple[str, ...] | None = None) -> list[tuple[str, bytes]]:
     """Read bounded regular files through bound Windows handles.
 
     Win32 path opens are not used for descendants.  The configured root is
@@ -26,10 +27,16 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     closed.  This code is syntax-checked on non-Windows hosts, not runtime
     verified there.
     """
+    invalid_names = selected_names is not None and (
+        not isinstance(selected_names, tuple) or len(selected_names) > max_entries
+        or any(not isinstance(name, str) or not name or name in {".", ".."}
+            or "/" in name or "\\" in name for name in selected_names)
+        or (isinstance(selected_names, tuple) and len(selected_names) != len(set(selected_names))))
     if (type(max_entries) is not int or max_entries < 1
             or type(max_file_bytes) is not int or max_file_bytes < 1
             or type(max_total_bytes) is not int or max_total_bytes < 1
-            or not isinstance(suffix, str) or not suffix or "/" in suffix or "\\" in suffix):
+            or not isinstance(suffix, str) or not suffix or "/" in suffix or "\\" in suffix
+            or invalid_names):
         raise WindowsHandleCustodyError("windows_custody_read_limits_invalid")
     if os.name != "nt":
         raise WindowsHandleCustodyError("windows_custody_reader_on_non_windows")
@@ -174,42 +181,45 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
 
         root_handle = current
         root_identity = file_id(root_handle)
-        entries: list[tuple[str, bytes]] = []
-        directory_buffer = ctypes.create_string_buffer(65_536)
-        restart = True
-        while True:
-            iosb = IO_STATUS_BLOCK()
-            status = nt_query_dir(wintypes.HANDLE(root_handle), None, None, None, ctypes.byref(iosb),
-                directory_buffer, len(directory_buffer), 1, False, None, restart)
-            restart = False
-            unsigned_status = status & 0xFFFFFFFF
-            if unsigned_status == STATUS_NO_MORE_FILES:
-                break
-            if status < 0 or iosb.Information > len(directory_buffer):
-                fail("cognition_observation_windows_directory_read_failed")
-            if iosb.Information == 0:
-                fail("cognition_observation_windows_directory_empty_response")
-            offset = 0
-            while offset < iosb.Information:
-                if iosb.Information - offset < 64:
-                    fail("cognition_observation_windows_directory_entry_invalid")
-                next_offset, _index = struct.unpack_from("<II", directory_buffer.raw, offset)
-                attrs_value = struct.unpack_from("<I", directory_buffer.raw, offset + 56)[0]
-                name_length = struct.unpack_from("<I", directory_buffer.raw, offset + 60)[0]
-                if name_length % 2 or name_length > 1024 or offset + 64 + name_length > iosb.Information:
-                    fail("cognition_observation_windows_directory_entry_invalid")
-                name = directory_buffer.raw[offset + 64:offset + 64 + name_length].decode("utf-16-le")
-                if name not in {".", ".."} and name.endswith(suffix):
-                    if attrs_value & FILE_ATTRIBUTE_REPARSE_POINT:
-                        fail("cognition_observation_windows_reparse_point")
-                    entries.append((name, attrs_value))
-                if next_offset == 0:
+        entries: list[tuple[str, int]] = []
+        if selected_names is not None:
+            entries = [(name, 0) for name in selected_names]
+        else:
+            directory_buffer = ctypes.create_string_buffer(65_536)
+            restart = True
+            while True:
+                iosb = IO_STATUS_BLOCK()
+                status = nt_query_dir(wintypes.HANDLE(root_handle), None, None, None, ctypes.byref(iosb),
+                    directory_buffer, len(directory_buffer), 1, False, None, restart)
+                restart = False
+                unsigned_status = status & 0xFFFFFFFF
+                if unsigned_status == STATUS_NO_MORE_FILES:
                     break
-                if next_offset < 64 or offset + next_offset > iosb.Information:
-                    fail("cognition_observation_windows_directory_entry_invalid")
-                offset += next_offset
-            if len(entries) > max_entries:
-                fail("cognition_observation_retention_limit_exceeded")
+                if status < 0 or iosb.Information > len(directory_buffer):
+                    fail("cognition_observation_windows_directory_read_failed")
+                if iosb.Information == 0:
+                    fail("cognition_observation_windows_directory_empty_response")
+                offset = 0
+                while offset < iosb.Information:
+                    if iosb.Information - offset < 64:
+                        fail("cognition_observation_windows_directory_entry_invalid")
+                    next_offset, _index = struct.unpack_from("<II", directory_buffer.raw, offset)
+                    attrs_value = struct.unpack_from("<I", directory_buffer.raw, offset + 56)[0]
+                    name_length = struct.unpack_from("<I", directory_buffer.raw, offset + 60)[0]
+                    if name_length % 2 or name_length > 1024 or offset + 64 + name_length > iosb.Information:
+                        fail("cognition_observation_windows_directory_entry_invalid")
+                    name = directory_buffer.raw[offset + 64:offset + 64 + name_length].decode("utf-16-le")
+                    if name not in {".", ".."} and name.endswith(suffix):
+                        if attrs_value & FILE_ATTRIBUTE_REPARSE_POINT:
+                            fail("cognition_observation_windows_reparse_point")
+                        entries.append((name, attrs_value))
+                    if next_offset == 0:
+                        break
+                    if next_offset < 64 or offset + next_offset > iosb.Information:
+                        fail("cognition_observation_windows_directory_entry_invalid")
+                    offset += next_offset
+                if len(entries) > max_entries:
+                    fail("cognition_observation_retention_limit_exceeded")
         if file_id(root_handle) != root_identity:
             fail("cognition_observation_windows_root_identity_changed")
         result: list[tuple[str, bytes]] = []

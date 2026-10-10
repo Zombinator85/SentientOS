@@ -13,6 +13,7 @@ import tempfile
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROPOSITION_SCHEMA = "sentientos.epistemic_proposition:v1"
 BINDING_SCHEMA = "sentientos.epistemic_evidence_binding:v1"
@@ -272,6 +273,16 @@ def _write_new(path: Path, value: Mapping[str, Any]) -> None:
 
 
 def _read_record_bytes(path: Path) -> bytes:
+    if os.name == "nt":
+        try:
+            entries = read_regular_files(path.parent,
+                max_entries=1, max_file_bytes=MAX_EPISTEMIC_RECORD_BYTES,
+                max_total_bytes=MAX_EPISTEMIC_RECORD_BYTES, selected_names=(path.name,))
+        except WindowsHandleCustodyError as exc:
+            raise EpistemicStateError("epistemic_record_windows_recovery_failed") from exc
+        if len(entries) != 1 or entries[0][0] != path.name:
+            raise FileNotFoundError(path)
+        return entries[0][1]
     descriptor: int | None = None
     try:
         metadata = path.lstat()
@@ -374,6 +385,14 @@ class PersistentEpistemicStateOwner:
             return ()
         except OSError as exc:
             raise EpistemicStateError("epistemic_collection_invalid") from exc
+        if os.name == "nt":
+            try:
+                return tuple(read_regular_files(directory,
+                    max_entries=MAX_EPISTEMIC_RECORDS_PER_COLLECTION,
+                    max_file_bytes=MAX_EPISTEMIC_RECORD_BYTES,
+                    max_total_bytes=MAX_EPISTEMIC_COLLECTION_BYTES))
+            except WindowsHandleCustodyError as exc:
+                raise EpistemicStateError("epistemic_collection_windows_recovery_failed") from exc
         paths = tuple(sorted(directory.glob("*.json")))
         if len(paths) > MAX_EPISTEMIC_RECORDS_PER_COLLECTION:
             raise EpistemicStateError("epistemic_record_count_limit_exceeded")
