@@ -94,6 +94,14 @@ HISTORICAL_CONSEQUENCE_CLASSES = frozenset({
     "observation_missing", "renderer_report_only", "indeterminate", "execution_failed",
     "body_generation_mismatch", "correlation_mismatch",
 })
+HISTORICAL_REVIEW_SUBJECTS = frozenset({"embodied_strategy_proposal_review"})
+_REVIEW_CONTEXT_FIELDS = (
+    "condition", "history_record_id", "history_record_digest", "invocation_receipt_id",
+    "invocation_receipt_digest", "execution_evidence_digest", "execution_posture",
+    "declared_model_id", "declared_model_artifact_digest", "active_model_identity_digest",
+    "serving_identity_posture", "serving_identity_digest", "declared_software_generation",
+    "software_generation_posture", "software_execution_provenance_digest",
+)
 
 
 class LongitudinalSelfModelError(ValueError):
@@ -269,6 +277,35 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             and fact.payload.get("classification") in HISTORICAL_CONSEQUENCE_CLASSES):
         out.append(("embodiment.historical_consequence_classification",
                     _bounded(fact.payload["classification"]), "historical_interpretation"))
+    if (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind in HISTORICAL_REVIEW_SUBJECTS):
+        contexts = fact.payload.get("source_execution_contexts", ())
+        compact_contexts = []
+        if isinstance(contexts, (list, tuple)):
+            for context in contexts[:3]:
+                if isinstance(context, Mapping):
+                    compact_contexts.append({key: context[key] for key in _REVIEW_CONTEXT_FIELDS
+                                             if key in context})
+        value = {
+            "review_receipt_id": fact.payload.get("review_receipt_id"),
+            "review_material_digest": fact.payload.get("review_material_digest"),
+            "review_binding_posture": fact.payload.get("review_binding_posture", "unknown"),
+            "proposal_id": fact.payload.get("proposal_id"),
+            "proposal_digest": fact.payload.get("proposal_digest"),
+            "review_outcome": fact.payload.get("review_outcome"),
+            "reviewer_kind": fact.payload.get("reviewer_kind"),
+            "reviewer_identity_posture": fact.payload.get("reviewer_identity_posture", "unknown"),
+            "source_event_refs": fact.payload.get("source_event_refs", []),
+            "source_execution_contexts": compact_contexts,
+        }
+        # The claim has a stricter bound than the source fact. Keep complete
+        # fact identity and digest lineage even when optional context is too
+        # large for this compact later-cognition projection.
+        if len(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")) > MAX_VALUE_BYTES:
+            value["source_execution_contexts"] = []
+            value["source_event_refs"] = []
+        out.append(("embodiment.historical_proposal_review", _bounded(value),
+                    "historical_interpretation"))
     return out
 
 
