@@ -87,9 +87,15 @@ def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[st
                 (not isinstance(prior_state, str) or len(prior_state) != 64
                  or any(character not in "0123456789abcdef" for character in prior_state)))):
         raise ProductionServingError("activation_predecessor_binding_invalid")
-    # The canonical verifier has re-read catalog, commissioning, and artifact bytes.  Bind
-    # every state field here so a later comparison cannot accidentally narrow currentness.
+    # The canonical verifier has re-read catalog, commissioning, and artifact bytes and
+    # reconstructed the exact activation predecessor chain. Bind its digest to this serving
+    # lifetime so model-selection lineage stays distinct from the loaded model identity.
+    history = verified.get("activation_history")
+    if not isinstance(history, (tuple, list)) or not history:
+        raise ProductionServingError("activation_history_unavailable")
+    history_digest = semantic_digest({"activation_history": list(history)})
     return {"active_state": dict(state), "activation_receipt": dict(activation),
+            "activation_history_digest": history_digest,
             "catalog_proof": dict(verified["catalog_proof"])}
 
 
@@ -160,6 +166,8 @@ class ProductionServingController:
         if session.binding.get("activation_generation") != state.get("generation"):
             return False
         if session.binding.get("activation_state") != state:
+            return False
+        if session.binding.get("activation_history_digest") != verified.get("activation_history_digest"):
             return False
         return True
 
@@ -237,6 +245,7 @@ class ProductionServingController:
                   "activation_predecessor_state_digest": activation["observed_prior_activation_state"],
                   "activation_receipt_id": activation["receipt_id"],
                   "activation_receipt_semantic_digest": activation["receipt_semantic_digest"],
+                  "activation_history_digest": before["activation_history_digest"],
                   "model_id": state["model_id"], "artifact_id": state["artifact_id"],
                   "runtime_id": state["runtime_id"], "authority_map_digest": state["authority_map_digest"]}
         operation_intent = {**intent, "serving_operation_id": operation_id}
@@ -268,6 +277,7 @@ class ProductionServingController:
                 raise ProductionServingError("loaded_model_configuration_identity_mismatch")
             after = _verified(self._handle, self._allow_synthetic)
             if (after["active_state"] != state or after["activation_receipt"] != activation
+                    or after["activation_history_digest"] != before["activation_history_digest"]
                     or after["catalog_proof"] != proof):
                 raise ProductionServingError("activation_changed_during_load")
             binding = {**operation_intent, "control_plane_correlation_id": correlation,
