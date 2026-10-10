@@ -36,7 +36,9 @@ from .conversation_session import (
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, sentientos_data_dir)
-from .governed_local_model_invocation import LocalModelInvocationBudget
+from .governed_local_model_invocation import (
+    LocalModelInvocationBudget, LocalModelPostEffectResourceCustodyError,
+)
 from .local_model_authority import digest_payload
 
 LOGGER = logging.getLogger(__name__)
@@ -553,6 +555,17 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except LocalModelPostEffectResourceCustodyError as exc:
+        LOGGER.error("Post-effect resource custody is unconfirmed for invocation %s",
+            exc.receipt_id)
+        raise HTTPException(status_code=503, detail={
+            "code": "post_effect_resource_custody_unconfirmed",
+            "invocation_receipt_id": exc.receipt_id,
+            "invocation_receipt_digest": exc.receipt_digest,
+            "invocation_status": exc.invocation_status,
+            "receipt_persisted": exc.receipt_persisted,
+            "replay_posture": "do_not_retry_automatically",
+        }) from exc
     except RuntimeError as exc:
         LOGGER.warning("Production chat unavailable: %s", type(exc).__name__)
         raise HTTPException(status_code=503, detail="Local model inference unavailable") from exc

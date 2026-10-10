@@ -203,6 +203,18 @@ def _status_for_denial(outcome: str) -> str:
     if outcome == "deny": return "denied"
     return "blocked_invalid"
 
+class LocalModelPostEffectResourceCustodyError(RuntimeError):
+    """Resource custody failed after backend entry; the inference must not be replayed implicitly."""
+
+    def __init__(self, *, receipt_id: str, receipt_digest: str,
+                 invocation_status: str, receipt_persisted: bool) -> None:
+        self.receipt_id = receipt_id
+        self.receipt_digest = receipt_digest
+        self.invocation_status = invocation_status
+        self.receipt_persisted = bool(receipt_persisted)
+        super().__init__("post_effect_resource_custody_unconfirmed")
+
+
 class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
         self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None
@@ -359,7 +371,9 @@ class GovernedLocalModelInvoker:
                 # digest after persistence. Propagate the custody failure to the
                 # caller; the ledger's unreconciled attempt remains visible and
                 # is never replayed or replenished during observation/recovery.
-                raise
+                raise LocalModelPostEffectResourceCustodyError(
+                    receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                    invocation_status=receipt.status, receipt_persisted=persist) from None
         if self._evidence_sink is not None:
             self._evidence_sink(receipt.to_dict(include_output=False))
         return receipt

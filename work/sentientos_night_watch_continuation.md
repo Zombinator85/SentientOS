@@ -694,3 +694,11 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the invocation and World-State resource projector. No backend call, failure injection, receipt publication, ledger recovery, or production verification was performed.
 
 **Next implementation dependency:** inspect the downstream caller's handling of the propagated post-effect custody exception to ensure it cannot silently retry or report that inference never occurred; keep the persisted invocation and incomplete resource attempt available as separate evidence.
+
+### New checkpoint — expose post-effect resource-custody failure truthfully to chat callers
+
+- `GovernedLocalModelResourceError` derives from `ValueError`; before this change a post-backend reconciliation failure could be returned by the chat endpoint through its generic 404 path. The invocation owner now raises a dedicated post-effect custody error containing the immutable receipt identity, actual invocation status, and whether persistence was requested, without mutating the receipt.
+- The chat endpoint returns a 503 with the exact receipt IDs and `do_not_retry_automatically` posture. It does not claim inference did not happen, and does not add any retry path.
+- Python compilation passed for `governed_local_model_invocation.py` and `chat_service.py`. No backend failure, API response, or retry behavior was executed.
+
+**Next implementation dependency:** inspect post-effect persistence and observational-sink exception paths as well; ensure callers receive truthful uncertainty if an invocation has entered the backend but final receipt publication or an optional evidence sink fails.
