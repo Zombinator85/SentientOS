@@ -73,6 +73,7 @@ PAYLOAD_PREDICATES = {
     "predecessor_model_development_provenance": ("predecessor_model_development_provenance",),
     "model_development_provenance": ("model_development_provenance",),
     "developmental_history_boundary": ("developmental_history_boundary",),
+    "software_generation_posture": ("software_generation_posture",),
     "configuration_identity": ("configuration_id",),
     "capability_identity": ("capability_id",),
     "embodiment.body_identity": ("installation_body_id",),
@@ -282,6 +283,56 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             and fact.payload.get("classification") in HISTORICAL_CONSEQUENCE_CLASSES):
         out.append(("embodiment.historical_consequence_classification",
                     _bounded(fact.payload["classification"]), "historical_interpretation"))
+    if (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind == "developmental_model_replacement_experiment"):
+        raw_observations = fact.payload.get("observations")
+        conditions: list[dict[str, Any]] = []
+        valid_shape = (isinstance(raw_observations, (list, tuple))
+            and 0 < len(raw_observations) <= 5)
+        if valid_shape:
+            for item in raw_observations:
+                if not isinstance(item, Mapping):
+                    valid_shape = False
+                    break
+                if (any(not isinstance(item.get(key), str) or not item.get(key) for key in (
+                        "condition_id", "observation_id", "observation_digest",
+                        "model_identity_digest", "model_provenance_manifest_digest",
+                        "inference_receipt_id", "inference_receipt_digest"))
+                        or type(item.get("history_withheld")) is not bool):
+                    valid_shape = False
+                    break
+                conditions.append({key: item.get(key) for key in (
+                    "condition_id", "observation_id", "observation_digest",
+                    "model_identity_digest", "model_provenance_manifest_digest",
+                    "history_withheld", "inference_receipt_id", "inference_receipt_digest",
+                    "inference_event_time", "inference_event_time_posture",
+                    "resource_allocation_digest", "resource_attempt_id",
+                    "resource_linkage_digest", "resource_attribution_posture")})
+        value: dict[str, Any] = {
+            "run_id": fact.payload.get("run_id"),
+            "run_digest": fact.payload.get("run_digest"),
+            "protocol_id": fact.payload.get("protocol_id"),
+            "protocol_digest": fact.payload.get("protocol_digest"),
+            "causal_context_id": fact.payload.get("causal_context_id"),
+            "causal_context_digest": fact.payload.get("causal_context_digest"),
+            "model_a_identity_digest": fact.payload.get("model_a_identity_digest"),
+            "model_b_identity_digest": fact.payload.get("model_b_identity_digest"),
+            "model_a_provenance_digest": fact.payload.get("model_a_provenance_digest"),
+            "model_b_provenance_digest": fact.payload.get("model_b_provenance_digest"),
+            "software_generation_identity": fact.payload.get("software_generation_identity"),
+            "software_generation_posture": fact.payload.get("software_generation_posture", "unknown"),
+            "experiment_completion_posture": fact.payload.get("experiment_completion_posture"),
+            "classification": fact.payload.get("classification"),
+            "conditions": conditions if valid_shape else [],
+            "condition_lineage_posture": "digest_bound_condition_summary" if valid_shape
+                else "source_fact_digest_only",
+            "current_truth": False, "effect_proven": False, "authority": False,
+        }
+        if len(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")) > MAX_VALUE_BYTES:
+            value["conditions"] = []
+            value["condition_lineage_posture"] = "source_fact_digest_only"
+        out.append(("developmental.model_replacement_interpretation", _bounded(value),
+                    "historical_interpretation"))
     if (fact.source.kind == "embodiment"
             and fact.subject.subject_kind in HISTORICAL_REVIEW_SUBJECTS):
         contexts = fact.payload.get("source_execution_contexts", ())

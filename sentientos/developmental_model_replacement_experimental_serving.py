@@ -272,6 +272,9 @@ class ExperimentalCognitiveEndpoint:
         return {"status": result.status, "fallback_occurred": result.fallback_occurred,
                 "request_id": request.request_id, "request_digest": request.request_digest,
                 "inference_receipt_id": result.receipt_id, "inference_receipt_digest": result.receipt_digest,
+                # Preserve owner-supplied time; its invocation digest excludes
+                # this custody metadata, so it remains unverified downstream.
+                "observed_at": result.observed_at,
                 "output_digest": result.output_digest,
                 "actual_generation_parameters": result.generation_config.get("actual_generation_parameters", {}),
                 "resource_allocation_digest": result.resource_allocation_digest,
