@@ -427,7 +427,16 @@ class MaintenanceProductionPostAdoptionCampaign:
         definition = next((x for x in protocol.controls if x.observable_id == observable_id), None)
         if definition is None or "host_observation" not in definition.admissible_source_classes:
             raise ProductionCampaignError("control_definition_not_host_collectable")
-        stamp = observed_at or datetime.now(timezone.utc).isoformat()
+        now = datetime.now(timezone.utc)
+        stamp = now.isoformat()
+        if observed_at is not None:
+            try:
+                requested = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+            except (TypeError, ValueError) as exc:
+                raise ProductionCampaignError("host_control_observation_time_invalid") from exc
+            if (requested.tzinfo is None
+                    or abs((now - requested.astimezone(timezone.utc)).total_seconds()) > 30):
+                raise ProductionCampaignError("host_control_observation_time_not_current")
         results = {x.collector_id: x for x in collect_basic_host_observations(observed_at=stamp)}
         collector_id, _, value_key = observable_id.partition(".")
         result = results.get(collector_id)

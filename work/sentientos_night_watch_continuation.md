@@ -88,3 +88,7 @@ Next compile, commit, push, and remote-verify the signal recovery increment. The
 - Current control-consumption increment (compiled, not yet committed): a terminal trial must preserve any control artifacts already durably published for it; interruption records now retain an exact available evaluation and controls. Campaign finalization rejects control records that no trial consumed, and recovered result verification enforces the same linkage.
 
 Next compile, commit, push, and remote-verify this control-lineage increment. Then review whether any remaining source or temporal input is caller-selected without being separately marked or sealed.
+- `82a13670a9e3106cb73705f0e2da5e39db382c28` (remote verified): partial controls cannot be omitted from terminal trial records or aggregated as campaign evidence; interrupted trials retain exact prior control and evaluation identities.
+- Current timestamp refinement (compiled, not yet committed): host-control observations always use collector invocation time; the compatibility `observed_at` argument can only pass a short current-time check and cannot backdate the recorded collection.
+
+Next compile, commit, push, and remote-verify this temporal refinement. Then continue reviewing the remaining proposal/consequence and handoff interfaces for another directly implementable closure.
