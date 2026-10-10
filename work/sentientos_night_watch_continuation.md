@@ -223,3 +223,12 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Changed Python sources compile; no runtime or crash checks were run. Branch verified at `e5ad86d169c82e4fac332aec6ebb2dbb03c713f7`.
 
 **Next implementation dependency:** continue source-only review through model-serving activation and recovery semantics to ensure the chat software-generation chain does not imply model continuity, and that incomplete or stale serving receipts remain distinct from the process handoff lineage. Preserve both as separate evidence chains in later cognition.
+
+### New checkpoint — source identity captured before child launch
+
+- The supervised adapter now hashes the bounded SentientOS/scripts Python source manifest immediately before Popen, passes that expected digest in fixed argv, and publishes the prelaunch manifest only after confirming the source bytes remain unchanged through handoff publication.
+- The child entrypoint checks the expected digest before importing `chat_service`; the handoff continues to bind the actual child/parent PID, argv, environment, cwd, executable, and installation custody. This narrows the source-generation claim without asserting interpreter, dependency, or in-memory page attestation.
+- Direct/manual launch without the explicit handoff remains software-generation-unavailable. Model activation identity remains separately verified. Python compilation only; no runtime or production evidence.
+- Remote branch verified at `c3b1746908aa3aa19fcb93bac0b43a582955fd61`.
+
+**Next implementation dependency:** inspect cross-restart model-serving receipt composition after the new source binding, then correct any concrete mismatch between generation evidence, serving identity, and recovered chat cognition. Preserve direct predecessor and overlap as unknown where no owner can establish them.
