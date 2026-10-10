@@ -160,6 +160,13 @@ class MaintenanceProductionPostAdoptionCampaign:
             host_controls_valid = host_controls_valid and result is not None and validate_host_collector_result(result).ok \
                 and result.status in {"available", "partial"} and result.to_dict()["values"].get(value_key) is not None \
                 and "host_observation" in definition.admissible_source_classes
+        evaluation_protocol_ids = set(protocol.evaluation_protocol_ids)
+        observations = [x for x in self.evaluations._read("observations")
+            if x.get("protocol_id") in evaluation_protocol_ids]
+        evaluations = [x for x in self.evaluations._read("evaluations")
+            if x.get("protocol_id") in evaluation_protocol_ids]
+        evaluation_by_protocol = {x.get("protocol_id") for x in evaluations}
+        unresolved_observation = any(x.get("protocol_id") not in evaluation_by_protocol for x in observations)
         checks = {
             "successor_generation_sealed": _record_valid(generation, GENERATION_SCHEMA, "generation_digest"),
             "successor_generation_exact": generation.get("ordinal") == protocol.successor_generation and generation.get("base_sha") == protocol.successor_revision,
@@ -174,13 +181,15 @@ class MaintenanceProductionPostAdoptionCampaign:
             "baseline_inventory_complete": len(custody["baseline_ids"]) == len(protocol.trial_ids),
             "target_collector_available": target_sources_valid,
             "independent_control_available": host_controls_valid,
+            "no_unresolved_observation_attempt": not unresolved_observation,
         }
         blockers = tuple(key for key, passed in checks.items() if not passed)
         terminal = False
         try: self.campaigns.result(campaign_id); terminal = True
         except ValueError: pass
         trials = [x for x in self.campaigns._read("trials") if x["campaign_id"] == campaign_id]
-        status = "production_campaign_complete" if terminal else ("production_campaign_in_progress" if trials else
+        status = "production_campaign_complete" if terminal else ("production_campaign_interrupted" if unresolved_observation else
+                 "production_campaign_in_progress" if trials else
                  "production_campaign_ready" if not blockers else "production_campaign_not_ready")
         body: dict[str, Any] = {"schema_version": READINESS_SCHEMA, "campaign_id": campaign_id,
             "campaign_digest": protocol.campaign_digest, "status": status, "checks": checks,

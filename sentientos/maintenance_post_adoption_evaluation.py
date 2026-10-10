@@ -241,14 +241,27 @@ class MaintenancePostAdoptionEvaluationOwner:
         self._write("baselines",baseline.baseline_id,baseline); return baseline
 
     def protocol(self, identity: str) -> EvaluationProtocol:
+        self.verify()
         rows=[x for x in self._read("protocols") if x["protocol_id"]==identity]
         if len(rows)!=1: raise PostAdoptionEvaluationError("protocol_not_found")
-        row=dict(rows[0]); row["measurements"]=tuple(MeasurementDefinition(**x) for x in row["measurements"]); return EvaluationProtocol(**row)
+        row=dict(rows[0]); row["measurements"]=tuple(MeasurementDefinition(**x) for x in row["measurements"])
+        for field in ("signal_ids", "required_evidence_sources"):
+            row[field] = tuple(row[field])
+        return EvaluationProtocol(**row)
 
     def baseline(self, protocol_id: str) -> Baseline:
+        self.verify()
         rows=[x for x in self._read("baselines") if x["protocol_id"]==protocol_id]
         if len(rows)!=1: raise PostAdoptionEvaluationError("baseline_not_found")
         return Baseline(**rows[0])
+
+    def observation(self, protocol_id: str) -> PostAdoptionObservation:
+        """Recover the one persisted observation for an interrupted evaluation."""
+        self.verify()
+        rows = [row for row in self._read("observations") if row.get("protocol_id") == protocol_id]
+        if len(rows) != 1:
+            raise PostAdoptionEvaluationError("observation_not_found_or_ambiguous")
+        return PostAdoptionObservation(**rows[0])
 
     def evaluation(self, evaluation_id: str, evaluation_digest: str) -> Evaluation:
         self.verify()
@@ -262,7 +275,12 @@ class MaintenancePostAdoptionEvaluationOwner:
         return Evaluation(**value)
 
     def observe(self, protocol: EvaluationProtocol, baseline: Baseline, qualification: SuccessorQualification, *, observations: Mapping[str,Any], source_records: Mapping[str,Mapping[str,str]], measurement_laws: Mapping[str,str], observed_at: str, collector_id: str) -> PostAdoptionObservation:
+        self.verify()
+        if self.protocol(protocol.protocol_id) != protocol or self.baseline(protocol.protocol_id) != baseline:
+            raise PostAdoptionEvaluationError("observation_predecessor_custody_mismatch")
         if self._read("evaluations") and any(x["protocol_id"]==protocol.protocol_id for x in self._read("evaluations")): raise PostAdoptionEvaluationError("completed_evaluation_replay_forbidden")
+        if any(x["protocol_id"] == protocol.protocol_id for x in self._read("observations")):
+            raise PostAdoptionEvaluationError("observation_already_persisted_recover_exact_record")
         if (qualification.successor_generation!=protocol.expected_successor_generation or qualification.successor_commit!=protocol.landed_commit or qualification.successor_tree!=protocol.landed_tree or qualification.readiness_status!="resident_adoption_completed"):
             raise PostAdoptionEvaluationError("successor_not_exactly_qualified")
         if not all(str(x).startswith("sha256:") for x in (qualification.generation_digest,qualification.continuity_receipt_digest,qualification.adoption_receipt_digest,qualification.launch_provenance_digest,qualification.readiness_receipt_digest)): raise PostAdoptionEvaluationError("successor_evidence_digest_invalid")
@@ -278,6 +296,10 @@ class MaintenancePostAdoptionEvaluationOwner:
         self._write("observations",oid,value); return value
 
     def evaluate(self, protocol: EvaluationProtocol, baseline: Baseline, observation: PostAdoptionObservation, *, evaluated_at: str) -> Evaluation:
+        self.verify()
+        if (self.protocol(protocol.protocol_id) != protocol or self.baseline(protocol.protocol_id) != baseline
+                or self.observation(protocol.protocol_id) != observation):
+            raise PostAdoptionEvaluationError("evaluation_predecessor_custody_mismatch")
         if evaluated_at<=observation.observed_at: raise PostAdoptionEvaluationError("evaluation_not_after_observation")
         missing=[]; comparisons=[]
         for item in protocol.measurements:
@@ -295,6 +317,12 @@ class MaintenancePostAdoptionEvaluationOwner:
             "controlled_before_after_correlation_not_experimental_causation",evaluated_at,lineage,
             protocol.validation_result_digest,dict(FALSE_AUTHORITY))
         eid,edg=_identity("post-adoption-evaluation",raw.payload()); value=replace(raw,evaluation_id=eid,evaluation_digest=edg)
+        existing = [row for row in self._read("evaluations") if row["protocol_id"] == protocol.protocol_id]
+        if existing:
+            stored = self.evaluation(existing[0]["evaluation_id"], existing[0]["evaluation_digest"])
+            if stored != value:
+                raise PostAdoptionEvaluationError("evaluation_terminal_conflict")
+            return stored
         self._write("evaluations",eid,value)
         signal=improvement_signal_record(value)
         if signal: self._write("signals",eid,{**signal,"signal_handoff_only":True,"repository_mutation_performed":False})
