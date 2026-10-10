@@ -37,7 +37,7 @@ from .conversation_session import (
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, sentientos_data_dir)
 from .governed_local_model_invocation import (
-    LocalModelInvocationBudget, LocalModelPostEffectResourceCustodyError,
+    LocalModelInvocationBudget, LocalModelPostEffectCustodyError,
 )
 from .local_model_authority import digest_payload
 
@@ -555,15 +555,18 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except LocalModelPostEffectResourceCustodyError as exc:
-        LOGGER.error("Post-effect resource custody is unconfirmed for invocation %s",
-            exc.receipt_id)
+    except LocalModelPostEffectCustodyError as exc:
+        LOGGER.error("Post-effect custody is unconfirmed for invocation %s at %s",
+            exc.receipt_id, exc.failure_phase)
         raise HTTPException(status_code=503, detail={
-            "code": "post_effect_resource_custody_unconfirmed",
+            "code": "post_effect_custody_unconfirmed",
+            "failure_phase": exc.failure_phase,
             "invocation_receipt_id": exc.receipt_id,
             "invocation_receipt_digest": exc.receipt_digest,
             "invocation_status": exc.invocation_status,
-            "receipt_persisted": exc.receipt_persisted,
+            "receipt_persistence_confirmed": exc.receipt_persistence_confirmed,
+            "resource_linkage_persistence_confirmed":
+                exc.resource_linkage_persistence_confirmed,
             "replay_posture": "do_not_retry_automatically",
         }) from exc
     except RuntimeError as exc:

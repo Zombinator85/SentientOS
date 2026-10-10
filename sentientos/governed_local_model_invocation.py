@@ -203,16 +203,20 @@ def _status_for_denial(outcome: str) -> str:
     if outcome == "deny": return "denied"
     return "blocked_invalid"
 
-class LocalModelPostEffectResourceCustodyError(RuntimeError):
-    """Resource custody failed after backend entry; the inference must not be replayed implicitly."""
+class LocalModelPostEffectCustodyError(RuntimeError):
+    """Custody failed after backend entry; the invocation must not be replayed implicitly."""
 
     def __init__(self, *, receipt_id: str, receipt_digest: str,
-                 invocation_status: str, receipt_persisted: bool) -> None:
+                 invocation_status: str, failure_phase: str,
+                 receipt_persistence_confirmed: bool,
+                 resource_linkage_persistence_confirmed: bool | None) -> None:
         self.receipt_id = receipt_id
         self.receipt_digest = receipt_digest
         self.invocation_status = invocation_status
-        self.receipt_persisted = bool(receipt_persisted)
-        super().__init__("post_effect_resource_custody_unconfirmed")
+        self.failure_phase = failure_phase
+        self.receipt_persistence_confirmed = bool(receipt_persistence_confirmed)
+        self.resource_linkage_persistence_confirmed = resource_linkage_persistence_confirmed
+        super().__init__("post_effect_custody_unconfirmed")
 
 
 class GovernedLocalModelInvoker:
@@ -240,6 +244,9 @@ class GovernedLocalModelInvoker:
                resource_context: GovernedLocalModelResourceInvocationContext | None = None) -> LocalModelInvocationReceipt:
         started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False
         decision_payload: dict[str, Any] = {}; attempt_id: str | None = None; backend_entered = False
+        receipt_persistence_confirmed = False
+        resource_linkage_persistence_confirmed: bool | None = (
+            False if resource_context is not None else None)
         generated_output: str | None = None
         record = self._record_for(request.model_id)
         ok, map_reasons = validate_authority_map(self.authority_map.to_dict())
@@ -348,34 +355,83 @@ class GovernedLocalModelInvoker:
         effect_occurred = generated_output is not None
         receipt_output = generated_output if effect_occurred else output
         receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat())
-        if persist: self._persist(request, receipt, decision_payload, include_output=include_output_in_receipt)
-        if resource_context is not None and attempt_id is not None and backend_entered:
-            measurement = resource_context.allocator.measurement(resource_context.allocation, generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=len(generated_output.encode("utf-8")) if generated_output is not None else None, returned_output_size_bytes=len(output.encode("utf-8")) if output is not None else None, output_truncated=truncated, latency_ms=receipt.latency_ms, invocation_outcome=status)
-            state = "measured_timeout" if status == "timeout" else "measured_backend_failure" if status == "backend_failure" else "measured_completed"
+        if persist:
             try:
-                measured = resource_context.allocator.append_receipt(resource_context.allocation, attempt_id, state=state, observed_at=resource_context.clock(), measurement=measurement)
-                reconciled = resource_context.allocator.append_receipt(resource_context.allocation, attempt_id, state="reconciled", observed_at=resource_context.clock(), measurement=measurement, effect_receipt_digest=receipt.receipt_digest)
-                receipt = replace(receipt, resource_allocation_digest=resource_context.allocation.allocation_digest,
+                self._persist(request, receipt, decision_payload,
+                    include_output=include_output_in_receipt)
+                receipt_persistence_confirmed = True
+            except Exception as exc:
+                if backend_entered:
+                    raise LocalModelPostEffectCustodyError(
+                        receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                        invocation_status=receipt.status, failure_phase="invocation_receipt_publication",
+                        receipt_persistence_confirmed=False,
+                        resource_linkage_persistence_confirmed=resource_linkage_persistence_confirmed) from exc
+                raise
+        if resource_context is not None and attempt_id is not None and backend_entered:
+            try:
+                measurement = resource_context.allocator.measurement(
+                    resource_context.allocation, generation_attempted=True, call_units_consumed=1,
+                    generated_output_size_bytes=(len(generated_output.encode("utf-8"))
+                        if generated_output is not None else None),
+                    returned_output_size_bytes=(len(output.encode("utf-8"))
+                        if output is not None else None),
+                    output_truncated=truncated, latency_ms=receipt.latency_ms,
+                    invocation_outcome=status)
+                state = ("measured_timeout" if status == "timeout" else
+                    "measured_backend_failure" if status == "backend_failure" else "measured_completed")
+                measured = resource_context.allocator.append_receipt(
+                    resource_context.allocation, attempt_id, state=state,
+                    observed_at=resource_context.clock(), measurement=measurement)
+                reconciled = resource_context.allocator.append_receipt(
+                    resource_context.allocation, attempt_id, state="reconciled",
+                    observed_at=resource_context.clock(), measurement=measurement,
+                    effect_receipt_digest=receipt.receipt_digest)
+            except Exception as exc:
+                raise LocalModelPostEffectCustodyError(
+                    receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                    invocation_status=receipt.status, failure_phase="resource_ledger_reconciliation",
+                    receipt_persistence_confirmed=receipt_persistence_confirmed,
+                    resource_linkage_persistence_confirmed=False) from exc
+            try:
+                receipt = replace(receipt,
+                    resource_allocation_digest=resource_context.allocation.allocation_digest,
                     resource_attempt_id=attempt_id,
-                    resource_consumption_receipt_digests=(measured.receipt_digest, reconciled.receipt_digest))
+                    resource_consumption_receipt_digests=(measured.receipt_digest,
+                        reconciled.receipt_digest))
                 receipt = replace(receipt, resource_linkage_digest=digest_payload({
                     "receipt_digest": receipt.receipt_digest,
                     "allocation_digest": receipt.resource_allocation_digest,
                     "attempt_id": receipt.resource_attempt_id,
                     "consumption_receipt_digests": receipt.resource_consumption_receipt_digests}))
-                if persist:
-                    self._persist(request, receipt, decision_payload, include_output=include_output_in_receipt)
-            except GovernedLocalModelResourceError:
-                # Backend entry is irreversible and its canonical invocation
-                # receipt may already be persisted. Do not mutate its status or
-                # digest after persistence. Propagate the custody failure to the
-                # caller; the ledger's unreconciled attempt remains visible and
-                # is never replayed or replenished during observation/recovery.
-                raise LocalModelPostEffectResourceCustodyError(
+            except Exception as exc:
+                raise LocalModelPostEffectCustodyError(
                     receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
-                    invocation_status=receipt.status, receipt_persisted=persist) from None
+                    invocation_status=receipt.status, failure_phase="resource_linkage_construction",
+                    receipt_persistence_confirmed=receipt_persistence_confirmed,
+                    resource_linkage_persistence_confirmed=False) from exc
+            if persist:
+                try:
+                    self._persist(request, receipt, decision_payload,
+                        include_output=include_output_in_receipt)
+                    resource_linkage_persistence_confirmed = True
+                except Exception as exc:
+                    raise LocalModelPostEffectCustodyError(
+                        receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                        invocation_status=receipt.status, failure_phase="resource_linkage_publication",
+                        receipt_persistence_confirmed=True,
+                        resource_linkage_persistence_confirmed=False) from exc
         if self._evidence_sink is not None:
-            self._evidence_sink(receipt.to_dict(include_output=False))
+            try:
+                self._evidence_sink(receipt.to_dict(include_output=False))
+            except Exception as exc:
+                if backend_entered:
+                    raise LocalModelPostEffectCustodyError(
+                        receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                        invocation_status=receipt.status, failure_phase="observational_evidence_sink",
+                        receipt_persistence_confirmed=receipt_persistence_confirmed,
+                        resource_linkage_persistence_confirmed=resource_linkage_persistence_confirmed) from exc
+                raise
         return receipt
 
     def _record_for(self, model_id: str) -> LocalModelAuthorityRecord | None:

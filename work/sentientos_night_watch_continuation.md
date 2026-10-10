@@ -702,3 +702,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `governed_local_model_invocation.py` and `chat_service.py`. No backend failure, API response, or retry behavior was executed.
 
 **Next implementation dependency:** inspect post-effect persistence and observational-sink exception paths as well; ensure callers receive truthful uncertainty if an invocation has entered the backend but final receipt publication or an optional evidence sink fails.
+
+### New checkpoint — distinguish every post-effect publication failure phase
+
+- Extended the typed post-effect custody result to distinguish invocation receipt publication, resource-ledger reconciliation, resource-linkage construction/publication, and optional evidence-sink failure.
+- The chat endpoint reports whether receipt persistence and resource linkage persistence were confirmed separately, includes the exact invocation receipt ID/digest and invocation status, and continues to direct callers not to auto-retry.
+- Measurement/clock failures after backend entry are also wrapped as post-effect custody failures; no effect or resource entitlement is restored.
+- Python compilation passed for the invocation and chat service modules. No persistence fault, sink fault, HTTP request, inference call, or recovery run was performed.
+
+**Next implementation dependency:** perform the bounded source review of retry/idempotency in the persistent conversation store against these 503 outcomes. Confirm the stored user turn prevents re-entering the same invocation after a post-effect custody error and preserves the pending/incomplete request rather than fabricating an assistant result.
