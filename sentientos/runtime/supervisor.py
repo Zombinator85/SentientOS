@@ -374,9 +374,33 @@ class RuntimeSupervisor:
             self._exhausted.add(service_id); self._transition(service_id, "failed", "restart_budget_exhausted", "restart_budget_exhausted"); return
         delay = min(d.max_backoff, d.min_backoff * (2 ** len(history)))
         self._receipt("restart_scheduled", service_id, {"backoff_seconds": delay, "used": len(history), "budget": d.restart_budget})
-        self._sleep(delay); history.append(self._clock()); self._restarts[service_id] = history
-        try: self._call(self.registry.adapter(service_id).force_stop, d.shutdown_timeout)
-        except Exception: pass
+        self._sleep(delay)
+        history.append(self._clock())
+        self._restarts[service_id] = history
+        try:
+            self._call(self.registry.adapter(service_id).force_stop, d.shutdown_timeout)
+        except Exception as exc:
+            self._exhausted.add(service_id)
+            try:
+                self._transition(service_id, "failed",
+                    f"restart_force_stop_failed:{type(exc).__name__}",
+                    "restart_force_stop_failed")
+            except Exception:
+                self.panic_latched = True
+                self._states[service_id] = "failed"
+                self._latest[service_id] = "restart_force_stop_failed_receipt_uncertain"
+            return
+        try:
+            self._receipt("restart_force_stop_completed", service_id, {
+                "backoff_seconds": delay, "used": len(history),
+                "budget": d.restart_budget})
+        except Exception:
+            # The predecessor may already be stopped. Never launch a successor
+            # if its stop outcome cannot be durably reconciled.
+            self.panic_latched = True
+            self._states[service_id] = "degraded"
+            self._latest[service_id] = "restart_force_stop_receipt_uncertain"
+            return
         self._start(service_id, restarting=True)
 
     def reset_restart_budget(self, service_id: str) -> None:
@@ -386,18 +410,51 @@ class RuntimeSupervisor:
 
     def shutdown(self, *, panic: bool = False) -> None:
         with self._lock:
-            if panic: self.panic_latched = True
+            if panic:
+                self.panic_latched = True
             for service_id in self.registry.shutdown_order():
-                if self._states[service_id] in {"disabled", "stopped", "panic_stopped"}: continue
-                d, adapter = self.registry.descriptors[service_id], self.registry.adapter(service_id)
-                self._receipt("panic_stop" if panic else "graceful_stop_requested", service_id)
+                if self._states[service_id] in {"disabled", "stopped", "panic_stopped"}:
+                    continue
+                descriptor = self.registry.descriptors[service_id]
+                adapter = self.registry.adapter(service_id)
+                previous = self._states[service_id]
                 try:
-                    self._call(adapter.stop, d.shutdown_timeout)
-                    self._transition(service_id, "panic_stopped" if panic else "stopped", "panic_latched" if panic else "graceful_stop_completed",
-                                     "panic_stop" if panic else "graceful_stop_completed")
+                    self._receipt("panic_stop" if panic else "graceful_stop_requested",
+                                  service_id)
+                    request_posture = "recorded"
                 except Exception:
-                    self._call(adapter.force_stop, d.shutdown_timeout)
-                    self._transition(service_id, "panic_stopped" if panic else "stopped", "forced_terminal_stop", "forced_terminal_stop")
+                    # Journal failure must not prevent an already authorized
+                    # shutdown from stopping its child.
+                    request_posture = "unavailable"
+                    self.panic_latched = True
+                try:
+                    self._call(adapter.stop, descriptor.shutdown_timeout)
+                    state = "panic_stopped" if panic else "stopped"
+                    reason = "panic_latched" if panic else "graceful_stop_completed"
+                    event = "panic_stop" if panic else "graceful_stop_completed"
+                except Exception:
+                    try:
+                        self._call(adapter.force_stop, descriptor.shutdown_timeout)
+                        state, reason, event = (
+                            "panic_stopped" if panic else "stopped",
+                            "forced_terminal_stop", "forced_terminal_stop")
+                    except Exception:
+                        state, reason, event = (
+                            "failed", "forced_terminal_stop_failed",
+                            "forced_terminal_stop_failed")
+                        self.panic_latched = True
+                self._states[service_id] = state
+                self._latest[service_id] = reason
+                try:
+                    self._receipt(event, service_id, {
+                        "previous_state": previous, "state": state, "reason": reason,
+                        "stop_request_receipt_posture": request_posture})
+                except Exception:
+                    # The stop result is already known. Keep that in-memory
+                    # result separate from missing durable receipt custody and
+                    # never retry the stop merely because publication failed.
+                    self.panic_latched = True
+                    self._latest[service_id] = reason + "_receipt_uncertain"
 
     def panic_stop(self) -> None: self.shutdown(panic=True)
 

@@ -812,3 +812,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the supervisor module. No service adapter or receipt failure was exercised.
 
 **Next implementation dependency:** close the symmetric shutdown path where a failed stop-request receipt currently prevents the authorized stop, and where a post-stop receipt failure can be misread as a stop failure. Preserve actual stop outcome separately from journal publication certainty, with no duplicate stop/start inference.
+
+
+## New checkpoint — separate stop and restart effects from their receipts
+
+- Shutdown no longer lets a failed stop-request receipt prevent the adapter's already authorized stop. It attempts graceful stop, then the existing force-stop fallback, records the actual return posture separately, and does not retry a stop merely because terminal receipt publication failed.
+- Restart no longer swallows a failed predecessor `force_stop` and unconditionally starts a successor. Force-stop failure now exhausts that service's restart path; successful force-stop must receive a durable completion receipt before `_start(restarting=True)` can launch anything. Receipt uncertainty leaves the service degraded/panic-latched without replay.
+- `py_compile` passed for the supervisor module. No child process, failure path, or lifecycle operation was run.
+
+**Next implementation dependency:** verify from source that the new runtime observation writer and lifecycle journal sequence recovery preserve source identities through the daemon's exact restart configuration, then inspect any remaining owner composition gap. Any actual process identity beyond parent-owned `Popen`/launch custody remains externally unverifiable without a stronger OS issuer; preserve that limitation.
