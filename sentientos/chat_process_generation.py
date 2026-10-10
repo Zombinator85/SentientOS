@@ -423,12 +423,46 @@ def _handoff_identity(value: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value[key] for key in fields}
 
 
+
+def verify_chat_process_generation_lineage(*, handle: InstallationStateHandle,
+        handoff_id: str, expected_digest: str | None = None) -> tuple[dict[str, Any], ...]:
+    """Reconstruct the bounded immutable prior-snapshot chain without asserting liveness."""
+    current = _read_handoff(handle, handoff_id, verify_predecessor=False)
+    if expected_digest is not None and current["handoff_digest"] != expected_digest:
+        raise ChatProcessGenerationError("chat_process_handoff_identity_mismatch")
+    lineage: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for _ in range(MAX_HANDOFF_ENTRIES):
+        current_id = str(current["handoff_id"])
+        if current_id in seen:
+            raise ChatProcessGenerationError("chat_process_handoff_lineage_cycle")
+        seen.add(current_id)
+        lineage.append(_handoff_summary(current, "historical_launcher_handoff_custody_verified"))
+        prior = current.get("prior_snapshot_handoff")
+        if prior is None:
+            return tuple(lineage)
+        if not isinstance(prior, Mapping):
+            raise ChatProcessGenerationError("chat_process_handoff_predecessor_invalid")
+        predecessor = _read_handoff(handle, str(prior.get("handoff_id", "")),
+            verify_predecessor=False)
+        if predecessor["handoff_digest"] != prior.get("handoff_digest"):
+            raise ChatProcessGenerationError("chat_process_handoff_predecessor_digest_mismatch")
+        expected_summary = _handoff_summary(
+            predecessor, "runtime_launcher_child_launch_and_source_bound")
+        if dict(prior) != expected_summary:
+            raise ChatProcessGenerationError("chat_process_handoff_predecessor_identity_mismatch")
+        current = predecessor
+    raise ChatProcessGenerationError("chat_process_handoff_lineage_depth_exceeded")
+
+
 def verify_stored_chat_process_handoff(*, handle: InstallationStateHandle,
                                        handoff_id: str, expected_digest: str) -> dict[str, Any]:
     """Verify historical owner custody without asserting the old process still runs."""
     record = _read_handoff(handle, handoff_id)
     if record["handoff_digest"] != expected_digest:
         raise ChatProcessGenerationError("chat_process_handoff_identity_mismatch")
+    verify_chat_process_generation_lineage(handle=handle, handoff_id=handoff_id,
+        expected_digest=expected_digest)
     return _handoff_summary(record, "runtime_launcher_process_and_source_bound")
 
 
@@ -441,7 +475,10 @@ def open_chat_process_handoff(*, installation_identity: str, handoff_id: str,
     deadline = time.monotonic() + max(0.0, min(float(wait_seconds), 5.0))
     while True:
         try:
-            return handle, verify_current_chat_process_handoff(handle=handle, handoff_id=handoff_id)
+            current = verify_current_chat_process_handoff(handle=handle, handoff_id=handoff_id)
+            verify_chat_process_generation_lineage(handle=handle, handoff_id=handoff_id,
+                expected_digest=str(current["handoff_digest"]))
+            return handle, current
         except ChatProcessGenerationError as exc:
             if str(exc) != "chat_process_handoff_unavailable" or time.monotonic() >= deadline:
                 raise
