@@ -280,7 +280,8 @@ def load_selected_review_world_state_records(*, path: Path,
             row = json.loads(line.decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError) as exc:
             raise ValueError("review_receipt_log_corrupt") from exc
-        if not isinstance(row, dict):
+        if (not isinstance(row, dict)
+                or json.dumps(row, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n" != line):
             raise ValueError("review_receipt_log_shape_invalid")
         receipt_id = row.get("review_receipt_id")
         if receipt_id not in selected:

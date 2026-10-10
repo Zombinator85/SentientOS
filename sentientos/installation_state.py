@@ -3,9 +3,10 @@
 This module supplies storage mechanics only.  An installation identity and a state
 handle are not capabilities and confer no model-catalog deployment authority.
 
-The strong implementation currently requires POSIX descriptor-relative opens,
-``O_NOFOLLOW``, kernel ``flock``, ``fsync``, and same-directory ``os.replace``.
-Other platforms fail closed rather than silently weakening the durability promise.
+Mutation and lock custody require POSIX descriptor-relative opens, ``O_NOFOLLOW``,
+kernel ``flock``, ``fsync``, and same-directory ``os.replace``. Windows exposes
+only an independently handle-bound read-only view; it does not emulate mutation
+or interprocess locking.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Callable
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 try:
     import fcntl
@@ -31,6 +33,7 @@ _WINDOWS_RESERVED = frozenset(
     {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
 )
 _READ_ONLY_VIEW_TOKEN = object()
+_WINDOWS_READ_ONLY_VIEW_TOKEN = object()
 
 
 class InstallationStateError(RuntimeError):
@@ -155,10 +158,19 @@ class InstallationStateRegistry:
         _verify_absolute_directory_chain(root)
         return InstallationStateHandle._authenticated(identity, root, self)
 
-    def open_read_only(self, identity: InstallationIdentity) -> "InstallationStateReadOnlyView":
+    def open_read_only(self, identity: InstallationIdentity) -> "InstallationStateReadOnlyView | WindowsInstallationStateReadOnlyView":
         """Open one installation identity through an API with no state-mutation operations."""
-        _require_platform_contract()
         root = self.state_root_for(identity)
+        if os.name == "nt":
+            try:
+                # Empty explicit selection validates the exact installation
+                # root through the Windows handle walker without enumerating it.
+                read_regular_files(root, max_entries=1, max_file_bytes=1,
+                    max_total_bytes=1, selected_names=())
+            except WindowsHandleCustodyError as exc:
+                raise InstallationStateError("installation_state_root_unavailable_or_unsafe") from exc
+            return WindowsInstallationStateReadOnlyView._from_registry(identity, root, self)
+        _require_platform_contract()
         _verify_absolute_directory_chain(root)
         handle = InstallationStateHandle._authenticated(identity, root, self)
         return InstallationStateReadOnlyView._from_handle(handle)
@@ -372,6 +384,51 @@ class InstallationStateReadOnlyView:
     def list_regular_names(self, relative: str, *, max_entries: int) -> tuple[str, ...]:
         return self._handle.list_regular_names(
             self._handle.fixed_object(relative), max_entries=max_entries)
+
+
+class WindowsInstallationStateReadOnlyView:
+    """Windows installation custody view with bounded reads and no write API."""
+
+    __slots__ = ("identity", "root", "_registry")
+
+    def __init__(self, identity: InstallationIdentity, root: Path,
+                 registry: InstallationStateRegistry, *, _token: object = None) -> None:
+        if (_token is not _WINDOWS_READ_ONLY_VIEW_TOKEN
+                or root != registry.state_root_for(identity)):
+            raise InstallationStateError("read_only_view_construction_forbidden")
+        self.identity, self.root, self._registry = identity, root, registry
+
+    @classmethod
+    def _from_registry(cls, identity: InstallationIdentity, root: Path,
+                       registry: InstallationStateRegistry) -> "WindowsInstallationStateReadOnlyView":
+        return cls(identity, root, registry, _token=_WINDOWS_READ_ONLY_VIEW_TOKEN)
+
+    def _path(self, relative: str) -> Path:
+        parsed = StateRelativePath.parse(relative)
+        return self.root.joinpath(*parsed.parts)
+
+    def read_optional_regular_bounded(self, relative: str, *, max_bytes: int) -> bytes | None:
+        try:
+            return read_explicit_file(self._path(relative), max_bytes=max_bytes)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return None
+            raise InstallationStateError("state_read_failed") from exc
+
+    def read_regular_bounded(self, relative: str, *, max_bytes: int) -> bytes:
+        try:
+            return read_explicit_file(self._path(relative), max_bytes=max_bytes)
+        except WindowsHandleCustodyError as exc:
+            raise InstallationStateError("state_read_failed") from exc
+
+    def list_regular_names(self, relative: str, *, max_entries: int) -> tuple[str, ...]:
+        directory = self.root.joinpath(*StateRelativePath.parse(relative).parts)
+        try:
+            entries = read_regular_files(directory, max_entries=max_entries,
+                max_file_bytes=4_194_304, max_total_bytes=16_777_216, suffix="")
+        except WindowsHandleCustodyError as exc:
+            raise InstallationStateError("state_directory_enumeration_failed") from exc
+        return tuple(name for name, _ in entries)
 
 
 class ExclusiveStateLock:

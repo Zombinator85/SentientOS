@@ -20,6 +20,7 @@ from typing import Any, Callable, Mapping, Sequence
 from .resident_cognitive_model_transition_experiment import (
     PHASES, TransitionError, TransitionProtocol, TransitionStageExecutionContext, digest,
 )
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 CONFIG_SCHEMA = "sentientos.resident_cognitive_transition_live_config:v1"
 REQUEST_SCHEMA = "sentientos.resident_cognitive_transition_operator_request:v1"
@@ -32,6 +33,7 @@ MAX_TRANSITION_RECEIPTS = 4096
 MAX_TRANSITION_RECEIPT_BYTES = 16_777_216
 MAX_TRANSITION_REQUESTS = 4096
 MAX_TRANSITION_REQUEST_BYTES = 262_144
+MAX_TRANSITION_REQUEST_ROOT_BYTES = 67_108_864
 
 
 def _plain(value: Any) -> Any:
@@ -72,7 +74,11 @@ class LiveTransitionConfig:
 
     @classmethod
     def load(cls, path: Path) -> "LiveTransitionConfig":
-        value = json.loads(Path(path).read_text(encoding="utf-8"))
+        try:
+            raw = read_explicit_file(Path(path), max_bytes=65_536)
+            value = json.loads(raw.decode("utf-8"))
+        except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
+            raise TransitionError("live_transition_config_unavailable") from exc
         required = {"schema_version", "enabled", "installation_identity", "protocol_id",
                     "protocol_digest", "request_custody", "journal_custody", "journal_identity"}
         if not isinstance(value, dict) or set(value) != required or value.get("schema_version") != CONFIG_SCHEMA:
@@ -127,6 +133,8 @@ def build_request(*, installation_identity: str, protocol: Mapping[str, Any], re
 
 def persist_request(installation_root: Path, request: Mapping[str, Any]) -> Path:
     """Create one immutable packet below the fixed installation custody root."""
+    if os.name != "posix":
+        raise TransitionError("transition_request_publication_unsupported_platform")
     root = Path(installation_root) / REQUEST_CUSTODY
     root.mkdir(parents=True, exist_ok=True)
     target = root / f"{request['request_id']}.json"
@@ -142,6 +150,8 @@ def persist_request(installation_root: Path, request: Mapping[str, Any]) -> Path
 
 def persist_protocol(installation_root: Path, protocol: TransitionProtocol) -> Path:
     """Install one immutable exact protocol at the sole daemon custody path."""
+    if os.name != "posix":
+        raise TransitionError("transition_protocol_publication_unsupported_platform")
     protocol.verify()
     target = Path(installation_root) / PROTOCOL_CUSTODY
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -160,8 +170,9 @@ def load_verified_protocol(installation_root: Path, *, protocol_id: str,
     """Load only the fixed installation protocol and verify its exact binding."""
     path = Path(installation_root) / PROTOCOL_CUSTODY
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        raw = read_explicit_file(path, max_bytes=1_048_576)
+        value = json.loads(raw.decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
         raise TransitionError("transition_protocol_missing_or_invalid") from exc
     if not isinstance(value, dict):
         raise TransitionError("transition_protocol_missing_or_invalid")
@@ -169,6 +180,8 @@ def load_verified_protocol(installation_root: Path, *, protocol_id: str,
     protocol.verify()
     if value.get("protocol_id") != protocol_id or value.get("protocol_digest") != protocol_digest:
         raise TransitionError("transition_protocol_config_binding_mismatch")
+    if _canonical(value) != raw:
+        raise TransitionError("transition_protocol_noncanonical")
     return protocol
 
 
@@ -200,40 +213,27 @@ class LiveTransitionOperatorRuntime:
         return self.installation_root / RECEIPT_CUSTODY
 
     def _receipts(self) -> list[dict[str, Any]]:
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
         try:
-            descriptor = os.open(self.receipt_path, flags)
-        except FileNotFoundError:
-            return []
-        except OSError as exc:
+            raw_receipts = read_explicit_file(self.receipt_path, max_bytes=MAX_TRANSITION_RECEIPT_BYTES)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return []
             raise TransitionError("operator_receipt_custody_unbounded_or_not_regular") from exc
-        try:
-            metadata = os.fstat(descriptor)
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_TRANSITION_RECEIPT_BYTES:
-                raise TransitionError("operator_receipt_custody_unbounded_or_not_regular")
-            chunks: list[bytes] = []
-            remaining = metadata.st_size
-            while remaining:
-                chunk = os.read(descriptor, min(remaining, 65536))
-                if not chunk:
-                    raise TransitionError("operator_receipt_custody_changed_during_read")
-                chunks.append(chunk)
-                remaining -= len(chunk)
-            raw_receipts = b"".join(chunks)
-        finally:
-            os.close(descriptor)
         rows: list[dict[str, Any]] = []
         prior = "GENESIS"
         seen: set[str] = set()
         try:
-            lines = raw_receipts.decode("utf-8").splitlines()
+            lines = raw_receipts.splitlines(keepends=True)
         except UnicodeError as exc:
             raise TransitionError("operator_receipt_custody_corrupt") from exc
+        if len(lines) > MAX_TRANSITION_RECEIPTS or any(
+                not line or len(line) > MAX_TRANSITION_REQUEST_BYTES for line in lines):
+            raise TransitionError("operator_receipt_retention_limit_exceeded")
         for sequence, line in enumerate(lines, 1):
             try:
-                row = json.loads(line)
+                row = json.loads(line.decode("utf-8"))
                 claimed = row.pop("receipt_digest")
-            except (TypeError, ValueError, KeyError, AttributeError) as exc:
+            except (TypeError, ValueError, KeyError, AttributeError, UnicodeError) as exc:
                 raise TransitionError("operator_receipt_custody_corrupt") from exc
             if (not isinstance(row, dict) or set(row) != {"schema_version", "sequence", "prior_digest", "request_id", "result", "detail"}
                     or row.get("schema_version") != RECEIPT_SCHEMA or row.get("sequence") != sequence
@@ -242,13 +242,108 @@ class LiveTransitionOperatorRuntime:
                     or not isinstance(row.get("request_id"), str) or not row["request_id"]
                     or row["request_id"] in seen or claimed != _digest_bytes(_canonical(row))):
                 raise TransitionError("operator_receipt_custody_corrupt")
+            if _canonical({**row, "receipt_digest": claimed}) != line:
+                raise TransitionError("operator_receipt_custody_noncanonical")
             if sequence > MAX_TRANSITION_RECEIPTS:
                 raise TransitionError("operator_receipt_retention_limit_exceeded")
             row["receipt_digest"] = claimed
             rows.append(row); seen.add(row["request_id"]); prior = claimed
         return rows
 
+    def _request_packets(self) -> tuple[dict[str, Any], ...]:
+        """Read bounded immutable request packets without consuming or executing them."""
+        if os.name == "nt":
+            try:
+                entries = read_regular_files(self.request_root, max_entries=MAX_TRANSITION_REQUESTS,
+                    max_file_bytes=MAX_TRANSITION_REQUEST_BYTES,
+                    max_total_bytes=MAX_TRANSITION_REQUEST_ROOT_BYTES)
+            except WindowsHandleCustodyError as exc:
+                if str(exc) == "explicit_file_missing":
+                    return ()
+                raise TransitionError("operator_request_custody_unavailable") from exc
+        else:
+            try:
+                metadata = self.request_root.lstat()
+            except FileNotFoundError:
+                return ()
+            except OSError as exc:
+                raise TransitionError("operator_request_custody_unavailable") from exc
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise TransitionError("operator_request_custody_not_regular")
+            names: list[str] = []
+            try:
+                with os.scandir(self.request_root) as entries_iter:
+                    for entry in entries_iter:
+                        if len(names) >= MAX_TRANSITION_REQUESTS:
+                            raise TransitionError("operator_request_retention_limit_exceeded")
+                        names.append(entry.name)
+            except OSError as exc:
+                raise TransitionError("operator_request_custody_unavailable") from exc
+            selected = tuple(sorted(name for name in names if name.endswith(".json")))
+            entries = []
+            total = 0
+            for name in selected:
+                try:
+                    data = read_explicit_file(self.request_root / name,
+                        max_bytes=MAX_TRANSITION_REQUEST_BYTES)
+                except WindowsHandleCustodyError as exc:
+                    raise TransitionError("operator_request_custody_unavailable") from exc
+                total += len(data)
+                if total > MAX_TRANSITION_REQUEST_ROOT_BYTES:
+                    raise TransitionError("operator_request_retention_limit_exceeded")
+                entries.append((name, data))
+        packets: list[dict[str, Any]] = []
+        for name, raw in entries:
+            try:
+                value = json.loads(raw.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise TransitionError("operator_request_custody_corrupt") from exc
+            if (not isinstance(value, dict) or name != str(value.get("request_id", "")) + ".json"
+                    or _canonical(value) != raw):
+                raise TransitionError("operator_request_custody_noncanonical_or_mismatched")
+            self._verify_packet_identity(value)
+            packets.append(value)
+        return tuple(packets)
+
+    def inspect_custody(self) -> dict[str, Any]:
+        """Reconstruct request/receipt/journal posture without advancing any stage."""
+        receipts = self._receipts()
+        receipt_by_id = {item["request_id"]: item for item in receipts}
+        journal_by_id: dict[str, list[Mapping[str, Any]]] = {}
+        for entry in self.controller.journal.entries():
+            evidence = entry.get("evidence")
+            request = evidence.get("operator_request") if isinstance(evidence, Mapping) else None
+            if isinstance(request, Mapping) and isinstance(request.get("request_id"), str):
+                journal_by_id.setdefault(request["request_id"], []).append(entry)
+        observations: list[dict[str, Any]] = []
+        for packet in self._request_packets():
+            request_id = packet["request_id"]
+            protocol = self.controller.protocol.value
+            if (packet.get("installation_identity") != self.config.installation_identity
+                    or packet.get("protocol_id") != self.config.protocol_id
+                    or packet.get("protocol_digest") != self.config.protocol_digest
+                    or packet.get("transition_id") != protocol.get("transition_id")):
+                raise TransitionError("operator_request_recovered_binding_mismatch")
+            receipt = receipt_by_id.get(request_id)
+            journal = journal_by_id.get(request_id, [])
+            if receipt is not None:
+                state = "receipt_recorded"
+            elif journal:
+                state = "transition_journal_recorded_incomplete_or_unreceipted"
+            else:
+                state = "request_present_unconsumed"
+            observations.append({"request_id": request_id,
+                "request_digest": packet["request_digest"], "transition_id": packet.get("transition_id"),
+                "requested_stage": packet.get("requested_stage"), "custody_state": state,
+                "receipt_digest": receipt.get("receipt_digest") if receipt else None,
+                "journal_entry_digests": [entry.get("entry_digest") for entry in journal]})
+        return {"schema_version": "sentientos.resident_cognitive_transition_custody_inspection:v1",
+            "read_only": True, "effect_performed": False, "request_count": len(observations),
+            "receipt_count": len(receipts), "requests": observations}
+
     def _append_receipt(self, request_id: str, result: str, detail: Mapping[str, Any]) -> dict[str, Any]:
+        if os.name != "posix":
+            raise TransitionError("operator_receipt_publication_unsupported_platform")
         prior = self._receipts()
         if len(prior) >= MAX_TRANSITION_RECEIPTS or request_id in {item["request_id"] for item in prior}:
             raise TransitionError("operator_receipt_identity_or_retention_conflict")
@@ -265,6 +360,7 @@ class LiveTransitionOperatorRuntime:
         try:
             metadata = os.fstat(descriptor)
             if (not stat.S_ISREG(metadata.st_mode)
+                    or metadata.st_nlink != 1
                     or metadata.st_size + len(encoded) > MAX_TRANSITION_RECEIPT_BYTES):
                 raise TransitionError("operator_receipt_custody_unbounded_or_not_regular")
             view = memoryview(encoded)
@@ -353,6 +449,8 @@ class LiveTransitionOperatorRuntime:
     def process_one(self) -> dict[str, Any]:
         if not self.config.enabled:
             return {"status": "disabled", "effect_performed": False}
+        if os.name != "posix":
+            raise TransitionError("live_transition_processing_unsupported_platform")
         with self._lock:
             self.request_root.mkdir(parents=True, exist_ok=True)
             if self.request_root.is_symlink() or not self.request_root.is_dir():
@@ -360,18 +458,9 @@ class LiveTransitionOperatorRuntime:
             receipts = self._receipts()
             consumed = {item["request_id"]: item for item in receipts}
             observed_consumed: str | None = None
-            paths = sorted(self.request_root.glob("*.json"))
-            if len(paths) > MAX_TRANSITION_REQUESTS:
-                raise TransitionError("operator_request_retention_limit_exceeded")
-            for path in paths:
-                request_id = "malformed:" + _digest_bytes(path.name.encode("utf-8"))[:24]
+            for packet in self._request_packets():
+                request_id = packet["request_id"]
                 try:
-                    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_TRANSITION_REQUEST_BYTES:
-                        raise TransitionError("operator_request_unbounded_or_not_regular")
-                    packet = json.loads(path.read_text(encoding="utf-8"))
-                    request_id = str(packet.get("request_id", "malformed:" + _digest_bytes(path.read_bytes())[:24]))
-                    if path.stem != request_id:
-                        raise TransitionError("operator_request_path_identity_mismatch")
                     if request_id in consumed:
                         self._verify_packet_identity(packet)
                         observed_consumed = request_id

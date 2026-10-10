@@ -99,7 +99,9 @@ class CampaignStore:
         selected_root = Path(root)
         if selected_root.is_symlink() or any(parent.is_symlink() for parent in selected_root.parents):
             raise DevelopmentalModelReplacementError("campaign_store_root_symlink")
-        self.state_root = selected_root.resolve()
+        # Preserve the caller's lexical path on Windows. Resolving it first
+        # would follow a junction before the handle-bound reader can reject it.
+        self.state_root = Path(os.path.abspath(selected_root))
         self.root = self.state_root / "developmental_experiments" / "model_replacement_campaigns"
         self.protocols, self.states = self.root / "protocols", self.root / "state"
         self.failures, self.reports = self.root / "failures", self.root / "reports"

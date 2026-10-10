@@ -1431,6 +1431,9 @@ class RuntimeMaintenanceSurfaces:
                       "effect_performed": False, "interrupted": True}
         elif self._resident_transition_runtime is None:
             result = {"status": "disabled", "effect_performed": False}
+        elif os.name != "posix":
+            result = {"status": "blocked", "reason": "live_transition_processing_unsupported_platform",
+                      "effect_performed": False, "interrupted": True}
         else:
             result = self._resident_transition_runtime.process_one()
             result["live_status"] = self._resident_transition_runtime.status()
@@ -1630,8 +1633,10 @@ def _load_resident_transition_custody(config_path: str, installation_handle: Any
     config = LiveTransitionConfig.load(Path(config_path))
     handle = installation_handle
     if handle is None:
-        handle = InstallationStateRegistry.system().open(
-            InstallationIdentity.parse(config.installation_identity))
+        identity = InstallationIdentity.parse(config.installation_identity)
+        registry = InstallationStateRegistry.system()
+        handle = (registry.open_read_only(identity) if os.name == "nt"
+                  else registry.open(identity))
     if handle.identity.value != config.installation_identity:
         raise TransitionError("transition_recovery_installation_binding_mismatch")
     protocol = load_verified_protocol(handle.root, protocol_id=config.protocol_id,

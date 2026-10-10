@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Iterator, Mapping, Protocol, Sequence, cast
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 SCHEMA = "sentientos.resident_cognitive_model_transition_protocol:v1"
 SCHEMA_V2 = "sentientos.resident_cognitive_model_transition_protocol:v2"
@@ -73,14 +74,19 @@ def history_boundary(records: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
 def developmental_history_boundary(*, store: Any, composition_state_path: Path,
                                    activation: Mapping[str, Any], session: Any) -> Mapping[str, Any]:
     """Verify and bind the complete durable developmental history boundary."""
-    record_paths = sorted(store.records_root.glob("*.json"))
-    records = [asdict(store.get(path.stem)) for path in record_paths]
-    receipts = []
-    for path in sorted(store.receipts_root.glob("*.json")):
-        receipt = store.get_receipt(path.stem)
-        receipts.append(asdict(receipt))
-    if composition_state_path.exists():
-        state = json.loads(composition_state_path.read_text(encoding="utf-8"))
+    records = [asdict(record) for record in store.records()]
+    receipts = [asdict(receipt) for receipt in store.receipts()]
+    try:
+        state_bytes = read_explicit_file(composition_state_path, max_bytes=16_777_216)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) != "explicit_file_missing":
+            raise TransitionError("composition_state_safe_read_failed") from exc
+        state_bytes = None
+    if state_bytes is not None:
+        state = json.loads(state_bytes.decode("utf-8"))
+        if (not isinstance(state, dict)
+                or json.dumps(state, indent=2, sort_keys=True).encode("utf-8") + b"\n" != state_bytes):
+            raise TransitionError("composition_state_noncanonical")
         claimed = state.get("state_digest")
         semantic = {k: v for k, v in state.items() if k != "state_digest"}
         from .local_model_authority import digest_payload
@@ -246,19 +252,23 @@ class TransitionJournal:
         self.path = path
 
     def entries(self) -> list[dict[str, Any]]:
-        if self.path.is_symlink():
-            raise TransitionError("journal_not_regular")
-        if not self.path.exists():
-            return []
-        if not self.path.is_file() or self.path.stat().st_size > MAX_TRANSITION_JOURNAL_BYTES:
-            raise TransitionError("journal_retention_limit_exceeded")
+        try:
+            raw = read_explicit_file(self.path, max_bytes=MAX_TRANSITION_JOURNAL_BYTES)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return []
+            raise TransitionError("journal_not_regular") from exc
         out: list[dict[str, Any]] = []
         prior = "GENESIS"
-        for number, line in enumerate(self.path.read_text(encoding="utf-8").splitlines(), 1):
+        lines = raw.splitlines()
+        if len(lines) > MAX_TRANSITION_JOURNAL_ENTRIES or any(
+                not line or len(line) > MAX_TRANSITION_JOURNAL_ENTRY_BYTES for line in lines):
+            raise TransitionError("journal_retention_limit_exceeded")
+        for number, line in enumerate(lines, 1):
             try:
-                item = json.loads(line)
+                item = json.loads(line.decode("utf-8"))
                 claimed = item.pop("entry_digest")
-            except (TypeError, ValueError, KeyError, AttributeError) as exc:
+            except (TypeError, ValueError, KeyError, AttributeError, UnicodeError) as exc:
                 raise TransitionError("journal_tamper") from exc
             legacy_keys = {"schema_version", "sequence", "prior_digest", "phase", "status", "evidence"}
             timestamped_keys = legacy_keys | {"event_time"}
@@ -269,6 +279,9 @@ class TransitionJournal:
                     or ("event_time" in item and not isinstance(item["event_time"], str))
                     or item.get("status") not in {"attempted", "effected", "completed", "failed", "interrupted"}):
                 raise TransitionError("journal_tamper")
+            if json.dumps({**item, "entry_digest": claimed}, sort_keys=True,
+                    separators=(",", ":")).encode("utf-8") + b"\n" != line:
+                raise TransitionError("journal_noncanonical")
             if number > MAX_TRANSITION_JOURNAL_ENTRIES:
                 raise TransitionError("journal_retention_limit_exceeded")
             item["entry_digest"] = claimed
@@ -277,6 +290,8 @@ class TransitionJournal:
         return out
 
     def append(self, phase: str, evidence: Mapping[str, Any], *, status: str = "completed") -> Mapping[str, Any]:
+        if os.name != "posix":
+            raise TransitionError("journal_publication_unsupported_platform")
         entries = self.entries()
         if (len(entries) >= MAX_TRANSITION_JOURNAL_ENTRIES or phase not in PHASES
                 or status not in {"attempted", "effected", "completed", "failed", "interrupted"}):
@@ -497,6 +512,8 @@ class ResidentCognitiveModelTransitionController:
     def advance(self, *, approval: Mapping[str, Any], evidence: Mapping[str, Any] | None = None,
                 stage_execution_context: TransitionStageExecutionContext | None = None,
                 operation_context: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        if os.name != "posix":
+            raise TransitionError("model_transition_unsupported_platform")
         self.protocol.verify()
         self._state = self._reconstruct()
         if self._state.blocked:

@@ -12,6 +12,7 @@ from .installation_state import InstallationStateError, InstallationStateHandle
 from .local_model_production_activation import ProductionActivationError, verify_current_activation
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_runtime_provisioning import semantic_digest
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 PRINCIPAL = "deterministic_resident_cognitive_model_serving_controller"
 CAPABILITY = "resident_cognitive_model_serving"
@@ -346,8 +347,9 @@ class ResidentCognitiveModelServingConfig:
 def load_config(path: str) -> ResidentCognitiveModelServingConfig:
     """Load an opt-in binding; configuration never selects a model or path."""
     try:
-        payload = json.loads(__import__("pathlib").Path(path).read_text(encoding="utf-8"))
-    except (OSError, ValueError, TypeError) as exc:
+        raw = read_explicit_file(__import__("pathlib").Path(path), max_bytes=65_536)
+        payload = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeError, ValueError, TypeError) as exc:
         raise ResidentCognitiveModelServingError("serving_configuration_unavailable") from exc
     if not isinstance(payload, dict) or payload.get("schema_version") != CONFIG_SCHEMA or not isinstance(payload.get("enabled"), bool):
         raise ResidentCognitiveModelServingError("serving_configuration_invalid")

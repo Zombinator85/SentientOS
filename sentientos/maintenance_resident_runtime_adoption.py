@@ -7,7 +7,7 @@ contract sealed in its persistent configuration.
 from __future__ import annotations
 
 import hashlib
-import fcntl
+from sentientos.platform_fcntl import fcntl, require_flock
 import json
 import os
 import stat
@@ -21,6 +21,7 @@ from sentientos import maintenance_authority_continuity as continuity
 from sentientos import maintenance_authority_continuity_auto_derivation as auto_continuity
 from sentientos import maintenance_commit_publication as publication
 from sentientos import maintenance_successor_generation_adoption as successor
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 CONFIG_SCHEMA = "sentientos.maintenance_resident_runtime_adoption_config:v1"
 PROVENANCE_SCHEMA = "sentientos.maintenance_resident_runtime_launch_provenance:v2"
@@ -56,6 +57,13 @@ def _file_digest(path: Path) -> str:
 
 def _read_bounded_regular(path: Path, *, maximum_bytes: int, reason: str,
                           limit_reason: str | None = None) -> bytes:
+    if os.name == "nt":
+        try:
+            return read_explicit_file(path, max_bytes=maximum_bytes)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                raise FileNotFoundError(path) from exc
+            raise ValueError(reason) from exc
     descriptor: int | None = None
     try:
         metadata = path.lstat()
@@ -251,6 +259,8 @@ def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
         if (not isinstance(row, dict) or row.get("schema_version") != EVENT_SCHEMA or row.get("config_digest") != cfg["config_digest"] or
                 row.get("prior_event_digest") != prior or row.get("event_digest") != digest(row, "event_digest")):
             raise ValueError("resident_transition_journal_corrupt")
+        if canonical_bytes(row) + b"\n" != line.encode("utf-8"):
+            raise ValueError("resident_transition_journal_noncanonical")
         index = len(rows); expected = PHASES[index % len(PHASES)]
         if row.get("phase") != expected: raise ValueError("resident_transition_phase_invalid")
         start = index - index % len(PHASES)
@@ -408,6 +418,7 @@ class MaintenanceResidentRuntimeAdoptionController:
             raise ValueError("resident_lifecycle_bound_exhausted")
 
     def _transition_lock(self) -> Any:
+        require_flock()
         path = Path(self.config["state_root"]) / "resident-transition.lock"
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         handle = path.open("a+b")

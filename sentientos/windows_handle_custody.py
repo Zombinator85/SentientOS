@@ -104,7 +104,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     if (type(max_entries) is not int or max_entries < 1
             or type(max_file_bytes) is not int or max_file_bytes < 1
             or type(max_total_bytes) is not int or max_total_bytes < 1
-            or not isinstance(suffix, str) or not suffix or "/" in suffix or "\\" in suffix
+            or not isinstance(suffix, str) or "/" in suffix or "\\" in suffix
             or invalid_names):
         raise WindowsHandleCustodyError("windows_custody_read_limits_invalid")
     if os.name != "nt":
@@ -255,6 +255,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         root_handle = current
         root_identity = file_id(root_handle)
         entries: list[tuple[str, int]] = []
+        observed_entries = 0
         if selected_names is not None:
             entries = [(name, 0) for name in selected_names]
         else:
@@ -282,6 +283,9 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                     if name_length % 2 or name_length > 1024 or offset + 64 + name_length > iosb.Information:
                         fail("cognition_observation_windows_directory_entry_invalid")
                     name = directory_buffer.raw[offset + 64:offset + 64 + name_length].decode("utf-16-le")
+                    observed_entries += 1
+                    if observed_entries > max_entries:
+                        fail("cognition_observation_retention_limit_exceeded")
                     if name not in {".", ".."} and name.endswith(suffix):
                         if attrs_value & FILE_ATTRIBUTE_REPARSE_POINT:
                             fail("cognition_observation_windows_reparse_point")

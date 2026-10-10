@@ -406,6 +406,46 @@ class DevelopmentalHistoryStore:
             raise DevelopmentalWritebackError("durable_record_path_identity_mismatch")
         return records
 
+    def receipts(self) -> tuple[WritebackReceipt, ...]:
+        """Recover the bounded receipt collection without creating or repairing custody."""
+        if not self.receipts_root.exists():
+            return ()
+        if self.receipts_root.is_symlink() or not self.receipts_root.is_dir():
+            raise DevelopmentalWritebackError("durable_receipt_root_invalid")
+        if os.name == "nt":
+            try:
+                entries = read_regular_files(self.receipts_root,
+                    max_entries=MAX_DURABLE_RECORDS, max_file_bytes=MAX_DURABLE_RECORD_BYTES,
+                    max_total_bytes=MAX_DURABLE_RECORD_ROOT_BYTES)
+            except WindowsHandleCustodyError as exc:
+                raise DevelopmentalWritebackError("durable_receipt_windows_recovery_failed") from exc
+            recovered: list[WritebackReceipt] = []
+            for name, data in entries:
+                try:
+                    payload = json.loads(data.decode("utf-8"))
+                    if (not isinstance(payload, dict)
+                            or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != data):
+                        raise DevelopmentalWritebackError("stored_payload_noncanonical")
+                    receipt = WritebackReceipt(**payload)
+                except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
+                    raise DevelopmentalWritebackError("receipt_missing_or_corrupt") from exc
+                self._verify_receipt(receipt)
+                if name != receipt.receipt_id + ".json":
+                    raise DevelopmentalWritebackError("durable_receipt_path_identity_mismatch")
+                recovered.append(receipt)
+            return tuple(recovered)
+        paths = sorted(self.receipts_root.glob("*.json"))
+        if len(paths) > MAX_DURABLE_RECORDS:
+            raise DevelopmentalWritebackError("durable_receipt_limit_exceeded")
+        receipts = tuple(self.get_receipt(path.stem) for path in paths)
+        total_bytes = sum(len(json.dumps(asdict(receipt), sort_keys=True, indent=2).encode("utf-8") + b"\n")
+                          for receipt in receipts)
+        if total_bytes > MAX_DURABLE_RECORD_ROOT_BYTES:
+            raise DevelopmentalWritebackError("durable_receipt_root_size_limit_exceeded")
+        if any(path.stem != receipt.receipt_id for path, receipt in zip(paths, receipts)):
+            raise DevelopmentalWritebackError("durable_receipt_path_identity_mismatch")
+        return receipts
+
     @staticmethod
     def _verify_record(record: DevelopmentalRecord) -> None:
         rid, digest = _identity("devrec", record.semantic_payload())
