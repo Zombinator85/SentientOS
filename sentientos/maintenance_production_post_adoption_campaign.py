@@ -244,6 +244,13 @@ class MaintenanceProductionPostAdoptionCampaign:
             raise ProductionCampaignError("campaign_custody_tampered")
         protocol = self.campaigns.protocol(campaign_id)
         if protocol.campaign_digest != body["campaign_digest"]: raise ProductionCampaignError("campaign_custody_tampered")
+        expected_successor = {"generation":protocol.successor_generation,
+            "commit":protocol.successor_revision, "tree":protocol.successor_tree,
+            "adoption_identity":protocol.adoption_identity}
+        if (body.get("expected_successor") != expected_successor
+                or body.get("sealed_before_adoption") is not True
+                or body.get("effects") != FALSE_EFFECTS):
+            raise ProductionCampaignError("campaign_custody_tampered")
         if (body.get("evaluation_protocol_ids") != list(protocol.evaluation_protocol_ids)
                 or body.get("evaluation_protocol_digests") != list(protocol.evaluation_protocol_digests)
                 or len(body.get("baseline_ids", [])) != len(protocol.trial_ids)
@@ -385,6 +392,22 @@ class MaintenanceProductionPostAdoptionCampaign:
         evaluation_by_protocol = {x.get("protocol_id") for x in evaluations}
         unresolved_observation = any(x.get("protocol_id") not in evaluation_by_protocol for x in observations)
         adoption_event_time = adoption_event.get("event_time") if isinstance(adoption_event, Mapping) else None
+        adoption_lineage_exact = (
+            _record_valid(adoption, ADOPTION_SCHEMA, "receipt_digest")
+            and _record_valid(adoption_event, EVENT_SCHEMA, "event_digest")
+            and adoption_event.get("phase") == "resident_adoption_completed"
+            and adoption_event.get("transition_id") == adoption.get("transition_id")
+            and adoption_event.get("lineage_id") == adoption.get("lineage_id")
+            and adoption_event.get("predecessor_generation_digest") == adoption.get("predecessor_generation_digest")
+            and adoption_event.get("successor_generation_digest") == adoption.get("successor_generation_digest")
+            and adoption_event.get("continuity_receipt_digest") == adoption.get("continuity_receipt_digest")
+            and adoption_event.get("readiness_receipt_digest") == adoption.get("receipt_digest")
+            and adoption.get("successor_generation_digest") == generation.get("generation_digest")
+            and adoption.get("successor_ordinal") == generation.get("ordinal")
+            and adoption.get("successor_ordinal") == protocol.successor_generation
+            and adoption.get("continuity_receipt_digest") == continuity.get("receipt_digest")
+            and adoption.get("successor_launch_provenance_digest") == provenance.get("provenance_digest")
+        )
         checks = {
             "successor_generation_sealed": _record_valid(generation, GENERATION_SCHEMA, "generation_digest"),
             "successor_generation_exact": generation.get("ordinal") == protocol.successor_generation and generation.get("base_sha") == protocol.successor_revision,
@@ -392,6 +415,7 @@ class MaintenanceProductionPostAdoptionCampaign:
             "continuity_custody_valid": _record_valid(continuity, CONTINUITY_SCHEMA, "receipt_digest"),
             "resident_adoption_completed": _record_valid(adoption, ADOPTION_SCHEMA, "receipt_digest") and adoption.get("status") == "resident_ready",
             "adoption_completion_event_valid": _record_valid(adoption_event, EVENT_SCHEMA, "event_digest") and adoption_event.get("phase") == "resident_adoption_completed" and isinstance(adoption_event_time, str) and bool(adoption_event_time) and journal_bound,
+            "adoption_event_lineage_exact": adoption_lineage_exact,
             "launch_provenance_valid": _record_valid(provenance, PROVENANCE_SCHEMA, "provenance_digest"),
             "resident_readiness_exact": adoption.get("successor_generation_digest") == generation.get("generation_digest"),
             "continuity_exact": adoption.get("continuity_receipt_digest") == continuity.get("receipt_digest"),
