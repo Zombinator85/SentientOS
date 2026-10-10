@@ -825,16 +825,38 @@ class GovernedStrategyCognitionBackend:
         return result
 
 
-def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], consequence: Mapping[str, Any]) -> dict[str, Any]:
+def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], consequence: Mapping[str, Any],
+                              resource_evidence_bindings: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     if len(proposals)!=3: raise EmbodiedConsequenceError("strategy_condition_count_invalid")
     _verify_consequence_attribution(consequence)
     for proposal in proposals: verify_strategy_proposal(proposal)
     present,withheld,restored=proposals
     known={str(consequence["attribution_id"])}
+    if len(resource_evidence_bindings)>16:
+        raise EmbodiedConsequenceError("strategy_resource_evidence_bound_invalid")
+    resource_sources:dict[str,str]={}
+    for item in resource_evidence_bindings:
+        if item.get("lineage_posture")!="verified" or not item.get("source_id") or not item.get("source_digest"):
+            continue
+        source_id,source_digest=str(item["source_id"]),str(item["source_digest"])
+        prior=resource_sources.get(source_id)
+        if prior is not None and prior!=source_digest:
+            raise EmbodiedConsequenceError("strategy_resource_source_identity_conflict")
+        resource_sources[source_id]=source_digest
     def score(p: EmbodiedStrategyProposal) -> dict[str, Any]:
-        cited=set(p.relevant_consequence_ids); unsupported=[dict(x) for x in p.factual_assertions if x.get("source_id") not in known]
+        cited=set(p.relevant_consequence_ids)
+        supported_resource_assertions=[]; unsupported=[]
+        for assertion in p.factual_assertions:
+            source_id=str(assertion.get("source_id", ""))
+            if source_id in known:
+                continue
+            if source_id in resource_sources and assertion.get("source_digest")==resource_sources[source_id]:
+                supported_resource_assertions.append(dict(assertion))
+            else:
+                unsupported.append(dict(assertion))
         contradicted=consequence["classification"]=="expectation_contradicted"
         return {"strategy_id":p.strategy_id,"prior_consequence_cited_correctly":bool(cited) and cited<=known,
+            "supported_resource_factual_assertions":supported_resource_assertions,
             "unsupported_factual_assertions":unsupported,"repeats_previously_contradicted_action":contradicted and p.retry_prior_strategy,
             "requests_more_evidence_under_unresolved_attribution":p.more_observation_required if consequence["causal_attribution_posture"] in {"external_interference_possible","causal_attribution_insufficient"} else None,
             "distinguishes_renderer_report_from_independent_observation":p.distinguishes_renderer_and_observer,
@@ -1280,7 +1302,8 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
             "consequence_context_posture": consequence_context_binding.get("posture"),
             "authority":dict(FALSE_AUTHORITY)}
     else:
-        scoring = score_strategy_experiment(proposals=proposals, consequence=consequence)
+        scoring = score_strategy_experiment(proposals=proposals, consequence=consequence,
+            resource_evidence_bindings=evidence_scope.get("resource_bindings", ()))
     governed_rows = [item for item in execution_evidence if item.get("execution_posture") == "verified_governed_model_identity"]
     if experiment_contradictory:
         execution_posture = "contradictory_proposal_or_execution_evidence"
@@ -1535,7 +1558,7 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
                 "lineage_posture":"verified" if fact.get("disposition")=="verified" else "incomplete",
                 "lineage_findings":tuple(payload.get("lineage_findings",()))}
             resource_facts.append(binding)
-            if (fact.get("disposition")!="verified" or binding["lineage_findings"]
+            lineage_invalid=(fact.get("disposition")!="verified" or binding["lineage_findings"]
                     or payload.get("lineage_projection_posture") not in {"complete","bounded_context_incomplete"}
                     or not source.get("digest") or not resource_record.get("source_id")
                     or not resource_record.get("record_digest") or not resource_record.get("ledger_digest")
@@ -1548,13 +1571,16 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
                     or linkage.get("linkage_digest")!=linkage_digest
                     or allocation.get("allocation_digest")!=linkage.get("allocation_digest")
                     or allocation.get("principal_id")!=payload.get("principal_id")
-                    or allocation.get("principal_binding_digest")!=payload.get("principal_binding_digest")):
+                    or allocation.get("principal_binding_digest")!=payload.get("principal_binding_digest"))
+            if lineage_invalid:
+                binding["lineage_posture"]="incomplete"
                 verified=False
             model=payload.get("model_attribution")
             if (not isinstance(model,Mapping) or not model.get("model_id")
                     or not model.get("model_artifact_digest")
                     or model.get("model_id")!=linkage.get("model_id")
                     or model.get("model_artifact_digest")!=linkage.get("model_artifact_digest")):
+                binding["lineage_posture"]="incomplete"
                 verified=False
             continue
         if subject_kind!="causal_resource_consumption":
@@ -1577,10 +1603,12 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
             "lineage_posture":payload.get("lineage_posture"),"recovery_posture":payload.get("recovery_posture"),
             "measurement_attribution":payload.get("shared_host_usage_attribution")}
         resource_facts.append(binding)
-        if (binding["lineage_posture"]!="verified" or binding["recovery_posture"]!="reconciled_or_restored"
+        lineage_invalid=(binding["lineage_posture"]!="verified" or binding["recovery_posture"]!="reconciled_or_restored"
                 or payload.get("retention_posture")!="complete"
                 or payload.get("interpretation_projection_posture")!="complete"
-                or not binding["source_digest"] or not binding["ledger_digest"]):
+                or not binding["source_digest"] or not binding["ledger_digest"])
+        if lineage_invalid:
+            binding["lineage_posture"]="incomplete"
             verified=False
     if not resource_facts:
         posture="no_resource_evidence_in_selected_record"

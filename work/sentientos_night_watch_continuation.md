@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `b024deddfc873e9a10f31e3ff74d9eef072deff6` (tree `c7de96df7f7aa0fd0d6e7a8ac6a306403629cbf6`, parent `cd3886a2b8529f5431ca8783ff4e5873d13c9af8`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `afa56dbc838d5a52c2f9b38936df43462ee087c8` (tree `c1229d38168cc602bd8b578d7b1cae447baa6175`, parent `b024deddfc873e9a10f31e3ff74d9eef072deff6`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -17,6 +17,7 @@ GitHub branch inspection most recently verified `b024deddfc873e9a10f31e3ff74d9ee
 - The same bounded ledger join now covers the five-condition model A/B replacement experiment. Its World-State observations preserve request/model identities, inference and consumption receipts, condition/history context, model provenance, and unknown software-generation posture. Resource compact records now extract request/model ids from the nested invocation request for exact comparison. The epistemic adapter carries the ledger event time into the historical evidence binding; incomplete derived lineage remains contextual.
 - Developmental writeback now applies a digest-bound compact projection to joined resource invocation lineage. Long experiment-history context and consumption-receipt lists cannot exceed the writeback's smaller evidence budget silently; omissions are marked and the complete source payload remains bound by its digest.
 - Model-replacement resource facts preserve both the run artifact identity and the exact World-State source record identity/digest. Developmental writeback carries these values through its compact projection, including the separate model identity/provenance and causal-context bindings.
+- The strategy experiment's retained-history scope now verifies receipt-bound invocation lineage as well as whole-ledger records, and supports factual proposal assertions only when they cite the exact verified resource source ID and digest. Consequence citations, external-effect claims and body-modification authority remain separate.
 - Windows adoption inspection now verifies the original configured cadence directory through the existing reparse-safe held-handle reader before normalization. Wake configuration files use the existing explicit-file custody read as the security decision; Windows mutation/effect paths remain blocked.
 - Successor-generation recovery now uses handle-bound known-path reads for Windows presence checks instead of `Path.exists()` on generation and receipt artifacts. Read-only `inspect()` exposes an incomplete handoff with its bounded pending phase; start and mutation remain blocked without POSIX flock support.
 - Earlier local construction continues to harden epistemic state, developmental history, resource evidence, admission, and invocation recovery. Writes stay fail-closed where equivalent atomic Windows publication and custody are unavailable.
@@ -27,4 +28,4 @@ Changed Python files compile and `git diff --check` passes. No pytest, mypy, run
 
 ## Next executable task
 
-The daemon and developmental cognition owners already pass these facts through normal World-State selection when the explicit source-kind configuration allows `resource_governor`; no checked-in epistemic rule configuration was found, and no default or selector was added. The next change connects retained invocation-lineage facts to the strategy experiment's existing resource-history scope. Afterward, inspect authenticated prediction/consequence handoffs; caller-supplied embodied observations remain contextual until an authenticated observer issuer is composed.
+The daemon and developmental cognition owners already pass these facts through normal World-State selection when the explicit source-kind configuration allows `resource_governor`; no checked-in epistemic rule configuration was found, and no default or selector was added. Next, inspect authenticated prediction/consequence handoffs and succession outcomes for further existing-owner connections. Caller-supplied embodied observations remain contextual until an authenticated observer issuer is composed.
