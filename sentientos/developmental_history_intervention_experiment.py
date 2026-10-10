@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .local_model_authority import atomic_write_json, digest_payload
 from .resident_developmental_writeback import CognitionObservation, DevelopmentalHistoryProjection, measure_changed_cognition
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 LEGACY_SCHEMA = "sentientos.developmental_history_intervention_protocol:v1"
 SCHEMA = "sentientos.developmental_history_intervention_protocol:v2"
@@ -15,6 +17,7 @@ RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v1"
 PURPOSE = "resident_developmental_history_intervention_experiment"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
 NON_CLAIMS = ("learning", "improvement", "persistent_individuality", "selfhood", "consciousness", "sentience", "causal_closure")
+MAX_EXPERIMENT_ARTIFACT_BYTES = 4_194_304
 
 
 class DevelopmentalHistoryInterventionError(ValueError):
@@ -99,17 +102,41 @@ class DevelopmentalExperimentStore:
         self.protocols = self.root / "protocols"; self.runs = self.root / "runs"
 
     @staticmethod
-    def _write_immutable(path: Path, payload: Mapping[str, Any]) -> None:
-        if path.exists():
-            if json.loads(path.read_text(encoding="utf-8")) != dict(payload):
+    def _read_json(path: Path) -> dict[str, Any]:
+        try:
+            raw = read_explicit_file(path, max_bytes=MAX_EXPERIMENT_ARTIFACT_BYTES)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                raise FileNotFoundError(path) from exc
+            raise DevelopmentalHistoryInterventionError("experiment_artifact_not_regular") from exc
+        try:
+            value = json.loads(raw.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise DevelopmentalHistoryInterventionError("experiment_artifact_invalid") from exc
+        if (not isinstance(value, dict)
+                or json.dumps(value, sort_keys=True, indent=2).encode("utf-8") + b"\n" != raw):
+            raise DevelopmentalHistoryInterventionError("experiment_artifact_noncanonical")
+        return value
+
+    @classmethod
+    def _write_immutable(cls, path: Path, payload: Mapping[str, Any]) -> None:
+        normalized = json.loads(json.dumps(dict(payload), sort_keys=True))
+        try:
+            existing = cls._read_json(path)
+        except FileNotFoundError:
+            existing = None
+        if existing is not None:
+            if existing != normalized:
                 raise DevelopmentalHistoryInterventionError("artifact_identity_collision")
             return
+        if os.name != "posix":
+            raise DevelopmentalHistoryInterventionError("experiment_artifact_publication_unsupported_platform")
         atomic_write_json(path, payload)
 
     def persist_protocol(self, protocol: DevelopmentalHistoryInterventionProtocol) -> None:
         verify_protocol(protocol)
         self._write_immutable(self.protocols / f"{protocol.protocol_id}.json", asdict(protocol))
-        payload = json.loads((self.protocols / f"{protocol.protocol_id}.json").read_text())
+        payload = self._read_json(self.protocols / f"{protocol.protocol_id}.json")
         for key in ("current_fact_ids", "record_ids", "record_digests", "condition_order", "planned_comparisons", "non_claims",
                     "epistemic_state_digests", "epistemic_evidence_set_digests", "self_model_claim_ids",
                     "self_model_claim_digests"):
@@ -117,11 +144,47 @@ class DevelopmentalExperimentStore:
         loaded = DevelopmentalHistoryInterventionProtocol(**payload)
         verify_protocol(loaded)
 
+    def load_protocol(self, protocol_id: str) -> DevelopmentalHistoryInterventionProtocol:
+        if (not isinstance(protocol_id, str) or not protocol_id.startswith("devexp-protocol-")
+                or len(protocol_id) != len("devexp-protocol-") + 24
+                or any(character not in "0123456789abcdef" for character in protocol_id[-24:])):
+            raise DevelopmentalHistoryInterventionError("protocol_identity_invalid")
+        try:
+            payload = self._read_json(self.protocols / f"{protocol_id}.json")
+            for key in ("current_fact_ids", "record_ids", "record_digests", "condition_order",
+                        "planned_comparisons", "non_claims", "epistemic_state_digests",
+                        "epistemic_evidence_set_digests", "self_model_claim_ids", "self_model_claim_digests"):
+                payload[key] = tuple(payload.get(key, ()))
+            protocol = DevelopmentalHistoryInterventionProtocol(**payload)
+            verify_protocol(protocol)
+        except (FileNotFoundError, KeyError, TypeError, ValueError) as exc:
+            raise DevelopmentalHistoryInterventionError("protocol_artifact_invalid") from exc
+        if protocol.protocol_id != protocol_id:
+            raise DevelopmentalHistoryInterventionError("protocol_identity_mismatch")
+        return protocol
+
     def persist_run(self, payload: Mapping[str, Any]) -> str:
         semantic = dict(payload); semantic["schema_version"] = RUN_SCHEMA
         digest = _digest(semantic); run_id = "devexp-run-" + digest[7:31]
         self._write_immutable(self.runs / f"{run_id}.json", {**semantic, "run_id": run_id, "run_digest": digest})
         return run_id
+
+    def load_run(self, run_id: str) -> dict[str, Any]:
+        prefix = "devexp-run-"
+        if (not isinstance(run_id, str) or len(run_id) != len(prefix) + 24
+                or not run_id.startswith(prefix)
+                or any(character not in "0123456789abcdef" for character in run_id[len(prefix):])):
+            raise DevelopmentalHistoryInterventionError("run_identity_invalid")
+        try:
+            value = self._read_json(self.runs / f"{run_id}.json")
+        except FileNotFoundError as exc:
+            raise DevelopmentalHistoryInterventionError("run_artifact_missing") from exc
+        semantic = {key: item for key, item in value.items() if key not in {"run_id", "run_digest"}}
+        if (value.get("schema_version") != RUN_SCHEMA or value.get("run_id") != run_id
+                or value.get("run_digest") != _digest(semantic)
+                or run_id != prefix + str(value.get("run_digest", ""))[7:31]):
+            raise DevelopmentalHistoryInterventionError("run_artifact_digest_mismatch")
+        return value
 
 
 def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: Sequence[Any]) -> dict[str, Any]:

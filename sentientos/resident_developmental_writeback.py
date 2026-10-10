@@ -261,10 +261,18 @@ class DevelopmentalHistoryStore:
         self._verify_record(record)
         path = self.records_root / f"{record.record_id}.json"
         payload = asdict(record)
-        if path.exists():
-            if digest_payload(self._read_json(path)) != digest_payload(payload):
+        try:
+            existing = self._read_json(path)
+        except DevelopmentalWritebackError as exc:
+            if str(exc) != "stored_payload_missing":
+                raise
+            existing = None
+        if existing is not None:
+            if digest_payload(existing) != digest_payload(payload):
                 raise DevelopmentalWritebackError("record_identity_collision")
             return record
+        if os.name != "posix":
+            raise DevelopmentalWritebackError("durable_record_publication_unsupported_platform")
         atomic_write_json(path, payload)
         if self.get(record.record_id).record_digest != record.record_digest:
             raise DevelopmentalWritebackError("durable_record_verification_failed")
@@ -286,9 +294,18 @@ class DevelopmentalHistoryStore:
             raise DevelopmentalWritebackError("receipt_record_not_durable")
         path = self.receipts_root / f"{receipt.receipt_id}.json"
         payload = asdict(receipt)
-        if path.exists() and digest_payload(self._read_json(path)) != digest_payload(payload):
+        try:
+            existing = self._read_json(path)
+        except DevelopmentalWritebackError as exc:
+            if str(exc) != "stored_payload_missing":
+                raise
+            existing = None
+        if existing is not None and digest_payload(existing) != digest_payload(payload):
             raise DevelopmentalWritebackError("receipt_identity_collision")
-        if not path.exists(): atomic_write_json(path, payload)
+        if existing is None:
+            if os.name != "posix":
+                raise DevelopmentalWritebackError("durable_receipt_publication_unsupported_platform")
+            atomic_write_json(path, payload)
         if self.get_receipt(receipt.receipt_id).receipt_digest != receipt.receipt_digest:
             raise DevelopmentalWritebackError("durable_receipt_verification_failed")
         return receipt
@@ -309,19 +326,20 @@ class DevelopmentalHistoryStore:
                     max_file_bytes=MAX_DURABLE_RECORD_BYTES, max_total_bytes=MAX_DURABLE_RECORD_BYTES,
                     selected_names=(path.name,))
             except WindowsHandleCustodyError as exc:
+                if str(exc) == "explicit_file_missing":
+                    raise DevelopmentalWritebackError("stored_payload_missing") from exc
                 raise DevelopmentalWritebackError("stored_payload_windows_recovery_failed") from exc
             if len(entries) != 1 or entries[0][0] != path.name:
-                raise DevelopmentalWritebackError("stored_payload_missing_or_ambiguous")
+                raise DevelopmentalWritebackError("stored_payload_missing")
             data = entries[0][1]
         else:
-            if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_DURABLE_RECORD_BYTES:
-                raise DevelopmentalWritebackError("stored_payload_unbounded_or_not_regular")
             descriptor: int | None = None
             try:
                 descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
                                      | getattr(os, "O_NONBLOCK", 0))
                 before = os.fstat(descriptor)
-                if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_DURABLE_RECORD_BYTES:
+                if (not stat.S_ISREG(before.st_mode) or before.st_size > MAX_DURABLE_RECORD_BYTES
+                        or before.st_nlink != 1):
                     raise DevelopmentalWritebackError("stored_payload_unbounded_or_not_regular")
                 chunks: list[bytes] = []
                 remaining = MAX_DURABLE_RECORD_BYTES + 1
@@ -337,12 +355,16 @@ class DevelopmentalHistoryStore:
                         or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
                     raise DevelopmentalWritebackError("stored_payload_changed_during_read")
             except OSError as exc:
+                if isinstance(exc, FileNotFoundError):
+                    raise DevelopmentalWritebackError("stored_payload_missing") from exc
                 raise DevelopmentalWritebackError("stored_payload_unavailable") from exc
             finally:
                 if descriptor is not None:
                     os.close(descriptor)
         value = json.loads(data.decode("utf-8"))
         if not isinstance(value, dict): raise DevelopmentalWritebackError("stored_payload_not_object")
+        if json.dumps(value, sort_keys=True, indent=2).encode("utf-8") + b"\n" != data:
+            raise DevelopmentalWritebackError("stored_payload_noncanonical")
         return value
 
     def records(self) -> tuple[DevelopmentalRecord, ...]:
@@ -360,7 +382,11 @@ class DevelopmentalHistoryStore:
             recovered: list[DevelopmentalRecord] = []
             for name, data in entries:
                 try:
-                    record = DevelopmentalRecord(**json.loads(data.decode("utf-8")))
+                    payload = json.loads(data.decode("utf-8"))
+                    if (not isinstance(payload, dict)
+                            or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != data):
+                        raise DevelopmentalWritebackError("stored_payload_noncanonical")
+                    record = DevelopmentalRecord(**payload)
                 except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
                     raise DevelopmentalWritebackError("record_missing_or_corrupt") from exc
                 self._verify_record(record)
@@ -372,6 +398,10 @@ class DevelopmentalHistoryStore:
         if len(paths) > MAX_DURABLE_RECORDS:
             raise DevelopmentalWritebackError("durable_record_limit_exceeded")
         records = tuple(self.get(path.stem) for path in paths)
+        total_bytes = sum(len(json.dumps(asdict(record), sort_keys=True, indent=2).encode("utf-8") + b"\n")
+                          for record in records)
+        if total_bytes > MAX_DURABLE_RECORD_ROOT_BYTES:
+            raise DevelopmentalWritebackError("durable_record_root_size_limit_exceeded")
         if any(path.stem != record.record_id for path, record in zip(paths, records)):
             raise DevelopmentalWritebackError("durable_record_path_identity_mismatch")
         return records
