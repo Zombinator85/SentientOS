@@ -1641,6 +1641,9 @@ def _compose_causal_introspection(
                 raise ValueError("causal_resource_projection_shape_invalid")
             payload = records[0]["payload"]
             receipt_values = payload.get("consumption_receipts", ())
+            latest_consumption_event_at = next((item.get("observed_at")
+                for item in reversed(tuple(receipt_values))
+                if isinstance(item, Mapping) and isinstance(item.get("observed_at"), str)), None)
             return {"installation_identity": observation.installation_identity,
                 "provisioning_id": observation.provisioning_id,
                 "manifest_digest": observation.manifest_digest,
@@ -1656,6 +1659,7 @@ def _compose_causal_introspection(
                 "allocation_count": len(ledger_snapshot["allocations"]),
                 "attempt_count": len(ledger_snapshot["attempts"]),
                 "retained_historical_consumption_receipt_count": len(receipt_values),
+                "latest_consumption_event_at": latest_consumption_event_at,
                 "retained_invocation_receipt_count": len(observation.invocation_receipts),
                 "incomplete_attempt_count": int(payload.get("incomplete_attempt_count",
                     len(payload.get("incomplete_attempt_ids", ())))),
@@ -1678,6 +1682,7 @@ def _compose_causal_introspection(
                     "retained_historical_consumption_receipt_digests": "resource_attribution",
                     "retained_invocation_receipt_digests": "resource_attribution", "allocation_count": "count",
                     "attempt_count": "count", "retained_historical_consumption_receipt_count": "count",
+                    "latest_consumption_event_at": "lifecycle",
                     "retained_invocation_receipt_count": "count", "incomplete_attempt_count": "count",
                     "lineage_finding_count": "count", "lineage_posture": "lineage",
                     "recovery_posture": "lifecycle", "invocation_receipt_posture": "health",
