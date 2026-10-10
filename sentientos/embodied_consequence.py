@@ -7,11 +7,12 @@ current truth.
 from __future__ import annotations
 
 import hashlib
+import fcntl
 import json
 import os
 import re
+import secrets
 import stat
-import tempfile
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +31,7 @@ STRATEGY_CONDITION_START_SCHEMA = "sentientos.embodied_strategy_condition_start:
 STRATEGY_CONDITION_RESULT_SCHEMA = "sentientos.embodied_strategy_condition_result:v1"
 MAX_STRATEGY_CONTEXT_BYTES = 1_048_576
 MAX_CONSEQUENCE_ARTIFACT_BYTES = 2_097_152
+MAX_CONSEQUENCE_ARTIFACTS_PER_KIND = 4096
 _CONSEQUENCE_KINDS = {"expectations", "reports", "observations", "attributions", "comparisons",
     "strategy-experiments", "strategy-experiment-starts", "strategy-experiment-conditions"}
 _CONSEQUENCE_ID = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,63}:[0-9a-f]{24}\Z")
@@ -1413,6 +1415,89 @@ class ConsequenceStore:
             return data
         finally: os.close(descriptor)
 
+    def _publish_immutable(self, path: Path, data: bytes) -> bool:
+        """Publish immutable evidence atomically without exceeding its kind cap."""
+        directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            directory_fd = os.open(path.parent, directory_flags)
+        except OSError as exc:
+            raise EmbodiedConsequenceError("consequence_artifact_directory_invalid") from exc
+        lock_fd: int | None = None
+        temporary_name: str | None = None
+        try:
+            try:
+                lock_fd = os.open(".consequence-store.lock", os.O_CREAT | os.O_RDWR |
+                    getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=directory_fd)
+                lock_metadata = os.fstat(lock_fd)
+                lock_path_metadata = os.stat(".consequence-store.lock", dir_fd=directory_fd,
+                    follow_symlinks=False)
+                if (not stat.S_ISREG(lock_metadata.st_mode)
+                        or (lock_metadata.st_dev, lock_metadata.st_ino)
+                            != (lock_path_metadata.st_dev, lock_path_metadata.st_ino)):
+                    raise EmbodiedConsequenceError("consequence_artifact_lock_invalid")
+                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            except OSError as exc:
+                raise EmbodiedConsequenceError("consequence_artifact_lock_unavailable") from exc
+            try:
+                existing_fd = os.open(path.name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+                    dir_fd=directory_fd)
+            except FileNotFoundError:
+                existing_fd = None
+            except OSError as exc:
+                raise EmbodiedConsequenceError("stored_artifact_missing_or_unsafe") from exc
+            if existing_fd is not None:
+                try:
+                    metadata = os.fstat(existing_fd)
+                    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CONSEQUENCE_ARTIFACT_BYTES:
+                        raise EmbodiedConsequenceError("stored_artifact_unbounded_or_not_regular")
+                    chunks: list[bytes] = []
+                    remaining = MAX_CONSEQUENCE_ARTIFACT_BYTES + 1
+                    while remaining:
+                        chunk = os.read(existing_fd, min(65_536, remaining))
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                        remaining -= len(chunk)
+                    existing = b"".join(chunks)
+                    if len(existing) > MAX_CONSEQUENCE_ARTIFACT_BYTES:
+                        raise EmbodiedConsequenceError("stored_artifact_unbounded_or_not_regular")
+                    if existing != data:
+                        raise EmbodiedConsequenceError("artifact_identity_collision")
+                    return False
+                finally:
+                    os.close(existing_fd)
+            artifact_count = sum(name.endswith(".json") for name in os.listdir(directory_fd))
+            if artifact_count >= MAX_CONSEQUENCE_ARTIFACTS_PER_KIND:
+                raise EmbodiedConsequenceError("consequence_artifact_retention_limit_exceeded")
+            temporary_name = ".consequence-" + secrets.token_hex(16)
+            temporary_fd = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY |
+                getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=directory_fd)
+            with os.fdopen(temporary_fd, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.link(temporary_name, path.name, src_dir_fd=directory_fd,
+                    dst_dir_fd=directory_fd, follow_symlinks=False)
+            except FileExistsError:
+                existing = self._read(path)
+                if existing != data:
+                    raise EmbodiedConsequenceError("artifact_identity_collision")
+                return False
+            os.fsync(directory_fd)
+            return True
+        except OSError as exc:
+            raise EmbodiedConsequenceError("consequence_artifact_publication_failed") from exc
+        finally:
+            if temporary_name is not None:
+                try: os.unlink(temporary_name, dir_fd=directory_fd)
+                except FileNotFoundError: pass
+            if lock_fd is not None:
+                try: fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                except OSError: pass
+                os.close(lock_fd)
+            os.close(directory_fd)
+
     def put(self, kind: str, identity: str, value: Mapping[str, Any]) -> Path:
         path=self._path(kind,identity)
         id_field,digest_field,prefix=_ARTIFACT_IDENTITIES[kind]
@@ -1422,19 +1507,7 @@ class ConsequenceStore:
             raise EmbodiedConsequenceError("artifact_identity_or_digest_invalid")
         data=canonical_bytes(value)+b"\n"
         if len(data)>MAX_CONSEQUENCE_ARTIFACT_BYTES: raise EmbodiedConsequenceError("artifact_size_bound_exceeded")
-        fd,temp=tempfile.mkstemp(dir=path.parent,prefix=".consequence-")
-        try:
-            with os.fdopen(fd,"wb") as handle: handle.write(data); handle.flush(); os.fsync(handle.fileno())
-            try: os.link(temp,path)
-            except FileExistsError:
-                if self._read(path)!=data: raise EmbodiedConsequenceError("artifact_identity_collision")
-            try:
-                directory_fd=os.open(path.parent,os.O_RDONLY|getattr(os,"O_DIRECTORY",0))
-                try: os.fsync(directory_fd)
-                finally: os.close(directory_fd)
-            except OSError: pass
-        finally:
-            if os.path.exists(temp): os.unlink(temp)
+        self._publish_immutable(path, data)
         return path
     def get(self, kind: str, identity: str, *, digest_field: str) -> dict[str, Any]:
         path=self._path(kind,identity)
@@ -1483,25 +1556,7 @@ class ConsequenceStore:
         data = canonical_bytes(value) + b"\n"
         if len(data) > MAX_CONSEQUENCE_ARTIFACT_BYTES:
             raise EmbodiedConsequenceError("strategy_condition_checkpoint_oversized")
-        descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=".strategy-condition-")
-        try:
-            with os.fdopen(descriptor, "wb") as handle:
-                handle.write(data); handle.flush(); os.fsync(handle.fileno())
-            try:
-                os.link(temporary, path)
-            except FileExistsError:
-                if self._read(path) != data:
-                    raise EmbodiedConsequenceError("strategy_condition_checkpoint_conflict")
-                return False
-            directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try: os.fsync(directory_fd)
-            finally: os.close(directory_fd)
-        except OSError as exc:
-            raise EmbodiedConsequenceError("strategy_condition_checkpoint_publication_failed") from exc
-        finally:
-            try: os.unlink(temporary)
-            except FileNotFoundError: pass
-        return True
+        return self._publish_immutable(path, data)
 
     def begin_strategy_condition(self, *, protocol_id: str, protocol_digest: str,
                                  condition: str, input_digest: str,
