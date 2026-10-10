@@ -9,6 +9,7 @@ Construction work is **untested for production**. Continue from branch `codex/co
 - Third increment compiled: durable immutable consequence-chain bundle; exact chain projection; model-comparison linkage validation; stable undated chain summary; explicit source/record byte and projection-count budgets; daemon reports degraded if World-State’s 128-source cap omits selected projected records. `evaluate_consequence` never upgrades descriptive fulfillment to effect proof. `py_compile` and `git diff --check` passed; no runtime behavior was exercised.
 - Fourth increment in progress: the existing observation digest proves content identity, not observer authority. Consequence attribution now labels that source as `unverified_caller_assertion`; the epistemic adapter keeps its freshness unknown even when the timestamp parses as recent.
 - Fifth increment compiled: `ConsequenceStore` opens the configured root and artifact directories by no-follow descriptors; artifact/checkpoint reads are relative to the opened kind directory. Missing checkpoints remain non-mutating and publication retains existing immutable locking.
+- Sixth increment in progress: strategy proposals have a typed adapter to the existing review-only receipt owner; new review receipts bind proposal digests and mark reviewer identity `declared_unverified`. Review resolution matches both ID and digest, while the legacy handoff table continues to block unsupported strategy kinds.
 
 ## Boundaries and blockers
 
@@ -20,6 +21,6 @@ Construction work is **untested for production**. Continue from branch `codex/co
 
 ## Exact next work
 
-1. Commit `[untested]`, push, and verify remote SHA.
+1. Compile the review bridge, commit `[untested]`, push, and verify remote SHA.
 2. Review other adjacent portability/custody owners for the same read-vs-write asymmetry; do not broaden beyond directly connected code.
 3. No pytest, mypy, audit, matrix, landing workflow, production activation, external effect, or authority expansion. No runtime or Windows validation has been performed.

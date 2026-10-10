@@ -9,7 +9,7 @@ from typing import Any, Mapping, Sequence
 from sentientos.ledger_api import append_audit_record
 from sentientos.embodiment_proposals import DEFAULT_PROPOSAL_LOG, embodied_proposal_ref, list_recent_embodied_proposals
 
-SCHEMA_VERSION = "embodiment.proposal.review_receipt.v1"
+SCHEMA_VERSION = "embodiment.proposal.review_receipt.v2"
 DEFAULT_REVIEW_RECEIPT_LOG = Path("logs/embodiment_proposal_reviews.jsonl")
 
 ALLOWED_REVIEW_OUTCOMES = {
@@ -49,6 +49,11 @@ def build_embodied_proposal_review_receipt(*, proposal_record: Mapping[str, Any]
         raise ValueError(f"unsupported reviewer_kind: {reviewer_kind}")
 
     proposal_ref = embodied_proposal_ref(proposal_record)
+    proposal_digest = proposal_record.get("proposal_digest")
+    if proposal_digest is not None and (not isinstance(proposal_digest, str)
+            or not proposal_digest.startswith("sha256:") or len(proposal_digest) != 71
+            or any(character not in "0123456789abcdef" for character in proposal_digest[7:])):
+        raise ValueError("proposal_digest_invalid")
     material = {
         "proposal_id": proposal_record.get("proposal_id"),
         "proposal_ref": proposal_ref,
@@ -60,16 +65,21 @@ def build_embodied_proposal_review_receipt(*, proposal_record: Mapping[str, Any]
         "correlation_id": correlation_id if correlation_id is not None else proposal_record.get("correlation_id"),
         "source_event_refs": list(source_event_refs if source_event_refs is not None else proposal_record.get("source_event_refs", [])),
     }
+    if proposal_digest is not None:
+        material["proposal_digest"] = proposal_digest
     return {
         "schema_version": SCHEMA_VERSION,
         "review_receipt_id": _review_receipt_id(material),
         "proposal_id": proposal_record.get("proposal_id"),
+        "proposal_digest": proposal_digest,
+        "proposal_binding_posture": "digest_bound" if proposal_digest is not None else "legacy_id_only",
         "proposal_ref": proposal_ref,
         "proposal_kind": str(proposal_record.get("proposal_kind") or "unknown"),
         "review_outcome": outcome,
         "reviewer_kind": reviewer_kind_normalized,
         "reviewer_ref": reviewer_ref,
         "reviewer_label": reviewer_label,
+        "reviewer_identity_posture": "declared_unverified",
         "review_rationale": review_rationale or "review_recorded",
         "source_proposal_ref": proposal_ref,
         "source_ingress_receipt_ref": proposal_record.get("ingress_receipt_ref"),
@@ -102,24 +112,28 @@ def list_recent_embodied_proposal_review_receipts(*, path: Path = DEFAULT_REVIEW
 
 
 def resolve_embodied_proposal_review_state(*, proposals: Sequence[Mapping[str, Any]], review_receipts: Sequence[Mapping[str, Any]]) -> dict[str, str]:
-    latest: dict[str, tuple[float, str, str]] = {}
+    latest: dict[tuple[str, str | None], tuple[float, str, str]] = {}
     for row in review_receipts:
         pid = str(row.get("proposal_id") or "")
         if not pid:
             continue
+        supplied_digest = row.get("proposal_digest")
+        key = (pid, supplied_digest if isinstance(supplied_digest, str) else None)
         ts = float(row.get("created_at") or 0.0)
         rid = str(row.get("review_receipt_id") or "")
         outcome = classify_embodied_proposal_review_outcome(str(row.get("review_outcome") or "pending_review"))
-        current = latest.get(pid)
+        current = latest.get(key)
         if current is None or (ts, rid) >= (current[0], current[1]):
-            latest[pid] = (ts, rid, outcome)
+            latest[key] = (ts, rid, outcome)
 
     resolved: dict[str, str] = {}
     for proposal in proposals:
         pid = str(proposal.get("proposal_id") or "")
         if not pid:
             continue
-        outcome = latest.get(pid, (0.0, "", "pending_review"))[2]
+        proposed_digest = proposal.get("proposal_digest")
+        key = (pid, proposed_digest if isinstance(proposed_digest, str) else None)
+        outcome = latest.get(key, (0.0, "", "pending_review"))[2]
         mapped = {
             "pending_review": "pending_review",
             "reviewed_deferred": "deferred",

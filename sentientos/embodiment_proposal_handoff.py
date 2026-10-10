@@ -28,17 +28,19 @@ def classify_embodied_handoff_candidate_kind(proposal_kind: str) -> str:
     return _HANDOFF_KIND_BY_PROPOSAL_KIND.get(str(proposal_kind or ""), "unsupported_handoff_candidate")
 
 
-def _latest_review_receipts(review_receipts: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
-    latest: dict[str, tuple[float, str, Mapping[str, Any]]] = {}
+def _latest_review_receipts(review_receipts: Sequence[Mapping[str, Any]]) -> dict[tuple[str, str | None], Mapping[str, Any]]:
+    latest: dict[tuple[str, str | None], tuple[float, str, Mapping[str, Any]]] = {}
     for row in review_receipts:
         pid = str(row.get("proposal_id") or "")
         if not pid:
             continue
+        supplied_digest = row.get("proposal_digest")
+        key = (pid, supplied_digest if isinstance(supplied_digest, str) else None)
         created_at = float(row.get("created_at") or 0.0)
         receipt_id = str(row.get("review_receipt_id") or "")
-        cur = latest.get(pid)
+        cur = latest.get(key)
         if cur is None or (created_at, receipt_id) >= (cur[0], cur[1]):
-            latest[pid] = (created_at, receipt_id, row)
+            latest[key] = (created_at, receipt_id, row)
     return {k: v[2] for k, v in latest.items()}
 
 
@@ -47,7 +49,9 @@ def filter_review_approved_embodied_proposals(*, proposals: Sequence[Mapping[str
     approved: list[Mapping[str, Any]] = []
     for proposal in proposals:
         pid = str(proposal.get("proposal_id") or "")
-        review = latest.get(pid)
+        proposed_digest = proposal.get("proposal_digest")
+        key = (pid, proposed_digest if isinstance(proposed_digest, str) else None)
+        review = latest.get(key)
         if not review:
             continue
         if classify_embodied_proposal_review_outcome(str(review.get("review_outcome") or "pending_review")) == "reviewed_approved_for_next_stage":
@@ -59,6 +63,9 @@ def build_embodied_handoff_candidate(*, proposal_record: Mapping[str, Any], revi
     proposal_kind = str(proposal_record.get("proposal_kind") or "unknown")
     handoff_kind = classify_embodied_handoff_candidate_kind(proposal_kind)
     review_outcome = classify_embodied_proposal_review_outcome(str(review_receipt.get("review_outcome") or "pending_review"))
+    proposal_digest = proposal_record.get("proposal_digest")
+    review_digest = review_receipt.get("proposal_digest")
+    digest_conflict = proposal_digest is not None and proposal_digest != review_digest
 
     posture = {
         "pending_review": "blocked_missing_review",
@@ -67,6 +74,8 @@ def build_embodied_handoff_candidate(*, proposal_record: Mapping[str, Any], revi
         "reviewed_needs_more_context": "blocked_needs_more_context",
         "reviewed_approved_for_next_stage": "eligible_for_next_stage_review",
     }[review_outcome]
+    if digest_conflict:
+        posture = "blocked_proposal_digest_mismatch"
     if handoff_kind == "unsupported_handoff_candidate":
         posture = "blocked_unsupported_kind"
 
@@ -76,6 +85,8 @@ def build_embodied_handoff_candidate(*, proposal_record: Mapping[str, Any], revi
         "handoff_kind": handoff_kind,
         "posture": posture,
     }
+    if proposal_digest is not None:
+        material["proposal_digest"] = proposal_digest
     candidate_id = "ehc_" + hashlib.sha256(json.dumps(material, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:24]
 
     return {
@@ -83,6 +94,7 @@ def build_embodied_handoff_candidate(*, proposal_record: Mapping[str, Any], revi
         "handoff_candidate_id": candidate_id,
         "handoff_candidate_kind": handoff_kind,
         "source_proposal_id": proposal_record.get("proposal_id"),
+        "source_proposal_digest": proposal_digest,
         "source_proposal_ref": embodied_proposal_ref(proposal_record),
         "source_review_receipt_id": review_receipt.get("review_receipt_id"),
         "source_review_receipt_ref": embodied_proposal_review_receipt_ref(review_receipt),
@@ -118,7 +130,9 @@ def resolve_embodied_handoff_candidates(*, proposals: Sequence[Mapping[str, Any]
     by_posture: dict[str, int] = {}
     for proposal in proposals:
         pid = str(proposal.get("proposal_id") or "")
-        review = latest.get(pid)
+        proposed_digest = proposal.get("proposal_digest")
+        key = (pid, proposed_digest if isinstance(proposed_digest, str) else None)
+        review = latest.get(key)
         if not review:
             continue
         candidate = build_embodied_handoff_candidate(proposal_record=proposal, review_receipt=review, created_at=created_at)

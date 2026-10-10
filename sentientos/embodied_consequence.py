@@ -552,6 +552,37 @@ def verify_strategy_proposal(value: EmbodiedStrategyProposal, *, identity_requir
         raise EmbodiedConsequenceError("strategy_proposal_digest_mismatch")
 
 
+def strategy_proposal_review_record(value: EmbodiedStrategyProposal) -> dict[str, Any]:
+    """Adapt a verified strategy proposal to the existing review-only owner.
+
+    The digest remains explicit so a review cannot be reused for a substituted
+    proposal. This projection is not a legacy feedback-action candidate and
+    grants no admission, fulfillment, or execution authority.
+    """
+    verify_strategy_proposal(value)
+    return {
+        "proposal_id": value.strategy_id,
+        "proposal_digest": value.strategy_digest,
+        "proposal_kind": "embodied_strategy_proposal",
+        "source_module": "sentientos.embodied_consequence",
+        "blocked_effect_type": "strategy_proposal_review_only",
+        "correlation_id": value.situation_binding,
+        "source_event_refs": [f"strategy:{value.strategy_id}",
+            f"strategy-digest:{value.strategy_digest}"],
+        "candidate_payload_summary": {
+            "proposed_next_action_class": value.proposed_next_action_class,
+            "requested_pose": value.requested_pose,
+            "requested_expression": value.requested_expression,
+            "more_observation_required": value.more_observation_required,
+            "strategy_digest": value.strategy_digest,
+        },
+        "rationale": [value.rationale[:2000]],
+        "risk_flags": {}, "privacy_retention_posture": "review",
+        "consent_posture": "not_asserted", "non_authoritative": True,
+        "decision_power": "none", "approval_is_not_execution": True,
+    }
+
+
 class StrategyCognitionBackend(Protocol):
     def propose(self, *, condition: str, history: Sequence[Mapping[str, Any]], situation: Mapping[str, Any]) -> EmbodiedStrategyProposal: ...
 
