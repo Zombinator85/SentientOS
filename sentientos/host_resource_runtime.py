@@ -523,6 +523,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                         "_lineage_findings": candidate_findings,
                         "_model_replacement_run_id": run_payload.get("run_id"),
                         "_model_replacement_run_digest": run_payload.get("run_digest"),
+                        "_model_replacement_source_record_id": run.get("source_id"),
+                        "_model_replacement_source_record_digest": run.get("digest"),
                         "_model_replacement_condition": observation.get("condition_id"),
                         "_model_identity_digest": observation.get("model_identity_digest"),
                         "_model_provenance_digest": observation.get("model_provenance_manifest_digest"),
@@ -695,10 +697,17 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             join["subject_kind"] = "model_replacement_invocation_resource_lineage"
             join["payload"].pop("strategy_proposal_id", None)
             join["payload"].pop("strategy_proposal_record_digest", None)
-            join["payload"].update({key: model_candidate.get(key) for key in (
-                "_model_replacement_run_id", "_model_replacement_run_digest",
-                "_model_replacement_condition", "_model_identity_digest",
-                "_model_provenance_digest", "_causal_context_id", "_causal_context_digest")})
+            join["payload"].update({
+                "model_replacement_run_id": model_candidate.get("_model_replacement_run_id"),
+                "model_replacement_run_digest": model_candidate.get("_model_replacement_run_digest"),
+                "model_replacement_source_record_id": model_candidate.get("_model_replacement_source_record_id"),
+                "model_replacement_source_record_digest": model_candidate.get(
+                    "_model_replacement_source_record_digest"),
+                "model_replacement_condition": model_candidate.get("_model_replacement_condition"),
+                "model_identity_digest": model_candidate.get("_model_identity_digest"),
+                "model_provenance_manifest_digest": model_candidate.get("_model_provenance_digest"),
+                "causal_context_id": model_candidate.get("_causal_context_id"),
+                "causal_context_digest": model_candidate.get("_causal_context_digest")})
         join["digest"] = record_digest(join)
         if len(json.dumps(join, sort_keys=True, separators=(",", ":")).encode("utf-8")) > 32_768:
             raise ValueError("resource_proposal_join_record_oversized")
