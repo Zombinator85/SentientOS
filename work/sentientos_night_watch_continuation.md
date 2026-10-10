@@ -778,3 +778,10 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the lifecycle supervisor and chat service adapter. No supervisor, child process, installation writer, or daemon runtime was executed.
 
 **Next implementation dependency:** inspect the lifecycle-to-World-State readback for timestamp posture and duplicate behavior after repeated health observations and daemon restarts. Confirm each new owner observation has a new event identity while replay of one stored observation remains identity-stable and historical; then continue into any directly connected cognition consumer gap.
+
+
+## Source review — runtime observation readback and replay semantics
+
+- The existing resource observer reads one canonical installation runtime-observation image, validates its semantic digest, and labels it historical (`historically_observed_running` or `historically_not_verified`). The World-State projection uses the observation's own event time and semantic digest in its source identity; replay of the same image is stable, while a new health observation receives a new event identity. The epistemic adapter preserves the event time but treats runtime-observation evidence as contextual, unknown-freshness interpretation.
+- The observer's bounded invocation directory rejects entry overflow and per-file byte overflow rather than silently projecting a partial complete set.
+- The next source-level recovery gap is the adjacent runtime lifecycle journal: supervisor sequence state and append-only lifecycle receipts are published separately, and recovery currently trusts the state file without reconciling a possibly appended receipt. Inspect and repair sequence/idempotency recovery without replaying service starts or other lifecycle actions.
