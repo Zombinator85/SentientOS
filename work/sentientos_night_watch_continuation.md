@@ -748,3 +748,23 @@ Source review confirms this process handoff and recurring observation path alrea
 - `py_compile` passed for the edited ledger module. No crash, filesystem, or resource call was executed. Construction remains unverified for production.
 
 **Next implementation dependency:** continue the bounded source review of resource evidence projection and epistemic consumption. Confirm source invalidity, incomplete attempts, and retention omissions stay visible as degraded context, and old ledger event times remain historical after repeated reconstruction. Then inspect the next causal continuity owner exposed by that path.
+
+
+## New checkpoint — align authoritative ledger size with the bounded observer
+
+- The read-only installation observer already rejects ledger images above 8 MiB, but the single-process writer had no matching read or publication bound. A sufficiently large call history could therefore remain writable by the owner while becoming unavailable to the resident observer.
+- The ledger now shares the observer's 8 MiB maximum: authoritative reads consume at most bound+1 bytes, and candidate images above the same limit are rejected before staging or state replacement. The observer imports that shared limit. Rejection preserves the previous durable state and cannot restore spent entitlement; post-effect publication failure is still surfaced by the invocation's custody error.
+- Source review also confirmed the World-State record digest omits retrieval timestamps, while the epistemic adapter takes historical consumption event times only from ledger receipts, never the tick's reconstruction time. Incomplete/retained resource records remain contextual and cannot become current evidence.
+- `py_compile` passed for the ledger and read-only observer modules. No oversized image, restart, or production behavior was executed.
+
+**Next implementation dependency:** inspect the existing invocation-receipt custody and startup handoff against the same resource-size and retention limits. Ensure a configured observer cannot claim a complete invocation set when the selected installation receipt directory exceeds its explicit enumeration/byte bound, and preserve the omission posture into World-State.
+
+
+## New checkpoint — reserve bounded ledger capacity before backend entry
+
+- The installation observer's invocation receipt enumeration already fails explicitly after 256 directory entries and bounds each receipt read to 256 KiB; it does not claim a complete set after truncation.
+- A resource ledger could still admit an attempt near its 8 MiB limit and then lack room for the post-entry measurement or reconciliation receipt. The authoritative ledger now caps each resource receipt at 16 KiB and reserves three receipt slots for provisional attempts, two after backend-entry receipt publication, and one after the measured outcome. Candidate publication fails before proceeding when aggregate reserved capacity would exceed the ledger bound. Each reservation consumes shared capacity, so concurrent attempts cannot independently promise the same remaining space.
+- The reserve is custody space only; it does not change call entitlement, produce measurements, or trigger execution. Historical interrupted ledger images remain readable when structurally valid, while no new backend call may begin without enough room for its terminal lineage.
+- `py_compile` passed for the ledger and observer modules. No concurrency, capacity boundary, backend call, restart, or persistence failure was executed.
+
+**Next implementation dependency:** inspect the process-generation handoff and recovered cognition path for the remaining boundary between historical child-reported software identity and an independently observed running chat process. Preserve the explicit unknown state unless a real OS-held process owner can bind the observation; do not substitute the daemon's identity or repository commit.

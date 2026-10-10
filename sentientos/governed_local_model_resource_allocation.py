@@ -27,6 +27,8 @@ RESOURCE_KIND = "governed_local_model_invocation_call_entitlement.v1"
 ALLOCATOR_ID = "sentientos.governed_local_model_resource_allocator.v1"
 POLICY_SCHEMA = "sentientos.governed_local_model_resource_policy:v1"
 LEDGER_SCHEMA = "sentientos.governed_local_model_resource_ledger:v1"
+MAX_LEDGER_BYTES = 8 * 1024 * 1024
+MAX_RESOURCE_RECEIPT_BYTES = 16 * 1024
 ALLOCATION_SCHEMA = "sentientos.governed_local_model_resource_allocation:v1"
 RECEIPT_SCHEMA = "sentientos.governed_local_model_resource_consumption_receipt:v1"
 _HEX = re.compile(r"[0-9a-f]{64}")
@@ -64,9 +66,18 @@ def _object_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 def _load_json(path: Path) -> Mapping[str, object]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_object_pairs,
+        with path.open("rb") as stream:
+            raw = stream.read(MAX_LEDGER_BYTES + 1)
+    except OSError as exc:
+        raise GovernedLocalModelResourceError("malformed_json") from exc
+    if len(raw) > MAX_LEDGER_BYTES:
+        raise GovernedLocalModelResourceError("ledger_size_bound_exceeded")
+    try:
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_object_pairs,
                            parse_constant=lambda _: (_ for _ in ()).throw(GovernedLocalModelResourceError("nonfinite_json")))
-    except (OSError, json.JSONDecodeError) as exc:
+    except GovernedLocalModelResourceError:
+        raise
+    except (UnicodeError, json.JSONDecodeError) as exc:
         raise GovernedLocalModelResourceError("malformed_json") from exc
     if not isinstance(value, dict):
         raise GovernedLocalModelResourceError("json_object_required")
@@ -305,7 +316,7 @@ class GovernedLocalModelResourceLedger:
         return state
 
     @classmethod
-    def read_only_snapshot(cls, raw_bytes: bytes, *, max_bytes: int = 8 * 1024 * 1024) -> GovernedLocalModelResourceLedgerObservation:
+    def read_only_snapshot(cls, raw_bytes: bytes, *, max_bytes: int = MAX_LEDGER_BYTES) -> GovernedLocalModelResourceLedgerObservation:
         """Validate one bounded atomic ledger image without opening mutable ledger custody."""
         if type(raw_bytes) is not bytes or type(max_bytes) is not int or max_bytes < 1:
             raise GovernedLocalModelResourceError("invalid_read_only_ledger_input")
@@ -369,6 +380,8 @@ class GovernedLocalModelResourceLedger:
             if not isinstance(item, Mapping):
                 raise GovernedLocalModelResourceError("malformed_ledger_receipt")
             receipt = GovernedLocalModelResourceConsumptionReceipt.from_mapping(item)
+            if len(_canonical(receipt.to_dict())) > MAX_RESOURCE_RECEIPT_BYTES:
+                raise GovernedLocalModelResourceError("receipt_size_bound_exceeded")
             expected = seen.get(receipt.attempt_id)
             if receipt.previous_receipt_digest != expected:
                 raise GovernedLocalModelResourceError("broken_receipt_predecessor")
@@ -449,6 +462,33 @@ class GovernedLocalModelResourceLedger:
             if debits > allocation.resource_specific_bounds.max_calls_per_correlation:
                 raise GovernedLocalModelResourceError("negative_remaining_calls")
 
+    @staticmethod
+    def _unpublished_receipt_slots(state: Mapping[str, object]) -> int:
+        attempts = state.get("attempts")
+        receipts = state.get("receipts")
+        if not isinstance(attempts, dict) or not isinstance(receipts, list):
+            raise GovernedLocalModelResourceError("malformed_ledger")
+        states_by_attempt: dict[str, list[str]] = {}
+        for item in receipts:
+            if isinstance(item, Mapping):
+                states_by_attempt.setdefault(str(item.get("attempt_id")), []).append(
+                    str(item.get("state")))
+        slots = 0
+        measured_states = {
+            "measured_completed", "measured_timeout", "measured_backend_failure"}
+        for attempt_id, attempt in attempts.items():
+            if not isinstance(attempt, Mapping):
+                continue
+            states = states_by_attempt.get(str(attempt_id), [])
+            if attempt.get("status") == "provisional":
+                slots += 3
+            elif attempt.get("status") == "begun":
+                if states == ["attempt_begun"]:
+                    slots += 2
+                elif len(states) == 2 and states[0] == "attempt_begun" and states[1] in measured_states:
+                    slots += 1
+        return slots
+
     def _persist_candidate(self, candidate: dict[str, Any]) -> None:
         """Publish a candidate before making it the process-local ledger state.
 
@@ -459,6 +499,11 @@ class GovernedLocalModelResourceLedger:
         """
         self._verify_invariants(candidate)
         data = _canonical({**candidate, "ledger_digest": _digest(candidate)}) + b"\n"
+        if len(data) > MAX_LEDGER_BYTES:
+            raise GovernedLocalModelResourceError("ledger_size_bound_exceeded")
+        reserved_receipts = self._unpublished_receipt_slots(candidate)
+        if len(data) + reserved_receipts * MAX_RESOURCE_RECEIPT_BYTES > MAX_LEDGER_BYTES:
+            raise GovernedLocalModelResourceError("ledger_future_receipt_capacity_exhausted")
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, name = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
         try:
@@ -600,6 +645,8 @@ class GovernedLocalModelResourceAllocator:
         receipt = GovernedLocalModelResourceConsumptionReceipt.from_mapping({
             "receipt_id": "lmresrec-" + receipt_digest[:24], **body,
             "receipt_digest": receipt_digest})
+        if len(_canonical(receipt.to_dict())) > MAX_RESOURCE_RECEIPT_BYTES:
+            raise GovernedLocalModelResourceError("receipt_size_bound_exceeded")
         receipts.append(receipt.to_dict())
         return receipt
 
@@ -687,7 +734,7 @@ class GovernedLocalModelResourceAllocator:
             return receipt
 
 
-__all__ = ["ALLOCATOR_ID", "RESOURCE_KIND", "GovernedLocalModelAllocationValidity",
+__all__ = ["ALLOCATOR_ID", "MAX_LEDGER_BYTES", "MAX_RESOURCE_RECEIPT_BYTES", "RESOURCE_KIND", "GovernedLocalModelAllocationValidity",
  "GovernedLocalModelResourceAllocation", "GovernedLocalModelResourceAllocator", "GovernedLocalModelResourceBounds",
  "GovernedLocalModelResourceConsumptionReceipt", "GovernedLocalModelResourceError", "GovernedLocalModelResourceLedger",
  "GovernedLocalModelResourceLedgerObservation",

@@ -35,6 +35,7 @@ from .runtime.local_model_chat_recovery import (
     inspect_chat_recovery_phase_custody,
 )
 from .governed_local_model_resource_allocation import (
+    MAX_LEDGER_BYTES,
     GovernedLocalModelResourceAllocation,
     GovernedLocalModelResourceLedger,
     GovernedLocalModelResourceLedgerObservation,
@@ -53,7 +54,6 @@ from .production_chat_resource_provisioning import (
     validate_resource_provisioning_id,
 )
 
-MAX_LEDGER_BYTES = 8 * 1024 * 1024
 MAX_INVOCATION_RECEIPTS = 256
 MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 _RECEIPT_NAME = re.compile(r"lmrec-[0-9a-f]{24}\.json\Z")
