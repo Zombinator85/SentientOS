@@ -296,7 +296,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         (fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
                 "chat_process_recovery_transition",
-                "chat_process_runtime_generation_observation"})
+                "chat_process_runtime_generation_observation",
+                "serving_operation_attempt"})
         or (fact.source.kind == "resource_governor"
             and fact.subject.subject_kind == "chat_process_software_generation_invocation"))
     out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition,
@@ -501,6 +502,38 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                     and len(json.dumps(lineage, sort_keys=True, separators=(",", ":")).encode("utf-8"))
                         <= MAX_VALUE_BYTES):
                 out.append(("chat_process_recovery.historical_phase_lineage",
+                    _bounded(lineage), "historical_interpretation"))
+    if (fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "serving_operation_attempt"
+            and fact.source.finding == "ok" and isinstance(fact.payload, Mapping)):
+        attempt = fact.payload.get("serving_operation_attempt")
+        if isinstance(attempt, Mapping):
+            lineage = {
+                "source_record_id": fact.source.source_id,
+                "source_record_digest": fact.source.digest,
+                "attempt_id": attempt.get("attempt_id"),
+                "attempt_semantic_digest": attempt.get("attempt_semantic_digest"),
+                "installation_identity": attempt.get("installation_identity"),
+                "serving_operation_id": attempt.get("serving_operation_id"),
+                "activation_state_semantic_digest": attempt.get("activation_state_semantic_digest"),
+                "activation_generation": attempt.get("activation_generation"),
+                "model_id": attempt.get("model_id"),
+                "operation_intent_digest": attempt.get("operation_intent_digest"),
+                "admission_decision_ref": attempt.get("admission_decision_ref"),
+                "reserved_at": attempt.get("reserved_at"),
+                "attempt_posture": attempt.get("attempt_posture"),
+                "model_load_outcome": fact.payload.get("model_load_outcome", "unknown"),
+                "resource_consumption_measurements": "unknown",
+                "current_model_claimed": False, "inference_performed": False,
+                "effect_proven": False, "authority": False,
+                "independent_signature": False,
+                "historical_only": True, "current_truth": False,
+            }
+            if (isinstance(lineage["attempt_id"], str)
+                    and isinstance(lineage["attempt_semantic_digest"], str)
+                    and len(json.dumps(lineage, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+                        <= MAX_VALUE_BYTES):
+                out.append(("chat_process.serving_operation_attempt",
                     _bounded(lineage), "historical_interpretation"))
     # Keep deterministic comparison results available to later cognition as
     # explicitly historical interpretation. They do not prove an effect or

@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Any, Callable, Mapping
 
 from .control_plane_kernel import (AdmissionOutcome, AuthorityClass, ControlActionRequest,
                                    ControlPlaneKernel, LifecyclePhase)
-from .installation_state import InstallationStateError, InstallationStateHandle
+from .installation_state import (
+    InstallationStateError, InstallationStateHandle,
+    InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView,
+)
 from .local_model_production_activation import ProductionActivationError, verify_current_activation
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_runtime_provisioning import semantic_digest
@@ -20,6 +24,10 @@ ACTION = "establish_exact_activated_model_serving_session"
 RECEIPT_SCHEMA = "sentientos.local_model_serving_session_receipt:v1"
 WITNESS_SCHEMA = "sentientos.privilege_witness:model_serving:v1"
 INVALIDATION_SCHEMA = "sentientos.local_model_serving_session_invalidation:v1"
+SERVING_ATTEMPT_SCHEMA = "sentientos.local_model_serving_operation_attempt:v1"
+SERVING_ATTEMPT_ROOT = "local-model/serving/attempts"
+MAX_SERVING_OPERATION_ATTEMPTS = 256
+MAX_SERVING_OPERATION_ATTEMPT_BYTES = 262_144
 MAX_OPERATION_ID_LENGTH = 128
 PLACEHOLDER_OPERATION_IDS = frozenset({"*", "any", "current", "default", "latest", "placeholder", "sample", "test", "wildcard"})
 
@@ -99,23 +107,123 @@ def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[st
             "catalog_proof": dict(verified["catalog_proof"])}
 
 
+def _attempt_id(identity: Mapping[str, Any]) -> str:
+    return "serving-attempt-" + semantic_digest(dict(identity))[:24]
+
+
+def read_serving_operation_attempts(handle: Any, *, maximum: int = MAX_SERVING_OPERATION_ATTEMPTS
+        ) -> tuple[dict[str, Any], ...]:
+    if type(maximum) is not int or not 1 <= maximum <= MAX_SERVING_OPERATION_ATTEMPTS:
+        raise ProductionServingError("serving_attempt_bound_invalid")
+    relative = SERVING_ATTEMPT_ROOT
+    try:
+        if type(handle) is InstallationStateHandle:
+            names = handle.list_regular_names(
+                handle.fixed_object(relative), max_entries=maximum)
+        elif type(handle) in (InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView):
+            names = handle.list_regular_names(relative, max_entries=maximum)
+        else:
+            raise ProductionServingError("serving_attempt_custody_owner_invalid")
+    except InstallationStateError as exc:
+        if exc.code in {"state_directory_missing", "state_parent_missing"}:
+            return ()
+        raise ProductionServingError("serving_attempt_custody_unavailable") from exc
+    attempts: list[dict[str, Any]] = []
+    total_bytes = 0
+    for name in sorted(names):
+        if (not isinstance(name, str) or not name.endswith(".json")
+                or len(name) != len("serving-attempt-") + 24 + 5
+                or any(character not in "0123456789abcdef"
+                    for character in name[len("serving-attempt-"):-5])):
+            raise ProductionServingError("serving_attempt_name_invalid")
+        path = relative + "/" + name
+        try:
+            if type(handle) is InstallationStateHandle:
+                raw = handle.read_regular_bounded(
+                    handle.fixed_object(path), max_bytes=MAX_SERVING_OPERATION_ATTEMPT_BYTES)
+            else:
+                raw = handle.read_regular_bounded(
+                    path, max_bytes=MAX_SERVING_OPERATION_ATTEMPT_BYTES)
+            total_bytes += len(raw)
+            if total_bytes > MAX_SERVING_OPERATION_ATTEMPTS * MAX_SERVING_OPERATION_ATTEMPT_BYTES:
+                raise ProductionServingError("serving_attempt_retention_limit_exceeded")
+            attempt = json.loads(raw.decode("utf-8"))
+        except ProductionServingError:
+            raise
+        except (InstallationStateError, UnicodeError, ValueError, TypeError, RecursionError) as exc:
+            raise ProductionServingError("serving_attempt_custody_invalid") from exc
+        if (not isinstance(attempt, dict) or raw != _canonical(attempt)
+                or set(attempt) != {"schema_version", "attempt_id", "installation_identity",
+                    "serving_operation_id", "activation_state_semantic_digest",
+                    "activation_generation", "model_id", "operation_intent_digest",
+                    "admission_decision_ref", "reserved_at", "attempt_posture",
+                    "current_model_claimed", "inference_performed", "effect_authority",
+                    "independent_signature", "attempt_semantic_digest"}
+                or attempt.get("schema_version") != SERVING_ATTEMPT_SCHEMA
+                or attempt.get("attempt_id") != name[:-5]
+                or attempt.get("installation_identity") != handle.identity.value
+                or not isinstance(attempt.get("serving_operation_id"), str)
+                or not attempt.get("serving_operation_id")
+                or len(attempt["serving_operation_id"]) > MAX_OPERATION_ID_LENGTH
+                or attempt.get("attempt_id") != _attempt_id({
+                    "installation_identity": attempt.get("installation_identity"),
+                    "serving_operation_id": attempt.get("serving_operation_id"),
+                    "activation_state_semantic_digest":
+                        attempt.get("activation_state_semantic_digest")})
+                or not isinstance(attempt.get("activation_state_semantic_digest"), str)
+                or len(attempt["activation_state_semantic_digest"]) != 64
+                or any(character not in "0123456789abcdef"
+                    for character in attempt["activation_state_semantic_digest"])
+                or type(attempt.get("activation_generation")) is not int
+                or attempt["activation_generation"] < 1
+                or not isinstance(attempt.get("model_id"), str) or not attempt["model_id"]
+                or not isinstance(attempt.get("operation_intent_digest"), str)
+                or len(attempt["operation_intent_digest"]) != 64
+                or any(character not in "0123456789abcdef" for character in attempt["operation_intent_digest"])
+                or not isinstance(attempt.get("admission_decision_ref"), str)
+                or not attempt["admission_decision_ref"]
+                or attempt.get("attempt_posture") != "durably_reserved_before_model_load"
+                or attempt.get("current_model_claimed") is not False
+                or attempt.get("inference_performed") is not False
+                or attempt.get("effect_authority") is not False
+                or attempt.get("independent_signature") is not False
+                or attempt.get("attempt_semantic_digest")
+                    != semantic_digest({key: value for key, value in attempt.items()
+                        if key != "attempt_semantic_digest"})):
+            raise ProductionServingError("serving_attempt_identity_invalid")
+        try:
+            timestamp = datetime.fromisoformat(
+                str(attempt.get("reserved_at", "")).replace("Z", "+00:00"))
+        except (TypeError, ValueError) as exc:
+            raise ProductionServingError("serving_attempt_time_invalid") from exc
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            raise ProductionServingError("serving_attempt_time_invalid")
+        attempts.append(attempt)
+    return tuple(attempts)
+
+
 def _reject_replayed_lifetime(handle: InstallationStateHandle, operation_id: str,
                               activation_digest: str) -> None:
+    del activation_digest
     directory = handle.fixed_object("local-model/serving/receipts")
     try:
-        names = handle.list_regular_names(directory)
+        names = handle.list_regular_names(directory, max_entries=MAX_SERVING_OPERATION_ATTEMPTS)
     except InstallationStateError as exc:
         raise ProductionServingError("serving_receipt_custody_unavailable") from exc
     for name in names:
         if not name.endswith(".json"):
             raise ProductionServingError("serving_receipt_malformed")
         try:
-            receipt = json.loads(handle.read_regular(directory.child(name)))
-        except (OSError, ValueError, TypeError, InstallationStateError) as exc:
+            raw = handle.read_regular_bounded(
+                directory.child(name), max_bytes=MAX_SERVING_OPERATION_ATTEMPT_BYTES)
+            receipt = json.loads(raw.decode("utf-8"))
+        except (OSError, UnicodeError, ValueError, TypeError, InstallationStateError) as exc:
             raise ProductionServingError("serving_receipt_malformed") from exc
-        if (not isinstance(receipt, dict) or receipt.get("schema_version") != RECEIPT_SCHEMA
+        if (not isinstance(receipt, dict) or raw != _canonical(receipt)
+                or receipt.get("schema_version") != RECEIPT_SCHEMA
                 or receipt.get("receipt_semantic_digest")
-                != semantic_digest({k: v for k, v in receipt.items() if k != "receipt_semantic_digest"})
+                    != semantic_digest({k: v for k, v in receipt.items()
+                        if k != "receipt_semantic_digest"})
                 or receipt.get("control_plane_authority_class") != AuthorityClass.MODEL_SERVING.value
                 or receipt.get("admission_outcome") != AdmissionOutcome.ALLOW.value
                 or receipt.get("model_loaded") is not True
@@ -125,9 +233,59 @@ def _reject_replayed_lifetime(handle: InstallationStateHandle, operation_id: str
         binding = receipt.get("binding")
         if not isinstance(binding, dict) or binding.get("installation_identity") != handle.identity.value:
             raise ProductionServingError("serving_receipt_installation_mismatch")
-        if (binding.get("serving_operation_id") == operation_id
-                and binding.get("activation_state_semantic_digest") == activation_digest):
-            raise ProductionServingError("serving_operation_activation_replay")
+        if binding.get("serving_operation_id") == operation_id:
+            raise ProductionServingError("serving_operation_reused")
+    if any(item.get("serving_operation_id") == operation_id
+            for item in read_serving_operation_attempts(handle)):
+        raise ProductionServingError("serving_operation_reused")
+
+
+def _reserve_serving_operation_attempt(handle: InstallationStateHandle, *,
+        operation_intent: Mapping[str, Any], admission_decision_ref: str) -> dict[str, Any]:
+    if not isinstance(admission_decision_ref, str) or not admission_decision_ref:
+        raise ProductionServingError("serving_attempt_admission_reference_missing")
+    operation_id = str(operation_intent["serving_operation_id"])
+    identity = {
+        "installation_identity": handle.identity.value,
+        "serving_operation_id": operation_id,
+        "activation_state_semantic_digest": operation_intent["activation_state_semantic_digest"],
+    }
+    attempt_id = _attempt_id(identity)
+    body: dict[str, Any] = {
+        "schema_version": SERVING_ATTEMPT_SCHEMA,
+        "attempt_id": attempt_id,
+        **identity,
+        "activation_generation": operation_intent["activation_generation"],
+        "model_id": operation_intent["model_id"],
+        "operation_intent_digest": semantic_digest(dict(operation_intent)),
+        "admission_decision_ref": admission_decision_ref,
+        "reserved_at": datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z"),
+        "attempt_posture": "durably_reserved_before_model_load",
+        "current_model_claimed": False,
+        "inference_performed": False,
+        "effect_authority": False,
+        "independent_signature": False,
+    }
+    body["attempt_semantic_digest"] = semantic_digest(body)
+    raw = _canonical(body)
+    if len(raw) > MAX_SERVING_OPERATION_ATTEMPT_BYTES:
+        raise ProductionServingError("serving_attempt_too_large")
+    directory = handle.fixed_object(SERVING_ATTEMPT_ROOT)
+    handle.ensure_directory(directory)
+    target = handle.fixed_object(SERVING_ATTEMPT_ROOT + "/" + attempt_id + ".json")
+    lock = handle.fixed_object("local-model/serving/operation-owner.lock")
+    try:
+        with handle.exclusive_lock(lock):
+            _reject_replayed_lifetime(handle, operation_id,
+                str(operation_intent["activation_state_semantic_digest"]))
+            handle.durable_create(target, raw)
+    except ProductionServingError:
+        raise
+    except InstallationStateError as exc:
+        raise ProductionServingError("serving_attempt_publication_failed") from exc
+    return body
+
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,7 +314,8 @@ class ProductionServingController:
         self._allow_synthetic = allow_synthetic_evidence_for_tests
         self._session: ServingSession | None = None
         self._model: Any | None = None
-        for relative in ("local-model", "local-model/serving", "local-model/serving/receipts"):
+        for relative in ("local-model", "local-model/serving", "local-model/serving/receipts",
+                SERVING_ATTEMPT_ROOT):
             installation_handle.ensure_directory(installation_handle.fixed_object(relative))
 
     def _same_activation(self, verified: Mapping[str, Any], session: ServingSession) -> bool:
@@ -246,6 +405,8 @@ class ProductionServingController:
             raise ProductionServingError("expected_activation_state_mismatch")
         existing = self.current_session()
         if existing is not None:
+            if existing.binding.get("serving_operation_id") != operation_id:
+                raise ProductionServingError("current_serving_operation_mismatch")
             return existing
         state, activation, proof = before["active_state"], before["activation_receipt"], before["catalog_proof"]
         _reject_replayed_lifetime(self._handle, operation_id, state["state_semantic_digest"])
@@ -268,6 +429,9 @@ class ProductionServingController:
                 or decision.actor != PRINCIPAL or decision.action_kind != ACTION
                 or decision.target_subsystem != TARGET_SUBSYSTEM or decision.correlation_id != correlation):
             raise ProductionServingError("model_serving_control_plane_not_allowed")
+        _reserve_serving_operation_attempt(
+            self._handle, operation_intent=operation_intent,
+            admission_decision_ref=decision.admission_decision_ref)
         chain = {key: state[key] for key in ("model_id", "artifact_path", "artifact_sha256",
                                               "artifact_size_bytes", "interpreter_path")}
         try:

@@ -288,7 +288,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               source_identity: Mapping[str, str] | None = None,
                                               verified_chat_process_generation_attributions: Sequence[Mapping[str, Any]] = (),
                                               verified_chat_process_recovery_transitions: Sequence[Mapping[str, Any]] = (),
-                                              verified_chat_process_runtime_observation: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+                                              verified_chat_process_runtime_observation: Mapping[str, Any] | None = None,
+                                              verified_serving_operation_attempts: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -311,6 +312,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         raise ValueError("chat_process_generation_attribution_bound_exceeded")
     if len(verified_chat_process_recovery_transitions) > 256:
         raise ValueError("chat_process_recovery_transition_bound_exceeded")
+    if len(verified_serving_operation_attempts) > 256:
+        raise ValueError("serving_operation_attempt_bound_exceeded")
     invocation_by_id: dict[str, Mapping[str, Any]] = {}
     for invocation in invocation_receipts:
         if not isinstance(invocation, Mapping):
@@ -857,6 +860,76 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "currentness": "unknown_after_observation_time",
                 "historical_only": True,
                 "effect_authority": False,
+            },
+        }
+        output.append({**item, "digest": record_digest(item)})
+    seen_serving_attempts: dict[str, Mapping[str, Any]] = {}
+    expected_attempt_fields = {
+        "schema_version", "attempt_id", "installation_identity", "serving_operation_id",
+        "activation_state_semantic_digest", "activation_generation", "model_id",
+        "operation_intent_digest", "admission_decision_ref", "reserved_at", "attempt_posture",
+        "current_model_claimed", "inference_performed", "effect_authority",
+        "independent_signature", "attempt_semantic_digest",
+    }
+    for attempt in verified_serving_operation_attempts:
+        if not isinstance(attempt, Mapping) or set(attempt) != expected_attempt_fields:
+            raise ValueError("serving_operation_attempt_shape_invalid")
+        attempt_id = attempt.get("attempt_id")
+        attempt_digest = attempt.get("attempt_semantic_digest")
+        if (attempt.get("schema_version") != "sentientos.local_model_serving_operation_attempt:v1"
+                or not isinstance(attempt_id, str) or not attempt_id
+                or not isinstance(attempt_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", attempt_digest) is None
+                or attempt.get("installation_identity")
+                    != selected_source_identity.get("installation_identity")
+                or not isinstance(attempt.get("serving_operation_id"), str)
+                or not attempt.get("serving_operation_id")
+                or attempt.get("attempt_posture") != "durably_reserved_before_model_load"
+                or attempt.get("current_model_claimed") is not False
+                or attempt.get("inference_performed") is not False
+                or attempt.get("effect_authority") is not False
+                or attempt.get("independent_signature") is not False
+                or attempt_digest != semantic_digest({
+                    key: value for key, value in attempt.items()
+                    if key != "attempt_semantic_digest"})):
+            raise ValueError("serving_operation_attempt_binding_invalid")
+        identity = {
+            "installation_identity": attempt["installation_identity"],
+            "serving_operation_id": attempt["serving_operation_id"],
+            "activation_state_semantic_digest": attempt["activation_state_semantic_digest"],
+        }
+        if attempt_id != "serving-attempt-" + semantic_digest(identity)[:24]:
+            raise ValueError("serving_operation_attempt_identity_mismatch")
+        previous_attempt = seen_serving_attempts.get(attempt_id)
+        if previous_attempt is not None:
+            if dict(previous_attempt) != dict(attempt):
+                raise ValueError("serving_operation_attempt_identity_conflict")
+            raise ValueError("serving_operation_attempt_duplicate")
+        seen_serving_attempts[attempt_id] = attempt
+        item = {
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": "serving_operation_attempt:" + attempt_id + ":" + attempt_digest,
+            "subject_kind": "serving_operation_attempt",
+            "subject_id": attempt_id,
+            "stage": "attempt",
+            "disposition": "recorded",
+            "evidence_strength": "durable_reservation_model_load_outcome_unknown",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": observed_at,
+            "payload": {
+                "installation_identity": attempt["installation_identity"],
+                "provisioning_id": selected_source_identity.get("provisioning_id"),
+                "manifest_digest": selected_source_identity.get("manifest_digest"),
+                "serving_operation_attempt": dict(attempt),
+                "event_time": attempt["reserved_at"],
+                "event_time_posture": "reservation_time_not_model_load_time",
+                "model_load_outcome": "unknown",
+                "resource_consumption_measurements": "unknown",
+                "current_model_claimed": False,
+                "inference_performed": False,
+                "effect_authority": False,
+                "independent_signature": False,
+                "historical_only": True,
             },
         }
         output.append({**item, "digest": record_digest(item)})

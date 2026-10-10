@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the interrupted-operation reservation increment, GitHub branch inspection verified `9d46d3727512c16207d3a3685c1193a6ffc16118` (tree `299acd1307c793d341753169dd86a3c097321f9e`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the serving-attempt custody increment, GitHub branch inspection verified `4ac3a2c8469e241ff96489037b05f8593a449b23` (tree `7616bdba801659dc59bcf00f171a7a7a3ce27a41`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -483,3 +483,12 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for recovery custody. No crash injection, lock race, process restart, model load, or production verification was run.
 
 **Next implementation dependency:** inspect the primary serving owner's own crash window between model load and durable serving-receipt publication. Recovery-level attempt reservations protect explicit restart operations; determine whether initial serving operation IDs need the same durable non-replay reservation at the serving owner boundary.
+
+### New checkpoint — publish serving-operation reservations as historical evidence
+
+- The sole serving owner now atomically reserves each admitted serving-operation ID under an installation-scoped lock before entering model loading. A later caller cannot reuse the same operation after a crash even if no successful serving receipt was published. Reusing the current live session under a different requested operation is rejected.
+- The bounded immutable marker says only that a model-serving operation was durably reserved before loading. It records operation/activation/model intent digests, the admission reference claim, and reservation time; model-load outcome remains unknown. It has no independent signature, effect authority, inference, resource measurements, or current-model claim.
+- The explicit read-only installation observer validates at most 256 markers and supplies them to the existing daemon World-State builder. Their canonical source records keep reservation time separate from retrieval time, mark resource measurements and load outcome unknown, and remain eligible only under existing configured runtime-supervisor selectors. The epistemic adapter classifies them as historical context with source freshness unknown; the longitudinal self-model preserves bounded lineage without treating it as current truth.
+- Python compilation passed for the serving owner, read-only observer, daemon composition, World-State projector, epistemic adapter, and longitudinal self-model. No model load, inference, crash, concurrency, Windows, World-State, cognition, or production verification was run.
+
+**Next implementation dependency:** inspect the serving reservation against prior serving receipts and activation lineage on restart; ensure completed receipts consume exactly one reservation and orphaned reservations remain visible without claiming whether loading finished.

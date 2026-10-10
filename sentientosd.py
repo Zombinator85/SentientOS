@@ -983,13 +983,17 @@ class RuntimeMaintenanceSurfaces:
                     verified_chat_process_recovery_transitions=(
                         observation.chat_process_recovery_transitions),
                     verified_chat_process_runtime_observation=(
-                        observation.chat_process_runtime_observation))
+                        observation.chat_process_runtime_observation),
+                    verified_serving_operation_attempts=(
+                        observation.serving_operation_attempts))
                 records.extend(resource_records)
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records)
                             or observation.chat_process_recovery_posture.startswith("unknown_windows")
                             or observation.chat_process_runtime_observation_posture in {
                                 "unknown_missing", "historically_not_verified"}
+                            or observation.serving_operation_attempt_posture not in {
+                                "verified_attempts_present", "verified_no_attempts"}
                             or any(item.get("terminal_receipt_digest") is None
                                 for item in observation.chat_process_recovery_transitions))
                 self._resource_observation_health = {
@@ -1006,6 +1010,8 @@ class RuntimeMaintenanceSurfaces:
                         observation.chat_process_recovery_transitions),
                     "chat_process_runtime_observation_posture":
                         observation.chat_process_runtime_observation_posture,
+                    "serving_operation_attempt_posture": observation.serving_operation_attempt_posture,
+                    "serving_operation_attempt_count": len(observation.serving_operation_attempts),
                     "read_only": True, "effect_authority": False,
                 }
                 records.append({

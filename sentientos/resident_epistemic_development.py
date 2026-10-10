@@ -186,6 +186,13 @@ class ResidentEpistemicDevelopmentRuntime:
             and isinstance(fact.payload.get("chat_process_runtime_observation"), Mapping)
             and fact.payload.get("event_time_posture")
                 == "runtime_owner_observation_not_current_liveness")
+        historical_serving_operation_attempt = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "serving_operation_attempt"
+            and isinstance(fact.payload, Mapping)
+            and isinstance(fact.payload.get("serving_operation_attempt"), Mapping)
+            and fact.payload.get("event_time_posture")
+                == "reservation_time_not_model_load_time")
         historical_transition_observation = (
             historical_transition_event
             and fact.subject.subject_kind == "resident_model_transition"
@@ -230,6 +237,7 @@ class ResidentEpistemicDevelopmentRuntime:
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
+            or historical_serving_operation_attempt
             or (historical_transition_observation and not qualified_transition_observation)
             or historical_strategy_proposal
             or historical_strategy_review or unverified_embodiment_observation
@@ -272,7 +280,12 @@ class ResidentEpistemicDevelopmentRuntime:
             observed = (_latest_historical_event_time(raw_times)
                 if all(isinstance(value, str) for value in raw_times) and raw_times else None)
         if fact.source.kind == "runtime_supervisor":
-            if fact.subject.subject_kind == "chat_process_runtime_generation_observation" and isinstance(fact.payload, Mapping):
+            if fact.subject.subject_kind == "serving_operation_attempt" and isinstance(fact.payload, Mapping):
+                attempt = fact.payload.get("serving_operation_attempt")
+                event_time = attempt.get("reserved_at") if isinstance(attempt, Mapping) else None
+                observed = (_latest_historical_event_time([event_time])
+                    if isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind == "chat_process_runtime_generation_observation" and isinstance(fact.payload, Mapping):
                 runtime_observation = fact.payload.get("chat_process_runtime_observation")
                 event_time = runtime_observation.get("observed_at") if isinstance(
                     runtime_observation, Mapping) else None
