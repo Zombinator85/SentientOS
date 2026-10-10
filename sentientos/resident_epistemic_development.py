@@ -272,6 +272,16 @@ class ResidentEpistemicDevelopmentRuntime:
                     if isinstance(runtime_observation, Mapping) else None)
             observed = (_latest_historical_event_time([source_event_time])
                 if isinstance(source_event_time, str) else None)
+        if (historical_chat_recovery_event and isinstance(fact.payload, Mapping)):
+            # Preserve the evidenced phase interval's latest source event.
+            # Reconstruction/retrieval time is never used to complete a
+            # missing transition phase.
+            phase_times = fact.payload.get("phase_event_times")
+            source_event_times = ([phase_times.get(key) for key in (
+                "attempt_started_at", "readiness_observed_at", "snapshot_advanced_at")]
+                if isinstance(phase_times, Mapping) else [])
+            observed = _latest_historical_event_time([
+                value for value in source_event_times if isinstance(value, str)])
         if (historical_resource_fact and fact.subject.subject_kind == "host_resource_snapshot"
                 and isinstance(fact.payload, Mapping)):
             # The snapshot's payload timestamp belongs to the owner's

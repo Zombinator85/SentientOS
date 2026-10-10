@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the chat-runtime observation-time repair, GitHub branch inspection verified `bc3a245a458d9daab505ce0d436076b853f9cbb3` (tree `0504824ce4b0b42f1e9e40f5dd072cb61d006a2a`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the recovery-phase event-time repair, GitHub branch inspection verified `35baf8e3c429deff41cc0b6900d7192eff529b6e` (tree `20f0ff421c4b288633c8be9a1d97cd6cd9792601`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -546,3 +546,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the epistemic adapter. No tests, recovery replay, evidence admission, developmental writeback, cognition, or production verification was run.
 
 **Next implementation dependency:** continue the same source-bound review across runtime recovery transitions and downstream durable developmental-history selection for any other event-time or exact-identity loss; configured admission remains the only path to interpretation or state mutation.
+
+
+### New checkpoint — preserve chat-process recovery phase times
+
+- The epistemic adapter now transfers the source-bound attempt, readiness, and snapshot-advance timestamps from recovered chat-process transition records into historical evidence observation time, selecting only the latest valid recorded phase. Missing phase times remain missing.
+- The transition stays historical and non-authorizing; recovery time never completes an interrupted phase or makes it fresh.
+- Python compilation passed for the epistemic adapter. No recovery replay, evidence admission, writeback, cognition, or production verification was run.
+
+**Next implementation dependency:** continue source review for developmental-history selection size and lineage loss on these runtime recovery records; retain exact predecessor/successor operation and serving-receipt identities with bounded projections.
