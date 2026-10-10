@@ -147,6 +147,10 @@ class PersistentConversationService:
                     session_id=session_id,
                     user_turn_id=user_turn_id,
                     assistant_text=str(assistant.get("text", "")),
+                    client_request_id_digest=(
+                        user_turn.get("linkage", {}).get("client_request_id_digest")
+                        if isinstance(user_turn.get("linkage"), Mapping) else None
+                    ),
                 )
             except Exception as exc:
                 raise ChatRequestStateError("chat_request_response_receipt_unavailable") from exc
@@ -189,7 +193,9 @@ class PersistentConversationService:
             try:
                 existing = self.sessions.find_user_request(session_id,
                     request_id=request_id, text=message, retain=retain)
-            except (FileNotFoundError, ValueError) as exc:
+            except FileNotFoundError:
+                raise
+            except ValueError as exc:
                 raise ChatRequestStateError(str(exc)) from exc
             if existing is not None:
                 return self._recover_idempotent_response(session_id, existing)
@@ -213,6 +219,10 @@ class PersistentConversationService:
         linkage = {"session_id": session["session_id"], "user_turn_id": user_turn["turn_id"],
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
+        client_request_digest = (user_turn.get("linkage", {}).get("client_request_id_digest")
+            if isinstance(user_turn.get("linkage"), Mapping) else None)
+        if isinstance(client_request_digest, str):
+            linkage["client_request_id_digest"] = client_request_digest
         receipt = self._inference.generate(prompt=prompt, caller="chat_service",
             correlation_id=f"chat:{session['session_id']}:{user_turn['turn_id']}",
             budget=LocalModelInvocationBudget(max_input_chars=8000), caller_linkage=linkage)
@@ -488,7 +498,9 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
             retain=request.retain, request_id=request.request_id)
     except ChatRequestStateError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except (KeyError, FileNotFoundError, ValueError) as exc:
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (KeyError, ValueError) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except RuntimeError as exc:
         LOGGER.warning("Production chat unavailable: %s", type(exc).__name__)

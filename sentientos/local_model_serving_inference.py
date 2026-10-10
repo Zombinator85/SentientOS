@@ -172,7 +172,8 @@ class ProductionServingInferenceController:
 
     def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
                                      session_id: str, user_turn_id: str,
-                                     assistant_text: str | None = None) -> Mapping[str, Any]:
+                                     assistant_text: str | None = None,
+                                     client_request_id_digest: str | None = None) -> Mapping[str, Any]:
         """Reconstruct one prior chat model identity from installation custody."""
         if (not isinstance(receipt_id, str) or len(receipt_id) != 30 or not receipt_id.startswith("lmrec-")
                 or any(character not in "0123456789abcdef" for character in receipt_id[6:])):
@@ -215,6 +216,11 @@ class ProductionServingInferenceController:
         if (not isinstance(caller_context, Mapping) or caller_context.get("session_id") != session_id
                 or caller_context.get("user_turn_id") != user_turn_id):
             raise ProductionServingInferenceError("stored_invocation_conversation_binding_invalid")
+        if client_request_id_digest is not None:
+            if (not isinstance(client_request_id_digest, str) or len(client_request_id_digest) != 64
+                    or any(character not in "0123456789abcdef" for character in client_request_id_digest)
+                    or caller_context.get("client_request_id_digest") != client_request_id_digest):
+                raise ProductionServingInferenceError("stored_invocation_client_request_binding_invalid")
         software_generation = linkage.get("software_generation_attribution")
         if software_generation != unavailable_chat_process_software_generation():
             raise ProductionServingInferenceError("stored_invocation_software_generation_posture_invalid")
