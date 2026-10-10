@@ -304,7 +304,12 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
                     or receipt.get("serving_operation_attempt_id", attempt["attempt_id"])
                         != attempt["attempt_id"]
                     or receipt.get("serving_operation_attempt_semantic_digest",
-                        attempt["attempt_semantic_digest"]) != attempt["attempt_semantic_digest"]):
+                        attempt["attempt_semantic_digest"]) != attempt["attempt_semantic_digest"]
+                    or ((binding.get("serving_operation_attempt_id") is not None
+                         or binding.get("serving_operation_attempt_semantic_digest") is not None)
+                        and (binding.get("serving_operation_attempt_id") != attempt["attempt_id"]
+                            or binding.get("serving_operation_attempt_semantic_digest")
+                                != attempt["attempt_semantic_digest"]))):
                 raise ProductionServingError("serving_attempt_receipt_lineage_mismatch")
             status = "serving_receipt_verified"
         else:
@@ -604,6 +609,14 @@ class ProductionServingController:
                        "adjacent_authority_granted": False}
             receipt["receipt_id"] = "serving-receipt-" + semantic_digest(receipt)[:24]
             receipt["receipt_semantic_digest"] = semantic_digest(receipt)
+            # The persistent receipt cannot contain its own identity in its
+            # session binding; expose the verified reference only to the live
+            # opaque session after its canonical identity is fixed.
+            session = ServingSession(session_id, MappingProxyType({
+                **binding,
+                "serving_receipt_id": receipt["receipt_id"],
+                "serving_receipt_semantic_digest": receipt["receipt_semantic_digest"],
+            }))
             witness = {"schema_version": WITNESS_SCHEMA, "session_id": session_id,
                        "receipt_id": receipt["receipt_id"], "receipt_semantic_digest": receipt["receipt_semantic_digest"],
                        "admission_decision_ref": decision.admission_decision_ref,

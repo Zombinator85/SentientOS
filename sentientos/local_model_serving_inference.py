@@ -23,6 +23,7 @@ from .local_model_production_serving import (
     ProductionServingController,
     ProductionServingError,
     ServingSession,
+    read_serving_operation_history,
 )
 
 
@@ -76,7 +77,9 @@ class ProductionServingInferenceController:
                 "activation_predecessor_state_digest",
                 "activation_receipt_id", "activation_receipt_semantic_digest", "model_id",
                 "observed_loaded_model_identity", "artifact_id", "artifact_sha256",
-                "runtime_id", "authority_map_digest",
+                "runtime_id", "authority_map_digest", "serving_receipt_id",
+                "serving_receipt_semantic_digest", "serving_operation_attempt_id",
+                "serving_operation_attempt_semantic_digest",
             )
         }
 
@@ -123,6 +126,11 @@ class ProductionServingInferenceController:
             raise ProductionServingInferenceError("serving_operation_chat_handoff_mismatch")
         linkage: Mapping[str, Any] = {
             "serving_session_id": session.session_id,
+            "serving_receipt_id": binding.get("serving_receipt_id"),
+            "serving_receipt_semantic_digest": binding.get("serving_receipt_semantic_digest"),
+            "serving_operation_attempt_id": binding.get("serving_operation_attempt_id"),
+            "serving_operation_attempt_semantic_digest": binding.get(
+                "serving_operation_attempt_semantic_digest"),
             "serving_operation_id": binding["serving_operation_id"],
             "installation_identity": binding["installation_identity"],
             "activation_state_semantic_digest": binding["activation_state_semantic_digest"],
@@ -247,6 +255,42 @@ class ProductionServingInferenceController:
                     or any(character not in "0123456789abcdef" for character in client_request_id_digest)
                     or caller_context.get("client_request_id_digest") != client_request_id_digest):
                 raise ProductionServingInferenceError("stored_invocation_client_request_binding_invalid")
+        serving_reference_keys = ("serving_receipt_id", "serving_receipt_semantic_digest",
+            "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest")
+        serving_reference_values = [lifetime.get(key) for key in serving_reference_keys]
+        serving_receipt_lineage: dict[str, Any] = {"status": "historically_unbound"}
+        if any(item is not None for item in serving_reference_values):
+            if any(not isinstance(item, str) or not item for item in serving_reference_values):
+                raise ProductionServingInferenceError("stored_invocation_serving_receipt_identity_incomplete")
+            serving_receipt_id, serving_receipt_digest, serving_attempt_id, serving_attempt_digest = (
+                serving_reference_values)
+            try:
+                serving_history = read_serving_operation_history(self._serving._handle)
+            except ProductionServingError as exc:
+                raise ProductionServingInferenceError("stored_invocation_serving_history_invalid") from exc
+            matching_history = [item for item in serving_history
+                if item.get("receipt_semantic_digest") == serving_receipt_digest
+                and isinstance(item.get("receipt"), Mapping)
+                and item["receipt"].get("receipt_id") == serving_receipt_id]
+            if len(matching_history) != 1:
+                raise ProductionServingInferenceError("stored_invocation_serving_receipt_unavailable")
+            serving_history_item = matching_history[0]
+            serving_receipt = serving_history_item["receipt"]
+            if (serving_history_item.get("status") != "serving_receipt_verified"
+                    or serving_receipt.get("session_id") != lifetime.get("serving_session_id")
+                    or serving_history_item.get("attempt_semantic_digest") != serving_attempt_digest
+                    or not isinstance(serving_history_item.get("attempt"), Mapping)
+                    or serving_history_item["attempt"].get("attempt_id") != serving_attempt_id
+                    or serving_receipt.get("binding", {}).get("serving_operation_id")
+                        != lifetime.get("serving_operation_id")):
+                raise ProductionServingInferenceError("stored_invocation_serving_receipt_lineage_mismatch")
+            serving_receipt_lineage = {
+                "status": "reservation_and_serving_receipt_verified",
+                "serving_receipt_id": serving_receipt_id,
+                "serving_receipt_semantic_digest": serving_receipt_digest,
+                "serving_operation_attempt_id": serving_attempt_id,
+                "serving_operation_attempt_semantic_digest": serving_attempt_digest,
+            }
         software_generation = linkage.get("software_generation_attribution")
         if software_generation == unavailable_chat_process_software_generation():
             pass
@@ -291,6 +335,7 @@ class ProductionServingInferenceController:
             "activation_predecessor_state_digest", "activation_receipt_id", "activation_receipt_semantic_digest",
             "model_id", "observed_loaded_model_identity", "artifact_id", "artifact_sha256", "runtime_id",
             "authority_map_digest")
+        identity_keys = identity_keys + tuple(key for key in serving_reference_keys if key in lifetime)
         if any(key not in lifetime for key in identity_keys):
             raise ProductionServingInferenceError("stored_invocation_serving_identity_incomplete")
         return {"serving_identity": {key: lifetime[key] for key in identity_keys},
@@ -298,4 +343,5 @@ class ProductionServingInferenceController:
                 "request_id": request["request_id"], "receipt_id": receipt_id,
                 "receipt_digest": receipt_digest, "status": value["status"],
                 "software_generation_attribution": dict(software_generation),
+                "serving_receipt_lineage": serving_receipt_lineage,
                 "assistant_output_lineage": assistant_output_lineage}

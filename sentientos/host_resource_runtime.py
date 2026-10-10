@@ -576,7 +576,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         serving_fields = ("serving_session_id", "serving_operation_id", "installation_identity",
             "activation_state_semantic_digest", "activation_generation",
             "activation_predecessor_state_digest", "activation_receipt_id",
-            "activation_receipt_semantic_digest", "model_serving_admission_ref",
+            "activation_receipt_semantic_digest", "serving_receipt_id",
+            "serving_receipt_semantic_digest", "serving_operation_attempt_id",
+            "serving_operation_attempt_semantic_digest", "model_serving_admission_ref",
             "authority_map_digest", "artifact_id", "artifact_sha256", "runtime_id")
         serving_binding = ({key: serving[key] for key in serving_fields if key in serving}
             if isinstance(serving, Mapping) else {})

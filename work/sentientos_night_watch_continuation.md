@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the serving receipt/reservation reconciliation increment, GitHub branch inspection verified `208a89ae8bdee279126d4771ba204f843b47cc8a` (tree `a5a5c0b017e3360f98d4e0d300c8c3f25b1035b8`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the invocation-to-serving-receipt lineage increment, GitHub branch inspection verified `f2e33cad8e093aa861c237ad627ceacdaa2efdec` (tree `710cc3c874d17e5872cfc17fc7841539898b807c`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -501,3 +501,31 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for the six changed runtime modules. No tests, crash/restart, model load, serving, World-State admission, cognition, Windows, or production verification was run.
 
 **Next implementation dependency:** determine whether the separate chat process's current running software identity has an authenticated process-owned publisher or observer. Continue strengthening only the evidence handoff the existing process owners can support; Git commits, activation state, and the maintenance daemon remain insufficient evidence for that process's running generation.
+
+### New checkpoint — bind invocations to exact serving receipt custody
+
+- The live opaque serving session now carries the exact serving-receipt ID and digest after the canonical receipt is created, alongside the exact operation-attempt ID and digest. The receipt itself remains nonrecursive and immutable.
+- New governed inference linkage includes those serving receipt and reservation identities. Restart verification resolves the exact receipt through the bounded history reader and requires the matching reservation, session, operation, and digests before reconstructing a new invocation's serving lineage.
+- Canonical transcript turns already persist the full serving identity and its digest, so this addition preserves the receipt/attempt references across context recovery and predecessor verification. The World-State causal projector now retains the same IDs rather than reducing the link to a serving-operation string.
+- Historical invocations without these four references remain explicitly historically unbound; partially populated linkage fails closed. No retroactive identity is manufactured.
+- Python compilation passed for the serving owner, inference bridge, and World-State resource projector. No tests, model load/inference, recovery, transcript replay, cognition, or production verification was run.
+
+Source review confirms this process handoff and recurring observation path already exist. Its causal interpretation remains conditional on the explicitly configured World-State/epistemic selectors and admission machinery; no selector or admission is created by this continuation.
+
+
+### Source review — separately operating chat process attribution
+
+- The branch already contains a real explicit publisher path in `sentientos/runtime/local_model_chat_service.py` and `sentientos/runtime/startup.py`: the parent records the spawned child's exact PID/parent PID, argv, environment digest, working directory, interpreter path, source-generation digest, and configured serving operation; the child verifies its own launch handoff before serving; the supervisor checks the Popen child and source again on each observation cycle.
+- That source generation is a bounded digest of Python files beneath the selected `sentientos/` and `scripts/` source roots. It is not an identity for every interpreter/dependency binary, and the observation is not independently signed. The existing code reports those limits instead of substituting a Git commit or the maintenance daemon's generation.
+- The runtime owner publishes running/not-verified observations and the read-only resource observer projects them. They remain historical at read time; no stronger currentness or independent observation is inferred.
+
+
+
+### New checkpoint — preserve exact serving receipt linkage through invocation recovery
+
+- The live serving session exposes its exact receipt ID and digest only after the immutable serving receipt is published, avoiding a self-referential receipt identity. It also carries the already durable attempt ID/digest.
+- New invocation receipts bind those identities. Recovery resolves the exact serving receipt in the bounded history projection and verifies the attempt, receipt, operation, and session join. Historical invocation receipts with no such linkage remain readable as historically unbound; partial linkage is rejected.
+- Canonical chat turns preserve the complete active serving identity and digest, and the World-State resource lineage record includes the serving receipt and attempt references. This keeps the linkage available to later transcript recovery and configured developmental consumers.
+- Python compilation passed for the serving owner, inference bridge, and World-State projector. No test suite, inference, process restart, transcript replay, World-State/epistemic execution, or production verification was run.
+
+**Next implementation dependency:** review the admitted World-State → epistemic-development → developmental-history consumption path for these new exact serving identities, then repair any source-level retention loss without bypassing explicit selectors, mutation authority, or later-tick admission.
