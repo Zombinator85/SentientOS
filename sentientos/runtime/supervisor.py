@@ -25,6 +25,8 @@ SCHEMA = "sentientos.runtime_service:v1"
 STATES = frozenset({"registered", "starting", "healthy", "degraded", "unhealthy", "restarting",
                     "stopped", "failed", "disabled", "panic_stopped"})
 RESTART_POLICIES = frozenset({"on_failure", "never"})
+MAX_LIFECYCLE_JOURNAL_BYTES = 8 * 1024 * 1024
+MAX_LIFECYCLE_RECEIPT_BYTES = 64 * 1024
 
 
 @dataclass(frozen=True)
@@ -105,25 +107,105 @@ class RuntimeSupervisor:
         self._state_path, self._receipt_path = self.root / "supervisor-state.json", self.root / "lifecycle-receipts.jsonl"
         self._clock, self._sleep, self._lock = clock, sleeper, threading.RLock()
         self._sequence = 0; self.generation = uuid.uuid4().hex; self.panic_latched = False
+        self._journal_write_failed = False
         self._states = {key: ("disabled" if not d.enabled else "registered") for key, d in registry.descriptors.items()}
         self._health: dict[str, dict[str, object]] = {}; self._restarts: dict[str, list[float]] = {k: [] for k in self._states}
         self._latest: dict[str, str] = {k: "registered" for k in self._states}; self._exhausted: set[str] = set()
-        self._load(); self._persist(); self._receipt("registry_snapshot", None, {"registry_digest": registry.digest()})
+        self._load()
+        if not self.panic_latched:
+            self._receipt("registry_snapshot", None, {"registry_digest": registry.digest()})
+
+    def _recovery_failure(self, reason: str) -> None:
+        self.panic_latched = True
+        self._journal_write_failed = True
+        self._states = {key: "panic_stopped" if descriptor.enabled else "disabled"
+                        for key, descriptor in self.registry.descriptors.items()}
+        self._latest = {key: reason for key in self._states}
+
+    def _read_lifecycle_receipts(self) -> list[dict[str, object]]:
+        try:
+            with self._receipt_path.open("rb") as stream:
+                raw = stream.read(MAX_LIFECYCLE_JOURNAL_BYTES + 1)
+        except FileNotFoundError:
+            return []
+        if len(raw) > MAX_LIFECYCLE_JOURNAL_BYTES:
+            raise ValueError("lifecycle_receipt_journal_size_bound_exceeded")
+        if raw and not raw.endswith(b"\n"):
+            raise ValueError("lifecycle_receipt_journal_partial_tail")
+        rows: list[dict[str, object]] = []
+        for sequence, line in enumerate(raw.splitlines(), start=1):
+            if not line or len(line) > MAX_LIFECYCLE_RECEIPT_BYTES:
+                raise ValueError("lifecycle_receipt_row_size_or_shape_invalid")
+            row = json.loads(line.decode("utf-8"))
+            fields = {"schema", "sequence", "timestamp", "generation", "event", "service_id", "detail"}
+            if (not isinstance(row, dict) or set(row) != fields
+                    or row.get("schema") != "sentientos.runtime_lifecycle_receipt:v1"
+                    or type(row.get("sequence")) is not int or row["sequence"] != sequence
+                    or not isinstance(row.get("timestamp"), str)
+                    or not isinstance(row.get("generation"), str) or not row["generation"]
+                    or len(row["generation"]) > 128
+                    or not isinstance(row.get("event"), str) or not row["event"]
+                    or len(row["event"]) > 128
+                    or (row.get("service_id") is not None
+                        and (not isinstance(row["service_id"], str) or len(row["service_id"]) > 128))
+                    or not isinstance(row.get("detail"), dict)
+                    or json.dumps(row, sort_keys=True, allow_nan=False).encode("utf-8") + b"\n"
+                        != line + b"\n"):
+                raise ValueError("lifecycle_receipt_row_invalid")
+            event_time = datetime.fromisoformat(row["timestamp"].replace("Z", "+00:00"))
+            if event_time.tzinfo is None or event_time.utcoffset() is None:
+                raise ValueError("lifecycle_receipt_timestamp_invalid")
+            rows.append(row)
+        return rows
 
     def _load(self) -> None:
-        if not self._state_path.exists(): return
+        state_exists = self._state_path.exists()
+        state_sequence = 0
+        state_generation: str | None = None
+        if state_exists:
+            try:
+                payload = json.loads(self._state_path.read_text(encoding="utf-8"))
+                if (not isinstance(payload, dict)
+                        or payload.get("schema") != "sentientos.runtime_supervisor_state:v1"
+                        or payload.get("registry_digest") != self.registry.digest()
+                        or type(payload.get("sequence")) is not int or payload["sequence"] < 0
+                        or not isinstance(payload.get("generation"), str)
+                        or not payload["generation"]):
+                    raise ValueError("runtime_supervisor_state_invalid")
+                self.panic_latched = bool(payload["panic_latched"])
+                state_sequence = payload["sequence"]
+                state_generation = payload["generation"]
+                self._restarts = {key: [float(item) for item in payload["restart_histories"].get(key, [])]
+                    for key in self._states}
+                self._exhausted = set(payload.get("exhausted_services", [])) & set(self._states)
+                self._latest.update({key: str(value)
+                    for key, value in payload.get("latest_reasons", {}).items() if key in self._states})
+                if self.panic_latched:
+                    self._states = {key: "panic_stopped" if descriptor.enabled else "disabled"
+                        for key, descriptor in self.registry.descriptors.items()}
+            except (OSError, UnicodeError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+                self._recovery_failure("malformed_durable_state")
+                return
         try:
-            payload = json.loads(self._state_path.read_text(encoding="utf-8"))
-            if payload.get("schema") != "sentientos.runtime_supervisor_state:v1": raise ValueError
-            if payload.get("registry_digest") != self.registry.digest(): raise ValueError
-            self.panic_latched = bool(payload["panic_latched"]); self._sequence = int(payload["sequence"])
-            self._restarts = {k: [float(x) for x in payload["restart_histories"].get(k, [])] for k in self._states}
-            self._exhausted = set(payload.get("exhausted_services", [])) & set(self._states)
-            self._latest.update({k: str(v) for k, v in payload.get("latest_reasons", {}).items() if k in self._states})
-            if self.panic_latched: self._states = {k: "panic_stopped" if d.enabled else "disabled" for k, d in self.registry.descriptors.items()}
-        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
-            self.panic_latched = True; self._states = {k: "panic_stopped" if d.enabled else "disabled" for k, d in self.registry.descriptors.items()}
-            self._latest = {k: "malformed_durable_state" for k in self._states}
+            rows = self._read_lifecycle_receipts()
+        except (OSError, UnicodeError, ValueError, TypeError, json.JSONDecodeError):
+            self._recovery_failure("malformed_lifecycle_receipt_journal")
+            return
+        journal_sequence = len(rows)
+        if state_sequence > journal_sequence:
+            self._recovery_failure("lifecycle_receipt_journal_behind_state")
+            return
+        if state_sequence and rows[state_sequence - 1].get("generation") != state_generation:
+            self._recovery_failure("lifecycle_receipt_state_generation_mismatch")
+            return
+        if not state_exists and any(row.get("event") != "registry_snapshot" for row in rows):
+            self._recovery_failure("lifecycle_state_missing_after_runtime_events")
+            return
+        if state_exists and state_sequence == 0 and any(
+                row.get("event") != "registry_snapshot" for row in rows):
+            self._recovery_failure("lifecycle_receipt_without_state_anchor")
+            return
+        self._sequence = max(state_sequence, journal_sequence)
 
     def _atomic(self, payload: object) -> None:
         fd, tmp = tempfile.mkstemp(prefix=".supervisor-", dir=self.root)
@@ -141,13 +223,38 @@ class RuntimeSupervisor:
             "service_states": self._states, "latest_health": self._health, "restart_histories": self._restarts,
             "exhausted_services": sorted(self._exhausted), "latest_reasons": self._latest})
 
-    def _receipt(self, event: str, service_id: str | None, detail: Mapping[str, object] | None = None) -> None:
-        self._sequence += 1
-        row = {"schema": "sentientos.runtime_lifecycle_receipt:v1", "sequence": self._sequence,
-               "timestamp": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(), "generation": self.generation,
-               "event": event, "service_id": service_id, "detail": dict(detail or {})}
-        with self._receipt_path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(row, sort_keys=True) + "\n"); stream.flush(); os.fsync(stream.fileno())
+    def _receipt(self, event: str, service_id: str | None,
+                 detail: Mapping[str, object] | None = None) -> None:
+        if self._journal_write_failed:
+            raise RuntimeError("lifecycle_receipt_journal_unavailable")
+        sequence = self._sequence + 1
+        row = {"schema": "sentientos.runtime_lifecycle_receipt:v1", "sequence": sequence,
+               "timestamp": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
+               "generation": self.generation, "event": event, "service_id": service_id,
+               "detail": dict(detail or {})}
+        encoded = (json.dumps(row, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+        if len(encoded) > MAX_LIFECYCLE_RECEIPT_BYTES:
+            raise ValueError("lifecycle_receipt_row_size_bound_exceeded")
+        try:
+            current_size = self._receipt_path.stat().st_size if self._receipt_path.exists() else 0
+            if current_size + len(encoded) > MAX_LIFECYCLE_JOURNAL_BYTES:
+                raise ValueError("lifecycle_receipt_journal_size_bound_exceeded")
+            self._receipt_path.parent.mkdir(parents=True, exist_ok=True)
+            with self._receipt_path.open("ab") as stream:
+                written = stream.write(encoded)
+                if written != len(encoded):
+                    raise OSError("short_lifecycle_receipt_write")
+                stream.flush()
+                os.fsync(stream.fileno())
+        except Exception:
+            self._journal_write_failed = True
+            self.panic_latched = True
+            self._states = {key: "panic_stopped" if descriptor.enabled else "disabled"
+                            for key, descriptor in self.registry.descriptors.items()}
+            raise
+        # The append is now durable. Keep its sequence even if the following
+        # state snapshot replacement fails; recovery reconciles from the log.
+        self._sequence = sequence
         self._persist()
 
     def _call(self, fn: Callable[[], object], timeout: float) -> object:

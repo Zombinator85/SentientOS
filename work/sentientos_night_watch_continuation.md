@@ -793,3 +793,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - The lifecycle journal is append-only and not a service-start command queue. Recovery must reconcile identity/sequence only and must not replay starts, restarts, or effects.
 
 **Next implementation dependency:** make lifecycle journal publication and restart sequence recovery idempotent and bounded, preserving legacy receipt rows and fail-closed behavior on malformed/conflicting history.
+
+
+## New checkpoint — recover lifecycle journal sequence after interrupted snapshot publication
+
+- The lifecycle journal is now scanned on supervisor startup with bounded file/row sizes, exact legacy v1 row shape, canonical serialization, timezone-aware event time, and contiguous sequence validation. The persisted supervisor state remains a cache: restart reconciles to the durable journal's maximum sequence without replaying service lifecycle events.
+- If an append was durable but its state snapshot was not, the next process continues after that receipt instead of reusing the sequence. A state snapshot ahead of the journal, generation disagreement at the snapshot's sequence, partial/corrupt rows, or non-registry history without its state anchor fail closed into the existing panic posture. A first-start registry-only journal remains recoverable if interruption preceded its first state image.
+- Journal appends now assign sequence only after a complete write+fsync; short/failed writes latch in-process journal failure. The journal itself is capped at 8 MiB and each row at 64 KiB; overflow is explicit and cannot be silently truncated. Existing v1 rows remain readable.
+- `py_compile` passed for the lifecycle supervisor. No crash/restart fixture, filesystem fault, service operation, or runtime behavior was executed.
+
+**Next implementation dependency:** inspect the separately persisted supervisor state and lifecycle journal for remaining post-action publication ambiguity (especially start/restart outcome custody). Ensure a receipt-write failure cannot be mislabeled as a failed service start and trigger an automatic duplicate child launch; preserve manual/runtime recovery truthfully without replay.
