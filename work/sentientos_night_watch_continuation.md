@@ -720,3 +720,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - The stored-invocation verifier and installation observer both call the shared version-aware `validate_receipt`. Python compilation passed for the invocation and chat service modules; no chat turn or retry was executed.
 
 **Next implementation dependency:** inspect the durable resource-ledger receipt publication/recovery contract for the same distinction between a not-yet-published final linkage and a genuinely legacy unlinked invocation; maintain explicit degraded posture across restart.
+
+### New checkpoint — publish resource ledger mutations from candidate state
+
+- Resource-ledger mutation methods previously changed cached allocations, attempts, statuses, or receipt lists before the atomic file replacement. If staging/publication failed, the sole live owner could retain state that the durable observer did not see.
+- Mutations now build and validate an isolated candidate, write and atomically replace the ledger file, and only then install the candidate as the in-process state. If replacement completed but directory fsync fails, the candidate remains active: the durable outcome is uncertain, so the live owner does not roll back a possibly published debit/receipt.
+- Reservation, begun/restored status, allocation, and consumption-receipt appends use the candidate path. Existing attempt conservation and receipt predecessor checks remain in force.
+- Python compilation passed for `governed_local_model_resource_allocation.py`. No filesystem fault injection, restart, allocation, or resource debit was run.
+
+**Next implementation dependency:** verify that the existing restart snapshot treats durable provisional/begun attempts as spent or incomplete, and restored attempts as non-replayed, without recomputing entitlement from only the receipt tail.

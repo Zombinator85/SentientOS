@@ -7,6 +7,7 @@ independent effect admission and immediately before the serving-currentness guar
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import copy
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -360,25 +361,41 @@ class GovernedLocalModelResourceLedger:
             if set(attempt) != {"allocation_id", "status"} or attempt["allocation_id"] not in allocations or attempt["status"] not in {"provisional", "begun", "restored"}:
                 raise GovernedLocalModelResourceError("malformed_ledger_attempt")
 
-    def _persist(self) -> None:
-        self._verify_invariants(self._state)
-        data = _canonical({**self._state, "ledger_digest": _digest(self._state)}) + b"\n"
+    def _persist_candidate(self, candidate: dict[str, Any]) -> None:
+        """Publish a candidate before making it the process-local ledger state.
+
+        If staging fails, the previous state remains active. Once atomic replace
+        succeeds, retain the candidate even if directory fsync reports an error:
+        publication durability is then uncertain, so rolling back in memory
+        could replenish an entitlement already visible on disk.
+        """
+        self._verify_invariants(candidate)
+        data = _canonical({**candidate, "ledger_digest": _digest(candidate)}) + b"\n"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd, name = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
         try:
             with os.fdopen(fd, "wb") as stream:
                 stream.write(data); stream.flush(); os.fsync(stream.fileno())
             os.replace(name, self.path)
+            self._state = candidate
             directory = os.open(self.path.parent, os.O_RDONLY)
             try: os.fsync(directory)
             finally: os.close(directory)
         finally:
             if os.path.exists(name): os.unlink(name)
 
+    def _persist(self) -> None:
+        self._persist_candidate(self._state)
+
+    def _candidate(self) -> dict[str, Any]:
+        return copy.deepcopy(self._state)
+
     def store_allocation(self, allocation: GovernedLocalModelResourceAllocation) -> None:
         with self._lock:
             if allocation.allocation_id in self._state["allocations"]: raise GovernedLocalModelResourceError("duplicate_allocation_id")
-            self._state["allocations"][allocation.allocation_id] = allocation.to_dict(); self._persist()
+            candidate = self._candidate()
+            candidate["allocations"][allocation.allocation_id] = allocation.to_dict()
+            self._persist_candidate(candidate)
 
     def allocation(self, allocation_id: str) -> GovernedLocalModelResourceAllocation:
         try: value = self._state["allocations"][allocation_id]
@@ -464,7 +481,10 @@ class GovernedLocalModelResourceAllocator:
         with self.ledger._lock:
             if attempt_id in self.ledger._state["attempts"]: raise GovernedLocalModelResourceError("duplicate_attempt_id")
             if self.ledger.remaining_calls(exact.allocation_id) <= 0: raise GovernedLocalModelResourceError("call_entitlement_exhausted")
-            self.ledger._state["attempts"][attempt_id] = {"allocation_id": exact.allocation_id, "status": "provisional"}; self.ledger._persist()
+            candidate = self.ledger._candidate()
+            candidate["attempts"][attempt_id] = {
+                "allocation_id": exact.allocation_id, "status": "provisional"}
+            self.ledger._persist_candidate(candidate)
         return attempt_id
 
     def _receipt(self, *, allocation: GovernedLocalModelResourceAllocation, attempt_id: str, state: str,
@@ -477,7 +497,10 @@ class GovernedLocalModelResourceAllocator:
                     "attempt_id": attempt_id, "resource_specific_measurement": dict(measurement), "state": state,
                     "observed_at": observed_at, "previous_receipt_digest": prior, "effect_receipt_digest": effect_receipt_digest}
             digest = _digest(body); receipt = GovernedLocalModelResourceConsumptionReceipt.from_mapping({"receipt_id": "lmresrec-" + digest[:24], **body, "receipt_digest": digest})
-            self.ledger._state["receipts"].append(receipt.to_dict()); self.ledger._persist(); return receipt
+            candidate = self.ledger._candidate()
+            candidate["receipts"].append(receipt.to_dict())
+            self.ledger._persist_candidate(candidate)
+            return receipt
 
     @staticmethod
     def measurement(allocation: GovernedLocalModelResourceAllocation, *, generation_attempted: bool,
@@ -495,7 +518,9 @@ class GovernedLocalModelResourceAllocator:
             attempt = self.ledger._state["attempts"].get(attempt_id)
             if attempt is None or attempt["allocation_id"] != allocation.allocation_id: raise GovernedLocalModelResourceError("attempt_allocation_mismatch")
             if attempt["status"] != "provisional": raise GovernedLocalModelResourceError("backend_entry_transition_invalid")
-            attempt["status"] = "begun"; self.ledger._persist()
+            candidate = self.ledger._candidate()
+            candidate["attempts"][attempt_id]["status"] = "begun"
+            self.ledger._persist_candidate(candidate)
         return self._receipt(allocation=allocation, attempt_id=attempt_id, state="attempt_begun", observed_at=observed_at,
                              measurement=self.measurement(allocation, generation_attempted=True, call_units_consumed=1, invocation_outcome="backend_entry"))
 
@@ -504,7 +529,9 @@ class GovernedLocalModelResourceAllocator:
             attempt = self.ledger._state["attempts"].get(attempt_id)
             if attempt is None or attempt["allocation_id"] != allocation.allocation_id: raise GovernedLocalModelResourceError("attempt_allocation_mismatch")
             if attempt["status"] != "provisional": raise GovernedLocalModelResourceError("backend_entry_already_recorded")
-            attempt["status"] = "restored"; self.ledger._persist()
+            candidate = self.ledger._candidate()
+            candidate["attempts"][attempt_id]["status"] = "restored"
+            self.ledger._persist_candidate(candidate)
         return self._receipt(allocation=allocation, attempt_id=attempt_id, state="attempted_not_begun", observed_at=observed_at,
                              measurement=self.measurement(allocation, generation_attempted=False, call_units_consumed=0, invocation_outcome="serving_guard_rejected"))
 
