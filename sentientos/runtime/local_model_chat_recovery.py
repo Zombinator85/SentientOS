@@ -739,6 +739,7 @@ class ProductionLocalModelChatRecoveryController:
                     recovery_correlation_id=str(intent["recovery_correlation_id"]))
                 if reconstructed != intent:
                     raise LocalModelChatRecoveryError("recovery_intent_stale_or_mismatched")
+                self._adapter.bind_prior_startup_snapshot(snapshot)
                 metadata = {"correlation_id": intent["recovery_correlation_id"], "subject": SERVICE_ID,
                     "recovery_scope": "local", "intent_id": intent["intent_id"],
                     "intent_semantic_digest": intent["intent_semantic_digest"],

@@ -113,6 +113,7 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                 or any(character not in "0123456789abcdef" for character in snapshot_digest)
                 or not isinstance(supervisor_generation, str) or not supervisor_generation):
             raise ValueError("chat_process_predecessor_snapshot_invalid")
+        self._prior_startup_snapshot = None
         predecessor = snapshot.get("chat_process_handoff")
         if predecessor is not None and not isinstance(predecessor, Mapping):
             raise ValueError("chat_process_predecessor_handoff_malformed")
