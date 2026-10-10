@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `72cf4ae88d7bd71d79c23674e49ac545b9b6cc28` (tree `ce13a096e093b6be27e75d7584c1d28593b37223`, parent `4b5f88a53fc157148b0a7d1cde5f7e8108a63fe6`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `6f8e4c9e02830e54fcb09767d210c11ea5158811` (tree `eb42784a7c37fe31c9fcbe84f9d15a57959f7cd9`, parent `ab1321ced2ec029835ec5d3d43eb130d2c54a252`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -251,3 +251,15 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Remote branch verification: `72cf4ae88d7bd71d79c23674e49ac545b9b6cc28`.
 
 **Next implementation dependency:** verify that the new running-model record reaches only configured World-State and epistemic/self-model selectors, then carry activation-history linkage through the resident model-transition stage binding and recovered later cognition without conflating selected, loaded, serving, or observed identities.
+
+
+### New checkpoint — resident serving and transition journal preserve activation-chain identity
+
+- The canonical resident serving controller now requires the activation verifier's reconstructed selection history, binds its digest into the serving admission/session, and rechecks it during currentness. It exposes `observed_current_session()` for read-only World-State capture; unlike `current_session()`, this does not invalidate or unload a stale model.
+- The actual A→B and B→A transition adapter re-reads the committed activation history after the activation owner returns and confirms the resulting state/receipt still match. Version 2 stage-serving bindings carry the exact activation-history digest and compare it with the resident serving session. The transition World-State projection preserves that digest.
+- Activation journal projections now call the selected model identity `selected_active_model_identity` and record `model_load_posture=not_loaded_by_activation`; the later serving-stage row retains the separately observed loaded identity. No active selection is presented as proof of loading, serving, or inference.
+- The daemon's read-only running-model projection uses the resident controller's non-mutating observation method, including when the optional transition protocol is absent. When the protocol owner is absent, model-development provenance and session time remain unknown.
+- Modified modules passed Python AST compilation and the branch was re-fetched at this checkpoint. No runtime or transition execution was performed.
+- Remote branch verification: `6f8e4c9e02830e54fcb09767d210c11ea5158811`.
+
+**Next implementation dependency:** ensure this running-model and activation-chain evidence reaches configured World-State and epistemic-development selectors without being promoted to current truth, then review durable A/B transition recovery for stage-semantic validation beyond journal hash-chain integrity.
