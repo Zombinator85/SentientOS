@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `3225711b38c6c4b669ec2f38af8232d5b4698e80` (tree `a92072326f796cdd9e3ea922d9db705df2984dd3`, parent `28b98cf85b804214878c999490baf3466019dec9`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `eea03733b56d02bbadecd99742cec2c9d095a9b6` (tree `61e42e181dc8ce8e1d0678b92312e15498b9d956`, parent `3225711b38c6c4b669ec2f38af8232d5b4698e80`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -62,7 +62,7 @@ The daemon computes proposal/resource lineage immediately after collecting those
 - Resident cognition's context instruction now makes missing/indeterminate comparisons non-satisfied and treats contradiction as revisable evidence rather than a belief or action command. The existing configured predicate allowlist and source-kind selection still control consumption; no epistemic rule or authority path was enabled.
 - Python compilation and diff whitespace checks passed for the changed files. This is source construction only; no runtime, platform, behavioral, or production verification was performed.
 
-Next inspect exact JSON-type behavior in the embodied prediction comparator, then follow source-bound per-field results through existing correction/history projection without trusting caller-asserted observer independence. Keep observer issuer authentication as an external dependency.
+Next inspect whether admitted later history can carry an authenticated external consequence source through the existing observer interfaces. No observer issuer is currently present; keep caller claims contextual and continue other implementation while that dependency remains unavailable.
 
 ### New checkpoint — prioritize retained outcome evidence
 
@@ -70,10 +70,25 @@ Next inspect exact JSON-type behavior in the embodied prediction comparator, the
 - This priority only affects the existing explicit source-kind selection. Contradictory or incomplete comparisons remain historical evidence and do not gain freshness, truth, objectives, or permission.
 - Compilation and whitespace checks passed for the modified Python modules. Runtime and production behavior remain unverified.
 
-Next inspect and repair JSON-type-sensitive exact comparison semantics in the source owner, then preserve source-authenticated correction lineage through its existing durable path. Continue to fail closed on unauthenticated observer claims.
+UTC tick ordering is now checked in durable self-model and resident-history selectors; see the checkpoint below. The next source task is to determine whether an authenticated external consequence source can be composed from an existing owner. If none exists, retain that exact dependency and continue with source-backed succession continuity.
 
 ### New checkpoint — host snapshot continuity
 
 - The longitudinal self-model now has an optional historical claim for digest-verified `host_resource_runtime:snapshot` World-State facts. It carries exact snapshot/source digests, only the owner-reported scalar fields within the record's size bound, and explicit unknown fields. The quality posture remains unqualified; it creates no per-invocation attribution, truth, effect, or authority.
 - The claim is `historical_interpretation`, which keeps self-model freshness unknown. It reaches later cognition only when the existing `resource_governor` source selection and explicit self-model predicate allowlist include it; defaults remain unchanged.
 - Python compilation and diff whitespace checks passed. Host-specific execution and runtime evidence have not been tested.
+
+### New checkpoint — exact prediction comparisons
+
+- Reconciled the two campaign-owned modules that had local source ahead of their remotely published versions: the proposal/consequence owner now includes bounded review, fulfillment and World-State projection paths, and the daemon composes those explicit selectors through the existing read-only source owner. These paths retain their existing no-effect and configured-opt-in boundaries.
+- The embodied consequence comparator now uses recursive JSON-type-sensitive equality for `exact` policies. Booleans no longer compare equal to numbers, including inside arrays and objects; numeric tolerance remains the separate declared policy.
+- Python compilation and whitespace checks passed for both modules. No behavioral or production execution was performed.
+
+### New checkpoint — restart-safe temporal projection
+
+- Durable self-model cognitive projections and resident developmental-history retrieval now require a parseable timezone-aware tick and select only records whose source tick is strictly earlier. Same-tick, later, malformed, or timezone-naive history is withheld, including after restart; an opaque tick no longer risks treating a future generation as prior history.
+- The daemon supplies UTC ISO tick IDs. Non-ISO callers will receive no resident history projection; no alternate ordering token is currently bound into those owners.
+
+### New checkpoint — preserve host observation event time
+
+- The epistemic adapter now reads host snapshot event time only from the digest-bound snapshot payload, never the World-State retrieval timestamp. Missing or malformed source time remains unknown; host resource evidence remains historical with unknown freshness.

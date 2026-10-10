@@ -533,9 +533,28 @@ class ResidentDevelopmentalCognitionOwner:
         atomic_write_json(self.state_path, {**semantic, "state_digest": _digest(semantic)})
 
     def _prior_projection(self, state: Mapping[str, Any], tick_id: str) -> DevelopmentalHistoryProjection:
+        try:
+            current_tick = datetime.fromisoformat(tick_id.replace("Z", "+00:00"))
+        except (OverflowError, OSError, ValueError):
+            current_tick = None
+        if current_tick is not None and (current_tick.tzinfo is None or current_tick.utcoffset() is None):
+            current_tick = None
+        if current_tick is not None:
+            current_tick = current_tick.astimezone(timezone.utc)
         ids: list[str] = []
         for completed in state["completed_ticks"]:
-            if completed.get("tick_id") != tick_id and completed.get("record_id"):
+            try:
+                completed_tick = datetime.fromisoformat(
+                    str(completed.get("tick_id", "")).replace("Z", "+00:00"))
+            except (OverflowError, OSError, ValueError):
+                completed_tick = None
+            if completed_tick is not None and (
+                    completed_tick.tzinfo is None or completed_tick.utcoffset() is None):
+                completed_tick = None
+            if (current_tick is not None and completed_tick is not None
+                    and completed.get("tick_id") != tick_id
+                    and completed_tick.astimezone(timezone.utc) < current_tick
+                    and completed.get("record_id")):
                 ids.append(str(completed["record_id"]))
         ids = ids[-self.config.max_retrieved_records:]
         return self.writeback.retrieve(ids, limit=self.config.max_retrieved_records)

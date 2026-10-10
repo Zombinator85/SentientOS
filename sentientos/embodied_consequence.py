@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 42789)
-Total output lines: 2573
-
 """Deterministic embodied consequence evidence and developmental experiments.
 
 Every record in this module is evidence or a proposal.  Nothing here performs an
@@ -317,6 +314,19 @@ class SyntheticIndependentObserver:
             posture="synthetic_test")
 
 
+def _exact_json_equal(expected: Any, observed: Any) -> bool:
+    """Compare JSON values without Python's bool-as-int equality behavior."""
+    if type(expected) is not type(observed):
+        return False
+    if isinstance(expected, dict):
+        return (expected.keys() == observed.keys()
+                and all(_exact_json_equal(expected[key], observed[key]) for key in expected))
+    if isinstance(expected, list):
+        return (len(expected) == len(observed)
+                and all(_exact_json_equal(left, right) for left, right in zip(expected, observed)))
+    return expected == observed
+
+
 def _compare(expectation: EmbodiedActionExpectation, observation: IndependentConsequenceObservation | None) -> tuple[list[dict[str, Any]], dict[str, int]]:
     rows: list[dict[str, Any]] = []
     counts = {"satisfied": 0, "contradicted": 0, "missing": 0, "indeterminate": 0}
@@ -331,7 +341,7 @@ def _compare(expectation: EmbodiedActionExpectation, observation: IndependentCon
         if observation is None or field not in observation.observed:
             result = "missing"; row["missing_observation"] = True
         elif policy["kind"] == "exact":
-            result = "satisfied" if expected == observed else "contradicted"
+            result = "satisfied" if _exact_json_equal(expected, observed) else "contradicted"
             row["categorical_mismatch"] = None if result == "satisfied" else {"expected":expected,"observed":observed}
             row["missing_observation"] = False
         elif isinstance(expected, (int, float)) and not isinstance(expected, bool) and isinstance(observed, (int, float)) and not isinstance(observed, bool):
@@ -939,7 +949,720 @@ def _strategy_cognitive_context(value: Mapping[str, Any] | None, *,
             or current.projection_id != "current-world-state-" + current.projection_digest[7:31]
             or current.fact_ids != tuple(str(item.get("fact_id", "")) for item in current.facts)
             or len(current.fact_ids) > 16 or len(set(current.fact_ids)) != len(current.fact_ids)
-            or not set(current.fact_ids) <= {…12789 tokens truncated…igest"])
+            or not set(current.fact_ids) <= {fact.fact_id for fact in snapshot.facts}
+            or current.read_only is not True or current.evidence_only is not True
+            or current.current_truth is not False or current.authority is not False
+            or current.policy is not False or current.goal is not False
+            or current.canonical_explicit_user_retention is not False):
+        raise EmbodiedConsequenceError("strategy_current_world_state_binding_invalid")
+    current_payload: dict[str, Any] = {"tick_id": tick_id, "current_tick": current_tick,
+        "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+        "current_world_state_projection": asdict(current)}
+    if self_model is not None:
+        self_digest = digest(self_model.semantic_payload())
+        if (self_model.projection_digest != self_digest
+                or self_model.projection_id != "cognitive-self-model-" + self_digest[7:31]
+                or self_model.source_tick == tick_id
+                or len(self_model.selected_claim_ids) != len(self_model.selected_claim_digests)
+                or self_model.selected_claim_ids != tuple(str(claim.get("claim_id", "")) for claim in self_model.selected_claims)
+                or self_model.selected_claim_digests != tuple(str(claim.get("semantic_digest", "")) for claim in self_model.selected_claims)
+                or len(self_model.selected_claim_ids) > 64
+                or any(self_model.authority.values()) or self_model.current_truth is not False
+                or self_model.read_only is not True or self_model.derived_evidence is not True
+                or self_model.interpretation is not False):
+            raise EmbodiedConsequenceError("strategy_prior_self_model_binding_invalid")
+        current_payload["prior_self_model"] = asdict(self_model)
+    else:
+        current_payload["prior_self_model"] = None
+    if epistemic is not None:
+        state_values = tuple(dict(item) for item in epistemic.states)
+        state_bindings_valid = True
+        for state in state_values:
+            state_semantic = {key: item for key, item in state.items()
+                if key not in {"state_id", "state_digest"}}
+            state_digest = digest(state_semantic)
+            if (state.get("state_digest") != state_digest
+                    or state.get("state_id") != "epistemic-state:" + state_digest[7:31]
+                    or not isinstance(state.get("authority"), Mapping)
+                    or any(state["authority"].values())):
+                state_bindings_valid = False
+        if (epistemic.source_tick >= current_tick
+                or len(state_values) > 64
+                or not state_bindings_valid
+                or tuple(str(item.get("proposition_id", "")) for item in state_values) != epistemic.proposition_ids
+                or tuple(str(item.get("state_id", "")) for item in state_values) != epistemic.state_ids
+                or tuple(str(item.get("state_digest", "")) for item in state_values) != epistemic.state_digests
+                or tuple(int(item.get("generation", -1)) for item in state_values) != epistemic.generations
+                or tuple(str(item.get("evidence_set_digest", "")) for item in state_values) != epistemic.evidence_set_digests
+                or epistemic.evidence_only is not False or epistemic.prior_position_only is not True
+                or epistemic.current_truth is not False or epistemic.authority is not False
+                or epistemic.policy is not False or epistemic.goal is not False):
+            raise EmbodiedConsequenceError("strategy_prior_epistemic_state_binding_invalid")
+        semantic = {"source_tick": epistemic.source_tick,
+            "proposition_ids": epistemic.proposition_ids, "state_ids": epistemic.state_ids,
+            "state_digests": epistemic.state_digests, "generations": epistemic.generations,
+            "evidence_set_digests": epistemic.evidence_set_digests, "states": epistemic.states,
+            "evidence_only": False, "prior_position_only": True, "current_truth": False,
+            "authority": False, "policy": False, "goal": False}
+        projection_digest = digest(semantic)
+        if (epistemic.projection_digest != projection_digest
+                or epistemic.projection_id != "epistemic-projection:" + projection_digest[7:31]):
+            raise EmbodiedConsequenceError("strategy_prior_epistemic_projection_digest_mismatch")
+        current_payload["prior_epistemic_state"] = asdict(epistemic)
+    else:
+        current_payload["prior_epistemic_state"] = None
+    if len(canonical_bytes(current_payload)) > MAX_STRATEGY_CONTEXT_BYTES:
+        raise EmbodiedConsequenceError("strategy_cognitive_context_oversized")
+    return current_payload
+
+
+def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: str,
+        protocol_id: str, protocol: Mapping[str, Any], history: Sequence[Mapping[str, Any]],
+        history_record: Mapping[str, Any], situation: Mapping[str, Any],
+        cognitive_context: Mapping[str, Any] | None,
+        proposal: EmbodiedStrategyProposal) -> dict[str, Any]:
+    from .governed_local_model_invocation import validate_receipt
+    from .local_model_authority import digest_payload
+    row = dict(value)
+    row_digest = row.pop("association_digest", None)
+    receipt = row.get("invocation_receipt")
+    valid_receipt, _ = validate_receipt(receipt) if isinstance(receipt, Mapping) else (False, ["missing_receipt"])
+    receipt_request = receipt.get("request") if isinstance(receipt, Mapping) else None
+    request_semantic = ({key: item for key, item in receipt_request.items()
+        if key not in {"request_id", "request_digest", "raw_prompt_stored", "ephemeral_prompt_handling"}}
+        if isinstance(receipt_request, Mapping) else None)
+    expected_request_digest = digest_payload(request_semantic) if request_semantic is not None else None
+    situation_copy = json.loads(canonical_bytes(dict(situation)))
+    expected_prompt = canonical_bytes({"schema": STRATEGY_PROMPT_SCHEMA,
+        "condition": condition, "history": [dict(item) for item in history],
+        "situation": situation_copy, "cognitive_context": cognitive_context}).decode("utf-8")
+    linkage = receipt_request.get("linkage") if isinstance(receipt_request, Mapping) else None
+    expected_correlation_id = _strategy_request_correlation_id(digest(dict(protocol)), condition)
+    receipt_serving_identity = (linkage.get("resident_cognitive_serving")
+        if isinstance(linkage, Mapping) else None)
+    expected_serving_posture = ("verified_session_bound" if isinstance(receipt_serving_identity, Mapping)
+        and all(receipt_serving_identity.get(key) for key in (
+            "session_id", "model_serving_admission_ref", "activation_state_semantic_digest"))
+        else "unknown_no_resident_serving_session")
+    runtime_before = row.get("software_execution_provenance_before")
+    runtime_after = row.get("software_execution_provenance")
+    software_posture = row.get("software_generation_posture")
+    provenance_rows = [item for item in (runtime_before, runtime_after) if item is not None]
+    provenance_shapes_valid = all(isinstance(item, Mapping)
+        and all(isinstance(item.get(key), str) and item.get(key) for key in (
+            "provenance_digest", "process_instance_id", "represented_generation_digest"))
+        for item in provenance_rows)
+    software_identity_verified = (software_posture == "verified_current_resident_generation"
+        and isinstance(runtime_before, Mapping) and isinstance(runtime_after, Mapping)
+        and dict(runtime_before) == dict(runtime_after) and provenance_shapes_valid
+        and runtime_after.get("represented_generation_digest") == protocol.get("software_generation"))
+    legacy_software_provenance = (software_posture == "verified_current_resident_generation"
+        and runtime_before is None and isinstance(runtime_after, Mapping) and provenance_shapes_valid
+        and runtime_after.get("represented_generation_digest") == protocol.get("software_generation"))
+    if (row_digest != digest(row) or not valid_receipt
+            or row.get("condition") != condition
+            or row.get("proposal_id") != proposal.strategy_id
+            or row.get("proposal_digest") != proposal.strategy_digest
+            or not isinstance(receipt_request, Mapping)
+            or receipt.get("receipt_id") != row.get("receipt_id")
+            or receipt.get("receipt_digest") != row.get("receipt_digest")
+            or receipt_request.get("request_id") != row.get("request_id")
+            or receipt_request.get("request_digest") != row.get("request_digest")
+            or receipt_request.get("request_digest") != expected_request_digest
+            or receipt_request.get("request_id") != "lmreq-" + str(expected_request_digest or "")[:24]
+            or receipt_request.get("correlation_id") != expected_correlation_id
+            or receipt_request.get("prompt_digest") != digest_payload({"prompt": expected_prompt})
+            or receipt_request.get("purpose") != "resident_developmental_history_intervention_experiment"
+            or receipt_request.get("model_id") != protocol.get("model_id")
+            or receipt_request.get("model_artifact_digest") != protocol.get("model_artifact_digest")
+            or digest(receipt_request.get("budget")) != protocol.get("inference_budget_digest")
+            or receipt_request.get("active_model_identity") != row.get("active_model_identity")
+            or receipt_request.get("authority_map_digest") != row.get("authority_map_digest")
+            or receipt.get("output_digest") != row.get("response_digest")
+            or row.get("response_digest") != receipt.get("output_digest")
+            or receipt.get("status") != "admitted_completed"
+            or receipt.get("output_truncated") is not False
+            or receipt.get("fallback_occurred") is not False
+            or not isinstance(receipt.get("effects"), Mapping)
+            or receipt["effects"].get("local_model_inference") is not True
+            or row.get("active_model_identity_digest") != digest(row.get("active_model_identity"))
+            or row.get("serving_identity") != (dict(receipt_serving_identity)
+                if isinstance(receipt_serving_identity, Mapping) else None)
+            or row.get("serving_identity_posture") != expected_serving_posture
+            or not provenance_shapes_valid
+            or (software_posture == "verified_current_resident_generation"
+                and not (software_identity_verified or legacy_software_provenance))
+            or not isinstance(linkage, Mapping)
+            or linkage.get("experiment_condition") != condition
+            or linkage.get("experiment_protocol_id") != protocol_id
+            or linkage.get("history_record_ids") != [str(item.get("record_id", "")) for item in history]
+            or row.get("history_digest") != digest([dict(item) for item in history])
+            or row.get("situation_digest") != digest(dict(situation))
+            or row.get("cognitive_context_digest") != (digest(cognitive_context)
+                if cognitive_context is not None else None)
+            or row.get("history_event_time") != history_record.get("created_at")
+            or row.get("inference_event_time") != receipt.get("observed_at")
+            or row.get("historical_event_precedes_inference") is not True
+            or _time(str(receipt.get("observed_at"))) <= _time(str(history_record.get("created_at")))):
+        raise EmbodiedConsequenceError("governed_execution_evidence_binding_invalid")
+    row["association_digest"] = row_digest
+    return row
+
+
+def _strategy_request_correlation_id(protocol_digest: str, condition: str) -> str:
+    """Stable call identity shared by the durable checkpoint and request."""
+    return "strategy-experiment:" + digest({
+        "protocol": protocol_digest, "condition": condition})[7:]
+
+
+def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapping[str, Any], situation: Mapping[str, Any],
+                            backend: StrategyCognitionBackend, consequence: Mapping[str, Any],
+                            store: "ConsequenceStore | None" = None,
+                            cognitive_context: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    required={"protocol_id","snapshot_digest","body_generation","model_id","model_artifact_digest","inference_budget_digest",
+              "prompt_schema_digest","renderer_situation_digest","software_generation","environment_fixture_digest"}
+    if (set(protocol)!=required or len(canonical_bytes(dict(protocol)))>MAX_STRATEGY_CONTEXT_BYTES
+            or any(not isinstance(protocol.get(key),str) or not protocol[key]
+                   for key in required-{"body_generation"})
+            or type(protocol.get("body_generation")) is not int or protocol["body_generation"]<1
+            or len(canonical_bytes(dict(history_record)))>MAX_STRATEGY_CONTEXT_BYTES
+            or len(canonical_bytes(dict(situation)))>MAX_STRATEGY_CONTEXT_BYTES):
+        raise EmbodiedConsequenceError("strategy_protocol_shape_invalid")
+    cognitive_context_projection = _strategy_cognitive_context(cognitive_context, protocol=protocol)
+    _verify_consequence_attribution(consequence)
+    consequence_context_binding = _strategy_prior_consequence_binding(history_record, consequence)
+    record_digest=history_record.get("record_digest")
+    record_semantic=dict(history_record); record_semantic.pop("record_id",None); record_semantic.pop("record_digest",None)
+    calculated_record_digest=digest(record_semantic)
+    calculated_record_id="devrec-"+calculated_record_digest[7:31]
+    history_binding_verified=(record_digest==calculated_record_digest
+                              and history_record.get("record_id")==calculated_record_id
+                              and isinstance(history_record.get("candidate"),Mapping)
+                              and history_record["candidate"].get("epistemic_posture")=="historical_interpretation_not_current_truth"
+                              and history_record.get("current_truth") is False
+                              and history_record.get("authority") is False
+                              and history_record.get("policy") is False)
+    if cognitive_context_projection is not None:
+        candidate = history_record.get("candidate")
+        history_binding_verified = (history_binding_verified and isinstance(candidate, Mapping)
+            and candidate.get("snapshot_id") != cognitive_context_projection.get("snapshot_id"))
+    history_event_time = history_record.get("created_at")
+    try:
+        if not isinstance(history_event_time, str): raise EmbodiedConsequenceError("history_event_time_missing")
+        _time(history_event_time)
+    except EmbodiedConsequenceError:
+        history_binding_verified = False
+    situation_digest=digest(dict(situation))
+    situation_binding_verified=protocol.get("renderer_situation_digest")==situation_digest
+    evidence_scope=_history_evidence_scope(history_record)
+    conditions=("history_present","history_withheld","history_restored")
+    protocol_id, protocol_digest = _identity("strategy-protocol", dict(protocol))
+    bind_protocol = getattr(backend, "bind_protocol", None)
+    if isinstance(backend, GovernedStrategyCognitionBackend) and store is None:
+        raise EmbodiedConsequenceError("durable_store_required_for_governed_strategy_experiment")
+    if callable(bind_protocol):
+        bind_protocol({**dict(protocol), "protocol_id": protocol_id, "protocol_digest": protocol_digest,
+            "history_record_created_at": history_event_time,
+            "cognitive_context_projection": cognitive_context_projection})
+    proposals=[]
+    execution_evidence=[]
+    condition_statuses=[]
+    failure_posture=None
+    execution_contradiction=False
+    for condition in conditions:
+        history=() if condition=="history_withheld" else (history_record,)
+        request_correlation_id = _strategy_request_correlation_id(protocol_digest, condition)
+        # Each call receives an independent canonical copy so a backend cannot
+        # mutate shared context and contaminate a later control condition.
+        situation_copy=json.loads(canonical_bytes(dict(situation)))
+        condition_input_digest = digest({"protocol_id": protocol_id, "protocol_digest": protocol_digest,
+            "condition": condition, "history": [dict(item) for item in history],
+            "situation": situation_copy, "consequence_id": consequence.get("attribution_id"),
+            "consequence_digest": consequence.get("attribution_digest"),
+            "cognitive_context_digest": (digest(cognitive_context_projection)
+                if cognitive_context_projection is not None else None),
+            "target_history_record_id": history_record.get("record_id"),
+            "target_history_record_digest": record_digest})
+        if store is not None:
+            start, terminal = store.read_strategy_condition(protocol_id=protocol_id,
+                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest,
+                request_correlation_id=request_correlation_id)
+            if terminal is not None:
+                condition_status = {"condition": condition, "status": terminal["status"],
+                    "condition_result_digest": terminal["condition_result_digest"]}
+                if terminal.get("status") == "completed" and isinstance(terminal.get("proposal"), Mapping):
+                    condition_status["proposal_id"] = terminal["proposal"].get("strategy_id")
+                    condition_status["proposal_digest"] = terminal["proposal"].get("strategy_digest")
+                elif terminal.get("failure_posture") is not None:
+                    condition_status["failure_posture"] = terminal["failure_posture"]
+                condition_statuses.append(condition_status)
+                if isinstance(terminal.get("execution_evidence"), Mapping):
+                    stored_evidence = dict(terminal["execution_evidence"])
+                else:
+                    stored_evidence = None
+                if terminal.get("status") != "completed":
+                    if stored_evidence is not None:
+                        execution_evidence.append(stored_evidence)
+                    failure_posture = terminal.get("failure_posture") or "recovered_terminal_condition_incomplete"
+                    execution_contradiction = terminal.get("status") == "contradictory"
+                    break
+                proposal_value = terminal.get("proposal")
+                if not isinstance(proposal_value, Mapping):
+                    execution_contradiction = True
+                    failure_posture = "recovered_completed_condition_missing_proposal"
+                    condition_statuses[-1]["status"] = "contradictory"
+                    break
+                proposal = _strategy_proposal_from_mapping(proposal_value)
+                verify_strategy_proposal(proposal,
+                    situation_binding=str(situation_copy.get("situation_binding", "")),
+                    body_generation=int(protocol["body_generation"]))
+                if stored_evidence is not None and stored_evidence.get("execution_posture") == "verified_governed_model_identity":
+                    stored_evidence = _verify_strategy_execution_evidence(stored_evidence,
+                        condition=condition, protocol_id=protocol_id, protocol=protocol,
+                        history=history, history_record=history_record,
+                        situation=situation_copy, cognitive_context=cognitive_context_projection,
+                        proposal=proposal)
+                    execution_evidence.append(stored_evidence)
+                else:
+                    execution_evidence.append(stored_evidence or {"condition":condition,
+                        "execution_posture":"unknown_no_governed_receipt"})
+                proposals.append(proposal)
+                continue
+            if start is not None:
+                # An intent exists without a terminal record.  It may reflect a
+                # live call or a crash after backend entry; either way it cannot
+                # be retried safely.
+                condition_statuses.append({"condition": condition, "status": "incomplete",
+                    "failure_posture": "started_without_terminal_no_replay",
+                    "request_correlation_id": start.get("request_correlation_id"),
+                    "expected_request_correlation_id": request_correlation_id,
+                    "request_correlation_binding_posture": "bound" if start.get("request_correlation_id")
+                        == request_correlation_id else "legacy_missing"})
+                failure_posture = "started_without_terminal_no_replay"
+                break
+            claimed, _ = store.begin_strategy_condition(protocol_id=protocol_id,
+                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest,
+                request_correlation_id=request_correlation_id)
+            if not claimed:
+                condition_statuses.append({"condition": condition, "status": "incomplete",
+                    "failure_posture": "concurrent_or_recovered_condition_claim_no_replay",
+                    "request_correlation_id": request_correlation_id})
+                failure_posture = "concurrent_or_recovered_condition_claim_no_replay"
+                break
+        take_evidence = getattr(backend, "consume_execution_evidence", None)
+        evidence = None
+        proposal: EmbodiedStrategyProposal | None = None
+        try:
+            proposal = backend.propose(condition=condition,history=history,situation=situation_copy)
+            evidence = take_evidence() if callable(take_evidence) else None
+            if evidence is not None:
+                if not isinstance(backend, GovernedStrategyCognitionBackend) or not isinstance(evidence, Mapping):
+                    raise EmbodiedConsequenceError("unowned_governed_execution_evidence")
+                row = _verify_strategy_execution_evidence(evidence, condition=condition,
+                    protocol_id=protocol_id, protocol=protocol, history=history,
+                    history_record=history_record, situation=situation_copy,
+                    cognitive_context=cognitive_context_projection, proposal=proposal)
+            else:
+                row = {"condition": condition, "execution_posture": "unknown_no_governed_receipt"}
+            verify_strategy_proposal(proposal, situation_binding=str(situation_copy.get("situation_binding", "")),
+                body_generation=int(protocol["body_generation"]))
+        except Exception as exc:
+            if evidence is None and callable(take_evidence):
+                evidence = take_evidence()
+            condition_execution: dict[str, Any] | None = None
+            if isinstance(evidence, Mapping):
+                receipt = evidence.get("invocation_receipt")
+                if isinstance(receipt, Mapping):
+                    from .governed_local_model_invocation import validate_receipt
+                    receipt_valid, _ = validate_receipt(receipt)
+                    condition_execution = {"condition": condition,
+                        "execution_posture": "incomplete_invocation_receipt",
+                        "receipt_id": receipt.get("receipt_id"), "receipt_digest": receipt.get("receipt_digest"),
+                        "receipt_valid": receipt_valid, "invocation_receipt": dict(receipt)}
+                else:
+                    condition_execution = {"condition": condition,
+                        "execution_posture": "incomplete_or_contradictory_evidence",
+                        "evidence_digest": digest(dict(evidence))}
+            failure_posture = getattr(exc, "code", None) or "backend_failure:" + type(exc).__name__
+            failure_text = str(failure_posture).lower()
+            contradictory = any(marker in failure_text for marker in
+                ("mismatch", "invalid", "contradictory", "malformed", "binding", "digest", "fields", "shape",
+                 "not_json", "unowned"))
+            execution_contradiction = execution_contradiction or contradictory
+            if store is not None:
+                terminal = store.finish_strategy_condition(protocol_id=protocol_id,
+                    protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest,
+                    status="contradictory" if contradictory else "incomplete",
+                    proposal=asdict(proposal) if isinstance(proposal, EmbodiedStrategyProposal) else None,
+                    execution_evidence=condition_execution, failure_posture=str(failure_posture)[:128])
+                condition_result_digest = terminal["condition_result_digest"]
+            else:
+                condition_result_digest = None
+            if condition_execution is not None: execution_evidence.append(condition_execution)
+            condition_statuses.append({"condition": condition, "status": "contradictory" if contradictory else "incomplete",
+                "condition_result_digest":condition_result_digest,"failure_posture": str(failure_posture)[:128]})
+            break
+        if store is not None:
+            terminal = store.finish_strategy_condition(protocol_id=protocol_id,
+                protocol_digest=protocol_digest, condition=condition, input_digest=condition_input_digest,
+                status="completed", proposal=asdict(proposal), execution_evidence=row)
+        else:
+            terminal = None
+        proposals.append(proposal)
+        execution_evidence.append(row)
+        condition_statuses.append({"condition": condition, "status": "completed",
+            "condition_result_digest": terminal.get("condition_result_digest") if terminal else None,
+            "proposal_id": proposal.strategy_id, "proposal_digest": proposal.strategy_digest})
+    expected_situation_binding=str(situation.get("situation_binding", ""))
+    proposal_contradiction = False
+    for proposal in proposals:
+        try:
+            verify_strategy_proposal(proposal, situation_binding=expected_situation_binding,
+                                     body_generation=int(protocol["body_generation"]))
+        except (EmbodiedConsequenceError, TypeError, ValueError):
+            proposal_contradiction = True
+            failure_posture = "proposal_identity_or_context_contradictory"
+            for status in condition_statuses:
+                if status.get("proposal_id") == getattr(proposal, "strategy_id", None):
+                    status["status"] = "contradictory"
+                    status["failure_posture"] = failure_posture
+            break
+    experiment_contradictory = proposal_contradiction or execution_contradiction
+    experiment_complete = len(proposals) == len(conditions) and not experiment_contradictory
+    if not experiment_complete:
+        scoring = {"status":"not_scored_incomplete_execution", "authority":dict(FALSE_AUTHORITY)}
+    elif consequence_context_binding.get("posture") != "verified_prior_selected_history":
+        scoring = {"status":"not_scored_prior_consequence_not_bound_to_history",
+            "consequence_context_posture": consequence_context_binding.get("posture"),
+            "authority":dict(FALSE_AUTHORITY)}
+    else:
+        scoring = score_strategy_experiment(proposals=proposals, consequence=consequence,
+            resource_evidence_bindings=evidence_scope.get("resource_bindings", ()))
+    governed_rows = [item for item in execution_evidence if item.get("execution_posture") == "verified_governed_model_identity"]
+    if experiment_contradictory:
+        execution_posture = "contradictory_proposal_or_execution_evidence"
+    elif not experiment_complete:
+        execution_posture = "incomplete_interrupted_before_all_conditions"
+    elif not governed_rows:
+        execution_posture = "declared_only_no_invocation_receipt"
+    elif len(governed_rows) != len(conditions):
+        execution_posture = "partial_governed_invocation_evidence"
+    elif any(item.get("model_id") != protocol.get("model_id")
+             or item.get("model_artifact_digest") != protocol.get("model_artifact_digest")
+             for item in governed_rows):
+        execution_posture = "contradictory_model_identity"
+    elif len({item.get("active_model_identity_digest") for item in governed_rows}) != 1:
+        execution_posture = "contradictory_model_identity_changed_across_conditions"
+    elif len({item.get("authority_map_digest") for item in governed_rows}) != 1:
+        execution_posture = "contradictory_authority_map_changed_across_conditions"
+    elif len({digest(item.get("invocation_receipt", {}).get("generation_config"))
+              for item in governed_rows}) != 1:
+        execution_posture = "contradictory_generation_parameters_changed_across_conditions"
+    elif any(str(item.get("software_generation_posture", "")).startswith("contradictory")
+             for item in governed_rows):
+        execution_posture = "verified_model_but_contradictory_software_generation"
+    elif all(item.get("software_generation_posture") == "verified_current_resident_generation"
+             and item.get("serving_identity_posture") == "verified_session_bound"
+             and isinstance(item.get("software_execution_provenance_before"), Mapping)
+             for item in governed_rows):
+        if (len({digest(item.get("serving_identity")) for item in governed_rows}) == 1
+                and len({digest(item.get("software_execution_provenance_before"))
+                         for item in governed_rows}) == 1):
+            execution_posture = "verified_governed_model_serving_and_running_software_generation"
+        else:
+            execution_posture = "contradictory_serving_identity_changed_across_conditions"
+    else:
+        execution_posture = "verified_model_identity_serving_or_software_identity_unknown_or_incomplete"
+    current_projection = (cognitive_context_projection.get("current_world_state_projection")
+        if cognitive_context_projection is not None else None)
+    prior_self_model = (cognitive_context_projection.get("prior_self_model")
+        if cognitive_context_projection is not None else None)
+    prior_epistemic = (cognitive_context_projection.get("prior_epistemic_state")
+        if cognitive_context_projection is not None else None)
+    cognitive_context_complete = (isinstance(current_projection, Mapping)
+        and isinstance(prior_self_model, Mapping) and isinstance(prior_epistemic, Mapping))
+    execution_context_stable = (len(governed_rows) == len(conditions)
+        and len({item.get("active_model_identity_digest") for item in governed_rows}) == 1
+        and all(item.get("software_generation_posture") == "verified_current_resident_generation"
+                and item.get("serving_identity_posture") == "verified_session_bound"
+                and isinstance(item.get("software_execution_provenance_before"), Mapping)
+                and isinstance(item.get("software_execution_provenance"), Mapping)
+                for item in governed_rows)
+        and len({digest(item.get("software_execution_provenance_before")) for item in governed_rows}) == 1
+        and len({digest(item.get("software_execution_provenance")) for item in governed_rows}) == 1
+        and len({item.get("authority_map_digest") for item in governed_rows}) == 1
+        and len({digest(item.get("invocation_receipt", {}).get("generation_config"))
+                 for item in governed_rows}) == 1
+        and len({digest(item.get("serving_identity")) for item in governed_rows}) == 1
+        and (cognitive_context_complete
+            and len({item.get("cognitive_context_digest") for item in governed_rows}) == 1))
+    temporal_separation_posture = ("historical_record_event_precedes_inference_logical_tick_unbound"
+        if len(governed_rows) == len(conditions)
+        and all(item.get("historical_event_precedes_inference") is True for item in governed_rows)
+        else "unknown_or_incomplete")
+    if experiment_contradictory:
+        validity = "execution_or_proposal_identity_contradictory"
+    elif not experiment_complete:
+        validity = "execution_incomplete"
+    elif not history_binding_verified or not situation_binding_verified:
+        validity = "context_binding_incomplete"
+    elif execution_posture == "verified_governed_model_serving_and_running_software_generation" and cognitive_context_complete:
+        validity = "controlled_history_world_state_self_model_epistemic_and_execution_identity_consistent"
+    elif execution_posture == "verified_governed_model_serving_and_running_software_generation":
+        validity = "execution_identity_verified_cognitive_state_context_unbound"
+    elif execution_posture.startswith("contradictory") or "contradictory" in execution_posture:
+        validity = "execution_identity_contradictory"
+    else:
+        validity = "input_context_consistent_execution_identity_unknown_or_incomplete"
+    cognitive_context_binding = {"posture": "verified_complete_prior_owner_projections"
+            if cognitive_context_complete else "partial_or_unbound",
+        "digest": digest(cognitive_context_projection) if cognitive_context_projection is not None else None,
+        "tick_id": cognitive_context_projection.get("tick_id") if cognitive_context_projection is not None else None,
+        "current_tick": cognitive_context_projection.get("current_tick") if cognitive_context_projection is not None else None,
+        "snapshot_id": cognitive_context_projection.get("snapshot_id") if cognitive_context_projection is not None else None,
+        "snapshot_digest": cognitive_context_projection.get("snapshot_digest") if cognitive_context_projection is not None else None,
+        "current_projection_id": current_projection.get("projection_id") if isinstance(current_projection, Mapping) else None,
+        "current_projection_digest": current_projection.get("projection_digest") if isinstance(current_projection, Mapping) else None,
+        "current_fact_ids": current_projection.get("fact_ids", ()) if isinstance(current_projection, Mapping) else (),
+        "self_model_projection_id": prior_self_model.get("projection_id") if isinstance(prior_self_model, Mapping) else None,
+        "self_model_projection_digest": prior_self_model.get("projection_digest") if isinstance(prior_self_model, Mapping) else None,
+        "self_model_source_tick": prior_self_model.get("source_tick") if isinstance(prior_self_model, Mapping) else None,
+        "self_model_claim_ids": prior_self_model.get("selected_claim_ids", ()) if isinstance(prior_self_model, Mapping) else (),
+        "self_model_claim_digests": prior_self_model.get("selected_claim_digests", ()) if isinstance(prior_self_model, Mapping) else (),
+        "epistemic_projection_id": prior_epistemic.get("projection_id") if isinstance(prior_epistemic, Mapping) else None,
+        "epistemic_projection_digest": prior_epistemic.get("projection_digest") if isinstance(prior_epistemic, Mapping) else None,
+        "epistemic_source_tick": prior_epistemic.get("source_tick") if isinstance(prior_epistemic, Mapping) else None,
+        "epistemic_state_ids": prior_epistemic.get("state_ids", ()) if isinstance(prior_epistemic, Mapping) else (),
+        "epistemic_state_digests": prior_epistemic.get("state_digests", ()) if isinstance(prior_epistemic, Mapping) else (),
+        "epistemic_evidence_set_digests": prior_epistemic.get("evidence_set_digests", ()) if isinstance(prior_epistemic, Mapping) else ()}
+    payload={"schema_version":EXPERIMENT_RESULT_SCHEMA,"protocol":dict(protocol),"protocol_digest":digest(protocol),
+        "condition_order":list(conditions),"withheld_record_id":history_record.get("record_id"),"withheld_record_digest":record_digest,
+        "condition_statuses":condition_statuses,
+        "experiment_completion_posture":"contradictory" if experiment_contradictory else "completed" if experiment_complete else "incomplete",
+        "failure_posture":failure_posture,
+        "history_record_identity_consistent":history_binding_verified,
+        "situation_matches_declared_digest":situation_binding_verified,
+        "world_state_binding_posture":"verified_resident_snapshot_and_current_projection"
+            if cognitive_context_projection is not None else "protocol_snapshot_digest_declared_without_resident_snapshot_object",
+        "self_model_binding_posture":"verified_prior_projection"
+            if isinstance(prior_self_model, Mapping) else "unavailable_or_not_bound",
+        "epistemic_state_binding_posture":"verified_prior_projection"
+            if isinstance(prior_epistemic, Mapping) else "unavailable_or_not_bound",
+        "cognitive_context_binding":cognitive_context_binding,
+        "temporal_separation_posture":temporal_separation_posture,
+        "cognitive_execution_identity_posture":execution_posture,
+        "execution_context_stable_across_conditions":execution_context_stable if callable(bind_protocol) else None,
+        "execution_evidence":execution_evidence,
+        "consequence_scope":"prior_attribution_bound_to_selected_history_no_post_experiment_consequence_observed"
+            if consequence_context_binding.get("posture") == "verified_prior_selected_history"
+            else "prior_consequence_context_unbound_no_post_experiment_consequence_observed",
+        "consequence_context_binding":consequence_context_binding,
+        "input_context_digest":digest({"protocol_digest":protocol_digest,"situation":dict(situation),"history_record_id":history_record.get("record_id"),
+            "history_record_digest":record_digest,"consequence_id":consequence.get("attribution_id"),
+            "consequence_digest":consequence.get("attribution_digest")}),
+        "evidence_scope":evidence_scope,
+        "validity":validity,
+        "proposals":[asdict(p) for p in proposals],"scoring":scoring,"no_retries":True,"improvement_claimed":False,"authority":dict(FALSE_AUTHORITY)}
+    payload["experiment_result_id"],payload["experiment_result_digest"]=_identity("strategy-experiment",payload)
+    if store is not None:
+        store.put("strategy-experiments", payload["experiment_result_id"], payload)
+    return payload
+
+
+def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
+    semantic=dict(value); claimed_id=semantic.pop("attribution_id",None); claimed_digest=semantic.pop("attribution_digest",None)
+    expected_id,expected_digest=_identity("consequence",semantic)
+    if claimed_id!=expected_id or claimed_digest!=expected_digest or dict(value.get("authority",{}))!=dict(FALSE_AUTHORITY):
+        raise EmbodiedConsequenceError("consequence_attribution_binding_invalid")
+
+
+def _strategy_prior_consequence_binding(history_record: Mapping[str, Any],
+                                        consequence: Mapping[str, Any]) -> dict[str, Any]:
+    candidate = history_record.get("candidate")
+    facts = candidate.get("selected_facts") if isinstance(candidate, Mapping) else None
+    if not isinstance(facts, (tuple, list)) or not facts:
+        return {"posture":"selected_history_facts_unavailable",
+            "attribution_id":consequence.get("attribution_id"),
+            "attribution_digest":consequence.get("attribution_digest")}
+    if len(facts) > 16:
+        return {"posture":"selected_history_fact_limit_exceeded",
+            "attribution_id":consequence.get("attribution_id"),
+            "attribution_digest":consequence.get("attribution_digest")}
+    attribution_id = consequence.get("attribution_id")
+    attribution_digest = consequence.get("attribution_digest")
+    exact_matches: list[Mapping[str, Any]] = []
+    conflicting_source = False
+    malformed_payload = False
+    for fact in facts:
+        if not isinstance(fact, Mapping):
+            continue
+        source = fact.get("source")
+        payload = fact.get("payload")
+        if not isinstance(source, Mapping) or source.get("source_id") != attribution_id:
+            continue
+        if (source.get("digest") != attribution_digest
+                or source.get("schema_version") != consequence.get("schema_version")
+                or source.get("kind") not in {"embodiment", "fulfillment"}):
+            conflicting_source = True
+            continue
+        if not isinstance(payload, Mapping):
+            malformed_payload = True
+            continue
+        try:
+            _verify_consequence_attribution(payload)
+        except EmbodiedConsequenceError:
+            malformed_payload = True
+            continue
+        if (payload.get("attribution_id") != attribution_id
+                or payload.get("attribution_digest") != attribution_digest
+                or dict(payload) != dict(consequence)):
+            malformed_payload = True
+            continue
+        exact_matches.append(fact)
+    result = {"attribution_id":attribution_id,"attribution_digest":attribution_digest,
+        "matched_fact_ids":[str(fact.get("fact_id", "")) for fact in exact_matches]}
+    if conflicting_source:
+        return {**result,"posture":"contradictory_history_source_digest"}
+    if malformed_payload:
+        return {**result,"posture":"history_consequence_payload_invalid"}
+    if len(exact_matches) != 1:
+        return {**result,"posture":"exact_history_consequence_missing_or_duplicated"}
+    try:
+        consequence_evaluated_at = _time(str(consequence.get("evaluated_at", "")))
+        history_created_at = _time(str(history_record.get("created_at", "")))
+    except EmbodiedConsequenceError:
+        return {**result,"posture":"historical_evaluation_time_unavailable"}
+    if consequence_evaluated_at >= history_created_at:
+        return {**result,"posture":"consequence_does_not_precede_selected_history"}
+    return {**result,"posture":"verified_prior_selected_history",
+        "consequence_evaluated_at":consequence.get("evaluated_at"),
+        "history_record_created_at":history_record.get("created_at"),
+        "event_time_upper_bound":"consequence_evaluation_precedes_history_record"}
+
+
+def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
+    candidate=record.get("candidate")
+    if not isinstance(candidate,Mapping):
+        return {"posture":"incomplete_record_candidate","resource_fact_count":0,"resource_bindings":[]}
+    fact_ids=tuple(candidate.get("selected_fact_ids",()))
+    facts=tuple(candidate.get("selected_facts",()))
+    if (not facts or len(facts)>16 or len(facts)!=len(fact_ids)
+            or tuple(str(item.get("fact_id","")) for item in facts if isinstance(item,Mapping))!=fact_ids):
+        return {"posture":"selected_fact_identity_incomplete","resource_fact_count":0,"resource_bindings":[]}
+    resource_facts=[]; verified=True
+    for fact in facts:
+        if not isinstance(fact,Mapping):
+            verified=False; continue
+        source=fact.get("source"); subject=fact.get("subject"); payload=fact.get("payload")
+        if not isinstance(source,Mapping) or not isinstance(subject,Mapping) or not isinstance(payload,Mapping):
+            verified=False; continue
+        if source.get("kind")!="resource_governor":
+            continue
+        subject_kind = subject.get("subject_kind")
+        if subject_kind in {"strategy_invocation_resource_lineage",
+                            "model_replacement_invocation_resource_lineage"}:
+            linkage=payload.get("resource_linkage")
+            resource_record=payload.get("resource_record")
+            allocation=payload.get("allocation_identity")
+            if not all(isinstance(value,Mapping) for value in (linkage,resource_record,allocation)):
+                verified=False
+                continue
+            receipts=linkage.get("consumption_receipt_digests")
+            linkage_body={"receipt_digest":linkage.get("effect_receipt_digest"),
+                "allocation_digest":linkage.get("allocation_digest"),
+                "attempt_id":linkage.get("attempt_id"),
+                "consumption_receipt_digests":tuple(receipts) if isinstance(receipts,(list,tuple)) else ()}
+            linkage_digest=hashlib.sha256(canonical_bytes(linkage_body)).hexdigest()
+            binding={"fact_id":fact.get("fact_id"),"source_id":source.get("source_id"),
+                "source_digest":source.get("digest"),"lineage_subject_kind":subject_kind,
+                "resource_record_source_id":resource_record.get("source_id"),
+                "resource_record_digest":resource_record.get("record_digest"),
+                "ledger_digest":resource_record.get("ledger_digest"),
+                "principal_id":payload.get("principal_id"),
+                "principal_binding_digest":payload.get("principal_binding_digest"),
+                "allocation_digest":allocation.get("allocation_digest"),
+                "attempt_id":linkage.get("attempt_id"),
+                "invocation_receipt_id":payload.get("invocation_receipt_id"),
+                "invocation_receipt_digest":linkage.get("effect_receipt_digest"),
+                "invocation_receipt_binding_consistent":(
+                    payload.get("invocation_receipt_id")==linkage.get("effect_receipt_id")
+                    and payload.get("invocation_receipt_digest")==linkage.get("effect_receipt_digest")),
+                "consumption_receipt_digests":tuple(receipts) if isinstance(receipts,(list,tuple)) else (),
+                "model_attribution":payload.get("model_attribution"),
+                "software_attribution":payload.get("software_attribution"),
+                "event_times":tuple(payload.get("event_times",())) if isinstance(payload.get("event_times",()),(list,tuple)) else (),
+                "history_context_posture":payload.get("lineage_projection_posture"),
+                "lineage_posture":"verified" if fact.get("disposition")=="verified" else "incomplete",
+                "lineage_findings":tuple(payload.get("lineage_findings",()))}
+            resource_facts.append(binding)
+            lineage_invalid=(fact.get("disposition")!="verified" or binding["lineage_findings"]
+                    or payload.get("lineage_projection_posture") not in {"complete","bounded_context_incomplete"}
+                    or not source.get("digest") or not resource_record.get("source_id")
+                    or not resource_record.get("record_digest") or not resource_record.get("ledger_digest")
+                    or not payload.get("principal_id") or not payload.get("principal_binding_digest")
+                    or not binding["invocation_receipt_binding_consistent"]
+                    or not linkage.get("allocation_digest") or not linkage.get("attempt_id")
+                    or not linkage.get("effect_receipt_id") or not linkage.get("effect_receipt_digest")
+                    or not isinstance(receipts,(list,tuple)) or not receipts or len(receipts)>16
+                    or any(not isinstance(item,str) or not item for item in receipts)
+                    or len(receipts)!=len(set(receipts))
+                    or linkage.get("linkage_digest")!=linkage_digest
+                    or allocation.get("allocation_digest")!=linkage.get("allocation_digest")
+                    or allocation.get("principal_id")!=payload.get("principal_id")
+                    or allocation.get("principal_binding_digest")!=payload.get("principal_binding_digest"))
+            if lineage_invalid:
+                binding["lineage_posture"]="incomplete"
+                verified=False
+            model=payload.get("model_attribution")
+            if (not isinstance(model,Mapping) or not model.get("model_id")
+                    or not model.get("model_artifact_digest")
+                    or model.get("model_id")!=linkage.get("model_id")
+                    or model.get("model_artifact_digest")!=linkage.get("model_artifact_digest")):
+                binding["lineage_posture"]="incomplete"
+                verified=False
+            if subject_kind=="model_replacement_invocation_resource_lineage":
+                succession_values=(payload.get("model_replacement_run_id"),
+                    payload.get("model_replacement_run_digest"),
+                    payload.get("model_replacement_source_record_id"),
+                    payload.get("model_replacement_source_record_digest"),
+                    payload.get("model_replacement_condition"),payload.get("model_identity_digest"),
+                    payload.get("model_provenance_manifest_digest"),payload.get("causal_context_id"),
+                    payload.get("causal_context_digest"))
+                binding["succession_lineage"]={"run_id":succession_values[0],
+                    "run_digest":succession_values[1],"source_record_id":succession_values[2],
+                    "source_record_digest":succession_values[3],"condition":succession_values[4],
+                    "model_identity_digest":succession_values[5],
+                    "model_provenance_manifest_digest":succession_values[6],
+                    "causal_context_id":succession_values[7],"causal_context_digest":succession_values[8],
+                    "software_attribution":payload.get("software_attribution")}
+                if not all(isinstance(value,str) and value for value in succession_values):
+                    binding["lineage_posture"]="incomplete"
+                    verified=False
+            continue
+        if subject_kind!="causal_resource_consumption":
+            continue
+        allocation_values=payload.get("allocations",())
+        attempt_values=payload.get("attempts",())
+        receipt_values=payload.get("consumption_receipts",())
+        invocation_values=payload.get("invocation_receipts",())
+        if not all(isinstance(value,(tuple,list)) for value in
+                   (allocation_values,attempt_values,receipt_values,invocation_values)):
+            verified=False; continue
+        binding={"fact_id":fact.get("fact_id"),"source_id":source.get("source_id"),
+            "source_digest":source.get("digest"),"ledger_digest":payload.get("ledger_digest"),
+            "allocation_digests":tuple(str(item.get("allocation_digest","")) for item in allocation_values if isinstance(item,Mapping)),
+            "attempt_ids":tuple(str(item.get("attempt_id","")) for item in attempt_values if isinstance(item,Mapping)),
+            "consumption_receipts":tuple((str(item.get("receipt_id","")),str(item.get("receipt_digest","")))
+                for item in receipt_values if isinstance(item,Mapping)),
+            "invocation_receipts":tuple((str(item.get("receipt_id","")),str(item.get("receipt_digest","")))
+                for item in invocation_values if isinstance(item,Mapping)),
+            "lineage_posture":payload.get("lineage_posture"),"recovery_posture":payload.get("recovery_posture"),
+            "measurement_attribution":payload.get("shared_host_usage_attribution")}
+        resource_facts.append(binding)
+        lineage_invalid=(binding["lineage_posture"]!="verified" or binding["recovery_posture"]!="reconciled_or_restored"
+                or payload.get("retention_posture")!="complete"
+                or payload.get("interpretation_projection_posture")!="complete"
+                or not binding["source_digest"] or not binding["ledger_digest"])
         if lineage_invalid:
             binding["lineage_posture"]="incomplete"
             verified=False

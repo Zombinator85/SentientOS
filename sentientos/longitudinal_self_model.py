@@ -7,6 +7,7 @@ import os
 import stat
 import tempfile
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -190,6 +191,19 @@ def load_runtime_config(path: str | Path) -> LongitudinalSelfModelRuntimeConfig:
 
 def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
+
+
+def _tick_instant(value: Any) -> datetime | None:
+    """Decode daemon UTC tick identities; opaque or naive ticks are unordered."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (OverflowError, OSError, ValueError):
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc)
 
 
 def _bounded(value: Any) -> Any:
@@ -658,10 +672,14 @@ class LongitudinalSelfModelOwner:
         projection before reconciling its current World-State, so the selected
         generation cannot be affected by same-tick cognition or writeback.
         """
-        if not before_tick or not 1 <= max_claims <= MAX_PROJECTION_CLAIMS:
+        current_instant = _tick_instant(before_tick)
+        if current_instant is None or not 1 <= max_claims <= MAX_PROJECTION_CLAIMS:
             raise LongitudinalSelfModelError("invalid_cognitive_projection_boundary")
         history = self._load()
-        eligible = [item for item in history if item.tick_id != before_tick]
+        eligible = [item for item in history
+                    if item.tick_id != before_tick
+                    and (prior_instant := _tick_instant(item.tick_id)) is not None
+                    and prior_instant < current_instant]
         if not eligible:
             return None
         source = eligible[-1]

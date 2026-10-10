@@ -208,7 +208,15 @@ class ResidentEpistemicDevelopmentRuntime:
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
             sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:32]
-        if fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
+        if (historical_resource_fact and fact.subject.subject_kind == "host_resource_snapshot"
+                and isinstance(fact.payload, Mapping)):
+            # The snapshot's payload timestamp belongs to the owner's
+            # digest-bound telemetry object. The World-State row timestamp is
+            # retrieval metadata and must not be substituted during replay.
+            source_event_time = fact.payload.get("observed_at")
+            observed = (_latest_historical_event_time([source_event_time])
+                if isinstance(source_event_time, str) else None)
+        elif fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
             historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
                                 if isinstance(item, Mapping) and item.get("observed_at")]
             if resource_invocation_lineage:
