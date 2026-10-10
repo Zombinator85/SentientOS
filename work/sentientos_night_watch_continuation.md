@@ -204,3 +204,14 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Changed Python files compile; no tests or runtime checks were run. This remains unverified construction.
 
 **Next implementation dependency:** recovery currently advances the startup snapshot after the restarted child is observed ready but publishes its final durable recovery receipt afterward. Add bounded, immutable recovery-phase custody so a crash between those publications can be reconstructed without replaying a restart or claiming readiness that was never durably recorded. Preserve exact predecessor/successor handoffs and incomplete outcomes.
+
+### New checkpoint — interrupted recovery is reconstructable without replay
+
+- The recovery controller durably records three installation-scoped phases: an admitted attempt before the child restart call, semantic readiness with predecessor/successor handoffs, and completion after the startup snapshot is durably advanced.
+- Phase custody is immutable, canonical, bounded per record and per phase directory, idempotent on exact duplicates, and rejects conflicting records or broken phase predecessors. Phase records bind the approved intent, approval, restart decision, supervisor generation, serving receipt, and exact handoff identities.
+- On restart, a completed phase reconstructs the same terminal recovery receipt; a readiness phase without durable snapshot completion returns an incomplete receipt; an attempt phase without a terminal observation returns an incomplete receipt with restart outcome unknown. No branch retries a restart or claims unobserved readiness. Reconstruction time is absent from semantic identity.
+- Startup snapshots now have a bounded size, digest verification, no-follow regular-file reads, unique same-directory temporary publication, file fsync, atomic replacement, parent-directory fsync, and readback verification. The completion phase follows that durable boundary.
+- Python compilation and bounded source/whitespace review only. No runtime, crash, concurrency, Windows, test-suite, activation, provider, or production check was run.
+- Remote branch verification: `codex/construct-sentientos` at `b9f87a7c84521f4d1b716629bf961440b241698b`.
+
+**Next implementation dependency:** perform another source-only composition review of normal chat startup, recovery reconstruction, and the verified-lineage context projection. In particular, ensure recovery phase receipts remain bound to the current request file and that retained session history exposes only verifier-qualified evidence while preserving the separation from canonical user memory. Continue into any concrete owner-level gap found.
