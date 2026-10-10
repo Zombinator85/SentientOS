@@ -296,7 +296,11 @@ class ResidentDevelopmentalWritebackController:
         schema = {"type":"object", "required":["interpretation","uncertainty"], "additionalProperties":False,
                   "properties":{"interpretation":{"type":"string","maxLength":MAX_INTERPRETATION_CHARS},
                                 "uncertainty":{"type":"string","enum":["low","medium","high","unknown"]}}}
-        request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":"Interpret selected historical evidence without asserting truth, authority, policy, goals, or storage.", "selection":selection.semantic_payload()}, sort_keys=True), caller=PRINCIPAL, correlation_id=correlation_id, expected_output_format="json", budget=bounded, upstream_evidence={"selection_id":selection.selection_id,"selection_digest":selection.selection_digest,"snapshot_id":selection.snapshot_id,"snapshot_digest":selection.snapshot_digest}, linkage={"transformation":"selected_world_state_to_historical_interpretation"}, structured_output_schema=schema)
+        request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":("Interpret selected historical evidence without asserting truth, authority, policy, goals, or storage. "
+            "Keep provenance and uncertainty attached to each interpretation. For resource evidence, distinguish measured, "
+            "estimated, predicted, and unknown values by their source posture; shared host usage is not invocation attribution. "
+            "Resource expenditure is not inherently good or bad and must not become a reward, penalty, or objective."),
+            "selection":selection.semantic_payload()}, sort_keys=True), caller=PRINCIPAL, correlation_id=correlation_id, expected_output_format="json", budget=bounded, upstream_evidence={"selection_id":selection.selection_id,"selection_digest":selection.selection_digest,"snapshot_id":selection.snapshot_id,"snapshot_digest":selection.snapshot_digest}, linkage={"transformation":"selected_world_state_to_historical_interpretation"}, structured_output_schema=schema)
         receipt = invoker.invoke(request, persist=True, include_output_in_receipt=False)
         return ResidentDevelopmentalWritebackController.candidate_from_receipt(selection, receipt)
 

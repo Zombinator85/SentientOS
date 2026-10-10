@@ -9,7 +9,8 @@ from typing import Any, Mapping, Sequence
 from .local_model_authority import atomic_write_json, digest_payload
 from .resident_developmental_writeback import CognitionObservation, DevelopmentalHistoryProjection, measure_changed_cognition
 
-SCHEMA = "sentientos.developmental_history_intervention_protocol:v1"
+LEGACY_SCHEMA = "sentientos.developmental_history_intervention_protocol:v1"
+SCHEMA = "sentientos.developmental_history_intervention_protocol:v2"
 RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v1"
 PURPOSE = "resident_developmental_history_intervention_experiment"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
@@ -52,11 +53,26 @@ class DevelopmentalHistoryInterventionProtocol:
     epistemic_projection_digest: str | None = None
     epistemic_state_digests: tuple[str, ...] = ()
     epistemic_evidence_set_digests: tuple[str, ...] = ()
+    self_model_projection_id: str | None = None
+    self_model_projection_digest: str | None = None
+    self_model_reconciliation_id: str | None = None
+    self_model_reconciliation_digest: str | None = None
+    self_model_reconciliation_generation: int | None = None
+    self_model_source_tick: str | None = None
+    self_model_claim_ids: tuple[str, ...] = ()
+    self_model_claim_digests: tuple[str, ...] = ()
     grants_authority: bool = False
     schema_version: str = SCHEMA
 
     def semantic_payload(self) -> dict[str, Any]:
-        value = asdict(self); value.pop("protocol_id"); value.pop("protocol_digest"); return value
+        value = asdict(self); value.pop("protocol_id"); value.pop("protocol_digest")
+        if self.schema_version == LEGACY_SCHEMA:
+            for key in ("self_model_projection_id", "self_model_projection_digest",
+                        "self_model_reconciliation_id", "self_model_reconciliation_digest",
+                        "self_model_reconciliation_generation", "self_model_source_tick",
+                        "self_model_claim_ids", "self_model_claim_digests"):
+                value.pop(key, None)
+        return value
 
 
 def make_protocol(**kwargs: Any) -> DevelopmentalHistoryInterventionProtocol:
@@ -71,7 +87,9 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
     digest = _digest(protocol.semantic_payload())
     if protocol.protocol_digest != digest or protocol.protocol_id != "devexp-protocol-" + digest[7:31]:
         raise DevelopmentalHistoryInterventionError("protocol_digest_mismatch")
-    if protocol.condition_order != CONDITION_ORDER or protocol.inference_purpose != PURPOSE or protocol.grants_authority:
+    if (protocol.schema_version not in {LEGACY_SCHEMA, SCHEMA}
+            or protocol.condition_order != CONDITION_ORDER or protocol.inference_purpose != PURPOSE
+            or protocol.grants_authority):
         raise DevelopmentalHistoryInterventionError("protocol_control_invalid")
 
 
@@ -93,7 +111,8 @@ class DevelopmentalExperimentStore:
         self._write_immutable(self.protocols / f"{protocol.protocol_id}.json", asdict(protocol))
         payload = json.loads((self.protocols / f"{protocol.protocol_id}.json").read_text())
         for key in ("current_fact_ids", "record_ids", "record_digests", "condition_order", "planned_comparisons", "non_claims",
-                    "epistemic_state_digests", "epistemic_evidence_set_digests"):
+                    "epistemic_state_digests", "epistemic_evidence_set_digests", "self_model_claim_ids",
+                    "self_model_claim_digests"):
             payload[key] = tuple(payload[key])
         loaded = DevelopmentalHistoryInterventionProtocol(**payload)
         verify_protocol(loaded)
@@ -108,6 +127,38 @@ class DevelopmentalExperimentStore:
 def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: Sequence[Any]) -> dict[str, Any]:
     if tuple(x.condition_id for x in observations) != CONDITION_ORDER:
         raise DevelopmentalHistoryInterventionError("condition_order_violated")
+    # The history condition is the only permitted input difference. The model,
+    # current environment, prior self-model, prior epistemic state, authority,
+    # and generation settings must remain fixed across all three observations.
+    invariant_fields = (
+        "tick_id", "model_id", "model_artifact_digest", "authority_map_digest",
+        "active_model_identity", "generation_config", "current_snapshot_id",
+        "current_snapshot_digest", "current_projection_id", "current_projection_digest",
+        "current_fact_ids", "self_model_projection_present", "self_model_projection_id",
+        "self_model_projection_digest", "self_model_reconciliation_id",
+        "self_model_reconciliation_digest", "self_model_reconciliation_generation",
+        "self_model_source_tick", "self_model_claim_ids", "self_model_claim_digests",
+        "prior_tick_proven", "epistemic_projection_present", "epistemic_projection_id",
+        "epistemic_projection_digest", "epistemic_proposition_ids", "epistemic_state_ids",
+        "epistemic_state_digests", "epistemic_generations", "epistemic_evidence_set_digests",
+    )
+    full_controls = all(hasattr(item, "current_snapshot_digest")
+                        and hasattr(item, "retrieved_record_digests") for item in observations)
+    if full_controls:
+        first_context = tuple(getattr(observations[0], key, None) for key in invariant_fields)
+        if any(tuple(getattr(item, key, None) for key in invariant_fields) != first_context
+               for item in observations[1:]):
+            raise DevelopmentalHistoryInterventionError("non_history_context_changed")
+    expected_history = (protocol.record_ids, (), protocol.record_ids)
+    expected_digests = (protocol.record_digests, (), protocol.record_digests)
+    for observation, record_ids, record_digests in zip(observations, expected_history, expected_digests):
+        observed_ids = tuple(getattr(observation, "retrieved_record_ids", ()))
+        observed_digests = tuple(getattr(observation, "retrieved_record_digests", ()))
+        if (observed_ids != tuple(record_ids)
+                or (full_controls and observed_digests != tuple(record_digests))
+                or (hasattr(observation, "developmental_projection_present")
+                    and getattr(observation, "developmental_projection_present") is not bool(record_ids))):
+            raise DevelopmentalHistoryInterventionError("history_condition_binding_mismatch")
     for observation in observations:
         if (getattr(observation, "epistemic_projection_id", None) != protocol.epistemic_projection_id
                 or getattr(observation, "epistemic_projection_digest", None) != protocol.epistemic_projection_digest

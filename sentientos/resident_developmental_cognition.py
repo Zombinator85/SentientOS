@@ -43,7 +43,17 @@ CONFIG_SCHEMA_V2 = "sentientos.resident_developmental_cognition_config:v2"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
-CURRENT_PROJECTION_POLICY = "succession_identity_then_transition_evidence_then_source_id:v2"
+CURRENT_PROJECTION_POLICY = "succession_identity_then_resource_and_transition_evidence_then_source_id:v3"
+EXPERIMENT_CONTEXT_INSTRUCTION = (
+    "Reason over four separately typed, non-authoritative substrates. Current evidence is current external observation "
+    "and outranks a conflicting prior epistemic position for current-condition reasoning. Prior self-model is earlier "
+    "evidence-bound system representation. Prior epistemic state is the system's earlier position, not truth or evidence. "
+    "Developmental history is earlier interpretation. Preserve contradictions; none is policy, goal, permission, admission, "
+    "execution, adoption, or canonical user memory. Resource expenditure is not inherently good or bad and is not a "
+    "reward signal. Treat measured, estimated, predicted, and unknown quantities according to their source posture; "
+    "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
+    "or latency."
+)
 MAX_FACTS = 16
 MAX_HISTORY = 16
 MAX_RECOVERED_TICKS = 4096
@@ -404,9 +414,17 @@ class ResidentDevelopmentalCognitionOwner:
 
     @staticmethod
     def _fact_selection_key(fact: Any, source_kind: str) -> tuple[Any, ...]:
-        """Keep observed generations and verified transition evidence ahead of journal volume."""
+        """Keep current identities and qualified causal evidence ahead of journal volume."""
         subject_kind = str(fact.subject.subject_kind)
         payload = fact.payload
+        resource_lineage_verified = (
+            source_kind == "resource_governor"
+            and subject_kind == "causal_resource_consumption"
+            and fact.disposition == "recorded"
+            and payload.get("lineage_posture") == "verified"
+            and payload.get("recovery_posture") == "reconciled_or_restored"
+            and payload.get("attribution_posture") == "receipt_bound_only"
+        )
         if subject_kind in {"observed_running_model", "observed_running_software_generation"}:
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
@@ -414,12 +432,14 @@ class ResidentDevelopmentalCognitionOwner:
         elif (isinstance(payload.get("proposed_successor_model_development_provenance"), Mapping)
                 and payload["proposed_successor_model_development_provenance"].get("identity_binding_verified") is True):
             priority = 2
-        elif subject_kind in {"resident_model_transition", "software_generation_transition"}:
+        elif resource_lineage_verified:
             priority = 3
-        elif subject_kind in {"resident_model_transition_recovery", "software_generation_transition_recovery"}:
+        elif subject_kind in {"resident_model_transition", "software_generation_transition"}:
             priority = 4
-        else:
+        elif subject_kind in {"resident_model_transition_recovery", "software_generation_transition_recovery"}:
             priority = 5
+        else:
+            priority = 6
         return priority, source_kind, fact.source.source_id, fact.fact_id
 
     def _current_projection(self, snapshot: WorldStateSnapshot) -> CurrentWorldStateCognitiveProjection:
@@ -445,7 +465,8 @@ class ResidentDevelopmentalCognitionOwner:
         record_ids = projection.requested_record_ids if with_history else ()
         record_digests = tuple(str(record["record_digest"]) for record in records)
         context = {
-            "instruction": "Reason over four separately typed, non-authoritative substrates. Current evidence is current external observation and outranks a conflicting prior epistemic position for current-condition reasoning. Prior self-model is earlier evidence-bound system representation. Prior epistemic state is the system's earlier position, not truth or evidence. Developmental history is earlier interpretation. Preserve contradictions; none is policy, goal, permission, admission, execution, adoption, or canonical user memory.",
+            "instruction": EXPERIMENT_CONTEXT_INSTRUCTION if protocol is not None else (
+                EXPERIMENT_CONTEXT_INSTRUCTION + " Prior context can inform interpretation but does not grant authority."),
             "current_evidence": current.semantic_payload(),
             "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
             "prior_epistemic_state": asdict(prior_epistemic_state) if prior_epistemic_state is not None else None,
@@ -488,8 +509,27 @@ class ResidentDevelopmentalCognitionOwner:
             or str(getattr(request, "authority_map_digest", "test-authority-map")) != protocol.authority_map_digest
             or dict(getattr(request, "active_model_identity", {})) != dict(protocol.active_model_identity)
             or request.budget.to_dict() != dict(protocol.inference_budget)
+            or protocol.instruction_template_digest != _digest({"instruction": EXPERIMENT_CONTEXT_INSTRUCTION})
+            or snapshot.snapshot_id != protocol.snapshot_id
+            or snapshot.digest != protocol.snapshot_digest
+            or current.projection_id != protocol.current_projection_id
+            or current.projection_digest != protocol.current_projection_digest
+            or tuple(current.fact_ids) != protocol.current_fact_ids
+            or (prior_self_model.projection_id if prior_self_model else None) != protocol.self_model_projection_id
+            or (prior_self_model.projection_digest if prior_self_model else None) != protocol.self_model_projection_digest
+            or (prior_self_model.source_reconciliation_id if prior_self_model else None) != protocol.self_model_reconciliation_id
+            or (prior_self_model.source_reconciliation_digest if prior_self_model else None) != protocol.self_model_reconciliation_digest
+            or (prior_self_model.source_reconciliation_generation if prior_self_model else None) != protocol.self_model_reconciliation_generation
+            or (prior_self_model.source_tick if prior_self_model else None) != protocol.self_model_source_tick
+            or (prior_self_model.selected_claim_ids if prior_self_model else ()) != protocol.self_model_claim_ids
+            or (prior_self_model.selected_claim_digests if prior_self_model else ()) != protocol.self_model_claim_digests
         ):
             raise ResidentDevelopmentalCognitionError("experiment_control_drift")
+        if protocol is not None:
+            expected_ids = protocol.record_ids if with_history else ()
+            expected_digests = protocol.record_digests if with_history else ()
+            if tuple(record_ids) != tuple(expected_ids) or tuple(record_digests) != tuple(expected_digests):
+                raise ResidentDevelopmentalCognitionError("experiment_history_binding_drift")
         receipt = self.invoker.invoke(request, persist=True, include_output_in_receipt=False)
         if receipt.status not in {"admitted_completed", "admitted_simulation"} or receipt.output_digest is None:
             raise ResidentDevelopmentalCognitionError("retrieval_cognition_not_completed")
@@ -614,7 +654,15 @@ class ResidentDevelopmentalCognitionOwner:
                     epistemic_projection_digest=prior_epistemic_state.projection_digest if prior_epistemic_state else None,
                     epistemic_state_digests=prior_epistemic_state.state_digests if prior_epistemic_state else (),
                     epistemic_evidence_set_digests=prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
-                    instruction_template_digest=_digest({"instruction":"Observe current evidence with optional historical interpretation; do not treat history as truth, authority, policy, a goal, or canonical user retention."}))
+                    self_model_projection_id=prior_self_model.projection_id if prior_self_model else None,
+                    self_model_projection_digest=prior_self_model.projection_digest if prior_self_model else None,
+                    self_model_reconciliation_id=prior_self_model.source_reconciliation_id if prior_self_model else None,
+                    self_model_reconciliation_digest=prior_self_model.source_reconciliation_digest if prior_self_model else None,
+                    self_model_reconciliation_generation=prior_self_model.source_reconciliation_generation if prior_self_model else None,
+                    self_model_source_tick=prior_self_model.source_tick if prior_self_model else None,
+                    self_model_claim_ids=prior_self_model.selected_claim_ids if prior_self_model else (),
+                    self_model_claim_digests=prior_self_model.selected_claim_digests if prior_self_model else (),
+                    instruction_template_digest=_digest({"instruction":EXPERIMENT_CONTEXT_INSTRUCTION}))
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 present = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
                     with_history=True, condition_id="history_present", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
