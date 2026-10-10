@@ -985,7 +985,9 @@ class RuntimeMaintenanceSurfaces:
                     verified_chat_process_runtime_observation=(
                         observation.chat_process_runtime_observation),
                     verified_serving_operation_attempts=(
-                        observation.serving_operation_attempts))
+                        observation.serving_operation_attempts),
+                    verified_serving_operation_history=(
+                        observation.serving_operation_history))
                 records.extend(resource_records)
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records)
@@ -994,6 +996,8 @@ class RuntimeMaintenanceSurfaces:
                                 "unknown_missing", "historically_not_verified"}
                             or observation.serving_operation_attempt_posture not in {
                                 "verified_attempts_present", "verified_no_attempts"}
+                            or any(item.get("status") != "serving_receipt_verified"
+                                for item in observation.serving_operation_history)
                             or any(item.get("terminal_receipt_digest") is None
                                 for item in observation.chat_process_recovery_transitions))
                 self._resource_observation_health = {
@@ -1012,6 +1016,13 @@ class RuntimeMaintenanceSurfaces:
                         observation.chat_process_runtime_observation_posture,
                     "serving_operation_attempt_posture": observation.serving_operation_attempt_posture,
                     "serving_operation_attempt_count": len(observation.serving_operation_attempts),
+                    "serving_operation_history_count": len(observation.serving_operation_history),
+                    "serving_operation_history_posture": (
+                        "complete_receipts_present" if observation.serving_operation_history
+                        and all(item.get("status") == "serving_receipt_verified"
+                            for item in observation.serving_operation_history)
+                        else "unknown_or_legacy" if observation.serving_operation_history
+                        else "verified_empty"),
                     "read_only": True, "effect_authority": False,
                 }
                 records.append({

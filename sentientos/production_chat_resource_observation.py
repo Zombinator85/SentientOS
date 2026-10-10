@@ -44,7 +44,7 @@ from .installation_state import (
     InstallationStateError, InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView,
 )
 from .local_model_production_serving import (
-    ProductionServingError, read_serving_operation_attempts,
+    ProductionServingError, read_serving_operation_attempts, read_serving_operation_history,
 )
 from .production_chat_resource_provisioning import (
     _NAMES,
@@ -85,6 +85,7 @@ class ProductionChatResourceObservation:
     chat_process_runtime_observation_posture: str = "unknown"
     serving_operation_attempts: tuple[Mapping[str, Any], ...] = ()
     serving_operation_attempt_posture: str = "unknown"
+    serving_operation_history: tuple[Mapping[str, Any], ...] = ()
 
 
 class ProductionChatResourceObservationOwner:
@@ -222,12 +223,17 @@ class ProductionChatResourceObservationOwner:
                 "serving_operation_attempt_custody_invalid:" + str(exc)) from exc
         serving_attempt_posture = (
             "verified_attempts_present" if serving_attempts else "verified_no_attempts")
+        try:
+            serving_operation_history = read_serving_operation_history(self._handle, maximum=256)
+        except ProductionServingError as exc:
+            raise ProductionChatResourceObservationError(
+                "serving_operation_history_invalid:" + str(exc)) from exc
         return ProductionChatResourceObservation(
             self._handle.identity.value, self._provisioning_id,
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
             generation_attributions, generation_posture, recovery_transitions, recovery_posture,
             runtime_observation, runtime_observation_posture,
-            serving_attempts, serving_attempt_posture)
+            serving_attempts, serving_attempt_posture, serving_operation_history)
 
     def _invocation_receipts(self, allocation_digest: str
             ) -> tuple[tuple[Mapping[str, Any], ...], str, tuple[Mapping[str, Any], ...]]:

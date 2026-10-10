@@ -297,7 +297,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
                 "chat_process_recovery_transition",
                 "chat_process_runtime_generation_observation",
-                "serving_operation_attempt"})
+                "serving_operation_attempt", "serving_operation_history"})
         or (fact.source.kind == "resource_governor"
             and fact.subject.subject_kind == "chat_process_software_generation_invocation"))
     out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition,
@@ -535,6 +535,37 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                         <= MAX_VALUE_BYTES):
                 out.append(("chat_process.serving_operation_attempt",
                     _bounded(lineage), "historical_interpretation"))
+    if (fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "serving_operation_history"
+            and fact.source.finding == "ok" and isinstance(fact.payload, Mapping)):
+        lineage = {
+            "source_record_id": fact.source.source_id,
+            "source_record_digest": fact.source.digest,
+            "serving_history_status": fact.payload.get("serving_history_status"),
+            "serving_operation_id": fact.payload.get("serving_operation_id"),
+            "attempt_id": fact.payload.get("attempt_id"),
+            "attempt_semantic_digest": fact.payload.get("attempt_semantic_digest"),
+            "receipt_id": fact.payload.get("receipt_id"),
+            "receipt_semantic_digest": fact.payload.get("receipt_semantic_digest"),
+            "serving_session_id": fact.payload.get("serving_session_id"),
+            "activation_state_semantic_digest": fact.payload.get("activation_state_semantic_digest"),
+            "activation_generation": fact.payload.get("activation_generation"),
+            "model_id": fact.payload.get("model_id"),
+            "artifact_id": fact.payload.get("artifact_id"),
+            "runtime_id": fact.payload.get("runtime_id"),
+            "observed_loaded_model_identity": fact.payload.get("observed_loaded_model_identity"),
+            "event_time": fact.payload.get("event_time"),
+            "event_time_posture": fact.payload.get("event_time_posture"),
+            "resource_consumption_measurements": "unknown",
+            "current_model_claimed": False, "inference_performed": False,
+            "effect_proven": False, "authority": False,
+            "historical_only": True, "current_truth": False,
+        }
+        if (isinstance(lineage["serving_operation_id"], str)
+                and len(json.dumps(lineage, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+                    <= MAX_VALUE_BYTES):
+            out.append(("chat_process.serving_operation_history",
+                _bounded(lineage), "historical_interpretation"))
     # Keep deterministic comparison results available to later cognition as
     # explicitly historical interpretation. They do not prove an effect or
     # become current merely because a projection was reconstructed recently.

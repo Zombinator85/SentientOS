@@ -289,7 +289,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               verified_chat_process_generation_attributions: Sequence[Mapping[str, Any]] = (),
                                               verified_chat_process_recovery_transitions: Sequence[Mapping[str, Any]] = (),
                                               verified_chat_process_runtime_observation: Mapping[str, Any] | None = None,
-                                              verified_serving_operation_attempts: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
+                                              verified_serving_operation_attempts: Sequence[Mapping[str, Any]] = (),
+                                              verified_serving_operation_history: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -931,6 +932,103 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "independent_signature": False,
                 "historical_only": True,
             },
+        }
+        output.append({**item, "digest": record_digest(item)})
+    for history in verified_serving_operation_history:
+        if (not isinstance(history, Mapping)
+                or set(history) != {"status", "attempt", "attempt_semantic_digest", "receipt",
+                    "receipt_semantic_digest", "history_semantic_digest"}
+                or history.get("history_semantic_digest") != semantic_digest({
+                    key: value for key, value in history.items()
+                    if key != "history_semantic_digest"})):
+            raise ValueError("serving_operation_history_binding_invalid")
+        attempt = history.get("attempt")
+        receipt = history.get("receipt")
+        status = history.get("status")
+        if attempt is not None:
+            if (not isinstance(attempt, Mapping)
+                    or attempt.get("installation_identity")
+                        != selected_source_identity.get("installation_identity")
+                    or attempt.get("attempt_semantic_digest")
+                        != history.get("attempt_semantic_digest")):
+                raise ValueError("serving_operation_history_attempt_invalid")
+            subject_id = str(attempt.get("attempt_id"))
+            operation_id = str(attempt.get("serving_operation_id"))
+        else:
+            if not isinstance(receipt, Mapping) or status != "legacy_receipt_without_reservation":
+                raise ValueError("serving_operation_history_legacy_invalid")
+            binding = receipt.get("binding")
+            if (not isinstance(binding, Mapping)
+                    or binding.get("installation_identity")
+                        != selected_source_identity.get("installation_identity")):
+                raise ValueError("serving_operation_history_receipt_invalid")
+            subject_id = str(receipt.get("receipt_id"))
+            operation_id = str(binding.get("serving_operation_id"))
+        if status not in {"serving_receipt_verified", "reservation_outcome_unknown",
+                          "legacy_receipt_without_reservation"}:
+            raise ValueError("serving_operation_history_status_invalid")
+        if receipt is not None:
+            if (not isinstance(receipt, Mapping)
+                    or receipt.get("receipt_semantic_digest")
+                        != history.get("receipt_semantic_digest")):
+                raise ValueError("serving_operation_history_receipt_invalid")
+            binding = receipt.get("binding")
+            if not isinstance(binding, Mapping) or binding.get("serving_operation_id") != operation_id:
+                raise ValueError("serving_operation_history_operation_mismatch")
+            loaded_at = receipt.get("model_loaded_at")
+            event_time_posture = "owner_observed_model_load_time"
+            evidence_strength = "owner_receipt_model_loaded_historical"
+            receipt_id = receipt.get("receipt_id")
+            receipt_digest = receipt.get("receipt_semantic_digest")
+            model_identity = receipt.get("binding", {}).get("observed_loaded_model_identity")
+            serving_session_id = receipt.get("session_id")
+        else:
+            if status != "reservation_outcome_unknown" or attempt is None:
+                raise ValueError("serving_operation_history_missing_receipt_invalid")
+            loaded_at = attempt.get("reserved_at")
+            event_time_posture = "reservation_time_model_load_outcome_unknown"
+            evidence_strength = "durable_serving_operation_reservation_outcome_unknown"
+            receipt_id = receipt_digest = serving_session_id = model_identity = None
+            binding = {}
+        payload = {
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "manifest_digest": selected_source_identity.get("manifest_digest"),
+            "serving_operation_id": operation_id,
+            "attempt_id": attempt.get("attempt_id") if isinstance(attempt, Mapping) else None,
+            "attempt_semantic_digest": history.get("attempt_semantic_digest"),
+            "receipt_id": receipt_id,
+            "receipt_semantic_digest": receipt_digest,
+            "serving_session_id": serving_session_id,
+            "activation_state_semantic_digest": binding.get("activation_state_semantic_digest",
+                attempt.get("activation_state_semantic_digest") if isinstance(attempt, Mapping) else None),
+            "activation_generation": binding.get("activation_generation",
+                attempt.get("activation_generation") if isinstance(attempt, Mapping) else None),
+            "model_id": binding.get("model_id",
+                attempt.get("model_id") if isinstance(attempt, Mapping) else None),
+            "artifact_id": binding.get("artifact_id"),
+            "runtime_id": binding.get("runtime_id"),
+            "observed_loaded_model_identity": model_identity,
+            "event_time": loaded_at,
+            "event_time_posture": event_time_posture,
+            "serving_history_status": status,
+            "current_model_claimed": False,
+            "inference_performed": False,
+            "effect_authority": False,
+            "resource_consumption_measurements": "unknown",
+            "historical_only": True,
+        }
+        item = {
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": "serving_operation_history:" + history["history_semantic_digest"],
+            "subject_kind": "serving_operation_history",
+            "subject_id": subject_id,
+            "stage": "history",
+            "disposition": "recorded",
+            "evidence_strength": evidence_strength,
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": observed_at,
+            "payload": payload,
         }
         output.append({**item, "digest": record_digest(item)})
     return output

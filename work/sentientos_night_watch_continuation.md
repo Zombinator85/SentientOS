@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the serving-attempt custody increment, GitHub branch inspection verified `4ac3a2c8469e241ff96489037b05f8593a449b23` (tree `7616bdba801659dc59bcf00f171a7a7a3ce27a41`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the serving receipt/reservation reconciliation increment, GitHub branch inspection verified `208a89ae8bdee279126d4771ba204f843b47cc8a` (tree `a5a5c0b017e3360f98d4e0d300c8c3f25b1035b8`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -492,3 +492,12 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for the serving owner, read-only observer, daemon composition, World-State projector, epistemic adapter, and longitudinal self-model. No model load, inference, crash, concurrency, Windows, World-State, cognition, or production verification was run.
 
 **Next implementation dependency:** inspect the serving reservation against prior serving receipts and activation lineage on restart; ensure completed receipts consume exactly one reservation and orphaned reservations remain visible without claiming whether loading finished.
+
+### New checkpoint — bind successful serving receipts to durable attempts
+
+- The serving owner now includes the exact reservation ID and digest in each newly published serving-session binding and receipt. It records an owner-observed model-load timestamp only after the expected model identity and activation lineage are rechecked.
+- A bounded read-only history reader verifies canonical serving receipts, reconciles operation IDs and operation-intent digests to reservation markers, and returns three truthful states: exact receipt plus reservation, reservation with unknown outcome, and legacy receipt predating reservation custody. A new receipt that names a missing reservation predecessor is rejected; duplicate/conflicting operation receipts are rejected.
+- The read-only installation observer supplies reconciled serving history to the existing resource-to-World-State projector. World-State records preserve event time separately from retrieval time and project only compact identity fields. Epistemic development now carries the source event time instead of snapshot time, keeps all of these records historical, and leaves incomplete/legacy states explicit. The longitudinal self-model retains bounded operation, attempt, receipt, activation, and model lineage without treating it as current truth or authority.
+- Python compilation passed for the six changed runtime modules. No tests, crash/restart, model load, serving, World-State admission, cognition, Windows, or production verification was run.
+
+**Next implementation dependency:** determine whether the separate chat process's current running software identity has an authenticated process-owned publisher or observer. Continue strengthening only the evidence handoff the existing process owners can support; Git commits, activation state, and the maintenance daemon remain insufficient evidence for that process's running generation.

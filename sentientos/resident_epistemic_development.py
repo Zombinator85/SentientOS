@@ -193,6 +193,15 @@ class ResidentEpistemicDevelopmentRuntime:
             and isinstance(fact.payload.get("serving_operation_attempt"), Mapping)
             and fact.payload.get("event_time_posture")
                 == "reservation_time_not_model_load_time")
+        historical_serving_operation_history = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "serving_operation_history"
+            and isinstance(fact.payload, Mapping)
+            and fact.payload.get("historical_only") is True
+            and fact.payload.get("current_model_claimed") is False
+            and fact.payload.get("event_time_posture") in {
+                "owner_observed_model_load_time",
+                "reservation_time_model_load_outcome_unknown"})
         historical_transition_observation = (
             historical_transition_event
             and fact.subject.subject_kind == "resident_model_transition"
@@ -237,7 +246,7 @@ class ResidentEpistemicDevelopmentRuntime:
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
-            or historical_serving_operation_attempt
+            or historical_serving_operation_attempt or historical_serving_operation_history
             or (historical_transition_observation and not qualified_transition_observation)
             or historical_strategy_proposal
             or historical_strategy_review or unverified_embodiment_observation
@@ -246,6 +255,12 @@ class ResidentEpistemicDevelopmentRuntime:
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
             sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:32]
+        if (historical_serving_operation_history and isinstance(fact.payload, Mapping)):
+            # Preserve the event time from the canonical serving receipt or
+            # reservation. World-State retrieval time is not a substitute.
+            source_event_time = fact.payload.get("event_time")
+            observed = (_latest_historical_event_time([source_event_time])
+                if isinstance(source_event_time, str) else None)
         if (historical_resource_fact and fact.subject.subject_kind == "host_resource_snapshot"
                 and isinstance(fact.payload, Mapping)):
             # The snapshot's payload timestamp belongs to the owner's
