@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `6f8e4c9e02830e54fcb09767d210c11ea5158811` (tree `eb42784a7c37fe31c9fcbe84f9d15a57959f7cd9`, parent `ab1321ced2ec029835ec5d3d43eb130d2c54a252`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `45f13e15c63348199773cac91e4a6223b3d5e7a7` (tree `2e4c160be3d0710e4bf574b29c9efb65320a39ad`, parent `ac2cedf28cb2b24e3fb31c3db8ac041f01b91e81`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -263,3 +263,15 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Remote branch verification: `6f8e4c9e02830e54fcb09767d210c11ea5158811`.
 
 **Next implementation dependency:** ensure this running-model and activation-chain evidence reaches configured World-State and epistemic-development selectors without being promoted to current truth, then review durable A/B transition recovery for stage-semantic validation beyond journal hash-chain integrity.
+
+
+### New checkpoint — recovered model transition stages are semantically re-bound
+
+- Activation verification now exposes the digest-bound commissioned model identity and stable activation-history digest. A read-only historical-selection verifier proves a journaled activation against the current complete activation chain, exact transaction state, receipt, generation, chain-prefix digest, and retained hardened commissioning receipt.
+- Transition activation now prechecks the exact commissioned identity against the protocol's intended predecessor/successor before the activation owner is called, then verifies the resulting state/receipt/identity after publication. Serving checks the currently selected identity and receipt again before loading.
+- Transition journal reconstruction now validates completed activation records against the historical activation verifier; validates v2 serving binding digests, exact session identity, activation state/receipt/history references and intended model; and binds resume evidence to the exact preceding serving session. Missing verifier or inconsistent lineage yields a blocked incomplete transition, never a replay.
+- Both model serving owners now compare the worker's live active identity with the loaded identity bound at establishment. The read-only observer returns no session on mismatch without unloading; mutating inference/current-session paths remain fail closed.
+- Python AST compilation passed for the five modified modules; the branch was fetched back at this checkpoint. No crash/restart, runtime, concurrency, model load, test-suite, Windows, or production verification was performed.
+- Remote branch verification: `45f13e15c63348199773cac91e4a6223b3d5e7a7`.
+
+**Next implementation dependency:** review the now-qualified running-model and transition facts through their exact source-kind selectors and persistence/recovery owners. Keep current session evidence undated, preserve configured opt-in, and ensure later cognition receives only the verified model lineage while any historical v1 stage remains explicitly incomplete.
