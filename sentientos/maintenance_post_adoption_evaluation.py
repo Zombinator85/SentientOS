@@ -617,7 +617,8 @@ class MaintenancePostAdoptionEvaluationOwner:
             if (signal := improvement_signal_record(evaluation)) is not None
         }
         signal_rows = self._read("signals")
-        if (any(row.get("source_artifact") not in expected_signals
+        if (any(not isinstance(row.get("source_artifact"), str)
+                    or row.get("source_artifact") not in expected_signals
                     or canonical_bytes(row) != canonical_bytes(expected_signals[row["source_artifact"]])
                     for row in signal_rows)):
             raise PostAdoptionEvaluationError("signal_lineage_invalid")

@@ -450,6 +450,9 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         if existing_results:
             existing = self.result(protocol.campaign_id)
             if existing.completed_at == completed_at:
+                signal = campaign_improvement_signal_record(existing)
+                if signal:
+                    self._write("signals", existing.result_id, signal)
                 return existing
             raise AttributionCampaignError("campaign_already_terminal")
         trials = sorted((CampaignTrial(**x) for x in self._read("trials") if x["campaign_id"] == protocol.campaign_id), key=lambda x:x.trial_order)
@@ -612,6 +615,7 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
 
         result_rows = self._read("results")
         results: dict[str, dict[str, Any]] = {}
+        result_values: dict[str, CampaignResult] = {}
         for row in result_rows:
             try:
                 protocol = protocols[row["campaign_id"]]
@@ -648,7 +652,17 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
                 raise AttributionCampaignError("campaign_history_corrupt") from exc
             _false(result.authority)
             results[result.result_id] = row
-        return {"protocols":len(protocols), "controls":len(controls), "trials":len(trials), "results":len(results), "signals":len(self._read("signals"))}
+            result_values[result.result_id] = result
+        expected_signals = {identity: signal for identity, result in result_values.items()
+            if (signal := campaign_improvement_signal_record(result)) is not None}
+        signal_rows = self._read("signals")
+        if any(not isinstance(row.get("source_artifact"), str)
+                or row.get("source_artifact") not in expected_signals
+                or canonical_bytes(row) != canonical_bytes(expected_signals[row["source_artifact"]])
+                for row in signal_rows):
+            raise AttributionCampaignError("campaign_signal_lineage_invalid")
+        return {"protocols":len(protocols), "controls":len(controls), "trials":len(trials),
+            "results":len(results), "signals":len(signal_rows)}
 
 
 def campaign_epistemic_binding(*, proposition_id: str, result: CampaignResult,
