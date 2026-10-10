@@ -550,6 +550,16 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             "record_digest": resource_record.get("digest"),
             "ledger_digest": resource_record.get("payload", {}).get("ledger_digest")}
             if resource_record is not None else None)
+        allocation_identity = None
+        if resource_record is not None and len(allocations) == 1:
+            allocation = allocations[0]
+            allocation_identity = {key: allocation.get(key) for key in (
+                "allocation_id", "allocation_digest", "principal_id", "principal_binding_digest",
+                "principal_epoch", "resource_kind", "epoch", "policy_digest")}
+        request_context = payload.get("invocation_request_context_linkage")
+        task_context = ({key: request_context.get(key) for key in (
+            "experiment_condition", "experiment_protocol_id", "history_record_ids")}
+            if isinstance(request_context, Mapping) else None)
         join = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
             "source_id": "strategy-resource-lineage:" + digest({
                 "proposal_id": proposal.get("subject_id"),
@@ -566,8 +576,18 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "invocation_receipt_id": payload.get("invocation_receipt_id"),
                 "invocation_receipt_digest": linkage.get("effect_receipt_digest"),
                 "resource_linkage": semantic_linkage, "resource_record": resource_ref,
-                "principal_binding_digest": (allocations[0].get("principal_binding_digest")
-                    if resource_record is not None and len(allocations) == 1 else None),
+                "allocation_identity": allocation_identity,
+                "principal_id": (allocation_identity.get("principal_id")
+                    if allocation_identity is not None else None),
+                "principal_binding_digest": (allocation_identity.get("principal_binding_digest")
+                    if allocation_identity is not None else None),
+                "model_attribution": {"model_id": linkage.get("model_id"),
+                    "model_artifact_digest": linkage.get("model_artifact_digest"),
+                    "active_model_identity_digest": payload.get("active_model_identity_digest")},
+                "software_attribution": {"declared_generation": payload.get("declared_software_generation"),
+                    "generation_posture": payload.get("software_generation_posture"),
+                    "execution_provenance_digest": payload.get("software_execution_provenance_digest")},
+                "task_context": task_context,
                 "event_times": sorted(str(item.get("observed_at")) for item in ledger_receipts
                     if isinstance(item.get("observed_at"), str)) if resource_record is not None else [],
                 "lineage_findings": sorted(set(findings)),
