@@ -23,6 +23,7 @@ COMPARISON_SCHEMA = "sentientos.embodied_prediction_comparison:v1"
 STRATEGY_SCHEMA = "sentientos.embodied_strategy_proposal:v1"
 EXPERIMENT_SCHEMA = "sentientos.embodied_strategy_experiment:v1"
 EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_result:v1"
+MAX_STRATEGY_CONTEXT_BYTES = 1_048_576
 FALSE_AUTHORITY = {"effect_authority": False, "adoption_authority": False,
                    "observation_authority": False, "goal_authority": False,
                    "authoring_authority": False, "execution_authority": False}
@@ -400,10 +401,29 @@ class EmbodiedStrategyProposal:
 
 def make_strategy_proposal(**kwargs: Any) -> EmbodiedStrategyProposal:
     raw=EmbodiedStrategyProposal("","",authority=dict(FALSE_AUTHORITY),**kwargs)
-    _validate_authority(raw.authority)
-    if raw.uncertainty not in {"low","medium","high","unknown"} or len(raw.rationale)>2000:
-        raise EmbodiedConsequenceError("strategy_proposal_invalid")
+    verify_strategy_proposal(raw, identity_required=False)
     sid,dg=_identity("strategy",raw.semantic_payload()); return replace(raw,strategy_id=sid,strategy_digest=dg)
+
+
+def verify_strategy_proposal(value: EmbodiedStrategyProposal, *, identity_required: bool = True,
+                             situation_binding: str | None = None,
+                             body_generation: int | None = None) -> None:
+    _validate_authority(value.authority)
+    if (value.schema_version != STRATEGY_SCHEMA or not value.situation_binding
+            or value.body_generation < 1 or value.uncertainty not in {"low","medium","high","unknown"}
+            or not isinstance(value.rationale, str) or len(value.rationale) > 2000
+            or not isinstance(value.proposed_next_action_class, str) or not value.proposed_next_action_class
+            or len(value.relevant_consequence_ids) > 64
+            or len(set(value.relevant_consequence_ids)) != len(value.relevant_consequence_ids)
+            or len(value.factual_assertions) > 64
+            or (situation_binding is not None and value.situation_binding != situation_binding)
+            or (body_generation is not None and value.body_generation != body_generation)):
+        raise EmbodiedConsequenceError("strategy_proposal_invalid")
+    if any(not isinstance(item, Mapping) or len(canonical_bytes(item)) > 4096
+           for item in value.factual_assertions):
+        raise EmbodiedConsequenceError("strategy_assertion_bounds_invalid")
+    if identity_required and (value.strategy_id, value.strategy_digest) != _identity("strategy", value.semantic_payload()):
+        raise EmbodiedConsequenceError("strategy_proposal_digest_mismatch")
 
 
 class StrategyCognitionBackend(Protocol):
@@ -412,6 +432,8 @@ class StrategyCognitionBackend(Protocol):
 
 def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], consequence: Mapping[str, Any]) -> dict[str, Any]:
     if len(proposals)!=3: raise EmbodiedConsequenceError("strategy_condition_count_invalid")
+    _verify_consequence_attribution(consequence)
+    for proposal in proposals: verify_strategy_proposal(proposal)
     present,withheld,restored=proposals
     known={str(consequence["attribution_id"])}
     def score(p: EmbodiedStrategyProposal) -> dict[str, Any]:
@@ -438,19 +460,59 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
                             backend: StrategyCognitionBackend, consequence: Mapping[str, Any]) -> dict[str, Any]:
     required={"protocol_id","snapshot_digest","body_generation","model_id","model_artifact_digest","inference_budget_digest",
               "prompt_schema_digest","renderer_situation_digest","software_generation","environment_fixture_digest"}
-    if set(protocol)!=required: raise EmbodiedConsequenceError("strategy_protocol_shape_invalid")
+    if (set(protocol)!=required or len(canonical_bytes(dict(protocol)))>MAX_STRATEGY_CONTEXT_BYTES
+            or any(not isinstance(protocol.get(key),str) or not protocol[key]
+                   for key in required-{"body_generation"})
+            or type(protocol.get("body_generation")) is not int or protocol["body_generation"]<1
+            or len(canonical_bytes(dict(history_record)))>MAX_STRATEGY_CONTEXT_BYTES
+            or len(canonical_bytes(dict(situation)))>MAX_STRATEGY_CONTEXT_BYTES):
+        raise EmbodiedConsequenceError("strategy_protocol_shape_invalid")
+    _verify_consequence_attribution(consequence)
     record_digest=history_record.get("record_digest")
+    record_semantic=dict(history_record); record_semantic.pop("record_id",None); record_semantic.pop("record_digest",None)
+    calculated_record_digest=digest(record_semantic)
+    calculated_record_id="devrec-"+calculated_record_digest[7:31]
+    history_binding_verified=(record_digest==calculated_record_digest
+                              and history_record.get("record_id")==calculated_record_id
+                              and isinstance(history_record.get("candidate"),Mapping)
+                              and history_record["candidate"].get("epistemic_posture")=="historical_interpretation_not_current_truth"
+                              and history_record.get("current_truth") is False
+                              and history_record.get("authority") is False
+                              and history_record.get("policy") is False)
+    situation_digest=digest(dict(situation))
+    situation_binding_verified=protocol.get("renderer_situation_digest")==situation_digest
     conditions=("history_present","history_withheld","history_restored")
     proposals=[]
     for condition in conditions:
         history=() if condition=="history_withheld" else (history_record,)
-        proposals.append(backend.propose(condition=condition,history=history,situation=situation))
+        # Each call receives an independent canonical copy so a backend cannot
+        # mutate shared context and contaminate a later control condition.
+        situation_copy=json.loads(canonical_bytes(dict(situation)))
+        proposals.append(backend.propose(condition=condition,history=history,situation=situation_copy))
+    expected_situation_binding=str(situation.get("situation_binding", ""))
+    for proposal in proposals:
+        verify_strategy_proposal(proposal, situation_binding=expected_situation_binding,
+                                 body_generation=int(protocol["body_generation"]))
     scoring=score_strategy_experiment(proposals=proposals,consequence=consequence)
     payload={"schema_version":EXPERIMENT_RESULT_SCHEMA,"protocol":dict(protocol),"protocol_digest":digest(protocol),
         "condition_order":list(conditions),"withheld_record_id":history_record.get("record_id"),"withheld_record_digest":record_digest,
+        "history_record_identity_consistent":history_binding_verified,
+        "situation_matches_declared_digest":situation_binding_verified,
+        "cognitive_execution_identity_posture":"declared_only_no_invocation_receipt",
+        "input_context_digest":digest({"situation":dict(situation),"history_record_id":history_record.get("record_id"),
+            "history_record_digest":record_digest,"consequence_id":consequence.get("attribution_id"),
+            "consequence_digest":consequence.get("attribution_digest")}),
+        "validity":"controlled_context_identity_consistent" if history_binding_verified and situation_binding_verified else "context_binding_incomplete",
         "proposals":[asdict(p) for p in proposals],"scoring":scoring,"no_retries":True,"improvement_claimed":False,"authority":dict(FALSE_AUTHORITY)}
     payload["experiment_result_id"],payload["experiment_result_digest"]=_identity("strategy-experiment",payload)
     return payload
+
+
+def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
+    semantic=dict(value); claimed_id=semantic.pop("attribution_id",None); claimed_digest=semantic.pop("attribution_digest",None)
+    expected_id,expected_digest=_identity("consequence",semantic)
+    if claimed_id!=expected_id or claimed_digest!=expected_digest or dict(value.get("authority",{}))!=dict(FALSE_AUTHORITY):
+        raise EmbodiedConsequenceError("consequence_attribution_binding_invalid")
 
 
 class ConsequenceStore:
