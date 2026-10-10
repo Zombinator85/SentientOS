@@ -244,9 +244,22 @@ class MaintenanceProductionPostAdoptionCampaign:
             raise ProductionCampaignError("campaign_custody_tampered")
         protocol = self.campaigns.protocol(campaign_id)
         if protocol.campaign_digest != body["campaign_digest"]: raise ProductionCampaignError("campaign_custody_tampered")
+        if (body.get("evaluation_protocol_ids") != list(protocol.evaluation_protocol_ids)
+                or body.get("evaluation_protocol_digests") != list(protocol.evaluation_protocol_digests)
+                or len(body.get("baseline_ids", [])) != len(protocol.trial_ids)
+                or len(body.get("baseline_digests", [])) != len(protocol.trial_ids)):
+            raise ProductionCampaignError("campaign_custody_tampered")
         for index, identity in enumerate(body["evaluation_protocol_ids"]):
             evaluation = self.evaluations.protocol(identity); baseline = self.evaluations.baseline(identity)
-            if evaluation.protocol_digest != body["evaluation_protocol_digests"][index] or baseline.baseline_digest != body["baseline_digests"][index]:
+            if (evaluation.protocol_digest != body["evaluation_protocol_digests"][index]
+                    or evaluation.predecessor_generation != protocol.predecessor_generation
+                    or evaluation.expected_successor_generation != protocol.successor_generation
+                    or evaluation.landed_commit != protocol.successor_revision
+                    or evaluation.landed_tree != protocol.successor_tree
+                    or baseline.baseline_id != body["baseline_ids"][index]
+                    or baseline.baseline_digest != body["baseline_digests"][index]
+                    or baseline.source_revision != protocol.predecessor_revision
+                    or baseline.source_tree != protocol.predecessor_tree):
                 raise ProductionCampaignError("campaign_custody_tampered")
         return cast(Mapping[str, Any], body)
 
@@ -269,10 +282,68 @@ class MaintenanceProductionPostAdoptionCampaign:
             raise ProductionCampaignError("campaign_qualification_corrupt")
         return cast(Mapping[str, Any], body)
 
+    def _verify_evaluation_lineage(self, campaign_id: str) -> Mapping[str, int]:
+        """Reconcile trial claims with the exact independent evaluation custody."""
+        protocol = self.campaigns.protocol(campaign_id)
+        evaluation_counts = self.evaluations.verify()
+        campaign_counts = self.campaigns.verify()
+        selected_protocols = set(protocol.evaluation_protocol_ids)
+        evaluation_rows = [row for row in self.evaluations._read("evaluations")
+            if row.get("protocol_id") in selected_protocols]
+        evaluation_by_id = {}
+        for row in evaluation_rows:
+            try:
+                evaluation = self.evaluations.evaluation(str(row["evaluation_id"]), str(row["evaluation_digest"]))
+                order = protocol.evaluation_protocol_ids.index(evaluation.protocol_id)
+            except (KeyError, ValueError) as exc:
+                raise ProductionCampaignError("campaign_evaluation_protocol_unselected") from exc
+            if (evaluation.protocol_digest != protocol.evaluation_protocol_digests[order]
+                    or evaluation.predecessor_generation != protocol.predecessor_generation
+                    or evaluation.successor_generation != protocol.successor_generation
+                    or evaluation.predecessor_revision != protocol.predecessor_revision
+                    or evaluation.successor_revision != protocol.successor_revision
+                    or evaluation.evaluation_id in evaluation_by_id):
+                raise ProductionCampaignError("campaign_evaluation_lineage_substitution")
+            evaluation_by_id[evaluation.evaluation_id] = evaluation
+        trial_rows = [row for row in self.campaigns._read("trials")
+            if row.get("campaign_id") == campaign_id]
+        linked_evaluations: set[str] = set()
+        for trial in trial_rows:
+            order = protocol.trial_ids.index(trial["trial_id"])
+            expected_protocol_id = protocol.evaluation_protocol_ids[order]
+            expected_protocol_digest = protocol.evaluation_protocol_digests[order]
+            if (trial["evaluation_protocol_id"] != expected_protocol_id
+                    or trial["evaluation_protocol_digest"] != expected_protocol_digest):
+                raise ProductionCampaignError("campaign_evaluation_protocol_lineage_invalid")
+            if trial.get("evaluation_id") is None:
+                if trial.get("evaluation_digest") is not None:
+                    raise ProductionCampaignError("campaign_evaluation_lineage_incomplete")
+                continue
+            evaluation = evaluation_by_id.get(str(trial["evaluation_id"]))
+            if (evaluation is None or evaluation.evaluation_digest != trial.get("evaluation_digest")
+                    or evaluation.protocol_id != expected_protocol_id
+                    or evaluation.protocol_digest != expected_protocol_digest
+                    or evaluation.predecessor_generation != protocol.predecessor_generation
+                    or evaluation.successor_generation != protocol.successor_generation
+                    or evaluation.predecessor_revision != protocol.predecessor_revision
+                    or evaluation.successor_revision != protocol.successor_revision
+                    or trial.get("evaluation_result") != evaluation.result
+                    or tuple(trial.get("evaluation_lineage", ())) != evaluation.reconstruction_lineage):
+                raise ProductionCampaignError("campaign_evaluation_lineage_substitution")
+            if evaluation.evaluation_id in linked_evaluations:
+                raise ProductionCampaignError("campaign_evaluation_reused")
+            linked_evaluations.add(evaluation.evaluation_id)
+        # Unlinked durable evaluations are allowed only as a recoverable crash point.
+        return {"evaluation_records":evaluation_counts["evaluations"],
+            "campaign_trials":len(trial_rows), "linked_evaluations":len(linked_evaluations),
+            "campaign_records":campaign_counts["results"],
+            "evaluation_inventory":evaluation_counts, "campaign_inventory":campaign_counts}
+
     def readiness(self, campaign_id: str, evidence: Mapping[str, Mapping[str, Any]], *,
                   artifact_path: str | Path | None = None) -> Mapping[str, Any]:
         """Derive production posture from exact real records, never a caller label."""
         custody = self.reconstruct(campaign_id); protocol = self.campaigns.protocol(campaign_id)
+        self._verify_evaluation_lineage(campaign_id)
         generation = evidence.get("generation", {}); continuity = evidence.get("continuity", {})
         adoption = evidence.get("adoption", {}); provenance = evidence.get("launch_provenance", {})
         adoption_event = evidence.get("adoption_completion_event", {})
@@ -469,10 +540,13 @@ class MaintenanceProductionPostAdoptionCampaign:
     def finalize(self, campaign_id: str, *, completed_at: str) -> Mapping[str, Any]:
         if self.read_only:
             raise ProductionCampaignError("production_campaign_store_read_only")
+        self.reconstruct(campaign_id)
+        self._verify_evaluation_lineage(campaign_id)
         return asdict(self.campaigns.finalize(self.campaigns.protocol(campaign_id), completed_at=completed_at))
 
     def report(self, campaign_id: str, *, proposition_id: str | None = None) -> Mapping[str, Any]:
         custody = self.reconstruct(campaign_id)
+        self._verify_evaluation_lineage(campaign_id)
         try:
             qualification = self._qualification(campaign_id)
             readiness = self.readiness(campaign_id, qualification["evidence"])
@@ -490,9 +564,14 @@ class MaintenanceProductionPostAdoptionCampaign:
         body["bundle_digest"] = _digest(body); return body
 
     def verify(self, campaign_id: str) -> Mapping[str, Any]:
-        custody = self.reconstruct(campaign_id); evaluations = self.evaluations.verify(); campaigns = self.campaigns.verify()
+        custody = self.reconstruct(campaign_id)
+        linkage = self._verify_evaluation_lineage(campaign_id)
         return {"status": "production_campaign_custody_verified", "custody_digest": custody["custody_digest"],
-                "evaluation_records": evaluations, "campaign_records": campaigns, "effects": FALSE_EFFECTS}
+                "evaluation_records":linkage["evaluation_inventory"],
+                "campaign_records":linkage["campaign_inventory"],
+                "lineage":{key:value for key,value in linkage.items()
+                    if key not in {"evaluation_inventory", "campaign_inventory"}},
+                "effects": FALSE_EFFECTS}
 
 
 __all__ = ["MaintenanceProductionPostAdoptionCampaign", "ProductionCampaignError", "FALSE_EFFECTS"]
