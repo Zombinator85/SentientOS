@@ -344,22 +344,104 @@ class GovernedLocalModelResourceLedger:
     def _verify_invariants(state: Mapping[str, object]) -> None:
         allocations = state["allocations"]; attempts = state["attempts"]; receipts = state["receipts"]
         assert isinstance(allocations, dict) and isinstance(attempts, dict) and isinstance(receipts, list)
+        allocation_values: dict[str, GovernedLocalModelResourceAllocation] = {}
+        for allocation_id, item in allocations.items():
+            if not isinstance(allocation_id, str) or not isinstance(item, Mapping):
+                raise GovernedLocalModelResourceError("malformed_ledger_allocation")
+            allocation = GovernedLocalModelResourceAllocation.from_mapping(item)
+            if allocation.allocation_id != allocation_id:
+                raise GovernedLocalModelResourceError("malformed_ledger_allocation")
+            allocation_values[allocation_id] = allocation
+
+        attempt_allocations: dict[str, GovernedLocalModelResourceAllocation] = {}
+        for attempt_id, attempt in attempts.items():
+            if (not isinstance(attempt_id, str) or not attempt_id.startswith("lmattempt-")
+                    or not isinstance(attempt, dict)
+                    or set(attempt) != {"allocation_id", "status"}
+                    or attempt.get("allocation_id") not in allocation_values
+                    or attempt.get("status") not in {"provisional", "begun", "restored"}):
+                raise GovernedLocalModelResourceError("malformed_ledger_attempt")
+            attempt_allocations[attempt_id] = allocation_values[attempt["allocation_id"]]
+
         seen: dict[str, str] = {}
+        histories: dict[str, list[GovernedLocalModelResourceConsumptionReceipt]] = {}
         for item in receipts:
-            if not isinstance(item, Mapping): raise GovernedLocalModelResourceError("malformed_ledger_receipt")
+            if not isinstance(item, Mapping):
+                raise GovernedLocalModelResourceError("malformed_ledger_receipt")
             receipt = GovernedLocalModelResourceConsumptionReceipt.from_mapping(item)
             expected = seen.get(receipt.attempt_id)
-            if receipt.previous_receipt_digest != expected: raise GovernedLocalModelResourceError("broken_receipt_predecessor")
+            if receipt.previous_receipt_digest != expected:
+                raise GovernedLocalModelResourceError("broken_receipt_predecessor")
+            allocation = attempt_allocations.get(receipt.attempt_id)
+            if allocation is None:
+                raise GovernedLocalModelResourceError("receipt_attempt_missing")
+            if (receipt.allocation_digest != allocation.allocation_digest
+                    or receipt.principal_binding_digest != allocation.principal_binding_digest):
+                raise GovernedLocalModelResourceError("receipt_allocation_or_principal_substitution")
             seen[receipt.attempt_id] = receipt.receipt_digest
-        for allocation_id, item in allocations.items():
-            allocation = GovernedLocalModelResourceAllocation.from_mapping(item)
-            debits = sum(1 for attempt in attempts.values() if isinstance(attempt, dict) and attempt.get("allocation_id") == allocation_id and attempt.get("status") in {"provisional", "begun"})
-            if debits > allocation.resource_specific_bounds.max_calls_per_correlation: raise GovernedLocalModelResourceError("negative_remaining_calls")
-        for attempt_id, attempt in attempts.items():
-            if not isinstance(attempt_id, str) or not attempt_id.startswith("lmattempt-") or not isinstance(attempt, dict):
-                raise GovernedLocalModelResourceError("malformed_ledger_attempt")
-            if set(attempt) != {"allocation_id", "status"} or attempt["allocation_id"] not in allocations or attempt["status"] not in {"provisional", "begun", "restored"}:
-                raise GovernedLocalModelResourceError("malformed_ledger_attempt")
+            histories.setdefault(receipt.attempt_id, []).append(receipt)
+
+        for attempt_id, allocation in attempt_allocations.items():
+            attempt = attempts[attempt_id]
+            history = histories.get(attempt_id, [])
+            states = [receipt.state for receipt in history]
+            attempt_begun = [receipt for receipt in history if receipt.state == "attempt_begun"]
+            not_begun = [receipt for receipt in history if receipt.state == "attempted_not_begun"]
+            measured = [receipt for receipt in history if receipt.state in {
+                "measured_completed", "measured_timeout", "measured_backend_failure"}]
+            reconciled = [receipt for receipt in history if receipt.state == "reconciled"]
+            if len(attempt_begun) > 1 or len(not_begun) > 1 or len(measured) > 1 or len(reconciled) > 1:
+                raise GovernedLocalModelResourceError("attempt_receipt_transition_duplicate")
+            if attempt["status"] == "provisional":
+                if history:
+                    raise GovernedLocalModelResourceError("provisional_attempt_has_receipt")
+                continue
+            if attempt["status"] == "restored":
+                if (states != ["attempted_not_begun"]
+                        or history[0].effect_receipt_digest is not None
+                        or history[0].resource_specific_measurement.get("generation_attempted") is not False
+                        or history[0].resource_specific_measurement.get("call_units_consumed") != 0):
+                    raise GovernedLocalModelResourceError("restored_attempt_receipt_invalid")
+                continue
+            # A begun attempt with no receipt is retained as an incomplete
+            # publication boundary. Every later state must extend the exact
+            # attempt_begun -> one measurement -> optional reconciliation chain.
+            if not history:
+                continue
+            expected_prefix = ["attempt_begun"]
+            if states[0] != "attempt_begun" or not attempt_begun:
+                raise GovernedLocalModelResourceError("begun_attempt_receipt_missing")
+            if (history[0].effect_receipt_digest is not None
+                    or history[0].resource_specific_measurement.get("generation_attempted") is not True
+                    or history[0].resource_specific_measurement.get("call_units_consumed") != 1):
+                raise GovernedLocalModelResourceError("attempt_begun_measurement_invalid")
+            if len(states) > 1:
+                expected_prefix.append(states[1])
+                if states[1] not in {"measured_completed", "measured_timeout", "measured_backend_failure"}:
+                    raise GovernedLocalModelResourceError("attempt_measurement_transition_invalid")
+                measured_receipt = history[1]
+                if (measured_receipt.effect_receipt_digest is not None
+                        or measured_receipt.resource_specific_measurement.get("generation_attempted") is not True
+                        or measured_receipt.resource_specific_measurement.get("call_units_consumed") != 1):
+                    raise GovernedLocalModelResourceError("attempt_measurement_receipt_invalid")
+            if len(states) > 2:
+                expected_prefix.append("reconciled")
+                if states[2] != "reconciled" or history[2].effect_receipt_digest is None:
+                    raise GovernedLocalModelResourceError("attempt_reconciliation_receipt_invalid")
+                if (len(states) > 3
+                        or history[2].resource_specific_measurement
+                            != history[1].resource_specific_measurement):
+                    raise GovernedLocalModelResourceError("attempt_reconciliation_lineage_invalid")
+            if states != expected_prefix:
+                raise GovernedLocalModelResourceError("attempt_receipt_transition_order_invalid")
+
+        for allocation_id, allocation in allocation_values.items():
+            debits = sum(1 for attempt in attempts.values()
+                if isinstance(attempt, dict)
+                and attempt.get("allocation_id") == allocation_id
+                and attempt.get("status") in {"provisional", "begun"})
+            if debits > allocation.resource_specific_bounds.max_calls_per_correlation:
+                raise GovernedLocalModelResourceError("negative_remaining_calls")
 
     def _persist_candidate(self, candidate: dict[str, Any]) -> None:
         """Publish a candidate before making it the process-local ledger state.

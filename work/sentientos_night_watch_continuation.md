@@ -729,3 +729,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `governed_local_model_resource_allocation.py`. No filesystem fault injection, restart, allocation, or resource debit was run.
 
 **Next implementation dependency:** verify that the existing restart snapshot treats durable provisional/begun attempts as spent or incomplete, and restored attempts as non-replayed, without recomputing entitlement from only the receipt tail.
+
+## New checkpoint — validate ledger receipt ownership and attempt transitions during recovery
+
+- The previously published read-only ledger verifier authenticated receipt digests and per-attempt predecessor links but did not require each receipt's attempt to exist, match its allocation/principal, or follow a unique allowed transition sequence.
+- Recovery validation now indexes canonical allocations and attempts, binds every receipt to the exact allocation and principal digest, and checks each attempt history against its persisted attempt status. Provisional attempts cannot carry receipts; restored attempts require exactly one zero-call not-begun receipt; begun attempts may retain an incomplete boundary, or progress through one backend-entry receipt, one measured outcome, and optional reconciliation in order.
+- Duplicate state transitions, orphan/substituted attempts, wrong allocation/principal, invalid debit measurement, or reconciliation substitution reject the snapshot. This is read-only validation; it does not replay a call or restore entitlement. The constructor's existing fail-closed recovery behavior remains in place.
+- `py_compile` passed for the edited ledger module. No restart, ledger fixture, allocation, or fault-injection behavior was executed; construction remains unverified for production.
+
+**Next implementation dependency:** inspect the existing resource-ledger read-only snapshot and bounded projection for how validation failure and incomplete begun attempts reach World-State after process restart. Ensure invalid custody is represented as degraded/unavailable rather than dropped as if no resource history existed, and that a valid incomplete attempt remains explicitly incomplete without freshening its historical event time.
