@@ -266,6 +266,16 @@ class GovernedLocalModelResourceConsumptionReceipt:
     def to_dict(self) -> dict[str, object]: return asdict(self)
 
 
+@dataclass(frozen=True, slots=True)
+class GovernedLocalModelResourceLedgerObservation:
+    """Validated immutable view of ledger bytes; it owns no allocation or write capability."""
+
+    _snapshot: Mapping[str, object]
+
+    def observation_snapshot(self) -> Mapping[str, object]:
+        return self._snapshot
+
+
 class GovernedLocalModelResourceLedger:
     """Single-process, digest-sealed, atomically replaced ledger custody."""
     def __init__(self, path: str | Path) -> None:
@@ -287,7 +297,44 @@ class GovernedLocalModelResourceLedger:
         self._verify_invariants(state)
         return state
 
-    def _verify_invariants(self, state: Mapping[str, object]) -> None:
+    @classmethod
+    def read_only_snapshot(cls, raw_bytes: bytes, *, max_bytes: int = 8 * 1024 * 1024) -> GovernedLocalModelResourceLedgerObservation:
+        """Validate one bounded atomic ledger image without opening mutable ledger custody."""
+        if type(raw_bytes) is not bytes or type(max_bytes) is not int or max_bytes < 1:
+            raise GovernedLocalModelResourceError("invalid_read_only_ledger_input")
+        if len(raw_bytes) > max_bytes:
+            raise GovernedLocalModelResourceError("ledger_size_bound_exceeded")
+        try:
+            raw = json.loads(raw_bytes.decode("utf-8"), object_pairs_hook=_object_pairs,
+                             parse_constant=lambda _: (_ for _ in ()).throw(GovernedLocalModelResourceError("nonfinite_json")))
+        except GovernedLocalModelResourceError:
+            raise
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise GovernedLocalModelResourceError("malformed_json") from exc
+        if not isinstance(raw, dict):
+            raise GovernedLocalModelResourceError("json_object_required")
+        _closed(raw, {"schema", "allocations", "attempts", "receipts", "ledger_digest"}, "ledger")
+        body = dict(raw)
+        claimed = body.pop("ledger_digest")
+        if raw["schema"] != LEDGER_SCHEMA or claimed != _digest(body):
+            raise GovernedLocalModelResourceError("ledger_digest_mismatch")
+        allocations, attempts, receipts = raw["allocations"], raw["attempts"], raw["receipts"]
+        if not isinstance(allocations, dict) or not isinstance(attempts, dict) or not isinstance(receipts, list):
+            raise GovernedLocalModelResourceError("malformed_ledger")
+        for key, item in allocations.items():
+            if not isinstance(item, Mapping) or GovernedLocalModelResourceAllocation.from_mapping(item).allocation_id != key:
+                raise GovernedLocalModelResourceError("malformed_ledger_allocation")
+        cls._verify_invariants(body)
+        snapshot = {
+            "schema": LEDGER_SCHEMA, "ledger_digest": claimed,
+            "allocations": tuple(dict(item) for item in allocations.values()),
+            "attempts": tuple({"attempt_id": key, **dict(value)} for key, value in sorted(attempts.items())),
+            "receipts": tuple(dict(item) for item in receipts),
+        }
+        return GovernedLocalModelResourceLedgerObservation(snapshot)
+
+    @staticmethod
+    def _verify_invariants(state: Mapping[str, object]) -> None:
         allocations = state["allocations"]; attempts = state["attempts"]; receipts = state["receipts"]
         assert isinstance(allocations, dict) and isinstance(attempts, dict) and isinstance(receipts, list)
         seen: dict[str, str] = {}
@@ -468,4 +515,5 @@ class GovernedLocalModelResourceAllocator:
 __all__ = ["ALLOCATOR_ID", "RESOURCE_KIND", "GovernedLocalModelAllocationValidity",
  "GovernedLocalModelResourceAllocation", "GovernedLocalModelResourceAllocator", "GovernedLocalModelResourceBounds",
  "GovernedLocalModelResourceConsumptionReceipt", "GovernedLocalModelResourceError", "GovernedLocalModelResourceLedger",
+ "GovernedLocalModelResourceLedgerObservation",
  "GovernedLocalModelResourcePolicy"]

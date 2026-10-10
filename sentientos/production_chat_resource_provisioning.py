@@ -16,7 +16,7 @@ from .causal_resource_principal_trust_catalog import ReadOnlyTrustedIssuerCatalo
 from .governed_local_model_resource_allocation import (ALLOCATOR_ID, RESOURCE_KIND,
     GovernedLocalModelResourceAllocator, GovernedLocalModelResourceLedger,
     GovernedLocalModelResourcePolicy)
-from .installation_state import InstallationStateHandle
+from .installation_state import InstallationStateError, InstallationStateHandle
 from .production_chat_resource_context import ProductionChatResourceContextOwner
 
 MANIFEST_SCHEMA = "sentientos.production_chat_resource_provisioning:v1"
@@ -139,18 +139,36 @@ def load_production_chat_resource_context_owner(
         raise ProductionChatResourceProvisioningError("manifest_policy_mismatch")
     ledger_object = installation_handle.fixed_object(prefix + _NAMES["ledger"])
     installation_handle.read_regular(ledger_object)  # existence/type custody before constructor
-    ledger = GovernedLocalModelResourceLedger(ledger_object.path)
-    allocation = ledger.allocation(cast(str, manifest["allocation_id"]))
+    lock_directory = installation_handle.fixed_object("local-model/resource-provisioning-locks")
+    installation_handle.ensure_directory(lock_directory)
+    owner_lock = installation_handle.exclusive_lock(
+        lock_directory.child(selected + ".ledger-owner.lock"), blocking=False)
+    try:
+        owner_lock.__enter__()
+    except InstallationStateError as exc:
+        raise ProductionChatResourceProvisioningError("resource_ledger_process_owner_unavailable") from exc
+    try:
+        ledger = GovernedLocalModelResourceLedger(ledger_object.path)
+        allocation = ledger.allocation(cast(str, manifest["allocation_id"]))
+    except Exception:
+        owner_lock.__exit__(None, None, None)
+        raise
     bindings = ((allocation.allocation_digest, manifest["allocation_digest"]),
         (allocation.resource_kind, manifest["resource_kind"]), (allocation.allocator_id, manifest["allocator_id"]),
         (allocation.principal_id, manifest["principal_id"]),
         (allocation.principal_binding_digest, manifest["principal_binding_digest"]),
         (allocation.policy_digest, manifest["resource_policy_digest"]))
     if any(actual != expected for actual, expected in bindings):
+        owner_lock.__exit__(None, None, None)
         raise ProductionChatResourceProvisioningError("manifest_allocation_mismatch")
-    allocator = GovernedLocalModelResourceAllocator(policy=policy, ledger=ledger)
-    return ProductionChatResourceContextOwner(allocator=allocator, allocation=allocation, principal=principal,
-        authenticated=authenticated, current=current, policy=policy, nonce_source=nonce_source, clock=clock)
+    try:
+        allocator = GovernedLocalModelResourceAllocator(policy=policy, ledger=ledger)
+        return ProductionChatResourceContextOwner(allocator=allocator, allocation=allocation, principal=principal,
+            authenticated=authenticated, current=current, policy=policy, nonce_source=nonce_source, clock=clock,
+            ledger_owner_lock=owner_lock)
+    except Exception:
+        owner_lock.__exit__(None, None, None)
+        raise
 
 
 __all__ = ["MANIFEST_SCHEMA", "ProductionChatResourceProvisioningError",

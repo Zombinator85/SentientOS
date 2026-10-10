@@ -68,11 +68,17 @@ class DevelopmentSimulationInference:
 
 
 class ProductionChatComposition:
-    __slots__ = ("service", "_serving")
-    def __init__(self, service: "PersistentConversationService", serving: ProductionServingController) -> None:
+    __slots__ = ("service", "_serving", "_resource_owner")
+    def __init__(self, service: "PersistentConversationService", serving: ProductionServingController,
+                 resource_owner: ProductionChatResourceContextOwner | None = None) -> None:
         self.service, self._serving = service, serving
+        self._resource_owner = resource_owner
     def close(self) -> None:
-        self._serving.close()
+        try:
+            self._serving.close()
+        finally:
+            if self._resource_owner is not None:
+                self._resource_owner.close()
     def ready(self) -> bool:
         return cast(bool, self._serving.serving_is_current())
 
@@ -170,6 +176,8 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     if resource_context_owner is not None and type(resource_context_owner) is not ProductionChatResourceContextOwner:
         raise TypeError("exact_production_chat_resource_context_owner_required")
+    if resource_context_owner is not None and not resource_context_owner.has_single_process_custody:
+        raise ValueError("resource_ledger_single_process_custody_required")
     if resource_context_owner is not None and resource_provisioning_id is not None:
         raise ValueError("resource_owner_and_provisioning_id_mutually_exclusive")
     identity = InstallationIdentity.parse(installation_identity)
@@ -177,8 +185,9 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
     if resource_provisioning_id is not None:
         from .production_chat_resource_provisioning import load_production_chat_resource_context_owner
         resource_context_owner = load_production_chat_resource_context_owner(handle, resource_provisioning_id)
-    serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
+    serving: ProductionServingController | None = None
     try:
+        serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
         establish_arguments = {"operation_id": serving_operation_id}
         if expected_activation_state_digest is not None:
             establish_arguments["expected_activation_state_digest"] = expected_activation_state_digest
@@ -193,11 +202,15 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             session_store=ConversationSessionStore(data_root / "conversations"),
             memory_store=CanonicalMemoryStore(data_root / "memory"))
     except Exception:
-        serving.close()
+        if serving is not None:
+            serving.close()
+        if resource_context_owner is not None:
+            resource_context_owner.close()
         raise
+    assert serving is not None
     close_production_chat()
     _CONVERSATION_SERVICE = service
-    _PRODUCTION_COMPOSITION = ProductionChatComposition(service, serving)
+    _PRODUCTION_COMPOSITION = ProductionChatComposition(service, serving, resource_context_owner)
 
 
 def configure_development_chat(*, invoker: GovernedLocalModelInvoker,

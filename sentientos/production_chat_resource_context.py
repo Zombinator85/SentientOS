@@ -29,7 +29,7 @@ class ProductionChatResourceContextOwner:
 
     __slots__ = (
         "allocator", "allocation", "principal", "authenticated", "current",
-        "policy", "_nonce_source", "_clock",
+        "policy", "_nonce_source", "_clock", "_ledger_owner_lock",
     )
 
     def __init__(
@@ -43,6 +43,7 @@ class ProductionChatResourceContextOwner:
         policy: GovernedLocalModelResourcePolicy,
         nonce_source: Callable[[], str],
         clock: Callable[[], str],
+        ledger_owner_lock: Any | None = None,
     ) -> None:
         exact_types = (
             (allocator, GovernedLocalModelResourceAllocator),
@@ -80,6 +81,17 @@ class ProductionChatResourceContextOwner:
         self.policy = policy
         self._nonce_source = nonce_source
         self._clock = clock
+        self._ledger_owner_lock = ledger_owner_lock
+
+    @property
+    def has_single_process_custody(self) -> bool:
+        return self._ledger_owner_lock is not None
+
+    def close(self) -> None:
+        lock = self._ledger_owner_lock
+        self._ledger_owner_lock = None
+        if lock is not None:
+            lock.__exit__(None, None, None)
 
     def next_context(self) -> GovernedLocalModelResourceInvocationContext:
         """Create one context from custody alone, with one fresh trusted nonce."""

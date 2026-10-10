@@ -1,6 +1,7 @@
 """Separately admitted inference against an opaque, current serving lifetime."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -10,6 +11,7 @@ from .governed_local_model_invocation import (
     GovernedLocalModelResourceInvocationContext,
     LocalModelInvocationBudget,
     LocalModelInvocationReceipt,
+    validate_receipt,
 )
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map
 from .local_model_production_serving import (
@@ -105,6 +107,25 @@ class ProductionServingInferenceController:
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
             runtime_root=self._serving._handle.root / "local-model" / "inference")
+        handle = self._serving._handle
+        receipt_directory = handle.fixed_object("local-model/inference/receipts")
+        handle.ensure_directory(receipt_directory)
+
+        def publish_receipt(value: Mapping[str, Any]) -> None:
+            receipt_id = value.get("receipt_id")
+            if (not isinstance(receipt_id, str) or len(receipt_id) != 30
+                    or not receipt_id.startswith("lmrec-")
+                    or any(character not in "0123456789abcdef" for character in receipt_id[6:])):
+                raise ProductionServingInferenceError("invocation_receipt_identity_invalid")
+            valid, findings = validate_receipt(value)
+            if not valid:
+                raise ProductionServingInferenceError("invocation_receipt_validation_failed:" + findings[0])
+            target = receipt_directory.child(receipt_id + ".json")
+            payload = (json.dumps(dict(value), sort_keys=True, separators=(",", ":"),
+                                 ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+            handle.durable_replace(target, payload)
+
+        invoker.register_evidence_sink(publish_receipt)
         request = invoker.build_request(
             purpose="local_user_chat", prompt=prompt, caller=caller,
             correlation_id=correlation_id, budget=budget,

@@ -259,6 +259,17 @@ class InstallationStateHandle:
         finally:
             os.close(parent_fd)
 
+    def read_regular_bounded(self, obj: InstallationStateObject, *, max_bytes: int) -> bytes:
+        """Read one fixed installation object without following links or exceeding a byte bound."""
+        self._require_bound(obj)
+        if type(max_bytes) is not int or max_bytes < 1:
+            raise InstallationStateError("invalid_read_bound")
+        parent_fd, name = _open_parent(self.root, obj.relative.parts)
+        try:
+            return _read_regular_at_bounded(parent_fd, name, max_bytes=max_bytes)
+        finally:
+            os.close(parent_fd)
+
     def read_optional_regular(self, obj: InstallationStateObject) -> bytes | None:
         """Securely read a regular object, distinguishing only genuine absence.
 
@@ -275,13 +286,37 @@ class InstallationStateHandle:
         finally:
             os.close(parent_fd)
 
-    def list_regular_names(self, directory: InstallationStateObject) -> tuple[str, ...]:
+    def read_optional_regular_bounded(self, obj: InstallationStateObject, *, max_bytes: int) -> bytes | None:
+        """Bounded descriptor-safe optional read; only a genuinely absent name is absence."""
+        self._require_bound(obj)
+        if type(max_bytes) is not int or max_bytes < 1:
+            raise InstallationStateError("invalid_read_bound")
+        parent_fd, name = _open_parent(self.root, obj.relative.parts)
+        try:
+            try:
+                os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                return None
+            return _read_regular_at_bounded(parent_fd, name, max_bytes=max_bytes)
+        finally:
+            os.close(parent_fd)
+
+    def list_regular_names(self, directory: InstallationStateObject, *, max_entries: int | None = None) -> tuple[str, ...]:
         """Enumerate a fixed, bound state directory without following substitutions."""
         self._require_bound(directory)
+        if max_entries is not None and (type(max_entries) is not int or max_entries < 1):
+            raise InstallationStateError("invalid_directory_entry_bound")
         _require_platform_contract()
         fd = _open_directory(self.root, directory.relative.parts)
         try:
-            names = sorted(os.listdir(fd))
+            names: list[str] = []
+            with os.scandir(fd) as entries:
+                for entry in entries:
+                    name = entry.name
+                    if max_entries is not None and len(names) >= max_entries:
+                        raise InstallationStateError("state_directory_entry_bound_exceeded")
+                    names.append(name)
+            names.sort()
             for name in names:
                 if name in {".", ".."} or "/" in name or "\\" in name:
                     raise InstallationStateError("state_directory_entry_invalid")
@@ -393,6 +428,9 @@ def _open_parent(root: Path, parts: tuple[str, ...]) -> tuple[int, str]:
                               dir_fd=fd)
             os.close(fd); fd = next_fd
         return fd, parts[-1]
+    except FileNotFoundError as exc:
+        os.close(fd)
+        raise InstallationStateError("state_parent_missing") from exc
     except OSError as exc:
         os.close(fd)
         raise InstallationStateError("state_parent_unsafe") from exc
@@ -406,6 +444,9 @@ def _open_directory(root: Path, parts: tuple[str, ...]) -> int:
             os.close(fd)
             fd = next_fd
         return fd
+    except FileNotFoundError as exc:
+        os.close(fd)
+        raise InstallationStateError("state_directory_missing") from exc
     except OSError as exc:
         os.close(fd)
         raise InstallationStateError("state_directory_unsafe") from exc
@@ -438,6 +479,32 @@ def _read_regular_at(parent_fd: int, name: str) -> bytes:
                 chunks.append(block)
         finally:
             os.close(fd)
+    except OSError as exc:
+        raise InstallationStateError("state_object_read_failed") from exc
+
+
+def _read_regular_at_bounded(parent_fd: int, name: str, *, max_bytes: int) -> bytes:
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent_fd)
+        try:
+            _require_regular_fd(fd)
+            info = os.fstat(fd)
+            if info.st_size > max_bytes:
+                raise InstallationStateError("state_object_size_bound_exceeded")
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                block = os.read(fd, min(65536, max_bytes + 1 - total))
+                if not block:
+                    return b"".join(chunks)
+                chunks.append(block)
+                total += len(block)
+                if total > max_bytes:
+                    raise InstallationStateError("state_object_size_bound_exceeded")
+        finally:
+            os.close(fd)
+    except InstallationStateError:
+        raise
     except OSError as exc:
         raise InstallationStateError("state_object_read_failed") from exc
 

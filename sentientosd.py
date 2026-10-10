@@ -49,7 +49,7 @@ from sentientos.resident_epistemic_development import (CONFIG_ENV as EPISTEMIC_D
     ResidentEpistemicDevelopmentRuntime, load_epistemic_development_config)
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
-from sentientos.world_state_board import WorldStateSnapshot
+from sentientos.world_state_board import WorldStateSnapshot, WorldStateSourceKind
 from sentientos.causal_introspection import (CausalIntrospectionRuntime, CaptureContext,
     IntrospectionConfig, LiveOwnerMetadataProvider, ProviderRegistration,
     load_config as load_causal_introspection_config)
@@ -60,6 +60,10 @@ from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner
 from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records, resource_consumption_world_state_records
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
+from sentientos.production_chat_resource_observation import (
+    ProductionChatResourceObservationError,
+    ProductionChatResourceObservationOwner,
+)
 from sentientos.host_privilege_review_runtime import HostPrivilegeReviewRuntimeCoordinator, HostPrivilegeReviewEvaluation, summary_for_evaluation as privilege_review_summary, world_state_records as privilege_review_world_state_records
 from sentientos.host_execution_readiness_runtime import HostExecutionReadinessRuntimeCoordinator, HostExecutionReadinessEvaluation, summary_for_evaluation as execution_readiness_summary, world_state_records as execution_readiness_world_state_records
 from sentientos.host_controlled_authorization_runtime import HostControlledAuthorizationRuntimeCoordinator, HostControlledAuthorizationEvaluation, summary_for_evaluation as controlled_authorization_summary, world_state_records as controlled_authorization_world_state_records
@@ -91,6 +95,8 @@ from sentientos.maintenance_initial_posix_resident_commissioning import STARTUP_
 
 LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
+RESOURCE_OBSERVATION_INSTALLATION_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_INSTALLATION_IDENTITY"
+RESOURCE_OBSERVATION_PROVISIONING_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_PROVISIONING_ID"
 LONGITUDINAL_SELF_MODEL_CONFIG_ENV = "SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG"
 EPISTEMIC_STATE_CONFIG_ENV = "SENTIENTOS_EPISTEMIC_STATE_CONFIG"
 
@@ -255,7 +261,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, governed_resource_ledger: GovernedLocalModelResourceLedger | None = None, governed_invocation_receipts: tuple[Mapping[str, Any], ...] = (), genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, causal_introspection_runtime: Any | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, governed_resource_ledger: GovernedLocalModelResourceLedger | None = None, governed_invocation_receipts: tuple[Mapping[str, Any], ...] = (), resource_observation_owner: ProductionChatResourceObservationOwner | None = None, resource_observation_configuration_status: Mapping[str, Any] | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, causal_introspection_runtime: Any | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -263,6 +269,11 @@ class RuntimeMaintenanceSurfaces:
         self._identify_admitted = False
         self._governed_local_invoker = governed_local_invoker
         self._governed_resource_ledger = governed_resource_ledger
+        self._resource_observation_owner = resource_observation_owner
+        self._resource_observation_health: dict[str, Any] = dict(resource_observation_configuration_status or {
+            "status": "verified" if resource_observation_owner is not None else "disabled",
+            "read_only": True, "effect_authority": False,
+        })
         self._governed_invocation_receipts_path = self._runtime_state_root / "governed_local_model_invocation" / "registered_receipts.json"
         self._governed_invocation_receipts = self._recover_governed_invocation_receipts(governed_invocation_receipts)
         self._genesis_advice_source = genesis_advice_source
@@ -549,6 +560,74 @@ class RuntimeMaintenanceSurfaces:
                 ledger=self._governed_resource_ledger,
                 invocation_receipts=self._governed_invocation_receipts,
                 observed_at=tick_key))
+        if self._resource_observation_owner is not None:
+            try:
+                observation = self._resource_observation_owner.observe()
+                resource_records = resource_consumption_world_state_records(
+                    ledger=observation.ledger,
+                    invocation_receipts=observation.invocation_receipts,
+                    observed_at=tick_key,
+                    source_identity={
+                        "installation_identity": observation.installation_identity,
+                        "provisioning_id": observation.provisioning_id,
+                        "manifest_digest": observation.manifest_digest,
+                    })
+                records.extend(resource_records)
+                degraded = (observation.invocation_receipt_posture != "verified"
+                            or any(item.get("disposition") != "recorded" for item in resource_records))
+                self._resource_observation_health = {
+                    "status": "degraded" if degraded else "verified",
+                    "installation_identity": observation.installation_identity,
+                    "provisioning_id": observation.provisioning_id,
+                    "ledger_digest": observation.ledger.observation_snapshot()["ledger_digest"],
+                    "invocation_receipt_posture": observation.invocation_receipt_posture,
+                    "read_only": True, "effect_authority": False,
+                }
+                records.append({
+                    "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+                    "source_id": "production_chat_resource_observation:health",
+                    "subject_kind": "read_only_resource_custody_source",
+                    "subject_id": observation.provisioning_id,
+                    "stage": "observation",
+                    "disposition": self._resource_observation_health["status"],
+                    "evidence_strength": "source_integrity_status",
+                    "effect_claimed": False, "effect_proven": False,
+                    "observed_at": tick_key,
+                    "payload": dict(self._resource_observation_health),
+                })
+            except ProductionChatResourceObservationError as exc:
+                status = exc.status
+                self._resource_observation_health = {
+                    "status": status, "reason_code": exc.code,
+                    "read_only": True, "effect_authority": False,
+                }
+                records.append({
+                    "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+                    "source_id": "production_chat_resource_observation:health",
+                    "subject_kind": "read_only_resource_custody_source",
+                    "subject_id": "configured_resource_provisioning",
+                    "stage": "observation", "disposition": status,
+                    "evidence_strength": "source_integrity_status",
+                    "effect_claimed": False, "effect_proven": False,
+                    "observed_at": tick_key,
+                    "payload": dict(self._resource_observation_health),
+                })
+            except Exception as exc:
+                self._resource_observation_health = {
+                    "status": "invalid", "reason_code": type(exc).__name__,
+                    "read_only": True, "effect_authority": False,
+                }
+                records.append({
+                    "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+                    "source_id": "production_chat_resource_observation:health",
+                    "subject_kind": "read_only_resource_custody_source",
+                    "subject_id": "configured_resource_provisioning",
+                    "stage": "observation", "disposition": "invalid",
+                    "evidence_strength": "source_integrity_status",
+                    "effect_claimed": False, "effect_proven": False,
+                    "observed_at": tick_key,
+                    "payload": dict(self._resource_observation_health),
+                })
         privilege_eval = self._host_privilege_review_evaluation
         if privilege_eval is not None:
             records.extend(privilege_review_world_state_records(privilege_eval))
@@ -579,6 +658,7 @@ class RuntimeMaintenanceSurfaces:
         tmp.replace(target)
         feedback = {"status":"degraded" if snapshot.degraded or snapshot.contradicted else "ok", "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
         self._feedback["surfaces"]["world_state_evidence_board"] = feedback
+        self._feedback["surfaces"]["production_chat_resource_observation"] = dict(self._resource_observation_health)
         self._world_state_snapshot_built_for_tick = tick_key
         return feedback
 
@@ -1772,6 +1852,35 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     authority_map = build_local_model_authority_map()
     governed_invoker = GovernedLocalModelInvoker(model=model, authority_map=authority_map, runtime_root=repo_root / "sentientos_data" / "runtime")
     genesis_advice = GenesisModelAdviceCoordinator(invoker=governed_invoker, runtime_root=repo_root / "sentientos_data" / "runtime")
+    resource_observation_owner = None
+    resource_observation_configuration_status: dict[str, Any] = {
+        "status": "disabled", "read_only": True, "effect_authority": False,
+    }
+    observation_installation = os.environ.get(RESOURCE_OBSERVATION_INSTALLATION_ENV)
+    observation_provisioning = os.environ.get(RESOURCE_OBSERVATION_PROVISIONING_ENV)
+    if observation_installation is not None or observation_provisioning is not None:
+        if not observation_installation or not observation_provisioning:
+            resource_observation_configuration_status = {
+                "status": "invalid", "reason_code": "resource_observation_configuration_incomplete",
+                "read_only": True, "effect_authority": False,
+            }
+        else:
+            try:
+                handle = InstallationStateRegistry.system().open(
+                    InstallationIdentity.parse(observation_installation))
+                resource_observation_owner = ProductionChatResourceObservationOwner(
+                    handle, observation_provisioning)
+                resource_observation_configuration_status = {
+                    "status": "degraded", "reason_code": "source_not_yet_observed",
+                    "installation_identity": handle.identity.value,
+                    "provisioning_id": observation_provisioning,
+                    "read_only": True, "effect_authority": False,
+                }
+            except Exception as exc:
+                resource_observation_configuration_status = {
+                    "status": "invalid", "reason_code": type(exc).__name__,
+                    "read_only": True, "effect_authority": False,
+                }
     resident_serving_controller = None
     resident_serving_slot = None
     resident_serving_config = None
@@ -1788,6 +1897,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
         governed_local_invoker=governed_invoker,
         genesis_advice_source=genesis_advice,
+        resource_observation_owner=resource_observation_owner,
+        resource_observation_configuration_status=resource_observation_configuration_status,
     )
     scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners_after_resident_decision(
         adoption_path, wake_adoption_path, successor_adoption_path,
@@ -1825,6 +1936,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             candidate_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                 governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
+                resource_observation_owner=resource_observation_owner,
+                resource_observation_configuration_status=resource_observation_configuration_status,
                 epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
                 epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
@@ -1858,6 +1971,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 runtime_surfaces = RuntimeMaintenanceSurfaces(
                     repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                     governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
+                    resource_observation_owner=resource_observation_owner,
+                    resource_observation_configuration_status=resource_observation_configuration_status,
                     epistemic_state_owner=candidate_surfaces._epistemic_state_owner,
                     epistemic_state_config=candidate_surfaces._epistemic_state_config,
                     epistemic_state_configuration_error=candidate_surfaces._epistemic_state_configuration_error,
@@ -1882,6 +1997,8 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             runtime_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                 governed_local_invoker=None, genesis_advice_source=genesis_advice,
+                resource_observation_owner=resource_observation_owner,
+                resource_observation_configuration_status=resource_observation_configuration_status,
                 epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
                 epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,

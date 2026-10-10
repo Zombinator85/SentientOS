@@ -281,7 +281,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                                               invocation_receipts: Sequence[Mapping[str, Any]] = (),
                                               observed_at: str | None = None,
                                               max_receipts: int = 256,
-                                              max_invocation_receipts: int = 256) -> list[dict[str, Any]]:
+                                              max_invocation_receipts: int = 256,
+                                              source_identity: Mapping[str, str] | None = None) -> list[dict[str, Any]]:
     """Project existing allocation/consumption custody as later evidence.
 
     The projection carries exact ledger identities and invocation linkage. It
@@ -292,9 +293,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     if max_receipts < 1 or max_invocation_receipts < 1:
         raise ValueError("resource_observation_bounds_invalid")
     raw_receipts = tuple(snapshot["receipts"])
-    allocation_digests = {str(item.get("allocation_digest")) for item in snapshot["allocations"] if isinstance(item, Mapping)}
+    allocation_by_digest = {str(item.get("allocation_digest")): item for item in snapshot["allocations"] if isinstance(item, Mapping)}
     ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}
+    attempt_by_id = {str(item.get("attempt_id")): item for item in snapshot["attempts"] if isinstance(item, Mapping)}
     lineage_findings: list[str] = []
+    linked_effect_receipts: dict[str, str] = {}
     for invocation in invocation_receipts[-max_invocation_receipts:]:
         allocation_digest = invocation.get("resource_allocation_digest")
         attempt_id = invocation.get("resource_attempt_id")
@@ -304,16 +307,60 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         # linked, but must not be reported as a lineage failure.
         if allocation_digest is None and attempt_id is None and not receipt_digests:
             continue
-        if allocation_digest not in allocation_digests:
+        allocation = allocation_by_digest.get(str(allocation_digest))
+        if allocation is None:
             lineage_findings.append(f"allocation_missing:{allocation_digest}")
+        attempt = attempt_by_id.get(str(attempt_id))
+        if attempt is None:
+            lineage_findings.append(f"attempt_missing:{attempt_id}")
+        elif allocation is not None and attempt.get("allocation_id") != allocation.get("allocation_id"):
+            lineage_findings.append(f"attempt_allocation_substitution:{attempt_id}")
         linked = [item for item in raw_receipts if isinstance(item, Mapping) and item.get("attempt_id") == attempt_id]
         if not receipt_digests or any(digest not in ledger_receipts for digest in receipt_digests):
             lineage_findings.append(f"consumption_receipt_missing:{attempt_id}")
         if linked and not set(receipt_digests).issubset({str(item.get("receipt_digest")) for item in linked}):
             lineage_findings.append(f"consumption_attempt_lineage_mismatch:{attempt_id}")
+        for digest in receipt_digests:
+            linked_receipt = ledger_receipts.get(str(digest))
+            if linked_receipt is None:
+                continue
+            if linked_receipt.get("attempt_id") != attempt_id:
+                lineage_findings.append(f"consumption_attempt_substitution:{attempt_id}")
+            if allocation is not None and linked_receipt.get("allocation_digest") != allocation.get("allocation_digest"):
+                lineage_findings.append(f"consumption_allocation_substitution:{attempt_id}")
+            if allocation is not None and linked_receipt.get("principal_binding_digest") != allocation.get("principal_binding_digest"):
+                lineage_findings.append(f"consumption_principal_substitution:{attempt_id}")
         reconciled = [item for item in linked if item.get("state") == "reconciled"]
-        if reconciled and not any(item.get("effect_receipt_digest") == invocation.get("receipt_digest") for item in reconciled):
+        matching_reconciled = [item for item in reconciled if item.get("effect_receipt_digest") == invocation.get("receipt_digest")]
+        if len(matching_reconciled) != 1:
             lineage_findings.append(f"effect_receipt_mismatch:{attempt_id}")
+        effect_digest = str(invocation.get("receipt_digest"))
+        prior_attempt = linked_effect_receipts.get(effect_digest)
+        if prior_attempt is not None and prior_attempt != str(attempt_id):
+            lineage_findings.append(f"effect_receipt_reused:{effect_digest}")
+        linked_effect_receipts[effect_digest] = str(attempt_id)
+    invocation_by_effect = {str(item.get("receipt_digest")): item for item in invocation_receipts[-max_invocation_receipts:]}
+    for item in raw_receipts:
+        if not isinstance(item, Mapping) or item.get("state") != "reconciled":
+            continue
+        effect_digest = item.get("effect_receipt_digest")
+        if effect_digest is not None and effect_digest not in invocation_by_effect:
+            lineage_findings.append(f"invocation_receipt_missing:{effect_digest}")
+    receipt_states_by_attempt: dict[str, set[str]] = {}
+    for item in raw_receipts:
+        if isinstance(item, Mapping):
+            receipt_states_by_attempt.setdefault(str(item.get("attempt_id")), set()).add(str(item.get("state")))
+    incomplete_attempt_ids: list[str] = []
+    for attempt in snapshot["attempts"]:
+        if not isinstance(attempt, Mapping):
+            continue
+        attempt_id = str(attempt.get("attempt_id"))
+        states = receipt_states_by_attempt.get(attempt_id, set())
+        status = attempt.get("status")
+        if (status == "provisional" or
+                status == "begun" and "reconciled" not in states or
+                status == "restored" and "attempted_not_begun" not in states):
+            incomplete_attempt_ids.append(attempt_id)
     receipts = []
     for receipt in raw_receipts[-max_receipts:]:
         item = dict(receipt)
@@ -328,6 +375,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         }
         receipts.append(item)
     payload = {"ledger_schema": snapshot["schema"], "ledger_digest": snapshot["ledger_digest"],
+               "source_identity": dict(source_identity or {}),
                "allocations": snapshot["allocations"], "attempts": snapshot["attempts"],
                "consumption_receipts": tuple(receipts),
                "invocation_receipts": tuple(dict(item) for item in invocation_receipts[-max_invocation_receipts:]),
@@ -335,17 +383,15 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                "shared_host_usage_attribution": "unknown_without_independent_observation",
                "reconstruction_observed_at": observed_at,
                "retention_posture": "complete" if len(raw_receipts) <= max_receipts else "bounded_tail_incomplete",
-               "recovery_posture": "incomplete_attempts_present" if any(
-                   str(item.get("status")) in {"provisional", "begun"}
-                   for item in snapshot["attempts"] if isinstance(item, Mapping)
-               ) else "reconciled_or_restored",
+               "recovery_posture": "incomplete_attempts_present" if incomplete_attempt_ids else "reconciled_or_restored",
+               "incomplete_attempt_ids": tuple(sorted(incomplete_attempt_ids)),
                "lineage_posture": "verified" if not lineage_findings else "degraded",
                "lineage_findings": tuple(sorted(set(lineage_findings)))}
     record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
              "source_id": "governed_local_model_resource_consumption",
              "subject_kind": "causal_resource_consumption",
              "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
-             "disposition": "recorded" if not lineage_findings else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings else "incomplete",
+             "disposition": "recorded" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "incomplete",
              "effect_claimed": False, "effect_proven": False,
              # The ledger receipt's event time is historical custody. Do not
              # let a restart/reprojection timestamp make old consumption
