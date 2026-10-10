@@ -352,8 +352,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 or request.get("request_digest") != attribution.get("invocation_request_digest")):
             raise ValueError("chat_process_generation_attribution_binding_invalid")
         prior = generation_attribution_by_receipt.get(receipt_id)
-        if prior is not None and dict(prior) != dict(attribution):
-            raise ValueError("chat_process_generation_attribution_identity_conflict")
+        if prior is not None:
+            if dict(prior) != dict(attribution):
+                raise ValueError("chat_process_generation_attribution_identity_conflict")
+            raise ValueError("chat_process_generation_attribution_duplicate")
         generation_attribution_by_receipt[receipt_id] = attribution
     allocation_by_digest = {str(item.get("allocation_digest")): item for item in snapshot["allocations"] if isinstance(item, Mapping)}
     ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}

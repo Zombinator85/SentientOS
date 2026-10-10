@@ -245,12 +245,31 @@ class ProductionChatResourceObservationOwner:
                         and isinstance(value.get("effects"), Mapping)
                         and value["effects"].get("local_model_inference") is True
                         and isinstance(value.get("output_digest"), str)):
+                    prior_generation = verified_software.get("prior_snapshot_generation")
+                    prior_handoff = (prior_generation.get("handoff")
+                        if isinstance(prior_generation, Mapping) else None)
+                    compact_handoff = {key: verified_software[key] for key in (
+                        "status", "handoff_id", "handoff_digest", "process_instance_id",
+                        "software_generation_digest", "process_id", "parent_process_id",
+                        "startup_timestamp", "source_generation_scope") if key in verified_software}
+                    compact_handoff["prior_generation_reference"] = ({
+                        key: prior_handoff.get(key) for key in (
+                            "handoff_id", "handoff_digest", "process_instance_id",
+                            "software_generation_digest", "startup_timestamp")
+                        if key in prior_handoff
+                    } | {
+                        key: prior_generation.get(key) for key in (
+                            "startup_snapshot_digest", "supervisor_generation", "relation",
+                            "overlap_status", "direct_predecessorship", "intervening_runtime_generations")
+                        if key in prior_generation
+                    } if isinstance(prior_handoff, Mapping) and isinstance(prior_generation, Mapping)
+                    else None)
                     generation_attributions.append({
                         "invocation_receipt_id": value["receipt_id"],
                         "invocation_receipt_digest": value["receipt_digest"],
                         "invocation_request_id": request.get("request_id"),
                         "invocation_request_digest": request.get("request_digest"),
-                        "chat_process_handoff": dict(verified_software),
+                        "chat_process_handoff": compact_handoff,
                         "attribution_posture": "invocation_receipt_and_historical_chat_handoff_verified",
                         "currentness_posture": "historical_process_identity_not_reobserved_during_recovery",
                     })

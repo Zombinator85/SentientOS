@@ -292,8 +292,10 @@ def _claim_id(key: str, value: Any, fact_ids: Sequence[str]) -> str:
 
 def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
     historical_transition_event = (
-        fact.source.kind == "runtime_supervisor"
-        and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition"})
+        (fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition"})
+        or (fact.source.kind == "resource_governor"
+            and fact.subject.subject_kind == "chat_process_software_generation_invocation"))
     out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition,
         "historical_interpretation" if historical_transition_event else "current_state")]
     for predicate, keys in PAYLOAD_PREDICATES.items():
