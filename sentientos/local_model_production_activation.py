@@ -442,9 +442,117 @@ def recover_activation_transactions(handle: InstallationStateHandle, *,
     return tuple(results)
 
 
+def _verified_activation_history(handle: InstallationStateHandle, current_state: Mapping[str, Any], *,
+        allow_synthetic_evidence_for_tests: bool) -> tuple[dict[str, Any], ...]:
+    """Reconstruct committed model-selection lineage without loading or replaying a model."""
+    directory = handle.fixed_object("local-model/activation/transactions")
+    try:
+        names = handle.list_regular_names(directory)
+    except (FileNotFoundError, InstallationStateError) as exc:
+        raise ProductionActivationError("activation_transaction_custody_unavailable") from exc
+    if len(names) > 4096: raise ProductionActivationError("activation_transaction_history_over_bound")
+    transactions: dict[str, dict[str, Any]] = {}; total_bytes = 0
+    for name in names:
+        if name.endswith(".final.json"): continue
+        if not name.endswith(".json"): raise ProductionActivationError("activation_transaction_name_invalid")
+        raw = handle.read_regular(directory.child(name)); total_bytes += len(raw)
+        if len(raw) > 1_048_576 or total_bytes > 67_108_864:
+            raise ProductionActivationError("activation_transaction_history_over_bound")
+        tx = _json(raw, "activation_transaction_malformed")
+        if raw != _payload(tx): raise ProductionActivationError("activation_transaction_noncanonical")
+        _validate_envelope(tx, "transaction_semantic_digest", "activation_transaction_invalid")
+        txid = tx.get("transaction_id"); identity = dict(tx)
+        identity.pop("transaction_id", None); identity.pop("transaction_semantic_digest", None)
+        if (tx.get("schema_version") != TRANSACTION_SCHEMA or not isinstance(txid, str)
+                or txid != "activation-transaction-" + semantic_digest(identity)[:24]
+                or name != f"{txid}.json" or txid in transactions):
+            raise ProductionActivationError("activation_transaction_identity_invalid")
+        transactions[txid] = tx
+
+    state = dict(current_state)
+    if not verify_activation_state(state): raise ProductionActivationError("activation_state_invalid")
+    generation, target = state.get("generation"), _state_digest(state)
+    if not isinstance(generation, int) or generation < 1: raise ProductionActivationError("activation_generation_invalid")
+    history: list[dict[str, Any]] = []
+    while generation >= 1:
+        matches = [tx for tx in transactions.values() if tx.get("intended_state_digest") == target
+            and isinstance(tx.get("intended_state"), Mapping) and tx["intended_state"].get("generation") == generation]
+        if len(matches) != 1: raise ProductionActivationError("activation_predecessor_transaction_missing_or_ambiguous")
+        tx = matches[0]; intended, intent = tx.get("intended_state"), tx.get("intent")
+        approval, admission = tx.get("approval"), tx.get("admission")
+        if not all(isinstance(v, Mapping) for v in (intended, intent, approval, admission)):
+            raise ProductionActivationError("activation_transaction_lineage_incomplete")
+        if (not verify_activation_state(intended) or dict(intended) != state
+                or tx.get("intended_state_digest") != intent.get("intended_state_digest")
+                or tx.get("intended_state_digest") != _state_digest(intended)
+                or tx.get("expected_prior_activation_state") != tx.get("observed_prior_activation_state")
+                or tx.get("expected_prior_activation_state") != intent.get("expected_prior_activation_state")):
+            raise ProductionActivationError("activation_transaction_state_or_predecessor_mismatch")
+        _validate_envelope(intent, "intent_semantic_digest", "activation_intent_invalid")
+        iid = dict(intent); claimed_iid = iid.pop("intent_id", None); iid.pop("intent_semantic_digest", None)
+        projection = intent.get("intended_state_projection")
+        if (claimed_iid != "activation-intent-" + semantic_digest(iid)[:24]
+                or intent.get("installation_identity") != handle.identity.value
+                or not isinstance(projection, Mapping) or semantic_digest(dict(projection)) != target):
+            raise ProductionActivationError("activation_intent_identity_invalid")
+        persisted = {k: v for k, v in intended.items()
+            if k not in {"activation_intent_id", "activation_intent_semantic_digest", "state_semantic_digest"}}
+        if persisted != dict(projection) or intended.get("state_semantic_digest") != target:
+            raise ProductionActivationError("activation_intent_projection_mismatch")
+        verify_external_activation_approval(approval, intent,
+            observation_time=_time(approval.get("approval_timestamp")),
+            allow_synthetic_for_tests=allow_synthetic_evidence_for_tests, check_validity=False)
+        if (admission.get("outcome") != AdmissionOutcome.ALLOW.value
+                or admission.get("authority_class") != AuthorityClass.MODEL_ACTIVATION.value
+                or admission.get("actor") != PRINCIPAL or admission.get("action_kind") != ACTION
+                or admission.get("target_subsystem") != TARGET_SUBSYSTEM
+                or not isinstance(admission.get("admission_decision_ref"), str)
+                or not admission["admission_decision_ref"]):
+            raise ProductionActivationError("activation_admission_lineage_invalid")
+        decision = SimpleNamespace(admission_decision_ref=admission["admission_decision_ref"],
+            outcome=SimpleNamespace(value=admission["outcome"]),
+            authority_class=SimpleNamespace(value=admission["authority_class"]),
+            actor=admission["actor"], action_kind=admission["action_kind"],
+            target_subsystem=admission["target_subsystem"])
+        receipt = _receipt_for(tx, intent, approval, decision)
+        rr = handle.read_regular(handle.fixed_object(f"local-model/activation/receipts/{receipt['receipt_id']}.json"))
+        if len(rr) > 1_048_576: raise ProductionActivationError("activation_receipt_over_bound")
+        stored = _json(rr, "activation_receipt_malformed")
+        if rr != _payload(stored) or stored != receipt:
+            raise ProductionActivationError("activation_receipt_transaction_mismatch")
+        fr = handle.read_regular(handle.fixed_object(f"local-model/activation/transactions/{tx['transaction_id']}.final.json"))
+        if len(fr) > 65_536: raise ProductionActivationError("activation_finalization_over_bound")
+        final = _json(fr, "activation_finalization_malformed")
+        _validate_envelope(final, "finalization_semantic_digest", "activation_finalization_invalid")
+        if (fr != _payload(final) or final.get("transaction_id") != tx["transaction_id"]
+                or final.get("intended_state_digest") != target
+                or final.get("activation_receipt_id") != receipt["receipt_id"]
+                or final.get("activation_receipt_semantic_digest") != receipt["receipt_semantic_digest"]
+                or final.get("terminal_outcome") not in {"committed", "committed_evidence_recovery"}):
+            raise ProductionActivationError("activation_finalization_lineage_mismatch")
+        history.append({"activation_generation": generation, "activation_state_digest": target,
+            "transaction_id": tx["transaction_id"], "transaction_semantic_digest": tx["transaction_semantic_digest"],
+            "activation_receipt_id": receipt["receipt_id"], "activation_receipt_semantic_digest": receipt["receipt_semantic_digest"],
+            "finalization_outcome": final["terminal_outcome"]})
+        prior = tx.get("observed_prior_activation_state")
+        if generation == 1:
+            if prior != ABSENT: raise ProductionActivationError("activation_initial_predecessor_invalid")
+            break
+        if not isinstance(prior, str) or len(prior) != 64 or any(c not in "0123456789abcdef" for c in prior):
+            raise ProductionActivationError("activation_predecessor_digest_invalid")
+        target, generation = prior, generation - 1
+        previous = [candidate for candidate in transactions.values() if candidate.get("intended_state_digest") == target
+            and isinstance(candidate.get("intended_state"), Mapping)
+            and candidate["intended_state"].get("generation") == generation]
+        if len(previous) != 1: raise ProductionActivationError("activation_predecessor_transaction_missing_or_ambiguous")
+        state = dict(previous[0]["intended_state"])
+    history.reverse()
+    return tuple(history)
+
+
 def verify_current_activation(handle: InstallationStateHandle, *,
         allow_synthetic_evidence_for_tests: bool = False) -> dict[str, Any]:
-    """Read-only verification for a future separately governed loading boundary."""
+    """Read-only verification of current selection and its exact activation predecessor chain."""
     state = _read_state(handle)
     if state is None: raise ProductionActivationError("current_activation_absent")
     commissioning = _receipt(handle, str(state.get("commissioning_receipt_id")),
@@ -452,22 +560,14 @@ def verify_current_activation(handle: InstallationStateHandle, *,
     proof, artifact = _catalog(handle, commissioning), _artifact(commissioning)
     if state.get("catalog_proof") != proof or any(state.get(k) != v for k, v in artifact.items()):
         raise ProductionActivationError("current_activation_evidence_stale")
-    receipts = handle.fixed_object("local-model/activation/receipts")
-    witnesses: list[dict[str, Any]] = []
-    for name in handle.list_regular_names(receipts):
-        receipt = _json(handle.read_regular(receipts.child(name)), "activation_receipt_malformed")
-        try: _validate_envelope(receipt, "receipt_semantic_digest", "activation_receipt_invalid")
-        except ProductionActivationError: continue
-        if (receipt.get("schema_version") == RECEIPT_SCHEMA and receipt.get("resulting_state_digest") == _state_digest(state)
-                and name == f"{receipt.get('receipt_id')}.json"):
-            final = _json(handle.read_regular(handle.fixed_object(
-                f"local-model/activation/transactions/{receipt['transaction_id']}.final.json")),
-                "activation_finalization_missing")
-            _validate_envelope(final, "finalization_semantic_digest", "activation_finalization_invalid")
-            if final.get("terminal_outcome") not in {"committed", "committed_evidence_recovery"}:
-                raise ProductionActivationError("activation_finalization_invalid")
-            witnesses.append(receipt)
-    if len(witnesses) != 1: raise ProductionActivationError("current_activation_witness_invalid")
+    history = _verified_activation_history(handle, state,
+        allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
+    latest = history[-1]
+    receipt = _json(handle.read_regular(handle.fixed_object(
+        f"local-model/activation/receipts/{latest['activation_receipt_id']}.json")),
+        "activation_receipt_malformed")
     return {"status": "current_local_model_activation_verified", "active_state": state,
-            "activation_receipt": witnesses[0], "catalog_proof": proof,
+            "activation_receipt": receipt, "activation_history": history, "catalog_proof": proof,
             "model_loaded": False, "serving_started": False, "inference_performed": False}
+
+
