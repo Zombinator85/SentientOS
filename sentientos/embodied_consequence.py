@@ -33,6 +33,7 @@ LEGACY_EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_resul
 EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_result:v2"
 STRATEGY_CONDITION_START_SCHEMA = "sentientos.embodied_strategy_condition_start:v1"
 STRATEGY_CONDITION_RESULT_SCHEMA = "sentientos.embodied_strategy_condition_result:v1"
+WORLD_STATE_PROJECTION_CONFIG_SCHEMA = "sentientos.embodied_consequence_world_state_projection_config:v1"
 MAX_STRATEGY_CONTEXT_BYTES = 1_048_576
 MAX_CONSEQUENCE_ARTIFACT_BYTES = 2_097_152
 MAX_CONSEQUENCE_ARTIFACTS_PER_KIND = 4096
@@ -1382,15 +1383,73 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
         "resource_bindings":resource_facts}
 
 
+def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate explicit selection of immutable experiment evidence for World-State."""
+    config = dict(value)
+    fields = {"schema_version", "enabled", "store_root", "experiment_result_ids",
+        "model_replacement_state_root", "model_replacement_runs", "config_digest"}
+    if (set(config) != fields or config.get("schema_version") != WORLD_STATE_PROJECTION_CONFIG_SCHEMA
+            or type(config.get("enabled")) is not bool
+            or config.get("config_digest") != digest({key: item for key, item in config.items()
+                                                       if key != "config_digest"})):
+        raise EmbodiedConsequenceError("world_state_projection_config_invalid")
+    if not config["enabled"]:
+        if (config["store_root"] is not None or config["experiment_result_ids"] != []
+                or config["model_replacement_state_root"] is not None
+                or config["model_replacement_runs"] != []):
+            raise EmbodiedConsequenceError("disabled_world_state_projection_must_be_empty")
+        return config
+    root = config.get("store_root")
+    identities = config.get("experiment_result_ids")
+    replacement_root = config.get("model_replacement_state_root")
+    replacement_runs = config.get("model_replacement_runs")
+    if (not isinstance(identities, list) or len(identities) > 32
+            or any(not isinstance(identity, str)
+                   or not identity.startswith("strategy-experiment:")
+                   or not _CONSEQUENCE_ID.fullmatch(identity) for identity in identities)
+            or len(identities) != len(set(identities))
+            or (identities and (not isinstance(root, str) or not Path(root).is_absolute()))
+            or (not identities and root is not None)
+            or not isinstance(replacement_runs, list) or len(replacement_runs) > 32):
+        raise EmbodiedConsequenceError("world_state_projection_selection_invalid")
+    if replacement_runs:
+        prefix = "model-replacement-run-"
+        if not isinstance(replacement_root, str) or not Path(replacement_root).is_absolute():
+            raise EmbodiedConsequenceError("model_replacement_projection_root_invalid")
+        seen: set[str] = set()
+        for item in replacement_runs:
+            if (not isinstance(item, Mapping) or set(item) != {"run_id", "run_digest"}
+                    or not isinstance(item.get("run_id"), str)
+                    or not item["run_id"].startswith(prefix)
+                    or len(item["run_id"]) != len(prefix) + 24
+                    or any(character not in "0123456789abcdef" for character in item["run_id"][len(prefix):])
+                    or not isinstance(item.get("run_digest"), str)
+                    or len(item["run_digest"]) != 71 or not item["run_digest"].startswith("sha256:")
+                    or any(character not in "0123456789abcdef" for character in item["run_digest"][7:])
+                    or item["run_id"] != prefix + item["run_digest"][7:31]
+                    or item["run_id"] in seen):
+                raise EmbodiedConsequenceError("model_replacement_projection_run_invalid")
+            seen.add(item["run_id"])
+    elif replacement_root is not None:
+        raise EmbodiedConsequenceError("model_replacement_projection_root_without_runs")
+    if not identities and not replacement_runs:
+        raise EmbodiedConsequenceError("world_state_projection_selection_empty")
+    return config
+
+
 class ConsequenceStore:
     """Immutable exact-chain store for consequence and experiment artifacts."""
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *, create_root: bool = True) -> None:
         self._require_secure_platform()
         selected=Path(root)
         if selected.is_symlink(): raise EmbodiedConsequenceError("consequence_store_root_symlink")
-        selected.mkdir(parents=True,exist_ok=True,mode=0o700)
+        if create_root:
+            selected.mkdir(parents=True,exist_ok=True,mode=0o700)
+        elif not selected.exists():
+            raise EmbodiedConsequenceError("consequence_store_root_missing")
         if selected.is_symlink() or not selected.is_dir(): raise EmbodiedConsequenceError("consequence_store_root_invalid")
         self.root=selected.resolve()
+        self._read_only = not create_root
 
     @staticmethod
     def _require_secure_platform() -> None:
@@ -1442,6 +1501,8 @@ class ConsequenceStore:
 
     def _publish_immutable(self, path: Path, data: bytes) -> bool:
         """Publish immutable evidence atomically without exceeding its kind cap."""
+        if self._read_only:
+            raise EmbodiedConsequenceError("consequence_store_read_only")
         self._require_secure_platform()
         directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
         try:
@@ -1528,6 +1589,8 @@ class ConsequenceStore:
             os.close(directory_fd)
 
     def put(self, kind: str, identity: str, value: Mapping[str, Any]) -> Path:
+        if self._read_only:
+            raise EmbodiedConsequenceError("consequence_store_read_only")
         path=self._path(kind,identity)
         id_field,digest_field,prefix=_ARTIFACT_IDENTITIES[kind]
         semantic=dict(value); claimed_id=semantic.pop(id_field,None); claimed_digest=semantic.pop(digest_field,None)
@@ -1588,7 +1651,7 @@ class ConsequenceStore:
                 "subject_kind": "embodied_strategy_experiment",
                 "stage": "observation",
                 "disposition": posture,
-                "evidence_strength": "verified_immutable_experiment_record",
+                "evidence_strength": "digest_bound_experiment_artifact",
                 # The experiment artifact does not carry an authenticated event
                 # timestamp. Keep the projection undated rather than assigning
                 # reconstruction or current tick time.
@@ -1611,6 +1674,8 @@ class ConsequenceStore:
                 "effect_proven": False,
             }
             record["digest"] = record_digest(record)
+            if len(canonical_bytes(record)) > 32_768:
+                raise EmbodiedConsequenceError("strategy_experiment_world_state_record_oversized")
             records.append(record)
         return records
 
@@ -1622,7 +1687,12 @@ class ConsequenceStore:
 
     def _checkpoint(self, kind: str, identity: str, *, digest_field: str,
                     expected_schema: str) -> dict[str, Any] | None:
-        path = self._path(kind, identity, create_directory=False)
+        try:
+            path = self._path(kind, identity, create_directory=False)
+        except EmbodiedConsequenceError as exc:
+            if str(exc) == "stored_artifact_missing":
+                return None
+            raise
         if not os.path.lexists(path):
             return None
         try:

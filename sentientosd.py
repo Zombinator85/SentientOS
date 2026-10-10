@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import signal
+import stat
 import time
 from contextlib import suppress
 from dataclasses import asdict
@@ -58,6 +59,9 @@ from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner
+from sentientos.embodied_consequence import (ConsequenceStore,
+    validate_world_state_projection_config)
+from sentientos.developmental_model_replacement_experiment import ModelReplacementArtifactStore
 from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records, resource_consumption_world_state_records
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
 from sentientos.production_chat_resource_observation import (
@@ -99,6 +103,66 @@ RESOURCE_OBSERVATION_INSTALLATION_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_INSTALL
 RESOURCE_OBSERVATION_PROVISIONING_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_PROVISIONING_ID"
 LONGITUDINAL_SELF_MODEL_CONFIG_ENV = "SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG"
 EPISTEMIC_STATE_CONFIG_ENV = "SENTIENTOS_EPISTEMIC_STATE_CONFIG"
+EMBODIED_CONSEQUENCE_PROJECTION_CONFIG_ENV = "SENTIENTOS_EMBODIED_CONSEQUENCE_PROJECTION_CONFIG"
+
+
+def _load_embodied_consequence_projection(path: str | None) -> tuple[Any | None, tuple[str, ...], Any | None, tuple[tuple[str, str], ...], dict[str, Any]]:
+    """Load an explicit, bounded read-only view of selected durable experiments."""
+    if path is None:
+        return None, (), None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
+    if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+        return None, (), None, (), {"status": "unsupported", "reason_code": "secure_descriptor_reads_unavailable",
+                          "read_only": True, "effect_authority": False}
+    descriptor: int | None = None
+    try:
+        config_path = Path(path)
+        descriptor = os.open(config_path, os.O_RDONLY | os.O_NOFOLLOW)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 65_536:
+            raise ValueError("projection_config_not_bounded_regular_file")
+        chunks: list[bytes] = []
+        remaining = 65_537
+        while remaining:
+            chunk = os.read(descriptor, min(16_384, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if len(raw) > 65_536 or len(raw) != metadata.st_size:
+            raise ValueError("projection_config_size_mismatch")
+        config = validate_world_state_projection_config(json.loads(raw.decode("utf-8")))
+        if not config["enabled"]:
+            return None, (), None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
+        identities = tuple(config["experiment_result_ids"])
+        store = (ConsequenceStore(Path(config["store_root"]), create_root=False)
+            if identities else None)
+        # Verify selected artifacts at startup; the tick path re-verifies before
+        # projection so replacement or corruption is reported at observation.
+        if store is not None:
+            store.world_state_records(experiment_result_ids=identities)
+        model_runs = tuple((item["run_id"], item["run_digest"])
+            for item in config["model_replacement_runs"])
+        model_store = (ModelReplacementArtifactStore(Path(config["model_replacement_state_root"]),
+            read_only=True) if model_runs else None)
+        if model_store is not None:
+            model_store.world_state_records(run_refs=model_runs)
+        return store, identities, model_store, model_runs, {"status": "verified",
+            "selected_strategy_result_count": len(identities),
+            "selected_model_replacement_run_count": len(model_runs),
+            "config_digest": config["config_digest"], "read_only": True, "effect_authority": False}
+    except FileNotFoundError:
+        return None, (), None, (), {"status": "missing", "reason_code": "projection_config_or_store_missing",
+                          "read_only": True, "effect_authority": False}
+    except Exception as exc:
+        reason = str(exc)
+        status = ("unsupported" if reason.startswith("consequence_store_unsupported_platform") else
+                  "missing" if reason == "consequence_store_root_missing" else "invalid")
+        return None, (), None, (), {"status": status, "reason_code": reason[:128] or type(exc).__name__,
+                          "read_only": True, "effect_authority": False}
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def _load_epistemic_state_owner(config_path: str | None) -> tuple[PersistentEpistemicStateOwner | None, dict[str, Any]]:
@@ -261,7 +325,7 @@ def resolve_improvement_evidence_sources(
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, governed_resource_ledger: GovernedLocalModelResourceLedger | None = None, governed_invocation_receipts: tuple[Mapping[str, Any], ...] = (), resource_observation_owner: ProductionChatResourceObservationOwner | None = None, resource_observation_configuration_status: Mapping[str, Any] | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, causal_introspection_runtime: Any | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, governed_resource_ledger: GovernedLocalModelResourceLedger | None = None, governed_invocation_receipts: tuple[Mapping[str, Any], ...] = (), resource_observation_owner: ProductionChatResourceObservationOwner | None = None, resource_observation_configuration_status: Mapping[str, Any] | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, embodied_consequence_store: Any | None = None, embodied_consequence_result_ids: tuple[str, ...] = (), model_replacement_artifact_store: Any | None = None, model_replacement_run_refs: tuple[tuple[str, str], ...] = (), embodied_consequence_projection_status: Mapping[str, Any] | None = None, causal_introspection_runtime: Any | None = None) -> None:
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
@@ -280,6 +344,26 @@ class RuntimeMaintenanceSurfaces:
         self._world_state_snapshot_built_for_tick: str | None = None
         self._world_state_snapshot: WorldStateSnapshot | None = None
         self._embodiment_evidence_owner = embodiment_evidence_owner
+        if (not isinstance(embodied_consequence_result_ids, tuple)
+                or len(embodied_consequence_result_ids) > 32
+                or any(not isinstance(identity, str) for identity in embodied_consequence_result_ids)
+                or len(embodied_consequence_result_ids) != len(set(embodied_consequence_result_ids))
+                or (embodied_consequence_result_ids and embodied_consequence_store is None)
+                or not isinstance(model_replacement_run_refs, tuple)
+                or len(model_replacement_run_refs) > 32
+                or any(not isinstance(item, tuple) or len(item) != 2
+                       or any(not isinstance(value, str) for value in item)
+                       for item in model_replacement_run_refs)
+                or len({item[0] for item in model_replacement_run_refs}) != len(model_replacement_run_refs)
+                or (model_replacement_run_refs and model_replacement_artifact_store is None)):
+            raise ValueError("embodied_consequence_projection_injection_invalid")
+        self._embodied_consequence_store = embodied_consequence_store
+        self._embodied_consequence_result_ids = embodied_consequence_result_ids
+        self._model_replacement_artifact_store = model_replacement_artifact_store
+        self._model_replacement_run_refs = model_replacement_run_refs
+        self._embodied_consequence_projection_status = dict(embodied_consequence_projection_status or {
+            "status": "verified" if embodied_consequence_store is not None else "disabled",
+            "read_only": True, "effect_authority": False})
         self._causal_introspection_runtime = causal_introspection_runtime
         self._longitudinal_self_model_owner = longitudinal_self_model_owner
         self._longitudinal_self_model_config: LongitudinalSelfModelRuntimeConfig | None = None
@@ -391,6 +475,8 @@ class RuntimeMaintenanceSurfaces:
             "degraded": False,
             "surfaces": {},
         }
+        self._feedback["surfaces"]["embodied_consequence_projection"] = dict(
+            self._embodied_consequence_projection_status)
         if self._governed_local_invoker is not None:
             self._governed_local_invoker.register_evidence_sink(self.register_governed_invocation_receipt)
 
@@ -549,6 +635,29 @@ class RuntimeMaintenanceSurfaces:
         if self._embodiment_evidence_owner is not None:
             # Explicit injection only: no ambient discovery and no avatar daemon startup.
             records.extend(self._embodiment_evidence_owner.world_state_records())
+        if self._embodied_consequence_store is not None and self._embodied_consequence_result_ids:
+            try:
+                records.extend(self._embodied_consequence_store.world_state_records(
+                    experiment_result_ids=self._embodied_consequence_result_ids))
+                self._embodied_consequence_projection_status = {
+                    **self._embodied_consequence_projection_status, "status": "verified",
+                    "read_only": True, "effect_authority": False}
+            except Exception as exc:
+                self._embodied_consequence_projection_status = {
+                    **self._embodied_consequence_projection_status, "status": "degraded",
+                    "reason_code": type(exc).__name__, "read_only": True, "effect_authority": False}
+            self._feedback.setdefault("surfaces", {})["embodied_consequence_projection"] = dict(
+                self._embodied_consequence_projection_status)
+        if self._model_replacement_artifact_store is not None and self._model_replacement_run_refs:
+            try:
+                records.extend(self._model_replacement_artifact_store.world_state_records(
+                    run_refs=self._model_replacement_run_refs))
+            except Exception as exc:
+                self._embodied_consequence_projection_status = {
+                    **self._embodied_consequence_projection_status, "status": "degraded",
+                    "reason_code": type(exc).__name__, "read_only": True, "effect_authority": False}
+                self._feedback.setdefault("surfaces", {})["embodied_consequence_projection"] = dict(
+                    self._embodied_consequence_projection_status)
         signal = self._feedback.get("surfaces", {}).get("governed_improvement_signal_plane", {})
         if isinstance(signal, dict) and signal:
             records.append({"source_kind":"governed_improvement_signal_plane","source_id":"runtime:signal-plane","subject_id":"governed_improvement_signal_plane","subject_kind":"runtime_surface","stage":"proposal","disposition":"degraded" if signal.get("status") == "degraded" else "recorded","payload": {k:v for k,v in signal.items() if k != "runtime_artifacts"}, "observed_at": tick_key})
@@ -1969,6 +2078,15 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     resident_serving_error = None
     resident_serving_path = os.environ.get(RESIDENT_SERVING_CONFIG_ENV)
     resident_transition_live_path = os.environ.get(RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV)
+    consequence_store, consequence_result_ids, model_replacement_store, model_replacement_run_refs, consequence_projection_status = (
+        _load_embodied_consequence_projection(os.environ.get(EMBODIED_CONSEQUENCE_PROJECTION_CONFIG_ENV)))
+    consequence_projection_kwargs = {
+        "embodied_consequence_store": consequence_store,
+        "embodied_consequence_result_ids": consequence_result_ids,
+        "model_replacement_artifact_store": model_replacement_store,
+        "model_replacement_run_refs": model_replacement_run_refs,
+        "embodied_consequence_projection_status": consequence_projection_status,
+    }
     if resident_serving_path:
         try:
             resident_serving_config = load_resident_serving_config(resident_serving_path)
@@ -1981,6 +2099,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         genesis_advice_source=genesis_advice,
         resource_observation_owner=resource_observation_owner,
         resource_observation_configuration_status=resource_observation_configuration_status,
+        **consequence_projection_kwargs,
     )
     scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners_after_resident_decision(
         adoption_path, wake_adoption_path, successor_adoption_path,
@@ -2020,6 +2139,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
                 resource_observation_owner=resource_observation_owner,
                 resource_observation_configuration_status=resource_observation_configuration_status,
+                **consequence_projection_kwargs,
                 epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
                 epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
@@ -2055,6 +2175,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                     governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
                     resource_observation_owner=resource_observation_owner,
                     resource_observation_configuration_status=resource_observation_configuration_status,
+                    **consequence_projection_kwargs,
                     epistemic_state_owner=candidate_surfaces._epistemic_state_owner,
                     epistemic_state_config=candidate_surfaces._epistemic_state_config,
                     epistemic_state_configuration_error=candidate_surfaces._epistemic_state_configuration_error,
@@ -2081,6 +2202,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 governed_local_invoker=None, genesis_advice_source=genesis_advice,
                 resource_observation_owner=resource_observation_owner,
                 resource_observation_configuration_status=resource_observation_configuration_status,
+                **consequence_projection_kwargs,
                 epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
                 epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
