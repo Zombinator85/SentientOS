@@ -702,7 +702,7 @@ COVERAGE_MANIFEST: tuple[Mapping[str, str], ...] = tuple(
         ("developmental_history", "implemented", "history custody identities and counts are bounded"),
         ("persistent_epistemics", "implemented", "state custody counts and mutation receipt references are bounded"),
         ("canonical_memory", "partial", "privacy-safe custody metadata only"),
-        ("causal_resources", "partial", "principal attribution exists; allocation is not inferred"),
+        ("causal_resources", "partial", "explicit installation-scoped principal/allocation/attempt/receipt custody is observable; shared host use and cross-service attribution remain unavailable"),
         ("embodiment", "implemented", "renderer, independent observation, and fulfillment evidence remain distinct"),
         ("federation", "partial", "local lifecycle/candidate metadata carries no adoption authority"),
         ("runtime_supervision", "implemented", "service lifecycle and restart evidence is inspectable without control"),

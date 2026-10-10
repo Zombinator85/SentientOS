@@ -1626,6 +1626,61 @@ def _compose_causal_introspection(
                 domain="persistent_epistemics", inspect=inspect_epistemics,
                 observation_classes={"proposition_count": "count", "state_count": "count",
                     "evidence_binding_count": "count"})))
+    resource_observer = runtime_surfaces._resource_observation_owner
+    if "causal_resources" in enabled and resource_observer is not None:
+        def inspect_causal_resources() -> dict[str, Any]:
+            observation = resource_observer.observe()
+            ledger_snapshot = observation.ledger.observation_snapshot()
+            records = resource_consumption_world_state_records(
+                ledger=observation.ledger,
+                invocation_receipts=observation.invocation_receipts,
+                source_identity={"installation_identity": observation.installation_identity,
+                    "provisioning_id": observation.provisioning_id,
+                    "manifest_digest": observation.manifest_digest})
+            if len(records) != 1 or not isinstance(records[0].get("payload"), Mapping):
+                raise ValueError("causal_resource_projection_shape_invalid")
+            payload = records[0]["payload"]
+            receipt_values = payload.get("consumption_receipts", ())
+            return {"installation_identity": observation.installation_identity,
+                "provisioning_id": observation.provisioning_id,
+                "manifest_digest": observation.manifest_digest,
+                "ledger_digest": str(payload.get("ledger_digest", "")),
+                "allocation_digests": tuple(str(item.get("allocation_digest", ""))
+                    for item in ledger_snapshot["allocations"] if isinstance(item, Mapping)),
+                "attempt_ids": tuple(str(item.get("attempt_id", ""))
+                    for item in ledger_snapshot["attempts"][-64:] if isinstance(item, Mapping)),
+                "retained_historical_consumption_receipt_digests": tuple(str(item.get("receipt_digest", ""))
+                    for item in receipt_values[-64:] if isinstance(item, Mapping)),
+                "retained_invocation_receipt_digests": tuple(str(item.get("receipt_digest", ""))
+                    for item in observation.invocation_receipts[-64:]),
+                "allocation_count": len(ledger_snapshot["allocations"]),
+                "attempt_count": len(ledger_snapshot["attempts"]),
+                "retained_historical_consumption_receipt_count": len(receipt_values),
+                "retained_invocation_receipt_count": len(observation.invocation_receipts),
+                "incomplete_attempt_count": len(payload.get("incomplete_attempt_ids", ())),
+                "lineage_finding_count": len(payload.get("lineage_findings", ())),
+                "lineage_posture": str(payload.get("lineage_posture", "unknown")),
+                "recovery_posture": str(payload.get("recovery_posture", "unknown")),
+                "invocation_receipt_posture": observation.invocation_receipt_posture,
+                "identity_retention_posture": ("complete" if len(ledger_snapshot["attempts"]) <= 64
+                    and len(receipt_values) <= 64 and len(observation.invocation_receipts) <= 64
+                    else "bounded_tail_incomplete"),
+                "read_only": True, "effect_authority": False}
+        registrations.append(ProviderRegistration("governed-resource-observer", "causal_resources",
+            LiveOwnerMetadataProvider(provider_id="governed-resource-observer-v1",
+                owner_id="governed-resource-observer", owner_kind="production_chat_resource_observation_owner",
+                domain="causal_resources", inspect=inspect_causal_resources,
+                observation_classes={"installation_identity": "identity", "provisioning_id": "identity",
+                    "manifest_digest": "lineage", "ledger_digest": "lineage",
+                    "allocation_digests": "resource_attribution", "attempt_ids": "resource_attribution",
+                    "retained_historical_consumption_receipt_digests": "resource_attribution",
+                    "retained_invocation_receipt_digests": "resource_attribution", "allocation_count": "count",
+                    "attempt_count": "count", "retained_historical_consumption_receipt_count": "count",
+                    "retained_invocation_receipt_count": "count", "incomplete_attempt_count": "count",
+                    "lineage_finding_count": "count", "lineage_posture": "lineage",
+                    "recovery_posture": "lifecycle", "invocation_receipt_posture": "health",
+                    "identity_retention_posture": "lifecycle",
+                    "read_only": "currentness", "effect_authority": "authority_evidence"})))
     longitudinal_owner = runtime_surfaces._longitudinal_self_model_owner
     if "longitudinal_self_model" in enabled and longitudinal_owner is not None:
         def inspect_longitudinal() -> dict[str, Any]:
