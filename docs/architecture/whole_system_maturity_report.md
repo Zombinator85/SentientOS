@@ -4,7 +4,7 @@
 > `84c5687c841e83187d8017c4b84fd6b038937432` and tree `20c7a14e8909c63d108c94f07cc088357a16943e`.
 > Published `main` observed during the census was `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`; it is a separate revision. The atlas describes source structure and does not establish that opt-in runtime configuration is enabled or that production behavior occurred. Prior atlases remain immutable in the [index](system_atlas_index.md).
 
-> **Post-census construction note:** source commit `4c8e5f9be021e70b8cfc700454dc4780632f20b8` adds the explicitly configured, read-only production-chat resource observer described below in the [technical overview](public_technical_overview.md). The table and exact-gap list remain a truthful report of the atlas-bound source above; this later implementation received compilation checks only and is unverified for production.
+> **Post-census construction note:** source commit `1770ab54e2c87a4a2c83ddd4d4c34afd6f6027db` adds the explicitly configured, read-only production-chat resource observer described below in the [technical overview](public_technical_overview.md). The table and exact-gap list remain a truthful report of the atlas-bound source above; this later implementation received compilation checks only and is unverified for production.
 
 ## Thesis and semantic boundary
 

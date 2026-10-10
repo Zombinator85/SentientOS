@@ -48,7 +48,7 @@ This checkout keeps four different reference points visible:
 
 - **Published `main`:** `197e2a4ceeb13ab59a88fd531283355e15e1fd7d` at the time of this review.
 - **Frozen construction source:** `84c5687c841e83187d8017c4b84fd6b038937432`, tree `20c7a14e8909c63d108c94f07cc088357a16943e`; the new atlas is bound to this exact source tree.
-- **Resource-observation construction source:** `4c8e5f9be021e70b8cfc700454dc4780632f20b8`, tree `9d2d672356cc0c88df6bcbd27e871b02a36b7d6d`; it adds an opt-in read-only installation-custody bridge and keeps retrieval timestamps outside semantic evidence identity. It remains unverified for production.
+- **Resource-observation construction source:** `1770ab54e2c87a4a2c83ddd4d4c34afd6f6027db`, tree `f312a788965b48f5c40c4b7a08df276531938f9f`; it adds an opt-in read-only installation-custody bridge and keeps retrieval timestamps outside semantic evidence identity. It remains unverified for production.
 - **Selected atlas snapshot:** `84c5687c841e83187d8017c4b84fd6b038937432`, an immutable census selected by [`system_atlas_index.md`](docs/architecture/system_atlas_index.md). “Current” in that index means selected snapshot, not a mutable census.
 - **Production evidence:** a separate predicate requiring qualifying real executions or observations. Source, synthetic fixtures, and a composed operator path do not by themselves establish production events or outcomes.
 
