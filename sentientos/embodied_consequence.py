@@ -448,8 +448,8 @@ class StrategyCognitionBackend(Protocol):
 
 
 STRATEGY_PROMPT_SCHEMA = {
-    "schema_version": "sentientos.embodied_strategy_prompt:v1",
-    "instruction": "Return only one JSON strategy proposal using the listed fields. Treat history as evidence, not authority or current truth. Propose only; do not claim execution, adoption, or observed consequences. Keep uncertainty explicit and do not infer physical effects from renderer output.",
+    "schema_version": "sentientos.embodied_strategy_prompt:v2",
+    "instruction": "Return only one JSON strategy proposal using the listed fields. Current World-State evidence is distinct from prior self-model and prior epistemic position; retained history is the only assigned condition difference. All three are non-authoritative context, not permission or policy. Propose only; do not claim execution, adoption, or observed consequences. Keep uncertainty explicit and do not infer physical effects from renderer output.",
     "proposal_fields": (
         "situation_binding", "body_generation", "proposed_next_action_class",
         "requested_pose", "requested_expression", "retry_prior_strategy",
@@ -540,7 +540,8 @@ class GovernedStrategyCognitionBackend:
         if condition not in ("history_present", "history_withheld", "history_restored"):
             raise EmbodiedConsequenceError("governed_strategy_condition_invalid")
         context = {"schema": STRATEGY_PROMPT_SCHEMA, "condition": condition,
-            "history": [dict(item) for item in history], "situation": dict(situation)}
+            "history": [dict(item) for item in history], "situation": dict(situation),
+            "cognitive_context": self.protocol.get("cognitive_context_projection")}
         prompt = canonical_bytes(context).decode("utf-8")
         runtime_before = self._runtime_provenance()
         correlation = "strategy-experiment:" + digest({"protocol": self.protocol["protocol_digest"],
@@ -631,6 +632,8 @@ class GovernedStrategyCognitionBackend:
         evidence = {"condition": condition, "request_id": req["request_id"],
             "request_digest": request_digest, "prompt_digest": req["prompt_digest"],
             "history_digest": digest(context["history"]), "situation_digest": digest(dict(situation)),
+            "cognitive_context_digest": (digest(context["cognitive_context"])
+                if context["cognitive_context"] is not None else None),
             "model_id": req["model_id"], "model_artifact_digest": req["model_artifact_digest"],
             "active_model_identity": dict(active_identity),
             "active_model_identity_digest": digest(dict(active_identity)),
@@ -694,9 +697,107 @@ def _strategy_proposal_from_mapping(value: Mapping[str, Any]) -> EmbodiedStrateg
     return proposal
 
 
+def _strategy_cognitive_context(value: Mapping[str, Any] | None, *,
+                                protocol: Mapping[str, Any]) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    from .longitudinal_self_model import CognitiveSelfModelProjection
+    from .persistent_epistemic_state import EpistemicCognitiveProjection
+    from .resident_developmental_cognition import CurrentWorldStateCognitiveProjection
+    from .world_state_board import WorldStateSnapshot, validate_snapshot
+    expected_keys = {"current_tick", "tick_id", "snapshot", "current_projection",
+        "prior_self_model", "prior_epistemic_state"}
+    if not isinstance(value, Mapping) or set(value) != expected_keys:
+        raise EmbodiedConsequenceError("strategy_cognitive_context_shape_invalid")
+    current_tick, tick_id = value.get("current_tick"), value.get("tick_id")
+    snapshot, current = value.get("snapshot"), value.get("current_projection")
+    self_model, epistemic = value.get("prior_self_model"), value.get("prior_epistemic_state")
+    if (type(current_tick) is not int or current_tick < 0 or not isinstance(tick_id, str) or not tick_id
+            or type(snapshot) is not WorldStateSnapshot
+            or type(current) is not CurrentWorldStateCognitiveProjection
+            or (self_model is not None and type(self_model) is not CognitiveSelfModelProjection)
+            or (epistemic is not None and type(epistemic) is not EpistemicCognitiveProjection)):
+        raise EmbodiedConsequenceError("strategy_cognitive_context_owner_types_invalid")
+    snapshot_validation = validate_snapshot(snapshot)
+    if (not snapshot_validation.valid or snapshot.validation_posture != "valid"
+            or snapshot.digest != protocol.get("snapshot_digest")
+            or current.snapshot_id != snapshot.snapshot_id
+            or current.snapshot_digest != snapshot.digest
+            or current.projection_digest != digest(current.semantic_payload())
+            or current.projection_id != "current-world-state-" + current.projection_digest[7:31]
+            or current.fact_ids != tuple(str(item.get("fact_id", "")) for item in current.facts)
+            or len(current.fact_ids) > 16 or len(set(current.fact_ids)) != len(current.fact_ids)
+            or not set(current.fact_ids) <= {fact.fact_id for fact in snapshot.facts}
+            or current.read_only is not True or current.evidence_only is not True
+            or current.current_truth is not False or current.authority is not False
+            or current.policy is not False or current.goal is not False
+            or current.canonical_explicit_user_retention is not False):
+        raise EmbodiedConsequenceError("strategy_current_world_state_binding_invalid")
+    current_payload: dict[str, Any] = {"tick_id": tick_id, "current_tick": current_tick,
+        "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+        "current_world_state_projection": asdict(current)}
+    if self_model is not None:
+        self_digest = digest(self_model.semantic_payload())
+        if (self_model.projection_digest != self_digest
+                or self_model.projection_id != "cognitive-self-model-" + self_digest[7:31]
+                or self_model.source_tick == tick_id
+                or len(self_model.selected_claim_ids) != len(self_model.selected_claim_digests)
+                or self_model.selected_claim_ids != tuple(str(claim.get("claim_id", "")) for claim in self_model.selected_claims)
+                or self_model.selected_claim_digests != tuple(str(claim.get("semantic_digest", "")) for claim in self_model.selected_claims)
+                or len(self_model.selected_claim_ids) > 64
+                or any(self_model.authority.values()) or self_model.current_truth is not False
+                or self_model.read_only is not True or self_model.derived_evidence is not True
+                or self_model.interpretation is not False):
+            raise EmbodiedConsequenceError("strategy_prior_self_model_binding_invalid")
+        current_payload["prior_self_model"] = asdict(self_model)
+    else:
+        current_payload["prior_self_model"] = None
+    if epistemic is not None:
+        state_values = tuple(dict(item) for item in epistemic.states)
+        state_bindings_valid = True
+        for state in state_values:
+            state_semantic = {key: item for key, item in state.items()
+                if key not in {"state_id", "state_digest"}}
+            state_digest = digest(state_semantic)
+            if (state.get("state_digest") != state_digest
+                    or state.get("state_id") != "epistemic-state:" + state_digest[7:31]
+                    or not isinstance(state.get("authority"), Mapping)
+                    or any(state["authority"].values())):
+                state_bindings_valid = False
+        if (epistemic.source_tick >= current_tick
+                or len(state_values) > 64
+                or not state_bindings_valid
+                or tuple(str(item.get("proposition_id", "")) for item in state_values) != epistemic.proposition_ids
+                or tuple(str(item.get("state_id", "")) for item in state_values) != epistemic.state_ids
+                or tuple(str(item.get("state_digest", "")) for item in state_values) != epistemic.state_digests
+                or tuple(int(item.get("generation", -1)) for item in state_values) != epistemic.generations
+                or tuple(str(item.get("evidence_set_digest", "")) for item in state_values) != epistemic.evidence_set_digests
+                or epistemic.evidence_only is not False or epistemic.prior_position_only is not True
+                or epistemic.current_truth is not False or epistemic.authority is not False
+                or epistemic.policy is not False or epistemic.goal is not False):
+            raise EmbodiedConsequenceError("strategy_prior_epistemic_state_binding_invalid")
+        semantic = {"source_tick": epistemic.source_tick,
+            "proposition_ids": epistemic.proposition_ids, "state_ids": epistemic.state_ids,
+            "state_digests": epistemic.state_digests, "generations": epistemic.generations,
+            "evidence_set_digests": epistemic.evidence_set_digests, "states": epistemic.states,
+            "evidence_only": False, "prior_position_only": True, "current_truth": False,
+            "authority": False, "policy": False, "goal": False}
+        projection_digest = digest(semantic)
+        if (epistemic.projection_digest != projection_digest
+                or epistemic.projection_id != "epistemic-projection:" + projection_digest[7:31]):
+            raise EmbodiedConsequenceError("strategy_prior_epistemic_projection_digest_mismatch")
+        current_payload["prior_epistemic_state"] = asdict(epistemic)
+    else:
+        current_payload["prior_epistemic_state"] = None
+    if len(canonical_bytes(current_payload)) > MAX_STRATEGY_CONTEXT_BYTES:
+        raise EmbodiedConsequenceError("strategy_cognitive_context_oversized")
+    return current_payload
+
+
 def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: str,
         protocol_id: str, protocol: Mapping[str, Any], history: Sequence[Mapping[str, Any]],
         history_record: Mapping[str, Any], situation: Mapping[str, Any],
+        cognitive_context: Mapping[str, Any] | None,
         proposal: EmbodiedStrategyProposal) -> dict[str, Any]:
     from .governed_local_model_invocation import validate_receipt
     from .local_model_authority import digest_payload
@@ -708,7 +809,7 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
     situation_copy = json.loads(canonical_bytes(dict(situation)))
     expected_prompt = canonical_bytes({"schema": STRATEGY_PROMPT_SCHEMA,
         "condition": condition, "history": [dict(item) for item in history],
-        "situation": situation_copy}).decode("utf-8")
+        "situation": situation_copy, "cognitive_context": cognitive_context}).decode("utf-8")
     linkage = receipt_request.get("linkage") if isinstance(receipt_request, Mapping) else None
     if (row_digest != digest(row) or not valid_receipt
             or row.get("condition") != condition
@@ -740,6 +841,8 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
             or linkage.get("history_record_ids") != [str(item.get("record_id", "")) for item in history]
             or row.get("history_digest") != digest([dict(item) for item in history])
             or row.get("situation_digest") != digest(dict(situation))
+            or row.get("cognitive_context_digest") != (digest(cognitive_context)
+                if cognitive_context is not None else None)
             or row.get("history_event_time") != history_record.get("created_at")
             or row.get("inference_event_time") != receipt.get("observed_at")
             or row.get("historical_event_precedes_inference") is not True
@@ -751,7 +854,8 @@ def _verify_strategy_execution_evidence(value: Mapping[str, Any], *, condition: 
 
 def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapping[str, Any], situation: Mapping[str, Any],
                             backend: StrategyCognitionBackend, consequence: Mapping[str, Any],
-                            store: "ConsequenceStore | None" = None) -> dict[str, Any]:
+                            store: "ConsequenceStore | None" = None,
+                            cognitive_context: Mapping[str, Any] | None = None) -> dict[str, Any]:
     required={"protocol_id","snapshot_digest","body_generation","model_id","model_artifact_digest","inference_budget_digest",
               "prompt_schema_digest","renderer_situation_digest","software_generation","environment_fixture_digest"}
     if (set(protocol)!=required or len(canonical_bytes(dict(protocol)))>MAX_STRATEGY_CONTEXT_BYTES
@@ -761,6 +865,7 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
             or len(canonical_bytes(dict(history_record)))>MAX_STRATEGY_CONTEXT_BYTES
             or len(canonical_bytes(dict(situation)))>MAX_STRATEGY_CONTEXT_BYTES):
         raise EmbodiedConsequenceError("strategy_protocol_shape_invalid")
+    cognitive_context_projection = _strategy_cognitive_context(cognitive_context, protocol=protocol)
     _verify_consequence_attribution(consequence)
     record_digest=history_record.get("record_digest")
     record_semantic=dict(history_record); record_semantic.pop("record_id",None); record_semantic.pop("record_digest",None)
@@ -773,6 +878,10 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
                               and history_record.get("current_truth") is False
                               and history_record.get("authority") is False
                               and history_record.get("policy") is False)
+    if cognitive_context_projection is not None:
+        candidate = history_record.get("candidate")
+        history_binding_verified = (history_binding_verified and isinstance(candidate, Mapping)
+            and candidate.get("snapshot_id") != cognitive_context_projection.get("snapshot_id"))
     history_event_time = history_record.get("created_at")
     try:
         if not isinstance(history_event_time, str): raise EmbodiedConsequenceError("history_event_time_missing")
@@ -789,7 +898,8 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         raise EmbodiedConsequenceError("durable_store_required_for_governed_strategy_experiment")
     if callable(bind_protocol):
         bind_protocol({**dict(protocol), "protocol_id": protocol_id, "protocol_digest": protocol_digest,
-            "history_record_created_at": history_event_time})
+            "history_record_created_at": history_event_time,
+            "cognitive_context_projection": cognitive_context_projection})
     proposals=[]
     execution_evidence=[]
     condition_statuses=[]
@@ -804,6 +914,8 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
             "condition": condition, "history": [dict(item) for item in history],
             "situation": situation_copy, "consequence_id": consequence.get("attribution_id"),
             "consequence_digest": consequence.get("attribution_digest"),
+            "cognitive_context_digest": (digest(cognitive_context_projection)
+                if cognitive_context_projection is not None else None),
             "target_history_record_id": history_record.get("record_id"),
             "target_history_record_digest": record_digest})
         if store is not None:
@@ -842,7 +954,8 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
                     stored_evidence = _verify_strategy_execution_evidence(stored_evidence,
                         condition=condition, protocol_id=protocol_id, protocol=protocol,
                         history=history, history_record=history_record,
-                        situation=situation_copy, proposal=proposal)
+                        situation=situation_copy, cognitive_context=cognitive_context_projection,
+                        proposal=proposal)
                     execution_evidence.append(stored_evidence)
                 else:
                     execution_evidence.append(stored_evidence or {"condition":condition,
@@ -875,7 +988,8 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
                     raise EmbodiedConsequenceError("unowned_governed_execution_evidence")
                 row = _verify_strategy_execution_evidence(evidence, condition=condition,
                     protocol_id=protocol_id, protocol=protocol, history=history,
-                    history_record=history_record, situation=situation_copy, proposal=proposal)
+                    history_record=history_record, situation=situation_copy,
+                    cognitive_context=cognitive_context_projection, proposal=proposal)
             else:
                 row = {"condition": condition, "execution_posture": "unknown_no_governed_receipt"}
             verify_strategy_proposal(proposal, situation_binding=str(situation_copy.get("situation_binding", "")),
@@ -977,6 +1091,14 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
             execution_posture = "contradictory_serving_identity_changed_across_conditions"
     else:
         execution_posture = "verified_model_identity_serving_or_software_identity_unknown_or_incomplete"
+    current_projection = (cognitive_context_projection.get("current_world_state_projection")
+        if cognitive_context_projection is not None else None)
+    prior_self_model = (cognitive_context_projection.get("prior_self_model")
+        if cognitive_context_projection is not None else None)
+    prior_epistemic = (cognitive_context_projection.get("prior_epistemic_state")
+        if cognitive_context_projection is not None else None)
+    cognitive_context_complete = (isinstance(current_projection, Mapping)
+        and isinstance(prior_self_model, Mapping) and isinstance(prior_epistemic, Mapping))
     execution_context_stable = (len(governed_rows) == len(conditions)
         and len({item.get("active_model_identity_digest") for item in governed_rows}) == 1
         and all(item.get("software_generation_posture") == "verified_current_resident_generation"
@@ -987,7 +1109,9 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         and len({item.get("authority_map_digest") for item in governed_rows}) == 1
         and len({digest(item.get("invocation_receipt", {}).get("generation_config"))
                  for item in governed_rows}) == 1
-        and len({digest(item.get("serving_identity")) for item in governed_rows}) == 1)
+        and len({digest(item.get("serving_identity")) for item in governed_rows}) == 1
+        and (cognitive_context_complete
+            and len({item.get("cognitive_context_digest") for item in governed_rows}) == 1))
     temporal_separation_posture = ("historical_record_event_precedes_inference_logical_tick_unbound"
         if len(governed_rows) == len(conditions)
         and all(item.get("historical_event_precedes_inference") is True for item in governed_rows)
@@ -998,12 +1122,35 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         validity = "execution_incomplete"
     elif not history_binding_verified or not situation_binding_verified:
         validity = "context_binding_incomplete"
+    elif execution_posture == "verified_governed_model_serving_and_running_software_generation" and cognitive_context_complete:
+        validity = "controlled_history_world_state_self_model_epistemic_and_execution_identity_consistent"
     elif execution_posture == "verified_governed_model_serving_and_running_software_generation":
-        validity = "controlled_history_situation_execution_identity_consistent_cognition_context_unbound"
+        validity = "execution_identity_verified_cognitive_state_context_unbound"
     elif execution_posture.startswith("contradictory") or "contradictory" in execution_posture:
         validity = "execution_identity_contradictory"
     else:
         validity = "input_context_consistent_execution_identity_unknown_or_incomplete"
+    cognitive_context_binding = {"posture": "verified_complete_prior_owner_projections"
+            if cognitive_context_complete else "partial_or_unbound",
+        "digest": digest(cognitive_context_projection) if cognitive_context_projection is not None else None,
+        "tick_id": cognitive_context_projection.get("tick_id") if cognitive_context_projection is not None else None,
+        "current_tick": cognitive_context_projection.get("current_tick") if cognitive_context_projection is not None else None,
+        "snapshot_id": cognitive_context_projection.get("snapshot_id") if cognitive_context_projection is not None else None,
+        "snapshot_digest": cognitive_context_projection.get("snapshot_digest") if cognitive_context_projection is not None else None,
+        "current_projection_id": current_projection.get("projection_id") if isinstance(current_projection, Mapping) else None,
+        "current_projection_digest": current_projection.get("projection_digest") if isinstance(current_projection, Mapping) else None,
+        "current_fact_ids": current_projection.get("fact_ids", ()) if isinstance(current_projection, Mapping) else (),
+        "self_model_projection_id": prior_self_model.get("projection_id") if isinstance(prior_self_model, Mapping) else None,
+        "self_model_projection_digest": prior_self_model.get("projection_digest") if isinstance(prior_self_model, Mapping) else None,
+        "self_model_source_tick": prior_self_model.get("source_tick") if isinstance(prior_self_model, Mapping) else None,
+        "self_model_claim_ids": prior_self_model.get("selected_claim_ids", ()) if isinstance(prior_self_model, Mapping) else (),
+        "self_model_claim_digests": prior_self_model.get("selected_claim_digests", ()) if isinstance(prior_self_model, Mapping) else (),
+        "epistemic_projection_id": prior_epistemic.get("projection_id") if isinstance(prior_epistemic, Mapping) else None,
+        "epistemic_projection_digest": prior_epistemic.get("projection_digest") if isinstance(prior_epistemic, Mapping) else None,
+        "epistemic_source_tick": prior_epistemic.get("source_tick") if isinstance(prior_epistemic, Mapping) else None,
+        "epistemic_state_ids": prior_epistemic.get("state_ids", ()) if isinstance(prior_epistemic, Mapping) else (),
+        "epistemic_state_digests": prior_epistemic.get("state_digests", ()) if isinstance(prior_epistemic, Mapping) else (),
+        "epistemic_evidence_set_digests": prior_epistemic.get("evidence_set_digests", ()) if isinstance(prior_epistemic, Mapping) else ()}
     payload={"schema_version":EXPERIMENT_RESULT_SCHEMA,"protocol":dict(protocol),"protocol_digest":digest(protocol),
         "condition_order":list(conditions),"withheld_record_id":history_record.get("record_id"),"withheld_record_digest":record_digest,
         "condition_statuses":condition_statuses,
@@ -1011,9 +1158,13 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
         "failure_posture":failure_posture,
         "history_record_identity_consistent":history_binding_verified,
         "situation_matches_declared_digest":situation_binding_verified,
-        "world_state_binding_posture":"protocol_snapshot_digest_declared_without_resident_snapshot_object",
-        "self_model_binding_posture":"not_bound_by_embodied_strategy_protocol",
-        "epistemic_state_binding_posture":"not_bound_by_embodied_strategy_protocol",
+        "world_state_binding_posture":"verified_resident_snapshot_and_current_projection"
+            if cognitive_context_projection is not None else "protocol_snapshot_digest_declared_without_resident_snapshot_object",
+        "self_model_binding_posture":"verified_prior_projection"
+            if isinstance(prior_self_model, Mapping) else "unavailable_or_not_bound",
+        "epistemic_state_binding_posture":"verified_prior_projection"
+            if isinstance(prior_epistemic, Mapping) else "unavailable_or_not_bound",
+        "cognitive_context_binding":cognitive_context_binding,
         "temporal_separation_posture":temporal_separation_posture,
         "cognitive_execution_identity_posture":execution_posture,
         "execution_context_stable_across_conditions":execution_context_stable if callable(bind_protocol) else None,
