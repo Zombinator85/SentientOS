@@ -30,6 +30,7 @@ from sentientos.maintenance_resident_runtime_adoption import EVENT_SCHEMA, PROVE
 SCHEMA = "sentientos.maintenance_production_post_adoption_campaign_custody:v1"
 READINESS_SCHEMA = "sentientos.maintenance_production_post_adoption_campaign_readiness:v1"
 BUNDLE_SCHEMA = "sentientos.maintenance_production_post_adoption_campaign_bundle:v1"
+QUALIFICATION_SCHEMA = "sentientos.maintenance_production_post_adoption_campaign_qualification:v1"
 HOST_SCHEMA = "sentientos.host_collector_result:v1"
 FALSE_EFFECTS = {"git": False, "repository_mutation": False, "software_adoption": False,
     "process_replacement": False, "rollback": False, "provider_network": False,
@@ -249,6 +250,25 @@ class MaintenanceProductionPostAdoptionCampaign:
                 raise ProductionCampaignError("campaign_custody_tampered")
         return cast(Mapping[str, Any], body)
 
+    def _qualification(self, campaign_id: str) -> Mapping[str, Any]:
+        try:
+            body = _read_json(self.root / "qualification.json")
+        except ProductionCampaignError as exc:
+            raise ProductionCampaignError("campaign_qualification_unavailable") from exc
+        if not isinstance(body, dict):
+            raise ProductionCampaignError("campaign_qualification_corrupt")
+        supplied = dict(body)
+        actual = supplied.pop("qualification_digest", None)
+        if (body.get("schema_version") != QUALIFICATION_SCHEMA
+                or body.get("campaign_id") != campaign_id
+                or actual != _digest(supplied)
+                or not isinstance(body.get("evidence"), Mapping)
+                or not isinstance(body.get("request_digest"), str)
+                or not body.get("request_digest", "").startswith("sha256:")
+                or not _record_valid(body.get("readiness", {}), READINESS_SCHEMA, "readiness_digest")):
+            raise ProductionCampaignError("campaign_qualification_corrupt")
+        return cast(Mapping[str, Any], body)
+
     def readiness(self, campaign_id: str, evidence: Mapping[str, Mapping[str, Any]], *,
                   artifact_path: str | Path | None = None) -> Mapping[str, Any]:
         """Derive production posture from exact real records, never a caller label."""
@@ -363,15 +383,40 @@ class MaintenanceProductionPostAdoptionCampaign:
         if self.read_only:
             raise ProductionCampaignError("production_campaign_store_read_only")
         ready = self.readiness(campaign_id, evidence)
-        if ready["status"] not in {"production_campaign_ready", "production_campaign_in_progress"} or ready["missing_prerequisites"]:
-            raise ProductionCampaignError("production_campaign_not_ready")
-        _write_once(self.root / "qualification.json", {"evidence": evidence, "readiness": ready}, read_only=self.read_only)
         protocol = self.campaigns.protocol(campaign_id)
         prior = [x for x in self.campaigns._read("trials") if x["campaign_id"] == campaign_id]
         if len(prior) >= len(protocol.trial_ids): raise ProductionCampaignError("campaign_already_terminal")
         index = len(prior); trial_id = protocol.trial_ids[index]
         evaluation_protocol = self.evaluations.protocol(protocol.evaluation_protocol_ids[index])
         baseline = self.evaluations.baseline(evaluation_protocol.protocol_id)
+        recovered_observation = self.evaluations.observation_if_present(evaluation_protocol.protocol_id)
+        recoverable_interruption = (ready["status"] == "production_campaign_interrupted"
+            and recovered_observation is not None
+            and ready["missing_prerequisites"] == ["no_unresolved_observation_attempt"])
+        if (ready["status"] not in {"production_campaign_ready", "production_campaign_in_progress"}
+                and not recoverable_interruption) or (ready["missing_prerequisites"] and not recoverable_interruption):
+            raise ProductionCampaignError("production_campaign_not_ready")
+        request_digest = _digest({"target_observations":target_observations,
+            "target_source_records":target_source_records, "target_measurement_laws":target_measurement_laws,
+            "control_before_values":control_before_values, "control_match_results":control_match_results,
+            "window_identity":window_identity, "observed_at":observed_at,
+            "evaluated_at":evaluated_at, "completed_at":completed_at})
+        qualification_path = self.root / "qualification.json"
+        try:
+            qualification = self._qualification(campaign_id)
+        except ProductionCampaignError as exc:
+            if str(exc) != "campaign_qualification_unavailable":
+                raise
+            qualification_body: dict[str, Any] = {"schema_version": QUALIFICATION_SCHEMA,
+                "campaign_id": campaign_id, "evidence": evidence, "readiness": ready,
+                "request_digest":request_digest}
+            qualification_body["qualification_digest"] = _digest(qualification_body)
+            _write_once(qualification_path, qualification_body, read_only=self.read_only)
+            qualification = qualification_body
+        if canonical_bytes(qualification.get("evidence")) != canonical_bytes(evidence):
+            raise ProductionCampaignError("campaign_qualification_conflict")
+        if qualification.get("request_digest") != request_digest:
+            raise ProductionCampaignError("campaign_qualification_conflict")
         manifests = {x["observable_id"]: x for x in evidence["target_sources"]["records"]}
         for observable_id, record in target_source_records.items():
             manifest = manifests.get(observable_id)
@@ -385,15 +430,27 @@ class MaintenanceProductionPostAdoptionCampaign:
             protocol.successor_tree, str(generation["generation_digest"]), str(continuity["receipt_digest"]),
             str(adoption["receipt_digest"]), str(provenance["provenance_digest"]),
             str(adoption["receipt_digest"]), adoption_time, "resident_adoption_completed")
-        observation = self.evaluations.observe(evaluation_protocol, baseline, qualification,
+        observation = recovered_observation or self.evaluations.observe(evaluation_protocol, baseline, qualification,
             observations=target_observations, source_records=target_source_records,
             measurement_laws=target_measurement_laws, observed_at=observed_at,
             collector_id="maintenance-production-post-adoption-campaign")
-        evaluation = self.evaluations.evaluate(evaluation_protocol, baseline, observation, evaluated_at=evaluated_at)
-        controls = [self.collect_host_control(campaign_id, trial_id, item.observable_id,
-            before_value=control_before_values[item.observable_id],
-            matching_result=control_match_results[item.observable_id], window_identity=window_identity,
-            observed_at=observed_at) for item in protocol.controls]
+        evaluation = self.evaluations.evaluation_if_present(evaluation_protocol.protocol_id)
+        if evaluation is None:
+            evaluation = self.evaluations.evaluate(evaluation_protocol, baseline, observation, evaluated_at=evaluated_at)
+        controls_by_observable = {item.observable_id:item for item in
+            self.campaigns.controls_for_trial(campaign_id, trial_id)}
+        controls = []
+        for definition in protocol.controls:
+            stored = controls_by_observable.get(definition.observable_id)
+            if stored is not None:
+                if stored.window_identity != window_identity:
+                    raise ProductionCampaignError("campaign_control_window_conflict")
+                controls.append(stored)
+                continue
+            control = self.collect_host_control(campaign_id, trial_id, definition.observable_id,
+                before_value=control_before_values[definition.observable_id],
+                matching_result=control_match_results[definition.observable_id], window_identity=window_identity)
+            controls.append(self.campaigns.record_control(protocol, control))
         trial = self.campaigns.record_trial(protocol, trial_id=trial_id, evaluation=evaluation,
             controls=controls, terminal_status="completed", completed_at=completed_at)
         return {"trial": asdict(trial), "observation": asdict(observation), "evaluation": asdict(evaluation),
@@ -417,7 +474,7 @@ class MaintenanceProductionPostAdoptionCampaign:
     def report(self, campaign_id: str, *, proposition_id: str | None = None) -> Mapping[str, Any]:
         custody = self.reconstruct(campaign_id)
         try:
-            qualification = _read_json(self.root / "qualification.json")
+            qualification = self._qualification(campaign_id)
             readiness = self.readiness(campaign_id, qualification["evidence"])
         except (ProductionCampaignError, KeyError):
             readiness = self.readiness(campaign_id, {})

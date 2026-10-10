@@ -367,6 +367,48 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
             row[field] = tuple(row[field])
         return CampaignProtocol(**row)
 
+    def controls_for_trial(self, campaign_id: str, trial_id: str) -> tuple[ControlObservation, ...]:
+        """Return exact persisted controls for a trial after full store verification."""
+        self.verify()
+        rows = [row for row in self._read("controls")
+            if row.get("campaign_id") == campaign_id and row.get("trial_id") == trial_id]
+        values = []
+        for row in rows:
+            value = dict(row)
+            value["dependency_ids"] = tuple(value["dependency_ids"])
+            values.append(ControlObservation(**value))
+        return tuple(sorted(values, key=lambda item: item.observable_id))
+
+    def record_control(self, protocol: CampaignProtocol, control: ControlObservation) -> ControlObservation:
+        """Publish one immutable control observation so an interrupted trial can resume exactly."""
+        self.verify()
+        if self.read_only:
+            raise AttributionCampaignError("campaign_store_read_only")
+        if self.protocol(protocol.campaign_id) != protocol:
+            raise AttributionCampaignError("campaign_protocol_custody_mismatch")
+        if control.campaign_id != protocol.campaign_id or control.campaign_digest != protocol.campaign_digest:
+            raise AttributionCampaignError("control_campaign_lineage_mismatch")
+        fields = {key:value for key,value in asdict(control).items()
+            if key not in {"control_id", "control_digest", "campaign_id", "campaign_digest", "authority", "schema_version"}}
+        fields["dependency_ids"] = tuple(fields["dependency_ids"])
+        if make_control_observation(protocol, **fields) != control:
+            raise AttributionCampaignError("control_digest_mismatch")
+        if any(row.get("campaign_id") == protocol.campaign_id and row.get("trial_id") == control.trial_id
+                for row in self._read("trials")):
+            raise AttributionCampaignError("trial_already_terminal")
+        existing = [row for row in self._read("controls")
+            if row.get("campaign_id") == protocol.campaign_id and row.get("trial_id") == control.trial_id
+            and row.get("observable_id") == control.observable_id]
+        if existing:
+            if len(existing) != 1 or existing[0].get("control_id") != control.control_id:
+                raise AttributionCampaignError("trial_control_observation_conflict")
+            stored = dict(existing[0]); stored["dependency_ids"] = tuple(stored["dependency_ids"])
+            return ControlObservation(**stored)
+        if any(row.get("campaign_id") == protocol.campaign_id for row in self._read("results")):
+            raise AttributionCampaignError("completed_campaign_replay_forbidden")
+        self._write("controls", control.control_id, control)
+        return control
+
     def record_trial(self, protocol: CampaignProtocol, *, trial_id: str, evaluation: Evaluation | None,
                      controls: Sequence[ControlObservation], terminal_status: str, completed_at: str) -> CampaignTrial:
         self.verify()
@@ -510,6 +552,7 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
 
         control_rows = self._read("controls")
         controls: dict[str, dict[str, Any]] = {}
+        control_slots: set[tuple[str, str, str]] = set()
         for row in control_rows:
             try:
                 protocol = protocols[row["campaign_id"]]
@@ -521,6 +564,10 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
             if (rebuilt.control_id != row.get("control_id") or rebuilt.control_digest != row.get("control_digest")
                     or canonical_bytes(asdict(rebuilt)) != canonical_bytes(row) or row["control_id"] in controls):
                 raise AttributionCampaignError("campaign_history_corrupt")
+            slot = (row["campaign_id"], row["trial_id"], row["observable_id"])
+            if slot in control_slots:
+                raise AttributionCampaignError("campaign_history_corrupt")
+            control_slots.add(slot)
             _false(row["authority"])
             controls[row["control_id"]] = row
 
@@ -543,6 +590,7 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
                         or trial.evaluation_protocol_digest != protocol.evaluation_protocol_digests[order]
                         or trial.terminal_status not in TERMINAL_STATUSES or trial.outcome not in RESULTS
                         or len(trial.control_ids) != len(set(trial.control_ids))
+                        or len({x["observable_id"] for x in linked_controls}) != len(linked_controls)
                         or tuple(x["control_digest"] for x in linked_controls) != trial.control_digests
                         or any(x["campaign_id"] != trial.campaign_id or x["trial_id"] != trial.trial_id for x in linked_controls)
                         or (trial.terminal_status != "completed" and trial.outcome != "interrupted_or_invalid_trial")

@@ -377,6 +377,16 @@ class MaintenancePostAdoptionEvaluationOwner:
             raise PostAdoptionEvaluationError("observation_not_found_or_ambiguous")
         return PostAdoptionObservation(**rows[0])
 
+    def observation_if_present(self, protocol_id: str) -> PostAdoptionObservation | None:
+        """Recover an exact observation after interruption, without recapturing it."""
+        self.verify()
+        rows = [row for row in self._read("observations") if row.get("protocol_id") == protocol_id]
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise PostAdoptionEvaluationError("observation_not_found_or_ambiguous")
+        return PostAdoptionObservation(**rows[0])
+
     def evaluation(self, evaluation_id: str, evaluation_digest: str) -> Evaluation:
         self.verify()
         rows = [row for row in self._read("evaluations")
@@ -387,6 +397,24 @@ class MaintenancePostAdoptionEvaluationOwner:
         for field in ("comparisons", "missing_evidence", "contradictions", "reconstruction_lineage"):
             value[field] = tuple(value[field])
         return Evaluation(**value)
+
+    def evaluation_for_protocol(self, protocol_id: str) -> Evaluation:
+        """Recover the unique terminal evaluation, if one was published before interruption."""
+        self.verify()
+        rows = [row for row in self._read("evaluations") if row.get("protocol_id") == protocol_id]
+        if len(rows) != 1:
+            raise PostAdoptionEvaluationError("evaluation_not_found_or_ambiguous")
+        return self.evaluation(rows[0]["evaluation_id"], rows[0]["evaluation_digest"])
+
+    def evaluation_if_present(self, protocol_id: str) -> Evaluation | None:
+        """Recover an exact terminal evaluation after interruption, if published."""
+        self.verify()
+        rows = [row for row in self._read("evaluations") if row.get("protocol_id") == protocol_id]
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise PostAdoptionEvaluationError("evaluation_not_found_or_ambiguous")
+        return self.evaluation(rows[0]["evaluation_id"], rows[0]["evaluation_digest"])
 
     def observe(self, protocol: EvaluationProtocol, baseline: Baseline, qualification: SuccessorQualification, *, observations: Mapping[str,Any], source_records: Mapping[str,Mapping[str,str]], measurement_laws: Mapping[str,str], observed_at: str, collector_id: str) -> PostAdoptionObservation:
         self.verify()
