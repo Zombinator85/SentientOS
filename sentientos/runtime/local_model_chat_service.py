@@ -89,9 +89,7 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         self._root = root
         self._installation_handle = installation_handle
         self._handoff_id = uuid.uuid4().hex if installation_handle is not None else None
-        self._prior_snapshot_handoff: dict[str, object] | None = None
-        self._prior_snapshot_digest: str | None = None
-        self._prior_snapshot_supervisor_generation: str | None = None
+        self._prior_startup_snapshot: dict[str, object] | None = None
         environment = dict(os.environ)
         for key in ("PYTHONHOME", "PYTHONSTARTUP", "PYTHONINSPECT", "PYTHONUSERBASE"):
             environment.pop(key, None)
@@ -128,9 +126,7 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                     "startup_timestamp", "source_generation_scope"):
                 if predecessor.get(key) != historical.get(key):
                     raise ValueError("chat_process_predecessor_handoff_mismatch")
-            self._prior_snapshot_handoff = dict(predecessor)
-            self._prior_snapshot_digest = snapshot_digest
-            self._prior_snapshot_supervisor_generation = supervisor_generation
+            self._prior_startup_snapshot = dict(snapshot)
 
     @staticmethod
     def _launcher_argv(config: LocalModelChatStartup, *, root: Path,
@@ -184,9 +180,7 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                 working_directory=self._cwd, process_id=process.pid, parent_process_id=os.getpid(),
                 startup_timestamp=startup_timestamp, python_executable=self._argv[0],
                 repository_root=self._root,
-                prior_snapshot_handoff=self._prior_snapshot_handoff,
-                prior_snapshot_digest=self._prior_snapshot_digest,
-                prior_snapshot_supervisor_generation=self._prior_snapshot_supervisor_generation)
+                prior_startup_snapshot=self._prior_startup_snapshot)
         except Exception:
             self.force_stop()
             raise
