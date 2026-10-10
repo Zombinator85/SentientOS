@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import stat
 import tempfile
@@ -99,6 +100,12 @@ HISTORICAL_CONSEQUENCE_CLASSES = frozenset({
 HISTORICAL_COMPARISON_RESULTS = frozenset({"satisfied", "contradicted", "missing", "indeterminate"})
 HISTORICAL_REVIEW_SUBJECTS = frozenset({"embodied_strategy_proposal_review"})
 HISTORICAL_FULFILLMENT_SUBJECTS = frozenset({"embodied_proposal_fulfillment_receipt"})
+HOST_RESOURCE_METRICS = (
+    "cpu_utilization_percent", "ram_utilization_percent", "gpu_utilization_percent",
+    "vram_utilization_percent", "disk_utilization_percent", "disk_free_bytes",
+    "network_rx_bytes_per_second", "network_tx_bytes_per_second", "process_count",
+    "battery_percent",
+)
 _REVIEW_CONTEXT_FIELDS = (
     "condition", "history_record_id", "history_record_digest", "invocation_receipt_id",
     "invocation_receipt_digest", "execution_evidence_digest", "execution_posture",
@@ -351,6 +358,45 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             if len(json.dumps(lineage, sort_keys=True, separators=(",", ":")).encode("utf-8")) <= MAX_VALUE_BYTES:
                 out.append(("embodiment.prediction_outcome_lineage", _bounded(lineage),
                             "historical_interpretation"))
+    # Keep source-reported host snapshots available to later cognition through
+    # the same configured self-model path. This records no per-invocation
+    # attribution and deliberately does not upgrade collector values to
+    # independently calibrated measurements.
+    if (fact.source.kind == "resource_governor"
+            and fact.subject.subject_kind == "host_resource_snapshot"
+            and fact.source.source_id == "host_resource_runtime:snapshot"
+            and fact.source.finding == "ok"):
+        payload = fact.payload
+        snapshot_id = payload.get("snapshot_id")
+        if isinstance(snapshot_id, str) and snapshot_id:
+            metrics: dict[str, int | float] = {}
+            unknown_metrics: list[str] = []
+            for name in HOST_RESOURCE_METRICS:
+                value = payload.get(name)
+                if (type(value) in (int, float)
+                        and (type(value) is int or math.isfinite(value))):
+                    metrics[name] = value
+                else:
+                    unknown_metrics.append(name)
+            event_time = payload.get("observed_at")
+            if not isinstance(event_time, str) or not event_time:
+                event_time = None
+            host_observation = {
+                "snapshot_id": snapshot_id,
+                "snapshot_digest": fact.source.digest,
+                "event_time": event_time,
+                "event_time_posture": "source_payload_timestamp" if event_time else "unknown",
+                "source_value_posture": "host_reported_quality_unqualified",
+                "metrics": metrics,
+                "unknown_metrics": unknown_metrics,
+                "shared_host_use_attribution": "not_per_invocation",
+                "historical_only": True, "current_truth": False,
+                "effect_proven": False, "authority": False,
+            }
+            if len(json.dumps(host_observation, sort_keys=True,
+                              separators=(",", ":")).encode("utf-8")) <= MAX_VALUE_BYTES:
+                out.append(("resource_governor.historical_host_snapshot",
+                            _bounded(host_observation), "historical_interpretation"))
     if (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "developmental_model_replacement_experiment"):
         raw_observations = fact.payload.get("observations")

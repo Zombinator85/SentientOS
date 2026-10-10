@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-GitHub branch inspection most recently verified `28b98cf85b804214878c999490baf3466019dec9` (tree `8242d727b744d9e678cc69c73f0790338a0903e2`, parent `7352b98216bc59c91c3c0e89e636fd9b1422804d`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
+GitHub branch inspection most recently verified `3225711b38c6c4b669ec2f38af8232d5b4698e80` (tree `a92072326f796cdd9e3ea922d9db705df2984dd3`, parent `28b98cf85b804214878c999490baf3466019dec9`). Local Git `HEAD` is historical and is not the remote branch identity. Continue with GitHub Git-data commits plus compare-and-swap ref publication.
 
 ## Current constructed connections
 
@@ -71,3 +71,9 @@ Next inspect exact JSON-type behavior in the embodied prediction comparator, the
 - Compilation and whitespace checks passed for the modified Python modules. Runtime and production behavior remain unverified.
 
 Next inspect and repair JSON-type-sensitive exact comparison semantics in the source owner, then preserve source-authenticated correction lineage through its existing durable path. Continue to fail closed on unauthenticated observer claims.
+
+### New checkpoint — host snapshot continuity
+
+- The longitudinal self-model now has an optional historical claim for digest-verified `host_resource_runtime:snapshot` World-State facts. It carries exact snapshot/source digests, only the owner-reported scalar fields within the record's size bound, and explicit unknown fields. The quality posture remains unqualified; it creates no per-invocation attribution, truth, effect, or authority.
+- The claim is `historical_interpretation`, which keeps self-model freshness unknown. It reaches later cognition only when the existing `resource_governor` source selection and explicit self-model predicate allowlist include it; defaults remain unchanged.
+- Python compilation and diff whitespace checks passed. Host-specific execution and runtime evidence have not been tested.
