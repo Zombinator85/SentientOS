@@ -28,17 +28,31 @@ def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
             raise WindowsHandleCustodyError("explicit_file_missing_or_ambiguous")
         return entries[0][1]
     descriptor: int | None = None
+    parent_descriptor: int | None = None
     try:
-        metadata = source.lstat()
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > max_bytes:
-            raise WindowsHandleCustodyError("explicit_file_unbounded_or_not_regular")
         nofollow = getattr(os, "O_NOFOLLOW", None)
-        if nofollow is None:
+        directory = getattr(os, "O_DIRECTORY", None)
+        if nofollow is None or directory is None or not os.supports_dir_fd.__contains__(os.open):
             raise WindowsHandleCustodyError("explicit_file_safe_open_unsupported")
-        descriptor = os.open(source, os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0))
+        absolute = Path(os.path.abspath(source))
+        if not absolute.name or absolute.name in {".", ".."}:
+            raise WindowsHandleCustodyError("explicit_file_path_invalid")
+        parent_descriptor = os.open(os.sep, os.O_RDONLY | directory)
+        for component in absolute.parts[1:-1]:
+            if component in {"", ".", ".."}:
+                raise WindowsHandleCustodyError("explicit_file_path_component_invalid")
+            next_parent = os.open(component, os.O_RDONLY | directory | nofollow,
+                                  dir_fd=parent_descriptor)
+            parent_metadata = os.fstat(next_parent)
+            if not stat.S_ISDIR(parent_metadata.st_mode):
+                os.close(next_parent)
+                raise WindowsHandleCustodyError("explicit_file_parent_not_directory")
+            os.close(parent_descriptor)
+            parent_descriptor = next_parent
+        descriptor = os.open(absolute.name,
+            os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0), dir_fd=parent_descriptor)
         before = os.fstat(descriptor)
-        if (not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes
-                or before.st_dev != metadata.st_dev or before.st_ino != metadata.st_ino):
+        if (not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes or before.st_nlink != 1):
             raise WindowsHandleCustodyError("explicit_file_changed_during_open")
         chunks: list[bytes] = []
         remaining = max_bytes + 1
@@ -61,6 +75,8 @@ def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
     finally:
         if descriptor is not None:
             os.close(descriptor)
+        if parent_descriptor is not None:
+            os.close(parent_descriptor)
 
 
 def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
