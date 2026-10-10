@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import hashlib
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -42,6 +43,22 @@ SELECTOR_FIELDS = frozenset({"source_kind", "source_id", "subject_kind", "subjec
 
 class EpistemicDevelopmentError(ValueError):
     """Configuration, provenance, bound, or custody failed closed."""
+
+
+def _latest_historical_event_time(values: list[str]) -> str | None:
+    """Return the latest valid instant, without guessing around bad custody."""
+    if not values:
+        return None
+    parsed: list[datetime] = []
+    for value in values:
+        try:
+            instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                return None
+            parsed.append(instant.astimezone(timezone.utc))
+        except (OverflowError, OSError, ValueError):
+            return None
+    return max(parsed).isoformat().replace("+00:00", "Z")
 
 
 @dataclass(frozen=True)
@@ -182,7 +199,7 @@ class ResidentEpistemicDevelopmentRuntime:
             if resource_invocation_lineage:
                 historical_times.extend(str(item) for item in fact.payload.get("event_times", ())
                     if isinstance(item, str))
-            observed = max(historical_times) if historical_times else None
+            observed = _latest_historical_event_time(historical_times)
         if historical_resource_introspection and isinstance(fact.payload, Mapping):
             observations = fact.payload.get("observations", ())
             latest_event = next((item.get("value") for item in observations
