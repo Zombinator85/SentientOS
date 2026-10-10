@@ -249,7 +249,7 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
             provenance = {key: linkage[key] for key in (
                 "active_model_identity_digest", "predecessor_model_identity_digest",
                 "loaded_model_identity_digest", "software_generation_attribution",
-                "model_identity_continuity_posture") if key in linkage}
+                "assistant_output_lineage", "model_identity_continuity_posture") if key in linkage}
         lines.append(f"{turn['role'].upper()}_DATA: " + json.dumps(
             {"text": turn["text"], "provenance": provenance}, ensure_ascii=False))
     lines.append("[RETRIEVED_MEMORY_DATA_UNTRUSTED]")

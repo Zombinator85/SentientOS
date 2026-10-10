@@ -36,6 +36,7 @@ from .conversation_session import ConversationSessionStore, assemble_local_chat_
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, sentientos_data_dir)
 from .governed_local_model_invocation import LocalModelInvocationBudget
+from .local_model_authority import digest_payload
 
 LOGGER = logging.getLogger(__name__)
 APP = FastAPI(title="SentientOS Chat", version="1.0")
@@ -136,6 +137,19 @@ class PersistentConversationService:
             accepted_statuses.add("admitted_simulation")
         if receipt.status not in accepted_statuses or not receipt.output_text:
             raise RuntimeError(f"governed_inference_not_completed:{receipt.status}")
+        if not isinstance(receipt.output_digest, str):
+            raise RuntimeError("invocation_output_digest_missing")
+        transcript_output_digest = digest_payload({"text": receipt.output_text})
+        if (not receipt.output_truncated
+                and digest_payload({"output": receipt.output_text}) != receipt.output_digest):
+            raise RuntimeError("invocation_output_transcript_mismatch")
+        assistant_output_lineage = {
+            "status": ("exact_invocation_output_match" if not receipt.output_truncated
+                       else "truncated_transcript_original_output_relation_unknown"),
+            "invocation_output_digest": receipt.output_digest,
+            "transcript_text_digest": transcript_output_digest,
+            "output_truncated": receipt.output_truncated,
+        }
         request_linkage = receipt.request.get("linkage", {})
         if isinstance(self._inference, DevelopmentSimulationInference):
             software_generation_attribution = {
@@ -193,11 +207,20 @@ class PersistentConversationService:
                 try:
                     verified_prior = verifier(receipt_id=prior_linkage["invocation_receipt_id"],
                         receipt_digest=prior_linkage["invocation_receipt_digest"],
-                        session_id=session["session_id"], user_turn_id=prior_linkage["source_user_turn_id"])
+                        session_id=session["session_id"], user_turn_id=prior_linkage["source_user_turn_id"],
+                        assistant_text=str(prior_assistant.get("text", "")))
                     observed_prior_identity = verified_prior.get("serving_identity")
                     observed_loaded_identity = verified_prior.get("loaded_model_identity")
                     stored_loaded_identity = prior_linkage.get("loaded_model_identity")
-                    if (isinstance(observed_prior_identity, Mapping)
+                    observed_output_lineage = verified_prior.get("assistant_output_lineage")
+                    stored_output_lineage = prior_linkage.get("assistant_output_lineage")
+                    output_lineage_matches = (
+                        stored_output_lineage is None
+                        or (isinstance(observed_output_lineage, Mapping)
+                            and isinstance(stored_output_lineage, Mapping)
+                            and dict(observed_output_lineage) == dict(stored_output_lineage))
+                    )
+                    if (output_lineage_matches and isinstance(observed_prior_identity, Mapping)
                             and isinstance(observed_loaded_identity, Mapping)
                             and isinstance(stored_loaded_identity, Mapping)
                             and dict(observed_prior_identity) == dict(stored_identity)
@@ -233,6 +256,7 @@ class PersistentConversationService:
                      "loaded_model_identity": dict(invoked_identity),
                      "loaded_model_identity_digest": loaded_identity_digest,
                      "software_generation_attribution": dict(software_generation_attribution),
+                     "assistant_output_lineage": assistant_output_lineage,
                      "predecessor_model_identity_digest": predecessor_identity_digest,
                      "model_identity_continuity_posture": continuity_posture,
                      "context_snapshot_digest": history.snapshot_digest,

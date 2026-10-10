@@ -128,9 +128,11 @@ class ResourceBackedProductionChatInference:
         return cast(Mapping[str, Any], self._delegate.current_conversation_model_identity())
 
     def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
-                                     session_id: str, user_turn_id: str) -> Mapping[str, Any]:
+                                     session_id: str, user_turn_id: str,
+                                     assistant_text: str | None = None) -> Mapping[str, Any]:
         return self._delegate.verify_stored_chat_invocation(receipt_id=receipt_id,
-            receipt_digest=receipt_digest, session_id=session_id, user_turn_id=user_turn_id)
+            receipt_digest=receipt_digest, session_id=session_id, user_turn_id=user_turn_id,
+            assistant_text=assistant_text)
 
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget,

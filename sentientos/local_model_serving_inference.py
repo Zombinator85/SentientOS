@@ -171,7 +171,8 @@ class ProductionServingInferenceController:
         return receipt
 
     def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
-                                     session_id: str, user_turn_id: str) -> Mapping[str, Any]:
+                                     session_id: str, user_turn_id: str,
+                                     assistant_text: str | None = None) -> Mapping[str, Any]:
         """Reconstruct one prior chat model identity from installation custody."""
         if (not isinstance(receipt_id, str) or len(receipt_id) != 30 or not receipt_id.startswith("lmrec-")
                 or any(character not in "0123456789abcdef" for character in receipt_id[6:])):
@@ -217,6 +218,23 @@ class ProductionServingInferenceController:
         software_generation = linkage.get("software_generation_attribution")
         if software_generation != unavailable_chat_process_software_generation():
             raise ProductionServingInferenceError("stored_invocation_software_generation_posture_invalid")
+        assistant_output_lineage = None
+        if assistant_text is not None:
+            if not isinstance(assistant_text, str) or not assistant_text:
+                raise ProductionServingInferenceError("stored_invocation_transcript_text_invalid")
+            transcript_text_digest = digest_payload({"text": assistant_text})
+            if not value.get("output_truncated"):
+                if digest_payload({"output": assistant_text}) != value.get("output_digest"):
+                    raise ProductionServingInferenceError("stored_invocation_transcript_output_mismatch")
+                output_posture = "exact_invocation_output_match"
+            else:
+                output_posture = "truncated_transcript_original_output_relation_unknown"
+            assistant_output_lineage = {
+                "status": output_posture,
+                "invocation_output_digest": value.get("output_digest"),
+                "transcript_text_digest": transcript_text_digest,
+                "output_truncated": value.get("output_truncated"),
+            }
         identity_keys = ("installation_identity", "activation_state_semantic_digest", "activation_generation",
             "activation_predecessor_state_digest", "activation_receipt_id", "activation_receipt_semantic_digest",
             "model_id", "observed_loaded_model_identity", "artifact_id", "artifact_sha256", "runtime_id",
@@ -227,4 +245,5 @@ class ProductionServingInferenceController:
                 "loaded_model_identity": dict(request["active_model_identity"]),
                 "request_id": request["request_id"], "receipt_id": receipt_id,
                 "receipt_digest": receipt_digest, "status": value["status"],
-                "software_generation_attribution": dict(software_generation)}
+                "software_generation_attribution": dict(software_generation),
+                "assistant_output_lineage": assistant_output_lineage}
