@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the epistemic intent-root recovery guard, GitHub branch inspection verified `3a9099c62b3cf8e3728bc4cb29a9c16522b46d89` (tree `b8171fc4650de82ccb6aa587eb8b76cb221d9385`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the cross-platform intent-root absence check, GitHub branch inspection verified `8ca4beda86b6e18f3b532bc70f2346989609fe4a` (tree `dcfd0c8e8d419d65861a0d08d1b4f200ac95eec8`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -601,3 +601,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the mutation controller. No filesystem fixture, crash recovery, or production verification was run.
 
 **Next implementation dependency:** continue review of transactional recovery and predecessor identity checks in the same epistemic mutation path; keep absent, incomplete, corrupt, and conflicting custody distinct.
+
+
+### New checkpoint — preserve Windows read-only recovery semantics
+
+- POSIX intent-root symlinks and non-directories remain invalid. Both platforms now use read-only `lstat()` to distinguish a genuinely absent directory from dangling-link custody.
+- Windows continues to obtain entries only through `read_regular_files`; the change does not add writes, repair, or path-based receipt publication to Windows recovery.
+- Python compilation passed for the mutation controller. Windows behavior was source-reviewed but not run.
+
+**Next implementation dependency:** verify current durable-history admission and tick sequencing for the recovered process-lineage projections; continue only where the existing owners expose a concrete repair.
