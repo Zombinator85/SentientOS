@@ -1,6 +1,6 @@
 # Public technical overview: architecture and evidence boundaries
 
-This page maps the inspected construction source baseline `68171603fab7e2ddcb89f5bf90e6ac582810ffec` on `codex/construct-sentientos`. The published `main` observed for this review is `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`. The [atlas index](system_atlas_index.md) selects an immutable census at `b7df2a07b67373e709ab43c09a4631eff1f064c4`, which is older than the construction baseline; its use of “current” means selected snapshot, not a census of later commits. Production evidence is a separate predicate: source composition and synthetic exercises do not establish a qualifying production event or outcome. The [project thesis](sentientos_project_thesis.md) explains the destination; historical atlases and the [reviewer index](reviewer_release_readiness_index.md) retain source and proof archaeology. A fresh source-backed atlas census is still needed for the construction tree.
+This page maps the frozen construction source `84c5687c841e83187d8017c4b84fd6b038937432`, tree `20c7a14e8909c63d108c94f07cc088357a16943e`, on `codex/construct-sentientos`. The published `main` observed for this review is `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`. The [atlas index](system_atlas_index.md) selects the immutable census bound to that source; the older `b7df2a07` and `3116672d` snapshots remain in its historical chain. Production evidence is separate: source composition and synthetic exercises do not establish a qualifying production event or outcome. The [project thesis](sentientos_project_thesis.md) explains the destination; the [source-bound atlas](repository_system_atlas_84c5687c.md) maps current owners and evidence boundaries; historical atlases and the [reviewer index](reviewer_release_readiness_index.md) retain earlier source and proof archaeology.
 
 The intended destination is a continuing, world-coupled developmental operating environment: retained experience should be able to affect later cognition, strategy, procedure, and conduct across replaceable models and software. This is a research and architecture aim, not a runtime belief or motivational directive. Do not let implementation limits redefine the destination, and do not let the destination inflate claims about what source or evidence demonstrates.
 
@@ -156,9 +156,9 @@ These lineages answer different causal questions and are not interchangeable.
 
 ## Resources
 
-Authenticated causal-resource principals establish identity, sponsorship, issuer provenance, and trusted public verification material. They answer whose work a resource-related event belongs to. They do **not** allocate CPU, GPU, RAM/VRAM, tokens, energy, thermal headroom, devices, or generalized task envelopes, and they confer no effect authority.
+Authenticated causal-resource principals establish identity, sponsorship, issuer provenance, and trusted public verification material. A separate bounded local-model allocator and production-chat context can debit a pre-issued allocation. The resident daemon persists invocation receipts and accepts an explicit ledger injection for read-only consumption projection, but standard `sentientosd` construction does not inject that ledger; the complete chat-allocation-to-resident-World-State chain is therefore not composed at the canonical root. Neither identity nor resource entitlement confers effect authority.
 
-Host-resource observation is read-only. Semantic continuity toward scheduler/device assignment, measured consumption, consequence, and future allocation learning remains architectural work.
+Host-resource observation is read-only and does not attribute shared host CPU/GPU metrics to a particular invocation. General scheduler/device assignment, independently measured per-invocation consumption, physical energy/thermal attribution, and future allocation learning remain open.
 
 ## Other implemented organs without false composition
 
@@ -187,6 +187,7 @@ SentientOS is not wholly formally verified. Its bounded authority/effect gates a
 Use these durable indexes rather than expanding this page into a proof warehouse:
 
 - [Current system-atlas index](system_atlas_index.md): selects the latest immutable SHA-bound source, composition, persistence, and capability census.
+- [Selected source-bound atlas](repository_system_atlas_84c5687c.md): commit/tree-specific census, owner-to-owner paths, opt-in configuration, temporal boundaries, and known unknowns.
 - [Reviewer release-readiness index](reviewer_release_readiness_index.md): historical proof wings and reviewer entry points.
 - [Capability registry](../../sentientos/capability_registry.py): machine-readable status and forbidden implications.
 - [Trajectory and materially incomplete causal bridges](sentientos_trajectory_and_missing_organs.md): composition, recovery, experimental, and product gaps.

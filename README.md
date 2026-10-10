@@ -2,7 +2,7 @@
 
 SentientOS aims to become a continuing, world-coupled developmental operating environment: experience should be able to become retained organization that changes later cognition, strategy, procedure, and conduct across replaceable cognitive and software machinery.
 
-The project name is both a developmental north star and an epistemic boundary. Build what can be implemented; describe each capability according to its mechanism and evidence. SentientOS does not claim consciousness, sentience, personhood, phenomenal continuity, biological life, or guaranteed emergence—and it does not claim those open questions have been disproved.
+**SentientOS is both a developmental north star and a commitment to the strongest physically implemented, evidentially supportable description.** Build toward the continuing developmental environment; describe each capability by its actual mechanism and evidence. The name does not substitute for either.
 
 ## One trajectory: hosted now, native intended
 
@@ -47,11 +47,11 @@ Governance, provenance, experiments, and custody serve the developmental objecti
 This checkout keeps four different reference points visible:
 
 - **Published `main`:** `197e2a4ceeb13ab59a88fd531283355e15e1fd7d` at the time of this review.
-- **Construction source baseline:** `68171603fab7e2ddcb89f5bf90e6ac582810ffec`; this documentation-only update follows that source baseline on `codex/construct-sentientos`.
-- **Selected atlas snapshot:** `b7df2a07b67373e709ab43c09a4631eff1f064c4`, an immutable census selected by [`system_atlas_index.md`](docs/architecture/system_atlas_index.md). “Current” in that index means selected snapshot, not a census of later construction commits.
+- **Frozen construction source:** `84c5687c841e83187d8017c4b84fd6b038937432`, tree `20c7a14e8909c63d108c94f07cc088357a16943e`; the new atlas is bound to this exact source tree.
+- **Selected atlas snapshot:** `84c5687c841e83187d8017c4b84fd6b038937432`, an immutable census selected by [`system_atlas_index.md`](docs/architecture/system_atlas_index.md). “Current” in that index means selected snapshot, not a mutable census.
 - **Production evidence:** a separate predicate requiring qualifying real executions or observations. Source, synthetic fixtures, and a composed operator path do not by themselves establish production events or outcomes.
 
-The construction tree contains bounded resident World-State, epistemic-development, developmental-history, later-cognition, model-succession, software-succession, and causal-observation mechanisms at varying levels of composition. Their exact owners and boundaries are mapped in the [technical overview](docs/architecture/public_technical_overview.md), and claims should be checked against source and the relevant evidence. No broad claim of production benefit, consciousness, identity, general resource allocation, or mature native operation follows from these mechanisms.
+The construction source contains bounded resident World-State, epistemic-development, developmental-history, later-cognition, model-succession, software-succession, and causal-observation mechanisms at varying levels of composition. The exact owner map and the unclosed resource-ledger-to-daemon evidence bridge are in the [source-bound atlas](docs/architecture/repository_system_atlas_84c5687c.md) and [technical overview](docs/architecture/public_technical_overview.md). No production event or benefit follows from source composition alone.
 
 ## Read next
 
@@ -59,8 +59,9 @@ The construction tree contains bounded resident World-State, epistemic-developme
 2. [Documentation map](docs/index.md) — current architecture, maturity, and source navigation.
 3. [Technical overview](docs/architecture/public_technical_overview.md) — runtime owners and present composition.
 4. [Project thesis](docs/architecture/sentientos_project_thesis.md) — philosophical and architectural depth.
-5. [Whole-system maturity report](docs/architecture/whole_system_maturity_report.md) — the source-bound maturity census and remaining gaps.
-6. [Trajectory and missing causal bridges](docs/architecture/sentientos_trajectory_and_missing_organs.md) — research and implementation frontier.
-7. [Capability registry](sentientos/capability_registry.py) and [runtime composition](sentientosd.py) — inspect machine-readable declarations and actual wiring.
+5. [Whole-system maturity report](docs/architecture/whole_system_maturity_report.md) — lifecycle maturity and remaining gaps at the selected source.
+6. [Source-bound system atlas](docs/architecture/repository_system_atlas_84c5687c.md) — exact source/tree census, owner paths, configuration, temporal ordering, and unknowns.
+7. [Trajectory and missing causal bridges](docs/architecture/sentientos_trajectory_and_missing_organs.md) — research and implementation frontier.
+8. [Capability registry](sentientos/capability_registry.py) and [runtime composition](sentientosd.py) — inspect machine-readable declarations and actual wiring.
 
-SHA-bound atlases are evidence snapshots; historical task and proof pages retain landing-time claims. A source-backed atlas census must be regenerated to describe a later source tree. A newer session may correct a conclusion when evidence or reasoning changes, not merely because the contributor changed.
+SHA-bound atlases are evidence snapshots; historical task and proof pages retain landing-time claims. A newer session may correct a conclusion when evidence or reasoning changes, not merely because the contributor changed.

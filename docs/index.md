@@ -3,8 +3,9 @@
 ## Start with purpose, map, and status
 
 - [Current Architecture](architecture/public_technical_overview.md) — runtime anatomy, source scope, composition, and evidence boundaries.
-- [Current System Atlas](architecture/system_atlas_index.md) — pointer to the selected immutable SHA-bound census and preserved historical snapshots; it is not a census of later construction commits.
-- [Whole-System Maturity Report](architecture/whole_system_maturity_report.md) — lifecycle-by-lifecycle implementation, composition, production evidence, and projected closure at its bound source snapshot.
+- [Current System Atlas](architecture/system_atlas_index.md) — pointer to the newest immutable SHA-bound census and preserved historical snapshots.
+- [Whole-System Maturity Report](architecture/whole_system_maturity_report.md) — lifecycle-by-lifecycle implementation, composition, production evidence, and projected closure at the selected source.
+- [Source-bound system atlas](architecture/repository_system_atlas_84c5687c.md) — exact tree census, owner paths, explicit configuration, temporal boundaries, and known gaps.
 - [Relationship to Established Terminology](architecture/relationship_to_existing_terminology.md) — qualified comparisons to AOS, cognitive architecture, memory, embodiment, runtime assurance, and software-evolution literature.
 - [Project Thesis](architecture/sentientos_project_thesis.md) — developmental ambition, philosophy, and invariants.
 - [Roadmap and Research Trajectory](architecture/sentientos_trajectory_and_missing_organs.md) — deferred organs and research horizons.
@@ -18,13 +19,15 @@ the intended lower-layer trajectory. This ambition does not imply a runtime beli
 motivational directive, or present capability.
 
 For this documentation update, published `main` was observed at
-`197e2a4ceeb13ab59a88fd531283355e15e1fd7d`; the inspected construction source
-baseline is `68171603fab7e2ddcb89f5bf90e6ac582810ffec`; and the atlas index selects
-the immutable source snapshot `b7df2a07b67373e709ab43c09a4631eff1f064c4`.
+`197e2a4ceeb13ab59a88fd531283355e15e1fd7d`; the frozen construction source is
+`84c5687c841e83187d8017c4b84fd6b038937432` with tree
+`20c7a14e8909c63d108c94f07cc088357a16943e`; and the atlas index selects that
+immutable source snapshot. The earlier `b7df2a07` census remains preserved in the
+historical chain.
 Production evidence is separate and requires qualifying real execution or
 observation. An implementation or composed path does not establish a production
-event, consequence, learning, or improvement. A new source-backed atlas census is
-needed to describe the later construction tree.
+event, consequence, learning, or improvement. The atlas captures source structure;
+it does not assert independently observed execution or production outcomes.
 
 Subsystem contracts define bounded capability details; historical phase and proof
 documents preserve status at their landing and do not override later source or

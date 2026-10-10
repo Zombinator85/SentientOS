@@ -1,14 +1,12 @@
 # Whole-system maturity report
 
-> Current-facing synthesis based on the immutable atlas snapshot bound to source commit
-> `b7df2a07b67373e709ab43c09a4631eff1f064c4`. The documentation-only successor commit
-> selects and explains that parent/source snapshot; it is not itself the behavioral
-> snapshot. The prior `3116672d...` atlas remains available from the
-> [atlas index](system_atlas_index.md).
+> Current-facing synthesis based on the immutable [system atlas](repository_system_atlas_84c5687c.md), bound to source commit
+> `84c5687c841e83187d8017c4b84fd6b038937432` and tree `20c7a14e8909c63d108c94f07cc088357a16943e`.
+> Published `main` observed during the census was `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`; it is a separate revision. The atlas describes source structure and does not establish that opt-in runtime configuration is enabled or that production behavior occurred. Prior atlases remain immutable in the [index](system_atlas_index.md).
 
 ## Thesis and semantic boundary
 
-SentientOS is a developmental operating-system architecture for persistent machine cognition with replaceable cognitive and software machinery. It separates current evidence, memory, self-representation, retained interpretation, epistemic position, authority, action, and consequence so change remains attributable. The current hosted implementation contains bounded resident cognition, longitudinal self-observation, governed developmental writeback, model and software succession, effect custody, and causal experiments. The projected trajectory is a governed causal organization whose cognition, software, embodiment, resources, and environment may change without losing the evidence needed to explain the change or its authority.
+SentientOS aims to become a continuing, world-coupled developmental operating environment in which retained experience can affect later cognition, strategy, procedure, and conduct across replaceable cognitive and software machinery. The frozen hosted source contains bounded resident cognition, longitudinal self-observation, governed developmental writeback, model and software succession mechanisms, effect custody, and controlled causal experiments. It separates current evidence, memory, self-representation, retained interpretation, epistemic position, authority, action, and consequence so change remains attributable. Native trusted-substrate ownership remains the literal lower-layer trajectory, not current mature deployment.
 
 “Sentient” names a research horizon, not an ontological status declaration. First-person narration, memory, self-report, affect, apparent relationship, or architectural sophistication does not establish consciousness, personhood, moral status, rights, or authority. The project also does not claim those open questions are disproved.
 
@@ -37,7 +35,9 @@ Callable, resident, default-active, authorized, and effectful are additional ind
 | deficiency -> successor -> validation -> adoption -> replacement | bounded software succession is composed |
 | post-adoption observation -> comparison -> later improvement proposal | implemented and production-capable; production benefit/causation is not evidenced |
 | model A -> quiescence -> B -> A with persistent external state | daemon-composed; evidence is synthetic, not production |
-| causal principal -> physical allocation/consumption | authentication/attribution implemented; allocation and enforcement projected |
+| causal principal -> bounded local-model allocation/debit | explicit local-model allocator and pre-issued chat resource context are implemented; no generalized host scheduling claim |
+| allocation/invocation -> daemon World-State | projection and explicit ledger-injection seam exist; canonical `sentientosd` does not inject the resource ledger, so the complete path is not composed |
+| per-invocation physical consumption -> consequence | shared host observations are not invocation measurements; independent per-invocation CPU/GPU/energy evidence is not established |
 | embodiment command -> independent physical observation | experimental machinery implemented; real physical closure projected |
 | federation evidence/candidates -> local review | bounded exchange surfaces exist; authority remains local |
 
@@ -58,6 +58,7 @@ Callable, resident, default-active, authorized, and effectful are additional ind
 | Activation | exact commissioned identity selection | local lifecycle path | no inference implied | selection is not loading |
 | Serving | bounded loaded-model lifetime and stable serving slot | chat/resident cognition paths where configured | production use not established by repository evidence | nonsynthetic operational evidence |
 | Inference | separately admitted generation-bound invocation | local chat/resident paths where configured | no broad production claim | repeated nonsynthetic operation |
+| Model-development provenance | source-bound protocol/manifest claims with exact model identity binding | resident transition observations report verified provenance only when the configured manifest subject matches the exact serving identity | no production provenance outcome established by this census | absent or contradictory evidence remains unavailable/degraded |
 | Cognitive succession | quiescence, staged approval, transition journal, transition-only rebinding, operator ingress | daemon-composed | synthetic A -> B -> A only | repeated production transition/outcome/recovery |
 
 The boundary chain is strict:
@@ -86,7 +87,7 @@ Genesis provisioning constructs and verifies configuration; it does not create a
 
 Embodiment code distinguishes body identity and generation, artifact inspection, CAS adoption/rollback/lineage, command, renderer report, independent observation, qualifying fulfillment, consequence attribution, and developmental interpretation. Synthetic strategy experiments and avatar/Godot/UDP surfaces do not prove physical embodiment. A renderer is not its own independent observer.
 
-Causal-resource code distinguishes canonical principals, sponsorship, issuer provenance, Ed25519 verification, trusted public-key catalogs, signer custody, authentication, and attribution. It does not establish CPU/GPU/RAM/VRAM/token/energy/thermal allocation or scheduler enforcement:
+Causal-resource code distinguishes canonical principals, sponsorship, issuer provenance, Ed25519 verification, trusted public-key catalogs, signer custody, authentication, and attribution. A separate bounded local-model resource ledger can debit an explicit, pre-issued allocation in the production-chat path. This is not general CPU/GPU/RAM/VRAM/token/energy/thermal scheduling or enforcement, and the standard resident daemon does not inject the ledger into its resource-consumption World-State projection:
 
 ```text
 canonical principal != authenticated provenance != allocation != effect authority
@@ -120,22 +121,22 @@ WHAT HAPPENED** where the supplying owner actually knows them.
 - **Version:** `VERSION`, Python package metadata, Rust package metadata, and `sentientos.__version__` agree on development version `1.2.0-beta`. `release.json` records historical `5.3` metadata and is not rewritten. The chronology/policy mismatch remains explicit; no new release is created.
 - **Hosted metadata:** description, homepage, topics, Pages state, and hosted Releases require GitHub-side observation or administration. This repository change does not claim those properties changed. An authorized administrator must compare them with the canonical thesis, select the intended homepage/Pages deployment, and reconcile release policy.
 
-## Exact remaining gaps
+## Exact remaining gaps at the bound source
 
-1. Production observation adapters and longitudinal epistemic outcomes for the composed evidence-to-state-to-later-cognition path.
-2. Genuine generation-zero commissioning evidence.
-3. A configured sovereign model provider and genuine publication, then separately authorized catalog deployment, acquisition, commissioning, activation, serving, and inference evidence.
-4. Repeated nonsynthetic cognitive succession with semantic outcome and recovery evidence.
-5. Repeated production software-attribution campaigns and stronger causal identification.
-6. Independently observed physical embodiment.
-7. Physical resource allocation, measurement, and scheduler/device/energy enforcement.
-8. Production breadth and independent validation for the bounded
+1. A canonical trusted-owner handoff from production chat allocation/attempt/consumption receipts into the resident daemon's World-State path; the optional projection exists, but the default daemon does not supply its ledger owner.
+2. Qualifying production observation adapters and longitudinal epistemic outcomes for the configured evidence-to-state-to-later-cognition path.
+3. Genuine generation-zero commissioning evidence.
+4. A configured sovereign model provider and genuine publication, then separately authorized catalog deployment, acquisition, commissioning, activation, serving, and inference evidence.
+5. Repeated nonsynthetic cognitive succession with semantic outcome and recovery evidence.
+6. Repeated production software-attribution campaigns and stronger causal identification.
+7. Independently observed physical embodiment.
+8. General physical resource scheduling/enforcement and independent per-invocation consumption measurement; the bounded local-model ledger does not supply those capabilities.
+9. Production breadth and independent validation for the bounded
    [causal-introspection topology](causal_introspection_topology.md), including
-   explicit configured canonical daemon composition across bounded live owner
-   adapters; this is neither default activity nor production evidence, and
-   physical/resource owners whose source enforcement is not implemented and
-   long-run stability across real software/model succession.
-9. An explicit authoritative release/version policy and independently observed hosted repository metadata.
+  wider live-owner coverage, physical/resource observations, and long-run stability
+  across genuine software/model succession. Explicit configured daemon composition
+  exists for selected owner adapters; it is not default activity or production evidence.
+10. An explicit authoritative release/version policy and independently observed hosted repository metadata.
 
 ## Claims deliberately not made
 

@@ -17,6 +17,18 @@ world / runtime evidence -> World-State -> bounded cognition and retained histor
 
 The loop is the developmental objective. A stored record is not learning; a retrieved interpretation is not current truth; changed output is not proof of improvement. Every causal handoff must preserve what is known, by whom, when, and under which authority.
 
+## Controlled developmental experiments
+
+The repository includes two bounded comparison instruments:
+
+```text
+history: same evidence and model -> history present -> withheld -> restored
+models:  A + history -> A without history -> B + history
+          -> B without history -> restored A + history
+```
+
+These controls ask whether later outputs follow retained history or model machinery while other context is held fixed. The instruments and synthetic exercises establish mechanisms, not production transitions, learning, beneficial change, or model-independent identity.
+
 ## Replaceable machinery, distinct lineages
 
 The persistent organization may carry system and history continuity while models or software change, but this is an experimental question. Keep separate identities for the system, active model, model-development provenance, and software generation. A proposal or artifact is not an installed successor; installation or activation is not proof of the running successor; runtime identity alone does not establish consequences.
@@ -31,4 +43,4 @@ Governance makes development interpretable: it separates evidence, interpretatio
 
 Use four predicates: **implemented** means a mechanism exists; **composed** means owners are wired into a real path; **production-evidenced** means a qualifying nonsynthetic execution or observation exists; **projected** means a connection or empirical result remains future work. None implies the next. Tests establish bounded properties of their fixtures; they do not establish deployment or production outcomes.
 
-The current construction tree contains resident evidence, epistemic, developmental-history, later-cognition, model-succession, and software-succession mechanisms with different composition and evidence status. See the [technical overview](docs/architecture/public_technical_overview.md), [maturity report](docs/architecture/whole_system_maturity_report.md), and [current atlas pointer](docs/architecture/system_atlas_index.md). The atlas is an immutable snapshot bound to `b7df2a07b67373e709ab43c09a4631eff1f064c4`; it is not a census of the later construction tree. See the [README](README.md) for the distinction among published `main`, construction source, atlas snapshot, and production evidence.
+The inspected construction tree contains resident evidence, epistemic, developmental-history, later-cognition, model-succession, and software-succession mechanisms with different composition and evidence status. See the [technical overview](docs/architecture/public_technical_overview.md), [maturity report](docs/architecture/whole_system_maturity_report.md), and [source-bound atlas](docs/architecture/repository_system_atlas_84c5687c.md), bound to commit `84c5687c841e83187d8017c4b84fd6b038937432` and tree `20c7a14e8909c63d108c94f07cc088357a16943e`. See the [README](README.md) for its relationship to published `main` and production evidence.

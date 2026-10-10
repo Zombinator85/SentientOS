@@ -1,5 +1,7 @@
 # SentientOS Repository Agent Map
 
+Project purpose and contributor orientation: read the [canonical README](README.md), [project thesis](docs/architecture/sentientos_project_thesis.md), and [current source-bound system map](docs/architecture/system_atlas_index.md) before making architecture claims. Preserve the distinction between intended development, implemented composition, and demonstrated outcomes.
+
 SentientOS prioritizes operator accountability, auditability, and safe shutdown. Privileged actions and consequential effects require attributable evidence.
 
 ## Canonical governance
