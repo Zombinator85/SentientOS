@@ -117,6 +117,10 @@ class ProductionServingInferenceController:
         if record is None or model.active_identity.to_dict() != identity:
             raise ProductionServingInferenceError("exact_loaded_model_authority_record_required")
         software_generation_attribution = self._software_generation_attribution()
+        configured_operation = software_generation_attribution.get("configured_serving_operation_id")
+        if (configured_operation is not None
+                and configured_operation != binding.get("serving_operation_id")):
+            raise ProductionServingInferenceError("serving_operation_chat_handoff_mismatch")
         linkage: Mapping[str, Any] = {
             "serving_session_id": session.session_id,
             "serving_operation_id": binding["serving_operation_id"],
@@ -260,6 +264,10 @@ class ProductionServingInferenceController:
                 raise ProductionServingInferenceError("stored_invocation_software_generation_handoff_invalid") from exc
             if dict(historical) != dict(software_generation):
                 raise ProductionServingInferenceError("stored_invocation_software_generation_handoff_mismatch")
+            handoff_operation = historical.get("configured_serving_operation_id")
+            serving_operation = lifetime.get("serving_operation_id")
+            if (handoff_operation is not None and handoff_operation != serving_operation):
+                raise ProductionServingInferenceError("stored_invocation_serving_operation_handoff_mismatch")
         else:
             raise ProductionServingInferenceError("stored_invocation_software_generation_posture_invalid")
         assistant_output_lineage = None

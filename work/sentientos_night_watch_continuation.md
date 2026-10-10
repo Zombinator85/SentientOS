@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the transcript continuation increment, GitHub branch inspection verified `95ce3b2e3c0bd82d176580a6a94f0372c62e489d` (tree `66abbc9012e735065e8a11a721cac49416cd70c7`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the invocation-operation cross-check increment, GitHub branch inspection verified `99f41080101dc2bc242ba1edecb7a4f2ff2175d9` (tree `f204d00c91198320afc2a9f159a6c6019760c2e0`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -464,3 +464,12 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - Python compilation passed for the conversation-session source. No transcript replay, inference, restart, or production verification was performed.
 
 **Next implementation dependency:** trace persisted assistant-turn linkage against the completed invocation receipt after restart and ensure later chat composition cannot accept a transcript operation ID that is inconsistent with the recovered receipt's process handoff.
+
+### New checkpoint — reject invocation handoffs that name another serving operation
+
+- Production chat configuration now compares the child-verified v3 handoff operation ID with the serving operation passed to the serving owner before establishing the model. New invocations also reject a configured-operation mismatch between the exact handoff and active serving session.
+- Restart reconstruction of stored invocation receipts performs the same comparison against the receipt's serving-lifetime binding. Thus transcript and resource evidence for newly produced v3 handoffs cannot join operation A's running source generation to operation B's loaded model session.
+- Legacy v1/v2 handoffs without a stored operation ID remain readable, with their model-operation-to-process relation explicitly unavailable. The check does not infer a model identity from current process liveness.
+- Python compilation passed for chat-service and serving-inference sources. No model load, inference, transcript replay, process restart, or production verification was run.
+
+**Next implementation dependency:** review the transition controller's crash boundaries between child replacement, successor serving receipt, readiness phase, and snapshot publication. Preserve the current incomplete-phase semantics and close any source-backed gap that could leave an accepted transcript or later cognition with an unbound successor identity.

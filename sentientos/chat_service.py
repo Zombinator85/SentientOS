@@ -444,6 +444,10 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         try:
             handle, _runtime_handoff = open_chat_process_handoff(
                 installation_identity=identity.value, handoff_id=runtime_handoff_id)
+            configured_operation = _runtime_handoff.get("configured_serving_operation_id")
+            if (configured_operation is not None
+                    and configured_operation != serving_operation_id):
+                raise RuntimeError("chat_process_serving_operation_handoff_mismatch")
         except Exception as exc:
             raise RuntimeError("chat_process_generation_handoff_invalid") from exc
     else:
