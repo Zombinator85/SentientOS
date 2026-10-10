@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before the invocation-to-serving-receipt lineage increment, GitHub branch inspection verified `f2e33cad8e093aa861c237ad627ceacdaa2efdec` (tree `710cc3c874d17e5872cfc17fc7841539898b807c`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+Before the serving-linkage recovery edge repair, GitHub branch inspection verified `a90aca34900addbc74c47bca397105590227a076` (tree `ad78dd1041f61e59fe3a5ebc724dec9da0fbaa4e`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -529,3 +529,11 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the serving owner, inference bridge, and World-State projector. No test suite, inference, process restart, transcript replay, World-State/epistemic execution, or production verification was run.
 
 **Next implementation dependency:** review the admitted World-State → epistemic-development → developmental-history consumption path for these new exact serving identities, then repair any source-level retention loss without bypassing explicit selectors, mutation authority, or later-tick admission.
+
+### New checkpoint — reject partial serving-attempt references
+
+- Recovery now distinguishes wholly absent pre-reservation linkage from any partially populated serving-attempt reference. Both top-level receipt references and optional receipt-binding references must be complete and match the durable attempt; a receipt that references a missing attempt is rejected.
+- This preserves historical compatibility while preventing a digest-only or ID-only fragment from being interpreted as unbound legacy evidence.
+- Python compilation passed for the serving owner. No behavioral test, restart, inference, or production verification was run.
+
+**Next implementation dependency:** inspect the exact chat process generation handoff through World-State, configured epistemic source selection, and durable developmental-history reconstruction. Only existing selectors/admission owners may qualify it; source hashes remain narrower than full interpreter/dependency runtime identity.

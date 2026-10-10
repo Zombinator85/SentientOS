@@ -288,6 +288,13 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
         receipt = by_receipt_operation.pop(attempt["serving_operation_id"], None)
         if receipt is not None:
             binding = receipt["binding"]
+            top_attempt_id = receipt.get("serving_operation_attempt_id")
+            top_attempt_digest = receipt.get("serving_operation_attempt_semantic_digest")
+            if ((top_attempt_id is None) != (top_attempt_digest is None)
+                    or (top_attempt_id is not None and (
+                        top_attempt_id != attempt["attempt_id"]
+                        or top_attempt_digest != attempt["attempt_semantic_digest"]))):
+                raise ProductionServingError("serving_attempt_receipt_reference_incomplete")
             intent_fields = ("installation_identity", "activation_state_semantic_digest",
                 "activation_generation", "activation_predecessor_state_digest",
                 "activation_receipt_id", "activation_receipt_semantic_digest",
@@ -321,7 +328,15 @@ def read_serving_operation_history(handle: Any, *, maximum: int = MAX_SERVING_OP
         row["history_semantic_digest"] = semantic_digest(row)
         history.append(row)
     for operation_id, receipt in sorted(by_receipt_operation.items()):
-        if receipt.get("serving_operation_attempt_id") is not None:
+        binding = receipt.get("binding")
+        linked_attempt_fields = (
+            receipt.get("serving_operation_attempt_id"),
+            receipt.get("serving_operation_attempt_semantic_digest"),
+            binding.get("serving_operation_attempt_id") if isinstance(binding, Mapping) else None,
+            binding.get("serving_operation_attempt_semantic_digest")
+                if isinstance(binding, Mapping) else None,
+        )
+        if any(item is not None for item in linked_attempt_fields):
             raise ProductionServingError("serving_receipt_attempt_predecessor_missing")
         row = {"status": "legacy_receipt_without_reservation", "attempt": None,
             "attempt_semantic_digest": None, "receipt": receipt,
