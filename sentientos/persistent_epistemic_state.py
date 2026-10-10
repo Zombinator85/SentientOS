@@ -493,12 +493,25 @@ class PersistentEpistemicStateOwner:
                 raise EpistemicStateError("epistemic_transaction_generation_conflict")
             generation_bindings[generation] = pair
             prepared.append((state, event))
-        if prepared and os.name != "posix":
-            raise EpistemicStateError("epistemic_transaction_recovery_unsupported_platform")
         for state, event in sorted(prepared, key=lambda pair: (
                 pair[0].proposition_id, pair[0].generation, pair[0].state_id)):
-            _write_new(self.root / "states" / f"{state.generation:012d}-{state.state_id}.json", asdict(state))
-            _write_new(self.root / "updates" / f"{event.generation:012d}-{event.event_id}.json", asdict(event))
+            state_path = self.root / "states" / f"{state.generation:012d}-{state.state_id}.json"
+            event_path = self.root / "updates" / f"{event.generation:012d}-{event.event_id}.json"
+            if os.name == "posix":
+                _write_new(state_path, asdict(state))
+                _write_new(event_path, asdict(event))
+                continue
+            # Windows remains read-only for epistemic mutation. It can inspect
+            # a completely published pair, but cannot synthesize a missing
+            # member without the equivalent atomic publisher.
+            try:
+                existing_state = _read_record_bytes(state_path)
+                existing_event = _read_record_bytes(event_path)
+            except FileNotFoundError as exc:
+                raise EpistemicStateError("epistemic_transaction_recovery_unsupported_platform") from exc
+            if (existing_state != canonical_bytes(asdict(state)) + b"\n"
+                    or existing_event != canonical_bytes(asdict(event)) + b"\n"):
+                raise EpistemicStateError("epistemic_transaction_record_conflict")
 
     def register_proposition(self, proposition: EpistemicProposition) -> None:
         expected = make_proposition(**{k:v for k,v in asdict(proposition).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
