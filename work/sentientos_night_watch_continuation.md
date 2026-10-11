@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `cd5b5f41ec4eec69fcbea097b792730b0d5e0358` (tree `e339c78846d2211a17fa74fcdc2b5fbda2a0adf6`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `136465687028303a401dd00ed7f4837feb3c56f3` (tree `c308718c31c757e769e469ce0918c9e9521361f3`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1060,3 +1060,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - The POSIX scanner now supplies a fail-closed walk-error callback. Any directory traversal failure prevents generation publication or current-process verification; it cannot yield a partial digest as complete. Existing source-directory, file, byte and symlink checks remain in force. The non-POSIX fallback remains unchanged and is still not a writable Windows issuer.
 - Python compilation passed; no filesystem fault injection or runtime source scan was performed. This remains unverified.
 - Next check transaction ordering and process-liveness evidence around the runtime observation owner, then proceed to another implementable continuity gap.
+
+
+## New checkpoint — compose supervisor liveness into chat runtime observation
+
+- The prior remotely verified head was 136465687028303a401dd00ed7f4837feb3c56f3 (tree c308718c31c757e769e469ce0918c9e9521361f3).
+- Source tracing found that the installation-scoped runtime-observation writer and read-only World-State consumer existed, but no code called the writer. The supervised chat adapter already owned the child PID, verified its source-bound handoff, and had a readiness probe; the RuntimeSupervisor already owned a distinct generation identity. The missing edge left otherwise configured observers at unknown_missing.
+- RuntimeSupervisor now binds its exact generation to adapters that explicitly support that optional owner method. The chat adapter uses its existing child and readiness checks, verifies the exact current handoff/source while running, then calls the existing installation owner publisher. A successful observation is bound to supervisor generation, handoff/process/source identity, and observation time.
+- When the child is gone or readiness cannot be established, the adapter publishes only the existing not_verified posture with a bounded reason code; it does not claim that inference or model serving occurred. Stop/force-stop also records not_verified after observed child exit. Missing supervisor generation, missing handoff, or publication failure cannot be reported as a verified runtime observation; health reports runtime_observation_unavailable for the composed owner path.
+- The read-only resource observer and World-State composition already consume this current.json owner record as historical owner observation, not independent liveness or current truth. No Windows write path, serving authority, provider call, or effect was added.
+- Python compilation and whitespace inspection passed for both changed modules. No process launch, health probe, installation publication, concurrent supervisor, Windows, or production run was executed.
+- Next inspect whether the new observation’s lifecycle replaces old running status truthfully across supervisor generations and interruptions, then continue the next causal gap.

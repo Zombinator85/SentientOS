@@ -23,8 +23,9 @@ from sentientos.local_model_production_serving import _operation_id
 from sentientos.local_model_production_serving import _semantic_digest
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.chat_process_generation import (
-    publish_chat_process_handoff, source_generation,
-    verify_stored_chat_process_handoff, verify_supervised_chat_process_handoff,
+    publish_chat_process_handoff, publish_chat_process_runtime_observation,
+    source_generation, verify_stored_chat_process_handoff,
+    verify_supervised_chat_process_handoff,
 )
 
 from .services import ChildProcessServiceAdapter, HealthResult
@@ -89,6 +90,8 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         self._root = root
         self._installation_handle = installation_handle
         self._handoff_id = uuid.uuid4().hex if installation_handle is not None else None
+        self._published_handoff_record: dict[str, object] | None = None
+        self._runtime_supervisor_generation: str | None = None
         self._prior_startup_snapshot: dict[str, object] | None = None
         environment = dict(os.environ)
         for key in ("PYTHONHOME", "PYTHONSTARTUP", "PYTHONINSPECT", "PYTHONUSERBASE"):
@@ -163,6 +166,7 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                                              replacement, self._config.host, self._config.port,
                                              self._config.resource_provisioning_id)
         self._handoff_id = uuid.uuid4().hex if self._installation_handle is not None else None
+        self._published_handoff_record = None
         self._argv = self._launcher_argv(self._config, root=self._root,
             expected_activation_state_digest=expected, runtime_handoff_id=self._handoff_id)
         self._stopped = False
@@ -185,11 +189,12 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
             raise RuntimeError("chat_process_exited_before_handoff_publication")
         startup_timestamp = datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
         try:
-            publish_chat_process_handoff(handle=self._installation_handle,
-                handoff_id=self._handoff_id, argv=self._argv, environment=self._launch_environment,
-                working_directory=self._cwd, process_id=process.pid, parent_process_id=os.getpid(),
-                startup_timestamp=startup_timestamp, python_executable=self._argv[0],
-                repository_root=self._root,
+            self._published_handoff_record = publish_chat_process_handoff(
+                handle=self._installation_handle, handoff_id=self._handoff_id,
+                argv=self._argv, environment=self._launch_environment,
+                working_directory=self._cwd, process_id=process.pid,
+                parent_process_id=os.getpid(), startup_timestamp=startup_timestamp,
+                python_executable=self._argv[0], repository_root=self._root,
                 prior_startup_snapshot=self._prior_startup_snapshot,
                 source_snapshot=source_snapshot)
         except Exception:
@@ -211,6 +216,49 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         except Exception as exc:
             raise RuntimeError("chat_process_runtime_handoff_invalid") from exc
 
+    def bind_runtime_supervisor_generation(self, generation: str) -> None:
+        if not isinstance(generation, str) or not generation or len(generation) > 128:
+            raise ValueError("chat_runtime_supervisor_generation_invalid")
+        self._runtime_supervisor_generation = generation
+
+    def _publish_runtime_observation(self, *, running: bool,
+                                     reason_code: str | None = None) -> bool:
+        if self._installation_handle is None or self._handoff_id is None:
+            return True
+        generation = self._runtime_supervisor_generation
+        record = self._published_handoff_record
+        if (not isinstance(generation, str) or not generation
+                or not isinstance(record, Mapping)
+                or not isinstance(record.get("handoff_digest"), str)):
+            return False
+        try:
+            historical = verify_stored_chat_process_handoff(
+                handle=self._installation_handle, handoff_id=self._handoff_id,
+                expected_digest=str(record["handoff_digest"]))
+            if running:
+                supervised = self.current_runtime_handoff()
+                if (supervised.get("handoff_id") != historical.get("handoff_id")
+                        or supervised.get("handoff_digest") != historical.get("handoff_digest")
+                        or supervised.get("process_instance_id") != historical.get("process_instance_id")
+                        or supervised.get("process_id") != historical.get("process_id")):
+                    return False
+                publish_chat_process_runtime_observation(
+                    handle=self._installation_handle,
+                    supervisor_generation=generation,
+                    handoff=historical, status="running_observed")
+            else:
+                if reason_code is None:
+                    return False
+                publish_chat_process_runtime_observation(
+                    handle=self._installation_handle,
+                    supervisor_generation=generation,
+                    handoff=historical, status="not_verified",
+                    reason_code=reason_code,
+                    configured_serving_receipt_posture="runtime_not_verified")
+            return True
+        except Exception:
+            return False
+
     @property
     def startup_configuration(self) -> LocalModelChatStartup:
         return self._config
@@ -222,9 +270,18 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
     def health(self) -> HealthResult:
         process_health = super().health()
         if not process_health.ready:
+            self._publish_runtime_observation(
+                running=False, reason_code="child_not_running")
             return HealthResult(False, "process_exited")
         ready = self._probe(self._readiness_url)
-        return HealthResult(ready, "serving_current" if ready else "serving_unavailable")
+        if not ready:
+            if not self._publish_runtime_observation(
+                    running=False, reason_code="readiness_unavailable"):
+                return HealthResult(False, "runtime_observation_unavailable")
+            return HealthResult(False, "serving_unavailable")
+        if not self._publish_runtime_observation(running=True):
+            return HealthResult(False, "runtime_observation_unavailable")
+        return HealthResult(True, "serving_current")
 
     def stop(self) -> None:
         if self._stopped:
@@ -235,10 +292,16 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         if process is not None:
             try: process.wait(timeout=5.0)
             except subprocess.TimeoutExpired: self.force_stop()
+        if process is None or process.poll() is not None:
+            self._publish_runtime_observation(
+                running=False, reason_code="child_exit_observed")
 
     def force_stop(self) -> None:
         if self._process is not None and self._process.poll() is None:
             super().force_stop()
+        if self._process is not None and self._process.poll() is not None:
+            self._publish_runtime_observation(
+                running=False, reason_code="child_exit_observed")
 
 
 def _probe_readiness(url: str) -> bool:

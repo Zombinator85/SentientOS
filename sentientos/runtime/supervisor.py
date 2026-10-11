@@ -428,7 +428,11 @@ class RuntimeSupervisor:
             "restart_attempt" if restarting else "start_requested",
             "restart_attempted" if restarting else "start_requested")
         try:
-            self._call(self.registry.adapter(service_id).start, descriptor.startup_timeout)
+            adapter = self.registry.adapter(service_id)
+            bind_generation = getattr(adapter, "bind_runtime_supervisor_generation", None)
+            if callable(bind_generation):
+                self._call(lambda: bind_generation(self.generation), descriptor.startup_timeout)
+            self._call(adapter.start, descriptor.startup_timeout)
         except Exception as exc:
             try:
                 self._transition(service_id, "failed",
