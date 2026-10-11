@@ -151,3 +151,43 @@ def test_module_has_no_effect_or_serving_authority_surface() -> None:
     import sentientos.governed_local_model_resource_allocation as module
     forbidden = {"issue_admission", "load_model", "select_model", "activate_serving", "issue_principal", "issue_grant", "write_policy"}
     assert forbidden.isdisjoint(vars(module))
+
+
+def test_resource_ledger_rejects_symlinked_custody_file(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX ledger file custody is required")
+    root = tmp_path / "ledger-root"
+    root.mkdir(mode=0o700)
+    external = tmp_path / "external-ledger.json"
+    external.write_text("unchanged", encoding="utf-8")
+    link = root / "resource-ledger.json"
+    link.symlink_to(external)
+    with pytest.raises(GovernedLocalModelResourceError, match="ledger_file_not_regular"):
+        GovernedLocalModelResourceLedger(link)
+    assert external.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_replace_status_reports_visible_but_uncertain_directory_commit(tmp_path: Path, monkeypatch) -> None:
+    import os
+    import stat
+
+    import sentientos.private_file_custody as custody
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor replacement is required")
+    target = tmp_path / "private" / "ledger.json"
+    target.parent.mkdir(mode=0o700)
+    real_fsync = os.fsync
+
+    def fail_directory_fsync(descriptor: int) -> None:
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            raise OSError("simulated directory durability uncertainty")
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(custody.os, "fsync", fail_directory_fsync)
+    durable = custody.replace_private_bytes_with_status(
+        target, b"candidate", max_bytes=64)
+    assert durable is False
+    assert target.read_bytes() == b"candidate"

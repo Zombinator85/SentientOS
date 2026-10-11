@@ -147,7 +147,7 @@ def list_bounded_json_names_at(directory_fd: int, *, max_entries: int,
 
 
 def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
-                 collision_code: str) -> None:
+                 collision_code: str, report_replace_durability: bool = False) -> bool:
     if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
         raise PrivateFileCustodyError("publication_unsupported")
     if not isinstance(data, bytes) or len(data) > max_bytes:
@@ -156,6 +156,7 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
     temporary_name = ".pending-" + os.urandom(16).hex()
     descriptor: int | None = None
     created = False
+    durability_uncertain = False
     try:
         descriptor = os.open(temporary_name,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
@@ -181,7 +182,15 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
                     raise PrivateFileCustodyError(collision_code)
         else:
             os.replace(temporary_name, path.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
-        os.fsync(directory_fd)
+        try:
+            os.fsync(directory_fd)
+        except OSError:
+            if report_replace_durability and not immutable:
+                # Atomic replacement is already visible. Tell the owner to
+                # retain its candidate while reporting durability uncertainty.
+                durability_uncertain = True
+            else:
+                raise
     except PrivateFileCustodyError:
         raise
     except OSError as exc:
@@ -195,6 +204,7 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
             except OSError:
                 pass
         os.close(directory_fd)
+    return not durability_uncertain
 
 
 def publish_immutable_bytes(path: Path, data: bytes, *, max_bytes: int,
@@ -207,3 +217,9 @@ def replace_private_bytes(path: Path, data: bytes, *, max_bytes: int) -> None:
     """Atomically replace a mutable snapshot using a held private directory."""
     _write_bytes(path, data, max_bytes=max_bytes, immutable=False,
                  collision_code="unused_mutable_collision")
+
+
+def replace_private_bytes_with_status(path: Path, data: bytes, *, max_bytes: int) -> bool:
+    """Return False only when replace succeeded but directory durability is uncertain."""
+    return _write_bytes(path, data, max_bytes=max_bytes, immutable=False,
+        collision_code="unused_mutable_collision", report_replace_durability=True)

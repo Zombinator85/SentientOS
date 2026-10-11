@@ -2671,3 +2671,11 @@ A later source correction was also composed from stale note text and displaced t
 - This does not create or widen any admission. It only defines ordering between existing authorization and existing local mutation. Recovery remains read-only with respect to authority and still does not replay effects.
 - Added an authored, unexecuted lock-order case. Changed source and test syntax compilation only; concurrency and recovery behavior remain unverified.
 - Next continue the source inventory review through World-State and resource-observation custody, then address any remaining bounded owner handoff that lacks this durable identity boundary.
+
+
+## 2026-10-11 checkpoint — bind the resource ledger to descriptor-safe custody
+
+- The governed resource ledger remains a single-process mutable owner; the observer still receives only its verified snapshot. POSIX ledger reads now traverse a no-follow private parent descriptor and validate a bounded owner-private file. Candidate publication uses descriptor-relative atomic replacement without introducing a second process owner.
+- Directory-fsync uncertainty is reported separately after atomic replacement, and the in-memory candidate is retained before the owner raises, avoiding rollback of already visible consumed entitlement. The existing Windows writer path remains unchanged.
+- Added authored, unexecuted symlink rejection and visible-but-uncertain replacement cases. Changed source/test syntax compilation only; no ledger operation, crash recovery, or production behavior was exercised.
+- Next continue the read-only source inventory review through runtime World-State composition and identify any remaining cross-owner handoff that reads persistent evidence without exact descriptor or owner identity.

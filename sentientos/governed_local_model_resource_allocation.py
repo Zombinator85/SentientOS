@@ -15,6 +15,7 @@ import math
 import os
 from pathlib import Path
 import re
+import stat
 import tempfile
 import threading
 from typing import Any, Mapping
@@ -22,6 +23,10 @@ from typing import Any, Mapping
 from sentientos.causal_resource_principal import CausalResourcePrincipal, CausalResourcePrincipalVerifier
 from sentientos.causal_resource_principal_authentication import AuthenticatedRootPrincipalEvidence
 from sentientos.causal_resource_principal_currentness import CurrentAuthenticatedRootPrincipalEvidence
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError, open_private_directory, read_private_file_at,
+    replace_private_bytes_with_status,
+)
 
 RESOURCE_KIND = "governed_local_model_invocation_call_entitlement.v1"
 ALLOCATOR_ID = "sentientos.governed_local_model_resource_allocator.v1"
@@ -65,11 +70,35 @@ def _object_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def _load_json(path: Path) -> Mapping[str, object]:
-    try:
-        with path.open("rb") as stream:
-            raw = stream.read(MAX_LEDGER_BYTES + 1)
-    except OSError as exc:
-        raise GovernedLocalModelResourceError("malformed_json") from exc
+    if os.name == "nt":
+        try:
+            with path.open("rb") as stream:
+                raw = stream.read(MAX_LEDGER_BYTES + 1)
+        except OSError as exc:
+            raise GovernedLocalModelResourceError("malformed_json") from exc
+    else:
+        directory_fd: int | None = None
+        try:
+            parent_before = path.parent.lstat()
+            if not stat.S_ISDIR(parent_before.st_mode):
+                raise GovernedLocalModelResourceError("ledger_parent_invalid")
+            directory_fd = open_private_directory(path.parent, create=False)
+            parent_opened = os.fstat(directory_fd)
+            if (parent_opened.st_dev != parent_before.st_dev
+                    or parent_opened.st_ino != parent_before.st_ino):
+                raise GovernedLocalModelResourceError("ledger_parent_changed_during_open")
+            raw = read_private_file_at(
+                directory_fd, path.name, max_bytes=MAX_LEDGER_BYTES,
+                require_private_mode=True)
+        except GovernedLocalModelResourceError:
+            raise
+        except PrivateFileCustodyError as exc:
+            raise GovernedLocalModelResourceError("ledger_file_custody_invalid") from exc
+        except OSError as exc:
+            raise GovernedLocalModelResourceError("ledger_file_custody_invalid") from exc
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
     if len(raw) > MAX_LEDGER_BYTES:
         raise GovernedLocalModelResourceError("ledger_size_bound_exceeded")
     try:
@@ -298,7 +327,16 @@ class GovernedLocalModelResourceLedger:
     """Single-process, digest-sealed, atomically replaced ledger custody."""
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path); self._lock = threading.RLock()
-        if self.path.exists(): self._state = self._read()
+        try:
+            metadata = self.path.lstat()
+        except FileNotFoundError:
+            metadata = None
+        except OSError as exc:
+            raise GovernedLocalModelResourceError("ledger_path_unavailable") from exc
+        if metadata is not None:
+            if not stat.S_ISREG(metadata.st_mode):
+                raise GovernedLocalModelResourceError("ledger_file_not_regular")
+            self._state = self._read()
         else:
             self._state = {"schema": LEDGER_SCHEMA, "allocations": {}, "attempts": {}, "receipts": []}
             self._persist()
@@ -504,18 +542,36 @@ class GovernedLocalModelResourceLedger:
         reserved_receipts = self._unpublished_receipt_slots(candidate)
         if len(data) + reserved_receipts * MAX_RESOURCE_RECEIPT_BYTES > MAX_LEDGER_BYTES:
             raise GovernedLocalModelResourceError("ledger_future_receipt_capacity_exhausted")
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, name = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
+        if os.name == "nt":
+            # Preserve the ledger's existing Windows single-process writer
+            # behavior; the descriptor-bound custody helper is POSIX-only.
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            fd, name = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=self.path.parent)
+            try:
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(data); stream.flush(); os.fsync(stream.fileno())
+                os.replace(name, self.path)
+                self._state = candidate
+                directory = os.open(self.path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
+            finally:
+                if os.path.exists(name):
+                    os.unlink(name)
+            return
         try:
-            with os.fdopen(fd, "wb") as stream:
-                stream.write(data); stream.flush(); os.fsync(stream.fileno())
-            os.replace(name, self.path)
-            self._state = candidate
-            directory = os.open(self.path.parent, os.O_RDONLY)
-            try: os.fsync(directory)
-            finally: os.close(directory)
-        finally:
-            if os.path.exists(name): os.unlink(name)
+            durable = replace_private_bytes_with_status(
+                self.path, data, max_bytes=MAX_LEDGER_BYTES)
+        except PrivateFileCustodyError as exc:
+            raise GovernedLocalModelResourceError("ledger_publication_failed") from exc
+        # The descriptor-safe replace is the consumption commit point. Keep
+        # candidate state even when directory fsync is uncertain so an error
+        # cannot roll back an entitlement already visible to recovery.
+        self._state = candidate
+        if not durable:
+            raise GovernedLocalModelResourceError("ledger_durability_uncertain")
 
     def _persist(self) -> None:
         self._persist_candidate(self._state)
