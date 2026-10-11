@@ -1325,3 +1325,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `conversation_session.py` and `chat_service.py`. No API or runtime session operation was performed.
 
 **Next implementation dependency:** continue into the UI/API consumer of these session summaries and preserve the explicit historical model scope when rendered; do not infer current model status from session creation metadata.
+
+
+## New checkpoint — carry prior memory provenance into later chat context
+
+- Fresh remote source before this increment: `6f9c1cdb38258d8671ab7ba45a42bc181e5ecdf3` (tree `0902181c34a63f57f6fc0b85531b7a370509c20b`).
+- Conversation history carried prior model/runtime lineage into the next prompt but omitted the assistant turn's stored memory snapshot and retrieval/selection posture. A later response could therefore see the prior answer without the bounded memory context identity that accompanied it.
+- Prompt assembly now carries those digest-bound memory provenance fields alongside model provenance, including sidecar uncertainty, selection omissions, and legacy-compatible unknown state. It does not inject prior user-memory contents or place user memory into developmental history; all history remains labeled untrusted data.
+- Python compilation passed for `conversation_session.py`. No prompt was assembled and no inference/runtime validation occurred.
+
+**Next implementation dependency:** continue source review of the resident epistemic consumer paths. Confirm that conversation-only memory provenance does not cross into World-State or developmental memory without an existing explicit selector and source admission contract.

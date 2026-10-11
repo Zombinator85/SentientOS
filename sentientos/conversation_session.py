@@ -535,7 +535,9 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
             provenance = {key: linkage[key] for key in (
                 "active_model_identity_digest", "predecessor_model_identity_digest",
                 "loaded_model_identity_digest", "assistant_output_lineage",
-                "model_identity_continuity_posture") if key in linkage}
+                "model_identity_continuity_posture", "memory_snapshot_digest",
+                "memory_retrieval_posture", "legacy_sidecar_posture",
+                "memory_selection_posture", "omitted_memory_count") if key in linkage}
             software = linkage.get("software_generation_attribution")
             if isinstance(software, Mapping):
                 provenance["software_generation_attribution"] = {
