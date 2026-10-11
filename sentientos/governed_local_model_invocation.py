@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json, os, time, concurrent.futures
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +31,34 @@ FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, 
 INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
 MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 MAX_INVOCATION_RECEIPTS = 256
+RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
+    "type": "object",
+    "required": ["conclusion", "lesson_candidate"],
+    "additionalProperties": False,
+    "properties": {
+        "conclusion": {"type": "string", "minLength": 1, "maxLength": 2500},
+        "lesson_candidate": {
+            "anyOf": [
+                {"type": "null"},
+                {"type": "object", "additionalProperties": False,
+                 "required": ["statement", "scope", "applicability", "uncertainty",
+                              "uncertainty_rationale", "evidence_dependencies",
+                              "possible_contradiction_ids"],
+                 "properties": {
+                    "statement": {"type": "string", "minLength": 1, "maxLength": 1200},
+                    "scope": {"type": "string", "minLength": 1, "maxLength": 400},
+                    "applicability": {"type": "string", "minLength": 1, "maxLength": 500},
+                    "uncertainty": {"type": "string", "enum": ["low", "medium", "high", "unknown"]},
+                    "uncertainty_rationale": {"type": "string", "minLength": 1, "maxLength": 500},
+                    "evidence_dependencies": {"type": "array", "minItems": 1, "maxItems": 8,
+                        "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+                    "possible_contradiction_ids": {"type": "array", "maxItems": 8,
+                        "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+                 }},
+            ],
+        },
+    },
+}
 
 def _digest_text(payload: Any) -> str:
     value: str = digest_payload(payload)
@@ -236,9 +265,17 @@ class GovernedLocalModelInvoker:
         if record is None and self.authority_map.records and not production_identity:
             record = self.authority_map.records[0]
         if record is None: raise ValueError("exact_production_authority_record_required" if production_identity else "authority_map_has_no_records")
-        if structured_output_schema is not None and (purpose not in {"discernment_judgment", "resident_developmental_interpretation"} or expected_output_format != "json"):
-            raise ValueError("structured output is restricted to governed JSON purposes")
-        return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=dict(structured_output_schema) if structured_output_schema is not None else None)
+        if structured_output_schema is not None:
+            allowed_structured_purposes = {
+                "discernment_judgment", "resident_developmental_interpretation",
+                "resident_developmental_retrieval_cognition",
+            }
+            if purpose not in allowed_structured_purposes or expected_output_format != "json":
+                raise ValueError("structured output is restricted to governed JSON purposes")
+            if (purpose == "resident_developmental_retrieval_cognition"
+                    and dict(structured_output_schema) != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA):
+                raise ValueError("structured_output_schema_not_canonical")
+        return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
     def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True, include_output_in_receipt: bool = False,
                pre_effect_guard: Callable[[], None] | None = None,
@@ -268,6 +305,9 @@ class GovernedLocalModelInvoker:
                 from .discernment_participant import judgment_output_schema
                 canonical_schema = judgment_output_schema(proposition=str(request.linkage.get("proposition") or ""), allowed_observation_namespace=str(request.linkage.get("allowed_observation_namespace") or ""))
                 if dict(schema) != canonical_schema: reasons.append("structured_output_schema_not_canonical")
+            elif request.purpose == "resident_developmental_retrieval_cognition":
+                if schema != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA:
+                    reasons.append("structured_output_schema_not_canonical")
             elif request.purpose != "resident_developmental_interpretation": reasons.append("structured_output_schema_invalid")
         if request.purpose == "genesis_proposal_advice":
             ev = dict(request.upstream_evidence.get("genesis_review") or {}) if isinstance(request.upstream_evidence, Mapping) else {}

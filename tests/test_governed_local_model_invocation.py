@@ -9,7 +9,10 @@ pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
-from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt
+from sentientos.governed_local_model_invocation import (
+    GovernedLocalModelInvoker, LocalModelInvocationBudget, validate_receipt,
+    RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+)
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model import ActiveModelIdentity
 
@@ -73,4 +76,51 @@ def test_production_identity_mismatch_is_blocked(tmp_path: Path) -> None:
         candidate_index=0, posture="production", fallback=False)
     with pytest.raises(ValueError, match="exact_production_authority_record_required"):
         inv.build_request(purpose="local_user_chat", prompt="hi", caller="test", correlation_id="mismatch")
+    assert fake.calls == 0
+
+
+def test_resident_cognition_json_schema_is_exactly_purpose_scoped(tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    request = inv.build_request(
+        purpose="resident_developmental_retrieval_cognition",
+        prompt="bounded history-conditioned reasoning",
+        caller="resident_developmental_cognition",
+        correlation_id="cognition-json",
+        expected_output_format="json",
+        structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+    )
+    receipt = inv.invoke(request)
+    assert receipt.status == "admitted_completed"
+    assert fake.calls == 1
+
+    altered = {**RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+               "properties": {**RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA["properties"],
+                              "unexpected": {"type": "string"}}}
+    with pytest.raises(ValueError, match="structured_output_schema_not_canonical"):
+        inv.build_request(
+            purpose="resident_developmental_retrieval_cognition",
+            prompt="bounded history-conditioned reasoning",
+            caller="resident_developmental_cognition",
+            correlation_id="cognition-json-altered",
+            expected_output_format="json",
+            structured_output_schema=altered,
+        )
+    assert fake.calls == 1
+
+
+def test_mutating_cognition_schema_after_request_build_cannot_widen_invocation(tmp_path: Path) -> None:
+    fake, inv = _invoker(tmp_path)
+    request = inv.build_request(
+        purpose="resident_developmental_retrieval_cognition",
+        prompt="bounded context",
+        caller="resident_developmental_cognition",
+        correlation_id="cognition-schema-mutated",
+        expected_output_format="json",
+        structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+    )
+    request.structured_output_schema["properties"]["conclusion"]["maxLength"] = 1
+    assert RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA["properties"]["conclusion"]["maxLength"] == 2500
+    receipt = inv.invoke(request)
+    assert receipt.status == "blocked_invalid"
+    assert "structured_output_schema_not_canonical" in receipt.reason_codes
     assert fake.calls == 0

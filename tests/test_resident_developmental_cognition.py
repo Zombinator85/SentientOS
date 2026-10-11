@@ -6,7 +6,13 @@ from pathlib import Path
 import pytest
 
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
-from sentientos.governed_local_model_invocation import LocalModelInvocationReceipt
+from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
+from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
+from sentientos.governed_local_model_invocation import (
+    GovernedLocalModelInvoker, LocalModelInvocationBudget, LocalModelInvocationReceipt,
+    FORBIDDEN_EFFECTS,
+)
+from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import (
     CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
@@ -34,6 +40,14 @@ def snapshot(value: int = 1):
 class FakeInvoker:
     def __init__(self) -> None:
         self.requests = []
+        self.lesson_statement = "When prior evidence conflicts, preserve its scope and uncertainty."
+        self.lesson_scope = "historical evidence interpretation"
+        self.lesson_dependency_override = None
+        self.truncate_cognition_output = False
+        self.modify_cognition_output_after_digest = False
+        self.cross_cognition_request_identity = False
+        self.no_cognition_lesson = False
+        self.unavailable_cognition_output = False
 
     def build_request(self, **kwargs):
         request = type("Request", (), {})()
@@ -42,24 +56,75 @@ class FakeInvoker:
         request.prompt_size = len(kwargs["prompt"].encode("utf-8"))
         request.model_id = "model-a"; request.model_artifact_digest = "sha256:model"
         request.authority_map_digest = "test-authority-map"; request.active_model_identity = {}
-        semantic = {"purpose": kwargs["purpose"], "prompt_digest": request.prompt_digest,
-                    "prompt_size": request.prompt_size, "correlation_id": kwargs["correlation_id"],
-                    "upstream_evidence": kwargs["upstream_evidence"], "linkage": kwargs["linkage"]}
+        budget = kwargs.get("budget") or LocalModelInvocationBudget()
+        request.budget = budget
+        request.lifecycle_phase = kwargs.get("lifecycle_phase", "runtime")
+        request.structured_output_schema = (dict(kwargs["structured_output_schema"])
+            if kwargs.get("structured_output_schema") is not None else None)
+        semantic = {
+            "purpose": kwargs["purpose"],
+            "prompt_digest": digest_payload({"prompt": kwargs["prompt"]}),
+            "prompt_size": len(kwargs["prompt"].encode("utf-8")),
+            "model_id": "model-a", "authority_map_digest": "test-authority-map",
+            "model_artifact_digest": "sha256:model", "active_model_identity": {},
+            "caller": kwargs["caller"], "lifecycle_phase": request.lifecycle_phase,
+            "correlation_id": kwargs["correlation_id"],
+            "expected_output_format": kwargs.get("expected_output_format", "text"),
+            "structured_output_schema": request.structured_output_schema,
+            "budget": budget.to_dict(), "upstream_evidence": kwargs.get("upstream_evidence") or {},
+            "linkage": kwargs.get("linkage") or {},
+            "allowed_effects": {"local_model_inference": True},
+            "forbidden_effects": dict(FORBIDDEN_EFFECTS),
+        }
         request.request_digest = digest_payload(semantic); request.request_id = "lmreq-" + request.request_digest[:24]
         request.to_receipt_request_dict = lambda: {**semantic, "request_id":request.request_id,
-            "request_digest":request.request_digest, "model_id":"model-a", "model_artifact_digest":"sha256:model"}
+            "request_digest":request.request_digest, "raw_prompt_stored":False,
+            "ephemeral_prompt_handling":"raw prompt used only for immediate local backend call"}
         self.requests.append(request)
         return request
 
     def invoke(self, request, *, persist, include_output_in_receipt):
+        truncated = False
+        original_output = None
         if request.purpose == "resident_developmental_interpretation":
             text = json.dumps({"interpretation":"bounded history", "uncertainty":"medium"})
+        elif request.expected_output_format == "json" and request.structured_output_schema:
+            upstream = request.upstream_evidence
+            consumed = (upstream.get("record_ids") or upstream.get("current_fact_ids")
+                        or upstream.get("self_model_claim_ids") or
+                        upstream.get("epistemic_consumed_packet_ids") or [])
+            dependency = (self.lesson_dependency_override or consumed[0]) if consumed else "missing"
+            lesson = None if self.no_cognition_lesson else {
+                "statement": self.lesson_statement, "scope": self.lesson_scope,
+                "applicability": "Only when the cited evidence and scope still match.",
+                "uncertainty": "medium",
+                "uncertainty_rationale": "The source is historical interpretation.",
+                "evidence_dependencies": [dependency],
+                "possible_contradiction_ids": [],
+            }
+            text = json.dumps({
+                "conclusion": f"Conclusion supporting: {self.lesson_statement}",
+                "lesson_candidate": lesson,
+            }, sort_keys=True)
+            original_output = text
+            if self.truncate_cognition_output:
+                text = text[:24]
+                truncated = True
         else:
-            text = "cognition-with-history" if request.linkage["history_present"] else "cognition-withheld"
-        return LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status="admitted_completed",
-            reason_codes=("completed",), output_text=text, output_digest=digest_payload({"output":text}),
-            output_size_bytes=len(text), admission_decision_ref="local",
-            purpose=request.purpose, latency_ms=1, output_truncated=False, fallback_occurred=False,
+            text = "cognition-with-history" if request.linkage.get("history_present") else "cognition-withheld"
+        if original_output is None:
+            original_output = text
+        if self.modify_cognition_output_after_digest and request.expected_output_format == "json":
+            text = text + " substituted"
+        receipt_request = request.to_receipt_request_dict()
+        if self.cross_cognition_request_identity and request.expected_output_format == "json":
+            receipt_request["request_id"] = "lmreq-crossed"
+        receipt_text = None if (self.unavailable_cognition_output
+            and request.expected_output_format == "json") else text
+        return LocalModelInvocationReceipt(request=receipt_request, status="admitted_completed",
+            reason_codes=("completed",), output_text=receipt_text, output_digest=digest_payload({"output":original_output}),
+            output_size_bytes=len(original_output.encode()), admission_decision_ref="local",
+            purpose=request.purpose, latency_ms=1, output_truncated=truncated, fallback_occurred=False,
             effects={"local_model_inference":True}, observed_at="2026-01-01T00:00:00+00:00",
             generation_config={"actual_generation_parameters":{"temperature":0}} if request.purpose == "resident_developmental_history_intervention_experiment" else {})
 
@@ -624,3 +689,377 @@ def test_concurrent_developmental_ticks_cannot_replay_one_tick(tmp_path: Path) -
 
     assert sum(getattr(result, "status", None) == "completed" for result in results) == 1
     assert results.count("tick_already_completed") == 1
+
+
+def test_actual_history_conditioned_conclusion_is_the_retained_candidate(tmp_path: Path) -> None:
+    composition, fake = owner(tmp_path / "one")
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+
+    assert result.written_record_id and result.writeback_receipt_id
+    record = composition.writeback.store.get(result.written_record_id)
+    candidate = record.candidate
+    provenance = candidate["transformation_provenance"]
+    assert provenance["kind"] == "history_conditioned_cognition_conclusion:v1"
+    assert candidate["interpretation"] == fake.lesson_statement
+    assert provenance["lesson_candidate"]["scope"] == fake.lesson_scope
+    assert provenance["source_output_digest"] == candidate["output_digest"]
+    assert digest_payload({"output": provenance["source_output_text"]}) == candidate["output_digest"]
+    assert provenance["observation_id"] in result.cognition_observation_ids
+    assert provenance["consumed_context"]["retrieved_record_ids"] == list(result.prior_record_ids)
+    assert candidate["inference_receipt_id"] != ""
+    # The candidate reuses the cognition call. Only the first tick's existing
+    # current-evidence interpretation call occurred; no lesson-only call was added.
+    assert [request.purpose for request in fake.requests] == [
+        "resident_developmental_interpretation",
+        "resident_developmental_retrieval_cognition",
+    ]
+
+
+def test_distinct_actual_conclusions_produce_distinct_bound_candidates(tmp_path: Path) -> None:
+    records = []
+    for label in ("lesson-alpha", "lesson-beta"):
+        root = tmp_path / label
+        composition, fake = owner(root)
+        composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+        fake.lesson_statement = label
+        result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+        records.append(composition.writeback.store.get(result.written_record_id))
+    left, right = (record.candidate for record in records)
+    assert left["interpretation"] == "lesson-alpha"
+    assert right["interpretation"] == "lesson-beta"
+    assert left["candidate_id"] != right["candidate_id"]
+    assert left["candidate_digest"] != right["candidate_digest"]
+    assert left["transformation_provenance"]["source_output_text"] != right["transformation_provenance"]["source_output_text"]
+
+
+def test_retained_cognition_lesson_reaches_later_tick_after_restart(tmp_path: Path) -> None:
+    first, fake = owner(tmp_path)
+    first.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    fake.lesson_statement = "Later reasoning should revisit the bounded cited condition."
+    retained = first.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    record = first.writeback.store.get(retained.written_record_id)
+    restarted, later_fake = owner(tmp_path)
+    later = restarted.run_tick(snapshot=snapshot(3), tick_id="tick-3")
+    assert later.prior_record_ids == (record.record_id,)
+    prompt = json.loads(next(
+        request.prompt for request in later_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition"))
+    assert any(item["record_id"] == record.record_id for item in prompt["developmental_history"])
+    assert "Later reasoning should revisit the bounded cited condition." in json.dumps(prompt)
+    assert "authority" not in record.candidate and "current_truth" not in record.candidate
+    assert record.epistemic_posture == "historical_interpretation_not_current_truth"
+
+
+def test_unconsumed_evidence_citation_does_not_become_a_cognition_candidate(tmp_path: Path) -> None:
+    composition, fake = owner(tmp_path)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    fake.lesson_dependency_override = "fabricated-source-id"
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    record = composition.writeback.store.get(result.written_record_id)
+    assert record.candidate["transformation_provenance"]["kind"] != "history_conditioned_cognition_conclusion:v1"
+    assert any(request.purpose == "resident_developmental_interpretation" for request in fake.requests)
+
+
+def test_truncated_cognition_output_never_manufactures_retained_lesson(tmp_path: Path) -> None:
+    composition, fake = owner(tmp_path)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    fake.truncate_cognition_output = True
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    record = composition.writeback.store.get(result.written_record_id)
+    assert record.candidate["transformation_provenance"]["kind"] != "history_conditioned_cognition_conclusion:v1"
+
+
+def test_recovered_candidate_requires_its_exact_durable_cognition_observation(tmp_path: Path) -> None:
+    composition, _fake = owner(tmp_path)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    candidate = composition.writeback.store.get(result.written_record_id).candidate
+    observation_path = composition.observations_root / f"{candidate['transformation_provenance']['observation_id']}.json"
+    observation = json.loads(observation_path.read_text())
+    observation["output_digest"] = "sha256:" + "0" * 64
+    observation_path.write_text(json.dumps(observation, indent=2, sort_keys=True) + "\\n")
+    restarted, _ = owner(tmp_path)
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="cognition_observation"):
+        restarted._state()
+
+
+def test_experimental_history_arms_do_not_retain_cognition_lessons(tmp_path: Path) -> None:
+    first, _ = owner(tmp_path)
+    first.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    experimental, fake = owner(tmp_path, comparison=True)
+    experimental.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    experiment_calls = [request for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and "history_present" in request.linkage]
+    assert len(experiment_calls) == 3
+    assert all(request.expected_output_format == "text" for request in experiment_calls)
+    assert all("structured_output_schema" not in request.to_receipt_request_dict()
+        for request in experiment_calls)
+    records = experimental.writeback.store.records()
+    assert all(record.candidate["transformation_provenance"].get("kind")
+        != "history_conditioned_cognition_conclusion:v1" for record in records)
+
+
+def test_cognition_lesson_writeback_is_later_tick_only_and_recovery_is_idempotent(tmp_path: Path) -> None:
+    first, _fake = owner(tmp_path)
+    first.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    result = first.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    record = first.writeback.store.get(result.written_record_id)
+    assert record.record_id not in result.prior_record_ids
+    restarted, fake = owner(tmp_path)
+    recovered = restarted._state()
+    assert any(row["tick_id"] == "tick-2" and row["record_id"] == record.record_id
+        for row in recovered["completed_ticks"])
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    later = restarted.run_tick(snapshot=snapshot(3), tick_id="tick-3")
+    assert later.prior_record_ids == (record.record_id,)
+    assert any(request.purpose == "resident_developmental_retrieval_cognition"
+        for request in fake.requests)
+
+
+def test_modified_output_and_crossed_request_identity_are_rejected(tmp_path: Path) -> None:
+    composition, fake = owner(tmp_path / "modified")
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    fake.modify_cognition_output_after_digest = True
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    record = composition.writeback.store.get(result.written_record_id)
+    assert record.candidate["transformation_provenance"]["kind"] != "history_conditioned_cognition_conclusion:v1"
+
+    crossed, crossed_fake = owner(tmp_path / "crossed")
+    crossed.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    crossed_fake.cross_cognition_request_identity = True
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="request_binding_mismatch"):
+        crossed.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+
+
+def test_out_of_scope_length_and_substituted_evidence_are_not_retained(tmp_path: Path) -> None:
+    composition, fake = owner(tmp_path)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    fake.lesson_scope = "x" * 401
+    fake.lesson_dependency_override = "different-unconsumed-evidence"
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    record = composition.writeback.store.get(result.written_record_id)
+    assert record.candidate["transformation_provenance"]["kind"] != "history_conditioned_cognition_conclusion:v1"
+
+
+def test_interruption_after_cognition_observation_does_not_reinfer_or_fabricate_candidate(tmp_path: Path) -> None:
+    composition, fake = owner(tmp_path)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+
+    def interrupt_candidate(*_args, **_kwargs):
+        raise RuntimeError("interrupted_before_candidate_commit")
+
+    composition.writeback.candidate_from_history_conditioned_cognition = interrupt_candidate
+    with pytest.raises(RuntimeError, match="interrupted_before_candidate_commit"):
+        composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    assert len(list(composition.observations_root.glob("*.json"))) == 1
+
+    restarted, restarted_fake = owner(tmp_path)
+    recovered = restarted._state()
+    interrupted = next(row for row in recovered["incomplete_ticks"] if row["tick_id"] == "tick-2")
+    assert interrupted["status"] == "interrupted_recovered"
+    assert not restarted_fake.requests
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    assert not restarted_fake.requests
+
+
+def test_candidate_record_committed_before_checkpoint_recovers_once(tmp_path: Path) -> None:
+    composition, _fake = owner(tmp_path)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    save_state = composition._save_state
+
+    def interrupt_final_checkpoint(state):
+        if state["completed_ticks"]:
+            raise ResidentDevelopmentalCognitionError("simulated_after_candidate_before_checkpoint")
+        save_state(state)
+
+    composition._save_state = interrupt_final_checkpoint
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+                       match="simulated_after_candidate_before_checkpoint"):
+        composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+
+    durable = composition.writeback.store.records()
+    assert len(durable) == 2
+    candidate_record = next(record for record in durable
+        if record.candidate["transformation_provenance"].get("kind")
+        == "history_conditioned_cognition_conclusion:v1")
+    restarted, fake = owner(tmp_path)
+    recovered = restarted._state()
+    assert any(row["record_id"] == candidate_record.record_id
+        and row["tick_id"] == "tick-2" for row in recovered["completed_ticks"])
+    later = restarted.run_tick(snapshot=snapshot(3), tick_id="tick-3")
+    assert candidate_record.record_id in later.prior_record_ids
+    assert any(request.purpose == "resident_developmental_retrieval_cognition"
+        for request in fake.requests)
+
+
+def test_null_lesson_packet_is_not_automatically_retained(tmp_path: Path) -> None:
+    composition, fake = owner(tmp_path)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    fake.no_cognition_lesson = True
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    record = composition.writeback.store.get(result.written_record_id)
+    assert record.candidate["transformation_provenance"].get("kind") != "history_conditioned_cognition_conclusion:v1"
+    assert any(request.purpose == "resident_developmental_interpretation"
+        for request in fake.requests)
+
+
+class HermeticCognitionBackend:
+    """Local deterministic model substitute used behind the real governed invoker."""
+
+    def __init__(self, statement: str = "Preserve the cited historical condition.") -> None:
+        self.statement = statement
+        self.calls: list[str] = []
+        self.no_lesson = False
+
+    def generate(self, prompt: str, **kwargs) -> str:
+        self.calls.append(prompt)
+        schema = kwargs.get("structured_output_schema")
+        required = set(schema.get("required", ())) if isinstance(schema, dict) else set()
+        if required == {"interpretation", "uncertainty"}:
+            return json.dumps({"interpretation": "bounded current evidence",
+                               "uncertainty": "medium"})
+        context = json.loads(prompt)
+        history = context.get("developmental_history", [])
+        evidence_ids = [str(item["record_id"]) for item in history
+                        if isinstance(item, dict) and isinstance(item.get("record_id"), str)]
+        current = context.get("current_evidence", {})
+        evidence_ids.extend(str(item["fact_id"]) for item in current.get("facts", [])
+                            if isinstance(item, dict) and isinstance(item.get("fact_id"), str))
+        return json.dumps({
+            "conclusion": "I conclude: " + self.statement,
+            "lesson_candidate": None if self.no_lesson else {
+                "statement": self.statement,
+                "scope": "the cited historical context",
+                "applicability": "only while the cited conditions remain applicable",
+                "uncertainty": "medium",
+                "uncertainty_rationale": "the source is an interpretation of retained evidence",
+                "evidence_dependencies": evidence_ids[:1],
+                "possible_contradiction_ids": [],
+            },
+        }, sort_keys=True)
+
+
+def governed_owner(root: Path, *, backend: HermeticCognitionBackend, comparison: bool = False):
+    root.mkdir(parents=True, exist_ok=True)
+    model_path = root / "fixture.gguf"
+    model_path.write_bytes(b"hermetic local backend fixture")
+    model_config = ModelConfig(
+        candidates=[ModelCandidate(path=model_path, engine="llama_cpp", name="fixture")],
+        generation=GenerationConfig(max_new_tokens=512),
+    )
+    authority_map = build_local_model_authority_map(model_config, allowed_roots=[root])
+    invoker = GovernedLocalModelInvoker(
+        model=backend, authority_map=authority_map,
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+            decisions_path=root / "control-plane-decisions.jsonl"),
+        runtime_root=root / "invocation-custody",
+    )
+    ledger = AdmissionLedger(root / "state" / "admissions.json")
+    definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+
+    def current_sequence():
+        admissions, revocations = ledger.load()
+        return max([item.issued_sequence for item in admissions]
+                   + [item.sequence for item in revocations], default=1)
+
+    def next_sequence():
+        return current_sequence() + 1
+
+    writeback = ResidentDevelopmentalWritebackController(
+        history_root=root / "history",
+        admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+        current_sequence=current_sequence,
+    )
+    owner_value = ResidentDevelopmentalCognitionOwner(
+        config=ResidentDevelopmentalCognitionConfig(
+            root / "history", root / "state", ("capability_registry",), 1, 4, comparison),
+        writeback=writeback,
+        admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+        invoker=invoker,
+        current_sequence=next_sequence,
+    )
+    return owner_value, invoker
+
+
+def test_real_governed_invocation_output_is_retained_without_a_lesson_only_call(tmp_path: Path) -> None:
+    backend = HermeticCognitionBackend("keep the observation's original scope")
+    composition, invoker = governed_owner(tmp_path, backend=backend)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+
+    record = composition.writeback.store.get(result.written_record_id)
+    candidate = record.candidate
+    provenance = candidate["transformation_provenance"]
+    assert provenance["kind"] == "history_conditioned_cognition_conclusion:v1"
+    assert candidate["interpretation"] == backend.statement
+    assert candidate["model_id"] == provenance["source_request"]["model_id"]
+    assert candidate["request_digest"] == provenance["source_request"]["request_digest"]
+    assert provenance["source_output_text"].startswith('{"conclusion":')
+    assert digest_payload({"output": provenance["source_output_text"]}) == candidate["output_digest"]
+    # Tick one uses the existing interpretation request; tick two uses one
+    # history-conditioned call whose exact output becomes the candidate.
+    assert len(backend.calls) == 2
+    assert result.cognition_observation_ids == (provenance["observation_id"],)
+
+
+def test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them(tmp_path: Path) -> None:
+    backend = HermeticCognitionBackend("lesson A")
+    composition, _invoker = governed_owner(tmp_path, backend=backend)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    first = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    first_record = composition.writeback.store.get(first.written_record_id)
+    assert first_record.candidate["interpretation"] == "lesson A"
+
+    backend.statement = "lesson B"
+    restarted, _ = governed_owner(tmp_path, backend=backend)
+    second = restarted.run_tick(snapshot=snapshot(3), tick_id="tick-3")
+    second_record = restarted.writeback.store.get(second.written_record_id)
+    assert second_record.candidate["interpretation"] == "lesson B"
+    assert first_record.candidate["candidate_id"] != second_record.candidate["candidate_id"]
+    assert first_record.record_id in second.prior_record_ids
+
+    later_backend = HermeticCognitionBackend("later conclusion")
+    later_owner, _ = governed_owner(tmp_path, backend=later_backend)
+    later = later_owner.run_tick(snapshot=snapshot(4), tick_id="tick-4")
+    assert second_record.record_id in later.prior_record_ids
+    assert any(second_record.record_id in prompt for prompt in later_backend.calls)
+
+
+def test_real_invoker_null_candidate_does_not_turn_the_conclusion_into_a_lesson(tmp_path: Path) -> None:
+    backend = HermeticCognitionBackend("conclusion with no scoped lesson")
+    backend.no_lesson = True
+    composition, _ = governed_owner(tmp_path, backend=backend)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    result = composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    record = composition.writeback.store.get(result.written_record_id)
+    assert record.candidate["transformation_provenance"].get("kind") != "history_conditioned_cognition_conclusion:v1"
+    assert len(backend.calls) == 3
+
+
+def test_missing_output_text_and_substituted_scope_never_create_a_candidate(tmp_path: Path) -> None:
+    missing, missing_fake = owner(tmp_path / "missing")
+    missing.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    missing_fake.unavailable_cognition_output = True
+    missing_result = missing.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    missing_record = missing.writeback.store.get(missing_result.written_record_id)
+    assert missing_record.candidate["transformation_provenance"].get("kind") != "history_conditioned_cognition_conclusion:v1"
+
+    scoped, _ = owner(tmp_path / "scope")
+    scoped.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    original = scoped.writeback.candidate_from_history_conditioned_cognition
+
+    def substitute_scope(selection, receipt, **kwargs):
+        altered = dict(kwargs["lesson_payload"])
+        altered_lesson = dict(altered["lesson_candidate"])
+        altered_lesson["scope"] = "substituted scope"
+        altered["lesson_candidate"] = altered_lesson
+        kwargs["lesson_payload"] = altered
+        return original(selection, receipt, **kwargs)
+
+    scoped.writeback.candidate_from_history_conditioned_cognition = substitute_scope
+    with pytest.raises(DevelopmentalWritebackError, match="cognition_lesson_output_invalid"):
+        scoped.run_tick(snapshot=snapshot(2), tick_id="tick-2")

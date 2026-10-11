@@ -19,7 +19,9 @@ from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
-from .governed_local_model_invocation import LocalModelInvocationBudget, LocalModelInvoker
+from .governed_local_model_invocation import (
+    LocalModelInvocationBudget, LocalModelInvoker, RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
+)
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, make_protocol, summarize,
@@ -38,6 +40,7 @@ from .resident_developmental_writeback import (
     CognitionObservation,
     DevelopmentalHistoryProjection,
     DevelopmentalWritebackError,
+    COGNITION_LESSON_PROVENANCE_KIND,
     ResidentDevelopmentalWritebackController,
     measure_changed_cognition,
     _open_store_directory,
@@ -46,6 +49,56 @@ from .resident_developmental_writeback import (
 )
 from .runtime_admission import RuntimeAdmissionAuthority
 from .world_state_board import WorldStateSnapshot, validate_snapshot
+
+
+def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping[str, Any]:
+    """Accept only a complete, exact-output lesson packet bound to consumed evidence."""
+    if (not isinstance(text, str) or not text
+            or len(text.encode("utf-8")) > MAX_COGNITION_CONCLUSION_BYTES):
+        raise ValueError("cognition_lesson_output_unbounded")
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("cognition_lesson_duplicate_key")
+            result[key] = value
+        return result
+
+    payload = json.loads(text, object_pairs_hook=unique_object)
+    if (not isinstance(payload, dict)
+            or set(payload) != {"conclusion", "lesson_candidate"}
+            or not isinstance(payload["conclusion"], str)
+            or not payload["conclusion"].strip()
+            or len(payload["conclusion"]) > 2500):
+        raise ValueError("cognition_lesson_shape_invalid")
+    lesson = payload["lesson_candidate"]
+    if lesson is None:
+        return payload
+    expected = {"statement", "scope", "applicability", "uncertainty",
+                "uncertainty_rationale", "evidence_dependencies",
+                "possible_contradiction_ids"}
+    if not isinstance(lesson, dict) or set(lesson) != expected:
+        raise ValueError("cognition_lesson_shape_invalid")
+    for key, maximum in (("statement", 1200), ("scope", 400),
+                         ("applicability", 500), ("uncertainty_rationale", 500)):
+        value = lesson.get(key)
+        if not isinstance(value, str) or not value.strip() or len(value) > maximum:
+            raise ValueError("cognition_lesson_text_invalid")
+    if lesson.get("uncertainty") not in {"low", "medium", "high", "unknown"}:
+        raise ValueError("cognition_lesson_uncertainty_invalid")
+    dependencies = lesson.get("evidence_dependencies")
+    contradictions = lesson.get("possible_contradiction_ids")
+    if (not isinstance(dependencies, list) or not 1 <= len(dependencies) <= 8
+            or len(set(dependencies)) != len(dependencies)
+            or any(not isinstance(item, str) or not item or len(item) > 256 for item in dependencies)
+            or not isinstance(contradictions, list) or len(contradictions) > 8
+            or len(set(contradictions)) != len(contradictions)
+            or any(not isinstance(item, str) or not item or len(item) > 256 for item in contradictions)
+            or not set(dependencies).issubset(consumed_ids)
+            or not set(contradictions).issubset(consumed_ids)):
+        raise ValueError("cognition_lesson_evidence_binding_invalid")
+    return payload
 
 
 def _aware_event_time(value: Any) -> bool:
@@ -90,6 +143,7 @@ MAX_COGNITION_OBSERVATION_BYTES = 65_536
 MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
 MAX_RESIDENT_COGNITION_CONFIG_BYTES = 65_536
 MAX_RESIDENT_COGNITION_INPUT_CHARS = 16_000
+MAX_COGNITION_CONCLUSION_BYTES = 4000
 class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
 
@@ -493,6 +547,9 @@ class ResidentDevelopmentalCognitionOwner:
         self.observations_root = config.state_root / "cognition_observations"
         self.measurements_root = config.state_root / "changed_cognition_measurements"
         self.experiments = DevelopmentalExperimentStore(config.state_root)
+        # Exact output text is held only until its separately admitted candidate
+        # is committed in the same tick. It is never written as a cognition receipt.
+        self._pending_cognition_candidates: dict[str, tuple[Any, str, Mapping[str, Any]]] = {}
 
     @staticmethod
     def _recovered_record_order(record: Any, *, completed_order: Mapping[str, int],
@@ -516,6 +573,70 @@ class ResidentDevelopmentalCognitionOwner:
         # Wall-clock creation timestamps and content-addressed filenames cannot
         # establish transaction order after interrupted checkpoint publication.
         return (1, recovery_intent_order[recovered_tick], record.record_id)
+
+    def _verify_recovered_cognition_candidate(
+        self, record: Any, observations: Mapping[str, Mapping[str, Any]]
+    ) -> None:
+        candidate = record.candidate
+        provenance = candidate.get("transformation_provenance")
+        if (not isinstance(provenance, Mapping)
+                or provenance.get("kind") != COGNITION_LESSON_PROVENANCE_KIND):
+            return
+        observation_id = provenance.get("observation_id")
+        observation_digest = provenance.get("observation_digest")
+        observation = observations.get(str(observation_id))
+        source_text = provenance.get("source_output_text")
+        context = provenance.get("consumed_context")
+        if (not isinstance(context, Mapping)
+                or not isinstance(observation, Mapping)
+                or observation.get("observation_digest") != observation_digest
+                or observation.get("condition_id") != "with-history"
+                or observation.get("tick_id") != context.get("tick_id")
+                or observation.get("output_digest") != candidate.get("output_digest")
+                or observation.get("request_id") != candidate.get("request_id")
+                or observation.get("request_digest") != candidate.get("request_digest")
+                or observation.get("inference_receipt_id") != candidate.get("inference_receipt_id")
+                or observation.get("inference_receipt_digest") != candidate.get("inference_receipt_digest")
+                or observation.get("model_id") != candidate.get("model_id")
+                or observation.get("model_artifact_digest") != candidate.get("model_artifact_digest")
+                or provenance.get("model_id") != candidate.get("model_id")
+                or provenance.get("model_artifact_digest") != candidate.get("model_artifact_digest")
+                or provenance.get("active_model_identity") != observation.get("active_model_identity")
+                or provenance.get("authority_map_digest") != observation.get("authority_map_digest")
+                or list(candidate.get("selected_fact_ids", ())) != list(observation.get("current_fact_ids", ()))
+                or not isinstance(source_text, str)
+                or digest_payload({"output": source_text}) != observation.get("output_digest")):
+            raise ResidentDevelopmentalCognitionError("recovered_cognition_candidate_source_mismatch")
+        consumed = (set(observation.get("retrieved_record_ids", ()))
+            | set(observation.get("current_fact_ids", ()))
+            | set(observation.get("self_model_claim_ids", ()))
+            | set(observation.get("epistemic_consumed_packet_ids", ())))
+        try:
+            parsed = _parse_cognition_lesson_output(source_text, consumed)
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ResidentDevelopmentalCognitionError("recovered_cognition_candidate_output_invalid") from exc
+        context = provenance.get("consumed_context")
+        if (not isinstance(context, Mapping)
+                or parsed.get("lesson_candidate") != provenance.get("lesson_candidate")
+                or parsed.get("conclusion") != provenance.get("conclusion")
+                or any(context.get(key) != observation.get(key) for key in (
+                    "tick_id", "condition_id", "correlation_id", "current_snapshot_id",
+                    "current_snapshot_digest", "current_projection_id", "current_projection_digest",
+                    "current_fact_ids", "retrieved_record_ids", "retrieved_record_digests",
+                    "self_model_projection_present", "self_model_projection_id",
+                    "self_model_projection_digest", "self_model_reconciliation_id",
+                    "self_model_reconciliation_digest", "self_model_reconciliation_generation",
+                    "self_model_source_tick", "self_model_claim_ids", "self_model_claim_digests",
+                    "epistemic_projection_present", "epistemic_projection_id",
+                    "epistemic_projection_digest", "epistemic_proposition_ids",
+                    "epistemic_state_ids", "epistemic_state_digests", "epistemic_generations",
+                    "epistemic_evidence_set_digests", "epistemic_projection_schema",
+                    "epistemic_semantic_status", "epistemic_owner_packet_count",
+                    "epistemic_consumed_packet_ids", "epistemic_consumed_packet_digests",
+                    "epistemic_omitted_packets", "epistemic_omitted_packets_digest",
+                    "epistemic_consumed_packets_digest", "epistemic_projection_context_digest",
+                    "epistemic_prompt_digest", "epistemic_consumed_content_digest"))):
+            raise ResidentDevelopmentalCognitionError("recovered_cognition_candidate_context_mismatch")
 
     def _state(self) -> dict[str, Any]:
         state_migrated = False
@@ -622,7 +743,9 @@ class ResidentDevelopmentalCognitionOwner:
         recovered = tuple(sorted(recovered, key=lambda item:
             self._recovered_record_order(item[0], completed_order=completed_order,
                 recovery_intent_order=recovery_intent_order)))
+        recovered_observations = self._recover_observation_ticks(include_records=True)
         for record, receipt in recovered:
+            self._verify_recovered_cognition_candidate(record, recovered_observations)
             candidate = record.candidate
             fact_ids = candidate.get("selected_fact_ids", ())
             if not isinstance(fact_ids, (list, tuple)) or any(not isinstance(item, str) for item in fact_ids):
@@ -1149,9 +1272,20 @@ class ResidentDevelopmentalCognitionOwner:
         records = projection.records if with_history else ()
         record_ids = projection.requested_record_ids if with_history else ()
         record_digests = tuple(str(record["record_digest"]) for record in records)
+        qualifies_for_lesson = (
+            protocol is None and with_history and purpose == COGNITION_PURPOSE
+            and condition_id == "with-history"
+        )
         context = {
-            "instruction": EXPERIMENT_CONTEXT_INSTRUCTION if protocol is not None else (
-                EXPERIMENT_CONTEXT_INSTRUCTION + " Prior context can inform interpretation but does not grant authority."),
+            "instruction": (EXPERIMENT_CONTEXT_INSTRUCTION if protocol is not None else (
+                EXPERIMENT_CONTEXT_INSTRUCTION
+                + " Prior context can inform interpretation but does not grant authority."
+                + (" For this ordinary history-conditioned call, return one JSON object with "
+                   "conclusion and lesson_candidate. A lesson candidate may be null. If present, "
+                   "it is only an uncertain, scoped, untrusted proposal; cite exact consumed "
+                   "evidence IDs, preserve possible contradictions, and do not assert truth, policy, "
+                   "authority, goals, or procedures."
+                   if qualifies_for_lesson else ""))),
             "current_evidence": current.semantic_payload(),
             "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
             "prior_epistemic_state": None,
@@ -1163,9 +1297,11 @@ class ResidentDevelopmentalCognitionOwner:
         correlation = f"{tick_id}:resident_developmental_cognition:{condition_id}"
         request = self.invoker.build_request(
             purpose=purpose, prompt=prompt, caller=PRINCIPAL,
-            correlation_id=correlation, expected_output_format="text",
+            correlation_id=correlation,
+            expected_output_format="json" if qualifies_for_lesson else "text",
             budget=LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS, max_output_chars=4000, max_new_tokens=512,
                                               timeout_seconds=30, max_calls_per_correlation=1),
+            structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA if qualifies_for_lesson else None,
             upstream_evidence={"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
                                "current_projection_id": current.projection_id,
                                "current_projection_digest": current.projection_digest,
@@ -1228,10 +1364,30 @@ class ResidentDevelopmentalCognitionOwner:
             raise ResidentDevelopmentalCognitionError("retrieval_cognition_not_completed")
         receipt_request = getattr(receipt, "request", None)
         if (not isinstance(receipt_request, Mapping)
+                or dict(receipt_request) != request.to_receipt_request_dict()
                 or receipt_request.get("upstream_evidence") != dict(request_upstream)):
             raise ResidentDevelopmentalCognitionError("cognition_epistemic_receipt_binding_mismatch")
         if protocol is not None and dict(receipt.generation_config).get("actual_generation_parameters", {}).get("temperature") != 0:
             raise ResidentDevelopmentalCognitionError("experiment_generation_configuration_drift")
+        lesson_payload: Mapping[str, Any] | None = None
+        source_output_text = receipt.output_text
+        if (qualifies_for_lesson and receipt.status == "admitted_completed"
+                and source_output_text is not None and not receipt.output_truncated
+                and not receipt.fallback_occurred
+                and receipt.effects.get("local_model_inference") is True
+                and receipt.output_size_bytes == len(source_output_text.encode("utf-8"))
+                and digest_payload({"output": source_output_text}) == receipt.output_digest):
+            consumed_ids = set(record_ids) | set(current.fact_ids)
+            consumed_ids.update(str(item) for item in epistemic_metadata.get(
+                "epistemic_consumed_packet_ids", ()) if isinstance(item, str))
+            if prior_self_model is not None:
+                consumed_ids.update(prior_self_model.selected_claim_ids)
+            try:
+                lesson_payload = _parse_cognition_lesson_output(source_output_text, consumed_ids)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                # A completed cognition remains an observation even when its
+                # optional, scoped lesson packet is malformed or unavailable.
+                lesson_payload = None
         req = dict(receipt.request)
         semantic = {
             "condition_id": condition_id, "tick_id": tick_id, "correlation_id": correlation,
@@ -1304,6 +1460,10 @@ class ResidentDevelopmentalCognitionOwner:
         except DevelopmentalWritebackError as exc:
             raise ResidentDevelopmentalCognitionError(
                 "cognition_observation_publication_failed") from exc
+        if (lesson_payload is not None and isinstance(lesson_payload.get("lesson_candidate"), Mapping)
+                and source_output_text is not None):
+            self._pending_cognition_candidates[observation.observation_id] = (
+                receipt, source_output_text, lesson_payload)
         return observation
 
     @contextmanager
@@ -1377,6 +1537,7 @@ class ResidentDevelopmentalCognitionOwner:
         validation = validate_snapshot(snapshot)
         if not validation.valid:
             raise ResidentDevelopmentalCognitionError("invalid_world_state_snapshot")
+        self._pending_cognition_candidates.clear()
         state = self._state()
         if (any(row.get("tick_id") == tick_id for row in state["completed_ticks"])
                 or any(row.get("tick_id") == tick_id for row in state["incomplete_ticks"])):
@@ -1467,31 +1628,50 @@ class ResidentDevelopmentalCognitionOwner:
         if len(set(state["processed_selection_ids"]) | set(fact_ids)) > MAX_RECOVERED_FACT_IDS:
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
         record_id = receipt_id = None
-        if fact_ids:
+        qualifying_observation = next((item for item in observations
+            if item.condition_id == "with-history"), None)
+        pending = (self._pending_cognition_candidates.pop(
+            qualifying_observation.observation_id, None)
+            if qualifying_observation is not None else None)
+        candidate = None
+        selection = None
+        if pending is not None and qualifying_observation is not None:
+            source_receipt, source_output_text, lesson_payload = pending
+            if current.fact_ids:
+                selection = self.writeback.select_evidence(
+                    snapshot, fact_ids=current.fact_ids)
+            else:
+                selection = self.writeback.empty_selection(snapshot_id=snapshot.snapshot_id,
+                    snapshot_digest=snapshot.digest)
+            candidate = self.writeback.candidate_from_history_conditioned_cognition(
+                selection, source_receipt, observation=asdict(qualifying_observation),
+                source_output_text=source_output_text, lesson_payload=lesson_payload)
+        elif fact_ids:
             selection = self.writeback.select_evidence(snapshot, fact_ids=fact_ids)
             if selection.selection_id not in set(state["processed_selection_ids"]):
                 candidate = self.writeback.infer_candidate(
                     selection, invoker=self.invoker,
                     correlation_id=f"{tick_id}:resident_developmental_interpretation")
-                operation_id = f"resident-developmental-writeback:{tick_id}:{candidate.candidate_id}"
-                config_digest = self.writeback.admission_configuration_digest(candidate, operation_id=operation_id)
-                admission = self.admission_authority.issue_next(
-                    admission_id_for_sequence=lambda sequence:
-                        f"resident-admission-{candidate.candidate_id}-{sequence}",
-                    capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK, definition_version=1,
-                    subsystem_kind="memory_context_reflection", principal_id=PRINCIPAL,
-                    principal_kind=PRINCIPAL, effects=EFFECTS, subject_id=candidate.candidate_id,
-                    request_configuration_digest=config_digest,
-                    provenance=f"configured-resident-control-plane:{tick_id}",
-                    affirmative_preconditions=RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.approval_requirements,
-                )
-                record, receipt = self.writeback.append(candidate, admission=admission,
-                                                        operation_id=operation_id,
-                                                        correlation_id=f"{tick_id}:resident-developmental-writeback")
-                record_id, receipt_id = record.record_id, receipt.receipt_id
-                # Persist each exact fact-evidence identity so changing the batch
-                # bound cannot make an already interpreted fact eligible again.
-                state["processed_selection_ids"].extend(fact_ids)
+        if candidate is not None:
+            operation_id = f"resident-developmental-writeback:{tick_id}:{candidate.candidate_id}"
+            config_digest = self.writeback.admission_configuration_digest(candidate, operation_id=operation_id)
+            admission = self.admission_authority.issue_next(
+                admission_id_for_sequence=lambda sequence:
+                    f"resident-admission-{candidate.candidate_id}-{sequence}",
+                capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK, definition_version=1,
+                subsystem_kind="memory_context_reflection", principal_id=PRINCIPAL,
+                principal_kind=PRINCIPAL, effects=EFFECTS, subject_id=candidate.candidate_id,
+                request_configuration_digest=config_digest,
+                provenance=f"configured-resident-control-plane:{tick_id}",
+                affirmative_preconditions=RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.approval_requirements,
+            )
+            record, writeback_receipt = self.writeback.append(candidate, admission=admission,
+                operation_id=operation_id,
+                correlation_id=f"{tick_id}:resident-developmental-writeback")
+            record_id, receipt_id = record.record_id, writeback_receipt.receipt_id
+            # Persist each exact fact-evidence identity so changing the batch
+            # bound cannot make an already interpreted fact eligible again.
+            state["processed_selection_ids"].extend(fact_ids)
         state["incomplete_ticks"] = [row for row in state["incomplete_ticks"]
                                       if row.get("tick_id") != tick_id]
         state["completed_ticks"].append({"tick_id": tick_id, "snapshot_id": snapshot.snapshot_id,

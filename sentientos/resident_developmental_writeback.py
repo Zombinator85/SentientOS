@@ -22,6 +22,7 @@ from .governed_local_model_invocation import (
     LocalModelInvoker,
     LocalModelInvocationBudget,
     LocalModelInvocationReceipt,
+    RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA,
 )
 from .local_model_authority import digest_payload
 from .canonical_memory import sentientos_memory_dir
@@ -38,6 +39,7 @@ SCHEMA_VERSION = "sentientos.resident_developmental_writeback:v1"
 PRINCIPAL = "deterministic_resident_developmental_writeback_controller"
 EFFECTS = tuple(sorted(RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.required_effects))
 PURPOSE = "resident_developmental_interpretation"
+COGNITION_LESSON_PROVENANCE_KIND = "history_conditioned_cognition_conclusion:v1"
 MAX_SELECTED_FACTS = 16
 MAX_SELECTED_EVIDENCE_BYTES = 6000
 MAX_RETRIEVAL_RECORDS = 16
@@ -895,6 +897,169 @@ class ResidentDevelopmentalWritebackController:
         return replace(raw, selection_id=sid, selection_digest=digest)
 
     @staticmethod
+    def empty_selection(*, snapshot_id: str, snapshot_digest: str) -> SelectedEvidence:
+        """Bind an empty current-evidence set for a history-only cognition candidate."""
+        raw = SelectedEvidence(snapshot_id, snapshot_digest, (), (), ())
+        sid, digest = _identity("devsel", raw.semantic_payload())
+        return replace(raw, selection_id=sid, selection_digest=digest)
+
+    @staticmethod
+    def candidate_from_history_conditioned_cognition(
+        selection: SelectedEvidence, receipt: LocalModelInvocationReceipt, *,
+        observation: Mapping[str, Any], source_output_text: str,
+        lesson_payload: Mapping[str, Any],
+    ) -> DevelopmentalCandidate:
+        """Bind one exact lesson emitted by the ordinary completed cognition call."""
+        sid, sdigest = _identity("devsel", selection.semantic_payload())
+        if (selection.selection_id, selection.selection_digest) != (sid, sdigest):
+            raise DevelopmentalWritebackError("cognition_selection_identity_invalid")
+        if (receipt.status != "admitted_completed" or receipt.output_truncated
+                or receipt.fallback_occurred or receipt.output_text != source_output_text
+                or not isinstance(receipt.output_digest, str)
+                or digest_payload({"output": source_output_text}) != receipt.output_digest
+                or receipt.output_size_bytes != len(source_output_text.encode("utf-8"))
+                or receipt.effects.get("local_model_inference") is not True):
+            raise DevelopmentalWritebackError("cognition_source_output_unverified")
+        if (not isinstance(observation, Mapping)
+                or observation.get("condition_id") != "with-history"
+                or observation.get("developmental_projection_present") is not True
+                or observation.get("output_digest") != receipt.output_digest
+                or observation.get("inference_receipt_id") != receipt.receipt_id
+                or observation.get("inference_receipt_digest") != receipt.receipt_digest
+                or observation.get("request_id") != receipt.request.get("request_id")
+                or observation.get("request_digest") != receipt.request.get("request_digest")
+                or observation.get("current_snapshot_id") != selection.snapshot_id
+                or observation.get("current_snapshot_digest") != selection.snapshot_digest
+                or tuple(observation.get("current_fact_ids", ()))
+                    != tuple(str(fact.get("fact_id", "")) for fact in selection.facts)):
+            raise DevelopmentalWritebackError("cognition_observation_binding_invalid")
+        try:
+            output = json.loads(source_output_text)
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise DevelopmentalWritebackError("cognition_source_output_invalid") from exc
+        if (not isinstance(output, dict)
+                or output != dict(lesson_payload)
+                or set(output) != {"conclusion", "lesson_candidate"}
+                or not isinstance(output.get("conclusion"), str)
+                or not isinstance(output.get("lesson_candidate"), Mapping)):
+            raise DevelopmentalWritebackError("cognition_lesson_output_invalid")
+        lesson = dict(output["lesson_candidate"])
+        expected_lesson_fields = {"statement", "scope", "applicability", "uncertainty",
+            "uncertainty_rationale", "evidence_dependencies", "possible_contradiction_ids"}
+        if set(lesson) != expected_lesson_fields:
+            raise DevelopmentalWritebackError("cognition_lesson_output_invalid")
+        dependencies = lesson.get("evidence_dependencies")
+        contradictions = lesson.get("possible_contradiction_ids")
+        consumed_ids = (set(str(value) for value in observation.get("retrieved_record_ids", ()))
+            | set(str(value) for value in observation.get("current_fact_ids", ()))
+            | set(str(value) for value in observation.get("self_model_claim_ids", ()))
+            | set(str(value) for value in observation.get("epistemic_consumed_packet_ids", ())))
+        if (not isinstance(dependencies, list) or not dependencies or len(dependencies) > 8
+                or any(not isinstance(value, str) or not value for value in dependencies)
+                or len(set(dependencies)) != len(dependencies)
+                or not set(dependencies).issubset(consumed_ids)
+                or not isinstance(contradictions, list) or len(contradictions) > 8
+                or any(not isinstance(value, str) or not value for value in contradictions)
+                or len(set(contradictions)) != len(contradictions)
+                or not set(contradictions).issubset(consumed_ids)):
+            raise DevelopmentalWritebackError("cognition_lesson_evidence_binding_invalid")
+        request = receipt.request
+        upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
+        if (not isinstance(request, Mapping)
+                or request.get("expected_output_format") != "json"
+                or request.get("structured_output_schema") != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA):
+            raise DevelopmentalWritebackError("cognition_request_output_contract_mismatch")
+        exact_bindings = {
+            "snapshot_id": observation.get("current_snapshot_id"),
+            "snapshot_digest": observation.get("current_snapshot_digest"),
+            "current_projection_id": observation.get("current_projection_id"),
+            "current_projection_digest": observation.get("current_projection_digest"),
+            "current_fact_ids": list(observation.get("current_fact_ids", ())),
+            "record_ids": list(observation.get("retrieved_record_ids", ())),
+            "record_digests": list(observation.get("retrieved_record_digests", ())),
+            "self_model_projection_present": observation.get("self_model_projection_present"),
+            "self_model_projection_id": observation.get("self_model_projection_id"),
+            "self_model_projection_digest": observation.get("self_model_projection_digest"),
+            "self_model_reconciliation_id": observation.get("self_model_reconciliation_id"),
+            "self_model_reconciliation_digest": observation.get("self_model_reconciliation_digest"),
+            "self_model_reconciliation_generation": observation.get("self_model_reconciliation_generation"),
+            "self_model_source_tick": observation.get("self_model_source_tick"),
+            "self_model_claim_ids": list(observation.get("self_model_claim_ids", ())),
+            "self_model_claim_digests": list(observation.get("self_model_claim_digests", ())),
+            "epistemic_projection_id": observation.get("epistemic_projection_id"),
+            "epistemic_projection_digest": observation.get("epistemic_projection_digest"),
+            "epistemic_proposition_ids": list(observation.get("epistemic_proposition_ids", ())),
+            "epistemic_state_ids": list(observation.get("epistemic_state_ids", ())),
+            "epistemic_state_digests": list(observation.get("epistemic_state_digests", ())),
+            "epistemic_generations": list(observation.get("epistemic_generations", ())),
+            "epistemic_evidence_set_digests": list(observation.get("epistemic_evidence_set_digests", ())),
+            "epistemic_projection_schema": observation.get("epistemic_projection_schema"),
+            "epistemic_semantic_status": observation.get("epistemic_semantic_status"),
+            "epistemic_owner_packet_count": observation.get("epistemic_owner_packet_count"),
+            "epistemic_consumed_packet_ids": list(observation.get("epistemic_consumed_packet_ids", ())),
+            "epistemic_consumed_packet_digests": list(observation.get("epistemic_consumed_packet_digests", ())),
+            "epistemic_omitted_packets": list(observation.get("epistemic_omitted_packets", ())),
+            "epistemic_omitted_packets_digest": observation.get("epistemic_omitted_packets_digest"),
+            "epistemic_consumed_packets_digest": observation.get("epistemic_consumed_packets_digest"),
+            "epistemic_projection_context_digest": observation.get("epistemic_projection_context_digest"),
+            "epistemic_prompt_digest": observation.get("epistemic_prompt_digest"),
+            "epistemic_consumed_content_digest": observation.get("epistemic_consumed_content_digest"),
+        }
+        if (not isinstance(upstream, Mapping)
+                or any(upstream.get(key) != value for key, value in exact_bindings.items())
+                or request.get("purpose") != "resident_developmental_retrieval_cognition"):
+            raise DevelopmentalWritebackError("cognition_request_lineage_mismatch")
+        context_fields = (
+            "tick_id", "condition_id", "correlation_id", "current_snapshot_id",
+            "current_snapshot_digest", "current_projection_id", "current_projection_digest",
+            "current_fact_ids", "retrieved_record_ids", "retrieved_record_digests",
+            "self_model_projection_present", "self_model_projection_id",
+            "self_model_projection_digest", "self_model_reconciliation_id",
+            "self_model_reconciliation_digest", "self_model_reconciliation_generation",
+            "self_model_source_tick", "self_model_claim_ids", "self_model_claim_digests",
+            "epistemic_projection_present", "epistemic_projection_id",
+            "epistemic_projection_digest", "epistemic_proposition_ids",
+            "epistemic_state_ids", "epistemic_state_digests", "epistemic_generations",
+            "epistemic_evidence_set_digests", "epistemic_projection_schema",
+            "epistemic_semantic_status", "epistemic_owner_packet_count",
+            "epistemic_consumed_packet_ids", "epistemic_consumed_packet_digests",
+            "epistemic_omitted_packets", "epistemic_omitted_packets_digest",
+            "epistemic_consumed_packets_digest", "epistemic_projection_context_digest",
+            "epistemic_prompt_digest", "epistemic_consumed_content_digest")
+        context = {key: (list(observation.get(key, ()))
+                         if isinstance(observation.get(key), (list, tuple))
+                         else observation.get(key)) for key in context_fields}
+        provenance = {
+            "kind": COGNITION_LESSON_PROVENANCE_KIND,
+            "observation_id": observation.get("observation_id"),
+            "observation_digest": observation.get("observation_digest"),
+            "source_output_text": source_output_text,
+            "source_output_digest": receipt.output_digest,
+            "source_request": dict(request),
+            "conclusion": output["conclusion"],
+            "lesson_candidate": lesson,
+            "consumed_context": context,
+            "model_id": request.get("model_id"),
+            "model_artifact_digest": request.get("model_artifact_digest"),
+            "active_model_identity": dict(observation.get("active_model_identity", {})),
+            "authority_map_digest": observation.get("authority_map_digest"),
+            "candidate_posture": "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure",
+            "current_truth": False, "authority": False, "policy": False,
+            "canonical_explicit_user_retention": False,
+        }
+        raw = DevelopmentalCandidate(
+            str(lesson["statement"]), str(lesson["uncertainty"]),
+            "untrusted_history_conditioned_cognition_candidate",
+            selection.snapshot_id, selection.snapshot_digest, selection.selection_id,
+            selection.selection_digest, tuple(str(fact["fact_id"]) for fact in selection.facts),
+            selection.sources, str(request.get("model_id")),
+            request.get("model_artifact_digest"), str(request.get("request_id")),
+            str(request.get("request_digest")), receipt.receipt_id, receipt.receipt_digest,
+            receipt.output_digest, provenance, tuple(selection.facts))
+        cid, digest = _identity("devcand", raw.semantic_payload())
+        return replace(raw, candidate_id=cid, candidate_digest=digest)
+
+    @staticmethod
     def infer_candidate(selection: SelectedEvidence, *, invoker: LocalModelInvoker,
                         correlation_id: str, budget: LocalModelInvocationBudget | None = None) -> DevelopmentalCandidate:
         bounded = budget or LocalModelInvocationBudget(max_input_chars=8000, max_output_chars=4000, max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
@@ -990,6 +1155,7 @@ class ResidentDevelopmentalWritebackController:
         cid, cdigest = _identity("devcand", candidate.semantic_payload())
         if (candidate.candidate_id, candidate.candidate_digest) != (cid, cdigest):
             raise DevelopmentalWritebackError("candidate_digest_mismatch")
+        _verify_history_conditioned_candidate(candidate)
         config = self.admission_configuration_digest(candidate, operation_id=operation_id)
         if tuple(admission.effects) != EFFECTS:
             raise DevelopmentalWritebackError("admission_effect_surface_not_exact")
@@ -1093,7 +1259,12 @@ class ResidentDevelopmentalWritebackController:
             candidate_id, candidate_digest = _identity("devcand", candidate.semantic_payload())
             if (candidate.candidate_id, candidate.candidate_digest) != (candidate_id, candidate_digest):
                 raise DevelopmentalWritebackError("durable_candidate_digest_mismatch")
-            if (not candidate.selected_fact_ids or len(candidate.selected_fact_ids) > MAX_SELECTED_FACTS
+            _verify_history_conditioned_candidate(candidate)
+            is_cognition_candidate = (
+                candidate.transformation_provenance.get("kind")
+                == COGNITION_LESSON_PROVENANCE_KIND)
+            if ((not candidate.selected_fact_ids and not is_cognition_candidate)
+                    or len(candidate.selected_fact_ids) > MAX_SELECTED_FACTS
                     or len(set(candidate.selected_fact_ids)) != len(candidate.selected_fact_ids)
                     or any(not isinstance(item, str) or not item for item in candidate.selected_fact_ids)):
                 raise DevelopmentalWritebackError("durable_candidate_fact_bounds_invalid")
@@ -1193,6 +1364,148 @@ class ResidentDevelopmentalWritebackController:
             receipt = self.store.write_receipt(replace(raw, receipt_id=receipt_id, receipt_digest=receipt_digest))
             recovered.append((record, receipt))
         return tuple(recovered)
+
+
+def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> None:
+    """Revalidate the exact source-output packet carried by a cognition candidate."""
+    provenance = candidate.transformation_provenance
+    if not isinstance(provenance, Mapping):
+        raise DevelopmentalWritebackError("candidate_transformation_provenance_invalid")
+    if provenance.get("kind") != COGNITION_LESSON_PROVENANCE_KIND:
+        return
+    source_text = provenance.get("source_output_text")
+    source_request = provenance.get("source_request")
+    if (not isinstance(source_request, Mapping)
+            or set(source_request) != {"purpose", "prompt_digest", "prompt_size", "model_id",
+                "authority_map_digest", "model_artifact_digest", "active_model_identity",
+                "caller", "lifecycle_phase", "correlation_id", "expected_output_format",
+                "structured_output_schema", "budget", "upstream_evidence", "linkage",
+                "allowed_effects", "forbidden_effects", "request_id", "request_digest",
+                "raw_prompt_stored", "ephemeral_prompt_handling"}
+            or source_request.get("purpose") != "resident_developmental_retrieval_cognition"
+            or source_request.get("expected_output_format") != "json"
+            or source_request.get("structured_output_schema") != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA
+            or source_request.get("request_id") != candidate.request_id
+            or source_request.get("request_digest") != candidate.request_digest
+            or source_request.get("model_id") != candidate.model_id
+            or source_request.get("model_artifact_digest") != candidate.model_artifact_digest
+            or source_request.get("allowed_effects") != {"local_model_inference": True}
+            or source_request.get("forbidden_effects") != {
+                "provider_network": False, "tool": False, "memory": False,
+                "action": False, "adoption": False, "repository_mutation": False}
+            or source_request.get("raw_prompt_stored") is not False):
+        raise DevelopmentalWritebackError("cognition_candidate_request_invalid")
+    request_semantic = {key: value for key, value in source_request.items()
+        if key not in {"request_id", "request_digest", "raw_prompt_stored", "ephemeral_prompt_handling"}}
+    request_budget = source_request.get("budget")
+    if (not isinstance(request_budget, Mapping)
+            or set(request_budget) != {"max_input_chars", "max_output_chars", "max_new_tokens",
+                                      "timeout_seconds", "max_calls_per_correlation"}
+            or not isinstance(request_budget.get("max_input_chars"), int)
+            or request_budget["max_input_chars"] > 16_000
+            or not isinstance(request_budget.get("max_output_chars"), int)
+            or request_budget["max_output_chars"] > 4000
+            or not isinstance(request_budget.get("max_new_tokens"), int)
+            or request_budget["max_new_tokens"] > 512
+            or not isinstance(request_budget.get("timeout_seconds"), (int, float))
+            or request_budget["timeout_seconds"] > 30
+            or request_budget.get("max_calls_per_correlation") != 1):
+        raise DevelopmentalWritebackError("cognition_candidate_budget_invalid")
+    if (digest_payload(request_semantic) != candidate.request_digest
+            or candidate.request_id != "lmreq-" + candidate.request_digest[:24]):
+        raise DevelopmentalWritebackError("cognition_candidate_request_digest_invalid")
+    context = provenance.get("consumed_context")
+    upstream = source_request.get("upstream_evidence")
+    upstream_context_keys = {
+        "snapshot_id": "current_snapshot_id", "snapshot_digest": "current_snapshot_digest",
+        "current_projection_id": "current_projection_id",
+        "current_projection_digest": "current_projection_digest",
+        "current_fact_ids": "current_fact_ids", "record_ids": "retrieved_record_ids",
+        "record_digests": "retrieved_record_digests",
+        "self_model_projection_present": "self_model_projection_present",
+        "self_model_projection_id": "self_model_projection_id",
+        "self_model_projection_digest": "self_model_projection_digest",
+        "self_model_reconciliation_id": "self_model_reconciliation_id",
+        "self_model_reconciliation_digest": "self_model_reconciliation_digest",
+        "self_model_reconciliation_generation": "self_model_reconciliation_generation",
+        "self_model_source_tick": "self_model_source_tick",
+        "self_model_claim_ids": "self_model_claim_ids",
+        "self_model_claim_digests": "self_model_claim_digests",
+        "epistemic_projection_id": "epistemic_projection_id",
+        "epistemic_projection_digest": "epistemic_projection_digest",
+        "epistemic_proposition_ids": "epistemic_proposition_ids",
+        "epistemic_state_ids": "epistemic_state_ids",
+        "epistemic_state_digests": "epistemic_state_digests",
+        "epistemic_generations": "epistemic_generations",
+        "epistemic_evidence_set_digests": "epistemic_evidence_set_digests",
+        "epistemic_projection_schema": "epistemic_projection_schema",
+        "epistemic_semantic_status": "epistemic_semantic_status",
+        "epistemic_owner_packet_count": "epistemic_owner_packet_count",
+        "epistemic_consumed_packet_ids": "epistemic_consumed_packet_ids",
+        "epistemic_consumed_packet_digests": "epistemic_consumed_packet_digests",
+        "epistemic_omitted_packets": "epistemic_omitted_packets",
+        "epistemic_omitted_packets_digest": "epistemic_omitted_packets_digest",
+        "epistemic_consumed_packets_digest": "epistemic_consumed_packets_digest",
+        "epistemic_projection_context_digest": "epistemic_projection_context_digest",
+        "epistemic_prompt_digest": "epistemic_prompt_digest",
+        "epistemic_consumed_content_digest": "epistemic_consumed_content_digest",
+    }
+    expected_upstream = ({key: context.get(value) for key, value in upstream_context_keys.items()}
+        if isinstance(context, Mapping) else {})
+    if (not isinstance(upstream, Mapping)
+            or any(upstream.get(key) != value for key, value in expected_upstream.items())
+            or source_request.get("model_id") != provenance.get("model_id")
+            or source_request.get("model_artifact_digest") != provenance.get("model_artifact_digest")):
+        raise DevelopmentalWritebackError("cognition_candidate_request_lineage_invalid")
+    if (candidate.epistemic_status != "untrusted_history_conditioned_cognition_candidate"
+            or provenance.get("candidate_posture")
+                != "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure"
+            or provenance.get("current_truth") is not False
+            or provenance.get("authority") is not False
+            or provenance.get("policy") is not False
+            or provenance.get("canonical_explicit_user_retention") is not False):
+        raise DevelopmentalWritebackError("cognition_candidate_posture_invalid")
+    if (not isinstance(source_text, str) or len(source_text.encode("utf-8")) > 4000
+            or digest_payload({"output": source_text}) != candidate.output_digest
+            or provenance.get("source_output_digest") != candidate.output_digest
+            or not isinstance(provenance.get("observation_id"), str)
+            or not isinstance(provenance.get("observation_digest"), str)):
+        raise DevelopmentalWritebackError("cognition_candidate_source_output_invalid")
+    try:
+        output = json.loads(source_text)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise DevelopmentalWritebackError("cognition_candidate_source_output_invalid") from exc
+    lesson = provenance.get("lesson_candidate")
+    context = provenance.get("consumed_context")
+    dependencies = lesson.get("evidence_dependencies") if isinstance(lesson, Mapping) else None
+    contradictions = lesson.get("possible_contradiction_ids") if isinstance(lesson, Mapping) else None
+    consumed_ids = set()
+    if isinstance(context, Mapping):
+        for key in ("retrieved_record_ids", "current_fact_ids", "self_model_claim_ids",
+                    "epistemic_consumed_packet_ids"):
+            values = context.get(key, ())
+            if isinstance(values, (list, tuple)) and all(isinstance(value, str) for value in values):
+                consumed_ids.update(values)
+    if (not isinstance(output, dict) or set(output) != {"conclusion", "lesson_candidate"}
+            or output.get("conclusion") != provenance.get("conclusion")
+            or output.get("lesson_candidate") != lesson
+            or not isinstance(lesson, Mapping)
+            or set(lesson) != {"statement", "scope", "applicability", "uncertainty",
+                "uncertainty_rationale", "evidence_dependencies", "possible_contradiction_ids"}
+            or candidate.interpretation != lesson.get("statement")
+            or candidate.uncertainty != lesson.get("uncertainty")
+            or not isinstance(dependencies, list) or not dependencies
+            or len(dependencies) > 8 or any(not isinstance(value, str) for value in dependencies)
+            or len(set(dependencies)) != len(dependencies)
+            or not set(dependencies).issubset(consumed_ids)
+            or not isinstance(contradictions, list) or len(contradictions) > 8
+            or any(not isinstance(value, str) for value in contradictions)
+            or len(set(contradictions)) != len(contradictions)
+            or not set(contradictions).issubset(consumed_ids)
+            or not isinstance(context, Mapping)
+            or context.get("condition_id") != "with-history"
+            or not context.get("retrieved_record_ids")):
+        raise DevelopmentalWritebackError("cognition_candidate_lineage_invalid")
 
 
 def measure_changed_cognition(*, with_record: CognitionObservation, without_record: CognitionObservation,
