@@ -2306,3 +2306,11 @@ Next inspect succession source records for any projection that still presents a 
 - Resident model succession previously projected up to 128 transition rows before appending its running serving-session identity, matching the World-State source cap. Long journals could therefore crowd out the live identity. It now projects a 48-entry verified tail, includes the live session/recovery records within the reserved window, and emits a digest-linked omitted-prefix summary with exact count and chain boundary.
 - Added an authored unexecuted bounded-tail regression. Changed daemon and test compile only; no behavior or production verification ran.
 - Next inspect the activation predecessor binding against verified serving receipts and the source journal after this retention change, then continue the next causal frontier.
+
+
+## 2026-10-11 checkpoint — bind the immediate activation predecessor into serving evidence
+
+- The activation owner already validates the complete committed transaction chain and serving binds the full activation-history digest, but the immediate predecessor digest was not copied into the serving-session binding. World-State therefore published a missing predecessor value despite the owner having verified it.
+- New serving sessions now derive and bind the exact prior activation-state digest (or an explicit initial-activation posture) from verified activation history. In-memory session validation rechecks that derived edge. Transition activation evidence carries the predecessor, and new v3 serving-stage bindings reconcile it against both the prior activation and durable session; historical v2 bindings remain verifiable without claiming the added edge.
+- Added an authored unexecuted transition-binding regression. The resident World-State payloads and live transition status now also preserve the predecessor posture, so initial activation (no parent) remains distinguishable from a legacy binding with unknown predecessor. Python compilation and bounded diff inspection only; no behavioral, model, or production execution was performed.
+- Next follow the explicit predecessor through current World-State, epistemic selection, and durable developmental history, then continue to the next distinct source-backed causal dependency.

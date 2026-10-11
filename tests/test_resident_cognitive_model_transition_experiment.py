@@ -26,7 +26,10 @@ class Session:
                         "activation_state_semantic_digest": activation["state_semantic_digest"],
                         "activation_generation": activation["generation"],
                         "activation_receipt_id": activation["receipt_id"],
-                        "activation_receipt_semantic_digest": activation["receipt_semantic_digest"]}
+                        "activation_receipt_semantic_digest": activation["receipt_semantic_digest"],
+                        "activation_history_digest": activation.get("activation_history_digest"),
+                        "activation_predecessor_state_digest": activation.get("activation_predecessor_state_digest"),
+                        "activation_predecessor_posture": activation.get("activation_predecessor_posture")}
     def to_dict(self):
         return {"session_id": self.session_id, "binding": self.binding, "status": "production_current"}
 
@@ -41,8 +44,13 @@ class Slot:
 
 
 def activation_value(letter: str, generation: int):
+    predecessor = ("a" * 64) if generation > 1 else None
     return {"state_semantic_digest": letter * 64, "generation": generation,
-            "receipt_id": f"receipt-{letter}", "receipt_semantic_digest": letter * 64}
+            "receipt_id": f"receipt-{letter}", "receipt_semantic_digest": letter * 64,
+            "activation_history_digest": "h" * 64,
+            "activation_predecessor_state_digest": predecessor,
+            "activation_predecessor_posture": ("verified_predecessor_state" if predecessor
+                else "verified_initial_activation_without_predecessor")}
 
 
 class Operations:
@@ -225,7 +233,22 @@ def test_synthetic_approval_rejected_in_production(tmp_path):
         production.advance(approval=approval(production, slot))
 
 
-def test_stage_binding_grants_no_authority():
+def test_stage_binding_grants_no_authority_and_binds_activation_predecessor():
+    activation = activation_value("b", 2)
     binding = stage_serving_binding(protocol=protocol(), stage="b_serving_bound",
-        activation=activation_value("b", 2), expected_identity={"identity_digest": "b"}, operation_id="b-op")
+        activation=activation, expected_identity={"identity_digest": "b"}, operation_id="b-op")
+    assert binding["schema_version"] == BINDING_SCHEMA
+    assert binding["activation_predecessor_state_digest"] == activation["activation_predecessor_state_digest"]
+    assert binding["activation_predecessor_posture"] == "verified_predecessor_state"
+    session = Session("session-b", {"identity_digest": "b"}, activation, "b-op")
+    verify_stage_serving_binding(binding, protocol=protocol(), stage="b_serving_bound", session=session)
+    session.binding["activation_predecessor_state_digest"] = "c" * 64
+    with pytest.raises(TransitionError, match="transition_stage_serving_binding_mismatch"):
+        verify_stage_serving_binding(binding, protocol=protocol(), stage="b_serving_bound", session=session)
+    legacy_activation = dict(activation)
+    legacy_activation.pop("activation_predecessor_state_digest")
+    legacy_activation.pop("activation_predecessor_posture")
+    legacy = stage_serving_binding(protocol=protocol(), stage="b_serving_bound",
+        activation=legacy_activation, expected_identity={"identity_digest": "b"}, operation_id="b-op")
+    assert legacy["schema_version"] == LEGACY_BINDING_SCHEMA
     assert not binding["grants_activation"] and not binding["grants_model_serving"] and not binding["grants_inference"]

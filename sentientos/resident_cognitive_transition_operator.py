@@ -520,6 +520,7 @@ class LiveTransitionOperatorRuntime:
                 "activation_receipt_id": session.binding.get("activation_receipt_id") if session else None,
                 "activation_receipt_digest": session.binding.get("activation_receipt_semantic_digest") if session else None,
                 "activation_predecessor_state_digest": session.binding.get("activation_predecessor_state_digest") if session else None,
+                "activation_predecessor_posture": session.binding.get("activation_predecessor_posture") if session else None,
                 "activation_history_digest": session.binding.get("activation_history_digest") if session else None,
                 "latest_consumed_request_id": self._latest.get("request_id") if self._latest else None,
                 "latest_stage_result": self._latest.get("result") if self._latest else None,

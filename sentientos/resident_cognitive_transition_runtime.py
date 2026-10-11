@@ -21,11 +21,16 @@ from .resident_cognitive_model_transition_experiment import (
 
 
 def _activation(result: Mapping[str, Any], *, activation_history_digest: str,
+               activation_predecessor_state_digest: str | None,
                commissioning_model_identity: Mapping[str, Any]) -> dict[str, Any]:
     state, receipt = result["active_state"], result["activation_receipt"]
     return {**dict(state), "receipt_id": receipt["receipt_id"],
             "receipt_semantic_digest": receipt["receipt_semantic_digest"],
             "activation_history_digest": activation_history_digest,
+            "activation_predecessor_state_digest": activation_predecessor_state_digest,
+            "activation_predecessor_posture": ("verified_predecessor_state"
+                if activation_predecessor_state_digest
+                else "verified_initial_activation_without_predecessor"),
             "commissioning_active_model_identity": dict(commissioning_model_identity)}
 
 
@@ -90,8 +95,10 @@ class ResidentCognitiveTransitionStageOperations:
         commissioned_identity = verified.get("commissioning_active_model_identity")
         if not isinstance(commissioned_identity, Mapping) or dict(commissioned_identity) != expected_model.get("active_model_identity"):
             raise TransitionError("transition_commissioning_identity_mismatch")
+        predecessor_digest = (history[-2].get("activation_state_digest") if len(history) > 1 else None)
         return {"activation": _activation(cast(Mapping[str, Any], result),
                                           activation_history_digest=history_digest,
+                                          activation_predecessor_state_digest=predecessor_digest,
                                           commissioning_model_identity=commissioned_identity),
                 "activation_admission": result["activation_receipt"]["model_activation_admission_ref"],
                 "external_activation_approval_evidence_id": approval["approval_evidence_id"],

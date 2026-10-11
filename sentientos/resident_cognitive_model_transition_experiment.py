@@ -22,7 +22,8 @@ from .local_runtime_provisioning import semantic_digest
 
 SCHEMA = "sentientos.resident_cognitive_model_transition_protocol:v1"
 SCHEMA_V2 = "sentientos.resident_cognitive_model_transition_protocol:v2"
-BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v2"
+LEGACY_BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v2"
+BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v3"
 APPROVAL_SCHEMA = "sentientos.resident_cognitive_transition_stage_operator_approval:v1"
 JOURNAL_SCHEMA = "sentientos.resident_cognitive_model_transition_journal_entry:v1"
 CAPABILITY = "resident_cognitive_model_transition_experiment"
@@ -321,7 +322,17 @@ def stage_serving_binding(*, protocol: TransitionProtocol, stage: str,
     if stage not in {"b_serving_bound", "restored_a_serving_bound"}:
         raise TransitionError("serving_binding_stage_invalid")
     receipt_digest = activation.get("receipt_semantic_digest", activation.get("activation_receipt_semantic_digest"))
-    body = {"schema_version": BINDING_SCHEMA, "protocol_id": protocol.value["protocol_id"],
+    predecessor_digest = activation.get("activation_predecessor_state_digest")
+    if predecessor_digest is not None and (
+            not isinstance(predecessor_digest, str) or len(predecessor_digest) != 64
+            or any(character not in "0123456789abcdef" for character in predecessor_digest)
+            or activation.get("activation_predecessor_posture") != "verified_predecessor_state"):
+        raise TransitionError("serving_binding_activation_predecessor_invalid")
+    # Keep v2 for authentic historical callers that cannot provide the explicit
+    # predecessor edge. Production transition composition supplies it from the
+    # verified activation history and therefore writes v3.
+    binding_schema = BINDING_SCHEMA if predecessor_digest is not None else LEGACY_BINDING_SCHEMA
+    body = {"schema_version": binding_schema, "protocol_id": protocol.value["protocol_id"],
             "protocol_digest": protocol.value["protocol_digest"],
             "transition_id": protocol.value["transition_id"], "stage": stage,
             "installation_identity": protocol.value["installation_identity"],
@@ -330,6 +341,9 @@ def stage_serving_binding(*, protocol: TransitionProtocol, stage: str,
             "activation_receipt_id": activation["receipt_id"],
             "activation_receipt_digest": receipt_digest,
             "activation_history_digest": activation["activation_history_digest"],
+            **({"activation_predecessor_state_digest": predecessor_digest,
+                "activation_predecessor_posture": activation.get("activation_predecessor_posture")}
+               if binding_schema == BINDING_SCHEMA else {}),
             "expected_model_identity": _plain(expected_identity), "serving_operation_id": operation_id,
             "resident_serving_capability_id": "resident_cognitive_model_serving",
             "grants_activation": False, "grants_model_serving": False, "grants_inference": False}
@@ -341,7 +355,8 @@ def verify_stage_serving_binding(binding: Mapping[str, Any], *, protocol: Transi
     value = dict(binding)
     claimed = value.pop("binding_digest", None)
     observed = _plain(session.binding.get("observed_loaded_model_identity"))
-    if (value.get("schema_version") != BINDING_SCHEMA or digest(value) != claimed
+    binding_schema = value.get("schema_version")
+    if (binding_schema not in {LEGACY_BINDING_SCHEMA, BINDING_SCHEMA} or digest(value) != claimed
             or value.get("protocol_id") != protocol.value["protocol_id"]
             or value.get("protocol_digest") != protocol.value["protocol_digest"]
             or value.get("transition_id") != protocol.value["transition_id"]
@@ -351,6 +366,12 @@ def verify_stage_serving_binding(binding: Mapping[str, Any], *, protocol: Transi
             or value.get("activation_receipt_id") != session.binding.get("activation_receipt_id")
             or value.get("activation_receipt_digest") != session.binding.get("activation_receipt_semantic_digest")
             or value.get("activation_history_digest") != session.binding.get("activation_history_digest")
+            or (binding_schema == BINDING_SCHEMA
+                and (value.get("activation_predecessor_state_digest")
+                     != session.binding.get("activation_predecessor_state_digest")
+                     or value.get("activation_predecessor_posture")
+                     != session.binding.get("activation_predecessor_posture")
+                     or not isinstance(value.get("activation_predecessor_state_digest"), str)))
             or value.get("expected_model_identity") != observed
             or any(value.get(key) is not False for key in ("grants_activation", "grants_model_serving", "grants_inference"))):
         raise TransitionError("transition_stage_serving_binding_mismatch")
@@ -504,7 +525,8 @@ class ResidentCognitiveModelTransitionController:
                 return "serving_stage_evidence_missing"
             binding_body = dict(binding)
             claimed_binding_digest = binding_body.pop("binding_digest", None)
-            if (binding.get("schema_version") != BINDING_SCHEMA
+            binding_schema = binding.get("schema_version")
+            if (binding_schema not in {LEGACY_BINDING_SCHEMA, BINDING_SCHEMA}
                     or digest(binding_body) != claimed_binding_digest
                     or binding.get("protocol_id") != self.protocol.value.get("protocol_id")
                     or binding.get("protocol_digest") != self.protocol.value.get("protocol_digest")
@@ -518,6 +540,11 @@ class ResidentCognitiveModelTransitionController:
                     or binding.get("activation_receipt_id") != prior_activation.get("receipt_id")
                     or binding.get("activation_receipt_digest") != prior_activation.get("receipt_semantic_digest")
                     or binding.get("activation_history_digest") != prior_activation.get("activation_history_digest")
+                    or (binding_schema == BINDING_SCHEMA
+                        and (binding.get("activation_predecessor_state_digest")
+                             != prior_activation.get("activation_predecessor_state_digest")
+                             or binding.get("activation_predecessor_posture")
+                             != prior_activation.get("activation_predecessor_posture")))
                     or any(binding.get(key) is not False for key in ("grants_activation", "grants_model_serving", "grants_inference"))):
                 return "serving_stage_binding_mismatch"
             session_id, session_binding = session.get("session_id"), session.get("binding")
@@ -536,6 +563,7 @@ class ResidentCognitiveModelTransitionController:
                 return "serving_receipt_binding_mismatch"
             activation_state = {key: value for key, value in prior_activation.items()
                 if key not in {"receipt_id", "receipt_semantic_digest", "activation_history_digest",
+                               "activation_predecessor_state_digest", "activation_predecessor_posture",
                                "commissioning_active_model_identity", "activation_transition_stage"}}
             if (session_id != "resident-serving-session-" + semantic_digest(dict(session_binding))[:24]
                     or session.get("status") != "production_current"
@@ -546,6 +574,11 @@ class ResidentCognitiveModelTransitionController:
                     or session_binding.get("activation_receipt_id") != prior_activation.get("receipt_id")
                     or session_binding.get("activation_receipt_semantic_digest") != prior_activation.get("receipt_semantic_digest")
                     or session_binding.get("activation_history_digest") != prior_activation.get("activation_history_digest")
+                    or (binding_schema == BINDING_SCHEMA
+                        and (session_binding.get("activation_predecessor_state_digest")
+                             != prior_activation.get("activation_predecessor_state_digest")
+                             or session_binding.get("activation_predecessor_posture")
+                             != prior_activation.get("activation_predecessor_posture")))
                     or session_binding.get("activation_state") != activation_state
                     or session_binding.get("observed_loaded_model_identity") != expected.get("active_model_identity")
                     or session_binding.get("model_serving_admission_ref") != evidence.get("serving_admission")):

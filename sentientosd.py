@@ -1427,7 +1427,8 @@ class RuntimeMaintenanceSurfaces:
                             "activation_state_digest": session.binding.get("activation_state_semantic_digest") if session is not None else None,
                             "activation_receipt_id": session.binding.get("activation_receipt_id") if session is not None else None,
                             "activation_receipt_digest": session.binding.get("activation_receipt_semantic_digest") if session is not None else None,
-                            "activation_predecessor_state_digest": session.binding.get("activation_predecessor_state_digest") if session is not None else None}
+                            "activation_predecessor_state_digest": session.binding.get("activation_predecessor_state_digest") if session is not None else None,
+                            "activation_predecessor_posture": session.binding.get("activation_predecessor_posture") if session is not None else None}
                 except Exception as exc:
                     records.append({"source_kind": "runtime_supervisor", "source_id": f"resident_transition:{transition_id}:recovery",
                         "subject_id": transition_id, "subject_kind": "model_transition", "stage": "observation",
@@ -1550,6 +1551,7 @@ class RuntimeMaintenanceSurfaces:
                             "activation_receipt_id": status.get("activation_receipt_id"),
                             "activation_receipt_semantic_digest": status.get("activation_receipt_digest"),
                             "activation_predecessor_state_digest": status.get("activation_predecessor_state_digest"),
+                            "activation_predecessor_posture": status.get("activation_predecessor_posture"),
                             "activation_history_digest": status.get("activation_history_digest"),
                             "activation_history_posture": ("verified_selection_history_digest"
                                 if isinstance(status.get("activation_history_digest"), str) else "unavailable"),
@@ -1603,6 +1605,7 @@ class RuntimeMaintenanceSurfaces:
                         "activation_receipt_id": binding.get("activation_receipt_id"),
                         "activation_receipt_semantic_digest": binding.get("activation_receipt_semantic_digest"),
                         "activation_predecessor_state_digest": binding.get("activation_predecessor_state_digest"),
+                        "activation_predecessor_posture": binding.get("activation_predecessor_posture"),
                         "activation_history_digest": activation_history_digest,
                         "activation_history_posture": ("verified_selection_history_digest"
                             if isinstance(activation_history_digest, str)

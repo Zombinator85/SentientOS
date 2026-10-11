@@ -85,8 +85,12 @@ def _verified(handle: InstallationStateHandle, allow_synthetic: bool) -> dict[st
     if not isinstance(history, (tuple, list)) or not history:
         raise ResidentCognitiveModelServingError("activation_history_unavailable")
     history_digest = semantic_digest({"activation_history": list(history)})
+    predecessor_digest = (history[-2].get("activation_state_digest") if len(history) > 1 else None)
     return {"active_state": dict(state), "activation_receipt": dict(activation),
             "activation_history_digest": history_digest,
+            "activation_predecessor_state_digest": predecessor_digest,
+            "activation_predecessor_posture": ("verified_predecessor_state" if predecessor_digest
+                else "verified_initial_activation_without_predecessor"),
             "catalog_proof": dict(verified["catalog_proof"])}
 
 
@@ -206,6 +210,16 @@ class ResidentCognitiveModelServingController:
             return False
         if session.binding.get("activation_history_digest") != verified.get("activation_history_digest"):
             return False
+        # Historical serving receipts predate this explicit predecessor field. They
+        # remain verifiable, while newly created sessions bind the exact chain edge.
+        if ("activation_predecessor_state_digest" in session.binding
+                and session.binding.get("activation_predecessor_state_digest")
+                != verified.get("activation_predecessor_state_digest")):
+            return False
+        if ("activation_predecessor_posture" in session.binding
+                and session.binding.get("activation_predecessor_posture")
+                != verified.get("activation_predecessor_posture")):
+            return False
         if self._model is None:
             return False
         try:
@@ -291,6 +305,8 @@ class ResidentCognitiveModelServingController:
                   "activation_generation": state["generation"], "activation_receipt_id": activation["receipt_id"],
                   "activation_receipt_semantic_digest": activation["receipt_semantic_digest"],
                   "activation_history_digest": before["activation_history_digest"],
+                  "activation_predecessor_state_digest": before["activation_predecessor_state_digest"],
+                  "activation_predecessor_posture": before["activation_predecessor_posture"],
                   "model_id": state["model_id"], "artifact_id": state["artifact_id"],
                   "runtime_id": state["runtime_id"], "authority_map_digest": state["authority_map_digest"]}
         operation_intent = {**intent, "serving_operation_id": operation_id, "serving_config_digest": self._config_digest}
