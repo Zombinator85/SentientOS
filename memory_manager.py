@@ -1515,6 +1515,28 @@ def is_reflection_loop(snippet: str) -> bool:
 
 def _get_context_unlocked(query: str, k: int = 6) -> List[str]:
     index = _load_index_records()
+    source_fragments: dict[str, dict] = {}
+    for row in index:
+        fragment_id = row.get("id")
+        if not isinstance(fragment_id, str) or not fragment_id:
+            raise MemorySidecarIncompleteError("vector_index_identity_missing", 0)
+        if fragment_id in source_fragments:
+            raise MemorySidecarIncompleteError("vector_index_identity_conflict", 0)
+        source = _load_fragment(fragment_id)
+        if source is None:
+            raise MemorySidecarIncompleteError("vector_index_fragment_missing", 0)
+        source_text = str(source.get("text", ""))
+        if row.get("snippet") != source_text[:400]:
+            raise MemorySidecarIncompleteError("vector_index_fragment_payload_conflict", 0)
+        if "tags" in row and row.get("tags") != source.get("tags", []):
+            raise MemorySidecarIncompleteError("vector_index_fragment_tags_conflict", 0)
+        # Raw records own mutable access/retention values. The index may have
+        # lagged after a crash, so never let its cached values override source.
+        row["importance"] = source.get("importance", 0.3)
+        row["access_count"] = source.get("access_count", 0)
+        row["last_accessed"] = source.get("last_accessed")
+        source_fragments[fragment_id] = source
+
     q_vec = _vectorize(query)
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     scored: List[tuple[float, dict]] = []
@@ -1537,23 +1559,27 @@ def _get_context_unlocked(query: str, k: int = 6) -> List[str]:
     if not top_rows:
         return []
 
-    updated_records = index.copy()
     snippets: List[str] = []
     seen: set[str] = set()
     for row in top_rows:
         frag_id = row.get("id")
-        if not frag_id or frag_id in seen:
+        if not isinstance(frag_id, str) or not frag_id or frag_id in seen:
             continue
         seen.add(frag_id)
-        snippets.append(row.get("snippet", ""))
-        row["access_count"] = int(row.get("access_count", 0)) + 1
-        row["last_accessed"] = now.isoformat()
-        _touch_fragment(frag_id, accessed_at=now)
+        source = source_fragments[frag_id]
+        accessed_count = int(source.get("access_count", 0)) + 1
+        accessed_at = now.isoformat()
+        source["access_count"] = accessed_count
+        source["last_accessed"] = accessed_at
+        row["access_count"] = accessed_count
+        row["last_accessed"] = accessed_at
+        _write_fragment(frag_id, source)
+        snippets.append(str(source.get("text", ""))[:400])
 
-    if updated_records:
-        _save_index_records(updated_records)
+    if index:
+        _save_index_records(index)
 
-    return [s for s in snippets if s][:k]
+    return [snippet for snippet in snippets if snippet][:k]
 
 
 
