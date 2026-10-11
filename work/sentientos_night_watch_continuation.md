@@ -1802,3 +1802,8 @@ Curiosity reflection storage now has stable reflection and fragment identities, 
 ## 2026-10-11 checkpoint — serialize shared JSONL appends
 
 All legacy user-memory JSONL append operations now authorize before opening the shared sidecar lock and serialize through the existing observation-log interprocess lock. This covers audio, screen, and generic observation event logs as well as digest-sensitive observation writers, without creating another lock namespace. The generic observation caller no longer double-acquires the lock. Python compilation passed; no sidecar was read or written. Next dependency: inspect the remaining structured mutable sidecars (goals, transcript/capture summaries, and observation annotations) for equivalent source/digest and restart semantics, preserving installation transcript custody as a separate root.
+
+
+## 2026-10-11 checkpoint — protect shared goal sidecar mutations
+
+Goal loading now distinguishes a missing file from malformed, non-list, malformed-entry, or duplicate-identity custody instead of silently returning an empty list. Add/save/delete use a bounded descriptor-relative interprocess lock across each read/modify/atomic-write transaction, and notification remains outside the lock. This applies only to the shared user-memory goals sidecar; installation-scoped chat transcripts and resident developmental history remain separate. Python compilation passed; no goals were read or changed. Next dependency: inspect long-lived profile/configuration sidecars and finalize process-start root and permission behavior without weakening their owner boundaries.

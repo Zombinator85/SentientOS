@@ -2295,14 +2295,60 @@ def recent_escalations(limit: int = 5) -> list[str]:
 
 # --- Goal management -------------------------------------------------------
 
+
+@contextmanager
+def _goal_store_lock():
+    from sentientos.platform_fcntl import fcntl, require_flock
+    require_flock()
+    if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        raise PermissionError("goal_store_lock_custody_unsupported")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    descriptor: int | None = None
+    acquired = False
+    try:
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(".goals.lock", flags, 0o600, dir_fd=root_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("goal_store_lock_custody_invalid")
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("goal_store_lock_timeout")
+                time.sleep(0.01)
+        yield
+    finally:
+        if descriptor is not None:
+            if acquired:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        os.close(root_fd)
+
+
 def _load_goals() -> list[dict]:
     payload = _read_legacy_memory_file(GOALS_PATH)
-    if payload is not None:
-        try:
-            return json.loads(payload.decode("utf-8"))
-        except Exception:
-            return []
-    return []
+    if payload is None:
+        return []
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise MemorySidecarIncompleteError("goals", 0) from exc
+    if not isinstance(value, list) or any(not isinstance(goal, dict) for goal in value):
+        raise MemorySidecarIncompleteError("goals_shape", 0)
+    seen: set[str] = set()
+    for goal in value:
+        goal_id = goal.get("id")
+        if not isinstance(goal_id, str) or not goal_id or goal_id in seen:
+            raise MemorySidecarIncompleteError("goals_identity", 0)
+        seen.add(goal_id)
+    return value
 
 
 def _save_goals(goals: list[dict]) -> None:
@@ -2322,9 +2368,8 @@ def add_goal(
 ) -> dict:
     """Create and persist a new goal entry."""
 
-    goal_id = _hash(text + datetime.datetime.utcnow().isoformat())
     goal = {
-        "id": goal_id,
+        "id": _hash(text + datetime.datetime.utcnow().isoformat()),
         "text": text,
         "intent": intent or {},
         "created": datetime.datetime.utcnow().isoformat(),
@@ -2334,31 +2379,44 @@ def add_goal(
         "deadline": deadline,
         "schedule_at": schedule_at,
     }
-    goals = _load_goals()
-    goals.append(goal)
-    _save_goals(goals)
+    _authorize_legacy_mutation()
+    with _goal_store_lock():
+        goals = _load_goals()
+        if any(existing.get("id") == goal["id"] for existing in goals):
+            raise MemorySidecarIncompleteError("goal_identity_conflict", 0)
+        goals.append(goal)
+        _save_goals(goals)
     from notification import send as notify  # local import to avoid cycle
-    notify("goal_created", {"id": goal_id, "text": text})
+    notify("goal_created", {"id": goal["id"], "text": text})
     return goal
 
 
 @_legacy_mutation_operation
 def save_goal(goal: dict) -> None:
-    goals = _load_goals()
-    for i, g in enumerate(goals):
-        if g.get("id") == goal.get("id"):
-            goals[i] = goal
-            break
-    else:
-        goals.append(goal)
-    _save_goals(goals)
+    goal_id = goal.get("id") if isinstance(goal, dict) else None
+    if not isinstance(goal_id, str) or not goal_id:
+        raise ValueError("Goal identity is required")
+    _authorize_legacy_mutation()
+    with _goal_store_lock():
+        goals = _load_goals()
+        matches = [index for index, item in enumerate(goals)
+            if item.get("id") == goal_id]
+        if len(matches) > 1:
+            raise MemorySidecarIncompleteError("goal_identity_conflict", 0)
+        if matches:
+            goals[matches[0]] = goal
+        else:
+            goals.append(goal)
+        _save_goals(goals)
 
 
 @_legacy_mutation_operation
 def delete_goal(goal_id: str) -> None:
-    """Remove a goal by id."""
-    goals = [g for g in _load_goals() if g.get("id") != goal_id]
-    _save_goals(goals)
+    """Remove a goal by id under bounded shared custody."""
+    _authorize_legacy_mutation()
+    with _goal_store_lock():
+        goals = [goal for goal in _load_goals() if goal.get("id") != goal_id]
+        _save_goals(goals)
 
 
 def get_goal(goal_id: str) -> dict | None:
