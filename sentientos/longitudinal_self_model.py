@@ -119,6 +119,13 @@ HISTORICAL_CONSEQUENCE_CLASSES = frozenset({
 HISTORICAL_COMPARISON_RESULTS = frozenset({"satisfied", "contradicted", "missing", "indeterminate"})
 HISTORICAL_REVIEW_SUBJECTS = frozenset({"embodied_strategy_proposal_review"})
 HISTORICAL_FULFILLMENT_SUBJECTS = frozenset({"embodied_proposal_fulfillment_receipt"})
+HISTORICAL_EMBODIMENT_SUBJECTS = frozenset({
+    "embodied_action_expectation", "avatar_renderer_handoff", "avatar_renderer_report",
+    "avatar_independently_observed_state", "embodied_consequence_attribution",
+    "embodied_prediction_comparison", "embodied_consequence_chain",
+    "embodied_strategy_experiment", "embodied_strategy_proposal",
+    "embodied_strategy_proposal_review", "embodied_proposal_fulfillment_receipt",
+})
 HOST_RESOURCE_METRICS = (
     "cpu_utilization_percent", "ram_utilization_percent", "gpu_utilization_percent",
     "vram_utilization_percent", "disk_utilization_percent", "disk_free_bytes",
@@ -308,6 +315,9 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         and isinstance(fact.observed_at, str) and bool(fact.observed_at)
         and payload.get("authority") is False and payload.get("effect_proven") is False
         and fact.effect_claimed is False and fact.effect_proven is False)
+    historical_embodiment_event = (
+        fact.source.kind == "embodiment"
+        and fact.subject.subject_kind in HISTORICAL_EMBODIMENT_SUBJECTS)
     historical_transition_event = (
         (fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
@@ -318,7 +328,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "observed_running_software_generation",
                 "serving_operation_attempt", "serving_operation_history"})
         or (fact.source.kind == "resource_governor"
-            and fact.subject.subject_kind == "chat_process_software_generation_invocation"))
+            and fact.subject.subject_kind == "chat_process_software_generation_invocation")
+        or historical_embodiment_event)
     out = [(f"lifecycle.{fact.stage}.disposition", fact.disposition,
         "historical_interpretation" if historical_transition_event else "current_state")]
     compact_chat_invocation = (
@@ -348,8 +359,9 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             if key in fact.payload:
                 out.append((predicate, _bounded(fact.payload[key]),
                     "historical_interpretation"
-                    if (fact.source.kind == "runtime_supervisor"
-                        and fact.subject.subject_kind == "resident_parent_lifecycle_history")
+                    if (historical_embodiment_event
+                        or (fact.source.kind == "runtime_supervisor"
+                            and fact.subject.subject_kind == "resident_parent_lifecycle_history"))
                     else "lineage"
                     if any(token in predicate for token in (
                         "generation", "model", "resource", "transition", "activation"))
@@ -770,7 +782,11 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             (expectation_id, expectation_digest),
         )
         optional_observation_pair = (observation_id, observation_digest)
-        if (record_id == fact.source.source_id and record_digest == fact.source.digest
+        domain_digest_valid = (isinstance(record_digest, str) and len(record_digest) == 71
+            and record_digest.startswith("sha256:")
+            and all(character in "0123456789abcdef" for character in record_digest[7:]))
+        if (record_id == fact.source.source_id and domain_digest_valid
+                and isinstance(fact.source.digest, str) and fact.source.digest
                 and all(isinstance(identity, str) and identity for pair in complete_pairs for identity in pair)
                 and ((observation_id is None and observation_digest is None)
                      or all(isinstance(identity, str) and identity for identity in optional_observation_pair))):
@@ -798,6 +814,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 outcome = None
             lineage = {
                 "record_id": record_id, "record_digest": record_digest,
+                "world_state_source_record_id": fact.source.source_id,
+                "world_state_source_record_digest": fact.source.digest,
                 "comparison_id": comparison_id, "comparison_digest": comparison_digest,
                 "expectation_id": expectation_id, "expectation_digest": expectation_digest,
                 "observation_id": observation_id, "observation_digest": observation_digest,
@@ -807,7 +825,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                     "observation_independence_posture", "not_bound_by_comparison"),
                 "causal_attribution_posture": payload.get("causal_attribution_posture", "unknown"),
                 "event_time": payload.get("evaluated_at") if attribution_record else None,
-                "source_binding_posture": "world_state_source_digest_verified",
+                "source_binding_posture": "world_state_record_digest_verified",
                 "historical_only": True, "current_truth": False,
                 "effect_proven": False, "authority": False,
             }
@@ -949,6 +967,23 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         out.append(("embodiment.historical_fulfillment_claim", _bounded(value),
                     "historical_interpretation"))
     return out
+
+
+def _contains_forbidden_claim(payload: Mapping[str, Any]) -> bool:
+    for key in FORBIDDEN_PREDICATES:
+        if key not in payload:
+            continue
+        value = payload[key]
+        if key == "authority":
+            if value is False:
+                continue
+            if isinstance(value, Mapping) and all(
+                    type(flag) is bool and flag is False for flag in value.values()):
+                continue
+            return True
+        if bool(value):
+            return True
+    return False
 
 
 def _semantic(reconciliation: SelfModelReconciliation) -> dict[str, Any]:
@@ -1199,7 +1234,7 @@ class LongitudinalSelfModelOwner:
         for fact in snapshot.facts:
             if not fact.source.source_id or not fact.source.digest or fact.source.finding != "ok":
                 raise LongitudinalSelfModelError("missing_or_invalid_source_provenance")
-            if any(bool(fact.payload.get(key)) for key in FORBIDDEN_PREDICATES):
+            if _contains_forbidden_claim(fact.payload):
                 raise LongitudinalSelfModelError("authority_or_unsupported_claim_smuggling")
 
         history = self._load()

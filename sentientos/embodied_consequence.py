@@ -498,6 +498,8 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
 def world_state_records(*, expectation: EmbodiedActionExpectation, handoff: Mapping[str, Any],
                         renderer_report: AvatarRendererReport | None, observation: IndependentConsequenceObservation | None,
                         attribution: Mapping[str, Any], comparison: Mapping[str, Any]) -> list[dict[str, Any]]:
+    from .world_state_board import record_digest as world_state_record_digest
+
     verify_expectation(expectation)
     verify_renderer_handoff(handoff)
     if renderer_report is not None:
@@ -574,6 +576,11 @@ def world_state_records(*, expectation: EmbodiedActionExpectation, handoff: Mapp
             "subject_id":expectation.expectation_id,"subject_kind":kind,"stage":"execution" if proven else "observation",
             "disposition":value.get("classification","compared"),"observed_at":attribution["evaluated_at"],
             "effect_claimed":proven,"effect_proven":proven,"payload":dict(value)})
+    # The embedded domain identities remain in each payload. World-State's
+    # top-level ``digest`` has a separate contract: it binds the complete
+    # projection record, excluding only custody metadata.
+    for record in records:
+        record["digest"] = world_state_record_digest(record)
     return records
 
 

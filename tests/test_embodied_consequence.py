@@ -13,6 +13,7 @@ from sentientos.embodied_consequence import (
     run_strategy_experiment, world_state_records,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
 from sentientos.world_state_board import WorldStateBoardBuilder
 from scripts.avatar_authoring import parser as avatar_cli_parser
 
@@ -55,6 +56,36 @@ def test_synthetic_contradiction_projects_and_selects_for_developmental_writebac
     selected=controller.select_evidence(board,fact_ids=target)
     assert len(selected.facts)==2
     assert all(f["stage"]=="observation" and not f["effect_proven"] for f in selected.facts)
+
+
+def test_consequence_records_reach_longitudinal_history_as_historical_evidence(tmp_path):
+    handoff,expectation,report,observation,attribution,comparison=chain("idle")
+    records=world_state_records(expectation=expectation,handoff=handoff,
+        renderer_report=report,observation=observation,attribution=attribution,
+        comparison=comparison)
+    board=WorldStateBoardBuilder(clock=lambda:datetime.fromisoformat(T2)).build(records)
+    assert all(source.finding=="ok" for source in board.sources)
+
+    reconciliation=LongitudinalSelfModelOwner(tmp_path / "self-model").reconcile(
+        board,tick_id="consequence-tick")
+    attribution_claims=[claim for claim in reconciliation.claims
+        if claim.subject_kind=="embodied_consequence_attribution"]
+    assert attribution_claims
+    lifecycle=next(claim for claim in attribution_claims
+        if claim.predicate=="lifecycle.observation.disposition")
+    assert lifecycle.claim_category=="historical_interpretation"
+    assert lifecycle.status=="historical" and lifecycle.freshness=="unknown"
+    lineage=next(claim.value for claim in attribution_claims
+        if claim.predicate=="embodiment.prediction_outcome_lineage")
+    body_generation=next(claim for claim in attribution_claims
+        if claim.predicate=="embodiment.body_generation")
+    assert body_generation.claim_category=="historical_interpretation"
+    assert body_generation.status=="historical" and body_generation.freshness=="unknown"
+    assert lineage["record_id"]==attribution["attribution_id"]
+    assert lineage["record_digest"]==attribution["attribution_digest"]
+    assert lineage["world_state_source_record_digest"]!=lineage["record_digest"]
+    assert lineage["observation_independence_posture"]=="unverified_caller_assertion"
+    assert lineage["effect_proven"] is False and lineage["current_truth"] is False
 
 
 def test_synthetic_satisfied_retains_causal_limit():
