@@ -50,12 +50,13 @@ def setup(tmp_path):
     return owner, proposition, authority, controller, binding, proof
 
 
-def issue(authority, *, admission_id, effects, subject, config, sequence):
+def issue(authority, *, admission_id, effects, subject, config, sequence,
+          provenance="operator-issued exact transaction"):
     return authority.issue(admission_id=admission_id,
         capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
         subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
         effects=effects, subject_id=subject, request_configuration_digest=config,
-        provenance="operator-issued exact transaction", issued_sequence=sequence,
+        provenance=provenance, issued_sequence=sequence,
         valid_through_sequence=20,
         affirmative_preconditions=RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION.approval_requirements)
 
@@ -64,7 +65,8 @@ def test_separate_admissions_append_update_and_prior_only_projection(tmp_path) -
     owner, proposition, authority, controller, binding, proof = setup(tmp_path)
     evidence = issue(authority, admission_id="evidence-E", effects=EVIDENCE_BINDING_EFFECTS,
         subject=binding.binding_id, config=controller.evidence_configuration_digest(
-            binding=binding, proposition_digest=proposition.proposition_digest, operation_id="bind-1"), sequence=1)
+            binding=binding, proposition_digest=proposition.proposition_digest, operation_id="bind-1"), sequence=1,
+        provenance=proof.provenance_id)
     evidence_receipt = controller.append_evidence_binding(binding=binding, source_proof=proof,
         admission=evidence, operation_id="bind-1", correlation_id="workflow-1")
     candidate = make_epistemic_update_candidate(proposition_id=proposition.proposition_id,
@@ -129,7 +131,7 @@ def test_missing_transaction_for_admitted_state_intent_fails_closed(tmp_path) ->
         effects=EVIDENCE_BINDING_EFFECTS, subject=binding.binding_id,
         config=controller.evidence_configuration_digest(binding=binding,
             proposition_digest=proposition.proposition_digest, operation_id="bind-missing-tx"),
-        sequence=1)
+        sequence=1, provenance=proof.provenance_id)
     controller.append_evidence_binding(binding=binding, source_proof=proof,
         admission=evidence, operation_id="bind-missing-tx", correlation_id="missing-tx")
     candidate = make_epistemic_update_candidate(
@@ -212,7 +214,8 @@ def test_candidate_tamper_missing_evidence_authority_and_stale_cas_fail(tmp_path
     owner, proposition, authority, controller, binding, proof = setup(tmp_path)
     evidence = issue(authority, admission_id="E", effects=EVIDENCE_BINDING_EFFECTS,
         subject=binding.binding_id, config=controller.evidence_configuration_digest(binding=binding,
-            proposition_digest=proposition.proposition_digest, operation_id="bind"), sequence=1)
+            proposition_digest=proposition.proposition_digest, operation_id="bind"), sequence=1,
+        provenance=proof.provenance_id)
     controller.append_evidence_binding(binding=binding, source_proof=proof, admission=evidence,
         operation_id="bind", correlation_id="c")
     candidate = make_epistemic_update_candidate(proposition_id=proposition.proposition_id,
@@ -240,3 +243,21 @@ def test_candidate_tamper_missing_evidence_authority_and_stale_cas_fail(tmp_path
     with pytest.raises(EpistemicMutationError):
         controller.commit_update_candidate(candidate=missing, admission=admission, operation_id="state",
             correlation_id="c", tick=2, recorded_at="2026-01-01T00:02:00Z")
+
+
+def test_evidence_admission_must_bind_exact_source_proof_provenance(tmp_path) -> None:
+    owner, proposition, authority, controller, binding, proof = setup(tmp_path)
+    config = controller.evidence_configuration_digest(binding=binding,
+        proposition_digest=proposition.proposition_digest, operation_id="bind-1")
+    mismatched = issue(authority, admission_id="mismatched-source-proof",
+        effects=EVIDENCE_BINDING_EFFECTS, subject=binding.binding_id,
+        config=config, sequence=1, provenance="different-source-proof")
+    before = owner.verify()
+
+    with pytest.raises(EpistemicMutationError,
+            match="source_proof_admission_provenance_mismatch"):
+        controller.append_evidence_binding(binding=binding, source_proof=proof,
+            admission=mismatched, operation_id="bind-1", correlation_id="mismatch")
+
+    assert owner.verify() == before
+    assert owner.bindings(proposition.proposition_id) == ()

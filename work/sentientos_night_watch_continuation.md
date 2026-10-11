@@ -2430,3 +2430,11 @@ Next inspect succession source records for any projection that still presents a 
 - Source tracing confirmed that the evidence mutation admission durably binds the provenance ID, while the evidence receipt binds its admission identity and the evidence binding/source digest. Restart recovery verifies that full admission/intent/receipt chain; it does not replay evidence or state writes.
 - Added an authored, unexecuted end-to-end owner-path case that feeds parent snapshot lineage through World-State adaptation, durable evidence/state mutation, and a newly constructed owner/controller recovery, then checks the admission provenance is unchanged. This test is compiled only and was not run.
 - No additional production change was warranted in the current recovery path. Next inspect whether interruption recovery can distinguish a source proof whose provenance is malformed or semantically mismatched before durable admission, then continue to the next owner boundary.
+
+
+## 2026-10-11 checkpoint — bind evidence admission to exact source proof provenance
+
+- The evidence mutation path validated the adapter source proof and admission independently. A valid evidence-stage admission with the right binding configuration could carry a different provenance string, while the receipt linked only the admission identity and source digest.
+- The evidence controller now requires the authenticated admission provenance to equal the exact source-proof provenance ID before writing an intent or binding. The durable admission already carries that value, and restart recovery verifies the admission/receipt chain without replay.
+- Existing authored mutation cases now issue matching provenance for valid evidence; a mismatch rejection case was added. Python compilation only; tests remain unexecuted.
+- Next inspect the remaining proof trust boundary for adapter identity and canonical provenance semantics, without coupling model interpretation to mutation authority.

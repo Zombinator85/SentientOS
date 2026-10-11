@@ -560,6 +560,8 @@ class ResidentEpistemicStateMutationController:
             proposition_digest=proposition.proposition_digest, operation_id=operation_id)
         self._admit(admission, effects=EVIDENCE_BINDING_EFFECTS,
                     subject_id=binding.binding_id, configuration_digest=configuration)
+        if admission.provenance != source_proof.provenance_id:
+            raise EpistemicMutationError("source_proof_admission_provenance_mismatch")
         self._write_evidence_intent(binding=binding, admission=admission,
             operation_id=operation_id, correlation_id=correlation_id)
         self.owner.bind_evidence(binding); self.owner.verify()
