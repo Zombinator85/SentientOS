@@ -159,3 +159,19 @@ def test_embodiment_owner_snapshots_nested_payload_at_injection():
     record = owner.world_state_records()[0]
     assert record["payload"]["sensor"]["present"] is True
     assert record["payload"]["source_semantic_digest"] == item.source_digest
+
+
+def test_embodiment_evidence_rejects_nonfinite_measurements():
+    with pytest.raises(EmbodimentEvidenceError, match="evidence_number_nonfinite"):
+        observation("sensor_observation", "camera", {"value": float("nan")}).validate()
+
+
+def test_embodiment_owner_deduplicates_exact_source_and_rejects_substitution():
+    first = observation("sensor_observation", "camera", {"present": True})
+    exact_duplicate = EmbodimentObservation(**first.__dict__)
+    assert len(EmbodimentEvidenceOwner((first, exact_duplicate)).world_state_records()) == 1
+
+    substituted = EmbodimentObservation(**{
+        **first.__dict__, "payload": {"present": False}})
+    with pytest.raises(EmbodimentEvidenceError, match="source_identity_digest_changed"):
+        EmbodimentEvidenceOwner((first, substituted)).world_state_records()

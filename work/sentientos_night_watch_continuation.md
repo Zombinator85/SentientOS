@@ -2098,3 +2098,10 @@ Next inspect the adjacent selected embodiment lineage and long-term projection r
 The evidence owner accepted frozen dataclass instances whose nested `payload` mappings remained caller-mutable. A caller could alter the projected source payload after construction while retaining the original source ID and semantic-digest claim. Construction now snapshots the bounded JSON payload at injection using the existing recursive validator; subsequent caller mutations do not rewrite the owner's observation. A nested-mutation regression case is authored but unexecuted. Python compilation and whitespace inspection only; production status remains unverified.
 
 Next continue the consumer review for selected claim retention, identity conflicts across repeated World-State ticks, and durable projection truncation. Do not add an observer issuer or infer physical consequences from this snapshotting.
+
+
+## 2026-10-11 checkpoint — reject nonfinite and conflicting generic observation payloads
+
+The generic embodiment owner now rejects NaN/infinite numeric values before JSON projection. It also computes a canonical record identity for each caller source ID: exact duplicate records are emitted once, while one source ID paired with a changed record is rejected even if the caller repeats the same claimed source digest. This complements injection-time deep snapshots and prevents contradictory facts from sharing one source identity. Focused unexecuted cases cover nonfinite data, duplicate suppression, and same-ID/same-digest payload substitution. Python compilation and diff whitespace checks only; no tests or runtime were executed.
+
+Next review whether these identity and uncertainty guarantees survive selected World-State truncation and resident cognitive projection. Continue to leave externally observed consequences unqualified absent an authenticated observer issuer.

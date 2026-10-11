@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Mapping, Sequence
 
@@ -32,6 +33,8 @@ def semantic_digest(value: object) -> str:
 
 def _bounded(value: Any) -> Any:
     result: Any
+    if isinstance(value, float) and not math.isfinite(value):
+        raise EmbodimentEvidenceError("evidence_number_nonfinite")
     if isinstance(value, (str, bool, int, float)) or value is None:
         result = value
     elif isinstance(value, (list, tuple)):
@@ -146,12 +149,9 @@ class EmbodimentEvidenceOwner:
 
     def world_state_records(self) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
-        seen: dict[str, str] = {}
+        seen: dict[str, tuple[str, str]] = {}
         for item in self._observations:
             item.validate()
-            if item.source_id in seen and seen[item.source_id] != item.source_digest:
-                raise EmbodimentEvidenceError("source_identity_digest_changed")
-            seen[item.source_id] = item.source_digest
             # This wrapper validates shape and bounds only. It has no issuer or
             # receipt verifier, so caller labels cannot establish production
             # provenance, event time, independent observation, fulfillment, or effect proof.
@@ -160,7 +160,7 @@ class EmbodimentEvidenceOwner:
                 name: payload.pop(name) for name in (
                     "created_at", "commanded_at", "completed_at", "observed_at", "evaluated_at")
                 if name in payload}
-            records.append({
+            record = {
                 "source_kind": "embodiment",
                 "source_id": item.source_id, "schema_version": item.source_schema,
                 "subject_id": item.subject_id,
@@ -179,7 +179,15 @@ class EmbodimentEvidenceOwner:
                             "observer_issuer_posture": "unverified_caller_assertion",
                             "caller_claimed_effect_proven": item.effect_proven,
                             "source_semantic_digest": item.source_digest},
-            })
+            }
+            identity = (item.source_digest, semantic_digest(record))
+            previous = seen.get(item.source_id)
+            if previous is not None:
+                if previous != identity:
+                    raise EmbodimentEvidenceError("source_identity_digest_changed")
+                continue
+            seen[item.source_id] = identity
+            records.append(record)
         return records
 
 
