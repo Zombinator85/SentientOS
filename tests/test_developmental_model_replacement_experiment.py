@@ -70,11 +70,14 @@ def context() -> FrozenCausalContext:
 
 
 class FakeEndpoint:
-    def __init__(self, model: CognitiveModelIdentity, *, history_effect: bool = True) -> None:
+    def __init__(self, model: CognitiveModelIdentity, *, history_effect: bool = True,
+                 serving_receipt_reference: bool = False) -> None:
         self.identity = model
         self.history_effect = history_effect
+        self.serving_receipt_reference = serving_receipt_reference
         self.calls: list[dict[str, Any]] = []
         self.drift_after: int | None = None
+        self.serving_receipt_verifications: list[dict[str, Any]] = []
 
     def current_identity(self) -> CognitiveModelIdentity:
         if self.drift_after is not None and len(self.calls) >= self.drift_after:
@@ -88,23 +91,57 @@ class FakeEndpoint:
         semantic = {"model": self.identity.model_id,
                     "history": history if self.history_effect else "ignored"}
         number = len(self.calls)
-        return {"status": "admitted_completed", "fallback_occurred": False,
+        receipt = {"status": "admitted_completed", "fallback_occurred": False,
                 "request_id": f"request-{self.identity.model_id}-{number}",
                 "request_digest": digest({"request": self.identity.model_id, "number": number}),
                 "inference_receipt_id": f"receipt-{self.identity.model_id}-{number}",
                 "inference_receipt_digest": digest({"receipt": self.identity.model_id, "number": number}),
                 "output_digest": digest(semantic),
                 "actual_generation_parameters": {"temperature": 0, "max_new_tokens": 512}}
+        if self.serving_receipt_reference:
+            receipt.update({"model_serving_receipt_id": "experimental-serving-receipt-" + self.identity.model_id.ljust(24, "x")[:24],
+                "model_serving_receipt_digest": digest({"serving": self.identity.model_id})[7:],
+                "model_serving_lifetime_id": "experimental-serving-lifetime-" + self.identity.model_id})
+        return receipt
+
+    def verify_persisted_observation_receipts(self, observation: Mapping[str, Any], **kwargs: Any) -> None:
+        if not self.serving_receipt_reference:
+            raise AssertionError("unexpected serving receipt verifier call")
+        assert observation["model_serving_receipt_posture"] == (
+            "endpoint_receipt_reference_only_not_independently_reverified")
+        assert kwargs["expected"] == self.identity
+        self.serving_receipt_verifications.append(dict(kwargs))
 
 
 def experiment(tmp_path: Path, *, a_effect: bool = True, b_effect: bool = True,
                provenance_a: ModelDevelopmentProvenance | None = None,
-               provenance_b: ModelDevelopmentProvenance | None = None):
-    a, b = FakeEndpoint(identity("a"), history_effect=a_effect), FakeEndpoint(identity("b"), history_effect=b_effect)
+               provenance_b: ModelDevelopmentProvenance | None = None,
+               serving_receipt_reference: bool = False):
+    a, b = FakeEndpoint(identity("a"), history_effect=a_effect,
+        serving_receipt_reference=serving_receipt_reference), FakeEndpoint(identity("b"),
+        history_effect=b_effect, serving_receipt_reference=serving_receipt_reference)
     exp = DevelopmentalModelReplacementExperiment(context=context(), model_a=a, model_b=b,
         artifact_root=tmp_path, model_a_provenance=provenance_a,
         model_b_provenance=provenance_b)
     return exp, a, b
+
+
+def test_serving_receipt_references_survive_controlled_run_recovery(tmp_path: Path) -> None:
+    exp, a, b = experiment(tmp_path, serving_receipt_reference=True)
+    run = exp.run()
+    assert (len(a.serving_receipt_verifications), len(b.serving_receipt_verifications)) == (3, 2)
+    call_counts = (len(a.calls), len(b.calls))
+    recovered = exp.run()
+    assert (len(a.calls), len(b.calls)) == call_counts
+    assert (len(a.serving_receipt_verifications), len(b.serving_receipt_verifications)) == (6, 4)
+    assert recovered["observations"] == run["observations"]
+    assert [row["model_serving_lifetime_id"] for row in recovered["observations"]] == [
+        "experimental-serving-lifetime-a", "experimental-serving-lifetime-a",
+        "experimental-serving-lifetime-b", "experimental-serving-lifetime-b",
+        "experimental-serving-lifetime-a"]
+    assert all(row["model_serving_receipt_posture"] ==
+        "endpoint_receipt_reference_only_not_independently_reverified"
+        for row in recovered["observations"])
 
 
 def test_preregistered_five_condition_model_replacement_experiment(tmp_path: Path) -> None:

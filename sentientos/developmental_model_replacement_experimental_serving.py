@@ -1,6 +1,7 @@
 """Bounded, preregistered developmental-model-replacement serving lifetimes."""
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -94,6 +95,10 @@ def _create(handle: InstallationStateHandle, relative: str, value: Mapping[str, 
         if exc.args != ("state_object_already_exists",) or handle.read_regular(handle.fixed_object(relative)) != data: raise
 
 
+def _canonical(value: Mapping[str, Any]) -> bytes:
+    return (json.dumps(dict(value), sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+
 def _loaded_identity(evidence: VerifiedCommissionedModel, observed: Mapping[str, Any]) -> CognitiveModelIdentity:
     prior = evidence.cognitive_identity
     payload = dict(observed)
@@ -121,6 +126,110 @@ class ExperimentalModelServingController:
                      "local-model/developmental-model-replacement/experimental-serving",
                      "local-model/developmental-model-replacement/experimental-serving/receipts"):
             installation_handle.ensure_directory(installation_handle.fixed_object(item))
+
+    def verify_persisted_observation_receipts(self, observation: Mapping[str, Any], *,
+            protocol: ModelReplacementProtocol, model_role: str,
+            expected: CognitiveModelIdentity) -> None:
+        """Reconcile historical experiment inference and serving custody without loading a worker."""
+        if model_role not in {"model_a", "model_b"}:
+            raise ExperimentalModelServingError("historical_experiment_model_role_invalid")
+        expected_role_identity = protocol.model_a_identity if model_role == "model_a" else protocol.model_b_identity
+        if expected != expected_role_identity:
+            raise ExperimentalModelServingError("historical_experiment_protocol_model_mismatch")
+        serving_id = observation.get("model_serving_receipt_id")
+        serving_digest = observation.get("model_serving_receipt_digest")
+        lifetime_id = observation.get("model_serving_lifetime_id")
+        inference_id = observation.get("inference_receipt_id")
+        inference_digest = observation.get("inference_receipt_digest")
+        if (not isinstance(serving_id, str) or not serving_id.startswith("experimental-serving-receipt-")
+                or len(serving_id) != len("experimental-serving-receipt-") + 24
+                or not isinstance(serving_digest, str) or len(serving_digest) != 64
+                or any(character not in "0123456789abcdef" for character in serving_digest)
+                or not isinstance(lifetime_id, str) or not lifetime_id.startswith("experimental-serving-lifetime-")
+                or not isinstance(inference_id, str) or len(inference_id) != len("lmrec-") + 24
+                or not inference_id.startswith("lmrec-")
+                or not isinstance(inference_digest, str) or len(inference_digest) != 64
+                or any(character not in "0123456789abcdef" for character in inference_digest)):
+            raise ExperimentalModelServingError("historical_experiment_receipt_identity_invalid")
+        receipt_path = self._handle.fixed_object(
+            f"local-model/developmental-model-replacement/experimental-serving/receipts/{serving_id}.json")
+        try:
+            serving_raw = self._handle.read_regular(receipt_path)
+            if len(serving_raw) > 1_048_576:
+                raise ExperimentalModelServingError("historical_experiment_serving_receipt_over_bound")
+            serving = json.loads(serving_raw.decode("utf-8"))
+        except ExperimentalModelServingError:
+            raise
+        except Exception as exc:
+            raise ExperimentalModelServingError("historical_experiment_serving_receipt_unavailable") from exc
+        if not isinstance(serving, dict) or serving_raw != _canonical(serving):
+            raise ExperimentalModelServingError("historical_experiment_serving_receipt_noncanonical")
+        serving_body = {key: value for key, value in serving.items()
+            if key not in {"receipt_id", "receipt_digest"}}
+        if (serving.get("receipt_id") != serving_id
+                or serving.get("receipt_digest") != serving_digest
+                or semantic_digest(serving_body)[:24] != serving_id[-24:]
+                or semantic_digest({key: value for key, value in serving.items()
+                    if key != "receipt_digest"}) != serving_digest
+                or serving.get("status") != "experimental_serving_bound"
+                or serving.get("protocol_id") != protocol.protocol_id
+                or serving.get("protocol_digest") != protocol.protocol_digest
+                or serving.get("model_role") != model_role
+                or serving.get("expected_cognitive_identity") != asdict(expected)
+                or serving.get("observed_cognitive_identity") != asdict(expected)
+                or serving.get("serving_lifetime_id") != lifetime_id
+                or serving.get("canonical_activation_mutated") is not False
+                or serving.get("canonical_production_serving_mutated") is not False
+                or serving.get("inference_authority_granted") is not False
+                or serving.get("inference_performed_by_serving_transition") is not False):
+            raise ExperimentalModelServingError("historical_experiment_serving_receipt_mismatch")
+        try:
+            commissioned = verify_commissioned_model(self._handle,
+                str(serving.get("commissioning_receipt_id", "")),
+                allow_synthetic_for_tests=self._allow_synthetic)
+        except Exception as exc:
+            raise ExperimentalModelServingError("historical_experiment_commissioning_receipt_invalid") from exc
+        if (commissioned.cognitive_identity != expected
+                or commissioned.receipt.get("receipt_semantic_digest") != serving.get("commissioning_receipt_digest")):
+            raise ExperimentalModelServingError("historical_experiment_commissioning_identity_mismatch")
+        inference_path = self._handle.fixed_object(
+            f"local-model/developmental-model-replacement/experimental-serving/inference/receipts/{inference_id}.json")
+        try:
+            inference_raw = self._handle.read_regular(inference_path)
+            if len(inference_raw) > 1_048_576:
+                raise ExperimentalModelServingError("historical_experiment_inference_receipt_over_bound")
+            inference = json.loads(inference_raw.decode("utf-8"))
+        except ExperimentalModelServingError:
+            raise
+        except Exception as exc:
+            raise ExperimentalModelServingError("historical_experiment_inference_receipt_unavailable") from exc
+        from .governed_local_model_invocation import validate_receipt
+        inference_canonical = (json.dumps(inference, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        if (not isinstance(inference, dict) or inference_raw != inference_canonical
+                or inference.get("receipt_id") != inference_id
+                or inference.get("receipt_digest") != inference_digest
+                or validate_receipt(inference)[0] is not True):
+            raise ExperimentalModelServingError("historical_experiment_inference_receipt_invalid")
+        request = inference.get("request")
+        linkage = request.get("linkage") if isinstance(request, Mapping) else None
+        if (not isinstance(request, Mapping)
+                or request.get("request_id") != observation.get("request_id")
+                or request.get("request_digest") != observation.get("request_digest")
+                or request.get("model_id") != expected.model_id
+                or request.get("model_artifact_digest") != expected.model_content_sha256
+                or request.get("active_model_identity") != dict(expected.active_model_identity)
+                or request.get("purpose") != PURPOSE
+                or request.get("correlation_id") != observation.get("correlation_id")
+                or not isinstance(linkage, Mapping)
+                or linkage.get("experimental_serving_lifetime_id") != lifetime_id
+                or linkage.get("experimental_serving_receipt_id") != serving_id
+                or linkage.get("experimental_serving_receipt_digest") != serving_digest
+                or linkage.get("model_serving_admission_ref") != serving.get("model_serving_admission_ref")
+                or inference.get("output_digest") != observation.get("output_digest")
+                or inference.get("status") != "admitted_completed"
+                or inference.get("fallback_occurred") is not False
+                or inference.get("admission_decision_ref") == serving.get("model_serving_admission_ref")):
+            raise ExperimentalModelServingError("historical_experiment_invocation_serving_mismatch")
 
     def prepare_intent(self, *, protocol_id: str, protocol_digest: str, model_role: str,
                        commissioning_receipt_id: str, correlation_id: str) -> Mapping[str, Any]:
@@ -230,6 +339,12 @@ class ExperimentalCognitiveEndpoint:
     def current_identity(self) -> CognitiveModelIdentity:
         self._current(); return self._expected
 
+    def verify_persisted_observation_receipts(self, observation: Mapping[str, Any], *,
+            protocol: ModelReplacementProtocol, model_role: str,
+            expected: CognitiveModelIdentity) -> None:
+        self._controller.verify_persisted_observation_receipts(observation,
+            protocol=protocol, model_role=model_role, expected=expected)
+
     def _current(self) -> None:
         if self._closed: raise ExperimentalModelServingError("experimental_endpoint_closed")
         process = getattr(self._worker, "_process", None)
@@ -265,13 +380,27 @@ class ExperimentalCognitiveEndpoint:
         request = invoker.build_request(purpose=PURPOSE, prompt=prompt, caller=PRINCIPAL, correlation_id=correlation_id,
             budget=LocalModelInvocationBudget(**kwargs), upstream_evidence=upstream_evidence,
             linkage={"experimental_serving_lifetime_id": self._receipt["serving_lifetime_id"],
+                     "experimental_serving_receipt_id": self._receipt["receipt_id"],
+                     "experimental_serving_receipt_digest": self._receipt["receipt_digest"],
                      "model_serving_admission_ref": self._receipt["model_serving_admission_ref"]})
         result = invoker.invoke(request, pre_effect_guard=self._current, post_effect_guard=self._current)
         if result.admission_decision_ref == self._receipt["model_serving_admission_ref"]:
             self._invalidate("inference_admission_not_independent"); raise ExperimentalModelServingError("inference_admission_not_independent")
+        request_linkage = request.linkage if isinstance(request.linkage, Mapping) else None
+        if (dict(result.request) != request.to_receipt_request_dict()
+                or not isinstance(request_linkage, Mapping)
+                or any(request_linkage.get(key) != value for key, value in {
+                    "experimental_serving_lifetime_id": self._receipt["serving_lifetime_id"],
+                    "experimental_serving_receipt_id": self._receipt["receipt_id"],
+                    "experimental_serving_receipt_digest": self._receipt["receipt_digest"]}.items())):
+            self._invalidate("inference_serving_receipt_linkage_mismatch")
+            raise ExperimentalModelServingError("inference_serving_receipt_linkage_mismatch")
         return {"status": result.status, "fallback_occurred": result.fallback_occurred,
                 "request_id": request.request_id, "request_digest": request.request_digest,
                 "inference_receipt_id": result.receipt_id, "inference_receipt_digest": result.receipt_digest,
+                "model_serving_receipt_id": self._receipt["receipt_id"],
+                "model_serving_receipt_digest": self._receipt["receipt_digest"],
+                "model_serving_lifetime_id": self._receipt["serving_lifetime_id"],
                 # Preserve owner-supplied time; its invocation digest excludes
                 # this custody metadata, so it remains unverified downstream.
                 "observed_at": result.observed_at,

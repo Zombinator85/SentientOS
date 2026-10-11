@@ -240,6 +240,28 @@ def _inference_event_time(value: Any) -> str | None:
     return value
 
 
+def _model_serving_receipt_reference(receipt: Mapping[str, Any]) -> dict[str, Any]:
+    """Preserve endpoint-supplied custody references without upgrading their trust posture."""
+    keys = ("model_serving_receipt_id", "model_serving_receipt_digest", "model_serving_lifetime_id")
+    values = tuple(receipt.get(key) for key in keys)
+    if all(value is None for value in values):
+        if "model_serving_receipt_posture" in receipt:
+            raise DevelopmentalModelReplacementError("model_serving_receipt_posture_without_reference")
+        return {}
+    receipt_id, receipt_digest, lifetime_id = values
+    if (not isinstance(receipt_id, str)
+            or not receipt_id.startswith("experimental-serving-receipt-")
+            or len(receipt_id) != len("experimental-serving-receipt-") + 24
+            or not isinstance(receipt_digest, str) or len(receipt_digest) != 64
+            or any(character not in "0123456789abcdef" for character in receipt_digest)
+            or not isinstance(lifetime_id, str)
+            or not lifetime_id.startswith("experimental-serving-lifetime-")
+            or len(lifetime_id) > 256):
+        raise DevelopmentalModelReplacementError("model_serving_receipt_reference_invalid")
+    return {**dict(zip(keys, values)),
+        "model_serving_receipt_posture": "endpoint_receipt_reference_only_not_independently_reverified"}
+
+
 def _inference_failure_evidence(receipt: Mapping[str, Any]) -> dict[str, Any]:
     """Keep bounded receipt identities from a failed call, never generated text."""
     value: dict[str, Any] = {"status": "failed_or_incomplete_inference_receipt"}
@@ -1225,6 +1247,9 @@ class ModelReplacementArtifactStore:
                 event_time = _inference_event_time(raw.get("inference_event_time"))
                 event_time_posture = ("invocation_receipt_metadata_unverified"
                     if event_time is not None else "unknown")
+                serving_binding = _model_serving_receipt_reference(raw)
+                if any(raw.get(key) != value for key, value in serving_binding.items()):
+                    raise DevelopmentalModelReplacementError("run_projection_serving_receipt_mismatch")
                 if (raw.get("condition_id") != expected_condition
                         or raw.get("observation_digest") != calculated
                         or raw.get("observation_id") != "model-replacement-observation-" + calculated[7:31]
@@ -1430,6 +1455,7 @@ class DevelopmentalModelReplacementExperiment:
                     "authority_record_digest": expected.authority_record_digest,
                     "correlation_id": correlation}
         semantic.update(_resource_receipt_binding(receipt))
+        semantic.update(_model_serving_receipt_reference(receipt))
         semantic.update(_prior_cognition_bindings(self.context.current_projection_payload))
         digest = _digest(semantic)
         return {**semantic, "observation_id": "model-replacement-observation-" + digest[7:31],
@@ -1437,7 +1463,7 @@ class DevelopmentalModelReplacementExperiment:
 
     def _verify_observation(self, value: Mapping[str, Any], *, condition: str,
                             provenance_digest: str, with_history: bool,
-                            trial_id: str) -> dict[str, Any]:
+                            trial_id: str, endpoint: GovernedCognitiveEndpoint | None = None) -> dict[str, Any]:
         semantic = {key: item for key, item in value.items()
             if key not in {"observation_id", "observation_digest"}}
         calculated = _digest(semantic)
@@ -1456,6 +1482,7 @@ class DevelopmentalModelReplacementExperiment:
             "resource_attribution_posture"}
         resource_binding = (_resource_receipt_binding(value)
             if resource_fields.intersection(value) else None)
+        serving_binding = _model_serving_receipt_reference(value)
         has_prior_bindings = any(key in value for key in prior_bindings)
         if (value.get("observation_digest") != calculated
                 or value.get("observation_id") != "model-replacement-observation-" + calculated[7:31]
@@ -1477,6 +1504,8 @@ class DevelopmentalModelReplacementExperiment:
                 or value.get("inference_event_time_posture", event_time_posture) != event_time_posture
                 or (resource_binding is not None and any(value.get(key) != expected_value
                     for key, expected_value in resource_binding.items()))
+                or any(value.get(key) != expected_value
+                    for key, expected_value in serving_binding.items())
                 or (has_prior_bindings and any(value.get(key) != expected_value
                     for key, expected_value in prior_bindings.items()))
                 or value.get("prompt_digest") != prompt_digest
@@ -1486,6 +1515,12 @@ class DevelopmentalModelReplacementExperiment:
                     "inference_receipt_digest", "output_digest"))
                 or not isinstance(generation, Mapping) or generation.get("temperature") != 0):
             raise DevelopmentalModelReplacementError("condition_observation_binding_invalid")
+        if serving_binding:
+            serving_verifier = getattr(endpoint, "verify_persisted_observation_receipts", None)
+            if callable(serving_verifier):
+                serving_verifier(value, protocol=self.protocol,
+                    model_role="model_a" if condition.startswith("model_a") else "model_b",
+                    expected=expected)
         return dict(value)
 
     def _persist_partial_run(self, *, trial_id: str,
@@ -1569,7 +1604,7 @@ class DevelopmentalModelReplacementExperiment:
                         failure_posture=str(terminal.get("failure_posture") or status))
                 observation = self._verify_observation(terminal["observation"],
                     condition=condition, provenance_digest=provenance_digest,
-                    with_history=with_history, trial_id=trial_id)
+                    with_history=with_history, trial_id=trial_id, endpoint=endpoint)
                 observations.append(observation)
                 condition_statuses.append(row)
                 continue
@@ -1593,7 +1628,7 @@ class DevelopmentalModelReplacementExperiment:
                 if raced_terminal is not None and raced_terminal.get("status") == "completed":
                     observation = self._verify_observation(raced_terminal["observation"],
                         condition=condition, provenance_digest=provenance_digest,
-                        with_history=with_history, trial_id=trial_id)
+                        with_history=with_history, trial_id=trial_id, endpoint=endpoint)
                     observations.append(observation)
                     condition_statuses.append({"condition": condition,
                         "condition_id": condition_id,
@@ -1616,7 +1651,7 @@ class DevelopmentalModelReplacementExperiment:
                     provenance_digest, with_history, trial_id)
                 observation = self._verify_observation(raw_observation, condition=condition,
                     provenance_digest=provenance_digest, with_history=with_history,
-                    trial_id=trial_id)
+                    trial_id=trial_id, endpoint=endpoint)
             except Exception as exc:
                 reason = str(exc).lower()
                 contradictory = any(marker in reason for marker in (
