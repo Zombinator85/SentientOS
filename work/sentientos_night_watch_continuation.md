@@ -1276,3 +1276,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py` and `chat_service.py`. No retrieval, prompt assembly, chat, tests, or production validation was performed.
 
 **Next implementation dependency:** inspect the bounded prompt assembler to verify that its consumed memory set matches the canonical store's selected IDs and digest, and that text-budget clipping cannot silently alter retained memory provenance.
+
+
+## New checkpoint — bound conversation-session listing work
+
+- Fresh remote source before this increment: `c10b8c5f029bcdeb3094c1e842616ba14142d6ea` (tree `3ef08a5691a7f83d47e8454e8a92a5e7b12b8843`).
+- `list_recent()` applied an output limit only after globbing and loading every matching session, so an arbitrarily large session directory or aggregate transcript set could consume unbounded scan and parse resources.
+- Listing now caps directory entries at 4096, caps aggregate session bytes at 32 MiB before reads, and rejects non-regular, multi-link, or wrong-owner session entries rather than following them. The existing per-session reader still validates each loaded record; malformed sessions remain skipped as before.
+- Python compilation passed for `conversation_session.py`. No session directory was scanned and no runtime/test/production verification was performed.
+
+**Next implementation dependency:** continue reviewing session and memory persistence consumers for bounded metadata exposure and exact retrieval provenance; retain fail-closed states when a directory exceeds its source bounds.

@@ -25,6 +25,8 @@ from .windows_handle_custody import read_explicit_file
 SCHEMA = "sentientos.conversation_session:v1"
 MAX_TURN_BYTES = 64 * 1024
 MAX_SESSION_BYTES = 8 * 1024 * 1024
+MAX_SESSION_LIST_ENTRIES = 4096
+MAX_SESSION_LIST_TOTAL_BYTES = 32 * 1024 * 1024
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,63}$")
 _TURN_ID = re.compile(r"^turn-[0-9a-f]{24}$")
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -433,11 +435,32 @@ class ConversationSessionStore:
 
     def list_recent(self, *, limit: int = 20) -> list[dict[str, Any]]:
         result = []
-        for path in self.root.glob("session-*.json"):
-            try: session = self.load(path.stem)
-            except (OSError, ValueError): continue
-            result.append({k: session.get(k) for k in ("session_id", "created_at", "latest_activity_at", "title", "revision", "lifecycle_state", "model_identity_digest")})
-        return sorted(result, key=lambda item: (str(item["latest_activity_at"]), str(item["session_id"])), reverse=True)[:max(0, limit)]
+        total_bytes = 0
+        try:
+            with os.scandir(self.root) as entries:
+                for index, entry in enumerate(entries):
+                    if index >= MAX_SESSION_LIST_ENTRIES:
+                        raise ValueError("session_listing_entry_bound_exceeded")
+                    if not (entry.name.startswith("session-") and entry.name.endswith(".json")):
+                        continue
+                    metadata = entry.stat(follow_symlinks=False)
+                    if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                            or (os.name == "posix" and metadata.st_uid != os.geteuid())):
+                        raise ValueError("session_listing_custody_invalid")
+                    total_bytes += metadata.st_size
+                    if total_bytes > MAX_SESSION_LIST_TOTAL_BYTES:
+                        raise ValueError("session_listing_byte_bound_exceeded")
+                    try:
+                        session = self.load(entry.name[:-5])
+                    except (OSError, ValueError):
+                        continue
+                    result.append({k: session.get(k) for k in (
+                        "session_id", "created_at", "latest_activity_at", "title",
+                        "revision", "lifecycle_state", "model_identity_digest")})
+        except OSError as exc:
+            raise ValueError("session_listing_unavailable") from exc
+        return sorted(result, key=lambda item: (str(item["latest_activity_at"]),
+            str(item["session_id"])), reverse=True)[:max(0, limit)]
 
 
 def compact_runtime_generation_attribution(value: Mapping[str, Any]) -> dict[str, Any]:
