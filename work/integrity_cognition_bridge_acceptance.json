@@ -22,18 +22,22 @@
     "configured resident cognition evidence selection",
     "governed interpretation invocation through a deterministic test invoker",
     "separately admitted developmental-history writeback",
-    "restart reconstruction and later-tick history retrieval"
+    "restart reconstruction and later-tick history retrieval",
+    "history-conditioned custody lesson candidate with exact current-fact dependency",
+    "third-tick retrieval of the separately admitted untrusted lesson after owner restart"
   ],
   "controls": [
     "malformed custody carries a typed error and unknown active state",
     "attacker-authored incident-feed narrative is not read or passed to cognition",
     "valid active and inactive owner-published records preserve their actual flags",
     "epistemic adaptation forces custody status to contextualizes/unknown_dependency",
-    "future cognition receives the admitted historical interpretation without same-tick leakage"
+    "future cognition receives the admitted historical interpretation without same-tick leakage",
+    "a scoped lesson candidate remains explicitly untrusted and cannot become truth, policy, authority, or procedure",
+    "quarantine custody failure adds a history-conditioned instruction to retain unknown posture and avoid hostile-activity inference"
   ],
   "tests": {
     "focused_command": "pytest -o addopts= -q -m no_legacy_skip tests/test_integrity_quarantine_custody.py tests/test_resident_developmental_cognition.py tests/test_resident_epistemic_development.py tests/test_sentientosd_runtime_closure.py tests/test_sentientosd_causal_introspection_composition.py",
-    "passed": 92,
+    "passed": 93,
     "failed": 0,
     "deselected": 29,
     "changed_python_compilation": "passed",

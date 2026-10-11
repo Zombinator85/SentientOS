@@ -301,6 +301,90 @@ def test_quarantine_custody_failure_reaches_configured_cognition_and_next_tick_h
     assert later["status"] == "completed"
 
 
+def test_quarantine_custody_context_can_yield_scoped_later_tick_lesson(tmp_path: Path) -> None:
+    """A cognition conclusion stays an untrusted, evidence-bound history candidate."""
+    from sentientos.integrity_quarantine import QUARANTINE_PATH
+
+    target = tmp_path / QUARANTINE_PATH
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b'{"schema_version":1')
+    cognition, _first_fake = owner(
+        tmp_path / "cognition", allowed_source_kinds=("quarantine",))
+    first_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=cognition,  # type: ignore[arg-type]
+    )
+    first_tick = "2026-10-11T00:00:00+00:00"
+    first_surfaces.build_world_state_board(tick_id=first_tick)
+    first = first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    assert first["status"] == "completed" and first["written_record_id"]
+
+    # The lesson-producing request is the ordinary later history-conditioned
+    # cognition call. Its proposal is scoped to interpreting this custody
+    # failure, keeps uncertainty, and makes no claim about hostile activity.
+    second_fake = FakeInvoker()
+    second_fake.lesson_statement = (
+        "A failed quarantine custody read leaves the stored protective posture unknown.")
+    second_fake.lesson_scope = "quarantine custody observation interpretation"
+    second = owner(tmp_path / "cognition", invoker=second_fake,
+        allowed_source_kinds=("quarantine",))[0]
+    second_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=second,  # type: ignore[arg-type]
+    )
+    second_tick = "2026-10-11T00:00:01+00:00"
+    second_surfaces.build_world_state_board(tick_id=second_tick)
+    second_snapshot = second_surfaces.current_world_state_snapshot
+    assert second_snapshot is not None
+    custody_fact = next(fact for fact in second_snapshot.facts
+        if fact.subject.subject_kind == "quarantine_custody_observation")
+    second_fake.lesson_dependency_override = custody_fact.fact_id
+    result = second_surfaces.run_resident_developmental_cognition(tick_id=second_tick)
+    lesson_record_id = result["written_record_id"]
+    assert result["status"] == "completed" and lesson_record_id
+    history_conditioned_request = next(request for request in second_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert "Treat the stored protective posture as unknown" in history_conditioned_request.prompt
+    assert "do not turn it into a protective procedure, policy, or authority" in (
+        history_conditioned_request.prompt)
+    lesson_record = second.writeback.store.get(lesson_record_id)
+    provenance = lesson_record.candidate["transformation_provenance"]
+    lesson = provenance["lesson_candidate"]
+    assert lesson["statement"] == second_fake.lesson_statement
+    assert lesson["scope"] == second_fake.lesson_scope
+    assert lesson["uncertainty"] == "medium"
+    assert lesson["evidence_dependencies"] == [custody_fact.fact_id]
+    assert lesson["possible_contradiction_ids"] == []
+    assert provenance["candidate_posture"] == (
+        "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure")
+    assert provenance["current_truth"] is False
+    assert provenance["authority"] is False
+    assert provenance["policy"] is False
+    assert provenance["canonical_explicit_user_retention"] is False
+    assert lesson_record.candidate["epistemic_status"] == (
+        "untrusted_history_conditioned_cognition_candidate")
+
+    # A fresh owner recovers the admitted record and makes it available to a
+    # third-tick cognition request, still as historical context only.
+    third_fake = FakeInvoker()
+    third_fake.no_cognition_lesson = True
+    third = owner(tmp_path / "cognition", invoker=third_fake,
+        allowed_source_kinds=("quarantine",))[0]
+    third_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=third,  # type: ignore[arg-type]
+    )
+    third_tick = "2026-10-11T00:00:02+00:00"
+    third_surfaces.build_world_state_board(tick_id=third_tick)
+    third_result = third_surfaces.run_resident_developmental_cognition(tick_id=third_tick)
+    retrieval = next(request for request in third_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert lesson_record_id in retrieval.upstream_evidence["record_ids"]
+    retrieval_context = json.loads(retrieval.prompt)
+    assert second_fake.lesson_statement in json.dumps(retrieval_context, sort_keys=True)
+    assert third_result["status"] == "completed"
+
+
 @pytest.mark.parametrize(("active", "expected"), [(False, False), (True, True)])
 def test_valid_quarantine_state_projection_preserves_actual_posture(
     tmp_path: Path, active: bool, expected: bool,

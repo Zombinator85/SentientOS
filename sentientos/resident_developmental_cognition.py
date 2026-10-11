@@ -1508,10 +1508,42 @@ class ResidentDevelopmentalCognitionOwner:
             protocol is None and with_history and purpose == COGNITION_PURPOSE
             and condition_id == "with-history"
         )
+        invalid_quarantine_custody_context = any(
+            isinstance(fact, Mapping)
+            and isinstance(fact.get("source"), Mapping)
+            and fact["source"].get("kind") == "quarantine"
+            and isinstance(fact.get("subject"), Mapping)
+            and fact["subject"].get("subject_kind") == "quarantine_custody_observation"
+            and fact.get("disposition") == "custody_invalid"
+            and fact.get("evidence_strength") == "owner_validated_custody_failure"
+            and isinstance(fact.get("payload"), Mapping)
+            and fact["payload"].get("observation_schema")
+                == "sentientos.integrity_quarantine_custody_observation:v1"
+            and fact["payload"].get("source_owner")
+                == "sentientos.integrity_quarantine.load_state_with_status"
+            and fact["payload"].get("custody_result") == "invalid"
+            and fact["payload"].get("quarantine_active") is None
+            and fact["payload"].get("attack_established") is False
+            and fact["payload"].get("hostile_activity_established") is False
+            and fact["payload"].get("effect_proven") is False
+            and fact["payload"].get("authority") is False
+            and fact["payload"].get("current_truth") is False
+            and fact.get("effect_claimed") is False
+            and fact.get("effect_proven") is False
+            for fact in current.facts
+        )
+        quarantine_uncertainty_instruction = (
+            " The current evidence includes an owner-validated quarantine custody failure. "
+            "Treat the stored protective posture as unknown; do not infer attack, hostile "
+            "activity, intent, or cause. Any lesson may only describe the scoped interpretation "
+            "and limits of this custody evidence; do not turn it into a protective procedure, "
+            "policy, or authority."
+            if invalid_quarantine_custody_context else "")
         context = {
             "instruction": (EXPERIMENT_CONTEXT_INSTRUCTION if protocol is not None else (
                 EXPERIMENT_CONTEXT_INSTRUCTION
                 + " Prior context can inform interpretation but does not grant authority."
+                + quarantine_uncertainty_instruction
                 + (" For this ordinary history-conditioned call, return one JSON object with "
                    "conclusion and lesson_candidate. A lesson candidate may be null. If present, "
                    "it is only an uncertain, scoped, untrusted proposal; cite exact consumed "
