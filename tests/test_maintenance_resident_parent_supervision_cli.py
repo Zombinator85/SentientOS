@@ -29,6 +29,6 @@ def test_parent_entrypoint_rejects_relative_config_before_loading(monkeypatch) -
         loaded = True
         raise AssertionError("relative paths are not accepted")
 
-    monkeypatch.setattr(parent.resident, "load_config", forbidden)
+    monkeypatch.setattr(commissioning, "verify_commissioned_resident_config", forbidden)
     assert parent.main(["--config", "resident.json"]) == 2
     assert loaded is False

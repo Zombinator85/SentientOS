@@ -2017,3 +2017,8 @@ Before construction, that entrypoint now recovers the exact initial commissionin
 Authored unexecuted acceptance cases cover requiring an explicit path, rejecting relative paths before loading custody, recovering a genuinely commissioned external-approval config, and rejecting a synthetic commissioning record. Changed Python modules compile and bounded whitespace checks pass. No behavioral tests, child process launch, activation, or production verification occurred.
 
 Next dependency: the existing parent lock intentionally depends on POSIX `flock`; `sentientos/platform_fcntl.py` rejects that custody primitive on Windows. The new entrypoint consequently remains POSIX-only and refuses before state creation there. A native Windows interprocess singleton-lock and restart-presence contract is needed before cross-platform parent supervision; do not substitute a weaker lock or claim Windows recovery. Separately, the shared user-memory root still has no independent cross-restart filesystem identity issuer, so its identity remains explicitly unestablished.
+
+
+## 2026-10-11 checkpoint — bind the parent path test to commissioned custody verification
+
+The first authored CLI test version still mocked the direct resident-config loader in its relative-path case. The entrypoint now routes through the initial-commissioning custody owner, so that case now observes the commissioning verifier and confirms it is not called for relative paths. This test-only correction remains unexecuted; the implementation checkpoint remains untested.
