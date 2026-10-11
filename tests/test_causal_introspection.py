@@ -264,3 +264,15 @@ def test_runtime_constructor_enforces_loaded_configuration_bounds(tmp_path):
     with pytest.raises(IntrospectionError, match="invalid_config_domains"):
         CausalIntrospectionRuntime(unselected_required, (
             ProviderRegistration("owner", "model_serving", provider),))
+
+
+def test_group_or_world_writable_custody_root_is_rejected_on_posix(tmp_path):
+    import os
+    if os.name != "posix":
+        pytest.skip("POSIX directory mode contract")
+    registration = ProviderRegistration("owner", "model_serving", _provider("owner", "model_serving"))
+    runtime = _runtime(tmp_path, (registration,))
+    runtime.config.custody_root.mkdir(mode=0o700)
+    runtime.config.custody_root.chmod(0o770)
+    with pytest.raises(IntrospectionError, match="custody_root_writable_by_other_users"):
+        runtime.reconstruct()

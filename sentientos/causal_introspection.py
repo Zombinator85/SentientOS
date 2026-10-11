@@ -539,13 +539,20 @@ class CausalIntrospectionRuntime:
         if any(item.domain not in config.enabled_domains or item.domain not in DOMAINS for item in self.registrations):
             raise IntrospectionError("provider_domain_not_enabled")
 
-    def _paths(self) -> list[Path]:
+    def _validate_custody_root(self) -> bool:
         try:
             root_mode = self.config.custody_root.lstat().st_mode
         except FileNotFoundError:
-            return []
+            return False
         if not stat.S_ISDIR(root_mode):
             raise IntrospectionError("custody_root_invalid")
+        if os.name == "posix" and root_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            raise IntrospectionError("custody_root_writable_by_other_users")
+        return True
+
+    def _paths(self) -> list[Path]:
+        if not self._validate_custody_root():
+            return []
         paths = sorted(self.config.custody_root.glob("generation-*.json"))
         if len(paths) > MAX_SNAPSHOT_GENERATIONS:
             raise IntrospectionError("snapshot_generation_limit_exceeded")
@@ -671,7 +678,8 @@ class CausalIntrospectionRuntime:
         digest = _digest(_snapshot_payload(provisional))
         snapshot = replace(provisional, snapshot_id=f"causal-introspection-{digest[:20]}", snapshot_digest=digest)
         validate_snapshot(snapshot, prior)
-        self.config.custody_root.mkdir(parents=True, exist_ok=True)
+        self.config.custody_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self._validate_custody_root()
         target = self.config.custody_root / f"generation-{snapshot.generation:020d}.json"
         data = _canonical(_plain(snapshot))
         capacity_error = _snapshot_capacity_error(snapshot.generation - 1, custody_bytes, len(data))

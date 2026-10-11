@@ -2392,3 +2392,11 @@ Next inspect succession source records for any projection that still presents a 
 - The runtime constructor now independently checks schema, exact boolean types, absolute Path custody, bounded integer projection count, tuple domain shape, uniqueness, recognized domains, and required-domain inclusion before accepting providers. Valid loader-produced configurations retain their existing behavior.
 - Added authored, unexecuted constructor-boundary cases. Changed Python/test files compile only; no runtime capture, tests, or production verification ran.
 - Next inspect whether the explicit custody root ownership and directory operations remain stable across enumeration and publication, then continue to the next source-supported continuity dependency.
+
+
+## 2026-10-11 checkpoint — reject shared-writable introspection custody
+
+- The configured snapshot root was checked against symlinks and non-directories, but its POSIX permissions were not checked. A group/world-writable root could let another local principal replace the append-only generation chain even though publication uses no-overwrite hard links.
+- New roots are created with mode 0700; existing POSIX roots writable by group/other are rejected during reconstruction and rechecked after creation. Snapshot files retain their existing private staging mode and atomic publication. Non-POSIX behavior remains unchanged because POSIX permission bits do not provide an equivalent portable contract there.
+- Added an authored, unexecuted POSIX boundary case. Python compilation only; no permissions test or production execution ran.
+- Next inspect whether evidence-source roots are pinned or owner-restricted by existing installation custody, then continue to a separate developmental handoff.
