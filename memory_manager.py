@@ -1513,30 +1513,122 @@ def is_reflection_loop(snippet: str) -> bool:
     return any(p in lowered for p in REFLECTION_PHRASES)
 
 
-def _get_context_unlocked(query: str, k: int = 6) -> List[str]:
+def _reconcile_vector_index_unlocked(
+) -> tuple[list[dict], dict[str, dict], int, int, int]:
+    """Reconcile derived retrieval rows from bounded owner raw fragments."""
     index = _load_index_records()
-    source_fragments: dict[str, dict] = {}
+    index_by_id: dict[str, dict] = {}
     for row in index:
         fragment_id = row.get("id")
         if not isinstance(fragment_id, str) or not fragment_id:
             raise MemorySidecarIncompleteError("vector_index_identity_missing", 0)
-        if fragment_id in source_fragments:
+        if fragment_id in index_by_id:
             raise MemorySidecarIncompleteError("vector_index_identity_conflict", 0)
-        source = _load_fragment(fragment_id)
-        if source is None:
-            raise MemorySidecarIncompleteError("vector_index_fragment_missing", 0)
-        source_text = str(source.get("text", ""))
-        if row.get("snippet") != source_text[:400]:
-            raise MemorySidecarIncompleteError("vector_index_fragment_payload_conflict", 0)
-        if "tags" in row and row.get("tags") != source.get("tags", []):
-            raise MemorySidecarIncompleteError("vector_index_fragment_tags_conflict", 0)
-        # Raw records own mutable access/retention values. The index may have
-        # lagged after a crash, so never let its cached values override source.
-        row["importance"] = source.get("importance", 0.3)
-        row["access_count"] = source.get("access_count", 0)
-        row["last_accessed"] = source.get("last_accessed")
-        source_fragments[fragment_id] = source
+        index_by_id[fragment_id] = row
 
+    purged_ids: set[str] = set()
+    pending_ids: set[str] = set()
+    for entry in list_tomb():
+        fragment = entry.get("fragment")
+        fragment_id = fragment.get("id") if isinstance(fragment, dict) else None
+        if not isinstance(fragment_id, str) or not fragment_id:
+            continue
+        state = entry.get("operation_state")
+        if state == "incomplete":
+            pending_ids.add(fragment_id)
+        elif state == "deleted" or not entry.get("event_type"):
+            purged_ids.add(fragment_id)
+
+    raw_fragments: dict[str, dict] = {}
+    for path in _legacy_fragment_paths():
+        fragment = _load_fragment(path.stem)
+        if fragment is None:
+            raise MemorySidecarIncompleteError("legacy_raw_fragment_disappeared", 0)
+        fragment_id = fragment["id"]
+        if fragment_id in raw_fragments:
+            raise MemorySidecarIncompleteError("legacy_raw_fragment_identity_conflict", 0)
+        if fragment_id in purged_ids:
+            raise MemorySidecarIncompleteError("purged_fragment_reappeared", 0)
+        raw_fragments[fragment_id] = fragment
+
+    reconciled: list[dict] = []
+    sources: dict[str, dict] = {}
+    added = 0
+    removed = 0
+    changed = False
+    for fragment_id, source in raw_fragments.items():
+        if fragment_id in pending_ids:
+            if fragment_id in index_by_id:
+                removed += 1
+                changed = True
+            continue
+        source_text = source.get("text")
+        if not isinstance(source_text, str):
+            raise MemorySidecarIncompleteError("legacy_raw_fragment_text_invalid", 0)
+        row = index_by_id.pop(fragment_id, None)
+        if row is None:
+            row = {
+                "id": fragment_id,
+                "vector": _vectorize(source_text),
+                "snippet": source_text[:400],
+                "importance": source.get("importance", 0.3),
+                "tags": source.get("tags", []),
+                "last_accessed": source.get("last_accessed"),
+                "access_count": source.get("access_count", 0),
+                "category": source.get("category"),
+                "summary": source.get("summary"),
+            }
+            added += 1
+            changed = True
+        else:
+            if row.get("snippet") != source_text[:400]:
+                raise MemorySidecarIncompleteError("vector_index_fragment_payload_conflict", 0)
+            if "tags" in row and row.get("tags") != source.get("tags", []):
+                raise MemorySidecarIncompleteError("vector_index_fragment_tags_conflict", 0)
+            for key, default in (
+                ("importance", 0.3), ("access_count", 0),
+                ("last_accessed", None), ("tags", []),
+                ("category", None), ("summary", None),
+            ):
+                value = source.get(key, default)
+                if row.get(key, default) != value:
+                    row[key] = value
+                    changed = True
+        reconciled.append(row)
+        sources[fragment_id] = source
+
+    for fragment_id in index_by_id:
+        if fragment_id in purged_ids or fragment_id in pending_ids:
+            removed += 1
+            changed = True
+            continue
+        raise MemorySidecarIncompleteError("vector_index_fragment_missing", 0)
+
+    if len(reconciled) > 4096:
+        raise MemorySidecarIncompleteError("vector_index_entry_bound_exceeded", 0)
+    if changed:
+        _save_index_records(reconciled)
+    return reconciled, sources, added, removed, len(pending_ids)
+
+
+def reconcile_vector_index() -> dict[str, int | str]:
+    """Reconstruct derived vector metadata from authorized raw memory custody."""
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        _index, _sources, added, removed, pending = _reconcile_vector_index_unlocked()
+    status = "reconciled" if pending == 0 else "reconciled_with_pending_purge"
+    return {
+        "status": status,
+        "entries_added": added,
+        "entries_removed": removed,
+        "pending_purge_identities": pending,
+    }
+
+
+def _get_context_unlocked(query: str, k: int = 6) -> List[str]:
+    index, source_fragments, _added, _removed, _pending = (
+        _reconcile_vector_index_unlocked()
+    )
     q_vec = _vectorize(query)
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     scored: List[tuple[float, dict]] = []
