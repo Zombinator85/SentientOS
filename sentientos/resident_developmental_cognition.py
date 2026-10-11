@@ -19,6 +19,7 @@ from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
 )
 from .governed_local_model_invocation import LocalModelInvocationBudget, LocalModelInvoker
+from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, make_protocol, summarize,
     PURPOSE as EXPERIMENT_PURPOSE,
@@ -81,6 +82,32 @@ MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
 MAX_RESIDENT_COGNITION_CONFIG_BYTES = 65_536
 class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
+
+
+def _resolved_owner_root(value: str | Path) -> Path:
+    try:
+        return Path(value).expanduser().resolve(strict=False)
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        raise ResidentDevelopmentalCognitionError("configuration_root_identity_invalid") from exc
+
+
+def _validate_root_separation(history_root: Path, state_root: Path,
+                              artifact_root: Path | None = None,
+                              memory_root: Path | None = None) -> None:
+    """Keep developmental custody disjoint from sibling owners and canonical memory."""
+    roots = [_resolved_owner_root(history_root), _resolved_owner_root(state_root)]
+    if artifact_root is not None:
+        roots.append(_resolved_owner_root(artifact_root))
+    for index, left in enumerate(roots):
+        if any(left == right or left in right.parents or right in left.parents
+               for right in roots[index + 1:]):
+            raise ResidentDevelopmentalCognitionError("configuration_roots_must_be_separate")
+    canonical_memory_root = _resolved_owner_root(
+        memory_root if memory_root is not None else sentientos_memory_dir())
+    if any(root == canonical_memory_root or canonical_memory_root in root.parents
+           for root in roots):
+        raise ResidentDevelopmentalCognitionError(
+            "configuration_root_overlaps_canonical_memory")
 
 
 def _digest(value: Any) -> str:
@@ -213,13 +240,11 @@ def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
     if schema == CONFIG_SCHEMA_V2 and (not isinstance(provenance_root, str) or not provenance_root):
         raise ResidentDevelopmentalCognitionError("configuration_values_invalid")
     history_root, state_root = Path(payload["history_root"]), Path(payload["state_root"])
-    if history_root == state_root:
-        raise ResidentDevelopmentalCognitionError("configuration_roots_must_be_separate")
-    if provenance_root is not None and Path(provenance_root) in {history_root, state_root}:
-        raise ResidentDevelopmentalCognitionError("configuration_artifact_root_must_be_separate")
+    artifact_root = Path(provenance_root) if provenance_root is not None else None
+    _validate_root_separation(history_root, state_root, artifact_root)
     return ResidentDevelopmentalCognitionConfig(history_root, state_root, tuple(sorted(kinds)), maximum,
         history_maximum, payload["comparison_enabled"], payload["enabled"],
-        Path(provenance_root) if provenance_root is not None else None)
+        artifact_root)
 
 
 class ResidentDevelopmentalCognitionOwner:
@@ -230,6 +255,8 @@ class ResidentDevelopmentalCognitionOwner:
                  admission_authority: RuntimeAdmissionAuthority,
                  invoker: LocalModelInvoker,
                  current_sequence: Callable[[], int]) -> None:
+        _validate_root_separation(config.history_root, config.state_root,
+            config.model_replacement_artifact_root)
         self.config = config
         self.writeback = writeback
         self.admission_authority = admission_authority

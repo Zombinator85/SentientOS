@@ -2517,3 +2517,11 @@ Next inspect succession source records for any projection that still presents a 
 - Recovery now derives the expected evidence/state receipt inventory from validated intents and exact owner records before repairing missing receipts. Existing receipt files must match the stage, path, and canonical bytes exactly; orphaned or substituted receipts fail closed. Windows remains read-only and still rejects repair when expected custody is absent.
 - Added an authored, unexecuted orphan-receipt case; production and test modules compile only. No mutation or tests ran.
 - Next inspect explicit developmental, mutation, and user-memory roots for overlap, unsafe shared directory custody, or permission drift; preserve the separation between canonical user memory and resident developmental history.
+
+
+## 2026-10-11 checkpoint — resolve developmental custody root aliases against canonical memory
+
+- Developmental config required lexical inequality between history and state roots, and only exact lexical inequality for the optional artifact root. A symlink alias or a root nested inside canonical user-memory custody could therefore bypass the documented separation.
+- Config loading and direct cognition-owner construction now resolve root identities and reject overlapping developmental roots, including artifact custody, plus any developmental root equal to or nested within the canonical user-memory root. The canonical memory owner itself remains unchanged.
+- Added authored, unexecuted path-alias and canonical-memory exclusion cases. Changed Python files compile only; tests and runtime initialization were not run.
+- Next inspect writeback root publication and directory permissions themselves: path-level config separation does not prove safe immutable publication if a configured directory is replaced or permissive.

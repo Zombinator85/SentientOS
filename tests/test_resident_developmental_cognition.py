@@ -398,3 +398,25 @@ def test_recovered_history_order_uses_intent_not_wall_clock() -> None:
     second_key = ResidentDevelopmentalCognitionOwner._recovered_record_order(
         second, completed_order={}, recovery_intent_order=order)
     assert first_key < second_key
+
+
+def test_developmental_roots_resolve_aliases_and_exclude_canonical_memory(tmp_path: Path) -> None:
+    import os
+
+    from sentientos.canonical_memory import sentientos_memory_dir
+    from sentientos.resident_developmental_cognition import _validate_root_separation
+
+    if os.name == "posix":
+        history = tmp_path / "history"
+        history.mkdir()
+        alias = tmp_path / "history-alias"
+        alias.symlink_to(history, target_is_directory=True)
+        with pytest.raises(ResidentDevelopmentalCognitionError,
+                           match="configuration_roots_must_be_separate"):
+            _validate_root_separation(history, alias, memory_root=tmp_path / "memory")
+
+    memory = sentientos_memory_dir()
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+                       match="configuration_root_overlaps_canonical_memory"):
+        _validate_root_separation(memory / "developmental-history", tmp_path / "state",
+                                  memory_root=memory)
