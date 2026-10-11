@@ -113,6 +113,14 @@ def test_run_loop_composes_three_live_owners_and_preserves_temporal_firewall(
         if observation.observation_key == "incomplete_admission_bound_transaction_count")
         for projection in epistemic_projections]
     assert incomplete_counts == [0, 0]
+    recovery_statuses = [next(observation.bounded_value for observation in projection.observations
+        if observation.observation_key == "mutation_recovery_status")
+        for projection in epistemic_projections]
+    assert recovery_statuses == ["not_composed", "not_composed"]
+    pending_state_intents = [next(observation.bounded_value for observation in projection.observations
+        if observation.observation_key == "pending_state_intent_count")
+        for projection in epistemic_projections]
+    assert pending_state_intents == [0, 0]
     assert len(list(custody.glob("generation-*.json"))) == 2
 
 

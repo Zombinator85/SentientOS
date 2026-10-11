@@ -2366,18 +2366,29 @@ def _compose_causal_introspection(
     if "persistent_epistemics" in enabled and epistemic_owner is not None:
         def inspect_epistemics() -> dict[str, Any]:
             counts = epistemic_owner.verify()
+            development_runtime = runtime_surfaces._epistemic_development_runtime
+            recovery = (development_runtime.controller.recovery_status
+                if development_runtime is not None else {})
             return {"proposition_count": int(counts.get("propositions", 0)),
                 "state_count": int(counts.get("states", 0)),
                 "evidence_binding_count": int(counts.get("bindings", 0)),
                 "incomplete_admission_bound_transaction_count": int(
-                    counts.get("incomplete_admission_bound_transactions", 0))}
+                    counts.get("incomplete_admission_bound_transactions", 0)),
+                "mutation_recovery_status": str(recovery.get("status", "not_composed")),
+                "pending_evidence_intent_count": int(recovery.get("pending_evidence_intent_count", 0)),
+                "pending_state_intent_count": int(recovery.get("pending_state_intent_count", 0)),
+                "pending_mutation_transaction_count": int(recovery.get("pending_transaction_count", 0))}
         registrations.append(ProviderRegistration("persistent-epistemic-state", "persistent_epistemics",
             LiveOwnerMetadataProvider(provider_id="persistent-epistemic-state-v1",
                 owner_id="persistent-epistemic-state", owner_kind="persistent_epistemic_state_owner",
                 domain="persistent_epistemics", inspect=inspect_epistemics,
                 observation_classes={"proposition_count": "count", "state_count": "count",
                     "evidence_binding_count": "count",
-                    "incomplete_admission_bound_transaction_count": "count"})))
+                    "incomplete_admission_bound_transaction_count": "count",
+                    "mutation_recovery_status": "health",
+                    "pending_evidence_intent_count": "count",
+                    "pending_state_intent_count": "count",
+                    "pending_mutation_transaction_count": "count"})))
     resource_observer = runtime_surfaces._resource_observation_owner
     if "causal_resources" in enabled and resource_observer is not None:
         def inspect_causal_resources() -> dict[str, Any]:
