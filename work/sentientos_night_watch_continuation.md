@@ -2400,3 +2400,11 @@ Next inspect succession source records for any projection that still presents a 
 - New roots are created with mode 0700; existing POSIX roots writable by group/other are rejected during reconstruction and rechecked after creation. Snapshot files retain their existing private staging mode and atomic publication. Non-POSIX behavior remains unchanged because POSIX permission bits do not provide an equivalent portable contract there.
 - Added an authored, unexecuted POSIX boundary case. Python compilation only; no permissions test or production execution ran.
 - Next inspect whether evidence-source roots are pinned or owner-restricted by existing installation custody, then continue to a separate developmental handoff.
+
+
+## 2026-10-11 checkpoint — preserve introspection generation lineage through cognition evidence
+
+- World-State projection records now carry the authenticated parent causal-introspection snapshot identity, digest, generation, predecessor digest, capture tick, and completion posture next to the projection identity. This ensures the board record digest binds the exact immutable generation that supplied the owner projection.
+- The existing epistemic adapter now copies those fields into the durable evidence-source provenance ID when it sees the complete lineage tuple. Historical v1 records without these optional fields remain compatible; their World-State source/fact digest and enclosing World-State snapshot remain bound as before.
+- Added authored, unexecuted checks for exact lineage in World-State and epistemic evidence binding. Changed Python files compile only; no tests, mutation, or production cognition ran.
+- Next inspect persistent evidence and developmental-history consumers for whether the opaque provenance ID is retained intact through restart and later cognition; continue with any directly evidenced truncation or schema boundary.

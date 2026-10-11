@@ -83,6 +83,13 @@ def test_three_domain_live_capture_and_next_tick_world_state(tmp_path):
     records = runtime.world_state_records(before_generation=2)
     assert {item["source_id"] for item in records} == set(captured.projection_ids)
     assert all(item["source_kind"] == "owner_introspection" for item in records)
+    assert all(item["payload"]["introspection_snapshot_id"] == captured.snapshot_id
+        and item["payload"]["introspection_snapshot_digest"] == captured.snapshot_digest
+        and item["payload"]["introspection_snapshot_generation"] == captured.generation
+        and item["payload"]["introspection_snapshot_predecessor_digest"]
+            == captured.predecessor_snapshot_digest
+        and item["payload"]["introspection_capture_tick"] == captured.capture_tick
+        for item in records)
     board = WorldStateBoardBuilder().build(records)
     assert {fact.subject.subject_id for fact in board.facts} == {
         "serving-owner", "epistemic-owner", "supervisor-owner"}

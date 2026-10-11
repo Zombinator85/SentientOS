@@ -540,7 +540,7 @@ class ResidentEpistemicDevelopmentRuntime:
         # missing event time as a stable semantic value for every source kind.
         missing_source_time = observed is None
         observed = observed or "undated"
-        provenance = json.dumps({"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+        provenance_values = {"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
@@ -565,8 +565,16 @@ class ResidentEpistemicDevelopmentRuntime:
                 or source_integrity_conflict
                 else "source_time_unverified" if unverified_embodiment_observation
                 else "source_time_missing" if missing_source_time
-                else "source_observed"},
-            sort_keys=True, separators=(",", ":"))
+                else "source_observed"}
+        introspection_lineage_fields = (
+            "introspection_snapshot_id", "introspection_snapshot_digest",
+            "introspection_snapshot_generation", "introspection_snapshot_predecessor_digest",
+            "introspection_capture_tick", "introspection_snapshot_completion_posture")
+        if (fact.source.kind == "owner_introspection" and isinstance(fact.payload, Mapping)
+                and all(key in fact.payload for key in introspection_lineage_fields)):
+            provenance_values["causal_introspection_snapshot_lineage"] = {
+                key: fact.payload[key] for key in introspection_lineage_fields}
+        provenance = json.dumps(provenance_values, sort_keys=True, separators=(",", ":"))
         proof = make_epistemic_evidence_source_proof(source_artifact_id=artifact_id,
             source_digest=stable_source_digest, source_schema=fact.source.schema_version,
             source_class=fact.source.kind, recorded_at=observed, adapter_id=ADAPTER_ID,

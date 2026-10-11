@@ -285,3 +285,40 @@ def test_transition_retention_marker_is_undated_context_not_current_support() ->
     assert binding.freshness == "unknown"
     assert binding.evidence_relation == "contextualizes"
     assert binding.dependency_kind == "unknown_dependency"
+
+
+def test_owner_introspection_snapshot_chain_survives_epistemic_binding(tmp_path):
+    owner, proposition, _ledger, runtime = fixture(tmp_path)
+    record = {
+        "source_kind": "owner_introspection",
+        "source_id": "owner-projection-fixture",
+        "subject_kind": "model_serving",
+        "subject_id": "serving-owner",
+        "stage": "observation",
+        "disposition": "owner_reported",
+        "observed_at": NOW,
+        "payload": {
+            "introspection_snapshot_id": "causal-introspection-fixture",
+            "introspection_snapshot_digest": "a" * 64,
+            "introspection_snapshot_generation": 7,
+            "introspection_snapshot_predecessor_digest": "b" * 64,
+            "introspection_capture_tick": NOW,
+            "introspection_snapshot_completion_posture": "complete",
+        },
+    }
+    board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    rule = EpistemicDevelopmentRule("introspection-lineage", proposition.proposition_id,
+        proposition.proposition_digest, {}, "contextualizes", "unknown_dependency",
+        "historical_owner_introspection")
+    proof, binding = runtime._adapt(board, board.facts[0], rule)
+    provenance = json.loads(proof.provenance_id)
+    assert provenance["causal_introspection_snapshot_lineage"] == {
+        "introspection_snapshot_id": "causal-introspection-fixture",
+        "introspection_snapshot_digest": "a" * 64,
+        "introspection_snapshot_generation": 7,
+        "introspection_snapshot_predecessor_digest": "b" * 64,
+        "introspection_capture_tick": NOW,
+        "introspection_snapshot_completion_posture": "complete",
+    }
+    assert binding.source_digest == board.facts[0].source.digest
+    assert binding.freshness == "current"
