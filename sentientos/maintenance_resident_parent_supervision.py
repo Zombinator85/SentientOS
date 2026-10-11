@@ -160,7 +160,12 @@ class MaintenanceResidentParentSupervisor:
             "generation_digest": self._generation_digest, "launch": self._launch,
             "receipt_head_digest": self._receipt_head_digest}
         state["state_digest"] = _digest(state)
-        self._atomic(state)
+        try:
+            self._atomic(state)
+        except Exception:
+            self._state_recovery_valid = False
+            self._panic = True; self._status = "parent_state_publication_failed"
+            raise
 
     def _read_receipt_journal(self) -> list[dict[str, Any]]:
         try:

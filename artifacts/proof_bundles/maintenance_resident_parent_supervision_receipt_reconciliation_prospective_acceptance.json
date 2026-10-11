@@ -5,6 +5,10 @@
   "task_scope": "Validate bounded parent receipt custody against the persisted supervisor snapshot and refuse replay when a crash leaves the receipt journal ahead of snapshot state.",
   "required_nodes": [
     {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_state_publication_failure_blocks_followup_receipts",
+      "rationale": "A successfully appended receipt followed by failed state replacement prevents later writes that could compound uncertainty."
+    },
+    {
       "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_corrupt_receipt_chain_fails_closed_without_republication",
       "rationale": "A digest-invalid parent receipt chain is rejected without writing a new receipt into its custody."
     },

@@ -267,3 +267,24 @@ def test_parent_supervision_owner_lock_is_singleton(tmp_path: Path) -> None:
             resident_readiness_guard=lambda _: True, adapter_factory=Factory())
     assert child.starts == 0
     _simulate_parent_process_exit(controller)
+
+
+def test_state_publication_failure_blocks_followup_receipts(tmp_path: Path) -> None:
+    controller, _, _ = _parent(tmp_path)
+    state_path = tmp_path / "parent" / "parent-state.json"
+    receipt_path = tmp_path / "parent" / "parent-receipts.jsonl"
+    previous_state = state_path.read_bytes()
+    previous_receipts = receipt_path.read_bytes()
+
+    def fail_atomic(_value: Any) -> None:
+        raise OSError("simulated_state_publication_failure")
+
+    controller._atomic = fail_atomic
+    with pytest.raises(OSError, match="simulated_state_publication_failure"):
+        controller._receipt("state_publication_failure_probe")
+    after_failed_publication = receipt_path.read_bytes()
+    assert after_failed_publication != previous_receipts
+    assert state_path.read_bytes() == previous_state
+    with pytest.raises(RuntimeError, match="parent_state_recovery_not_trusted"):
+        controller._receipt("must_not_follow_uncertain_publication")
+    assert receipt_path.read_bytes() == after_failed_publication
