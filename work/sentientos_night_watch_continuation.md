@@ -991,3 +991,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the epistemic adapter. No runtime projection, configuration, or epistemic mutation was exercised.
 
 **Next implementation dependency:** continue from the bounded recovery source and inspect the existing model/software succession evidence owners for any same-tick or restart path that treats a candidate, activation receipt, or history record as proof of an observed running successor.
+
+## New checkpoint — expose owner-verified current resident software identity
+
+- Succession review found that World-State emitted only the launch-time software baseline from `MaintenanceResidentRuntimeAdoptionController`. Its existing `current_execution_provenance()` verifier, which rechecks the same process instance, environment, executable/entrypoint, canonical generation, and clean exact repository state, was never composed into the resident snapshot.
+- The daemon now emits a separate point observation only when that exact owner verifier succeeds. It has a unique observation source identity and observation timestamp, binds process instance, provenance, running generation, commit/tree, and startup identity, and carries no effect or authority claim. The startup baseline remains a distinct historical event.
+- Resident epistemic adaptation accepts this current observation only with its exact subject, disposition, digest formats, owner-currentness posture, event-time posture, and false effect/authority fields. Malformed claims become context-only with unknown time/freshness; historical startup records remain historical.
+- This is source-owner evidence, not independent operating-system attestation. No source commit or model artifact by itself is used as proof of a running process.
+- `python -m py_compile` passed for the daemon and epistemic adapter. No process, Git probe, World-State runtime, or production observation was executed; this remains unverified construction.
+
+**Next implementation dependency:** trace the qualified current software observation through configured epistemic admission and durable later-tick cognition, and verify that repeated point observations do not accidentally create same-tick consumption or an unbounded active-evidence path.

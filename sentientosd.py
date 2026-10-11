@@ -1576,6 +1576,51 @@ class RuntimeMaintenanceSurfaces:
                             "provenance_digest": baseline.get("provenance_digest"),
                             "startup_timestamp": baseline.get("startup_timestamp")},
                         "observed_at": baseline.get("startup_timestamp"), "effect_claimed": False, "effect_proven": False})
+                if software_controller is not None:
+                    current_provenance = None
+                    try:
+                        current_provenance = software_controller.current_execution_provenance()
+                    except Exception:
+                        # A failed point check cannot be replaced with the
+                        # controller's startup baseline or repository metadata.
+                        current_provenance = None
+                    if isinstance(current_provenance, Mapping):
+                        required_current_fields = (
+                            "process_instance_id", "provenance_digest",
+                            "represented_generation_digest", "observed_commit_sha",
+                            "observed_tree_sha", "startup_timestamp")
+                        if all(isinstance(current_provenance.get(key), str)
+                                and current_provenance.get(key)
+                                for key in required_current_fields):
+                            verification_time = datetime.now(timezone.utc).isoformat().replace(
+                                "+00:00", "Z")
+                            current_payload = {
+                                "running_software_generation_observed":
+                                    current_provenance["represented_generation_digest"],
+                                "software_generation":
+                                    current_provenance["represented_generation_digest"],
+                                "process_instance_id": current_provenance["process_instance_id"],
+                                "provenance_digest": current_provenance["provenance_digest"],
+                                "repository_commit": current_provenance["observed_commit_sha"],
+                                "repository_tree": current_provenance["observed_tree_sha"],
+                                "startup_timestamp": current_provenance["startup_timestamp"],
+                                "currentness_posture":
+                                    "owner_verified_process_and_source_at_observation",
+                                "event_time_posture": "owner_point_observation_time",
+                                "authority": False, "effect_proven": False,
+                            }
+                            records.append({
+                                "source_kind": "runtime_supervisor",
+                                "source_id": ("resident_current_running_software:"
+                                    + current_provenance["provenance_digest"] + ":" + verification_time),
+                                "subject_id": current_provenance["process_instance_id"],
+                                "subject_kind": "verified_current_running_software_generation",
+                                "stage": "observation", "disposition": "observed",
+                                "evidence_strength":
+                                    "owner_verified_current_process_and_clean_source",
+                                "payload": current_payload, "observed_at": verification_time,
+                                "effect_claimed": False, "effect_proven": False,
+                            })
         return records
 
     def capture_causal_introspection(self, *, tick_id: str) -> dict[str, Any]:

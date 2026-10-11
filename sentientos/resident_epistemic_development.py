@@ -253,6 +253,37 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.payload.get("event_time_posture") in {
                 "owner_observed_model_load_time",
                 "reservation_time_model_load_outcome_unknown"})
+        current_software_candidate = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "verified_current_running_software_generation")
+        current_software_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        def bound_digest(value: Any) -> bool:
+            return (isinstance(value, str) and len(value) == 71
+                and value.startswith("sha256:")
+                and all(character in "0123456789abcdef" for character in value[7:]))
+        verified_current_software_observation = (
+            current_software_candidate
+            and fact.stage == "observation" and fact.disposition == "observed"
+            and current_software_payload.get("currentness_posture")
+                == "owner_verified_process_and_source_at_observation"
+            and current_software_payload.get("event_time_posture")
+                == "owner_point_observation_time"
+            and bound_digest(current_software_payload.get("running_software_generation_observed"))
+            and bound_digest(current_software_payload.get("software_generation"))
+            and current_software_payload.get("running_software_generation_observed")
+                == current_software_payload.get("software_generation")
+            and bound_digest(current_software_payload.get("process_instance_id"))
+            and bound_digest(current_software_payload.get("provenance_digest"))
+            and isinstance(current_software_payload.get("repository_commit"), str)
+            and bool(current_software_payload.get("repository_commit"))
+            and isinstance(current_software_payload.get("repository_tree"), str)
+            and bool(current_software_payload.get("repository_tree"))
+            and _latest_historical_event_time([fact.observed_at]) is not None
+            and current_software_payload.get("authority") is False
+            and current_software_payload.get("effect_proven") is False
+            and fact.effect_claimed is False and fact.effect_proven is False)
+        unverified_current_software_observation = (
+            current_software_candidate and not verified_current_software_observation)
         historical_transition_observation = (
             historical_transition_event
             and fact.subject.subject_kind == "resident_model_transition"
@@ -301,7 +332,8 @@ class ResidentEpistemicDevelopmentRuntime:
             or (historical_transition_observation and not qualified_transition_observation)
             or historical_strategy_proposal
             or historical_strategy_review or unverified_embodiment_observation
-            or incomplete_resource_lineage or source_integrity_conflict)
+            or incomplete_resource_lineage or source_integrity_conflict
+            or unverified_current_software_observation)
         stable_source_digest = fact.source.digest
         stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
         artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
@@ -455,6 +487,9 @@ class ResidentEpistemicDevelopmentRuntime:
         if (not isinstance(observed, str)
                 or _latest_historical_event_time([observed]) is None):
             observed = None
+        if unverified_current_software_observation:
+            # A malformed currentness claim cannot supply a source event time.
+            observed = None
         if source_integrity_conflict:
             # Keep malformed producer records visible as context, but do not
             # let a failed source binding provide an event time or support.
@@ -467,7 +502,11 @@ class ResidentEpistemicDevelopmentRuntime:
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
-            "event_time_posture": "runtime_owner_observation_time_not_current_liveness"
+            "event_time_posture": "owner_verified_current_software_point_observation"
+                if verified_current_software_observation
+                else "unverified_current_software_context_time_unknown"
+                if unverified_current_software_observation
+                else "runtime_owner_observation_time_not_current_liveness"
                 if historical_chat_runtime_observation else "chat_recovery_phase_time_not_process_liveness_or_inference_time"
                 if historical_chat_recovery_event else "transition_stage_time_not_cognition_event_time"
                 if historical_transition_observation else "historical_transition_stage_event_time"
@@ -494,6 +533,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 and not historical_chat_runtime_observation
                 and not historical_strategy_proposal and not historical_strategy_review
                 and not unverified_embodiment_observation
+                and not unverified_current_software_observation
                 and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
             freshness = "current"
         elif source_staleness in {"aging", "stale", "expired"}:
