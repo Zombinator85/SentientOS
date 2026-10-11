@@ -240,3 +240,13 @@ def test_append_capacity_preflight_matches_reconstruction_limits():
     assert _snapshot_capacity_error(MAX_SNAPSHOT_GENERATIONS - 1,
         MAX_SNAPSHOT_CUSTODY_BYTES - 8, 9) == "snapshot_custody_limit_exceeded"
     assert _snapshot_capacity_error(0, 0, 0) is None
+
+
+def test_observation_source_refs_must_resolve_to_inventory():
+    ref = _reference("serving")
+    with pytest.raises(IntrospectionError, match="observation_source_reference_unresolved"):
+        build_projection(owner_id="serving", owner_kind="serving_owner", domain="model_serving",
+            context=CaptureContext("tick", capture_posture="synthetic_test"),
+            source_references=(ref,), causal_references=(),
+            observations=(OwnerObservation("session_id", "session-1", "identity",
+                source_refs=("unlisted-reference",), production_posture="synthetic_test"),))

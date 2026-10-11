@@ -2376,3 +2376,11 @@ Next inspect succession source records for any projection that still presents a 
 - Reconstruction now returns its verified on-disk byte total to capture without rereading or estimating serialized historical size. Capture rejects generation exhaustion before provider projection and checks the canonical new snapshot's exact byte length before atomic publication. A single capacity helper uses the same bounds for preflight and authored boundary cases.
 - Existing committed history remains readable at the limit; no pruning, rewriting, provider invocation, or authority behavior was introduced. Python syntax compilation passed for changed module and authored test; tests remain unexecuted and all construction remains unverified for production.
 - Next inspect causal-introspection input reference resolution and cross-owner evidence freshness/identity boundaries, then advance to another independently useful owner connection.
+
+
+## 2026-10-11 checkpoint — require causal-introspection source references to resolve
+
+- Projection validation accepted observation source-reference IDs that did not occur in its bounded source/causal reference inventory. Such dangling IDs survived projection hashing and were copied into World-State without a locally verifiable reference object.
+- Validation now rejects non-tuple or unresolved observation references before a projection can be committed. Empty source-reference lists remain valid for owner-local measurements that genuinely have no supporting artifact reference; named references must resolve exactly within the projection inventory.
+- Added an authored, unexecuted regression. Changed Python files compile only; no tests or production capture ran.
+- Next review how capture tick identity is represented at the World-State boundary, especially whether source event time remains distinct from retrieval and freshness, then continue to another owner-level continuity dependency.

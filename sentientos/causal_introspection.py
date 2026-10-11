@@ -339,6 +339,10 @@ def validate_projection(projection: OwnerIntrospectionProjection, *, capture_pos
             raise IntrospectionError("credential_material_rejected")
         if key in FORBIDDEN_KEYS:
             raise IntrospectionError("semantic_collapse_rejected")
+        if (not isinstance(observation.source_refs, tuple)
+                or any(not isinstance(reference_id, str) or reference_id not in reference_ids
+                    for reference_id in observation.source_refs)):
+            raise IntrospectionError("observation_source_reference_unresolved")
         if capture_posture == "synthetic_test" and observation.production_posture == "production":
             raise IntrospectionError("synthetic_cannot_claim_production")
         if key == "effect_proven" and observation.bounded_value is True:
