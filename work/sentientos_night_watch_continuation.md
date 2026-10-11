@@ -944,3 +944,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the chat and session source snapshots. Browser execution and retry behavior remain untested.
 
 **Next implementation dependency:** improve recovery's evidence classification for a durable user request with no assistant turn. Use the exact session/user-turn binding in the existing verified invocation receipt owner to distinguish “no completed invocation receipt found” from “completed invocation exists but response text is not retained,” while preserving no-replay.
+
+## New checkpoint — classify interrupted chat requests from receipt custody
+
+- A durable user turn with no assistant turn previously had only one recovery posture, even though the installation-scoped invocation receipt may show that inference completed. The output body is intentionally not retained there, so recovery cannot safely reconstruct the response from its digest.
+- The production serving inference owner now performs a read-only, bounded scan of the exact installation receipt directory, requiring canonical receipt bytes and the existing receipt verifier. It matches only the exact session, user-turn, and optional client-request digest; duplicate matching receipts, malformed records, and byte/entry overflow fail closed.
+- The resource-backed inference adapter exposes this owner operation to the chat service. Idempotent recovery now distinguishes completed inference with non-retained response content, a matching incomplete invocation receipt, no matching verified receipt, and unavailable/contradictory custody. Every case remains no-replay; none imply that no backend entry occurred unless a verified record supports that statement.
+- The scan returns identifiers/status/digest only and never attempts to recover or regenerate response text. It does not turn a receipt into an assistant transcript.
+- `python -m py_compile` passed for the serving inference, resource adapter, and chat source snapshots. No receipt fixtures, restart simulation, inference, or runtime path was executed.
+
+**Next implementation dependency:** inspect whether the typed chat transcript verifier also checks sequence/predecessor ordering and catches duplicate or orphan assistant linkage after restart; preserve legacy transcript compatibility and explicit incomplete state.

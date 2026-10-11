@@ -140,6 +140,29 @@ class PersistentConversationService:
             and isinstance(turn.get("linkage"), Mapping)
             and turn["linkage"].get("source_user_turn_id") == user_turn_id]
         if not assistants:
+            inspector = getattr(self._inference, "inspect_interrupted_chat_invocation", None)
+            if callable(inspector):
+                user_linkage = user_turn.get("linkage")
+                client_digest = (user_linkage.get("client_request_id_digest")
+                    if isinstance(user_linkage, Mapping) else None)
+                try:
+                    custody = inspector(session_id=session_id, user_turn_id=user_turn_id,
+                        client_request_id_digest=client_digest)
+                except Exception as exc:
+                    raise ChatRequestStateError(
+                        "chat_request_interrupted_invocation_recovery_unavailable_no_replay") from exc
+                posture = custody.get("status") if isinstance(custody, Mapping) else None
+                if posture == "completed_response_body_not_retained":
+                    raise ChatRequestStateError(
+                        "chat_request_interrupted_completed_invocation_response_not_retained_no_replay")
+                if posture == "matching_invocation_receipt_incomplete":
+                    raise ChatRequestStateError(
+                        "chat_request_interrupted_matching_invocation_receipt_incomplete_no_replay")
+                if posture == "no_matching_verified_invocation_receipt":
+                    raise ChatRequestStateError(
+                        "chat_request_interrupted_no_matching_invocation_receipt_no_replay")
+                raise ChatRequestStateError(
+                    "chat_request_interrupted_invocation_recovery_posture_invalid_no_replay")
             raise ChatRequestStateError("chat_request_interrupted_no_replay")
         if len(assistants) != 1:
             raise ChatRequestStateError("chat_request_response_identity_conflict")

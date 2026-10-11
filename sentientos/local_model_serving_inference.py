@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 from pathlib import Path
 from typing import Any, Mapping
@@ -17,6 +18,7 @@ from .governed_local_model_invocation import (
     validate_receipt,
 )
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
+from .installation_state import InstallationStateError
 from .chat_process_generation import (
     ChatProcessGenerationError,
     verify_current_chat_process_handoff,
@@ -382,3 +384,92 @@ class ProductionServingInferenceController:
                 "caller_linkage": dict(caller_context),
                 "serving_receipt_lineage": serving_receipt_lineage,
                 "assistant_output_lineage": assistant_output_lineage}
+
+
+    def inspect_interrupted_chat_invocation(self, *, session_id: str, user_turn_id: str,
+                                             client_request_id_digest: str | None = None
+                                             ) -> Mapping[str, Any]:
+        """Classify matching receipt custody without recovering output or replaying inference."""
+        if (not isinstance(session_id, str) or not session_id
+                or not isinstance(user_turn_id, str)
+                or re.fullmatch(r"turn-[0-9a-f]{24}", user_turn_id) is None):
+            raise ProductionServingInferenceError("interrupted_chat_identity_invalid")
+        if client_request_id_digest is not None and (
+                not isinstance(client_request_id_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", client_request_id_digest) is None):
+            raise ProductionServingInferenceError("interrupted_chat_request_digest_invalid")
+        handle = self._serving._handle
+        try:
+            names = handle.list_regular_names(
+                "local-model/inference/receipts", max_entries=MAX_INVOCATION_RECEIPTS)
+        except InstallationStateError as exc:
+            if exc.code in {"state_directory_missing", "state_parent_missing"}:
+                names = ()
+            else:
+                raise ProductionServingInferenceError(
+                    "interrupted_chat_receipt_directory_invalid") from exc
+        matches: list[Mapping[str, Any]] = []
+        total_bytes = 0
+        for name in names:
+            if re.fullmatch(r"\.lmrec-[0-9a-f]{24}\.json\.[A-Za-z0-9_-]{1,64}\.tmp", name) is not None:
+                continue
+            if re.fullmatch(r"lmrec-[0-9a-f]{24}\.json", name) is None:
+                raise ProductionServingInferenceError("interrupted_chat_receipt_name_invalid")
+            receipt_id = name[:-5]
+            try:
+                raw = handle.read_regular_bounded(
+                    f"local-model/inference/receipts/{name}",
+                    max_bytes=MAX_INVOCATION_RECEIPT_BYTES)
+                total_bytes += len(raw)
+                if total_bytes > 16 * 1024 * 1024:
+                    raise ProductionServingInferenceError(
+                        "interrupted_chat_receipt_scan_retention_limit")
+                value = json.loads(raw.decode("utf-8"))
+            except (OSError, UnicodeError, ValueError, TypeError) as exc:
+                raise ProductionServingInferenceError(
+                    "interrupted_chat_receipt_unavailable_or_invalid") from exc
+            if (not isinstance(value, Mapping)
+                    or json.dumps(dict(value), sort_keys=True, separators=(",", ":"),
+                        ensure_ascii=False, allow_nan=False).encode("utf-8") + b"\n" != raw
+                    or value.get("receipt_id") != receipt_id):
+                raise ProductionServingInferenceError("interrupted_chat_receipt_canonicality_invalid")
+            valid, findings = validate_receipt(value)
+            if not valid:
+                raise ProductionServingInferenceError(
+                    "interrupted_chat_receipt_invalid:" + findings[0])
+            request = value.get("request")
+            request_linkage = request.get("linkage") if isinstance(request, Mapping) else None
+            caller_context = (request_linkage.get("caller_context")
+                if isinstance(request_linkage, Mapping) else None)
+            if (not isinstance(request, Mapping)
+                    or request.get("caller") != "chat_service"
+                    or request.get("purpose") != "local_user_chat"
+                    or not isinstance(caller_context, Mapping)
+                    or caller_context.get("session_id") != session_id
+                    or caller_context.get("user_turn_id") != user_turn_id):
+                continue
+            if (client_request_id_digest is not None
+                    and caller_context.get("client_request_id_digest")
+                        != client_request_id_digest):
+                continue
+            matches.append(value)
+        if len(matches) > 1:
+            raise ProductionServingInferenceError(
+                "interrupted_chat_multiple_matching_invocation_receipts")
+        if not matches:
+            return {"status": "no_matching_verified_invocation_receipt"}
+        value = matches[0]
+        complete = (value.get("status") == "admitted_completed"
+            and isinstance(value.get("effects"), Mapping)
+            and value["effects"].get("local_model_inference") is True
+            and isinstance(value.get("output_digest"), str))
+        return {
+            "status": ("completed_response_body_not_retained" if complete
+                else "matching_invocation_receipt_incomplete"),
+            "receipt_id": value.get("receipt_id"),
+            "receipt_digest": value.get("receipt_digest"),
+            "request_id": (value.get("request", {}).get("request_id")
+                if isinstance(value.get("request"), Mapping) else None),
+            "invocation_status": value.get("status"),
+            "output_digest": value.get("output_digest") if complete else None,
+        }

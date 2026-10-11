@@ -136,6 +136,12 @@ class ResourceBackedProductionChatInference:
             assistant_text=assistant_text,
             client_request_id_digest=client_request_id_digest)
 
+    def inspect_interrupted_chat_invocation(self, *, session_id: str, user_turn_id: str,
+                                             client_request_id_digest: str | None = None) -> Mapping[str, Any]:
+        return self._delegate.inspect_interrupted_chat_invocation(
+            session_id=session_id, user_turn_id=user_turn_id,
+            client_request_id_digest=client_request_id_digest)
+
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget,
                  caller_linkage: Mapping[str, Any]) -> LocalModelInvocationReceipt:
