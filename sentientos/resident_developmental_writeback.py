@@ -23,6 +23,7 @@ from .governed_local_model_invocation import (
     LocalModelInvocationReceipt,
 )
 from .local_model_authority import digest_payload
+from .canonical_memory import sentientos_memory_dir
 from .private_file_custody import (
     PrivateFileCustodyError, open_private_directory, read_private_file_at, publish_immutable_bytes,
 )
@@ -588,6 +589,17 @@ class DevelopmentalHistoryStore:
         self.root = Path(root)
         self.records_root = self.root / "records"
         self.receipts_root = self.root / "receipts"
+        try:
+            memory_root = Path(sentientos_memory_dir()).expanduser().resolve(strict=False)
+            storage_roots = (
+                self.records_root.expanduser().resolve(strict=False),
+                self.receipts_root.expanduser().resolve(strict=False),
+            )
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            raise DevelopmentalWritebackError("canonical_memory_root_identity_invalid") from exc
+        if any(path == memory_root or path in memory_root.parents or memory_root in path.parents
+               for path in storage_roots):
+            raise DevelopmentalWritebackError("durable_store_root_overlaps_canonical_memory")
 
     def append(self, record: DevelopmentalRecord) -> DevelopmentalRecord:
         self._verify_record(record)

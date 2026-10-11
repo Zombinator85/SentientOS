@@ -149,3 +149,11 @@ def test_experiment_artifact_publication_rejects_symlinked_owner_root(tmp_path: 
                        match="experiment_artifact_custody_invalid|experiment_artifact_publication_failed"):
         experiment_store._write_immutable(path, {"bounded": "protocol"})
     assert list(target.iterdir()) == []
+
+
+def test_experiment_store_rejects_canonical_memory_subtree() -> None:
+    from sentientos.canonical_memory import sentientos_memory_dir
+
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+                       match="experiment_root_overlaps_canonical_memory"):
+        DevelopmentalExperimentStore(sentientos_memory_dir())

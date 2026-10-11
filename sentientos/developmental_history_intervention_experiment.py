@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .local_model_authority import digest_payload
+from .canonical_memory import sentientos_memory_dir
 from .resident_developmental_writeback import (
     CognitionObservation, DevelopmentalHistoryProjection, measure_changed_cognition,
     DevelopmentalWritebackError, _open_store_directory, _read_store_file, _publish_store_json,
@@ -103,6 +104,19 @@ class DevelopmentalExperimentStore:
     def __init__(self, root: Path) -> None:
         self.root = Path(root) / "developmental_experiments"
         self.protocols = self.root / "protocols"; self.runs = self.root / "runs"
+        try:
+            memory_root = Path(sentientos_memory_dir()).expanduser().resolve(strict=False)
+            storage_roots = (
+                self.protocols.expanduser().resolve(strict=False),
+                self.runs.expanduser().resolve(strict=False),
+            )
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            raise DevelopmentalHistoryInterventionError(
+                "canonical_memory_root_identity_invalid") from exc
+        if any(path == memory_root or path in memory_root.parents or memory_root in path.parents
+               for path in storage_roots):
+            raise DevelopmentalHistoryInterventionError(
+                "experiment_root_overlaps_canonical_memory")
 
     @staticmethod
     def _read_json(path: Path) -> dict[str, Any]:

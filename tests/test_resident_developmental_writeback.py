@@ -234,3 +234,20 @@ def test_history_publication_rejects_symlinked_directory_components(tmp_path: Pa
         _publish_store_json(alias / "records" / "devrec-test.json", {"safe": True},
                             collision_error="record_identity_collision")
     assert list(outside.iterdir()) == []
+
+
+def test_developmental_store_rejects_canonical_memory_custody(tmp_path: Path) -> None:
+    from sentientos.canonical_memory import sentientos_memory_dir
+
+    with pytest.raises(DevelopmentalWritebackError,
+                       match="durable_store_root_overlaps_canonical_memory"):
+        DevelopmentalHistoryStore(sentientos_memory_dir())
+
+
+def test_developmental_store_rejects_storage_inside_canonical_memory(tmp_path: Path) -> None:
+    from sentientos.canonical_memory import sentientos_memory_dir
+
+    memory_root = sentientos_memory_dir()
+    with pytest.raises(DevelopmentalWritebackError,
+                       match="durable_store_root_overlaps_canonical_memory"):
+        DevelopmentalHistoryStore(memory_root / "retained-user-content")
