@@ -10,7 +10,7 @@ import json
 import os
 import stat
 from dataclasses import asdict, dataclass, replace
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
@@ -240,6 +240,29 @@ class ResidentDevelopmentalCognitionOwner:
         self.measurements_root = config.state_root / "changed_cognition_measurements"
         self.experiments = DevelopmentalExperimentStore(config.state_root)
 
+    @staticmethod
+    def _recovered_record_order(record: Any, *, completed_order: Mapping[str, int],
+                                recovery_intent_order: Mapping[str, int]) -> tuple[int, int, str]:
+        """Order recovery by durable tick intent, retaining time as validation only."""
+        try:
+            created = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
+            if created.tzinfo is None:
+                raise ValueError("naive")
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ResidentDevelopmentalCognitionError("recovered_history_time_invalid") from exc
+        suffix = ":resident-developmental-writeback"
+        correlation = record.correlation_id
+        if not isinstance(correlation, str) or not correlation.endswith(suffix):
+            raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
+        recovered_tick = correlation[:-len(suffix)]
+        if recovered_tick in completed_order:
+            return (0, completed_order[recovered_tick], record.record_id)
+        if recovered_tick not in recovery_intent_order:
+            raise ResidentDevelopmentalCognitionError("recovered_tick_intent_missing")
+        # Wall-clock creation timestamps and content-addressed filenames cannot
+        # establish transaction order after interrupted checkpoint publication.
+        return (1, recovery_intent_order[recovered_tick], record.record_id)
+
     def _state(self) -> dict[str, Any]:
         state_migrated = False
         state_bytes: bytes | None = None
@@ -333,16 +356,6 @@ class ResidentDevelopmentalCognitionOwner:
             recovered = self.writeback.recover_completed_records()
         except Exception as exc:
             raise ResidentDevelopmentalCognitionError("developmental_history_recovery_failed") from exc
-        def recovery_order(item: tuple[Any, Any]) -> tuple[float, str]:
-            record = item[0]
-            try:
-                created = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
-                if created.tzinfo is None:
-                    raise ValueError("naive")
-            except (AttributeError, TypeError, ValueError) as exc:
-                raise ResidentDevelopmentalCognitionError("recovered_history_time_invalid") from exc
-            return created.astimezone(timezone.utc).timestamp(), record.record_id
-        recovered = tuple(sorted(recovered, key=recovery_order))
         processed = set(state["processed_selection_ids"])
         ticks: dict[str, dict[str, Any]] = {}
         for row in state["completed_ticks"]:
@@ -351,17 +364,24 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("composition_tick_identity_ambiguous")
             ticks[saved_tick] = row
         incomplete: dict[str, dict[str, Any]] = {}
-        for row in state["incomplete_ticks"]:
+        recovery_intent_order: dict[str, int] = {}
+        for index, row in enumerate(state["incomplete_ticks"]):
             saved_tick = row.get("tick_id")
             if not isinstance(saved_tick, str) or not saved_tick or saved_tick in incomplete or saved_tick in ticks:
                 raise ResidentDevelopmentalCognitionError("composition_tick_identity_ambiguous")
             if row.get("status") == "in_progress":
+                recovery_intent_order[saved_tick] = index
                 # The durable marker is written before any cognition call. If
                 # it is still present on the next owner entry, completion was
                 # interrupted; preserve that fact and never retry this tick.
                 row["status"] = "interrupted_recovered"
                 changed = True
             incomplete[saved_tick] = row
+        completed_order = {tick: index for index, tick in enumerate(ticks)}
+
+        recovered = tuple(sorted(recovered, key=lambda item:
+            self._recovered_record_order(item[0], completed_order=completed_order,
+                recovery_intent_order=recovery_intent_order)))
         for record, receipt in recovered:
             candidate = record.candidate
             fact_ids = candidate.get("selected_fact_ids", ())

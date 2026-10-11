@@ -2469,3 +2469,11 @@ Next inspect succession source records for any projection that still presents a 
 - Recovery now performs a full bounded, read-only inventory preflight: every stored receipt must reference a durable record and exactly equal the deterministic receipt derived from that record's candidate, admission, principal, and operation lineage. This happens before any missing receipt is reconstructed, preventing partial repair before a later orphan/conflict is discovered.
 - Added an authored, unexecuted orphan-receipt recovery case. Python compilation only; no tests, receipt repair, or runtime recovery ran.
 - Next inspect durable cognition observations and self-model reconciliation for recovery-order ambiguity and identity linkage across their separate stores.
+
+
+## 2026-10-11 checkpoint — order interrupted developmental commits by durable tick intent
+
+- Cognition recovery sorted recovered history records by wall-clock `created_at`. That timestamp is retained as historical metadata but does not establish transaction order when clocks move backward or the final composition checkpoint was interrupted.
+- Recovery now validates each creation timestamp but orders already-completed records by their persisted checkpoint order and interrupted records by the pre-inference `in_progress` intent order. A recovered record without either a completed checkpoint or matching durable intent fails closed; timestamp and content-addressed filename are no longer sequencing evidence.
+- Added an authored, unexecuted regression for reversed timestamps with ordered durable intents. Both changed Python files compile only; no tests or runtime cognition ran.
+- Next inspect self-model recovery projections and the daemon handoff for similar use of snapshot time, stale generation identity, or implicit same-tick inclusion.

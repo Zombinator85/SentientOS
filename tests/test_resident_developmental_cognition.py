@@ -378,3 +378,23 @@ def test_epistemic_runtime_configuration_is_explicit_exact_and_independently_dis
     path.write_text(json.dumps({**payload,"ambient_discovery":True}))
     with pytest.raises(ValueError,match="configuration_invalid"):
         _load_epistemic_state_owner(str(path))
+
+
+
+def test_recovered_history_order_uses_intent_not_wall_clock() -> None:
+    from types import SimpleNamespace
+
+    first = SimpleNamespace(
+        created_at="2026-02-02T00:00:00+00:00",
+        correlation_id="tick-first:resident-developmental-writeback",
+        record_id="record-first")
+    second = SimpleNamespace(
+        created_at="2026-01-01T00:00:00+00:00",
+        correlation_id="tick-second:resident-developmental-writeback",
+        record_id="record-second")
+    order = {"tick-first": 0, "tick-second": 1}
+    first_key = ResidentDevelopmentalCognitionOwner._recovered_record_order(
+        first, completed_order={}, recovery_intent_order=order)
+    second_key = ResidentDevelopmentalCognitionOwner._recovered_record_order(
+        second, completed_order={}, recovery_intent_order=order)
+    assert first_key < second_key
