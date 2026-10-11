@@ -1787,18 +1787,26 @@ def summarize_memory() -> None:
 def _apply_forgetting_curve_unlocked(
     *, requestor: str = "curator", reason: str = "forgetting_curve"
 ) -> int:
-    """Apply an Ebbinghaus-inspired decay to prune low-importance fragments.
-
-    Returns the number of fragments removed.
-    """
-
+    """Apply decay with recoverable, non-replayed deletion custody."""
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     removed = 0
     kept_records: list[dict] = []
+    pending_purge_ids = {
+        str(fragment.get("id"))
+        for entry in list_tomb()
+        if entry.get("operation_state") == "incomplete"
+        and isinstance((fragment := entry.get("fragment")), dict)
+        and fragment.get("id")
+    }
 
     for record in _load_index_records():
         fragment_id = record.get("id")
         if not fragment_id:
+            continue
+        if str(fragment_id) in pending_purge_ids:
+            # An interrupted deletion remains visible as incomplete custody.
+            # Do not issue a second deletion under a new operation identity.
+            kept_records.append(record)
             continue
         data = _load_fragment(fragment_id)
         if not data:
@@ -1814,15 +1822,19 @@ def _apply_forgetting_curve_unlocked(
         retention = _decay_factor(last_access, importance, now)
 
         if retention < IMPORTANCE_FLOOR:
-            _append_tomb(
-                {
-                    "fragment": data,
-                    "requestor": requestor,
-                    "time": now.isoformat(),
-                    "reason": reason,
-                }
-            )
-            if _unlink_legacy_raw_fragment(fragment_id):
+            operation_id = "purge-" + secrets.token_hex(16)
+            _append_tomb({
+                "event_type": "purge_intent", "operation_id": operation_id,
+                "fragment": data, "requestor": requestor,
+                "time": now.isoformat(), "reason": reason,
+            })
+            deleted = _unlink_legacy_raw_fragment(fragment_id)
+            _append_tomb({
+                "event_type": "purge_result", "operation_id": operation_id,
+                "operation_state": "deleted" if deleted else "not_deleted",
+                "time": datetime.datetime.utcnow().isoformat(),
+            })
+            if deleted:
                 removed += 1
         else:
             data["importance"] = min(1.0, retention + 0.05 * importance)
@@ -1832,11 +1844,9 @@ def _apply_forgetting_curve_unlocked(
             record["access_count"] = data.get("access_count", 0)
             kept_records.append(record)
 
-    if kept_records:
-        _save_index_records(kept_records)
-    elif VECTOR_INDEX_PATH.exists():
-        _authorize_legacy_mutation()
-        VECTOR_INDEX_PATH.unlink()
+    # Publish through the held-root owner even when empty; avoid ambient exists
+    # checks and Path.unlink against the replaceable index path.
+    _save_index_records(kept_records)
 
     if removed:
         print(f"[FORGET] Archived {removed} stale fragments")
