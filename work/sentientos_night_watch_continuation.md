@@ -1446,3 +1446,10 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No memory files/directories were accessed or changed; no behavior or production verification was performed. The root owner/read contract remains POSIX-only; legacy memory-manager access on Windows fails closed.
 - **Next implementation dependency:** give legacy sidecar reads explicit bounded, no-follow file custody instead of verifying the root and then using path-based reads. Preserve existing per-record compatibility and surface malformed/oversized custody as degraded or unavailable through existing callers.
 
+
+
+## Correction — repair duplicate raw-root fsync branch
+
+- The remote Python compilation check at `19a30ced4074592d7212896a3c1a24ce50825346` found a duplicated `else` branch in the new canonical raw-directory creation path.
+- Removed the duplicate branch and recompiled the corrected remote `canonical_memory.py` successfully before publication. No runtime or behavior checks were run.
+

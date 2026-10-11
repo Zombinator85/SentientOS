@@ -284,8 +284,6 @@ class CanonicalMemoryStore:
                     pass
                 else:
                     os.fsync(root_fd)
-                else:
-                    os.fsync(root_fd)
             descriptor = os.open("raw", os.O_RDONLY | directory | nofollow,
                 dir_fd=root_fd)
             try:
