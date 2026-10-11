@@ -1230,13 +1230,14 @@ def purge_memory(
         cutoff = now - datetime.timedelta(days=max_age_days)
         for ts, fp, data in entries:
             if ts < cutoff:
-                _append_tomb({
-                    "fragment": data,
-                    "requestor": requestor,
-                    "time": datetime.datetime.utcnow().isoformat(),
-                    "reason": reason,
-                })
                 if _unlink_legacy_raw_fragment(fp.stem):
+                    _append_tomb({
+                        "operation_state": "deleted",
+                        "fragment": data,
+                        "requestor": requestor,
+                        "time": datetime.datetime.utcnow().isoformat(),
+                        "reason": reason,
+                    })
                     removed_names.add(fp.name)
                     _remove_from_index(data.get("id", ""))
                     removed += 1
@@ -1244,13 +1245,14 @@ def purge_memory(
         remaining = [e for e in entries if e[1].name not in removed_names]
         excess = len(remaining) - max_files
         for ts, fp, data in remaining[:excess]:
-            _append_tomb({
-                "fragment": data,
-                "requestor": requestor,
-                "time": datetime.datetime.utcnow().isoformat(),
-                "reason": reason,
-            })
             if _unlink_legacy_raw_fragment(fp.stem):
+                _append_tomb({
+                    "operation_state": "deleted",
+                    "fragment": data,
+                    "requestor": requestor,
+                    "time": datetime.datetime.utcnow().isoformat(),
+                    "reason": reason,
+                })
                 removed_names.add(fp.name)
                 _remove_from_index(data.get("id", ""))
                 removed += 1

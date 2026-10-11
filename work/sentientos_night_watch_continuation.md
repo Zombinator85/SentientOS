@@ -1674,3 +1674,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Tomb recovery now validates any present 64-character lowercase digest against the exact canonical unhashed record. Historical records without a digest remain readable for compatibility; malformed or mismatched digest evidence raises the explicit incomplete-history status consumed by both tomb CLIs.
 - Python syntax compilation passed for memory_manager.py. No tomb was read or altered; behavior remains unverified.
 - **Next implementation dependency:** continue through remaining user-memory observation/deletion receipts and confirm retained chat artifacts stay excluded from legacy tomb/forget operations. Federation remains dependent on a cryptographically authenticated peer response and protected transport before imported content can be called independently verified.
+
+
+
+## New checkpoint — record only completed legacy purges
+
+- Fresh remote source before this increment: `44b667c052b0dd8b70e8a161d1767ac176d16d19` (tree `44354af3462d77af8eafbe50c36b2ed7efaf3ebe`).
+- Both age-based and count-based purge appended a tomb record before attempting the unlink. If custody rejected deletion, the tomb could claim removal while the raw fragment remained.
+- Purge now appends a digest-bound tomb event only after the exact fragment unlink succeeds, and marks it operation_state=deleted. Failed or missing targets do not create a false deletion event. A crash after unlink but before tomb publication can still leave an unrecorded deletion; that is an explicit residual until a journaled two-phase purge owner exists.
+- Python syntax compilation passed for memory_manager.py. No memory or deletion operation was performed.
+- **Next implementation dependency:** reconcile the unlink-before-tomb crash window without weakening owner authorization or introducing an unbounded second journal; if no existing durable transaction owner fits, continue through the observation summary's fragment/log handoff.
