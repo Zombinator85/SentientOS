@@ -2105,3 +2105,10 @@ Next continue the consumer review for selected claim retention, identity conflic
 The generic embodiment owner now rejects NaN/infinite numeric values before JSON projection. It also computes a canonical record identity for each caller source ID: exact duplicate records are emitted once, while one source ID paired with a changed record is rejected even if the caller repeats the same claimed source digest. This complements injection-time deep snapshots and prevents contradictory facts from sharing one source identity. Focused unexecuted cases cover nonfinite data, duplicate suppression, and same-ID/same-digest payload substitution. Python compilation and diff whitespace checks only; no tests or runtime were executed.
 
 Next review whether these identity and uncertainty guarantees survive selected World-State truncation and resident cognitive projection. Continue to leave externally observed consequences unqualified absent an authenticated observer issuer.
+
+
+## 2026-10-11 checkpoint — expose generic observation omission and optional-owner failure
+
+The daemon now reports the generic explicitly injected embodiment owner on its own World-State projection surface. It distinguishes unverified caller assertions from receipt-backed projections, counts selected and source-limit-omitted identity/digest pairs, marks cross-owner source conflicts degraded, and catches an optional owner's rejection without aborting construction of the remaining World-State board. It never reports the owner as verified. Authored unexecuted composition cases cover the opt-in posture, 128-record truncation, and owner failure. Changed daemon and test files compile; diff whitespace checks pass. No daemon execution or behavioral test ran.
+
+Next inspect whether the now explicit omission posture is available to later cognition when a selected record is dropped; the current board carries a manifest-bound source-count conflict, while the separate projection surface is maintenance feedback. Preserve source-kind configuration and do not turn a degradation status into epistemic evidence.

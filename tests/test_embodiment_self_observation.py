@@ -65,6 +65,10 @@ def test_sentientosd_opt_in_and_absence_are_explicit(tmp_path):
                                           embodiment_evidence_owner=owner)
     composed.build_world_state_board(tick_id=NOW)
     assert {fact.source.kind for fact in composed.current_world_state_snapshot.facts} == {"embodiment"}
+    status = composed._feedback["surfaces"]["embodiment_observation_projection"]
+    assert status["status"] == "projected_context"
+    assert status["input_posture"] == "unverified_caller_assertions"
+    assert status["effect_authority"] is False
 
 
 def test_baseline_perturbation_restoration_and_prior_tick_firewall(tmp_path):
@@ -175,3 +179,38 @@ def test_embodiment_owner_deduplicates_exact_source_and_rejects_substitution():
         **first.__dict__, "payload": {"present": False}})
     with pytest.raises(EmbodimentEvidenceError, match="source_identity_digest_changed"):
         EmbodimentEvidenceOwner((first, substituted)).world_state_records()
+
+
+def test_generic_embodiment_source_cap_omission_is_reported(tmp_path):
+    owner = EmbodimentEvidenceOwner([
+        observation("sensor_observation", "camera", {"present": True})])
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        embodiment_evidence_owner=owner)
+    surfaces._resident_succession_world_state_records = lambda _tick: [{
+        "source_kind": "resource_governor", "source_id": f"resource:{index}",
+        "subject_kind": "resource", "subject_id": str(index),
+        "stage": "observation", "disposition": "recorded", "payload": {},
+    } for index in range(128)]
+    surfaces.build_world_state_board(tick_id=NOW)
+    status = surfaces._feedback["surfaces"]["embodiment_observation_projection"]
+    assert status["status"] == "degraded"
+    assert status["selected_record_count"] == 1
+    assert status["omitted_record_count"] == 1
+
+
+def test_generic_embodiment_owner_failure_degrades_optional_surface_only(tmp_path, monkeypatch):
+    owner = EmbodimentEvidenceOwner([
+        observation("sensor_observation", "camera", {"present": True})])
+    def rejected():
+        raise ValueError("source rejected")
+    monkeypatch.setattr(owner, "world_state_records", rejected)
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        embodiment_evidence_owner=owner)
+    board = surfaces.build_world_state_board(tick_id=NOW)
+    status = surfaces._feedback["surfaces"]["embodiment_observation_projection"]
+    assert "snapshot_id" in board
+    assert status["status"] == "degraded"
+    assert status["reason_code"] == "source_owner_rejected_input"
+    assert status["effect_authority"] is False

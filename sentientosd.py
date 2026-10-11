@@ -839,6 +839,9 @@ class RuntimeMaintenanceSurfaces:
         records: list[dict[str, Any]] = []
         selected_resource_lineage_source_ids: set[str] = set()
         selected_embodied_source_ids: set[str] = set()
+        selected_embodiment_observation_source_ids: set[str] = set()
+        selected_embodiment_observation_identities: set[tuple[str, str]] = set()
+        embodiment_observation_input_error: str | None = None
         selected_proposal_review_source_ids: set[str] = set()
         selected_fulfillment_source_ids: set[str] = set()
         selected_post_adoption_source_ids: set[str] = set()
@@ -850,7 +853,17 @@ class RuntimeMaintenanceSurfaces:
                 before_generation=next_capture_generation))
         if self._embodiment_evidence_owner is not None:
             # Explicit injection only: no ambient discovery and no avatar daemon startup.
-            records.extend(self._embodiment_evidence_owner.world_state_records())
+            # This source remains a caller-assertion context, never a verified
+            # fulfillment or independent physical observation.
+            try:
+                embodiment_records = self._embodiment_evidence_owner.world_state_records()
+                records.extend(embodiment_records)
+                selected_embodiment_observation_source_ids.update(
+                    str(item["source_id"]) for item in embodiment_records)
+                selected_embodiment_observation_identities.update(
+                    (str(item["source_id"]), record_digest(item)) for item in embodiment_records)
+            except Exception as exc:
+                embodiment_observation_input_error = type(exc).__name__
         if self._embodied_proposal_review_log_path is not None:
             try:
                 review_records = load_selected_review_world_state_records(
@@ -1142,6 +1155,40 @@ class RuntimeMaintenanceSurfaces:
         records.sort(key=board_source_priority)
         snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
         retained_source_ids = {source.source_id for source in snapshot.sources}
+        retained_source_identities = {(source.source_id, source.digest) for source in snapshot.sources}
+        omitted_embodiment_observation_identities = (
+            selected_embodiment_observation_identities - retained_source_identities)
+        conflicting_embodiment_observation_sources = {
+            conflict.subject_id for conflict in snapshot.conflicts
+            if conflict.conflict_type in {"source_digest_mismatch", "source_observation_time_mismatch"}
+        } & selected_embodiment_observation_source_ids
+        if embodiment_observation_input_error:
+            embodiment_observation_status = {
+                "status": "degraded", "reason_code": "source_owner_rejected_input",
+                "failure_class": embodiment_observation_input_error,
+            }
+        elif omitted_embodiment_observation_identities:
+            embodiment_observation_status = {
+                "status": "degraded", "reason_code": "world_state_source_limit_omitted_selected_input",
+            }
+        elif conflicting_embodiment_observation_sources:
+            embodiment_observation_status = {
+                "status": "degraded", "reason_code": "world_state_source_identity_conflict",
+            }
+        else:
+            embodiment_observation_status = {
+                "status": "projected_context" if selected_embodiment_observation_source_ids else
+                    "empty" if self._embodiment_evidence_owner is not None else "not_configured",
+            }
+        embodiment_observation_status.update({
+            "input_posture": "unverified_caller_assertions",
+            "selected_record_count": len(selected_embodiment_observation_identities),
+            "omitted_record_count": len(omitted_embodiment_observation_identities),
+            "conflicting_source_count": len(conflicting_embodiment_observation_sources),
+            "read_only": True, "effect_authority": False,
+        })
+        self._feedback.setdefault("surfaces", {})["embodiment_observation_projection"] = (
+            embodiment_observation_status)
         omitted_resource_lineage_sources = (selected_resource_lineage_source_ids
             - retained_source_ids)
         conflicting_resource_lineage_sources = {
