@@ -1355,3 +1355,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `conversation_session.py`. No timestamps or session listing were executed.
 
 **Next implementation dependency:** continue source review of World-State and resident epistemic composition after confirming the explicit resource-observation owner is the only production route. No direct chat-memory linkage currently enters those owners; retain that separation absent a configured source/admission contract.
+
+
+## New checkpoint — unify canonical and legacy memory roots
+
+- Fresh remote source before this increment: `d0b04f4f48798f08994a0ad388c4f0103d5cad3b` (tree `0d95a7b27d453b862d0cfa4c7e80e47896ecc5c3`).
+- The chat canonical-memory store defaulted to `sentientos_data_dir()/memory`, while root-level `memory_manager.py` separately honored `MEMORY_DIR` and only `SENTIENTOS_DATA_DIR`. When `MEMORY_DIR` or the supported `SENTIENTOS_DATA_ROOT` was used, the two owners could silently read and write different raw-memory stores, defeating the intended shared-directory compatibility boundary.
+- Added one canonical memory-directory resolver honoring `MEMORY_DIR` first, then the same data-root fallback as the legacy manager. Production and development chat composition now use it; the legacy manager recognizes `SENTIENTOS_DATA_ROOT` too. The reserved canonical-artifact namespace protections continue to apply wherever the roots coincide.
+- Python compilation passed for `canonical_memory.py`, `memory_manager.py`, and `chat_service.py`. No environment configuration or memory files were accessed at runtime.
+
+**Next implementation dependency:** inspect the configured data-root behavior for conversation transcripts and resource custody separately; do not merge installation-scoped evidence or resident developmental history into the user-memory directory.

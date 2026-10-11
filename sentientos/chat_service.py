@@ -37,7 +37,7 @@ from .conversation_session import (
     compact_runtime_generation_attribution,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
-    ExplicitRetentionAdmissionGate, sentientos_data_dir)
+    ExplicitRetentionAdmissionGate, sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
 
 LOGGER = logging.getLogger(__name__)
@@ -643,7 +643,7 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         handle.ensure_directory(conversation_root)
         service = PersistentConversationService(inference=inference,
             session_store=ConversationSessionStore(conversation_root.path),
-            memory_store=CanonicalMemoryStore(data_root / "memory"))
+            memory_store=CanonicalMemoryStore(sentientos_memory_dir(data_root)))
     except Exception:
         if serving is not None:
             serving.close()
@@ -665,7 +665,7 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
     _CONVERSATION_SERVICE = PersistentConversationService(
         inference=DevelopmentSimulationInference(invoker),
         session_store=ConversationSessionStore(root / "conversations"),
-        memory_store=CanonicalMemoryStore(root / "memory"))
+        memory_store=CanonicalMemoryStore(sentientos_memory_dir(root)))
     _PRODUCTION_COMPOSITION = None
 
 

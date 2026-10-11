@@ -17,6 +17,12 @@ def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 def sentientos_data_dir() -> Path:
     return Path(os.getenv("SENTIENTOS_DATA_DIR") or os.getenv("SENTIENTOS_DATA_ROOT") or (Path.cwd()/"sentientos_data")).expanduser().resolve()
+def sentientos_memory_dir(data_root: Path | None = None) -> Path:
+    """Resolve the shared memory_manager/canonical-chat memory directory."""
+    override = os.getenv("MEMORY_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    return ((data_root or sentientos_data_dir()) / "memory").expanduser().resolve()
 @dataclass(frozen=True)
 class RetentionAdmission:
     decision: str; candidate_digest: str; request_id: str; receipt_digest: str; reason: str|None=None
