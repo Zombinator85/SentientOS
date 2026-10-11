@@ -934,3 +934,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the session and chat source snapshots. No concurrency fixture or runtime execution was performed; construction remains unverified.
 
 **Next implementation dependency:** make the bundled browser client use the existing request-idempotency contract so transport retries carry the same request identity across a lost response and cannot silently invoke inference again.
+
+## New checkpoint — make browser chat retries carry stable request identity
+
+- The bundled browser client previously omitted the API's existing request ID, so a transport retry could append another user turn and call inference again. Its first request also had no session ID, while the server correctly requires an existing session for idempotent identity.
+- Added an explicit empty-session creation endpoint that records only the current conversation model identity. The browser persists that session ID before sending the first request, then supplies a UUID request ID for all chat turns.
+- Before sending, the browser stores only the request ID under a session/message-digest key; it does not retain the message text in this idempotency record. A retry of the same text in the same session reuses the request ID. The key is removed only after a successful response; interrupted or transport-uncertain calls therefore cannot silently start a second invocation when retried.
+- Session creation can leave an empty orphan if its response is lost, but performs no inference or external effect. This closes the browser's first-request identity gap without changing optional API compatibility.
+- `python -m py_compile` passed for the chat and session source snapshots. Browser execution and retry behavior remain untested.
+
+**Next implementation dependency:** improve recovery's evidence classification for a durable user request with no assistant turn. Use the exact session/user-turn binding in the existing verified invocation receipt owner to distinguish “no completed invocation receipt found” from “completed invocation exists but response text is not retained,” while preserving no-replay.

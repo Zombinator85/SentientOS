@@ -124,6 +124,13 @@ class PersistentConversationService:
         self.retention_writer = AdmittedRetentionWriter(memory_store)
         self.context_budget_chars = context_budget_chars; self.memory_budget_chars = memory_budget_chars
 
+    def create_session(self) -> str:
+        """Create an empty session so clients can bind their first request idempotently."""
+        identity = self._inference.current_conversation_model_identity()
+        if not isinstance(identity, Mapping):
+            raise RuntimeError("conversation_model_identity_unavailable")
+        return str(self.sessions.create(model_identity=identity)["session_id"])
+
     def _recover_idempotent_response(self, session_id: str,
                                      user_turn: Mapping[str, Any]) -> ChatResponse:
         session = self.sessions.load(session_id)
@@ -659,6 +666,15 @@ async def readiness_endpoint() -> dict[str, str]:
     return {"status": "ready"}
 
 
+@APP.post("/sessions")
+async def create_session() -> dict[str, str]:
+    try:
+        return {"session_id": _get_conversation_service().create_session()}
+    except RuntimeError as exc:
+        LOGGER.warning("Unable to create chat session: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Local model session unavailable") from exc
+
+
 @APP.get("/sessions")
 async def list_sessions() -> list[dict[str, Any]]:
     return cast(list[dict[str, Any]], _get_conversation_service().sessions.list_recent())
@@ -744,18 +760,40 @@ async def root_page() -> HTMLResponse:
                         alert('Please enter a message before sending.');
                         return;
                     }
+                    let sessionId = localStorage.getItem('sentientos_session_id');
+                    if (!sessionId) {
+                        const created = await fetch('/sessions', { method: 'POST' });
+                        if (!created.ok) {
+                            alert('Unable to create a conversation session.');
+                            return;
+                        }
+                        sessionId = (await created.json()).session_id;
+                        localStorage.setItem('sentientos_session_id', sessionId);
+                    }
+                    const messageDigestBytes = await crypto.subtle.digest(
+                        'SHA-256', new TextEncoder().encode(message));
+                    const messageDigest = Array.from(new Uint8Array(messageDigestBytes))
+                        .map(value => value.toString(16).padStart(2, '0')).join('');
+                    const pendingKey = 'sentientos_pending_chat:' + sessionId + ':' + messageDigest;
+                    let pending = null;
+                    try { pending = JSON.parse(localStorage.getItem(pendingKey) || 'null'); }
+                    catch (_) { pending = null; }
+                    const requestId = pending && typeof pending.request_id === 'string'
+                        ? pending.request_id : crypto.randomUUID();
+                    localStorage.setItem(pendingKey, JSON.stringify({ request_id: requestId }));
                     const res = await fetch('/chat', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message, session_id: localStorage.getItem('sentientos_session_id') }),
+                        body: JSON.stringify({ message, session_id: sessionId, request_id: requestId }),
                     });
                     if (!res.ok) {
                         const detail = await res.json().catch(() => ({ detail: 'Unknown error' }));
-                        alert(detail.detail || 'Unable to reach SentientOS chat.');
+                        alert(detail.detail || 'Unable to reach SentientOS chat. The same request identity will be reused if retried.');
                         return;
                     }
                     const data = await res.json();
                     localStorage.setItem('sentientos_session_id', data.session_id);
+                    localStorage.removeItem(pendingKey);
                     responseTextEl.textContent = data.response;
                     responseEl.hidden = false;
                 }
