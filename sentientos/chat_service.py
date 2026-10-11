@@ -160,6 +160,14 @@ class PersistentConversationService:
             loaded_identity = linkage.get("loaded_model_identity")
             stored_runtime_lineage = linkage.get("software_generation_attribution")
             observed_runtime_lineage = verified.get("software_generation_attribution")
+            verified_caller_linkage = verified.get("caller_linkage")
+            observed_predecessor_reference = (
+                verified_caller_linkage.get("verified_predecessor_invocation")
+                if isinstance(verified_caller_linkage, Mapping) else None)
+            predecessor_reference_matches = (
+                "predecessor_invocation_reference" not in linkage
+                or linkage.get("predecessor_invocation_reference")
+                    == observed_predecessor_reference)
             runtime_lineage_matches = (
                 stored_runtime_lineage is None
                 or (isinstance(stored_runtime_lineage, Mapping)
@@ -171,6 +179,7 @@ class PersistentConversationService:
             if (not isinstance(active_identity, Mapping) or not isinstance(loaded_identity, Mapping)
                     or dict(verified.get("serving_identity", {})) != dict(active_identity)
                     or dict(verified.get("loaded_model_identity", {})) != dict(loaded_identity)
+                    or not predecessor_reference_matches
                     or not runtime_lineage_matches
                     or (linkage.get("assistant_output_lineage") is not None
                         and dict(verified.get("assistant_output_lineage", {}))
@@ -230,6 +239,7 @@ class PersistentConversationService:
         predecessor_identity_digest = str(session.get("model_identity_digest", ""))
         predecessor_identity: Mapping[str, Any] | None = None
         predecessor_runtime_lineage: Mapping[str, Any] | None = None
+        predecessor_invocation_reference: Mapping[str, str] | None = None
         predecessor_invocation_verified = False
         if prior_assistant is not None and isinstance(prior_assistant.get("linkage"), Mapping):
             prior_linkage = prior_assistant["linkage"]
@@ -281,7 +291,25 @@ class PersistentConversationService:
                                 or compact_runtime_generation_attribution(observed_runtime_lineage)
                                     == dict(stored_runtime_lineage)))
                     )
+                    observed_caller_linkage = verified_prior.get("caller_linkage")
+                    stored_predecessor_reference = prior_linkage.get(
+                        "predecessor_invocation_reference")
+                    observed_predecessor_reference = (
+                        observed_caller_linkage.get("verified_predecessor_invocation")
+                        if isinstance(observed_caller_linkage, Mapping) else None)
+                    predecessor_reference_matches = (
+                        "predecessor_invocation_reference" not in prior_linkage
+                        or stored_predecessor_reference == observed_predecessor_reference)
+                    verified_request_id = verified_prior.get("request_id")
+                    stored_request_id = prior_linkage.get("request_id")
+                    prior_receipt_identity_matches = (
+                        verified_prior.get("receipt_id") == prior_linkage.get("invocation_receipt_id")
+                        and verified_prior.get("receipt_digest")
+                            == prior_linkage.get("invocation_receipt_digest")
+                        and isinstance(verified_request_id, str)
+                        and (stored_request_id is None or verified_request_id == stored_request_id))
                     if (output_lineage_matches and runtime_lineage_matches
+                            and predecessor_reference_matches and prior_receipt_identity_matches
                             and isinstance(observed_prior_identity, Mapping)
                             and isinstance(observed_loaded_identity, Mapping)
                             and isinstance(stored_loaded_identity, Mapping)
@@ -292,6 +320,12 @@ class PersistentConversationService:
                         predecessor_identity = observed_prior_identity
                         if isinstance(observed_runtime_lineage, Mapping):
                             predecessor_runtime_lineage = dict(observed_runtime_lineage)
+                        predecessor_invocation_reference = {
+                            "receipt_id": str(verified_prior["receipt_id"]),
+                            "receipt_digest": str(verified_prior["receipt_digest"]),
+                            "request_id": verified_request_id,
+                            "source_user_turn_id": prior_source_user_turn_id,
+                        }
                         predecessor_invocation_verified = True
                 except Exception:
                     # Prior transcript remains usable as untrusted chat context;
@@ -311,6 +345,9 @@ class PersistentConversationService:
                 predecessor_runtime_lineage.get("handoff_digest", ""))
             linkage["verified_predecessor_runtime_software_generation_digest"] = str(
                 predecessor_runtime_lineage.get("software_generation_digest", ""))
+        if predecessor_invocation_reference is not None:
+            linkage["verified_predecessor_invocation"] = dict(
+                predecessor_invocation_reference)
         client_request_digest = (user_turn.get("linkage", {}).get("client_request_id_digest")
             if isinstance(user_turn.get("linkage"), Mapping) else None)
         if isinstance(client_request_digest, str):
@@ -417,6 +454,9 @@ class PersistentConversationService:
                          software_generation_attribution),
                      "assistant_output_lineage": assistant_output_lineage,
                      "predecessor_model_identity_digest": predecessor_identity_digest,
+                     "predecessor_invocation_reference": (
+                         dict(predecessor_invocation_reference)
+                         if predecessor_invocation_reference is not None else None),
                      "model_identity_continuity_posture": continuity_posture,
                      "context_snapshot_digest": history.snapshot_digest,
                      "memory_snapshot_digest": memory["snapshot_digest"]})

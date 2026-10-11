@@ -379,5 +379,6 @@ class ProductionServingInferenceController:
                 "request_id": request["request_id"], "receipt_id": receipt_id,
                 "receipt_digest": receipt_digest, "status": value["status"],
                 "software_generation_attribution": dict(software_generation),
+                "caller_linkage": dict(caller_context),
                 "serving_receipt_lineage": serving_receipt_lineage,
                 "assistant_output_lineage": assistant_output_lineage}

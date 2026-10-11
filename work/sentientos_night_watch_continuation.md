@@ -894,3 +894,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for `sentientos/chat_service.py`. No behavioral tests or invocation were run.
 
 **Next implementation dependency:** inspect conversation transcript publication/recovery for atomicity between completed invocation receipts and assistant-turn persistence. Preserve the no-replay contract when the invocation completed but transcript publication was interrupted.
+
+
+## New checkpoint — retain exact invocation-to-invocation predecessor identity
+
+- A verified predecessor software handoff now travels with the exact prior invocation receipt ID, receipt digest, request ID, and source user-turn ID in the next invocation's caller linkage. The assistant transcript retains the same bounded reference.
+- The serving receipt verifier now returns its digest-bound caller linkage. Subsequent-turn verification and idempotent response recovery compare the transcript's predecessor reference against that immutable invocation linkage; historical turns without the new field remain compatible.
+- The added references are identifiers/digests only; no prompt text, retained memory, allocation authority, or model-transition authority is added.
+- `python -m py_compile` passed for `sentientos/chat_service.py` and `sentientos/local_model_serving_inference.py`. No tests, inference, or restart behavior was executed.
+
+**Next implementation dependency:** review bounded transcript persistence and invocation receipt recovery around the post-inference/pre-assistant-append interruption window. Preserve the existing no-replay behavior where private output is not durably available, and avoid claiming a response was reconstructed when only its digest remains.
