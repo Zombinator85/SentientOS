@@ -1734,3 +1734,17 @@ Source review confirms this process handoff and recurring observation path alrea
 - Update, remove, context-access accounting, and forgetting now hold a bounded root-relative flock across index read/modify/write, retaining atomic publication and the in-process lock. The mutating context/forgetting paths enter through the existing Administrator/Lumos authorization before opening the lock. Index parsing and writes are capped at 4096 entries. Malformed/oversized index state remains explicitly incomplete; observation records and event timestamps are not rewritten to fit derived index state.
 - Python syntax compilation passed for memory_manager.py. No index rebuild/write or interprocess operation was run.
 - **Next implementation dependency:** follow memory-observation restoration after missing raw fragments and index entries, then inspect user-memory tomb purge recovery for bounded retention and exact predecessor evidence.
+
+
+
+## New checkpoint — serialize and chain deletion evidence
+
+- Fresh remote source before this increment: bf6257942fbea8467774e52d392dd0a53b32c88d (tree da4bc17986ea5fbca20a2ed704c258e7816b4ff6).
+- Concurrent tomb appends could previously interleave, and record hashes did not bind an append predecessor. The tomb writer now uses a bounded root-relative POSIX flock, refuses to extend malformed/digest-invalid history, and includes the exact prior nonempty-line digest in each new event before hashing it. Recovery validates predecessor links where present; historical unchained entries remain readable. This detects interior reorder/substitution after the chain begins, while a deleted tail still has no external anchor.
+- Purge intents/results share the same append lock and retain their operation pairing. No tomb was written or read at runtime.
+- Python syntax compilation passed for memory_manager.py. **Next implementation dependency:** inspect authorization/lock nesting and event identity validation for purge intents, then continue the remaining user-memory recovery and retention compatibility edges.
+
+
+## 2026-10-11 checkpoint — serialized tomb custody
+
+Published source now serializes cross-process tomb journal appends with a bounded descriptor-relative lock, binds new events to the exact preceding raw record digest, validates the optional event digest and predecessor chain during recovery, and refuses to append to malformed or unterminated history. This preserves legacy unchained records as readable history while making new appends detect reorder/substitution relative to their observed predecessor. The chain has no external trusted anchor, so a fully rewritten tail cannot be detected; construction remains untested. Next dependency: inspect canonical raw-memory/index rebuild and forgetting recovery boundaries for a shared-root race that can change user-memory records without changing transcript/developmental-history custody.

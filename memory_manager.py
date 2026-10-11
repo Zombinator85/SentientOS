@@ -642,17 +642,68 @@ def _remove_from_index(fragment_id: str) -> None:
         _save_index_records(records)
 
 
+@contextmanager
+def _memory_tomb_lock():
+    from sentientos.platform_fcntl import fcntl, require_flock
+    require_flock()
+    if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        raise PermissionError("memory_tomb_lock_custody_unsupported")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    descriptor: int | None = None
+    acquired = False
+    try:
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(".memory-tomb.lock", flags, 0o600, dir_fd=root_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("memory_tomb_lock_custody_invalid")
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("memory_tomb_lock_timeout")
+                time.sleep(0.01)
+        yield
+    finally:
+        if descriptor is not None:
+            if acquired:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        os.close(root_fd)
+
+
 def _append_tomb(entry: Dict) -> None:
-    """Append a purge record to the immutable memory tomb."""
-    payload = entry.copy()
-    payload.pop("hash", None)
-    if os.getenv("TOMB_HASH", "1") != "0":
-        digest = hashlib.sha256(
-            json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
-        ).hexdigest()
-        entry["hash"] = digest
-    with _open_legacy_memory_text(TOMB_PATH, "a") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    """Append a digest- and predecessor-bound purge event under single-writer lock."""
+    _authorize_legacy_mutation()
+    with _memory_tomb_lock():
+        current = _read_legacy_memory_file(TOMB_PATH)
+        previous_digest = None
+        if current is not None:
+            # A valid JSON object without its record delimiter is still an
+            # interrupted append; do not concatenate a new event onto it.
+            if current and not current.endswith(b"\n"):
+                raise MemorySidecarIncompleteError("memory_tomb_unterminated", 0)
+            # Refuse to extend a sidecar that cannot be recovered truthfully.
+            list_tomb()
+            prior_lines = [line for line in current.splitlines() if line]
+            if prior_lines:
+                previous_digest = hashlib.sha256(prior_lines[-1]).hexdigest()
+        payload = entry.copy()
+        payload.pop("hash", None)
+        payload["previous_tomb_entry_digest"] = previous_digest
+        if os.getenv("TOMB_HASH", "1") != "0":
+            payload["hash"] = hashlib.sha256(
+                json.dumps({key: value for key, value in payload.items() if key != "hash"},
+                    sort_keys=True, ensure_ascii=False).encode("utf-8")
+            ).hexdigest()
+        with _open_legacy_memory_text(TOMB_PATH, "a") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
 def _collapse_tomb_operations(records: Sequence[Dict]) -> List[Dict]:
@@ -724,8 +775,10 @@ def list_tomb(
         return []
     out: List[Dict] = []
     lines = payload.decode("utf-8").splitlines()
+    raw_lines = payload.splitlines()
     parsed_records: list[Dict] = []
-    for line_number, line in enumerate(lines, 1):
+    previous_line_digest: str | None = None
+    for line_number, (line, raw_line) in enumerate(zip(lines, raw_lines), 1):
         if not line.strip():
             continue
         try:
@@ -745,7 +798,12 @@ def list_tomb(
                 ensure_ascii=False).encode("utf-8")).hexdigest()
             if stored_hash != expected_hash:
                 raise MemorySidecarIncompleteError("memory_tomb_digest_mismatch", line_number)
+        if "previous_tomb_entry_digest" in entry:
+            if entry.get("previous_tomb_entry_digest") != previous_line_digest:
+                raise MemorySidecarIncompleteError("memory_tomb_predecessor_mismatch", line_number)
         parsed_records.append(entry)
+        if raw_line:
+            previous_line_digest = hashlib.sha256(raw_line).hexdigest()
     for entry in _collapse_tomb_operations(parsed_records):
         frag = entry.get("fragment", {})
         if tag and tag not in frag.get("tags", []):
