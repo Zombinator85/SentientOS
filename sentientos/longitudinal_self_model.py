@@ -199,19 +199,6 @@ def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
 
 
-def _tick_instant(value: Any) -> datetime | None:
-    """Decode daemon UTC tick identities; opaque or naive ticks are unordered."""
-    if not isinstance(value, str) or not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (OverflowError, OSError, ValueError):
-        return None
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        return None
-    return parsed.astimezone(timezone.utc)
-
-
 def _bounded(value: Any) -> Any:
     result: Any
     if isinstance(value, bool) or value is None or isinstance(value, (int, float)):
@@ -998,6 +985,8 @@ class LongitudinalSelfModelOwner:
                 raise LongitudinalSelfModelError("reconciliation_identity_mismatch")
             loaded.append(reconciliation)
         for index, item in enumerate(loaded):
+            if not isinstance(item.tick_id, str) or not item.tick_id or len(item.tick_id) > 256:
+                raise LongitudinalSelfModelError("reconciliation_tick_identity_invalid")
             expected_previous = loaded[index - 1].reconciliation_id if index else None
             if item.generation != index + 1 or item.previous_reconciliation_id != expected_previous:
                 raise LongitudinalSelfModelError("reconciliation_chain_invalid")
@@ -1018,20 +1007,21 @@ class LongitudinalSelfModelOwner:
 
     def cognitive_projection(self, *, before_tick: str, max_claims: int,
                              allowed_predicates: Sequence[str]) -> CognitiveSelfModelProjection | None:
-        """Project only a reconciliation completed before ``before_tick``.
+        """Project a prior durable reconciliation before this tick's boundary.
 
-        Tick identity equality is rejected mechanically.  The daemon captures this
-        projection before reconciling its current World-State, so the selected
-        generation cannot be affected by same-tick cognition or writeback.
+        The owner generation chain, not wall-clock formatting, establishes
+        committed order. If this exact tick already has a reconciliation, the
+        first matching generation is the cutoff; otherwise all stored generations
+        predate this projection call. The daemon captures it before reconciliation.
         """
-        current_instant = _tick_instant(before_tick)
-        if current_instant is None or not 1 <= max_claims <= MAX_PROJECTION_CLAIMS:
+        if (not isinstance(before_tick, str) or not before_tick or len(before_tick) > 256
+                or not isinstance(max_claims, int) or isinstance(max_claims, bool)
+                or not 1 <= max_claims <= MAX_PROJECTION_CLAIMS):
             raise LongitudinalSelfModelError("invalid_cognitive_projection_boundary")
         history = self._load()
-        eligible = [item for item in history
-                    if item.tick_id != before_tick
-                    and (prior_instant := _tick_instant(item.tick_id)) is not None
-                    and prior_instant < current_instant]
+        cutoff = next((index for index, item in enumerate(history)
+                       if item.tick_id == before_tick), len(history))
+        eligible = history[:cutoff]
         if not eligible:
             return None
         source = eligible[-1]
@@ -1068,7 +1058,8 @@ class LongitudinalSelfModelOwner:
         validation = validate_snapshot(snapshot)
         if not validation.valid or snapshot.validation_posture != "valid":
             raise LongitudinalSelfModelError("invalid_world_state_snapshot:" + ",".join(validation.findings))
-        if not tick_id or any(snapshot.authority.values()):
+        if (not isinstance(tick_id, str) or not tick_id or len(tick_id) > 256
+                or any(snapshot.authority.values())):
             raise LongitudinalSelfModelError("invalid_reconciliation_context")
         for fact in snapshot.facts:
             if not fact.source.source_id or not fact.source.digest or fact.source.finding != "ok":
