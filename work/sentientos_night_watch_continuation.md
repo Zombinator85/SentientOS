@@ -2285,3 +2285,10 @@ Next inspect succession source records for any projection that still presents a 
 - Epistemic development accepts only the exact serving-owner record with observed event time and non-authority/effect posture; missing or malformed timing remains undated, unknown, and contextual only. Resident cognition's highest model priority now requires that qualified live serving-session contract.
 - Added authored unexecuted selection and adapter cases. Changed Python/test files compile only; no behavior or production verification ran.
 - Next inspect the serving identity's activation predecessor and model-development provenance joins under the updated event scope, then continue into the next independent causal frontier.
+
+
+### New checkpoint — reject malformed observation times from current cognition priority
+
+- Running model and software identity selectors now require a valid timezone-aware observation event time in addition to their owner/source scope. A non-time tick key or malformed timestamp remains visible as context but cannot receive current-observation priority.
+- Added an authored unexecuted malformed-time case. Changed Python/test compilation only; no behavioral or production verification ran.
+- Next inspect the serving observation's activation-predecessor and model-development provenance joins for contradictions, then resume the broader causal dependency sequence.

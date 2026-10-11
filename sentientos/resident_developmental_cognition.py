@@ -37,6 +37,16 @@ from .resident_developmental_writeback import (
 )
 from .runtime_admission import RuntimeAdmissionAuthority
 from .world_state_board import WorldStateSnapshot, validate_snapshot
+
+
+def _aware_event_time(value: Any) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    try:
+        instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (OverflowError, ValueError):
+        return False
+    return instant.tzinfo is not None and instant.utcoffset() is not None
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 CONFIG_ENV = "SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"
@@ -744,6 +754,7 @@ class ResidentDevelopmentalCognitionOwner:
                 == "invocation_receipt_and_historical_chat_handoff_verified"
             and isinstance(payload.get("chat_process_handoff"), Mapping)
             and payload.get("loaded_code_identity_posture") == "not_independently_attested"
+            and _aware_event_time(fact.observed_at)
             and payload.get("software_generation")
                 == payload.get("running_software_generation_observed")
             and payload.get("software_generation_scope")
@@ -805,6 +816,7 @@ class ResidentDevelopmentalCognitionOwner:
             and bool(payload.get("running_model_identity_observed"))
             and isinstance(payload.get("serving_session_id"), str)
             and bool(payload.get("serving_session_id"))
+            and _aware_event_time(fact.observed_at)
             and payload.get("event_time_posture")
                 == "serving_session_observation_time_not_model_load_time"
             and payload.get("authority") is False
