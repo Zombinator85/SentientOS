@@ -1902,3 +1902,8 @@ Verified stage recovery now takes the request id from the staged record itself, 
 ## 2026-10-11 checkpoint — describe staged retention recovery precisely
 
 Updated the canonical retention recovery contract to state that it may finish linking an exact prewritten stage while never reconstructing its payload or replaying inference; deterministic admission is recomputed only as a binding check. This keeps the owner documentation consistent with the separate staged-publication posture now returned to chat. Python compilation passed; no storage was accessed. Next dependency: continue source review of durable root identity across restart and any remaining bounded recovery state transitions.
+
+
+## 2026-10-11 checkpoint — make cross-platform recovery state explicit
+
+The retention recovery method now initializes its staged-publication flag before platform-specific handling and returns that state directly. Windows read-only recovery therefore reports the same explicit false value without introspecting local variables; POSIX verified stage completion remains true. This is a source clarity correction only. Python compilation passed; no runtime recovery was run. Next dependency: record the current restart identity limit and inspect any remaining interfaces that can alter the frozen user-memory root after startup.

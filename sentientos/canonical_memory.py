@@ -499,6 +499,7 @@ class AdmittedRetentionWriter:
                     "write_replayed": False}
         operation = "retain:" + session_id + ":" + source_turn["turn_id"]
         memory_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
+        staged_artifact_published = False
         if os.name == "nt":
             try:
                 raw = read_explicit_file(self.store.raw / (memory_id + ".json"),
@@ -520,7 +521,6 @@ class AdmittedRetentionWriter:
                 directory_fd = self._open_raw_directory()
                 record = self._read_raw_record(directory_fd, memory_id + ".json",
                     max_links=2)
-                staged_artifact_published = False
                 if record is None:
                     temporary_name = ".memory-" + memory_id + ".tmp"
                     staged = self._read_raw_record(directory_fd, temporary_name)
@@ -667,8 +667,7 @@ class AdmittedRetentionWriter:
                 and verification.get("admission_status")
                     == "policy_recomputed_not_execution_attested"):
             return {**verification, "receipt": receipt,
-                    "staged_artifact_published": locals().get(
-                        "staged_artifact_published", False)}
+                    "staged_artifact_published": staged_artifact_published}
         return verification
 
     def _open_raw_directory(self, *, prepare_for_write: bool = False) -> int:
@@ -838,6 +837,7 @@ class AdmittedRetentionWriter:
         if verification.get("artifact_status") != "verified":
             raise PermissionError("canonical_memory_artifact_reconciliation_failed")
         return receipt
+
 
 
 
