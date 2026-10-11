@@ -50,19 +50,19 @@ def _digest(value: object) -> str:
 
 def _valid_parent_process_observation(value: object) -> bool:
     if not isinstance(value, dict) or set(value) != {
-        "process_id", "parent_process_id", "started_at",
-        "monotonic_started_ns", "instance_nonce",
+        "process_id", "parent_process_id", "observed_at",
+        "monotonic_observed_ns", "instance_nonce",
     }:
         return False
     if (type(value.get("process_id")) is not int or value["process_id"] < 1
             or type(value.get("parent_process_id")) is not int or value["parent_process_id"] < 0
-            or type(value.get("monotonic_started_ns")) is not int
-            or value["monotonic_started_ns"] < 0
+            or type(value.get("monotonic_observed_ns")) is not int
+            or value["monotonic_observed_ns"] < 0
             or not isinstance(value.get("instance_nonce"), str)
             or re.fullmatch(r"[0-9a-f]{32}", value["instance_nonce"]) is None):
         return False
     try:
-        started = datetime.fromisoformat(str(value["started_at"]).replace("Z", "+00:00"))
+        started = datetime.fromisoformat(str(value["observed_at"]).replace("Z", "+00:00"))
     except (OverflowError, OSError, TypeError, ValueError):
         return False
     return started.tzinfo is not None and started.utcoffset() is not None
@@ -108,8 +108,8 @@ class MaintenanceResidentParentSupervisor:
         self._parent_process_observation = {
             "process_id": os.getpid(),
             "parent_process_id": os.getppid(),
-            "started_at": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
-            "monotonic_started_ns": time.monotonic_ns(),
+            "observed_at": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
+            "monotonic_observed_ns": time.monotonic_ns(),
             "instance_nonce": os.urandom(16).hex(),
         }
         self._parent_process_instance_id = _digest(self._parent_process_observation)

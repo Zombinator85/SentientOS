@@ -2062,3 +2062,8 @@ Next dependency: continue source-level succession attribution around parent soft
 ## 2026-10-11 checkpoint — recover the published retention receipt without replay
 
 The real writer acceptance case now continues through `recover_existing_artifact()` with a requested source turn to model interruption after raw artifact publication. It checks that recovery reconstructs the path-scoped receipt, reports no write replay, and leaves the persisted artifact bytes unchanged. The evidence is authored but unexecuted; this closes source coverage of the writer → durable record → recovery receipt handoff without claiming runtime verification.
+
+
+## 2026-10-11 checkpoint — label controller timestamps as observations
+
+The parent-instance receipt fields previously called their wall and monotonic counters “started” even though the owner samples them during supervisor construction, after the Python process may already have started. The field names now say `observed_at` and `monotonic_observed_ns`. This preserves the timestamp values and their identity binding while avoiding a false claim that they are kernel process-creation times. The process identity remains a controller-generated observation, not OS-issued evidence of the parent executable or software generation. Changed source compiles; no tests ran.
