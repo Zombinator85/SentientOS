@@ -162,8 +162,12 @@ def _source_generation_posix(root: Path) -> tuple[str, tuple[dict[str, Any], ...
             try:
                 if not stat.S_ISDIR(os.fstat(source_fd).st_mode):
                     raise ChatProcessGenerationError("chat_source_root_incomplete")
+                def walk_error(exc: OSError) -> None:
+                    raise ChatProcessGenerationError("chat_source_walk_incomplete") from exc
+
                 for current, directories, filenames, directory_fd in os.fwalk(
-                        ".", topdown=True, follow_symlinks=False, dir_fd=source_fd):
+                        ".", topdown=True, onerror=walk_error,
+                        follow_symlinks=False, dir_fd=source_fd):
                     directory_count += 1
                     if directory_count > MAX_SOURCE_DIRECTORIES:
                         raise ChatProcessGenerationError("chat_source_directory_bound_exceeded")

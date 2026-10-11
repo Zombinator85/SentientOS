@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `1cdd456d210a9e952cc931bd8e7862268cf524d4` (tree `86e43986ac33883b37a9c809909e3c1c2dfb71bb). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `cd5b5f41ec4eec69fcbea097b792730b0d5e0358` (tree `e339c78846d2211a17fa74fcdc2b5fbda2a0adf6`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1051,3 +1051,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Reconciliation recovery now validates the stored tick identity shape while preserving opaque IDs. The projection remains a bounded, non-authoritative self-model view and keeps exact source generation, evidence, and reconciliation digests.
 - The existing source-level owner fixtures use opaque labels and expect a prior reconciliation to project to the next label; they were inspected but not executed. Python compilation and whitespace inspection passed. No tests or runtime checks were run.
 - Next trace this generation-based cutoff against daemon startup/restart ordering and the persistent epistemic-state cutoff, then proceed to any remaining substantive succession or consequence connection.
+
+
+## New checkpoint — fail closed on incomplete source-generation walks
+
+- The prior remotely verified head was cd5b5f41ec4eec69fcbea097b792730b0d5e0358 (tree e339c78846d2211a17fa74fcdc2b5fbda2a0adf6).
+- Follow-up review of the new descriptor-relative POSIX scanner found that os.fwalk, like os.walk, can ignore traversal errors when no onerror callback is supplied. A permission or race error in an interior subtree could therefore omit files and still produce a digest that looked like a complete software generation.
+- The POSIX scanner now supplies a fail-closed walk-error callback. Any directory traversal failure prevents generation publication or current-process verification; it cannot yield a partial digest as complete. Existing source-directory, file, byte and symlink checks remain in force. The non-POSIX fallback remains unchanged and is still not a writable Windows issuer.
+- Python compilation passed; no filesystem fault injection or runtime source scan was performed. This remains unverified.
+- Next check transaction ordering and process-liveness evidence around the runtime observation owner, then proceed to another implementable continuity gap.
