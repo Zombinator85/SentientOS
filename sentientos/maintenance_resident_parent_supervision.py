@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import stat
 import tempfile
 import time
@@ -32,6 +33,11 @@ MAX_PARENT_RECEIPT_BYTES = 16_777_216
 MAX_PARENT_RECEIPT_ROWS = 65_536
 MAX_PARENT_RECEIPT_LINE_BYTES = 65_536
 MAX_PARENT_SEQUENCE = MAX_PARENT_RECEIPT_ROWS
+MAX_PARENT_PROVENANCE_FILES = 4096
+MAX_PARENT_PROVENANCE_BYTES = 16_777_216
+MAX_PARENT_PROVENANCE_RECORD_BYTES = 262_144
+_PARENT_PROVENANCE_NAME = re.compile(r"[0-9a-f]{64}\.json\Z")
+
 
 
 def _canonical(value: object) -> bytes:
@@ -46,7 +52,7 @@ class MaintenanceResidentParentSupervisor:
     """Own exactly one ``sentientosd`` child and no generation-selection policy."""
 
     def __init__(self, resident_config: Mapping[str, Any], *, state_root: Path,
-                 resident_readiness_guard: Callable[[Mapping[str, Any]], bool],
+                 resident_readiness_guard: Callable[[Mapping[str, Any]], bool] | None = None,
                  restart_budget: int = 3, rolling_restart_window: float = 300.0,
                  min_backoff: float = 0.1, max_backoff: float = 30.0,
                  clock: Callable[[], float] = time.time,
@@ -72,7 +78,12 @@ class MaintenanceResidentParentSupervisor:
         self._acquire_owner_lock()
         self._state_path = self.root / "parent-state.json"
         self._receipt_path = self.root / "parent-receipts.jsonl"
-        self._readiness_guard, self._clock, self._sleep = resident_readiness_guard, clock, sleeper
+        self._readiness_guard = (resident_readiness_guard if resident_readiness_guard is not None
+            else self._verify_launch_readiness)
+        self._readiness_basis = ("injected_readiness_guard" if resident_readiness_guard is not None
+            else "child_owned_launch_provenance")
+        self._verified_child_provenance: dict[str, Any] | None = None
+        self._clock, self._sleep = clock, sleeper
         self._process_presence_observer = process_presence_observer or self._observe_pid_presence
         self._budget, self._window = restart_budget, rolling_restart_window
         self._min_backoff, self._max_backoff = min_backoff, max_backoff
@@ -331,6 +342,224 @@ class MaintenanceResidentParentSupervisor:
         self._receipt_head_digest = row["receipt_digest"]
         self._persist()
 
+    @staticmethod
+    def _open_private_provenance_directory(path: Path) -> int:
+        """Open one configured provenance directory without following path links."""
+        if os.name != "posix":
+            raise OSError("resident_provenance_directory_platform_unsupported")
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        if not getattr(os, "O_NOFOLLOW", 0) or not getattr(os, "O_DIRECTORY", 0):
+            raise OSError("resident_provenance_directory_custody_unsupported")
+        absolute = Path(os.path.abspath(path))
+        descriptor = os.open(os.sep, flags)
+        try:
+            for component in absolute.parts[1:]:
+                if component in {"", ".", ".."}:
+                    raise OSError("resident_provenance_path_invalid")
+                child = os.open(component, flags, dir_fd=descriptor)
+                metadata = os.fstat(child)
+                if not stat.S_ISDIR(metadata.st_mode):
+                    os.close(child)
+                    raise OSError("resident_provenance_component_not_directory")
+                os.close(descriptor)
+                descriptor = child
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(metadata.st_mode) & 0o077):
+                raise OSError("resident_provenance_directory_not_private")
+            return descriptor
+        except Exception:
+            os.close(descriptor)
+            raise
+
+    def _read_generation_provenance(self, ordinal: int) -> list[dict[str, Any]]:
+        """Read only bounded, owner-private records in the exact configured generation."""
+        directory_path = Path(self.config["provenance_root"]) / f"generation-{ordinal}"
+        directory_fd = self._open_private_provenance_directory(directory_path)
+        records: list[dict[str, Any]] = []
+        total_bytes = 0
+        try:
+            with os.scandir(directory_fd) as entries:
+                names: list[str] = []
+                for entry in entries:
+                    if len(names) >= MAX_PARENT_PROVENANCE_FILES:
+                        raise ValueError("resident_provenance_file_bound_exceeded")
+                    names.append(entry.name)
+            for name in sorted(names):
+                if not _PARENT_PROVENANCE_NAME.fullmatch(name):
+                    raise ValueError("resident_provenance_filename_invalid")
+                observed = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+                if (not stat.S_ISREG(observed.st_mode) or observed.st_nlink != 1
+                        or observed.st_uid != os.geteuid()
+                        or stat.S_IMODE(observed.st_mode) & 0o077
+                        or observed.st_size > MAX_PARENT_PROVENANCE_RECORD_BYTES):
+                    raise ValueError("resident_provenance_file_custody_invalid")
+                total_bytes += observed.st_size
+                if total_bytes > MAX_PARENT_PROVENANCE_BYTES:
+                    raise ValueError("resident_provenance_total_bound_exceeded")
+                descriptor = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                    | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0),
+                    dir_fd=directory_fd)
+                try:
+                    before = os.fstat(descriptor)
+                    if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                            or before.st_uid != os.geteuid()
+                            or before.st_dev != observed.st_dev or before.st_ino != observed.st_ino
+                            or before.st_size != observed.st_size
+                            or stat.S_IMODE(before.st_mode) & 0o077):
+                        raise ValueError("resident_provenance_file_changed")
+                    chunks: list[bytes] = []
+                    remaining = MAX_PARENT_PROVENANCE_RECORD_BYTES + 1
+                    while remaining:
+                        chunk = os.read(descriptor, min(65_536, remaining))
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                        remaining -= len(chunk)
+                    raw = b"".join(chunks)
+                    after = os.fstat(descriptor)
+                    if (len(raw) > MAX_PARENT_PROVENANCE_RECORD_BYTES
+                            or len(raw) != before.st_size or after.st_size != before.st_size
+                            or after.st_dev != before.st_dev or after.st_ino != before.st_ino
+                            or after.st_mtime_ns != before.st_mtime_ns
+                            or after.st_ctime_ns != before.st_ctime_ns):
+                        raise ValueError("resident_provenance_file_changed")
+                finally:
+                    os.close(descriptor)
+                value = json.loads(raw.decode("utf-8"))
+                process_instance_id = value.get("process_instance_id") if isinstance(value, dict) else None
+                if (not isinstance(process_instance_id, str)
+                        or not re.fullmatch(r"sha256:[0-9a-f]{64}", process_instance_id)
+                        or name != process_instance_id.removeprefix("sha256:") + ".json"
+                        or resident.canonical_bytes(value) + b"\n" != raw):
+                    raise ValueError("resident_provenance_record_noncanonical")
+                records.append(value)
+            return records
+        finally:
+            os.close(directory_fd)
+
+    def _verify_launch_readiness(self, launch: Mapping[str, Any]) -> bool:
+        """Verify the child's own bounded, digest-bound startup provenance.
+
+        The process adapter separately proves that its exact child PID is alive.
+        This check proves that the configured resident owner captured that same
+        child under the reconstructed generation and a clean repository state.
+        It does not claim general system or cognitive readiness.
+        """
+        self._verified_child_provenance = None
+        try:
+            launch_fields = {"child_spec_digest", "config_digest", "lineage_id",
+                "generation_digest", "pid", "launched_at", "launch_provenance_digest"}
+            if not isinstance(launch, Mapping) or set(launch) != launch_fields:
+                return False
+            launch_body = {key: item for key, item in launch.items()
+                if key != "launch_provenance_digest"}
+            if (launch.get("child_spec_digest") != self._spec_digest
+                    or launch.get("config_digest") != self.config["config_digest"]
+                    or launch.get("launch_provenance_digest") != _digest(launch_body)
+                    or type(launch.get("pid")) is not int or launch["pid"] < 1
+                    or type(launch.get("launched_at")) not in (int, float)
+                    or not math.isfinite(launch["launched_at"])):
+                return False
+            custody = resident.inspect_transition_custody(self.config)
+            if custody.get("status") not in {
+                    "no_resident_transactions", "complete_resident_transactions_only"}:
+                return False
+            successor_config = successor.load_config(
+                self.config["successor_adoption_config_path"])
+            generation, _adoption = successor.reconstruct_current(successor_config)
+            if (generation.get("generation_digest") != launch["generation_digest"]
+                    or generation.get("generation_digest") != self._generation_digest
+                    or generation.get("lineage_id") != launch["lineage_id"]):
+                return False
+            verifier = resident.MaintenanceResidentRuntimeAdoptionController(self.config)
+            repository = verifier._repository(generation)
+            environment_keys = ( "PYTHONPATH", "PYTHONHOME", resident.TRANSITION_ENV,
+                resident.CONFIG_ENV, resident.SUCCESSOR_CONFIG_ENV, resident.AUTO_CONFIG_ENV )
+            environment = {key: self._environment.get(key) for key in environment_keys}
+            expected_argv = [self.config["python_executable"], "-m",
+                self.config["daemon_module"]]
+            expected_fields = {
+                "schema_version", "config_digest", "repository_identity", "repository_root",
+                "lineage_id", "represented_generation_ordinal", "represented_generation_digest",
+                "represented_generation_base_sha", "manifest_digest", "canonical_base_ref",
+                "observed_head_sha", "observed_commit_sha", "observed_tree_sha",
+                "observed_symbolic_ref", "clean_working_tree",
+                "ambiguous_git_operation_in_progress", "git_executable", "python_executable",
+                "daemon_module", "daemon_entrypoint", "module_spec_origin", "cwd", "argv",
+                "environment_identity_digest", "pid", "process_instance_id", "startup_timestamp",
+                "provenance_digest"}
+            matches: list[dict[str, Any]] = []
+            for value in self._read_generation_provenance(int(generation["ordinal"])):
+                if (set(value) != expected_fields
+                        or value.get("schema_version") != resident.PROVENANCE_SCHEMA
+                        or value.get("provenance_digest") != resident.digest(value, "provenance_digest")
+                        or value.get("config_digest") != self.config["config_digest"]
+                        or value.get("repository_identity") != self.config["repository_identity"]
+                        or value.get("repository_root") != self.config["repository_root"]
+                        or value.get("lineage_id") != generation["lineage_id"]
+                        or type(value.get("represented_generation_ordinal")) is not int
+                        or value.get("represented_generation_ordinal") != generation["ordinal"]
+                        or not isinstance(value.get("represented_generation_digest"), str)
+                        or not isinstance(value.get("represented_generation_base_sha"), str)
+                        or not isinstance(value.get("manifest_digest"), str)
+                        or type(value.get("pid")) is not int or value["pid"] < 1
+                        or not isinstance(value.get("startup_timestamp"), str)):
+                    return False
+                instance = resident.digest({
+                    "pid": value["pid"], "startup_timestamp": value["startup_timestamp"],
+                    "generation_digest": value["represented_generation_digest"],
+                    "argv": expected_argv,
+                    "python_executable": self.config["python_executable"],
+                    "daemon_entrypoint": self.config["daemon_entrypoint"],
+                    "module_spec_origin": value.get("module_spec_origin")})
+                if value.get("process_instance_id") != instance:
+                    return False
+                if (value.get("python_executable") != self.config["python_executable"]
+                        or value.get("daemon_module") != self.config["daemon_module"]
+                        or value.get("daemon_entrypoint") != self.config["daemon_entrypoint"]
+                        or value.get("module_spec_origin") not in
+                            (None, self.config["daemon_entrypoint"])
+                        or value.get("cwd") != self.config["working_directory"]
+                        or value.get("argv") != expected_argv
+                        or value.get("environment_identity_digest")
+                            != resident.digest(environment)
+                        or type(value.get("clean_working_tree")) is not bool
+                        or value.get("clean_working_tree") is not True
+                        or value.get("ambiguous_git_operation_in_progress") is not False):
+                    return False
+                if value.get("pid") != launch["pid"]:
+                    continue
+                timestamp = datetime.fromisoformat(
+                    value["startup_timestamp"].replace("Z", "+00:00"))
+                if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+                    return False
+                if timestamp.timestamp() + 1 < float(launch["launched_at"]):
+                    continue
+                if (value.get("represented_generation_digest") != generation["generation_digest"]
+                        or value.get("represented_generation_base_sha") != generation["base_sha"]
+                        or value.get("manifest_digest") != generation["manifest_digest"]
+                        or value.get("canonical_base_ref") != repository["canonical_base_ref"]
+                        or value.get("observed_head_sha") != repository["observed_head_sha"]
+                        or value.get("observed_commit_sha") != repository["observed_commit_sha"]
+                        or value.get("observed_tree_sha") != repository["observed_tree_sha"]
+                        or value.get("observed_symbolic_ref") != repository["observed_symbolic_ref"]
+                        or value.get("git_executable") != repository["git_executable"]):
+                    return False
+                matches.append(value)
+            if len(matches) != 1:
+                return False
+            selected = matches[0]
+            self._verified_child_provenance = {
+                "process_instance_id": selected["process_instance_id"],
+                "provenance_digest": selected["provenance_digest"],
+                "generation_digest": selected["represented_generation_digest"],
+            }
+            return True
+        except Exception:
+            self._verified_child_provenance = None
+            return False
+
     def _current_generation(self) -> dict[str, Any]:
         posture = resident.inspect_transition_custody(self.config)
         status = posture["status"]
@@ -437,7 +666,10 @@ class MaintenanceResidentParentSupervisor:
         if self._status == "awaiting_resident_readiness":
             if self._readiness_guard(dict(self._launch)):
                 self._status = "maintenance_eligible"
-                self._receipt("child_resident_readiness", {"launch_provenance_digest": self._launch["launch_provenance_digest"]})
+                self._receipt("child_resident_readiness", {
+                    "launch_provenance_digest": self._launch["launch_provenance_digest"],
+                    "readiness_basis": self._readiness_basis,
+                    "child_provenance": self._verified_child_provenance})
                 if len(self._restart_history) > 0:
                     self._receipt("recovery_success", {"launch_provenance_digest": self._launch["launch_provenance_digest"]})
             else:
@@ -474,7 +706,8 @@ class MaintenanceResidentParentSupervisor:
             "panic_latched": self._panic, "shutdown_latched": self._shutdown,
             "restart_budget_exhausted": self._exhausted, "restart_count": len(self._restart_history),
             "child_spec_digest": self._spec_digest, "generation_digest": self._generation_digest,
-            "launch_provenance_digest": self._launch.get("launch_provenance_digest") if self._launch else None}
+            "launch_provenance_digest": self._launch.get("launch_provenance_digest") if self._launch else None,
+            "readiness_basis": self._readiness_basis}
 
 
 __all__ = ["MaintenanceResidentParentSupervisor", "STATE_SCHEMA", "RECEIPT_SCHEMA", "SERVICE_ID"]

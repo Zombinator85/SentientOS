@@ -269,6 +269,70 @@ def test_parent_supervision_owner_lock_is_singleton(tmp_path: Path) -> None:
     _simulate_parent_process_exit(controller)
 
 
+def test_default_parent_readiness_verifies_child_owned_provenance(tmp_path: Path) -> None:
+    from datetime import datetime, timezone
+
+    cfg, _generation, _custody, _repository = _fixture(tmp_path)
+    launch_time = datetime(2030, 1, 2, 0, 0, 0, tzinfo=timezone.utc).timestamp()
+    controller = MaintenanceResidentParentSupervisor(
+        cfg, state_root=tmp_path / "parent", clock=lambda: launch_time,
+        min_backoff=0, max_backoff=0, adapter_factory=Factory())
+    controller.start()
+    child = controller._adapter
+    observation = {
+        "python_executable": cfg["python_executable"],
+        "daemon_entrypoint": cfg["daemon_entrypoint"],
+        "cwd": cfg["working_directory"],
+        "argv": [cfg["python_executable"], "-m", cfg["daemon_module"]],
+        "pid": child.identity["pid"],
+        "startup_timestamp": "2030-01-02T00:00:01Z",
+        "environment": {key: controller._environment.get(key) for key in (
+            "PYTHONPATH", "PYTHONHOME", resident.TRANSITION_ENV, resident.CONFIG_ENV,
+            resident.SUCCESSOR_CONFIG_ENV, resident.AUTO_CONFIG_ENV)},
+    }
+    resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: observation).capture_baseline()
+    controller.observe()
+    assert controller.status()["maintenance_eligible"] is True
+    assert controller.status()["status"] == "maintenance_eligible"
+    assert controller.status()["readiness_basis"] == "child_owned_launch_provenance"
+    rows = [json.loads(line) for line in
+        (tmp_path / "parent" / "parent-receipts.jsonl").read_text().splitlines()]
+    readiness = next(row for row in rows if row["event"] == "child_resident_readiness")
+    assert readiness["detail"]["child_provenance"]["process_instance_id"]
+    assert readiness["detail"]["child_provenance"]["provenance_digest"]
+    _simulate_parent_process_exit(controller)
+
+
+def test_default_parent_readiness_rejects_substituted_child_provenance(tmp_path: Path) -> None:
+    from datetime import datetime, timezone
+
+    cfg, _generation, _custody, _repository = _fixture(tmp_path)
+    launch_time = datetime(2030, 1, 2, 0, 0, 0, tzinfo=timezone.utc).timestamp()
+    controller = MaintenanceResidentParentSupervisor(
+        cfg, state_root=tmp_path / "parent", clock=lambda: launch_time,
+        min_backoff=0, max_backoff=0, adapter_factory=Factory())
+    controller.start()
+    child = controller._adapter
+    observation = {
+        "python_executable": cfg["python_executable"],
+        "daemon_entrypoint": cfg["daemon_entrypoint"],
+        "cwd": cfg["working_directory"],
+        "argv": [cfg["python_executable"], "-m", cfg["daemon_module"]],
+        "pid": child.identity["pid"] + 1,
+        "startup_timestamp": "2030-01-02T00:00:01Z",
+        "environment": {key: controller._environment.get(key) for key in (
+            "PYTHONPATH", "PYTHONHOME", resident.TRANSITION_ENV, resident.CONFIG_ENV,
+            resident.SUCCESSOR_CONFIG_ENV, resident.AUTO_CONFIG_ENV)},
+    }
+    resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: observation).capture_baseline()
+    controller.observe()
+    assert controller.status()["maintenance_eligible"] is False
+    assert controller.status()["status"] == "awaiting_resident_readiness"
+    _simulate_parent_process_exit(controller)
+
+
 def test_state_publication_failure_blocks_followup_receipts(tmp_path: Path) -> None:
     controller, _, _ = _parent(tmp_path)
     state_path = tmp_path / "parent" / "parent-state.json"
