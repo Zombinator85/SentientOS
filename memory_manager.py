@@ -150,8 +150,10 @@ def _read_legacy_memory_file(path: Path, *, max_bytes: int = 8 * 1024 * 1024) ->
         os.close(root_fd)
 
 
-def _prepare_write(path: Path) -> None:
-    """Authorize and prepare a memory target relative to held private directories."""
+def _open_legacy_memory_text(path: Path, mode: str):
+    """Open one sidecar relative to held private directories after authorization."""
+    if mode not in {"a", "w"}:
+        raise ValueError("legacy_memory_write_mode_invalid")
     _authorize_legacy_mutation()
     try:
         relative = path.relative_to(MEMORY_DIR)
@@ -162,7 +164,7 @@ def _prepare_write(path: Path) -> None:
     directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
     root_fd = _open_legacy_memory_root(prepare_for_write=True)
     current_fd = root_fd
-    target_fd: int | None = None
+    descriptor: int | None = None
     try:
         for component in relative.parts[:-1]:
             created = False
@@ -188,20 +190,25 @@ def _prepare_write(path: Path) -> None:
             if current_fd != root_fd:
                 os.close(current_fd)
             current_fd = child_fd
-        name = relative.parts[-1]
-        try:
-            target_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
-                | getattr(os, "O_NONBLOCK", 0), dir_fd=current_fd)
-        except FileNotFoundError:
-            return
-        metadata = os.fstat(target_fd)
+        flags = (os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW
+            | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+        if mode == "a":
+            flags |= os.O_APPEND
+        descriptor = os.open(relative.parts[-1], flags, 0o600, dir_fd=current_fd)
+        metadata = os.fstat(descriptor)
         if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
                 or metadata.st_uid != os.geteuid()):
             raise PermissionError("legacy_memory_target_custody_invalid")
-        os.fchmod(target_fd, 0o600)
+        os.fchmod(descriptor, 0o600)
+        if mode == "w":
+            os.ftruncate(descriptor, 0)
+        os.fsync(current_fd)
+        result = os.fdopen(descriptor, mode, encoding="utf-8")
+        descriptor = None
+        return result
     finally:
-        if target_fd is not None:
-            os.close(target_fd)
+        if descriptor is not None:
+            os.close(descriptor)
         if current_fd != root_fd:
             os.close(current_fd)
         os.close(root_fd)
@@ -457,9 +464,8 @@ def _load_index_records() -> list[dict]:
 
 
 def _save_index_records(records: Sequence[dict]) -> None:
-    _prepare_write(VECTOR_INDEX_PATH)
     with _INDEX_LOCK:
-        with open(VECTOR_INDEX_PATH, "w", encoding="utf-8") as f:
+        with _open_legacy_memory_text(VECTOR_INDEX_PATH, "w") as f:
             for record in records:
                 f.write(json.dumps(record) + "\n")
 
@@ -478,8 +484,7 @@ def _append_tomb(entry: Dict) -> None:
             json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
         ).hexdigest()
         entry["hash"] = digest
-    _prepare_write(TOMB_PATH)
-    with open(TOMB_PATH, "a", encoding="utf-8") as f:
+    with _open_legacy_memory_text(TOMB_PATH, "a") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
@@ -686,21 +691,18 @@ def _load_observation_records() -> List[Dict[str, Any]]:
 
 
 def _write_observation_record(record: Mapping[str, Any]) -> None:
-    _prepare_write(OBSERVATION_LOG_PATH)
-    with open(OBSERVATION_LOG_PATH, "a", encoding="utf-8") as handle:
+    with _open_legacy_memory_text(OBSERVATION_LOG_PATH, "a") as handle:
         handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def _rewrite_observation_records(records: Sequence[Mapping[str, Any]]) -> None:
-    _prepare_write(OBSERVATION_LOG_PATH)
-    with open(OBSERVATION_LOG_PATH, "w", encoding="utf-8") as handle:
+    with _open_legacy_memory_text(OBSERVATION_LOG_PATH, "w") as handle:
         for record in records:
             handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def _append_jsonl(path: Path, record: Mapping[str, Any]) -> None:
-    _prepare_write(path)
-    with open(path, "a", encoding="utf-8") as handle:
+    with _open_legacy_memory_text(path, "a") as handle:
         handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
@@ -874,8 +876,7 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
     record.setdefault("observation_id", None)
     reflection_id = record.get("reflection_id") or _hash(summary + timestamp)
     record["reflection_id"] = reflection_id
-    _prepare_write(CURIOSITY_REFLECTIONS_PATH)
-    with open(CURIOSITY_REFLECTIONS_PATH, "a", encoding="utf-8") as handle:
+    with _open_legacy_memory_text(CURIOSITY_REFLECTIONS_PATH, "a") as handle:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
     fragment_id = append_memory(
         summary,
@@ -1130,8 +1131,7 @@ def _write_topic_summaries(entries: Sequence[dict]) -> None:
         if not tag:
             continue
         out = TOPIC_PATH / f"{tag}.md"
-        _prepare_write(out)
-        with open(out, "w", encoding="utf-8") as f:
+        with _open_legacy_memory_text(out, "w") as f:
             f.write(f"# {tag} memory capsule\n\n")
             for line in lines[-200:]:  # keep recent history manageable
                 f.write(f"- {line}\n")
@@ -1172,8 +1172,7 @@ def _write_session_digest(session_id: str, entries: Sequence[dict]) -> None:
 
     common_tags = ", ".join(tag for tag, _ in tags.most_common(6)) or "(none)"
     out = SESSION_PATH / f"{session_id}.md"
-    _prepare_write(out)
-    with open(out, "w", encoding="utf-8") as handle:
+    with _open_legacy_memory_text(out, "w") as handle:
         handle.write(f"# Session {session_id}\n\n")
         handle.write(f"* timeframe: {start} → {end}\n")
         handle.write(f"* entries: {len(entries)}\n")
@@ -1206,8 +1205,8 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
                 }
             )
         out = TURN_PATH / f"{session_id}.json"
-        _prepare_write(out)
-        out.write_text(json.dumps(turns, ensure_ascii=False, indent=2))
+        with _open_legacy_memory_text(out, "w") as handle:
+            handle.write(json.dumps(turns, ensure_ascii=False, indent=2))
         _write_session_digest(session_id, session_entries)
         print(f"[SUMMARY] Turn capsule updated → {out}")
 
@@ -1235,8 +1234,7 @@ def summarize_memory() -> None:
 
     for day, lines in summaries.items():
         out = DAY_PATH / f"{day}.txt"
-        _prepare_write(out)
-        with open(out, "a", encoding="utf-8") as f:
+        with _open_legacy_memory_text(out, "a") as f:
             for line in lines:
                 f.write(line + "\n")
         print(f"[SUMMARY] Updated {out}")
@@ -1518,8 +1516,8 @@ def _load_goals() -> list[dict]:
 
 
 def _save_goals(goals: list[dict]) -> None:
-    _prepare_write(GOALS_PATH)
-    GOALS_PATH.write_text(json.dumps(goals, ensure_ascii=False, indent=2), encoding="utf-8")
+    with _open_legacy_memory_text(GOALS_PATH, "w") as handle:
+        handle.write(json.dumps(goals, ensure_ascii=False, indent=2))
 
 
 @_legacy_mutation_operation

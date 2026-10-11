@@ -1483,3 +1483,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `memory_manager.py`. No memory contents or callers were executed; no runtime or production verification was performed.
 - **Next implementation dependency:** verify source-level separation among shared user memory, installation-scoped chat transcripts, and resident developmental history at current HEAD. Then continue with the remaining sidecar write-path race (target replacement between preparation and path-based open) or another directly consequential shared-root boundary.
 
+
+
+## New checkpoint — publish legacy sidecars through held targets
+
+- Fresh remote source before this increment: `af503bc9eabd742af81664dd60f39837dc6892b6` (tree `54d842701e20d4c1fad07b4c82ff979243b2180e`).
+- Generic sidecar writes still performed a path-based open after a separate preflight check, leaving a target-replacement window. This also left the older preparation helper as a second, easier-to-misuse write path.
+- Index, tomb, observation, curiosity, summary, session/turn, and goal sidecar writers now open/create the target relative to held, owner-verified, no-follow directories after the existing mutation authorization. Existing targets are validated before truncation; created/re-written files are 0600; append descriptors use `O_APPEND`. The superseded path-preparation helper was removed. Specialized raw-fragment writes retain their own identity and canonical-retention protections.
+- Python compilation passed for `memory_manager.py`. No authorization, memory operation, or file publication was invoked; no behavioral or production verification was performed.
+- **Next implementation dependency:** review the existing memory-manager callers and chat/World-State wiring for truthful unavailable states and confirm that user-memory artifacts remain outside installation transcript and resident developmental-history custody. Then proceed to any direct adjacent owner gap surfaced by that review.
+
