@@ -149,3 +149,13 @@ def test_embodiment_owner_bounds_inventory_before_retaining_items():
     item = observation("sensor_observation", "camera", {"present": True})
     with pytest.raises(EmbodimentEvidenceError, match="embodiment_observation_count_exceeded"):
         EmbodimentEvidenceOwner((item,) * 65)
+
+
+def test_embodiment_owner_snapshots_nested_payload_at_injection():
+    payload = {"sensor": {"present": True}}
+    item = observation("sensor_observation", "camera", payload)
+    owner = EmbodimentEvidenceOwner((item,))
+    payload["sensor"]["present"] = False
+    record = owner.world_state_records()[0]
+    assert record["payload"]["sensor"]["present"] is True
+    assert record["payload"]["source_semantic_digest"] == item.source_digest

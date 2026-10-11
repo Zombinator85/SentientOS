@@ -2091,3 +2091,10 @@ The separate receipt-backed fulfillment projection still emits digest-bound fulf
 The generic evidence wrapper bounded each payload but retained an unbounded sequence of observations before the World-State builder applied its own source-count limit. The owner now validates and collects at most 64 records during construction, so a large or nonterminating injected sequence cannot be materialized wholesale. Evidence identity strings are also length-bounded before projection. A focused over-limit test is authored but unexecuted; the existing per-record and World-State bounds remain in place. Python compilation and whitespace inspection only; unverified for runtime/production.
 
 Next inspect the adjacent selected embodiment lineage and long-term projection retention for source records that exceed their downstream evidence budgets; preserve caller-versus-owner identity and the temporal firewall.
+
+
+## 2026-10-11 checkpoint — snapshot injected embodiment payloads
+
+The evidence owner accepted frozen dataclass instances whose nested `payload` mappings remained caller-mutable. A caller could alter the projected source payload after construction while retaining the original source ID and semantic-digest claim. Construction now snapshots the bounded JSON payload at injection using the existing recursive validator; subsequent caller mutations do not rewrite the owner's observation. A nested-mutation regression case is authored but unexecuted. Python compilation and whitespace inspection only; production status remains unverified.
+
+Next continue the consumer review for selected claim retention, identity conflicts across repeated World-State ticks, and durable projection truncation. Do not add an observer issuer or infer physical consequences from this snapshotting.

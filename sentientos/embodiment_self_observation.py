@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any, Mapping, Sequence
 
 EVIDENCE_SCHEMA = "sentientos.embodiment_self_observation:v1"
@@ -140,7 +140,8 @@ class EmbodimentEvidenceOwner:
             if not isinstance(observation, EmbodimentObservation):
                 raise EmbodimentEvidenceError("embodiment_evidence_invalid")
             observation.validate()
-            bounded.append(observation)
+            captured_payload = _bounded(dict(observation.payload))
+            bounded.append(replace(observation, payload=captured_payload))
         self._observations = tuple(bounded)
 
     def world_state_records(self) -> list[dict[str, Any]]:
