@@ -1186,3 +1186,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - The correction was Python-compiled only. No tests, hardlink exercise, filesystem fault injection, or production verification was performed.
 
 **Next implementation dependency:** continue the bounded shared legacy-memory review below; specifically identify whether legacy fragment writes can mutate canonical retained artifacts and define the narrowest safe compatibility boundary before changing behavior.
+
+
+## New checkpoint — isolate explicit retention from legacy fragment mutation
+
+- Fresh remote source before this increment: `3b416d9af72e9f0f9d6e61d0c4414f210ed0a85b` (tree `ae04c85a9a85a0458c6d9a5bbd2293f9ddd8c28b`).
+- The canonical chat-memory writer stores deterministic `memory-<24 hex>.json` artifacts under the same default `memory/raw` directory used by root-level `memory_manager.py`. Legacy append IDs are 16-hex hashes, but its generic raw scans included every JSON file: the age/count purge could delete explicitly retained records; retrieval/distillation could treat them as legacy fragments; and generic fragment writes could target the reserved namespace if handed such an ID.
+- Added an explicit filename namespace boundary. Legacy fragment enumeration, lookup, raw scans, and purge now omit `memory-*.json`; generic legacy writes to that namespace fail closed. Canonical chat retrieval and its existing explicit retention gate remain the only owner path for those records. Legacy 16-hex fragments retain their existing format and admission behavior; resident developmental history remains a separate owner and store.
+- Python compilation passed for `memory_manager.py`. No pytest, runtime memory operation, file deletion, filesystem race, or production verification was performed. This remains untested for production.
+
+**Next implementation dependency:** inspect bounded runtime consumers of canonical memory and its optional legacy sidecar compatibility path. Ensure startup diagnostics do not follow or overstate unverified sidecar custody, and keep malformed or inaccessible legacy state distinct from admitted canonical records.

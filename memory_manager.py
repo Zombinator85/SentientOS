@@ -142,10 +142,22 @@ def _hash(text: str) -> str:
 def _fragment_path(fragment_id: str) -> Path:
     return RAW_PATH / f"{fragment_id}.json"
 
+def _is_canonical_retention_path(path: Path) -> bool:
+    """Keep explicitly retained chat artifacts outside legacy mutation/forgetting."""
+    return path.name.startswith("memory-") and path.name.endswith(".json")
+
+
+def _legacy_fragment_paths() -> list[Path]:
+    """Enumerate legacy fragments without crossing the canonical-retention namespace."""
+    return [path for path in RAW_PATH.glob("*.json")
+            if not _is_canonical_retention_path(path)]
+
+
+
 
 def _load_fragment(fragment_id: str) -> dict | None:
     path = _fragment_path(fragment_id)
-    if not path.exists():
+    if _is_canonical_retention_path(path) or not path.exists():
         return None
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -155,6 +167,8 @@ def _load_fragment(fragment_id: str) -> dict | None:
 
 def _write_fragment(fragment_id: str, data: dict) -> None:
     path = _fragment_path(fragment_id)
+    if _is_canonical_retention_path(path):
+        raise PermissionError("canonical_retention_artifact_is_not_a_legacy_fragment")
     _prepare_write(path)
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
@@ -170,7 +184,7 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
         When ``True`` (default) iterate from newest to oldest.
     """
 
-    files = sorted(RAW_PATH.glob("*.json"), reverse=reverse)
+    files = sorted(_legacy_fragment_paths(), reverse=reverse)
     count = 0
     for fp in files:
         try:
@@ -768,7 +782,7 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
 
     Results are ordered from newest to oldest and truncated to ``limit``.
     """
-    files = list(RAW_PATH.glob("*.json"))
+    files = list(_legacy_fragment_paths())
     entries = []
     for fp in files:
         try:
@@ -806,7 +820,7 @@ def purge_memory(
 
     Purged fragments are archived in the memory tomb.
     """
-    files = list(RAW_PATH.glob("*.json"))
+    files = list(_legacy_fragment_paths())
     entries: List[tuple[datetime.datetime, Path, dict]] = []
     for f in files:
         try:
@@ -954,7 +968,7 @@ def summarize_memory() -> None:
 
     summaries: Dict[str, List[str]] = {}
     entries: List[dict] = []
-    for fp in RAW_PATH.glob("*.json"):
+    for fp in _legacy_fragment_paths():
         try:
             data = json.loads(fp.read_text(encoding="utf-8"))
         except Exception:
@@ -1174,7 +1188,7 @@ def recent_reflections(
 ) -> list[dict]:
     """Return recent reflection entries with optional filters."""
 
-    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[dict] = []
     for fp in files:
         try:
@@ -1202,7 +1216,7 @@ def recent_reflections(
 
 def recent_patches(limit: int = 5) -> list[str]:
     """Return recent self-improvement patch notes."""
-    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[str] = []
     for fp in files:
         try:
@@ -1219,7 +1233,7 @@ def recent_patches(limit: int = 5) -> list[str]:
 
 def recent_escalations(limit: int = 5) -> list[str]:
     """Return recent escalation log snippets."""
-    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[str] = []
     for fp in files:
         try:
