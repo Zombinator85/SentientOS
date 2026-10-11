@@ -2663,3 +2663,11 @@ A later source correction was also composed from stale note text and displaced t
 - Persistent epistemic and developmental-history inventories now enumerate bounded JSON names through a shared helper operating on one held directory descriptor. The helper caps both selected records and total directory entries, preventing large ignored-file inventories from bypassing parser bounds. Both owners read each record relative to the same descriptor and verify collection identity after the scan; existing Windows readers remain handle-bound and read-only.
 - Added authored, unexecuted cases for directory-entry and selected-file bounds plus linked-file rejection. Python syntax compilation only; inventory races and recovery remain unverified.
 - Next inspect the World-State and resource-observation source readers for any remaining path-based recovery inventory that can be moved to the same bounded owner custody contract.
+
+
+## 2026-10-11 checkpoint — serialize admitted local mutations against revocation
+
+- The developmental-history and resident epistemic mutation owners previously verified an admission and then published durable state outside the admission ledger lock. A concurrent revocation could land between validation and the bounded local commit. RuntimeAdmissionVerifier now exposes an explicit local-commit transaction that holds the existing ledger lock; these owners verify and publish while issue/revoke operations are serialized against that interval.
+- This does not create or widen any admission. It only defines ordering between existing authorization and existing local mutation. Recovery remains read-only with respect to authority and still does not replay effects.
+- Added an authored, unexecuted lock-order case. Changed source and test syntax compilation only; concurrency and recovery behavior remain unverified.
+- Next continue the source inventory review through World-State and resource-observation custody, then address any remaining bounded owner handoff that lacks this durable identity boundary.

@@ -353,3 +353,32 @@ def test_evidence_intent_recovers_exact_source_proof_and_rejects_substitution(tm
     intent_path.write_bytes(mutation_module.canonical_bytes(intent) + b"\n")
     with pytest.raises(EpistemicMutationError, match="mutation_intent_identity_mismatch"):
         controller.verify_receipts()
+
+
+def test_authorized_local_commit_orders_revocation_after_mutation_boundary(tmp_path) -> None:
+    import os
+    import threading
+
+    if os.name != "posix":
+        pytest.skip("POSIX ledger transaction lock is required")
+    _owner, proposition, authority, controller, binding, _proof = setup(tmp_path)
+    admission = issue(authority, admission_id="lease-E", effects=EVIDENCE_BINDING_EFFECTS,
+        subject=binding.binding_id, config=controller.evidence_configuration_digest(
+            binding=binding, proposition_digest=proposition.proposition_digest,
+            operation_id="lease-operation"), sequence=1)
+    started = threading.Event()
+    finished = threading.Event()
+
+    def revoke() -> None:
+        started.set()
+        authority.revoke(admission.admission_id, sequence=11,
+            reason_category="explicit_test_revocation", provenance="fixture")
+        finished.set()
+
+    with controller.admission_verifier.authorized_local_commit():
+        thread = threading.Thread(target=revoke)
+        thread.start()
+        assert started.wait(timeout=1)
+        assert not finished.wait(timeout=0.05)
+    thread.join(timeout=1)
+    assert finished.is_set()

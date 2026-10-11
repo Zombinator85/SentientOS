@@ -929,8 +929,9 @@ class ResidentDevelopmentalWritebackController:
     def append(self, candidate: DevelopmentalCandidate, *, admission: AdmissionEvidence,
                operation_id: str, correlation_id: str, created_at: str | None = None) -> tuple[DevelopmentalRecord, WritebackReceipt]:
         with self._operation_lock():
-            return self._append_locked(candidate, admission=admission, operation_id=operation_id,
-                correlation_id=correlation_id, created_at=created_at)
+            with self.admission_verifier.authorized_local_commit():
+                return self._append_locked(candidate, admission=admission, operation_id=operation_id,
+                    correlation_id=correlation_id, created_at=created_at)
 
     def _append_locked(self, candidate: DevelopmentalCandidate, *, admission: AdmissionEvidence,
                        operation_id: str, correlation_id: str,

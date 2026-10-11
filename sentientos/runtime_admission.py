@@ -326,6 +326,12 @@ class RuntimeAdmissionVerifier:
             raise AdmissionError("recorded_admission_missing_or_ambiguous")
         return matches[0]
 
+    @contextmanager
+    def authorized_local_commit(self) -> Iterator[None]:
+        """Order an admitted local mutation atomically against issue/revocation."""
+        with self._ledger._exclusive_update_lock():
+            yield
+
     def verify(self, admission: AdmissionEvidence, *, current_sequence: int, capability_id: str, principal_id: str, effect: str, subject_id: str, request_configuration_digest: str) -> None:
         admissions, revocations = self._ledger.load(); definition = self._definitions.get(capability_id)
         stored = next((x for x in admissions if x.admission_id == admission.admission_id), None)

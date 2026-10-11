@@ -631,6 +631,15 @@ class ResidentEpistemicStateMutationController:
                                 source_proof: EpistemicEvidenceSourceProof,
                                 admission: AdmissionEvidence, operation_id: str,
                                 correlation_id: str) -> EvidenceBindingMutationReceipt:
+        with self.admission_verifier.authorized_local_commit():
+            return self._append_evidence_binding_locked(binding=binding,
+                source_proof=source_proof, admission=admission,
+                operation_id=operation_id, correlation_id=correlation_id)
+
+    def _append_evidence_binding_locked(self, *, binding: EvidenceBinding,
+                                source_proof: EpistemicEvidenceSourceProof,
+                                admission: AdmissionEvidence, operation_id: str,
+                                correlation_id: str) -> EvidenceBindingMutationReceipt:
         self._validate_source_event_time(source_proof.recorded_at)
         self.owner.verify(); proposition = self.owner.proposition(binding.proposition_id)
         expected = make_evidence_binding(**{k:v for k,v in asdict(binding).items()
@@ -666,6 +675,15 @@ class ResidentEpistemicStateMutationController:
         return self._write_receipt("evidence", replace(raw, receipt_id=rid, receipt_digest=rdigest))
 
     def commit_update_candidate(self, *, candidate: EpistemicUpdateCandidate,
+                                admission: AdmissionEvidence, operation_id: str,
+                                correlation_id: str, tick: int,
+                                recorded_at: str) -> EpistemicStateMutationReceipt:
+        with self.admission_verifier.authorized_local_commit():
+            return self._commit_update_candidate_locked(candidate=candidate,
+                admission=admission, operation_id=operation_id,
+                correlation_id=correlation_id, tick=tick, recorded_at=recorded_at)
+
+    def _commit_update_candidate_locked(self, *, candidate: EpistemicUpdateCandidate,
                                 admission: AdmissionEvidence, operation_id: str,
                                 correlation_id: str, tick: int,
                                 recorded_at: str) -> EpistemicStateMutationReceipt:
