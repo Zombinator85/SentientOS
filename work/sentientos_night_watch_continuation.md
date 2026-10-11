@@ -1962,3 +1962,14 @@ The explicit parent owner now acquires a no-follow, owner-checked, nonblocking P
 Published module/test/manifest checkpoint `bbebaf2183762127416d13ffb88f285a1d892188` was independently refetched and compiled. This does not add a normal daemon entrypoint: `sentientosd.py` and `sentientos/runtime/startup.py` still do not compose the parent owner. No production activation or child process operation occurred.
 
 Next dependency: close parent lifecycle durability under the lifetime lock (ensure journal append and state replacement cannot be interleaved or reused after partial publication), then establish whether the exact owner can be exposed as an explicit nondefault maintenance launch mode without recursive `sentientosd` startup. Exact running-process identity is still unproven; PID-present cases remain denied and no process is adopted or signalled.
+
+
+## 2026-10-11 checkpoint — enforce singleton parent-owner lifetime
+
+A second source review confirmed the parent supervisor's root was protected, but there was no interprocess lifetime lock. Its state and journal could now detect many races after the fact, but could not prevent two controllers from both believing they owned the child.
+
+The exact parent owner now opens a no-follow owner-checked lock file under its private state root and holds a nonblocking POSIX flock before loading custody or publishing its startup receipt. A competing instance is rejected before it can mutate receipts or launch. The kernel releases ownership when the process exits. Windows remains fail-closed because the existing installation-state lock requires an authenticated installation identity that this parent config does not supply; deriving that identity from a path is not justified.
+
+The existing parent test helper now models kernel lock release for restart cases and adds a singleton-denial node. Tests were only authored; Python compilation passed after exact remote refetch at `0b6da1f96dd2e216a3cd347791cbb6928c56ab17`. No behavioral or process-level check ran.
+
+Next dependency: inspect the precise explicit launch/composition boundary. The maintenance parent supervisor is still absent from `sentientosd.py` and canonical runtime startup, and its readiness guard is injected rather than independently composed; there is no safe default to activate. Determine whether an existing maintenance launch owner can supply explicit trusted installation custody and child readiness observations. If none exists, leave normal startup unchanged and continue the user-memory-root continuity review rather than introducing an implicit/recursive daemon mode.
