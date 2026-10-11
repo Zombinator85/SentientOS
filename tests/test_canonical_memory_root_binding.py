@@ -143,3 +143,13 @@ def test_real_retention_writer_emits_and_reconciles_path_scoped_receipt(tmp_path
     verified = writer.verify_committed_artifact(receipt, source_turn, session_id)
     assert verified["artifact_status"] == "verified"
     assert verified["cross_restart_root_identity"] == "not_established"
+
+    artifact = writer.store.raw / (receipt["memory_id"] + ".json")
+    prior_bytes = artifact.read_bytes()
+    recovery_turn = {**source_turn, "retention_state": "requested"}
+    recovered = writer.recover_existing_artifact(recovery_turn, session_id)
+    assert recovered["artifact_status"] == "verified"
+    assert recovered["write_replayed"] is False
+    assert recovered["receipt"]["target_root_path_binding_digest"] == (
+        receipt["target_root_path_binding_digest"])
+    assert artifact.read_bytes() == prior_bytes

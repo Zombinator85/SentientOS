@@ -2057,3 +2057,8 @@ Recovery now validates the process-attribution extension instead of merely retai
 Three focused cases are authored but unexecuted: valid legacy receipts without process IDs still read, an internally re-digested startup row with a substituted process ID is rejected because its observation no longer binds, and a current schema-marked row cannot drop its process ID. Python compilation only; no behavioral tests or child process launches were performed.
 
 Next dependency: continue source-level succession attribution around parent software generation only if an existing runtime issuer can attest the loaded controller code. A Git commit alone is insufficient. Windows singleton locking and durable shared-memory-root identity remain separately blocked by missing native/independent custody owners.
+
+
+## 2026-10-11 checkpoint — recover the published retention receipt without replay
+
+The real writer acceptance case now continues through `recover_existing_artifact()` with a requested source turn to model interruption after raw artifact publication. It checks that recovery reconstructs the path-scoped receipt, reports no write replay, and leaves the persisted artifact bytes unchanged. The evidence is authored but unexecuted; this closes source coverage of the writer → durable record → recovery receipt handoff without claiming runtime verification.
