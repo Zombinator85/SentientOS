@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 43423)
-Total output lines: 2621
+Warning: truncated output (original token count: 43506)
+Total output lines: 2627
 
 """Deterministic embodied consequence evidence and developmental experiments.
 
@@ -506,7 +506,13 @@ def world_state_records(*, expectation: EmbodiedActionExpectation, handoff: Mapp
     semantic_comparison = {key: value for key, value in comparison.items()
         if key not in {"comparison_id", "comparison_digest"}}
     expected_comparison_id, expected_comparison_digest = _identity("prediction-comparison", semantic_comparison)
-    if (comparison.get("schema_version") != COMPARISON_SCHEMA
+    expected_comparison_fields = {
+        "schema_version", "comparison_id", "comparison_digest", "expectation_id",
+        "expectation_digest", "observation_id", "observation_digest", "observable_results",
+        "counts", "universal_numeric_loss", "authority",
+    }
+    if (set(comparison) != expected_comparison_fields
+            or comparison.get("schema_version") != COMPARISON_SCHEMA
             or comparison.get("comparison_id") != expected_comparison_id
             or comparison.get("comparison_digest") != expected_comparison_digest
             or dict(comparison.get("authority") or {}) != dict(FALSE_AUTHORITY)
@@ -945,16 +951,7 @@ def _strategy_proposal_from_mapping(value: Mapping[str, Any]) -> EmbodiedStrateg
     payload = dict(value)
     for name in ("relevant_consequence_ids", "factual_assertions"):
         if isinstance(payload.get(name), list): payload[name] = tuple(payload[name])
-    try:
-        proposal = EmbodiedStrategyProposal(**payload)
-    except (TypeError, ValueError) as exc:
-        raise EmbodiedConsequenceError("stored_strategy_proposal_invalid") from exc
-    verify_strategy_proposal(proposal)
-    return proposal
-
-
-def _strategy_cognitive_context(value: Mapping[str, Any] | None, *,
-                     …13423 tokens truncated…"mixed_selected_history"
+    try:…13506 tokens truncated…"mixed_selected_history"
     elif any(item.get("lineage_subject_kind") for item in resource_facts):
         posture=("resource_invocation_lineage_history_context_bounded"
             if any(item.get("history_context_posture")!="complete" for item in resource_facts)

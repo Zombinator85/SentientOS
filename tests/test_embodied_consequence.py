@@ -74,6 +74,29 @@ def test_unissued_measurement_claims_cannot_enter_consequence_lineage():
             evaluated_at=T2)
 
 
+def test_digest_recomputed_comparison_cannot_assert_effect_completion():
+    handoff,expectation,report,observation,attribution,comparison=chain("wave")
+    from sentientos.embodied_consequence import _identity
+
+    comparison_semantic={k:v for k,v in comparison.items()
+        if k not in {"comparison_id","comparison_digest"}}
+    comparison_semantic["effect_proven"]=True
+    comparison_id,comparison_digest=_identity("prediction-comparison",comparison_semantic)
+    forged_comparison={**comparison_semantic,"comparison_id":comparison_id,
+        "comparison_digest":comparison_digest}
+    attribution_semantic={k:v for k,v in attribution.items()
+        if k not in {"attribution_id","attribution_digest"}}
+    attribution_semantic["comparison_id"]=comparison_id
+    attribution_semantic["comparison_digest"]=comparison_digest
+    attribution_id,attribution_digest=_identity("consequence",attribution_semantic)
+    rebound_attribution={**attribution_semantic,"attribution_id":attribution_id,
+        "attribution_digest":attribution_digest}
+
+    with pytest.raises(EmbodiedConsequenceError,match="consequence_world_state_lineage_invalid"):
+        world_state_records(expectation=expectation,handoff=handoff,renderer_report=report,
+            observation=observation,attribution=rebound_attribution,comparison=forged_comparison)
+
+
 @pytest.mark.parametrize("mutation,classification",[
     (lambda h,e,r,o: h.update(correlation_id="wrong"),"correlation_mismatch"),
     (lambda h,e,r,o: h.update(body_generation=3),"body_generation_mismatch"),
