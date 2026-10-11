@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -11,9 +12,11 @@ from sentientos.developmental_model_replacement_experiment import (
     ModelReplacementArtifactStore, ModelReplacementProtocol,
 )
 from sentientos.developmental_model_replacement_experimental_serving import (
-    APPROVAL_SCHEMA, EFFECTS, ExperimentalModelServingError, approval_bindings,
+    APPROVAL_SCHEMA, EFFECTS, ExperimentalModelServingController,
+    ExperimentalModelServingError, approval_bindings,
     effect_set_digest, verify_runtime_approval,
 )
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_runtime_provisioning import semantic_digest
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -97,3 +100,28 @@ def test_synthetic_vs_production_evidence_posture() -> None:
 def test_runtime_schemas_and_effect_surface_are_exact() -> None:
     assert len(EFFECTS) == 8
     assert effect_set_digest() == semantic_digest({"effects": sorted(EFFECTS)})
+
+
+def test_historical_receipt_reconciler_fails_closed_on_missing_and_substituted_custody(
+        tmp_path: Path) -> None:
+    handle = InstallationStateRegistry._for_testing(tmp_path).open(
+        InstallationIdentity("installation-1"), create=True)
+    controller = ExperimentalModelServingController(handle, object(), artifact_root=tmp_path)
+    item = protocol()
+    observation = {"model_serving_receipt_id": "experimental-serving-receipt-" + "a" * 24,
+        "model_serving_receipt_digest": "b" * 64,
+        "model_serving_lifetime_id": "experimental-serving-lifetime-one",
+        "inference_receipt_id": "lmrec-" + "c" * 24,
+        "inference_receipt_digest": "d" * 64}
+    arguments = {"protocol": item, "model_role": "model_a", "expected": item.model_a_identity}
+    with pytest.raises(ExperimentalModelServingError, match="historical_experiment_serving_receipt_unavailable"):
+        controller.verify_persisted_observation_receipts(observation, **arguments)
+
+    body = {"schema_version": "sentientos.developmental_model_replacement_experimental_serving_receipt:v1",
+        "status": "experimental_serving_bound", "receipt_id": observation["model_serving_receipt_id"],
+        "receipt_digest": "0" * 64}
+    target = handle.fixed_object(
+        f"local-model/developmental-model-replacement/experimental-serving/receipts/{body['receipt_id']}.json")
+    handle.durable_create(target, (json.dumps(body, sort_keys=True, separators=(",", ":")) + "\n").encode())
+    with pytest.raises(ExperimentalModelServingError, match="historical_experiment_serving_receipt_mismatch"):
+        controller.verify_persisted_observation_receipts(observation, **arguments)
