@@ -68,6 +68,7 @@ class MaintenanceResidentParentSupervisor:
         repository = Path(self.config["repository_root"])
         if self.root == repository or repository in self.root.parents:
             raise ValueError("parent_supervision_custody_inside_repository")
+        require_flock()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         if os.name == "posix":
             root_metadata = os.lstat(self.root)

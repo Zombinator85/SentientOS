@@ -352,3 +352,14 @@ def test_state_publication_failure_blocks_followup_receipts(tmp_path: Path) -> N
     with pytest.raises(RuntimeError, match="parent_state_recovery_not_trusted"):
         controller._receipt("must_not_follow_uncertain_publication")
     assert receipt_path.read_bytes() == after_failed_publication
+
+
+def test_missing_native_lock_refuses_before_parent_state_creation(tmp_path: Path, monkeypatch) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    root = tmp_path / "parent-without-lock"
+    monkeypatch.setattr(
+        "sentientos.maintenance_resident_parent_supervision.require_flock",
+        lambda: (_ for _ in ()).throw(OSError("native_lock_unavailable")))
+    with pytest.raises(OSError, match="native_lock_unavailable"):
+        MaintenanceResidentParentSupervisor(cfg, state_root=root)
+    assert not root.exists()

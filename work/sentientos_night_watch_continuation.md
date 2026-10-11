@@ -2022,3 +2022,10 @@ Next dependency: the existing parent lock intentionally depends on POSIX `flock`
 ## 2026-10-11 checkpoint — bind the parent path test to commissioned custody verification
 
 The first authored CLI test version still mocked the direct resident-config loader in its relative-path case. The entrypoint now routes through the initial-commissioning custody owner, so that case now observes the commissioning verifier and confirms it is not called for relative paths. This test-only correction remains unexecuted; the implementation checkpoint remains untested.
+
+
+## 2026-10-11 checkpoint — refuse unsupported parent locking before custody creation
+
+A follow-up traced the POSIX-only lock boundary into the supervisor constructor. Although the explicit CLI preflight already refuses unsupported locking before creating the parent state directory, direct construction reached `mkdir` before `_acquire_owner_lock()` raised on Windows. The constructor now checks the required native lock before any parent custody directory mutation. A focused authored test asserts that lock unavailability leaves the state root absent; it is unexecuted.
+
+Cross-platform parent supervision remains unresolved: this change prevents partial state creation but does not implement Windows process-wide exclusion or restart child-presence proof. Keep the existing fail-closed platform policy until a separately designed native custody contract is available.
