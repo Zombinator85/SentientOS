@@ -2368,13 +2368,16 @@ def _compose_causal_introspection(
             counts = epistemic_owner.verify()
             return {"proposition_count": int(counts.get("propositions", 0)),
                 "state_count": int(counts.get("states", 0)),
-                "evidence_binding_count": int(counts.get("bindings", 0))}
+                "evidence_binding_count": int(counts.get("bindings", 0)),
+                "incomplete_admission_bound_transaction_count": int(
+                    counts.get("incomplete_admission_bound_transactions", 0))}
         registrations.append(ProviderRegistration("persistent-epistemic-state", "persistent_epistemics",
             LiveOwnerMetadataProvider(provider_id="persistent-epistemic-state-v1",
                 owner_id="persistent-epistemic-state", owner_kind="persistent_epistemic_state_owner",
                 domain="persistent_epistemics", inspect=inspect_epistemics,
                 observation_classes={"proposition_count": "count", "state_count": "count",
-                    "evidence_binding_count": "count"})))
+                    "evidence_binding_count": "count",
+                    "incomplete_admission_bound_transaction_count": "count"})))
     resource_observer = runtime_surfaces._resource_observation_owner
     if "causal_resources" in enabled and resource_observer is not None:
         def inspect_causal_resources() -> dict[str, Any]:

@@ -125,7 +125,9 @@ def test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner
 
     recovered = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
     assert recovered.current_state(p.proposition_id) is None
-    assert recovered.verify()["states"] == recovered.verify()["updates"] == 0
+    recovered_counts = recovered.verify()
+    assert recovered_counts["states"] == recovered_counts["updates"] == 0
+    assert recovered_counts["incomplete_admission_bound_transactions"] == 1
 
     # Storage-only legacy transactions retain their established repair behavior.
     legacy_root = tmp_path / "legacy"

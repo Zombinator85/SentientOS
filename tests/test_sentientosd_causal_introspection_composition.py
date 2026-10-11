@@ -107,6 +107,12 @@ def test_run_loop_composes_three_live_owners_and_preserves_temporal_firewall(
     degraded_counts = [next(observation.bounded_value for observation in projection.observations
         if observation.observation_key == "degraded_surface_count") for projection in runtime_projections]
     assert degraded_counts == [0, 1]
+    epistemic_projections = [next(projection for projection in item.projections
+        if projection.domain == "persistent_epistemics") for item in reconstructed]
+    incomplete_counts = [next(observation.bounded_value for observation in projection.observations
+        if observation.observation_key == "incomplete_admission_bound_transaction_count")
+        for projection in epistemic_projections]
+    assert incomplete_counts == [0, 0]
     assert len(list(custody.glob("generation-*.json"))) == 2
 
 

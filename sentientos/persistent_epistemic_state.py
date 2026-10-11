@@ -432,8 +432,9 @@ class PersistentEpistemicStateOwner:
             raise EpistemicStateError("epistemic_collection_changed_during_read")
         return tuple(records)
 
-    def _recover_transactions(self) -> None:
-        """Complete only digest-valid state/event pairs from immutable intents."""
+    def _recover_transactions(self) -> int:
+        """Recover storage-only pairs and count admitted pairs still awaiting owner validation."""
+        incomplete_admission_bound = 0
         prepared: list[tuple[EpistemicState, EpistemicUpdateEvent]] = []
         generation_bindings: dict[tuple[str, int], tuple[str, str, str]] = {}
         admission_bound_state_digests: set[str] = set()
@@ -510,6 +511,7 @@ class PersistentEpistemicStateOwner:
                         existing_state = _read_record_bytes(state_path)
                         existing_event = _read_record_bytes(event_path)
                     except FileNotFoundError:
+                        incomplete_admission_bound += 1
                         continue
                     if (existing_state != canonical_bytes(asdict(state)) + b"\n"
                             or existing_event != canonical_bytes(asdict(event)) + b"\n"):
@@ -529,6 +531,7 @@ class PersistentEpistemicStateOwner:
             if (existing_state != canonical_bytes(asdict(state)) + b"\n"
                     or existing_event != canonical_bytes(asdict(event)) + b"\n"):
                 raise EpistemicStateError("epistemic_transaction_record_conflict")
+        return incomplete_admission_bound
 
     def register_proposition(self, proposition: EpistemicProposition) -> None:
         expected = make_proposition(**{k:v for k,v in asdict(proposition).items() if k not in {"proposition_id","proposition_digest","schema_version"}})
@@ -780,7 +783,7 @@ class PersistentEpistemicStateOwner:
         _write_new(self.root/"calibrations"/f"{cid}.json",asdict(value)); return value
 
     def verify(self) -> Mapping[str,int]:
-        self._recover_transactions()
+        incomplete_admission_bound = self._recover_transactions()
         propositions={}
         for raw in self._read("propositions"):
             proposition_value=EpistemicProposition(**raw); expected_proposition=make_proposition(**{k:v for k,v in raw.items() if k not in {"proposition_id","proposition_digest","schema_version"}})
@@ -903,7 +906,7 @@ class PersistentEpistemicStateOwner:
                     or any(binding_id not in bindings or bindings[binding_id].proposition_id != calibration.proposition_id
                         for binding_id in calibration.source_binding_ids)):
                 raise EpistemicStateError("epistemic_calibration_invalid")
-        return {"propositions":len(propositions),"bindings":len(bindings),"states":len(states),"updates":len(events),"calibrations":len(self._read("calibrations"))}
+        return {"propositions":len(propositions),"bindings":len(bindings),"states":len(states),"updates":len(events),"calibrations":len(self._read("calibrations")),"incomplete_admission_bound_transactions":incomplete_admission_bound}
 
 
 def embodied_prediction_binding(*, proposition_id: str, expectation: Any, comparison: Any, attribution: Any, observation: Any) -> EvidenceBinding:
