@@ -150,6 +150,12 @@ class CanonicalMemoryStore:
                 posture = "partial_malformed_records"
                 continue
             if isinstance(value, dict) and isinstance(value.get("text"), str):
+                stored_text_digest = value.get("text_digest")
+                if (stored_text_digest is not None
+                        and (not isinstance(stored_text_digest, str)
+                            or stored_text_digest != digest({"text": value["text"]}))):
+                    posture = "partial_text_digest_mismatch"
+                    continue
                 out.append(value)
             else:
                 posture = "partial_invalid_records"

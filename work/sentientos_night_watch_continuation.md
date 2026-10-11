@@ -1246,3 +1246,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `conversation_session.py`. No session parsing tests or runtime recovery were performed.
 
 **Next implementation dependency:** the current chat recovery path was source-reviewed: production responses require a stored invocation verifier, exactly one assistant per source user turn, model/runtime lineage comparison, and no-replay error postures when the invocation response is missing or incomplete. Continue into the next owner integration; platform-backed or production transition evidence remains unverified.
+
+
+## New checkpoint — verify stored memory text digests before retrieval
+
+- Fresh remote source before this increment: `0b89702790ff712fd2966558809acc0418a14353` (tree `ff54f4f916d0968a6ae056580d5a2c8effb94479`).
+- Bounded canonical-memory retrieval accepted a JSON text record even when its optional `text_digest` contradicted the actual text, then used that stored digest in selected-memory identity. A changed text could therefore be represented by a stale digest in the prompt's provenance snapshot.
+- Retrieval now verifies any present text digest against the actual text before admitting the record. Legacy records without a `text_digest` remain compatible and receive the existing content-derived identity. Mismatches are excluded and produce a partial retrieval posture; the snapshot digest continues to bind that posture and selected records.
+- Python compilation passed for `canonical_memory.py`. No records were loaded or prompt constructed; tests and production verification were not performed.
+
+**Next implementation dependency:** continue bounded identity review across memory records: ensure duplicate fragment IDs with conflicting content cannot be silently selected as separate context items, while preserving legacy compatibility and not turning retained user memory into developmental history.
