@@ -5,6 +5,7 @@ import json
 import os
 import stat
 import tempfile
+from datetime import datetime
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping, TypeVar
@@ -136,6 +137,17 @@ class ResidentEpistemicStateMutationController:
         if self.intent_root.exists() and (self.intent_root.is_symlink() or not self.intent_root.is_dir()):
             raise EpistemicMutationError("mutation_intent_root_invalid")
         self.verify_receipts()
+
+    @staticmethod
+    def _validate_source_event_time(value: Any) -> None:
+        if not isinstance(value, str) or not value or len(value) > 128:
+            raise EpistemicMutationError("source_proof_recorded_at_invalid")
+        try:
+            instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise EpistemicMutationError("source_proof_recorded_at_invalid") from exc
+        if instant.tzinfo is None or instant.utcoffset() is None:
+            raise EpistemicMutationError("source_proof_recorded_at_invalid")
 
     @staticmethod
     def evidence_configuration_digest(*, binding: EvidenceBinding, proposition_digest: str,
@@ -541,6 +553,7 @@ class ResidentEpistemicStateMutationController:
                                 source_proof: EpistemicEvidenceSourceProof,
                                 admission: AdmissionEvidence, operation_id: str,
                                 correlation_id: str) -> EvidenceBindingMutationReceipt:
+        self._validate_source_event_time(source_proof.recorded_at)
         self.owner.verify(); proposition = self.owner.proposition(binding.proposition_id)
         expected = make_evidence_binding(**{k:v for k,v in asdict(binding).items()
                                             if k not in {"binding_id","binding_digest","schema_version"}})

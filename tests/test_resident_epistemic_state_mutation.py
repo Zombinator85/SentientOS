@@ -282,3 +282,25 @@ def test_invalid_update_tick_is_rejected_before_state_intent(tmp_path) -> None:
     assert list(controller.intent_root.glob("*.json")) == []
     assert list((owner.root / "transactions").glob("*.json")) == []
     assert owner.current_state(proposition.proposition_id) is None
+
+
+def test_naive_evidence_source_time_is_rejected_before_intent(tmp_path) -> None:
+    owner, proposition, _authority, controller, _binding, _proof = setup(tmp_path)
+    naive_time = "2026-01-01T00:00:00"
+    binding = make_evidence_binding(
+        proposition_id=proposition.proposition_id, source_artifact_id="naive-time-observation",
+        source_digest="sha256:source", source_schema="sensor:v1",
+        source_class="operator_observation", observation_time=naive_time,
+        evidence_relation="supports", dependency_kind="independently_sourced_observation",
+        dependency_group="operator-naive-time", upstream_binding_ids=(), freshness="current",
+        reliability_posture="supports")
+    proof = make_epistemic_evidence_source_proof(
+        source_artifact_id=binding.source_artifact_id, source_digest=binding.source_digest,
+        source_schema=binding.source_schema, source_class=binding.source_class,
+        recorded_at=naive_time, adapter_id="test-adapter:v1", provenance_id="operator:naive-time")
+    with pytest.raises(EpistemicMutationError, match="source_proof_recorded_at_invalid"):
+        controller.append_evidence_binding(
+            binding=binding, source_proof=proof, admission=None,  # type: ignore[arg-type]
+            operation_id="naive-time-operation", correlation_id="naive-time")
+    assert list(controller.intent_root.glob("*.json")) == []
+    assert list((owner.root / "bindings").glob("*.json")) == []

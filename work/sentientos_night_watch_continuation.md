@@ -2500,3 +2500,11 @@ Next inspect succession source records for any projection that still presents a 
 - The owner now exposes the shared update-time validator used by both direct commit and the mutation controller. The controller checks it before owner verification, admission-dependent state work, or durable intent publication, preserving the existing independent admission and receipt flow.
 - Added an authored, unexecuted controller case confirming invalid chronology leaves no intent, transaction, or state. Changed Python files compile only; tests and mutations were not run.
 - Next inspect evidence-binding append for source-time validation parity and cross-process identity limits; retain owner custody and require an exact proof before any durable intent.
+
+
+## 2026-10-11 checkpoint — require qualified source event time before evidence intent
+
+- Evidence-source proof construction and binding identity checked nonempty time strings but accepted timezone-naive timestamps. The mutation controller could therefore admit and durably append a source binding whose event time has no unambiguous instant.
+- The evidence mutation path now requires a bounded timezone-aware ISO timestamp before owner recovery, admission, or intent publication. It still binds the exact source proof to the evidence binding and does not rewrite historical source records.
+- Added an authored, unexecuted rejection case ensuring no intent or binding is written. Changed Python files compile only; no mutation or tests ran.
+- Next trace the configured epistemic-development adapter's timestamps into these mutation calls and ensure it passes source event time rather than snapshot/recovery time, then continue other independently grounded recovery defects.
