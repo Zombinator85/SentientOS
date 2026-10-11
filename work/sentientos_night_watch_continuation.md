@@ -1918,3 +1918,14 @@ The readers now require LF termination for every nonempty journal, split only on
 Published code checkpoint: `53ac94548a59e990fa108f29025b380265c8c1ec`, tree `0767f117dfdef0b24d624acc16e9ead29409acc6`, independently refetched from the branch. Changed Python sources and regression-node files compiled from the exact published blobs; the manifest parsed as JSON. No behavior, transition, or recovery path was executed; production remains unverified.
 
 Next dependency: inspect the resident parent supervisor's actual custody, restart-budget, and child-reconciliation implementation; select a bounded source repair only after verifying its present owner and recovery path. Continue the unresolved user-memory physical-root continuity review where existing custody can support it, without creating an independent identity issuer.
+
+
+## 2026-10-11 checkpoint — bound parent-supervisor snapshot recovery
+
+Fresh parent source at `ae775112cb41cb2be20650a532447dda17d57778` showed the resident parent supervisor reading its state snapshot through `Path.exists()/read_text()`, with no byte ceiling, link-safe custody, or canonical-record check. A failed load latched panic but construction still appended a new startup receipt using the in-memory sequence, risking duplicate/conflicting receipt sequence and overwriting the state after an untrusted read.
+
+The existing explicit-file custody reader now bounds and rejects symlinked/non-private state files. Recovery requires the exact canonical state shape, finite and bounded restart history, a bounded sequence, strict boolean fields, and a digest-verified launch provenance bound to the exact resident config and child spec. State publication now fsyncs the containing directory after atomic replace. A failed state recovery is not followed by a startup receipt or later receipt writes; shutdown still stops the locally owned adapter but does not republish untrusted custody. Two focused rejection nodes were added alongside the existing positive/replay-protection nodes. They are authored but **not executed**.
+
+Published source checkpoint: `dd8868ef245b436c26ab2a6ddd1120f25d7f36e2`, independently refetched from the branch. The changed Python files compiled from those exact remote blobs. No child process was launched, stopped, or recovered; no test or production validation ran.
+
+Next dependency: validate and reconcile the parent receipt journal against the state snapshot so crashes between receipt append and snapshot replacement cannot reuse a sequence or silently restore an older restart budget. Then address singleton parent ownership and truthful orphan-child reconciliation; the current source has no durable process-start identity or independent child observer, so any recovery must fail closed until such evidence is available. Continue checking whether existing configured runtime composition can connect this owner without implicit activation.
