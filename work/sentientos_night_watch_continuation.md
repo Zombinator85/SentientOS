@@ -2416,3 +2416,10 @@ Next inspect succession source records for any projection that still presents a 
 - The daemon now converts reconstruction/export failure into one bounded owner-introspection recovery record containing only the exception class, no source event time, unknown freshness, and false authority/truth/effect flags. The epistemic adapter recognizes that recovery subject as contextual-only with unknown dependency, so an explicitly selected failure cannot act as current support.
 - Added authored, unexecuted composition and adapter cases. Python compilation only; no tests, runtime, or production cognition ran.
 - Note: the immediately preceding remote commit repeated an already-published tree and has no source diff; the active source checkpoint is this continuation. Next verify durable proof/admission recovery preserves the provenance ID after restart, then continue into the next configured owner handoff.
+
+
+## 2026-10-11 correction — preserve existing introspection composition tests
+
+- The prior composition commit replaced an existing 11 KiB test module because the initial directory listing did not show its path. The original file is restored from the exact parent revision, and the new recovery-isolation cases are appended without removing its existing setup or coverage.
+- No production source changed in this correction. The corrected test file compiles only; no test was run.
+- Next continue the durable proof/admission recovery inspection from the prior checkpoint.
