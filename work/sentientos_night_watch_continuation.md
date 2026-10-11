@@ -954,3 +954,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the serving inference, resource adapter, and chat source snapshots. No receipt fixtures, restart simulation, inference, or runtime path was executed.
 
 **Next implementation dependency:** inspect whether the typed chat transcript verifier also checks sequence/predecessor ordering and catches duplicate or orphan assistant linkage after restart; preserve legacy transcript compatibility and explicit incomplete state.
+
+## New checkpoint — validate transcript predecessor links on write and recovery
+
+- Session recovery validated turn payload digests and contiguous sequence numbers but did not validate linked assistant turns against an earlier user turn. Duplicate assistants for one source request, missing predecessors, or future-pointing links could therefore survive reload and influence the chat's context scan.
+- Added one relation validator used both during session reconstruction and before writing new turns. Any present assistant source reference must identify an earlier user turn, and at most one assistant can link to that source turn. New assistant appends must include the source user-turn identity.
+- Historical assistant rows that predate source-turn linkage remain readable as ordinary transcript context, but cannot qualify as a verified predecessor because the existing chat lineage verifier requires the exact linkage.
+- Turn sequence and revision fields now require actual integers, excluding booleans that Python otherwise compares equal to integers.
+- `python -m py_compile` passed for the changed session-store source snapshot. No transcript fixtures or restart behavior were exercised.
+
+**Next implementation dependency:** continue tracing transcript identities through context snapshots and historical invocation verification; check whether session creation and reload validate top-level lifecycle timestamps and source identity consistently, without making legacy transcript rows unreadable.

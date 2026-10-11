@@ -38,6 +38,28 @@ def _digest(value: object) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _validate_turn_source_lineage(turns: Sequence[Mapping[str, Any]]) -> None:
+    by_id = {str(turn.get("turn_id")): turn for turn in turns}
+    linked_sources: set[str] = set()
+    for turn in turns:
+        linkage = turn.get("linkage", {})
+        source_id = linkage.get("source_user_turn_id") if isinstance(linkage, Mapping) else None
+        if source_id is None:
+            continue  # Historical assistant turns may predate source-turn linkage.
+        if (turn.get("role") != "assistant" or not isinstance(source_id, str)
+                or not _TURN_ID.fullmatch(source_id)):
+            raise ValueError("invalid_assistant_source_user_turn")
+        source = by_id.get(source_id)
+        if (not isinstance(source, Mapping) or source.get("role") != "user"
+                or type(source.get("sequence")) is not int
+                or type(turn.get("sequence")) is not int
+                or source["sequence"] >= turn["sequence"]):
+            raise ValueError("assistant_source_user_turn_missing_or_not_predecessor")
+        if source_id in linked_sources:
+            raise ValueError("duplicate_assistant_for_source_user_turn")
+        linked_sources.add(source_id)
+
+
 def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:
     if os.name != "posix":
         raise ValueError("conversation_publication_unsupported_platform")
@@ -185,6 +207,7 @@ class ConversationSessionStore:
                 or payload.get("model_identity_digest") != _digest(dict(model_identity))):
             raise ValueError("invalid_session_model_identity")
         if (not isinstance(turns, list) or any(not isinstance(turn, Mapping) for turn in turns)
+                or any(type(turn.get("sequence")) is not int for turn in turns)
                 or [turn.get("sequence") for turn in turns] != list(range(1, len(turns) + 1))):
             raise ValueError("invalid_turn_sequence")
         seen_ids: set[str] = set()
@@ -231,7 +254,8 @@ class ConversationSessionStore:
                     and (not isinstance(predecessor_digest, str) or len(predecessor_digest) != 64
                          or any(character not in "0123456789abcdef" for character in predecessor_digest))):
                 raise ValueError("invalid_turn_model_predecessor")
-        if payload.get("revision") != len(turns):
+        _validate_turn_source_lineage(turns)
+        if type(payload.get("revision")) is not int or payload.get("revision") != len(turns):
             raise ValueError("invalid_session_revision")
         return payload
 
@@ -299,6 +323,10 @@ class ConversationSessionStore:
     def append_turn(self, session_id: str, *, role: str, text: str, linkage: Mapping[str, Any] | None = None,
                     retention_state: str = "not_requested") -> dict[str, Any]:
         if role not in {"user", "assistant"}: raise ValueError("invalid_turn_role")
+        if role == "assistant" and (not isinstance(linkage, Mapping)
+                or not isinstance(linkage.get("source_user_turn_id"), str)
+                or not _TURN_ID.fullmatch(str(linkage.get("source_user_turn_id")))):
+            raise ValueError("assistant_source_user_turn_required")
         encoded = text.encode("utf-8")
         if not text or len(encoded) > MAX_TURN_BYTES: raise ValueError("turn_size_limit")
         lock = self._locked(session_id)
@@ -308,7 +336,9 @@ class ConversationSessionStore:
             turn = {"turn_id": f"turn-{uuid.uuid4().hex[:24]}", "sequence": sequence, "role": role, "timestamp": _now(),
                     "text": text, "text_digest": _digest({"text": text}), "character_count": len(text), "byte_count": len(encoded),
                     "linkage": dict(linkage or {}), "retention_state": retention_state}
-            session["turns"].append(turn); session["revision"] = sequence; session["latest_activity_at"] = turn["timestamp"]
+            session["turns"].append(turn)
+            _validate_turn_source_lineage(session["turns"])
+            session["revision"] = sequence; session["latest_activity_at"] = turn["timestamp"]
             _atomic_json(self._path(session_id), session)
             return turn
         finally:
