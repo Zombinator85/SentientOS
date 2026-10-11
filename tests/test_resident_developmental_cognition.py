@@ -213,6 +213,42 @@ def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path
     assert composition.writeback.store.get_receipt(result.writeback_receipt_id).storage_verified
 
 
+def test_restart_recovers_writeback_committed_before_composition_checkpoint(tmp_path: Path) -> None:
+    interrupted, _fake = owner(tmp_path)
+    save_state = interrupted._save_state
+
+    def interrupt_final_checkpoint(state):
+        if state["completed_ticks"]:
+            raise ResidentDevelopmentalCognitionError("simulated_after_writeback_before_checkpoint")
+        save_state(state)
+
+    interrupted._save_state = interrupt_final_checkpoint
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+                       match="simulated_after_writeback_before_checkpoint"):
+        interrupted.run_tick(snapshot=snapshot(), tick_id="tick-interrupted")
+
+    durable_records = interrupted.writeback.store.records()
+    assert len(durable_records) == 1
+    durable_receipts = interrupted.writeback.store.receipts()
+    assert len(durable_receipts) == 1
+
+    restarted, fake = owner(tmp_path)
+    recovered = restarted._state()
+    checkpoint = next(row for row in recovered["completed_ticks"]
+                      if row["tick_id"] == "tick-interrupted")
+    assert checkpoint["record_id"] == durable_records[0].record_id
+    assert checkpoint["receipt_id"] == durable_receipts[0].receipt_id
+    assert not any(row.get("tick_id") == "tick-interrupted"
+                   for row in recovered["incomplete_ticks"])
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(), tick_id="tick-interrupted")
+
+    later = restarted.run_tick(snapshot=snapshot(2), tick_id="tick-following")
+    assert later.prior_record_ids == (durable_records[0].record_id,)
+    assert any(request.purpose == "resident_developmental_retrieval_cognition"
+               for request in fake.requests)
+
+
 def test_same_tick_record_is_prohibited_from_retrieval(tmp_path: Path) -> None:
     composition, _ = owner(tmp_path)
     first = composition.run_tick(snapshot=snapshot(), tick_id="tick-n")
