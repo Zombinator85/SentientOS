@@ -270,6 +270,15 @@ def test_running_software_observation_is_grouped_with_source_scope(tmp_path: Pat
     assert claim.value["loaded_code_identity_posture"] == "not_independently_attested"
     assert claim.current_truth is False
     assert claim.source_evidence_ids == ("runtime:software-current",)
+    restarted = LongitudinalSelfModelOwner(tmp_path)
+    assert restarted.cognitive_projection(before_tick="tick-current-software",
+        max_claims=8, allowed_predicates=("software_generation.current_process_observation",)) is None
+    later = restarted.cognitive_projection(before_tick="tick-next", max_claims=8,
+        allowed_predicates=("software_generation.current_process_observation",))
+    assert later is not None and later.source_tick == "tick-current-software"
+    assert later.selected_claims[0]["value"]["observed_at"] == observed
+    assert later.selected_claims[0]["value"]["loaded_code_identity_posture"] == (
+        "not_independently_attested")
 
 
 def test_launch_software_observation_is_historical_interpretation(tmp_path: Path) -> None:

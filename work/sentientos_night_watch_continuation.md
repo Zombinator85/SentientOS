@@ -2255,3 +2255,10 @@ Next inspect succession source records for any projection that still presents a 
 - Current-running software evidence now requires its represented generation and running-generation identities to match in both the cognition selector and grouped developmental-history projection. A source payload cannot qualify by binding a process to one digest while naming another as the running generation.
 - Added authored unexecuted contradiction cases for both consumers. Changed Python/tests compile only; no behavioral execution or production verification ran.
 - Next inspect whether the qualified current source predicate is admitted by configured longitudinal cognition policy without widening the allowlist, then advance to another source-backed dependency.
+
+
+### New checkpoint — preserve software-lineage availability across restart and tick boundary
+
+- Added an unexecuted owner-level regression showing a newly constructed self-model owner can reconstruct the point software observation, withhold it at the source tick, and expose the exact event time and loaded-code limitation to a later tick through the configured predicate path.
+- Only affected test and continuation record changed in this increment. Python syntax compilation only; no behavior or production verification ran.
+- Next inspect adjacent causal-introspection recovery projection continuity and then follow the next meaningful generation attribution gap.
