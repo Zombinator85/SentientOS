@@ -58,3 +58,50 @@ def test_resident_transition_world_state_tail_preserves_omission_lineage() -> No
         "retained_entry_count": RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT,
         "retained_tail_limit": RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT,
     }
+
+
+
+def test_resident_transition_projection_applies_the_declared_tail_to_the_full_journal() -> None:
+    from types import SimpleNamespace
+
+    from sentientosd import RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT, RuntimeMaintenanceSurfaces
+
+    count = RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT + 22
+    entries = tuple({
+        "sequence": index + 1,
+        "entry_digest": f"entry-{index}",
+        "prior_digest": f"entry-{index - 1}" if index else "GENESIS",
+        "phase": "a_quiesced", "status": "completed", "event_time": f"tick-{index}",
+        "evidence": {},
+    } for index in range(count))
+
+    class Journal:
+        def entries(self):
+            return list(entries)
+
+    protocol = SimpleNamespace(value={
+        "transition_id": "transition-test", "protocol_digest": "protocol-digest",
+        "predecessor_a": {"identity_digest": "model-a"},
+        "successor_b": {"identity_digest": "model-b"},
+        "initial_history_boundary": {"boundary_digest": "history-boundary"},
+    })
+    surfaces = object.__new__(RuntimeMaintenanceSurfaces)
+    surfaces._resident_transition_runtime = None
+    surfaces._resident_transition_custody = (protocol, Journal())
+    surfaces._resident_transition_custody_error = None
+    surfaces._resident_cognitive_invoker = SimpleNamespace(current_controller=None)
+    surfaces._resident_software_transition_controller = None
+    surfaces._resident_software_transition_config = None
+    surfaces._resident_model_provenance_bindings = lambda _value: {}
+
+    records = surfaces._resident_succession_world_state_records("2026-10-11T00:00:00Z")
+    transitions = [record for record in records if record["subject_kind"] == "resident_model_transition"]
+    retention = [record for record in records
+        if record["subject_kind"] == "resident_model_transition_history_retention"]
+
+    assert len(transitions) == RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT
+    assert transitions[0]["payload"]["journal_entry_digest"] == f"entry-{count - RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT}"
+    assert transitions[-1]["payload"]["journal_entry_digest"] == f"entry-{count - 1}"
+    assert len(retention) == 1
+    assert retention[0]["payload"]["omitted_entry_count"] == 22
+    assert retention[0]["payload"]["last_omitted_entry_digest"] == f"entry-{count - RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT - 1}"

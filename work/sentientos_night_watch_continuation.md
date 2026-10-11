@@ -2328,3 +2328,8 @@ Next inspect succession source records for any projection that still presents a 
 - Source review found the World-State projection called the 48-row retention helper only after slicing the verified journal to its last 16 entries. That silently discarded older journal lineage and made the helper's omission summary unreachable in the real owner path.
 - The projection now passes the complete already-bounded journal to the 48-row tail helper. The verified journal parser itself caps entries and bytes; World-State retains the latest 48 plus the exact omitted-prefix boundary record. Added an authored, unexecuted owner-path regression for a journal longer than the retained tail. Python compilation and static checks only; no journal, daemon, or production behavior was run.
 - Next continue tracing the qualified activation predecessor through evidence binding and recovery, then advance to the next distinct causal dependency.
+
+
+## 2026-10-11 checkpoint — keep the succession projection regression in its existing module
+
+- Independent compare review caught that the new owner-path regression had been published under a near-duplicate test filename. It has been moved into the existing tests/test_sentientosd_software_succession_projection.py module and the accidental duplicate path is removed. No production code changed in this correction.
