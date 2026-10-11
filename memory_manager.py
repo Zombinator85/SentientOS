@@ -610,6 +610,66 @@ def _append_tomb(entry: Dict) -> None:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+def _collapse_tomb_operations(records: Sequence[Dict]) -> List[Dict]:
+    intents: dict[str, Dict] = {}
+    results: dict[str, str] = {}
+    ordinary: list[Dict] = []
+    for entry in records:
+        event_type = entry.get("event_type")
+        if event_type not in {"purge_intent", "purge_result"}:
+            ordinary.append(entry)
+            continue
+        operation_id = entry.get("operation_id")
+        if not isinstance(operation_id, str) or not operation_id:
+            raise MemorySidecarIncompleteError("memory_tomb_operation_identity", 0)
+        if event_type == "purge_intent":
+            prior = intents.get(operation_id)
+            if prior is not None and prior != entry:
+                raise MemorySidecarIncompleteError("memory_tomb_operation_conflict", 0)
+            intents[operation_id] = entry
+            continue
+        state = entry.get("operation_state")
+        if state not in {"deleted", "not_deleted"}:
+            raise MemorySidecarIncompleteError("memory_tomb_operation_result", 0)
+        prior_state = results.get(operation_id)
+        if prior_state is not None and prior_state != state:
+            raise MemorySidecarIncompleteError("memory_tomb_operation_conflict", 0)
+        results[operation_id] = state
+    if set(results) - set(intents):
+        raise MemorySidecarIncompleteError("memory_tomb_orphan_result", 0)
+    projected: list[Dict] = list(ordinary)
+    for operation_id, intent in intents.items():
+        value = dict(intent)
+        state = results.get(operation_id)
+        if state is not None:
+            value["operation_state"] = state
+            value["recovery_status"] = "result_recorded"
+        else:
+            value["operation_state"] = "incomplete"
+            fragment = intent.get("fragment")
+            fragment_id = fragment.get("id") if isinstance(fragment, dict) else None
+            try:
+                raw = (_read_legacy_raw_fragment(str(fragment_id) + ".json")
+                    if isinstance(fragment_id, str) and fragment_id else None)
+            except (OSError, ValueError):
+                raw = None
+                value["recovery_status"] = "custody_unavailable"
+            if "recovery_status" not in value:
+                if raw is None:
+                    value["recovery_status"] = "delete_outcome_unconfirmed"
+                else:
+                    try:
+                        stored = json.loads(raw.decode("utf-8"))
+                    except (UnicodeError, json.JSONDecodeError):
+                        stored = None
+                    if stored == fragment:
+                        value["recovery_status"] = "interrupted_before_delete"
+                    else:
+                        value["recovery_status"] = "pending_fragment_conflict"
+        projected.append(value)
+    return projected
+
+
 def list_tomb(
     *, tag: str | None = None, reason: str | None = None, date: str | None = None
 ) -> List[Dict]:
@@ -619,6 +679,7 @@ def list_tomb(
         return []
     out: List[Dict] = []
     lines = payload.decode("utf-8").splitlines()
+    parsed_records: list[Dict] = []
     for line_number, line in enumerate(lines, 1):
         if not line.strip():
             continue
@@ -639,6 +700,8 @@ def list_tomb(
                 ensure_ascii=False).encode("utf-8")).hexdigest()
             if stored_hash != expected_hash:
                 raise MemorySidecarIncompleteError("memory_tomb_digest_mismatch", line_number)
+        parsed_records.append(entry)
+    for entry in _collapse_tomb_operations(parsed_records):
         frag = entry.get("fragment", {})
         if tag and tag not in frag.get("tags", []):
             continue
@@ -1230,14 +1293,15 @@ def purge_memory(
         cutoff = now - datetime.timedelta(days=max_age_days)
         for ts, fp, data in entries:
             if ts < cutoff:
-                if _unlink_legacy_raw_fragment(fp.stem):
-                    _append_tomb({
-                        "operation_state": "deleted",
-                        "fragment": data,
-                        "requestor": requestor,
-                        "time": datetime.datetime.utcnow().isoformat(),
-                        "reason": reason,
-                    })
+                operation_id = "purge-" + secrets.token_hex(16)
+                _append_tomb({"event_type": "purge_intent", "operation_id": operation_id,
+                    "fragment": data, "requestor": requestor,
+                    "time": datetime.datetime.utcnow().isoformat(), "reason": reason})
+                deleted = _unlink_legacy_raw_fragment(fp.stem)
+                _append_tomb({"event_type": "purge_result", "operation_id": operation_id,
+                    "operation_state": "deleted" if deleted else "not_deleted",
+                    "time": datetime.datetime.utcnow().isoformat()})
+                if deleted:
                     removed_names.add(fp.name)
                     _remove_from_index(data.get("id", ""))
                     removed += 1
@@ -1245,14 +1309,15 @@ def purge_memory(
         remaining = [e for e in entries if e[1].name not in removed_names]
         excess = len(remaining) - max_files
         for ts, fp, data in remaining[:excess]:
-            if _unlink_legacy_raw_fragment(fp.stem):
-                _append_tomb({
-                    "operation_state": "deleted",
-                    "fragment": data,
-                    "requestor": requestor,
-                    "time": datetime.datetime.utcnow().isoformat(),
-                    "reason": reason,
-                })
+            operation_id = "purge-" + secrets.token_hex(16)
+            _append_tomb({"event_type": "purge_intent", "operation_id": operation_id,
+                "fragment": data, "requestor": requestor,
+                "time": datetime.datetime.utcnow().isoformat(), "reason": reason})
+            deleted = _unlink_legacy_raw_fragment(fp.stem)
+            _append_tomb({"event_type": "purge_result", "operation_id": operation_id,
+                "operation_state": "deleted" if deleted else "not_deleted",
+                "time": datetime.datetime.utcnow().isoformat()})
+            if deleted:
                 removed_names.add(fp.name)
                 _remove_from_index(data.get("id", ""))
                 removed += 1

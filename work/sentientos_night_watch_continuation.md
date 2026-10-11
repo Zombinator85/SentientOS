@@ -1684,3 +1684,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Purge now appends a digest-bound tomb event only after the exact fragment unlink succeeds, and marks it operation_state=deleted. Failed or missing targets do not create a false deletion event. A crash after unlink but before tomb publication can still leave an unrecorded deletion; that is an explicit residual until a journaled two-phase purge owner exists.
 - Python syntax compilation passed for memory_manager.py. No memory or deletion operation was performed.
 - **Next implementation dependency:** reconcile the unlink-before-tomb crash window without weakening owner authorization or introducing an unbounded second journal; if no existing durable transaction owner fits, continue through the observation summary's fragment/log handoff.
+
+
+
+## New checkpoint — journal purge intent and outcome
+
+- Fresh remote source before this increment: d60192918c280659247197926281014a52d9abe5 (tree c7bda39116472bfdf8e323cf6758657de75779e6).
+- Recording only completed deletions avoided false tomb claims but left a crash window after unlink and before tomb append with no trace. Purge now appends a digest-bound intent before unlink and a separate result after it. Read-side projection pairs those records, rejects orphan/conflicting outcomes, and reports unresolved intents as incomplete with a read-only observation of whether the original fragment still matches, is absent, or is unavailable.
+- No replay or automatic cleanup occurs during recovery. Legacy pre-journal tomb entries remain as historical records, and canonical retained chat records remain excluded from legacy purge enumeration.
+- Python syntax compilation passed for memory_manager.py. No files were read or deleted; behavior remains unverified.
+- **Next implementation dependency:** bind tomb operation IDs to source fragment identity and ensure retries do not repeat an unresolved deletion; then inspect the observation-summary fragment/log interruption path.
