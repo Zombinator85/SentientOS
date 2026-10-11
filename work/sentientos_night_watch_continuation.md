@@ -2619,3 +2619,10 @@ Next inspect succession source records for any projection that still presents a 
 - Historical v1 state and evidence intents remain accepted with their original immutable identity and recovery rules; they are not rewritten. New state intents also use v2 without adding irrelevant proof data.
 - Added an authored, unexecuted test for exact proof recovery and substitution rejection. Changed Python source/test syntax compilation only; recovery behavior remains unverified.
 - Next inspect bounded evidence expiration and source-freshness ownership after mutation recovery, ensuring recovered proof timestamps remain event evidence and do not acquire currentness from reconstruction.
+
+
+## 2026-10-11 checkpoint — bind epistemic state locks to private roots
+
+- Persistent epistemic state already serialized generation compare-and-swap, but opened its lock through a path-based parent lookup and checked only that the result was a regular file. The lock now uses the shared no-follow directory descriptor, requires an owner-owned single-link file with private mode, and holds both descriptors for the full transaction.
+- Added an authored, unexecuted symlink and shared-mode lock-custody case. Changed source and test syntax compilation only; lock behavior is unverified.
+- Next inspect the longitudinal self-model's root-bound lock and persistent collection transactions for remaining path-based handoffs; preserve Windows read-only recovery.

@@ -191,3 +191,27 @@ def test_update_recorded_at_requires_bounded_aware_timestamp(tmp_path):
             stance="unknown", reason="initialization", active_binding_ids=(),
             correlation_id="invalid-time", tick=1, recorded_at="2026-01-01T00:00:00")
     assert list((tmp_path / "transactions").glob("*.json")) == []
+
+
+def test_epistemic_mutation_lock_rejects_symlink_and_shared_permissions(tmp_path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX no-follow lock custody is required")
+    root = tmp_path / "owner"
+    owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("test",))
+    external = tmp_path / "external"
+    external.write_text("untouched", encoding="utf-8")
+    (root / ".epistemic-mutation.lock").symlink_to(external)
+    with pytest.raises(EpistemicStateError, match="epistemic_mutation_lock_unavailable"):
+        with owner._mutation_lock():
+            pass
+    assert external.read_text(encoding="utf-8") == "untouched"
+
+    (root / ".epistemic-mutation.lock").unlink()
+    lock = root / ".epistemic-mutation.lock"
+    lock.write_bytes(b"")
+    lock.chmod(0o644)
+    with pytest.raises(EpistemicStateError, match="epistemic_mutation_lock_invalid"):
+        with owner._mutation_lock():
+            pass

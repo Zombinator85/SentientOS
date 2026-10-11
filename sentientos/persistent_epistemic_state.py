@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 from .platform_fcntl import fcntl, require_flock
+from .private_file_custody import PrivateFileCustodyError, open_private_directory
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROPOSITION_SCHEMA = "sentientos.epistemic_proposition:v1"
@@ -603,30 +604,42 @@ class PersistentEpistemicStateOwner:
 
     @contextmanager
     def _mutation_lock(self) -> Iterator[None]:
-        """Serialize state-generation compare-and-swap across local processes."""
+        """Serialize state-generation compare-and-swap through private custody."""
         if os.name != "posix":
             raise EpistemicStateError("epistemic_mutation_unsupported_platform")
+        directory_fd: int | None = None
         descriptor: int | None = None
         try:
             require_flock()
-            nofollow = getattr(os, "O_NOFOLLOW", None)
-            if nofollow is None:
-                raise EpistemicStateError("epistemic_mutation_nofollow_unsupported")
-            flags = os.O_CREAT | os.O_RDWR | nofollow
-            descriptor = os.open(self.root / ".epistemic-mutation.lock", flags, 0o600)
+            directory_fd = open_private_directory(self.root, create=False)
+            descriptor = os.open(
+                ".epistemic-mutation.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                0o600,
+                dir_fd=directory_fd,
+            )
             opened = os.fstat(descriptor)
-            if not stat.S_ISREG(opened.st_mode):
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_uid != os.geteuid()
+                or opened.st_nlink != 1
+                or opened.st_mode & 0o077
+            ):
                 raise EpistemicStateError("epistemic_mutation_lock_invalid")
             fcntl.flock(descriptor, fcntl.LOCK_EX)
         except EpistemicStateError:
             if descriptor is not None:
                 os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
             raise
-        except OSError as exc:
+        except (OSError, PrivateFileCustodyError) as exc:
             if descriptor is not None:
                 os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
             raise EpistemicStateError("epistemic_mutation_lock_unavailable") from exc
-        assert descriptor is not None
+        assert directory_fd is not None and descriptor is not None
         try:
             yield
         finally:
@@ -634,6 +647,7 @@ class PersistentEpistemicStateOwner:
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
             finally:
                 os.close(descriptor)
+                os.close(directory_fd)
 
     def update_events(self, proposition_id: str) -> tuple[EpistemicUpdateEvent, ...]:
         return tuple(sorted((EpistemicUpdateEvent(**{**v,
