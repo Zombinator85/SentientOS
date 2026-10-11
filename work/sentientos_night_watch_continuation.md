@@ -1395,3 +1395,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No memory files were opened, changed, or created; no behavior tests or production verification were performed.
 - **Next implementation dependency:** harden legacy raw-fragment enumeration and reads against symlinks and permission-incompatible files, preserving bounded behavior and leaving canonical retained artifacts, installation-scoped transcripts, and resident developmental history separate. Then inspect the other memory-root write paths for any direct raw writes that bypass `_write_fragment`.
 
+
+
+## New checkpoint — make legacy raw-memory reads descriptor-safe
+
+- Fresh remote source before this increment: `5cf3c0db3f6e409152217af5d7557658c8dd5b4f` (tree `46ab29705b2ab3314ca4835ff3f3345cdb32a58b`).
+- Legacy fragment enumeration used `Path.glob` and its readers followed paths with `read_text`; the canonical chat-memory reader had stronger no-follow checks, but legacy retrieval, search, purge selection, summary generation, and recent-reflection consumers could still traverse a replaced or aliased path.
+- The canonical store can now open an existing raw root without creating it. Legacy raw-memory enumeration is bounded by entry, per-record, and aggregate-byte limits and uses a held directory descriptor; reads reopen each selected basename without following links, check owner/type/link count/private mode and size, and verify descriptor stability before parsing. Canonical `memory-*.json` artifacts remain outside legacy reads. Missing custody is no longer created as a side effect of legacy enumeration.
+- Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No memory roots were opened or modified; no behavioral tests or production verification were performed. These source paths use POSIX custody. Windows ACL-based access checks remain unavailable here, so Windows permission assurance is still an explicit dependency.
+- **Next implementation dependency:** move legacy forget/purge deletion to the same held raw-directory owner, and audit how permission/custody failures surface through memory callers. Then decide whether to implement Windows ACL inspection or keep the canonical memory path explicitly unavailable where ACL privacy cannot be verified.
+

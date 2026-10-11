@@ -108,8 +108,51 @@ def _open_legacy_raw_directory(*, prepare_for_write: bool = False) -> int:
     if os.name != "posix":
         raise PermissionError("legacy_raw_memory_private_custody_unsupported_platform")
     from sentientos.canonical_memory import CanonicalMemoryStore
-    return CanonicalMemoryStore(MEMORY_DIR).open_raw_directory(
-        prepare_for_write=prepare_for_write)
+    return CanonicalMemoryStore(MEMORY_DIR,
+        create_raw=prepare_for_write).open_raw_directory(
+            prepare_for_write=prepare_for_write)
+
+
+def _read_legacy_raw_fragment(name: str) -> bytes | None:
+    """Read one owner-private legacy fragment from the held shared raw root."""
+    if (not isinstance(name, str) or not name.endswith(".json")
+            or name in {".", ".."} or "/" in name or "\\" in name
+            or _is_canonical_retention_path(Path(name))):
+        raise PermissionError("legacy_raw_memory_fragment_name_invalid")
+    directory_fd = _open_legacy_raw_directory()
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
+            | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_uid != os.geteuid()
+                or stat.S_IMODE(before.st_mode) & 0o077
+                or before.st_size > 262144):
+            raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+        chunks: list[bytes] = []
+        remaining = 262145
+        while remaining:
+            chunk = os.read(descriptor, min(65536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if (len(payload) > 262144 or len(payload) != before.st_size
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns
+                or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+            raise PermissionError("legacy_raw_memory_fragment_changed")
+        return payload
+    except FileNotFoundError:
+        return None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(directory_fd)
 
 # Registered callbacks invoked whenever a new reflection is stored.
 ReflectionListener = Callable[[dict], None]
@@ -158,19 +201,45 @@ def _is_canonical_retention_path(path: Path) -> bool:
 
 
 def _legacy_fragment_paths() -> list[Path]:
-    """Enumerate legacy fragments without crossing the canonical-retention namespace."""
-    return [path for path in RAW_PATH.glob("*.json")
-            if not _is_canonical_retention_path(path)]
+    """Enumerate bounded owner-private legacy fragments through a held directory."""
+    try:
+        directory_fd = _open_legacy_raw_directory()
+    except FileNotFoundError:
+        return []
+    try:
+        names: list[str] = []
+        total = 0
+        with os.scandir(directory_fd) as entries:
+            for index, entry in enumerate(entries):
+                if index >= 4096:
+                    raise PermissionError("legacy_raw_memory_scan_bound_exceeded")
+                if not entry.name.endswith(".json"):
+                    continue
+                if _is_canonical_retention_path(Path(entry.name)):
+                    continue
+                metadata = entry.stat(follow_symlinks=False)
+                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                        or metadata.st_uid != os.geteuid()
+                        or stat.S_IMODE(metadata.st_mode) & 0o077):
+                    raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+                total += metadata.st_size
+                if metadata.st_size > 262144 or total > 16777216:
+                    raise PermissionError("legacy_raw_memory_scan_byte_bound_exceeded")
+                names.append(entry.name)
+        return [RAW_PATH / name for name in sorted(names)]
+    finally:
+        os.close(directory_fd)
 
 
 
 
 def _load_fragment(fragment_id: str) -> dict | None:
     path = _fragment_path(fragment_id)
-    if _is_canonical_retention_path(path) or not path.exists():
+    if _is_canonical_retention_path(path) or path.parent != RAW_PATH:
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = _read_legacy_raw_fragment(path.name)
+        return json.loads(payload) if payload is not None else None
     except Exception:
         return None
 
@@ -229,7 +298,7 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
     count = 0
     for fp in files:
         try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
+            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
         except Exception:
             continue
         yield data
@@ -827,7 +896,7 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
     entries = []
     for fp in files:
         try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
+            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
             ts = data.get("timestamp")
             entries.append((ts, data))
         except Exception:
@@ -865,7 +934,7 @@ def purge_memory(
     entries: List[tuple[datetime.datetime, Path, dict]] = []
     for f in files:
         try:
-            data = json.loads(f.read_text(encoding="utf-8"))
+            data = json.loads(_read_legacy_raw_fragment(f.name).decode("utf-8"))
             ts = _parse_ts(data.get("timestamp")).astimezone(timezone.utc)
             entries.append((ts, f, data))
         except Exception:
@@ -1011,7 +1080,7 @@ def summarize_memory() -> None:
     entries: List[dict] = []
     for fp in _legacy_fragment_paths():
         try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
+            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
         except Exception:
             continue
         ts = data.get("timestamp")
@@ -1233,7 +1302,7 @@ def recent_reflections(
     out: list[dict] = []
     for fp in files:
         try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
+            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
         except Exception:
             continue
         if "reflection" not in data.get("tags", []):
@@ -1261,7 +1330,7 @@ def recent_patches(limit: int = 5) -> list[str]:
     out: list[str] = []
     for fp in files:
         try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
+            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
         except Exception:
             continue
         if "self_patch" not in data.get("tags", []):
@@ -1278,7 +1347,7 @@ def recent_escalations(limit: int = 5) -> list[str]:
     out: list[str] = []
     for fp in files:
         try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
+            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
         except Exception:
             continue
         if "escalation" not in data.get("tags", []):
