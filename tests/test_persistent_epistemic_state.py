@@ -6,7 +6,7 @@ import pytest
 from sentientos.persistent_epistemic_state import (
     FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
     PropositionRelation, evidence_posture, make_cognitive_projection,
-    make_evidence_binding, make_proposition,
+    make_evidence_binding, make_proposition, make_epistemic_update_candidate,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -100,6 +100,48 @@ def test_owner_projection_is_verified_latest_bounded_deterministic_and_empty(tmp
     event=json.loads(event_path.read_text()); event["tick"]=100; event_path.write_text(json.dumps(event))
     with pytest.raises(EpistemicStateError): owner.cognitive_projection(max_states=2)
 
+
+
+def test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=p.proposition_id, predecessor_state_digest=None,
+        proposed_stance="unknown", evidence_binding_ids=(), reason="initialization",
+        rationale="explicit initialization", uncertainty="unknown", model_id=None,
+        proposer_kind="deterministic_rule", proposer_id="recovery-fixture")
+    state, event = owner.commit_update(
+        proposition_id=p.proposition_id, expected_predecessor_digest=None,
+        stance="unknown", reason="initialization", active_binding_ids=(),
+        candidate=candidate, mutation_binding={
+            "candidate_id": candidate.candidate_id, "candidate_digest": "sha256:fixture",
+            "admission_id": "admission:fixture", "admission_binding_digest": "sha256:admission",
+            "operation_id": "operation:fixture", "correlation_id": "correlation:fixture"},
+        correlation_id="correlation:fixture", tick=1, recorded_at="2026-01-01T00:00:00Z")
+
+    (tmp_path / "states" / f"{state.generation:012d}-{state.state_id}.json").unlink()
+    (tmp_path / "updates" / f"{event.generation:012d}-{event.event_id}.json").unlink()
+
+    recovered = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    assert recovered.current_state(p.proposition_id) is None
+    assert recovered.verify()["states"] == recovered.verify()["updates"] == 0
+
+    # Storage-only legacy transactions retain their established repair behavior.
+    legacy_root = tmp_path / "legacy"
+    legacy = PersistentEpistemicStateOwner(legacy_root, allowed_namespaces=["embodiment"])
+    legacy_proposition = proposition(statement="legacy storage-only")
+    legacy.register_proposition(legacy_proposition)
+    legacy_state, legacy_event = legacy.commit_update(
+        proposition_id=legacy_proposition.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=(), correlation_id="legacy", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    (legacy_root / "states" / f"{legacy_state.generation:012d}-{legacy_state.state_id}.json").unlink()
+    (legacy_root / "updates" / f"{legacy_event.generation:012d}-{legacy_event.event_id}.json").unlink()
+    legacy_recovered = PersistentEpistemicStateOwner(
+        legacy_root, allowed_namespaces=["embodiment"])
+    assert legacy_recovered.current_state(legacy_proposition.proposition_id) == legacy_state
 
 def test_authority_and_fabricated_or_missing_evidence_fail_closed(tmp_path):
     owner=PersistentEpistemicStateOwner(tmp_path,allowed_namespaces=["embodiment"]); p=proposition(); owner.register_proposition(p)

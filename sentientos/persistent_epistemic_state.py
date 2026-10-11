@@ -436,6 +436,7 @@ class PersistentEpistemicStateOwner:
         """Complete only digest-valid state/event pairs from immutable intents."""
         prepared: list[tuple[EpistemicState, EpistemicUpdateEvent]] = []
         generation_bindings: dict[tuple[str, int], tuple[str, str, str]] = {}
+        admission_bound_state_digests: set[str] = set()
         for raw in self._read("transactions"):
             expected_transaction_fields = {"transaction_id", "transaction_digest", "state", "event"}
             if "mutation_binding" in raw:
@@ -492,12 +493,28 @@ class PersistentEpistemicStateOwner:
             if previous is not None and previous != pair:
                 raise EpistemicStateError("epistemic_transaction_generation_conflict")
             generation_bindings[generation] = pair
+            if mutation_binding is not None:
+                admission_bound_state_digests.add(state.state_digest)
             prepared.append((state, event))
         for state, event in sorted(prepared, key=lambda pair: (
                 pair[0].proposition_id, pair[0].generation, pair[0].state_id)):
             state_path = self.root / "states" / f"{state.generation:012d}-{state.state_id}.json"
             event_path = self.root / "updates" / f"{event.generation:012d}-{event.event_id}.json"
             if os.name == "posix":
+                if state.state_digest in admission_bound_state_digests:
+                    # Admission-bound transactions are not storage-only repair
+                    # intents. Leave a missing pair incomplete for the mutation
+                    # controller to classify; never publish state before it
+                    # authenticates the separately held admission intent.
+                    try:
+                        existing_state = _read_record_bytes(state_path)
+                        existing_event = _read_record_bytes(event_path)
+                    except FileNotFoundError:
+                        continue
+                    if (existing_state != canonical_bytes(asdict(state)) + b"\n"
+                            or existing_event != canonical_bytes(asdict(event)) + b"\n"):
+                        raise EpistemicStateError("epistemic_transaction_record_conflict")
+                    continue
                 _write_new(state_path, asdict(state))
                 _write_new(event_path, asdict(event))
                 continue
