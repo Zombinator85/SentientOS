@@ -135,3 +135,14 @@ def test_concurrent_admission_issuers_preserve_distinct_sequences(tmp_path):
     assert revocations == ()
     assert {item.admission_id for item in admissions} == {"parallel-a", "parallel-b"}
     assert {item.issued_sequence for item in admissions} == {2, 3}
+
+
+def test_admission_current_sequence_includes_revocations(tmp_path):
+    authority, verifier, admission = issued(tmp_path)
+    authority.revoke(admission.admission_id, sequence=4,
+        reason_category="operator_policy_change", provenance="fixture")
+    ledger = AdmissionLedger(tmp_path / "admissions.json")
+    assert ledger.current_sequence() == 4
+    assert ledger.next_sequence() == 5
+    with pytest.raises(AdmissionError, match="revoked"):
+        verify(verifier, admission, current_sequence=ledger.current_sequence())

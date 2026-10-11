@@ -645,9 +645,7 @@ class RuntimeMaintenanceSurfaces:
                 ledger = AdmissionLedger(self._runtime_state_root / "epistemic_development" / "runtime_admissions.json")
                 definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION: RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
                 def current_epistemic_admission_sequence() -> int:
-                    admissions, revocations = ledger.load()
-                    return max([item.issued_sequence for item in admissions]
-                               + [item.sequence for item in revocations], default=1)
+                    return ledger.current_sequence()
                 controller = ResidentEpistemicStateMutationController(
                     owner=self._epistemic_state_owner,
                     admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
@@ -681,11 +679,9 @@ class RuntimeMaintenanceSurfaces:
                     ledger = AdmissionLedger(config.state_root / "runtime_admissions.json")
                     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
                     def current_admission_sequence() -> int:
-                        admissions, _ = ledger.load()
-                        return max((item.issued_sequence for item in admissions), default=1)
+                        return ledger.current_sequence()
                     def next_admission_sequence() -> int:
-                        admissions, revocations = ledger.load()
-                        return max([item.issued_sequence for item in admissions] + [item.sequence for item in revocations], default=0) + 1
+                        return ledger.next_sequence()
                     writeback = ResidentDevelopmentalWritebackController(
                         history_root=config.history_root,
                         admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),

@@ -150,8 +150,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 raise EpistemicDevelopmentError("proposition_namespace_not_allowed")
 
     def _next_sequence(self) -> int:
-        admissions, revocations = self.ledger.load()
-        return max([x.issued_sequence for x in admissions] + [x.sequence for x in revocations], default=0) + 1
+        return self.ledger.next_sequence()
 
     @staticmethod
     def _matches(rule: EpistemicDevelopmentRule, fact: WorldStateFact) -> bool:

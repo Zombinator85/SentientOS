@@ -2566,3 +2566,10 @@ Next inspect succession source records for any projection that still presents a 
 - The lock is confined to the explicitly injected ledger parent, uses the shared owner-checked directory helper, and validates the lock inode before acquisition. Issuance and revocation retain their existing principal/effect/sequence checks and produce the same sealed evidence; verification still reads complete atomic snapshots.
 - Added an authored, unexecuted two-owner concurrent issuance case plus the earlier permission/symlink cases. Changed owner and test modules passed Python compilation only. No concurrency test, behavior suite, or production verification ran.
 - Next inspect how runtime-admission sequence allocation is coordinated with other independently configured owners. The new lock prevents lost ledger updates and duplicate accepted sequence values, but the caller still supplies sequence numbers; do not infer a global sequence issuer or expand authority without an existing owner contract.
+
+
+## 2026-10-11 checkpoint — use revocation-aware ledger sequence consumers
+
+- The resident-developmental daemon's verifier clock used only the greatest admission issue sequence. A later revocation could therefore remain ineffective when verification passed a lower current sequence. Both resident-developmental and epistemic-development sequence providers now call the ledger's shared current/next sequence accessors; current sequence includes admissions and revocations.
+- Added an authored, unexecuted regression case asserting that a revocation advances both current and next sequence and causes verifier rejection at the current ledger sequence. No tests or runtime were executed.
+- Sequence scope remains per explicit ledger. Issuers still supply sequence values before the locked admission transaction; duplicate values fail closed under the lock rather than overwriting another update. The next source dependency is whether caller-side allocation should be made atomic with issuance without changing established admission identities or scope.

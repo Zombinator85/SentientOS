@@ -160,6 +160,18 @@ class AdmissionLedger:
         except (OSError, UnicodeError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise AdmissionError("corrupt_admission_ledger") from exc
 
+    def current_sequence(self) -> int:
+        """Return the latest durable issue or revocation sequence for this ledger."""
+        admissions, revocations = self.load()
+        return max([item.issued_sequence for item in admissions]
+                   + [item.sequence for item in revocations], default=1)
+
+    def next_sequence(self) -> int:
+        """Return the next local ledger sequence; issuance still rechecks under lock."""
+        admissions, revocations = self.load()
+        return max([item.issued_sequence for item in admissions]
+                   + [item.sequence for item in revocations], default=0) + 1
+
     def save(self, admissions: tuple[AdmissionEvidence, ...],
              revocations: tuple[RevocationEvidence, ...]) -> None:
         with self._exclusive_update_lock():
