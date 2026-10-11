@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 43506)
-Total output lines: 2627
+Warning: truncated output (original token count: 43594)
+Total output lines: 2632
 
 """Deterministic embodied consequence evidence and developmental experiments.
 
@@ -395,6 +395,11 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     # API compatibility, but fail closed until a real source owner can bind it.
     if measured_evidence:
         raise EmbodiedConsequenceError("measured_evidence_source_unavailable")
+    # A digest-shaped principal reference is still only a caller assertion.
+    # This evaluator has no principal issuer to resolve it against, so it must
+    # not turn the optional argument into attributed causal lineage.
+    if causal_principal_binding_digest is not None:
+        raise EmbodiedConsequenceError("causal_principal_source_unavailable")
     verify_expectation(expectation)
     handoff_integrity_valid = True
     try:
@@ -944,14 +949,7 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], 
     elif structural[0]: outcome="unchanged"
     else: outcome="changed"
     payload={"proposal_structural_equalities":{"present_equals_withheld":structural[0],"present_equals_restored":structural[1]},
-        "proposal_scores":rows,"outcome":outcome,"improvement_claimed":False,"authority":dict(FALSE_AUTHORITY)}
-    payload["score_digest"]=digest(payload); return payload
-
-def _strategy_proposal_from_mapping(value: Mapping[str, Any]) -> EmbodiedStrategyProposal:
-    payload = dict(value)
-    for name in ("relevant_consequence_ids", "factual_assertions"):
-        if isinstance(payload.get(name), list): payload[name] = tuple(payload[name])
-    try:…13506 tokens truncated…"mixed_selected_history"
+        "proposal_scores":rows,"outcome":outcome,"improvement_claimed":False,"authority":dict(FAL…13594 tokens truncated…"mixed_selected_history"
     elif any(item.get("lineage_subject_kind") for item in resource_facts):
         posture=("resource_invocation_lineage_history_context_bounded"
             if any(item.get("history_context_posture")!="complete" for item in resource_facts)

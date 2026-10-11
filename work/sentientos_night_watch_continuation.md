@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 116313)
-Total output lines: 2955
+Warning: truncated output (original token count: 116638)
+Total output lines: 2962
 
 # SentientOS long construction continuation
 
@@ -310,17 +310,7 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The verified digest list is bounded to the newest 128 journal entries, matching the daemon's bounded transition projection. Older valid history remains in durable journal custody but is not individually emitted by this bounded World-State view.
 - The changed transition-controller and daemon sources passed `py_compile`. No runtime, crash/restart, cognition, World-State builder execution, tests, model activation, or production verification was performed. Work remains unverified for production.
 
-**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…86313 tokens truncated…ivate mode; collection reads and immutable writes also use shared descriptor custody. No published commit was rewritten. The new lock and collection cases are authored but unexecuted; Python compilation only.
-
-
-## Continuation-record correction — preserve displaced entries after source fix
-
-A later source correction was also composed from stale note text and displaced the immediately preceding restoration. This append-only entry restores the missing checkpoint text again. The correction is transparent: no Git commit or earlier file version is rewritten, and the current source remains the combined hardened lock and descriptor-bound collection implementation.
-
-### 2026-10-11 — make developmental writeback operation-idempotent (checkpoint restored)
-
-- Immutable content identities prevented byte substitution but did not prevent two controller instances from assigning different creation timestamps to concurrent retries of one operation, producing duplicate history records. The POSIX writeback owner serializes operation lookup, admission verification, record publication, and receipt publication with a private no-follow lock in the configured history root.
-- A retry reuses one existing record only when candidate content, admission identity, principal, operation, correlation, and any explicitly supplied creation time agree. It can reconstruct the deterministic receipt after record-only crash recovery; a reused operation with conflicting evidence is rejected. No cognition or external effect is replayed.
+**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…86638 tokens truncated…explicitly supplied creation time agree. It can reconstruct the deterministic receipt after record-only crash recovery; a reused operation with conflicting evidence is rejected. No cognition or external effect is replayed.
 - Added a concurrent-owner test case, authored and unexecuted. Changed source and test files passed Python syntax compilation only; record concurrency and crash recovery remain unverified.
 - Next inspect the epistemic-state mutation journal's multi-stage admission/intent/receipt transaction for the same operation-level duplication window, without weakening its state-generation compare-and-swap or admission separation.
 
@@ -633,3 +623,10 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Added focused regressions for both cases. `tests/test_embodied_consequence.py`: 13 passed. Python compilation and `git diff --check` passed. Hermetic tests establish this code path only, not physical observation, effect, production operation, or developmental improvement.
 - Construction remains unverified for production. The strongest empirical blocker remains an authenticated independent consequence/measurement issuer and an authorized genuine local model/runtime with exact serving identity; no claims or substitutes were created.
 - Next source dependency: continue tracing durable developmental lesson application into a consequential but bounded prospective choice, while keeping independent outcome measurement unavailable/unknown until a genuine observer contract exists. Do not repeat the 100-test suite without a changed path.
+
+## 2026-10-11 checkpoint — unresolved principal attribution remains unknown
+
+- Continued from remotely verified source `00a006674481b594dd9ce5ecbf8dbc1fbb98ed97`. A second optional field in `evaluate_consequence()` accepted any caller-provided `causal_principal_binding_digest` and copied it into the consequence attribution without a principal issuer or owner lookup. Non-empty values now fail with `causal_principal_source_unavailable`; the expectation may still retain a declared request-time reference, but evaluation does not promote it to causal attribution.
+- Added a regression that attempts to inject a digest-shaped principal claim. The 14-node focused consequence module passes, including positive controls and recomputed-digest effect-claim rejection. Python compilation and `git diff --check` pass.
+- This is a claim-admission guard, not a principal authentication implementation. An attributable non-synthetic effect still requires an actual authenticated observer and principal binding owner. No such evidence is available in this environment.
+- Next: inspect the actual resident cognition-to-developmental-history application and causal-outcome composition for another implementable source defect; do not infer functional improvement from the hermetic strategy proposal difference.

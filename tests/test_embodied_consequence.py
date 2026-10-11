@@ -74,6 +74,14 @@ def test_unissued_measurement_claims_cannot_enter_consequence_lineage():
             evaluated_at=T2)
 
 
+def test_unresolved_principal_digest_cannot_be_attributed_as_cause():
+    handoff,expectation,report,observation,_,_=chain("idle")
+    with pytest.raises(EmbodiedConsequenceError,match="causal_principal_source_unavailable"):
+        evaluate_consequence(expectation=expectation,handoff=handoff,current_body=pointer(),
+            renderer_report=report,observation=observation,
+            causal_principal_binding_digest="sha256:"+"a"*64,evaluated_at=T2)
+
+
 def test_digest_recomputed_comparison_cannot_assert_effect_completion():
     handoff,expectation,report,observation,attribution,comparison=chain("wave")
     from sentientos.embodied_consequence import _identity
