@@ -100,11 +100,118 @@ def _read_source(path: Path) -> bytes:
             os.close(descriptor)
 
 
+def _read_source_at(parent_fd: int, name: str) -> bytes:
+    if (not name or name in {".", ".."} or "/" in name or "\\" in name
+            or not hasattr(os, "O_NOFOLLOW")):
+        raise ChatProcessGenerationError("chat_source_member_invalid")
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
+            | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=parent_fd)
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_SOURCE_FILE_BYTES:
+            raise ChatProcessGenerationError("chat_source_member_invalid")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(65_536, MAX_SOURCE_FILE_BYTES + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > MAX_SOURCE_FILE_BYTES:
+                raise ChatProcessGenerationError("chat_source_member_too_large")
+        after = os.fstat(descriptor)
+        raw = b"".join(chunks)
+        if (len(raw) != before.st_size or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+            raise ChatProcessGenerationError("chat_source_member_changed")
+        return raw
+    except ChatProcessGenerationError:
+        raise
+    except OSError as exc:
+        raise ChatProcessGenerationError("chat_source_member_unavailable") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _source_generation_posix(root: Path) -> tuple[str, tuple[dict[str, Any], ...]]:
+    root_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    try:
+        root_fd = os.open(root, root_flags)
+    except OSError as exc:
+        raise ChatProcessGenerationError("chat_source_root_unavailable") from exc
+    members: list[dict[str, Any]] = []
+    total = 0
+    directory_count = 0
+    candidate_count = 0
+    try:
+        root_before = os.fstat(root_fd)
+        if not stat.S_ISDIR(root_before.st_mode):
+            raise ChatProcessGenerationError("chat_source_root_invalid")
+        for source_name in ("sentientos", "scripts"):
+            try:
+                source_fd = os.open(source_name,
+                    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW
+                    | getattr(os, "O_CLOEXEC", 0), dir_fd=root_fd)
+            except OSError as exc:
+                raise ChatProcessGenerationError("chat_source_root_incomplete") from exc
+            try:
+                if not stat.S_ISDIR(os.fstat(source_fd).st_mode):
+                    raise ChatProcessGenerationError("chat_source_root_incomplete")
+                for current, directories, filenames, directory_fd in os.fwalk(
+                        ".", topdown=True, follow_symlinks=False, dir_fd=source_fd):
+                    directory_count += 1
+                    if directory_count > MAX_SOURCE_DIRECTORIES:
+                        raise ChatProcessGenerationError("chat_source_directory_bound_exceeded")
+                    directories.sort()
+                    for dirname in directories:
+                        try:
+                            entry = os.stat(dirname, dir_fd=directory_fd, follow_symlinks=False)
+                        except OSError as exc:
+                            raise ChatProcessGenerationError("chat_source_directory_invalid") from exc
+                        if not stat.S_ISDIR(entry.st_mode):
+                            raise ChatProcessGenerationError("chat_source_directory_symlink")
+                    parts = tuple(part for part in Path(current).parts if part not in {"", "."})
+                    for filename in sorted(name for name in filenames if name.endswith(".py")):
+                        candidate_count += 1
+                        if candidate_count > MAX_SOURCE_FILES:
+                            raise ChatProcessGenerationError("chat_source_file_bound_exceeded")
+                        raw = _read_source_at(directory_fd, filename)
+                        total += len(raw)
+                        if total > MAX_SOURCE_TOTAL_BYTES:
+                            raise ChatProcessGenerationError("chat_source_total_bound_exceeded")
+                        relative = Path(source_name, *parts, filename).as_posix()
+                        members.append({"path": relative, "sha256": hashlib.sha256(raw).hexdigest(),
+                                        "size_bytes": len(raw)})
+            finally:
+                os.close(source_fd)
+        try:
+            root_after_path = os.stat(root, follow_symlinks=False)
+        except OSError as exc:
+            raise ChatProcessGenerationError("chat_source_root_changed") from exc
+        root_after = os.fstat(root_fd)
+        if (not stat.S_ISDIR(root_after_path.st_mode)
+                or (root_after_path.st_dev, root_after_path.st_ino) != (root_before.st_dev, root_before.st_ino)
+                or (root_after.st_dev, root_after.st_ino) != (root_before.st_dev, root_before.st_ino)):
+            raise ChatProcessGenerationError("chat_source_root_changed")
+    finally:
+        os.close(root_fd)
+    members.sort(key=lambda item: str(item["path"]))
+    manifest_digest = _digest(members)
+    return "sha256:" + manifest_digest, tuple(members)
+
+
 def source_generation(repository_root: str | Path) -> tuple[str, tuple[dict[str, Any], ...]]:
     """Measure bounded source bytes for the installed chat script and SentientOS package."""
     root = Path(repository_root)
     if not root.is_absolute() or root.resolve() != root or root.is_symlink():
         raise ChatProcessGenerationError("chat_source_root_invalid")
+    if os.name == "posix":
+        return _source_generation_posix(root)
     source_directories = (root / "sentientos", root / "scripts")
     if any(path.is_symlink() or not path.is_dir() for path in source_directories):
         raise ChatProcessGenerationError("chat_source_root_incomplete")

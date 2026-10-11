@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The current remote branch has since advanced through independently fetched compare-and-swap publications; the newest exact checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `3fe972e15e0214981910a446d6da133a3475f0c0` (tree `f6ca88e04ec58df8e9c6bc9fa952edcc14910ea5`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1031,3 +1031,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python source compilation and whitespace inspection passed for the changed module. No concurrency, symlink, runtime, or Windows execution was performed.
 - The chat-process generation publisher itself requires the existing mutable POSIX InstallationStateHandle; Windows exposes only the read-only installation view and has no equivalent atomic publication owner. That remains an exact unsupported dependency. No mutation capability was added to Windows.
 - Construction is unverified. Next inspect recovery of transcript/session files and request reconciliation for identity substitutions that remain independently fixable without retaining response output or widening memory.
+
+
+## New checkpoint — bind chat source-generation scans to directory handles
+
+- The prior remotely verified head was 3fe972e15e0214981910a446d6da133a3475f0c0 (tree f6ca88e04ec58df8e9c6bc9fa952edcc14910ea5).
+- The chat runtime handoff computes a bounded source-generation digest over the sentientos and scripts trees, then uses it as process-generation attribution. Its POSIX source scanner previously enumerated by path and only no-follow-opened the final source file. A concurrent replacement of an interior directory could redirect a bounded read outside the intended source tree while still producing a plausible generation digest.
+- POSIX source generation now opens the root and the two declared source roots as held directory descriptors, walks them with follow_symlinks disabled, validates directory entries relative to those held descriptors, and opens each Python member relative to its held parent with O_NOFOLLOW. It retains per-file identity/size checks, aggregate file/directory bounds, deterministic path ordering, and the same digest shape. The existing non-POSIX read-only fallback remains unchanged; it does not establish a Windows publisher.
+- This hardens the evidence scope for the existing chat-process generation owner without treating the resulting source digest as proof of loaded code or OS attestation.
+- Python compilation and whitespace inspection passed. No concurrent filesystem mutation, process launch, runtime, or platform experiment was performed. Construction remains unverified.
+- Next inspect invocation receipt provenance and source-generation summaries for any consumers that overstate an authenticated source snapshot as actual loaded code; preserve the strongest bounded claim while moving to other constructible source gaps.
