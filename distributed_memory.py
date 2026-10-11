@@ -307,7 +307,8 @@ class DistributedMemorySynchronizer:
         if not ip:
             return
         url = f"http://{ip}:{port}{_MEMORY_ENDPOINT}"
-        headers = {_HEADER_TOKEN: NODE_TOKEN}
+        headers = {_HEADER_TOKEN: NODE_TOKEN,
+            _NODE_ID_HEADER: _local_node_id()}
         try:
             response = requests.get(url, headers=headers, timeout=_REMOTE_TIMEOUT, stream=True)
         except requests.RequestException as exc:

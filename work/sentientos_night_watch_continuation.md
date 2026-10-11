@@ -1654,3 +1654,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Synchronization now loads dotenv before the registry snapshots its token and only contacts registry-trusted peers. The import provenance label now states that a registry target claim is not a signed response or authorship proof. No external authority was added; no synchronization was started.
 - Python syntax compilation passed for `distributed_memory.py`. Trust registry and network response authentication were source-reviewed only; no peer calls or behavior verification occurred.
 - **Next implementation dependency:** determine whether the repository has an existing authenticated peer-response receipt/signature owner. If absent, keep federated content classified as peer-provided unverified memory and prevent it from being represented as local authorship or resident developmental evidence.
+
+
+
+## New checkpoint — require trusted identity for memory export
+
+- Fresh remote source before this increment: `e7dacdb9e9df37ed6c246ba79204a1e12827bc3f` (tree `9d9e897827eb2e579ce4ed80b472b2dc00bdf242`).
+- The relay's GET memory-export route required a token only when one happened to be configured, leaving all user legacy fragments readable to any caller when NODE_TOKEN was empty. The synchronizer also omitted its node identity on fetch requests.
+- Export now requires a configured matching token and a requester identity registered with trusted status. The synchronizer sends its existing node-id header, while client-side selection also remains trusted-only. This adds no grants and starts no federation. The peer response is still not cryptographically signed; its identity label remains a registry-target claim only.
+- Python syntax compilation passed for relay_app.py and distributed_memory.py. No web server or peer network was started; no endpoint behavior was exercised.
+- **Next implementation dependency:** verify the exact owner path that updates peer trust and whether shared token transport is protected in transit. If no signed/TLS peer identity exists, keep that as an explicit deployment dependency and do not overstate imported memory provenance.

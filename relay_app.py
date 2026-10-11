@@ -2801,7 +2801,11 @@ def register_node() -> Response:
 @route("/memory/export", methods=["GET", "POST"])
 def memory_export() -> Response:
     if request.method == "GET":
-        if NODE_TOKEN and request.headers.get(_NODE_HEADER) != NODE_TOKEN:
+        if not NODE_TOKEN or request.headers.get(_NODE_HEADER) != NODE_TOKEN:
+            return Response("Forbidden", status=403)
+        requester = str(request.headers.get(_NODE_ID_HEADER) or "").strip()
+        requester_record = registry.get(requester) if requester else None
+        if not requester_record or requester_record.trust_level != "trusted":
             return Response("Forbidden", status=403)
         limit_arg = request.args.get("limit")
         limit = None
