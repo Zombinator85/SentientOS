@@ -130,3 +130,37 @@ def test_persisted_provenance_or_configuration_mismatch_fails_closed(tmp_path: P
         resident_readiness_guard=lambda _: True, adapter_factory=Factory())
     assert rebuilt.status()["panic_latched"] is True
     with pytest.raises(RuntimeError, match="panic_latched"): rebuilt.start()
+
+
+def test_invalid_state_recovery_does_not_append_duplicate_parent_receipt(
+    tmp_path: Path,
+) -> None:
+    controller, _, _ = _parent(tmp_path)
+    controller.start()
+    receipt_path = tmp_path / "parent" / "parent-receipts.jsonl"
+    before = receipt_path.read_bytes()
+    state_path = tmp_path / "parent" / "parent-state.json"
+    state_path.write_bytes(b"not-json\n")
+
+    rebuilt, child, _ = _parent(tmp_path)
+    assert rebuilt.status()["panic_latched"] is True
+    assert receipt_path.read_bytes() == before
+    with pytest.raises(RuntimeError, match="panic_latched"):
+        rebuilt.start()
+    assert child.starts == 0
+
+
+def test_parent_state_symlink_is_untrusted_and_not_republished(tmp_path: Path) -> None:
+    controller, _, _ = _parent(tmp_path)
+    controller.start()
+    receipt_path = tmp_path / "parent" / "parent-receipts.jsonl"
+    before = receipt_path.read_bytes()
+    state_path = tmp_path / "parent" / "parent-state.json"
+    state_path.unlink()
+    target = tmp_path / "foreign-state.json"
+    target.write_text("{}", encoding="utf-8")
+    state_path.symlink_to(target)
+
+    rebuilt, _, _ = _parent(tmp_path)
+    assert rebuilt.status()["panic_latched"] is True
+    assert receipt_path.read_bytes() == before

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import tempfile
 import time
@@ -18,10 +19,14 @@ from typing import Any, Callable, Mapping, cast
 from sentientos import maintenance_resident_runtime_adoption as resident
 from sentientos import maintenance_successor_generation_adoption as successor
 from sentientos.runtime.services import ChildProcessServiceAdapter, HealthResult, ServiceAdapter
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 STATE_SCHEMA = "sentientos.maintenance_resident_parent_supervision_state:v1"
 RECEIPT_SCHEMA = "sentientos.maintenance_resident_parent_supervision_receipt:v1"
 SERVICE_ID = "exact-maintenance-resident"
+MAX_PARENT_STATE_BYTES = 1_048_576
+MAX_PARENT_RESTART_HISTORY = 65_536
+MAX_PARENT_SEQUENCE = 1_000_000
 
 
 def _canonical(value: object) -> bytes:
@@ -69,8 +74,10 @@ class MaintenanceResidentParentSupervisor:
         self._panic = False; self._shutdown = False; self._exhausted = False
         self._status = "configured"; self._generation_digest: str | None = None
         self._launch: dict[str, Any] | None = None
+        self._state_recovery_valid = True
         self._load()
-        self._receipt("parent_startup", {"child_spec_digest": self._spec_digest})
+        if self._state_recovery_valid:
+            self._receipt("parent_startup", {"child_spec_digest": self._spec_digest})
 
     def _exact_environment(self) -> dict[str, str]:
         env = {key: os.environ[key] for key in self.config["inherited_environment_allowlist"] if key in os.environ}
@@ -84,6 +91,13 @@ class MaintenanceResidentParentSupervisor:
             with os.fdopen(fd, "wb") as stream:
                 stream.write(_canonical(value) + b"\n"); stream.flush(); os.fsync(stream.fileno())
             os.replace(temporary, self._state_path)
+            if os.name == "posix":
+                directory_fd = os.open(self.root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+                    | getattr(os, "O_NOFOLLOW", 0))
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
         finally:
             if os.path.exists(temporary): os.unlink(temporary)
 
@@ -95,21 +109,75 @@ class MaintenanceResidentParentSupervisor:
             "generation_digest": self._generation_digest, "launch": self._launch})
 
     def _load(self) -> None:
-        if not self._state_path.exists(): return
         try:
-            value = json.loads(self._state_path.read_text(encoding="utf-8"))
-            if value.get("schema_version") != STATE_SCHEMA or value.get("child_spec_digest") != self._spec_digest:
+            try:
+                raw = read_explicit_file(self._state_path, max_bytes=MAX_PARENT_STATE_BYTES,
+                    require_private_acl=True)
+            except WindowsHandleCustodyError as exc:
+                if exc.args == ("explicit_file_missing",):
+                    return
+                raise ValueError("parent_state_custody_invalid") from exc
+            if not raw.endswith(b"\n"):
+                raise ValueError("parent_state_noncanonical")
+            value = json.loads(raw[:-1].decode("utf-8"))
+            expected_fields = {"schema_version", "child_spec_digest", "sequence", "restart_history",
+                "panic_latched", "shutdown_latched", "restart_budget_exhausted", "status",
+                "generation_digest", "launch"}
+            if (not isinstance(value, dict) or set(value) != expected_fields
+                    or _canonical(value) + b"\n" != raw
+                    or value["schema_version"] != STATE_SCHEMA
+                    or value["child_spec_digest"] != self._spec_digest):
                 raise ValueError("parent_state_binding_mismatch")
-            self._sequence = int(value["sequence"])
-            self._restart_history = [float(item) for item in value["restart_history"]]
-            self._panic = bool(value["panic_latched"]); self._shutdown = bool(value["shutdown_latched"])
-            self._exhausted = bool(value["restart_budget_exhausted"])
-            self._status = str(value["status"]); self._generation_digest = value["generation_digest"]
-            launch = value.get("launch"); self._launch = dict(launch) if isinstance(launch, dict) else None
-        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+            sequence = value["sequence"]
+            history = value["restart_history"]
+            if (type(sequence) is not int or sequence < 0
+                    or sequence > MAX_PARENT_SEQUENCE
+                    or not isinstance(history, list)
+                    or len(history) > MAX_PARENT_RESTART_HISTORY
+                    or any(type(item) not in (int, float) or not math.isfinite(item) for item in history)
+                    or any(type(value[key]) is not bool for key in
+                        ("panic_latched", "shutdown_latched", "restart_budget_exhausted"))
+                    or not isinstance(value["status"], str) or not value["status"]
+                    or len(value["status"]) > 128):
+                raise ValueError("parent_state_shape_invalid")
+            launch = value["launch"]
+            if launch is not None:
+                launch_fields = {"child_spec_digest", "config_digest", "lineage_id",
+                    "generation_digest", "pid", "launched_at", "launch_provenance_digest"}
+                body = {key: item for key, item in launch.items()
+                    if key != "launch_provenance_digest"} if isinstance(launch, dict) else {}
+                if (not isinstance(launch, dict) or set(launch) != launch_fields
+                        or launch["child_spec_digest"] != self._spec_digest
+                        or launch["config_digest"] != self.config["config_digest"]
+                        or not isinstance(launch["lineage_id"], str) or not launch["lineage_id"]
+                        or not isinstance(launch["generation_digest"], str) or not launch["generation_digest"]
+                        or type(launch["pid"]) is not int or launch["pid"] < 1
+                        or type(launch["launched_at"]) not in (int, float)
+                        or not math.isfinite(launch["launched_at"])
+                        or launch["launch_provenance_digest"] != _digest(body)):
+                    raise ValueError("parent_launch_provenance_invalid")
+            generation_digest = value["generation_digest"]
+            if generation_digest is not None and not isinstance(generation_digest, str):
+                raise ValueError("parent_generation_identity_invalid")
+            if launch is not None and launch["generation_digest"] != generation_digest:
+                raise ValueError("parent_launch_generation_mismatch")
+            self._sequence = sequence
+            self._restart_history = [float(item) for item in history]
+            self._panic = value["panic_latched"]; self._shutdown = value["shutdown_latched"]
+            self._exhausted = value["restart_budget_exhausted"]
+            self._status = value["status"]; self._generation_digest = generation_digest
+            self._launch = dict(launch) if launch is not None else None
+        except (OSError, UnicodeError, ValueError, TypeError, KeyError, json.JSONDecodeError,
+                RecursionError, OverflowError):
+            self._state_recovery_valid = False
             self._panic = True; self._status = "fail_closed_state"; self._launch = None
 
     def _receipt(self, event: str, detail: Mapping[str, Any] | None = None) -> None:
+        if not self._state_recovery_valid:
+            raise RuntimeError("parent_state_recovery_not_trusted")
+        if self._sequence >= MAX_PARENT_SEQUENCE:
+            self._panic = True; self._status = "receipt_sequence_exhausted"
+            raise RuntimeError("parent_receipt_sequence_limit_exceeded")
         self._sequence += 1
         row = {"schema_version": RECEIPT_SCHEMA, "sequence": self._sequence,
             "timestamp": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
@@ -205,7 +273,8 @@ class MaintenanceResidentParentSupervisor:
     def shutdown(self, *, panic: bool = False) -> None:
         self._shutdown = True; self._panic = self._panic or panic
         self._adapter.stop(); self._status = "panic_stopped" if panic else "stopped"
-        self._receipt("panic_stop" if panic else "explicit_shutdown")
+        if self._state_recovery_valid:
+            self._receipt("panic_stop" if panic else "explicit_shutdown")
 
     def status(self) -> dict[str, Any]:
         return {"schema_version": STATE_SCHEMA, "status": self._status,
