@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,6 +12,7 @@ from sentientos.developmental_history_intervention_experiment import (
     make_protocol, summarize, verify_protocol,
 )
 from sentientos.local_model_authority import digest_payload
+from sentientos.resident_developmental_cognition import ResidentCognitionObservation
 from tests.test_resident_developmental_cognition import FakeInvoker, owner, snapshot
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -40,8 +41,29 @@ def test_protocol_is_deterministic_preregistered_and_tamper_detecting(tmp_path: 
 
 def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
     def observation(condition: str, output: str, records: tuple[str, ...]):
-        return SimpleNamespace(condition_id=condition, observation_id=condition,
-            observation_digest="sha256:" + condition, output_digest=output, retrieved_record_ids=records)
+        present = bool(records)
+        item = ResidentCognitionObservation(
+            observation_id="", observation_digest="", condition_id=condition,
+            tick_id="tick-n-plus-one", correlation_id="experiment:tick-n-plus-one",
+            model_id="model-a", model_artifact_digest="sha256:model",
+            request_id="request-" + condition, request_digest="sha256:request:" + condition,
+            inference_receipt_id="receipt-" + condition,
+            inference_receipt_digest="sha256:receipt:" + condition,
+            output_digest=digest_payload({"output": output}),
+            authority_map_digest="sha256:authority", active_model_identity={"model": "model-a"},
+            generation_config={"temperature": 0}, current_snapshot_id="snapshot",
+            current_snapshot_digest="sha256:snapshot", current_projection_id="projection",
+            current_projection_digest="sha256:projection", current_fact_ids=("fact",),
+            retrieved_record_ids=records,
+            retrieved_record_digests=(("sha256:record",) if present else ()),
+            developmental_projection_present=present,
+            self_model_projection_present=False, epistemic_projection_present=False,
+        )
+        semantic = asdict(item)
+        semantic.pop("observation_id"); semantic.pop("observation_digest")
+        digest = "sha256:" + digest_payload(semantic)
+        return replace(item, observation_id="devcog-" + digest[7:31], observation_digest=digest)
+
     stable = summarize(protocol(), [observation("history_present", "a", ("record",)),
         observation("history_withheld", "b", ()), observation("history_restored", "a", ("record",))])
     assert stable["classification"] == "history_presence_associated_stable_difference"
@@ -49,6 +71,42 @@ def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
     same = summarize(protocol(), [observation("history_present", "a", ("record",)),
         observation("history_withheld", "a", ()), observation("history_restored", "a", ("record",))])
     assert same["classification"] == "no_observable_history_difference"
+
+
+def test_v2_comparison_rejects_unbound_observations_and_digest_rebinding() -> None:
+    lightweight = lambda condition, records: SimpleNamespace(
+        condition_id=condition, observation_id=condition,
+        observation_digest="sha256:" + condition, output_digest="same",
+        retrieved_record_ids=records)
+    with pytest.raises(DevelopmentalHistoryInterventionError, match="observation_identity_unbound"):
+        summarize(protocol(), [lightweight("history_present", ("record",)),
+            lightweight("history_withheld", ()), lightweight("history_restored", ("record",))])
+
+    def bound(condition: str, output: str, records: tuple[str, ...]):
+        present = bool(records)
+        item = ResidentCognitionObservation(
+            observation_id="", observation_digest="", condition_id=condition,
+            tick_id="tick-n-plus-one", correlation_id="experiment:tick-n-plus-one",
+            model_id="model-a", model_artifact_digest="sha256:model",
+            request_id="request-" + condition, request_digest="sha256:request:" + condition,
+            inference_receipt_id="receipt-" + condition,
+            inference_receipt_digest="sha256:receipt:" + condition,
+            output_digest=digest_payload({"output": output}), authority_map_digest="sha256:authority",
+            active_model_identity={"model": "model-a"}, generation_config={"temperature": 0},
+            current_snapshot_id="snapshot", current_snapshot_digest="sha256:snapshot",
+            current_projection_id="projection", current_projection_digest="sha256:projection",
+            current_fact_ids=("fact",), retrieved_record_ids=records,
+            retrieved_record_digests=(("sha256:record",) if present else ()),
+            developmental_projection_present=present)
+        semantic = asdict(item); semantic.pop("observation_id"); semantic.pop("observation_digest")
+        digest = "sha256:" + digest_payload(semantic)
+        return replace(item, observation_id="devcog-" + digest[7:31], observation_digest=digest)
+
+    observations = [bound("history_present", "a", ("record",)),
+        bound("history_withheld", "b", ()), bound("history_restored", "a", ("record",))]
+    observations[0] = replace(observations[0], output_digest=digest_payload({"output": "tampered"}))
+    with pytest.raises(DevelopmentalHistoryInterventionError, match="observation_identity_mismatch"):
+        summarize(protocol(), observations)
 
 
 def test_actual_current_evidence_is_bounded_and_independent_of_writeback_dedup(tmp_path: Path) -> None:

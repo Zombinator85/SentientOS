@@ -246,6 +246,28 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
     )
     full_controls = all(hasattr(item, "current_snapshot_digest")
                         and hasattr(item, "retrieved_record_digests") for item in observations)
+    if protocol.schema_version == SCHEMA:
+        # V2 results are only controlled comparisons when each condition is a
+        # canonical, digest-bound resident cognition observation.  Do not let a
+        # lightweight caller object silently disable the invariant-context
+        # checks below while still receiving the v2 controlled classification.
+        for item in observations:
+            if not hasattr(item, "__dataclass_fields__"):
+                raise DevelopmentalHistoryInterventionError("observation_identity_unbound")
+            try:
+                semantic_observation = asdict(item)
+            except (TypeError, ValueError) as exc:
+                raise DevelopmentalHistoryInterventionError("observation_identity_unbound") from exc
+            observation_id = semantic_observation.pop("observation_id", None)
+            observation_digest = semantic_observation.pop("observation_digest", None)
+            calculated = _digest(semantic_observation)
+            if (semantic_observation.get("schema_version") !=
+                    "sentientos.resident_cognition_observation:v2"
+                    or observation_digest != calculated
+                    or observation_id != "devcog-" + calculated[7:31]):
+                raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")
+        if not full_controls:
+            raise DevelopmentalHistoryInterventionError("observation_controls_missing")
     if full_controls:
         first_context = tuple(getattr(observations[0], key, None) for key in invariant_fields)
         if any(tuple(getattr(item, key, None) for key in invariant_fields) != first_context
