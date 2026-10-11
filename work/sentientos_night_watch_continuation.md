@@ -2262,3 +2262,10 @@ Next inspect succession source records for any projection that still presents a 
 - Added an unexecuted owner-level regression showing a newly constructed self-model owner can reconstruct the point software observation, withhold it at the source tick, and expose the exact event time and loaded-code limitation to a later tick through the configured predicate path.
 - Only affected test and continuation record changed in this increment. Python syntax compilation only; no behavior or production verification ran.
 - Next inspect adjacent causal-introspection recovery projection continuity and then follow the next meaningful generation attribution gap.
+
+
+### New checkpoint — keep recent launch provenance from becoming current epistemic evidence
+
+- Startup provenance retains its exact startup event time, but the epistemic adapter now treats it as historical launch context regardless of how recently startup occurred. Its evidence binding remains contextual, has unknown freshness, and cannot supply independent-observation dependency semantics. The separate point-revalidated runtime record remains eligible under its stronger source contract.
+- Added authored unexecuted adapter coverage for a launch observed within the current freshness window. Changed Python/tests compile only; no test or production verification was performed.
+- Next inspect the activation/model-generation evidence boundary for the same launch-versus-live distinction, then advance to another independent causal integration.

@@ -176,3 +176,38 @@ def test_unverified_embodiment_assertion_stays_contextual_and_unknown(tmp_path):
     assert binding.dependency_kind == "unknown_dependency"
     assert binding.dependency_group is None
     assert binding.freshness == "unknown"
+
+
+
+def test_recent_software_launch_is_historical_context_not_current_evidence() -> None:
+    record = {
+        "source_kind": "runtime_supervisor",
+        "source_id": "resident-running-software:launch",
+        "schema_version": "runtime.test.v1",
+        "subject_id": "process-1",
+        "subject_kind": "observed_running_software_generation",
+        "stage": "observation",
+        "disposition": "observed",
+        "evidence_strength": "resident_launch_provenance",
+        "observed_at": NOW,
+        "payload": {
+            "running_software_generation_observed": "sha256:" + "a" * 64,
+            "software_generation": "sha256:" + "a" * 64,
+            "startup_timestamp": NOW,
+            "loaded_code_identity_posture": "not_independently_attested",
+            "authority": False,
+            "effect_proven": False,
+        },
+    }
+    snapshot = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    fact = snapshot.facts[0]
+    rule = EpistemicDevelopmentRule(
+        "rule-launch", "proposition-launch", "a" * 64, {}, "supports",
+        "independently_sourced_observation", "source_observation")
+
+    _proof, binding = ResidentEpistemicDevelopmentRuntime._adapt(snapshot, fact, rule)
+
+    assert binding.observation_time == NOW
+    assert binding.freshness == "unknown"
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"

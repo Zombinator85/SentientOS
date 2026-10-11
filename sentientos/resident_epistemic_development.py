@@ -225,6 +225,9 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "causal_resources")
         historical_unverified_owner_record = (fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "post_adoption_attribution_campaign")
+        historical_software_launch_observation = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "observed_running_software_generation")
         historical_transition_event = (
             fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition"}
@@ -340,6 +343,7 @@ class ResidentEpistemicDevelopmentRuntime:
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
+            or historical_software_launch_observation
             or historical_serving_operation_attempt or historical_serving_operation_history
             or (historical_transition_observation and not qualified_transition_observation)
             or historical_strategy_proposal
@@ -518,6 +522,8 @@ class ResidentEpistemicDevelopmentRuntime:
                 if verified_current_software_observation
                 else "unverified_current_software_context_time_unknown"
                 if unverified_current_software_observation
+                else "software_launch_time_not_current_liveness"
+                if historical_software_launch_observation
                 else "runtime_owner_observation_time_not_current_liveness"
                 if historical_chat_runtime_observation else "chat_recovery_phase_time_not_process_liveness_or_inference_time"
                 if historical_chat_recovery_event else "transition_stage_time_not_cognition_event_time"
@@ -543,6 +549,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 and not historical_undated_consequence and not historical_unverified_owner_record
                 and not historical_transition_event and not historical_chat_recovery_event
                 and not historical_chat_runtime_observation
+                and not historical_software_launch_observation
                 and not historical_strategy_proposal and not historical_strategy_review
                 and not unverified_embodiment_observation
                 and not unverified_current_software_observation
@@ -566,6 +573,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 if qualified_transition_observation
                 else "unqualified_transition_observation_context" if historical_transition_observation
                 else "historical_transition_event_context" if historical_transition_event
+                else "historical_launch_provenance_context" if historical_software_launch_observation
                 else "proposal_source_not_world_truth" if historical_strategy_proposal
                 else "unverified_review_context_only" if historical_strategy_review
                 else "resource_lineage_incomplete_context_only" if incomplete_resource_lineage
