@@ -25,6 +25,10 @@ def digest(value: object) -> str:
 _PROCESS_DATA_ROOT = Path(os.getenv("SENTIENTOS_DATA_DIR") or os.getenv("SENTIENTOS_DATA_ROOT")
     or (Path.cwd() / "sentientos_data")).expanduser().resolve()
 _PROCESS_MEMORY_DIR = os.getenv("MEMORY_DIR")
+_PROCESS_MEMORY_ROOT = (
+    Path(_PROCESS_MEMORY_DIR).expanduser().resolve() if _PROCESS_MEMORY_DIR else None
+)
+_PROCESS_DEFAULT_MEMORY_ROOT = (_PROCESS_DATA_ROOT / "memory").resolve()
 
 
 def sentientos_data_dir() -> Path:
@@ -33,10 +37,12 @@ def sentientos_data_dir() -> Path:
 
 
 def sentientos_memory_dir(data_root: Path | None = None) -> Path:
-    """Resolve shared user-memory custody from the process-start configuration."""
-    if _PROCESS_MEMORY_DIR:
-        return Path(_PROCESS_MEMORY_DIR).expanduser().resolve()
-    return ((data_root or _PROCESS_DATA_ROOT) / "memory").expanduser().resolve()
+    """Return this process's fixed user-memory root configuration."""
+    if _PROCESS_MEMORY_ROOT is not None:
+        return _PROCESS_MEMORY_ROOT
+    if data_root is None or data_root == _PROCESS_DATA_ROOT:
+        return _PROCESS_DEFAULT_MEMORY_ROOT
+    return (data_root / "memory").expanduser().resolve()
 @dataclass(frozen=True)
 class RetentionAdmission:
     decision: str; candidate_digest: str; request_id: str; receipt_digest: str; reason: str|None=None
@@ -745,3 +751,4 @@ class AdmittedRetentionWriter:
         if verification.get("artifact_status") != "verified":
             raise PermissionError("canonical_memory_artifact_reconciliation_failed")
         return receipt
+
