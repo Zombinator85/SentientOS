@@ -1604,3 +1604,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - These readers now raise `MemorySidecarIncompleteError` with the exact sidecar and line number on malformed or non-object records. The tomb CLI reports its history as incomplete instead of returning a filtered subset as complete. No corrupted lines are repaired or discarded, and no operation is replayed.
 - Python syntax compilation passed for `memory_manager.py` and `memory_cli.py`. No runtime files were read; behavior remains unverified.
 - **Next implementation dependency:** check the multi-file observation-summary flow for an interrupted fragment/log pair and add idempotent reconciliation using the existing observation identity where possible. Preserve unknown/incomplete state instead of reconstructing missing records from current time.
+
+
+
+## New checkpoint — verify transcript-root custody without chmod repair
+
+- Fresh remote source before this increment: `ba041c247a210320f70e3a345b31a7aaa91d4b47` (tree `dc57269e5b0daff93f191bca69c4f07d7430dbf8`).
+- Installation-scoped transcript roots are checked by their owner, but `ConversationSessionStore._safe_root()` also performed path-based `chmod(0700)` on any existing directory before validating its ancestors or owner. That silently changed unrelated directory permissions and let an existing broad-mode root pass by repair.
+- Existing conversation roots are now checked with lstat, POSIX owner/private-mode validation, and the existing Windows private-ACL verifier. Only a missing root is created; reads/restarts no longer chmod an existing directory. Symlink ancestors are rejected before creation.
+- Python syntax compilation passed for `conversation_session.py`. No transcript path was opened or modified; behavior remains unverified.
+- **Next implementation dependency:** inspect path-based transcript reads and atomic publication against the verified root handle, especially restart reads under rename/symlink races. Keep installation transcript custody separate from user-memory root and developmental history.

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import IO, Any, Iterator, Mapping, Sequence
 
 from .platform_fcntl import fcntl, require_flock
-from .windows_handle_custody import read_explicit_file
+from .windows_handle_custody import read_explicit_file, verify_explicit_directory
 
 SCHEMA = "sentientos.conversation_session:v1"
 MAX_TURN_BYTES = 64 * 1024
@@ -117,14 +117,26 @@ def _atomic_json(path: Path, payload: Mapping[str, Any], *, replace_existing: bo
 
 def _safe_root(root: Path) -> Path:
     root = root.expanduser()
-    if root.exists() and root.is_symlink():
-        raise ValueError("conversation_root_symlink")
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(root, 0o700)
-    resolved = root.resolve()
     if any(parent.is_symlink() for parent in [root, *root.parents] if parent.exists()):
         raise ValueError("conversation_root_symlink")
-    return resolved
+    try:
+        metadata = os.lstat(root)
+    except FileNotFoundError:
+        root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        metadata = os.lstat(root)
+    if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+        raise ValueError("conversation_root_not_private_directory")
+    if os.name == "posix":
+        if metadata.st_uid != os.geteuid():
+            raise ValueError("conversation_root_owner_mismatch")
+        if stat.S_IMODE(metadata.st_mode) & 0o077:
+            raise ValueError("conversation_root_permissions_invalid")
+    elif os.name == "nt":
+        try:
+            verify_explicit_directory(root, require_private_acl=True)
+        except Exception as exc:
+            raise ValueError("conversation_root_acl_invalid") from exc
+    return root.resolve()
 
 
 @dataclass(frozen=True)
