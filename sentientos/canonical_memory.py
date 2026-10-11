@@ -67,7 +67,7 @@ class CanonicalMemoryStore:
             before = os.fstat(descriptor)
             if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
                     or before.st_uid != os.geteuid()
-                    or stat.S_IMODE(before.st_mode) & 0o077
+                    or stat.S_IMODE(before.st_mode) & 0o022
                     or before.st_size > max_bytes):
                 raise WindowsHandleCustodyError("memory_record_custody_invalid")
             chunks: list[bytes] = []

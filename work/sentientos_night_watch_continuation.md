@@ -1513,3 +1513,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `chat_service.py`. No chat process, provider, model, or production service was started; no behavior verification was performed.
 - **Next implementation dependency:** inspect restart/recovery boundaries for supervised chat startup when handoff publication succeeds but child readiness or serving establishment fails. Preserve the incomplete launch as evidence and avoid silently reusing a stale handoff; then continue to the next causal continuity owner.
 
+
+
+## Correction — preserve private legacy fragments without migration writes
+
+- Fresh remote source before this increment: `f209ecf9989e11035a0e4ad9a9e389e6eb8a1cf5` (tree `610b9f210962ef6bae347f4e840b3e15908f6fb8`).
+- Review of existing memory-manager compatibility found that historical raw fragments may have owner-only directory custody but 0644 file bits from the legacy writer. Requiring every file itself to be 0600 would make those previously private files unavailable despite the raw directory's strict 0700 boundary.
+- Canonical retrieval and legacy raw reads now reject group/world write bits while relying on the already-verified owner-only raw directory to prevent other users reaching legacy read-only files. New and rewritten records still use 0600. Alias, owner, type, link, stability, and size checks remain strict; no automatic migration/chmod occurs during reads.
+- Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No memory files were inspected or migrated; no behavioral or production verification was performed.
+- **Next implementation dependency:** inspect the effects of the new private-root gate on existing chat retrieval and legacy sidecar consumers, preserving explicit degraded/unavailable status and then advance to the next independently implementable lifecycle gap.
+

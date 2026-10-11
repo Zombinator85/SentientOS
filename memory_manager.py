@@ -237,7 +237,7 @@ def _read_legacy_raw_fragment(name: str) -> bytes | None:
         before = os.fstat(descriptor)
         if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
                 or before.st_uid != os.geteuid()
-                or stat.S_IMODE(before.st_mode) & 0o077
+                or stat.S_IMODE(before.st_mode) & 0o022
                 or before.st_size > 262144):
             raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
         chunks: list[bytes] = []
@@ -332,7 +332,7 @@ def _legacy_fragment_paths() -> list[Path]:
                 metadata = entry.stat(follow_symlinks=False)
                 if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
                         or metadata.st_uid != os.geteuid()
-                        or stat.S_IMODE(metadata.st_mode) & 0o077):
+                        or stat.S_IMODE(metadata.st_mode) & 0o022):
                     raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
                 total += metadata.st_size
                 if metadata.st_size > 262144 or total > 16777216:
