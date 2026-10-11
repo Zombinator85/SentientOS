@@ -8,9 +8,15 @@ import json
 import logging
 import os
 from pathlib import Path
+import stat
 import uuid
+try:
+    import fcntl
+except ImportError:  # Windows must fail closed until a safe writer is available.
+    fcntl = None  # type: ignore[assignment]
 
 from sentientos.event_stream import record_forge_event
+from sentientos.private_file_custody import PrivateFileCustodyError, open_private_directory
 from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 LOGGER = logging.getLogger(__name__)
@@ -20,10 +26,21 @@ QUEUE_PATH = PULSE_ROOT / "forge_queue.jsonl"
 RECEIPTS_PATH = PULSE_ROOT / "forge_receipts.jsonl"
 MAX_RECEIPT_LEDGER_BYTES = 1_048_576
 MAX_RECEIPT_LEDGER_ROWS = 4096
+MAX_QUEUE_LEDGER_BYTES = 1_048_576
+MAX_QUEUE_LEDGER_ROWS = 4096
+MAX_QUEUE_LEDGER_ROW_BYTES = 65_536
 
 
 class ForgeReceiptLedgerError(RuntimeError):
     """Receipt custody is incomplete or cannot be safely reconstructed."""
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
+
+
+class ForgeQueueCustodyError(RuntimeError):
+    """A queue/receipt append could not preserve local file custody."""
 
     def __init__(self, code: str) -> None:
         self.code = code
@@ -174,7 +191,7 @@ class ForgeQueue:
         return sorted(pending, key=lambda req: (req.priority, req.requested_at, req.request_id))
 
     def _load_requests(self) -> list[ForgeRequest]:
-        rows = self._read_jsonl(self.queue_path)
+        rows = self._read_request_jsonl()
         loaded: list[ForgeRequest] = []
         for row in rows:
             request = _request_from_row(row)
@@ -183,6 +200,45 @@ class ForgeQueue:
                 continue
             loaded.append(request)
         return loaded
+
+    def _read_request_jsonl(self) -> list[dict[str, object]]:
+        try:
+            raw = read_explicit_file(
+                self.queue_path,
+                max_bytes=MAX_QUEUE_LEDGER_BYTES,
+                require_private_acl=False,
+            )
+        except WindowsHandleCustodyError as exc:
+            custody_code = str(exc)
+            if custody_code == "explicit_file_missing":
+                return []
+            raise ForgeQueueCustodyError(f"queue_custody_{custody_code}") from exc
+        except OSError as exc:
+            raise ForgeQueueCustodyError("queue_custody_unavailable") from exc
+        try:
+            text = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise ForgeQueueCustodyError("queue_ledger_encoding_invalid") from exc
+        rows: list[dict[str, object]] = []
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if not line.strip():
+                continue
+            if len(rows) >= MAX_QUEUE_LEDGER_ROWS:
+                raise ForgeQueueCustodyError("queue_ledger_row_limit_exceeded")
+            try:
+                payload = json.loads(
+                    line,
+                    object_pairs_hook=_unique_json_object,
+                    parse_constant=_reject_json_constant,
+                )
+            except (json.JSONDecodeError, ValueError, RecursionError):
+                LOGGER.warning("forge_queue_corrupt_line", extra={"line": line_number})
+                continue
+            if not isinstance(payload, dict):
+                LOGGER.warning("forge_queue_non_object_line", extra={"line": line_number})
+                continue
+            rows.append(payload)
+        return rows
 
     def _load_receipts(self) -> list[ForgeReceipt]:
         try:
@@ -234,14 +290,61 @@ class ForgeQueue:
         return loaded
 
     def _append_jsonl(self, path: Path, row: dict[str, object]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        encoded = (json.dumps(row, sort_keys=True) + "\n").encode("utf-8")
-        fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
+        if os.name != "posix" or fcntl is None or not hasattr(os, "O_NOFOLLOW"):
+            raise ForgeQueueCustodyError("ledger_append_unsupported")
         try:
-            os.write(fd, encoded)
-            os.fsync(fd)
+            encoded = (json.dumps(row, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+        except (TypeError, ValueError, RecursionError) as exc:
+            raise ForgeQueueCustodyError("ledger_record_not_canonical_json") from exc
+        if len(encoded) > MAX_QUEUE_LEDGER_ROW_BYTES:
+            raise ForgeQueueCustodyError("ledger_record_too_large")
+        try:
+            directory_fd = open_private_directory(path.parent, create=True)
+        except PrivateFileCustodyError as exc:
+            raise ForgeQueueCustodyError(f"ledger_directory_{exc.code}") from exc
+        fd: int | None = None
+        try:
+            try:
+                fd = os.open(
+                    path.name,
+                    os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW
+                    | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0),
+                    0o600,
+                    dir_fd=directory_fd,
+                )
+            except OSError as exc:
+                raise ForgeQueueCustodyError("ledger_file_open_unavailable") from exc
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX)
+                metadata = os.fstat(fd)
+                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid()
+                        or metadata.st_nlink != 1 or metadata.st_mode & 0o022):
+                    raise ForgeQueueCustodyError("ledger_file_custody_invalid")
+                if metadata.st_size + len(encoded) > MAX_QUEUE_LEDGER_BYTES:
+                    raise ForgeQueueCustodyError("ledger_byte_limit_exceeded")
+                view = memoryview(encoded)
+                while view:
+                    written = os.write(fd, view)
+                    if written <= 0:
+                        raise ForgeQueueCustodyError("ledger_append_incomplete")
+                    view = view[written:]
+                os.fsync(fd)
+                os.fsync(directory_fd)
+            except ForgeQueueCustodyError:
+                raise
+            except OSError as exc:
+                # A short/failed append can leave a partial line; the strict
+                # receipt reader will then block request selection on restart.
+                raise ForgeQueueCustodyError("ledger_append_durability_uncertain") from exc
+            finally:
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+                except OSError:
+                    pass
         finally:
-            os.close(fd)
+            if fd is not None:
+                os.close(fd)
+            os.close(directory_fd)
 
     def _read_jsonl(self, path: Path) -> list[dict[str, object]]:
         if not path.exists():

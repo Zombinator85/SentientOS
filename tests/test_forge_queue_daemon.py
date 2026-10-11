@@ -7,7 +7,12 @@ import pytest
 
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_pr_notes import build_pr_notes
-from sentientos.forge_queue import ForgeQueue, ForgeReceiptLedgerError, ForgeRequest
+from sentientos.forge_queue import (
+    ForgeQueue,
+    ForgeQueueCustodyError,
+    ForgeReceiptLedgerError,
+    ForgeRequest,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -100,6 +105,39 @@ def test_invalid_receipt_identity_and_oversized_ledger_fail_closed(
 
     with pytest.raises(ForgeReceiptLedgerError):
         queue.next_request()
+
+
+def test_append_refuses_symlink_target_and_oversized_row(tmp_path: Path) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.receipts_path.parent.mkdir(parents=True, exist_ok=True)
+    external = tmp_path / "outside.jsonl"
+    external.write_text("preserve\n", encoding="utf-8")
+    queue.receipts_path.symlink_to(external)
+
+    with pytest.raises(ForgeQueueCustodyError):
+        queue.mark_finished("req-1", status="rejected_quarantine_custody",
+            report_path=None, error="quarantine_json_invalid")
+    assert external.read_text(encoding="utf-8") == "preserve\n"
+
+    queue.receipts_path.unlink()
+    with pytest.raises(ForgeQueueCustodyError, match="ledger_record_too_large"):
+        queue.enqueue(ForgeRequest(request_id="large", goal="goal",
+            metadata={"bounded": "x" * 70_000}))
+
+
+def test_request_reader_rejects_symlink_and_oversized_custody(tmp_path: Path) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.queue_path.parent.mkdir(parents=True, exist_ok=True)
+    external = tmp_path / "outside-queue.jsonl"
+    external.write_text('{"request_id":"r","goal":"forge_smoke_noop"}\n', encoding="utf-8")
+    queue.queue_path.symlink_to(external)
+    with pytest.raises(ForgeQueueCustodyError):
+        queue.pending_requests()
+
+    queue.queue_path.unlink()
+    queue.queue_path.write_bytes(b"x" * (1_048_577))
+    with pytest.raises(ForgeQueueCustodyError):
+        queue.pending_requests()
 
 
 def test_next_request_priority_then_fifo(tmp_path: Path) -> None:

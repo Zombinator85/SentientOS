@@ -1,0 +1,29 @@
+{
+  "schema_version": "sentientos.prospective_acceptance_manifest:v1",
+  "task": "bound and custody-check Forge queue reads and appends",
+  "source_checkpoint": "9b4c38e25a8c05ed18be42cdfeea7b901b2c3e9f",
+  "source_tree": "9f02897002fb3007caa9dbebc933bb85782c0733",
+  "status": "executed_hermetic_unverified_for_production",
+  "pytest_command": "/tmp/sentientos-test-venv/bin/python -m pytest tests/test_forge_queue_daemon.py tests/test_integrity_quarantine_custody.py -m 'legacy or no_legacy_skip'",
+  "result": {
+    "passed": 44,
+    "failed": 0,
+    "skipped": 0,
+    "environment": "disposable pytest tmp_path roots; POSIX local-dev-relaxed profile"
+  },
+  "test_nodes": [
+    "tests/test_forge_queue_daemon.py::test_daemon_writes_receipt_with_report_path",
+    "tests/test_forge_queue_daemon.py::test_corrupt_receipt_ledger_cannot_requeue_request_or_reach_forge",
+    "tests/test_forge_queue_daemon.py::test_legacy_terminal_receipt_remains_consumed",
+    "tests/test_forge_queue_daemon.py::test_invalid_receipt_identity_and_oversized_ledger_fail_closed",
+    "tests/test_forge_queue_daemon.py::test_append_refuses_symlink_target_and_oversized_row",
+    "tests/test_forge_queue_daemon.py::test_request_reader_rejects_symlink_and_oversized_custody",
+    "tests/test_forge_queue_daemon.py::test_queue_read_tolerates_corrupt_lines",
+    "tests/test_integrity_quarantine_custody.py::test_enabled_forge_is_stopped_before_effector_on_invalid_custody"
+  ],
+  "limitations": [
+    "Windows queue/receipt append fails closed because this repository currently exposes no safe Windows write-custody owner; Windows was not executed.",
+    "The file ledger remains unauthenticated; valid-looking forgery or tail deletion is not detected without an independent signer/anchor.",
+    "No production activation or external effect occurred."
+  ]
+}
