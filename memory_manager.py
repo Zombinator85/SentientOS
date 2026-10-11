@@ -244,6 +244,30 @@ def _load_fragment(fragment_id: str) -> dict | None:
         return None
 
 
+def _unlink_legacy_raw_fragment(fragment_id: str) -> bool:
+    """Remove one owner-private legacy fragment without following path aliases."""
+    path = _fragment_path(fragment_id)
+    if (_is_canonical_retention_path(path) or path.parent != RAW_PATH
+            or not path.name or "/" in path.name or "\\\\" in path.name):
+        raise PermissionError("legacy_raw_memory_fragment_path_invalid")
+    _authorize_legacy_mutation()
+    directory_fd = _open_legacy_raw_directory(prepare_for_write=True)
+    try:
+        try:
+            metadata = os.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return False
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+        os.unlink(path.name, dir_fd=directory_fd)
+        os.fsync(directory_fd)
+        return True
+    finally:
+        os.close(directory_fd)
+
+
 def _write_fragment(fragment_id: str, data: dict) -> None:
     path = _fragment_path(fragment_id)
     if _is_canonical_retention_path(path):
@@ -943,6 +967,7 @@ def purge_memory(
 
     now = datetime.datetime.utcnow()
     removed = 0
+    removed_names: set[str] = set()
     if max_age_days is not None:
         cutoff = now - datetime.timedelta(days=max_age_days)
         for ts, fp, data in entries:
@@ -953,12 +978,12 @@ def purge_memory(
                     "time": datetime.datetime.utcnow().isoformat(),
                     "reason": reason,
                 })
-                _authorize_legacy_mutation()
-                fp.unlink(missing_ok=True)
-                _remove_from_index(data.get("id", ""))
-                removed += 1
+                if _unlink_legacy_raw_fragment(fp.stem):
+                    removed_names.add(fp.name)
+                    _remove_from_index(data.get("id", ""))
+                    removed += 1
     if max_files is not None and len(entries) - removed > max_files:
-        remaining = [e for e in entries if e[1].exists()]
+        remaining = [e for e in entries if e[1].name not in removed_names]
         excess = len(remaining) - max_files
         for ts, fp, data in remaining[:excess]:
             _append_tomb({
@@ -967,10 +992,10 @@ def purge_memory(
                 "time": datetime.datetime.utcnow().isoformat(),
                 "reason": reason,
             })
-            _authorize_legacy_mutation()
-            fp.unlink(missing_ok=True)
-            _remove_from_index(data.get("id", ""))
-            removed += 1
+            if _unlink_legacy_raw_fragment(fp.stem):
+                removed_names.add(fp.name)
+                _remove_from_index(data.get("id", ""))
+                removed += 1
     if removed:
         print(f"[PURGE] Removed {removed} old memory fragments")
 
@@ -1142,9 +1167,8 @@ def apply_forgetting_curve(
                     "reason": reason,
                 }
             )
-            _authorize_legacy_mutation()
-            _fragment_path(fragment_id).unlink(missing_ok=True)
-            removed += 1
+            if _unlink_legacy_raw_fragment(fragment_id):
+                removed += 1
         else:
             data["importance"] = min(1.0, retention + 0.05 * importance)
             _write_fragment(fragment_id, data)

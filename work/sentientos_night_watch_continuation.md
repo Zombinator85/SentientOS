@@ -1405,3 +1405,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No memory roots were opened or modified; no behavioral tests or production verification were performed. These source paths use POSIX custody. Windows ACL-based access checks remain unavailable here, so Windows permission assurance is still an explicit dependency.
 - **Next implementation dependency:** move legacy forget/purge deletion to the same held raw-directory owner, and audit how permission/custody failures surface through memory callers. Then decide whether to implement Windows ACL inspection or keep the canonical memory path explicitly unavailable where ACL privacy cannot be verified.
 
+
+
+## New checkpoint — keep legacy forgetting inside raw-root custody
+
+- Fresh remote source before this increment: `c7b9deffca7e29c912de31a78daa46a3e8c6c14a` (tree `ae982d255a1de364c597cf56c39a6b30d296bb98`).
+- Legacy age/file-count purge and forgetting used path-based `unlink`; file-count selection also followed `Path.exists()` after the bounded descriptor scan. These deletion paths did not use the new owner-held raw directory.
+- Legacy fragment deletion now authorizes first, opens the existing private raw root through the shared custody owner, validates the exact basename as a same-owner, single-link, private regular file without following links, unlinks relative to the held descriptor, and fsyncs the directory. Purge accounting no longer performs a path-following existence check and only counts a deletion that occurred.
+- Python compilation passed for `memory_manager.py`. No memory data was accessed or deleted; no behavioral or production verification was performed.
+- **Next implementation dependency:** inspect and tighten the canonical-memory Windows read path: its bounded handle reader does not establish private ACL custody. Either add same-handle ACL verification or make the store report an explicit unavailable posture until it can establish that boundary. Then review any surfaced memory-custody failure handling without mixing user memory into transcripts or resident development history.
+
