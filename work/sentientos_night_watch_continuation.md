@@ -1415,3 +1415,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `memory_manager.py`. No memory data was accessed or deleted; no behavioral or production verification was performed.
 - **Next implementation dependency:** inspect and tighten the canonical-memory Windows read path: its bounded handle reader does not establish private ACL custody. Either add same-handle ACL verification or make the store report an explicit unavailable posture until it can establish that boundary. Then review any surfaced memory-custody failure handling without mixing user memory into transcripts or resident development history.
 
+
+
+## New checkpoint — verify private Windows ACL custody on the same handles
+
+- Fresh remote source before this increment: `fbf947d2fb1ee6207bbe7c2f1c9bced20391b8df` (tree `f6596aab641df435de86864dee03101579fc89b5`).
+- The Windows bounded reader established reparse-safe handle identity but did not inspect ACL ownership or grants, so canonical user memory could not claim private permission custody on that platform.
+- The existing handle reader now optionally verifies owner and DACL from the exact raw-directory and record handles it reads. It requires the current token user as owner, bounds ACL/ACE parsing, accepts data-read grants only for that user, LocalSystem, or local Administrators, and fails closed for broad readers, null/unavailable DACLs, conditional/object ACE forms, or malformed SID bindings. Canonical-memory Windows reads opt into this check; other custody readers retain their prior contract.
+- Python compilation passed for `windows_handle_custody.py` and `canonical_memory.py`. Windows API behavior was not executed or tested, and this remains unverified for production. The raw-memory legacy writer remains POSIX-only because the repository has no equivalent safe Windows publisher.
+- **Next implementation dependency:** review how explicit-retention/retrieval callers surface custody-unavailable postures, and ensure a permission-degraded memory result is not presented as a complete successful retrieval. Keep transcript and developmental-history owners separate.
+

@@ -15,6 +15,137 @@ class WindowsHandleCustodyError(ValueError):
     """The requested Windows custody read could not be proven safe."""
 
 
+def verify_private_handle_acl(handle: int) -> None:
+    """Require the current user to own a Windows handle and deny broad readers.
+
+    The check is performed against the same handle used by the bounded reader.
+    Only the current user, LocalSystem, and local Administrators may receive
+    data-read rights. Unsupported or conditional ACE forms fail closed.
+    """
+    if os.name != "nt" or type(handle) is not int or handle <= 0:
+        raise WindowsHandleCustodyError("private_acl_handle_invalid")
+    import ctypes
+    from ctypes import wintypes
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    get_security = advapi.GetSecurityInfo
+    get_security.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.DWORD,
+        ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p)]
+    get_security.restype = wintypes.DWORD
+    get_acl_info = advapi.GetAclInformation
+    get_acl_info.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.c_int]
+    get_acl_info.restype = wintypes.BOOL
+    get_ace = advapi.GetAce
+    get_ace.argtypes = [ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p)]
+    get_ace.restype = wintypes.BOOL
+    equal_sid = advapi.EqualSid
+    equal_sid.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    equal_sid.restype = wintypes.BOOL
+    is_valid_sid = advapi.IsValidSid
+    is_valid_sid.argtypes = [ctypes.c_void_p]
+    is_valid_sid.restype = wintypes.BOOL
+    sid_length = advapi.GetLengthSid
+    sid_length.argtypes = [ctypes.c_void_p]
+    sid_length.restype = wintypes.DWORD
+    convert_sid = advapi.ConvertStringSidToSidW
+    convert_sid.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_void_p)]
+    convert_sid.restype = wintypes.BOOL
+    open_token = advapi.OpenProcessToken
+    open_token.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    open_token.restype = wintypes.BOOL
+    token_info = advapi.GetTokenInformation
+    token_info.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p,
+        wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    token_info.restype = wintypes.BOOL
+    local_free = kernel32.LocalFree
+    local_free.argtypes = [ctypes.c_void_p]
+    local_free.restype = ctypes.c_void_p
+    get_process = kernel32.GetCurrentProcess
+    get_process.restype = wintypes.HANDLE
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = [wintypes.HANDLE]
+    close_handle.restype = wintypes.BOOL
+
+    owner = ctypes.c_void_p()
+    dacl = ctypes.c_void_p()
+    descriptor = ctypes.c_void_p()
+    status = get_security(wintypes.HANDLE(handle), 1, 0x1 | 0x4,
+        ctypes.byref(owner), None, ctypes.byref(dacl), None,
+        ctypes.byref(descriptor))
+    if status != 0 or not owner.value or not dacl.value or not descriptor.value:
+        raise WindowsHandleCustodyError("private_acl_unavailable")
+
+    token = wintypes.HANDLE()
+    known_sids: list[ctypes.c_void_p] = []
+    try:
+        needed = wintypes.DWORD()
+        if not open_token(get_process(), 0x0008, ctypes.byref(token)):
+            raise WindowsHandleCustodyError("private_acl_current_user_unavailable")
+        token_info(token, 1, None, 0, ctypes.byref(needed))
+        if needed.value < ctypes.sizeof(ctypes.c_void_p) or needed.value > 65536:
+            raise WindowsHandleCustodyError("private_acl_token_user_invalid")
+        token_buffer = ctypes.create_string_buffer(needed.value)
+        if not token_info(token, 1, token_buffer, needed.value, ctypes.byref(needed)):
+            raise WindowsHandleCustodyError("private_acl_current_user_unavailable")
+        current_user = ctypes.cast(token_buffer, ctypes.POINTER(ctypes.c_void_p)).contents
+        if not current_user.value or not equal_sid(owner, current_user):
+            raise WindowsHandleCustodyError("private_acl_owner_mismatch")
+
+        trusted: list[ctypes.c_void_p] = [current_user]
+        for sid_text in ("S-1-5-18", "S-1-5-32-544"):
+            sid = ctypes.c_void_p()
+            if not convert_sid(sid_text, ctypes.byref(sid)) or not sid.value:
+                raise WindowsHandleCustodyError("private_acl_trusted_sid_unavailable")
+            known_sids.append(sid)
+            trusted.append(sid)
+
+        class ACL_SIZE_INFORMATION(ctypes.Structure):
+            _fields_ = [("AceCount", wintypes.DWORD),
+                ("AclBytesInUse", wintypes.DWORD), ("AclBytesFree", wintypes.DWORD)]
+
+        info = ACL_SIZE_INFORMATION()
+        if not get_acl_info(dacl, ctypes.byref(info), ctypes.sizeof(info), 2):
+            raise WindowsHandleCustodyError("private_acl_structure_invalid")
+        if info.AceCount > 4096:
+            raise WindowsHandleCustodyError("private_acl_ace_bound_exceeded")
+        read_mask = 0x80000000 | 0x10000000 | 0x00000001 | 0x00000008 | 0x00000080 | 0x00020000
+        for index in range(info.AceCount):
+            ace = ctypes.c_void_p()
+            if not get_ace(dacl, index, ctypes.byref(ace)) or not ace.value:
+                raise WindowsHandleCustodyError("private_acl_ace_unavailable")
+            header = ctypes.string_at(ace, 4)
+            ace_type, ace_flags = header[0], header[1]
+            ace_size = struct.unpack_from("<H", header, 2)[0]
+            if ace_size < 16:
+                raise WindowsHandleCustodyError("private_acl_ace_size_invalid")
+            if ace_flags & 0x08:  # inherit-only ACE does not grant this handle access
+                continue
+            if ace_type == 1:  # ACCESS_DENIED_ACE_TYPE
+                continue
+            if ace_type != 0:  # conditional/object grants need a richer evaluator
+                raise WindowsHandleCustodyError("private_acl_ace_form_unsupported")
+            mask = struct.unpack_from("<I", ctypes.string_at(ace, 8), 4)[0]
+            if not (mask & read_mask):
+                continue
+            sid_ptr = ctypes.c_void_p(ace.value + 8)
+            if (not is_valid_sid(sid_ptr) or sid_length(sid_ptr) > ace_size - 8):
+                raise WindowsHandleCustodyError("private_acl_ace_sid_invalid")
+            if not any(equal_sid(sid_ptr, trusted_sid) for trusted_sid in trusted):
+                raise WindowsHandleCustodyError("private_acl_broad_read_grant")
+
+    finally:
+        for sid in known_sids:
+            if sid.value:
+                local_free(sid)
+        if token:
+            close_handle(token)
+        if descriptor.value:
+            local_free(descriptor)
+
+
 def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
     """Read one explicit regular file without following links or racing replacement."""
     if type(max_bytes) is not int or max_bytes < 1:
@@ -95,7 +226,8 @@ def verify_explicit_directory(path: Path) -> None:
 
 def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                        max_total_bytes: int, suffix: str = ".json",
-                       selected_names: tuple[str, ...] | None = None) -> list[tuple[str, bytes]]:
+                       selected_names: tuple[str, ...] | None = None,
+                       require_private_acl: bool = False) -> list[tuple[str, bytes]]:
     """Read bounded regular files through bound Windows handles.
 
     Win32 path opens are not used for descendants.  The configured root is
@@ -115,6 +247,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             or type(max_file_bytes) is not int or max_file_bytes < 1
             or type(max_total_bytes) is not int or max_total_bytes < 1
             or not isinstance(suffix, str) or "/" in suffix or "\\" in suffix
+            or type(require_private_acl) is not bool
             or invalid_names):
         raise WindowsHandleCustodyError("windows_custody_read_limits_invalid")
     if os.name != "nt":
@@ -204,6 +337,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         handle = wintypes.HANDLE()
         iosb = IO_STATUS_BLOCK()
         access = FILE_READ_ATTRIBUTES | SYNCHRONIZE | (FILE_LIST_DIRECTORY if directory else 0x1)
+        if require_private_acl:
+            access |= 0x00020000  # READ_CONTROL for same-handle DACL inspection
         options = (FILE_DIRECTORY_FILE if directory else FILE_NON_DIRECTORY_FILE) | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT
         status = nt_create(ctypes.byref(handle), access, ctypes.byref(attrs), ctypes.byref(iosb), None,
             0, FILE_SHARE_READ, FILE_OPEN, options, None, 0)
@@ -244,7 +379,10 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     current: int | None = None
     opened_handles: list[int] = []
     try:
-        current_raw = create_file(volume_root, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        volume_access = FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE
+        if require_private_acl:
+            volume_access |= 0x00020000
+        current_raw = create_file(volume_root, volume_access,
             FILE_SHARE_READ, None, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, None)
         if current_raw == INVALID_HANDLE_VALUE:
             fail("cognition_observation_windows_root_open_failed")
@@ -264,6 +402,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
 
         root_handle = current
         root_identity = file_id(root_handle)
+        if require_private_acl:
+            verify_private_handle_acl(root_handle)
         entries: list[tuple[str, int]] = []
         observed_entries = 0
         if selected_names is not None:
@@ -317,6 +457,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             handle = nt_open(root_handle, name, directory=False)
             try:
                 before_id = file_id(handle)
+                if require_private_acl:
+                    verify_private_handle_acl(handle)
                 attrs, standard = attrs_and_standard(handle)
                 if standard.Directory or standard.EndOfFile < 0 or standard.EndOfFile > max_file_bytes:
                     fail("cognition_observation_not_regular")

@@ -102,7 +102,8 @@ class CanonicalMemoryStore:
             try:
                 entries = read_regular_files(self.raw, max_entries=MAX_MEMORY_RECORDS,
                     max_file_bytes=MAX_RETENTION_RECORD_BYTES,
-                    max_total_bytes=MAX_MEMORY_TOTAL_BYTES, suffix=".json")
+                    max_total_bytes=MAX_MEMORY_TOTAL_BYTES, suffix=".json",
+                    require_private_acl=True)
             except WindowsHandleCustodyError as exc:
                 posture = ("directory_missing" if "missing" in str(exc)
                     else "custody_or_bound_unavailable")
