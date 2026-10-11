@@ -288,6 +288,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
                 "chat_process_recovery_transition",
                 "chat_process_runtime_generation_observation",
+                "observed_running_software_generation",
                 "serving_operation_attempt", "serving_operation_history"})
         or (fact.source.kind == "resource_governor"
             and fact.subject.subject_kind == "chat_process_software_generation_invocation"))
@@ -352,6 +353,49 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                     out.append(("chat_model_serving_lineage", _bounded(selected), "lineage"))
     if fact.effect_proven and "observed_consequence" in fact.payload:
         out.append(("observed_consequence", _bounded(fact.payload["observed_consequence"]), "observed_consequence"))
+    if (fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "verified_current_running_software_generation"
+            and fact.source.finding == "ok"
+            and fact.stage == "observation" and fact.disposition == "observed"
+            and fact.evidence_strength == "owner_verified_current_process_and_clean_source"
+            and isinstance(fact.payload, Mapping)):
+        payload = fact.payload
+        if (payload.get("currentness_posture")
+                == "owner_verified_process_and_source_at_observation"
+                and payload.get("event_time_posture") == "owner_point_observation_time"
+                and payload.get("process_identity_scope")
+                    == "pid_startup_argv_executable_entrypoint_module_origin_and_environment"
+                and payload.get("software_generation_scope")
+                    == "configured_manifest_and_clean_repository_state_at_observation"
+                and payload.get("loaded_code_identity_posture") == "not_independently_attested"
+                and payload.get("authority") is False and payload.get("effect_proven") is False
+                and fact.effect_claimed is False and fact.effect_proven is False
+                and all(isinstance(payload.get(key), str) and payload.get(key) for key in (
+                    "running_software_generation_observed", "process_instance_id",
+                    "provenance_digest", "repository_commit", "repository_tree",
+                    "startup_timestamp"))
+                and fact.observed_at is not None):
+            lineage = {
+                "running_software_generation": payload["running_software_generation_observed"],
+                "process_instance_id": payload["process_instance_id"],
+                "provenance_digest": payload["provenance_digest"],
+                "repository_commit": payload["repository_commit"],
+                "repository_tree": payload["repository_tree"],
+                "startup_timestamp": payload["startup_timestamp"],
+                "process_role": payload.get("process_role"),
+                "process_identity_scope": payload["process_identity_scope"],
+                "software_generation_scope": payload["software_generation_scope"],
+                "loaded_code_identity_posture": payload["loaded_code_identity_posture"],
+                "currentness_posture": payload["currentness_posture"],
+                "event_time_posture": payload["event_time_posture"],
+                "observed_at": fact.observed_at,
+                "source_record_id": fact.source.source_id,
+                "source_record_digest": fact.source.digest,
+                "source_fact_id": fact.fact_id,
+                "current_truth": False, "authority": False, "effect_proven": False,
+            }
+            out.append(("software_generation.current_process_observation",
+                _bounded(lineage), "current_state"))
     # Preserve the verified model-transition observation/history join as one
     # historical claim. Independent payload predicates above remain selectors;
     # this grouped claim exists only when the exact source row is qualified.

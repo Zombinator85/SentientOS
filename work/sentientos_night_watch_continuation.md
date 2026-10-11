@@ -2240,3 +2240,11 @@ Next inspect succession source records for any projection that still presents a 
 - Cognition now gives top selection priority to a current software-generation record only when it is an observation with the owner-specific evidence strength, no authority/effect claims, exact current process/source scope, and explicit loaded-code non-attestation. Launch-time records and incomplete lookalikes remain lower-priority history.
 - Authored an unexecuted selector case covering qualified evidence and required-field omission. Changed Python and test compilation only; behavior and production remain unverified.
 - Next inspect the historical event-time binding and durable receipt recovery path for this exact qualified source, then continue to a separate causal dependency.
+
+
+### New checkpoint — preserve qualified software observations in developmental continuity
+
+- Longitudinal self-model history now groups a point-revalidated software generation with process instance, source commit/tree, provenance identity, scope limits, loaded-code non-attestation, and the exact World-State event time/source digest. The claim remains non-authoritative and not current truth.
+- Launch-time runtime provenance is now classified as historical interpretation rather than current state. Its startup timestamp remains available to the existing epistemic adapter as a historical event.
+- Authored unexecuted history cases for both current point observation and launch-time history. Changed Python and test files compile only; no behavioral or production verification ran.
+- Next verify the completed software-generation observation lineage through durable self-model recovery and subsequent cognition selection, then follow the next distinct causal dependency.

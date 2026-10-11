@@ -232,3 +232,56 @@ def test_chat_recovery_history_retains_loaded_code_scope_posture(tmp_path: Path)
         "installation_bound_handoff_and_digest_chained_recovery_receipts")
     assert lineage.value["predecessor_chat_process_handoff"]["source_generation_scope"] == (
         "sentientos_and_scripts_python_sources")
+
+
+
+def test_running_software_observation_is_grouped_with_source_scope(tmp_path: Path) -> None:
+    observed = "2026-09-25T11:59:00Z"
+    source = record(source="runtime:software-current", observed=observed, extra={
+        "running_software_generation_observed": "sha256:" + "a" * 64,
+        "software_generation": "sha256:" + "a" * 64,
+        "process_instance_id": "sha256:" + "b" * 64,
+        "provenance_digest": "sha256:" + "c" * 64,
+        "repository_commit": "commit-sha",
+        "repository_tree": "tree-sha",
+        "startup_timestamp": "2026-09-25T11:00:00Z",
+        "process_role": "maintenance_daemon",
+        "process_identity_scope":
+            "pid_startup_argv_executable_entrypoint_module_origin_and_environment",
+        "software_generation_scope":
+            "configured_manifest_and_clean_repository_state_at_observation",
+        "loaded_code_identity_posture": "not_independently_attested",
+        "currentness_posture": "owner_verified_process_and_source_at_observation",
+        "event_time_posture": "owner_point_observation_time",
+        "authority": False,
+        "effect_proven": False,
+    })
+    source.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "verified_current_running_software_generation",
+        "evidence_strength": "owner_verified_current_process_and_clean_source"})
+    source["effect_claimed"] = False
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(source), tick_id="tick-current-software")
+    claim = next(item for item in result.claims
+        if item.predicate == "software_generation.current_process_observation")
+    assert claim.value["observed_at"] == observed
+    assert claim.value["process_identity_scope"] == (
+        "pid_startup_argv_executable_entrypoint_module_origin_and_environment")
+    assert claim.value["loaded_code_identity_posture"] == "not_independently_attested"
+    assert claim.current_truth is False
+    assert claim.source_evidence_ids == ("runtime:software-current",)
+
+
+def test_launch_software_observation_is_historical_interpretation(tmp_path: Path) -> None:
+    source = record(source="runtime:software-launch", observed=NOW.isoformat(), extra={
+        "running_software_generation_observed": "sha256:" + "a" * 64,
+        "startup_timestamp": NOW.isoformat(),
+        "process_role": "maintenance_daemon",
+    })
+    source.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "observed_running_software_generation"})
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(source), tick_id="tick-software-launch")
+    lifecycle = next(item for item in result.claims
+        if item.predicate == "lifecycle.observation.disposition")
+    assert lifecycle.claim_category == "historical_interpretation"
