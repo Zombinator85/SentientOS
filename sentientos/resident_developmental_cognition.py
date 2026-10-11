@@ -110,8 +110,10 @@ def _validate_root_separation(history_root: Path, state_root: Path,
             raise ResidentDevelopmentalCognitionError("configuration_roots_must_be_separate")
     canonical_memory_root = _resolved_owner_root(
         memory_root if memory_root is not None else sentientos_memory_dir())
-    if any(root == canonical_memory_root or canonical_memory_root in root.parents
-           for root in roots):
+    if any(root == canonical_memory_root
+               or canonical_memory_root in root.parents
+               or root in canonical_memory_root.parents
+               for root in roots):
         raise ResidentDevelopmentalCognitionError(
             "configuration_root_overlaps_canonical_memory")
 

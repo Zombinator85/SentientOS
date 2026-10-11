@@ -421,6 +421,14 @@ def test_developmental_roots_resolve_aliases_and_exclude_canonical_memory(tmp_pa
         _validate_root_separation(memory / "developmental-history", tmp_path / "state",
                                   memory_root=memory)
 
+    # Reject the opposite nesting direction too: a developmental owner must
+    # not claim a parent directory that also contains canonical user memory.
+    memory_child = tmp_path / "owner-root" / "user-memory"
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+                       match="configuration_root_overlaps_canonical_memory"):
+        _validate_root_separation(tmp_path / "owner-root", tmp_path / "other-state",
+                                  memory_root=memory_child)
+
 
 def test_cognition_checkpoint_round_trips_through_private_descriptor_custody(tmp_path: Path) -> None:
     import os

@@ -2839,3 +2839,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Added an authored, unexecuted same-PID/different-start-tick rejection case. The journal identity binds the optional process field, and its existing historical-only/unknown-freshness semantics remain unchanged.
 - Python syntax compilation passed for the parent owner and its test module. No test, process, `/proc` runtime behavior, commissioning action, or production behavior was executed.
 - Next inspect whether a platform-native process creation-time source already exists for non-Linux commissioned parents, and whether the observer can expose that strictly as identity evidence without upgrading runtime-generation or loaded-code claims. If none exists, keep those postures unknown and proceed to the next concrete shared-memory/chat-history interface issue.
+
+
+## 2026-10-11 checkpoint — make developmental/user-memory root separation symmetric
+
+- The chat owner derives user memory from the one frozen canonical `sentientos_memory_dir` and installation-scoped transcripts from `InstallationStateRegistry` custody under `conversations`; it rejects path overlap in both ancestor directions before serving is established. The developmental-cognition config also pairwise separates its history/state/artifact roots, but its canonical-memory check handled only `memory_root == owner_root` or memory as an ancestor. A history/state/artifact root that was the parent of user memory could therefore overlap while passing validation.
+- `_validate_root_separation` now rejects ancestor overlap in either direction. The existing exclusion remains explicit at config construction, preserving memory, transcript, and developmental-history custody as separate domains. Added an authored, unexecuted regression for developmental-root-contains-user-memory.
+- Python syntax compilation passed for the owner and its test module. No tests, chat service, persistence write, or runtime composition were executed.
+- Next inspect the concrete root-custody identity and composition for the transcript and developmental owners, including whether resolved-path overlap checks can miss a filesystem alias; retain path-only limits explicitly if the existing owners cannot observe physical ancestry safely.
