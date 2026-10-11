@@ -1997,3 +1997,12 @@ The maintenance parent supervisor previously required an injected readiness call
 Two focused acceptance nodes were authored: a genuine runtime-adoption owner record qualifies the exact launched child, while a valid record for a substituted PID does not. Both are unexecuted. Changed source and test modules compile; bounded diff whitespace checks passed. No pytest, process launch, behavior test, activation, or production verification was performed.
 
 Next dependency: inspect the explicit parent-supervisor launch composition. If no existing opt-in owner can provide a nonrecursive launch contract and authenticated config custody, keep normal startup untouched and continue to another source-supported continuity path. Cross-restart user-memory root identity still requires an independent configured issuer; do not substitute a path digest or self-stored marker.
+
+
+## 2026-10-11 checkpoint — distinguish memory path binding from durable root identity
+
+Review of the next user-memory custody boundary confirmed that retention receipts used the field `target_root_identity` for a SHA-256 digest of the configured absolute path. The filesystem device/inode identity remains pinned only for the lifetime of the process. There is no independent persistent issuer for a user-memory-root identity, so the new receipt shape calls this a `target_root_path_binding_digest`, declares its scope as `configured_absolute_path_only`, and reports `cross_restart_root_identity: not_established`. Existing legacy receipts with the old field remain readable as path digests; the verifier rejects substituted digests, unknown scopes, and extra/missing schema fields. Retention writes continue under the same explicit admission and canonical artifact checks.
+
+Added focused acceptance cases for new receipt labeling, legacy receipt compatibility, substituted path digest rejection, and invalid scope rejection. The tests are authored and unexecuted. Changed Python files compile, and a bounded whitespace check passed. No pytest, runtime behavior test, activation, or production verification was performed.
+
+Next dependency: review persistent ownership of the shared memory root and existing durable identity facilities for a legitimate independent issuer. If none exists, keep cross-restart filesystem identity explicitly unresolved and continue into another concrete resident continuity path; do not add a self-authored marker or merge user memory with installation transcript or developmental-history custody.

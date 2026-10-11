@@ -20,6 +20,15 @@ _PROCESS_MEMORY_ROOT_IDENTITY_LIMIT = 32
 def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
+ROOT_PATH_BINDING_SCOPE = "configured_absolute_path_only"
+
+
+def configured_root_path_binding_digest(root: Path) -> str:
+    """Hash a configured path spelling, not a durable filesystem identity."""
+    absolute = Path(os.path.abspath(Path(root).expanduser()))
+    return digest({"root": str(absolute)})
+
+
 def retention_request_id(operation_id: str) -> str:
     """Return the retry-stable id for one already-authorized turn operation."""
     if not isinstance(operation_id, str) or not operation_id or len(operation_id) > 4096:
@@ -386,18 +395,31 @@ class AdmittedRetentionWriter:
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
         operation = "retain:" + session_id + ":" + source_turn["turn_id"]
         expected_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
-        expected_fields = {"status", "memory_id", "source_session_id", "source_turn_id",
+        legacy_fields = {"status", "memory_id", "source_session_id", "source_turn_id",
             "source_text_digest", "admission_receipt_digest", "execution_operation_id",
             "canonical_stored_record_digest", "target_root_identity", "index_update_result"}
+        path_binding_fields = {"status", "memory_id", "source_session_id", "source_turn_id",
+            "source_text_digest", "admission_receipt_digest", "execution_operation_id",
+            "canonical_stored_record_digest", "target_root_path_binding_digest",
+            "target_root_path_binding_scope", "index_update_result"}
+        if not isinstance(receipt, Mapping):
+            return {"artifact_status": "conflict", "reason_code": "stored_receipt_binding_invalid",
+                    "admission_status": "not_independently_recoverable", "write_replayed": False}
+        legacy_path_binding = set(receipt) == legacy_fields
+        path_binding_value = (receipt.get("target_root_identity") if legacy_path_binding
+            else receipt.get("target_root_path_binding_digest"))
+        binding_scope = ("legacy_target_root_identity_path_digest" if legacy_path_binding
+            else receipt.get("target_root_path_binding_scope"))
         receipt_digest = receipt.get("admission_receipt_digest")
-        if (not isinstance(receipt, Mapping) or set(receipt) != expected_fields
+        if (set(receipt) not in (legacy_fields, path_binding_fields)
+                or (not legacy_path_binding and binding_scope != ROOT_PATH_BINDING_SCOPE)
                 or receipt.get("status") != "memory_retention_committed"
                 or receipt.get("memory_id") != expected_id
                 or receipt.get("source_session_id") != session_id
                 or receipt.get("source_turn_id") != source_turn["turn_id"]
                 or receipt.get("source_text_digest") != source_turn["text_digest"]
                 or receipt.get("execution_operation_id") != operation
-                or receipt.get("target_root_identity") != digest({"root": str(self.store.root)})
+                or path_binding_value != configured_root_path_binding_digest(self.store.root)
                 or receipt.get("index_update_result") != "raw_fragment_available"
                 or not isinstance(receipt_digest, str)
                 or len(receipt_digest) != 64
@@ -461,6 +483,8 @@ class AdmittedRetentionWriter:
                     "record_digest": stored_digest,
                     "admission_status": "not_independently_recoverable",
                     "reason_code": "explicit_request_state_not_recoverable",
+                    "cross_restart_root_identity": "not_established",
+                    "root_path_binding_scope": binding_scope,
                     "write_replayed": False}
         candidate = {"candidate_type": CANDIDATE_TYPE, "session_id": session_id,
             "source_turn_id": source_turn["turn_id"], "source_role": "user",
@@ -473,11 +497,15 @@ class AdmittedRetentionWriter:
             return {"artifact_status": "verified", "memory_id": expected_id,
                     "record_digest": stored_digest, "admission_status": "conflict",
                     "reason_code": "admission_digest_policy_mismatch",
+                    "cross_restart_root_identity": "not_established",
+                    "root_path_binding_scope": binding_scope,
                     "write_replayed": False}
         return {"artifact_status": "verified", "memory_id": expected_id,
                 "record_digest": stored_digest,
                 "admission_status": "policy_recomputed_not_execution_attested",
                 "admission_receipt_digest": receipt_digest,
+                "cross_restart_root_identity": "not_established",
+                "root_path_binding_scope": binding_scope,
                 "write_replayed": False}
 
     def recover_existing_artifact(self, source_turn: Mapping[str, Any],
@@ -659,7 +687,8 @@ class AdmittedRetentionWriter:
             "admission_receipt_digest": record["meta"].get("admission_receipt_digest"),
             "execution_operation_id": operation,
             "canonical_stored_record_digest": digest(record),
-            "target_root_identity": digest({"root": str(self.store.root)}),
+            "target_root_path_binding_digest": configured_root_path_binding_digest(self.store.root),
+            "target_root_path_binding_scope": ROOT_PATH_BINDING_SCOPE,
             "index_update_result": "raw_fragment_available",
         }
         verification = self.verify_committed_artifact(receipt, source_turn, session_id)
@@ -829,7 +858,8 @@ class AdmittedRetentionWriter:
             "admission_receipt_digest": admission.receipt_digest,
             "execution_operation_id": operation,
             "canonical_stored_record_digest": digest(record),
-            "target_root_identity": digest({"root": str(self.store.root)}),
+            "target_root_path_binding_digest": configured_root_path_binding_digest(self.store.root),
+            "target_root_path_binding_scope": ROOT_PATH_BINDING_SCOPE,
             "index_update_result": "raw_fragment_available",
         }
         verification = self.verify_committed_artifact(receipt, source_turn,
