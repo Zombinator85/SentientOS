@@ -19,6 +19,13 @@ _PROCESS_MEMORY_ROOT_IDENTITIES_LOCK = RLock()
 _PROCESS_MEMORY_ROOT_IDENTITY_LIMIT = 32
 def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+
+def retention_request_id(operation_id: str) -> str:
+    """Return the retry-stable id for one already-authorized turn operation."""
+    if not isinstance(operation_id, str) or not operation_id or len(operation_id) > 4096:
+        raise ValueError("retention_operation_identity_invalid")
+    return "retain-request-" + hashlib.sha256(
+        operation_id.encode("utf-8")).hexdigest()[:24]
 # Freeze shared root configuration at first import.  The legacy manager keeps
 # module-level path constants, so re-reading environment variables for chat would
 # otherwise let the two owners silently diverge after startup.
@@ -509,11 +516,63 @@ class AdmittedRetentionWriter:
                 directory_fd = self._open_raw_directory()
                 record = self._read_raw_record(directory_fd, memory_id + ".json",
                     max_links=2)
+                staged_artifact_published = False
                 if record is None:
-                    return {"artifact_status": "unavailable",
-                            "reason_code": "artifact_missing",
-                            "admission_status": "not_independently_recoverable",
-                            "write_replayed": False}
+                    temporary_name = ".memory-" + memory_id + ".tmp"
+                    staged = self._read_raw_record(directory_fd, temporary_name)
+                    if staged is None:
+                        return {"artifact_status": "unavailable",
+                                "reason_code": "artifact_missing",
+                                "admission_status": "not_independently_recoverable",
+                                "write_replayed": False}
+                    candidate = {
+                        "candidate_type": CANDIDATE_TYPE,
+                        "session_id": session_id,
+                        "source_turn_id": source_turn["turn_id"],
+                        "source_role": "user",
+                        "source_text_digest": source_turn["text_digest"],
+                        "explicitly_requested": True,
+                        "request_id": retention_request_id(operation),
+                        "operation_id": operation,
+                    }
+                    admission = self.admission_gate.decide(candidate)
+                    expected_record = {
+                        "id": memory_id, "text": source_turn["text"],
+                        "text_digest": source_turn["text_digest"],
+                        "timestamp": staged.get("timestamp"),
+                        "source": "conversation_user_turn", "category": "event",
+                        "tags": ["explicit-retention"], "importance": 1.0,
+                        "meta": {"session_id": session_id,
+                            "turn_id": source_turn["turn_id"],
+                            "request_id": candidate["request_id"],
+                            "operation_id": operation,
+                            "admission_receipt_digest": admission.receipt_digest},
+                    }
+                    if (admission.decision != "retention_admitted"
+                            or not self._same_operation_record(staged, expected_record)):
+                        return {"artifact_status": "conflict",
+                                "reason_code": "staged_artifact_binding_invalid",
+                                "admission_status": "not_independently_recoverable",
+                                "write_replayed": False}
+                    try:
+                        os.link(temporary_name, memory_id + ".json",
+                            src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
+                            follow_symlinks=False)
+                    except FileExistsError:
+                        return {"artifact_status": "conflict",
+                                "reason_code": "artifact_appeared_during_recovery",
+                                "admission_status": "not_independently_recoverable",
+                                "write_replayed": False}
+                    os.fsync(directory_fd)
+                    record = self._read_raw_record(directory_fd,
+                        memory_id + ".json", max_links=2)
+                    if (record is None
+                            or not self._same_operation_record(record, expected_record)):
+                        return {"artifact_status": "conflict",
+                                "reason_code": "staged_artifact_publication_mismatch",
+                                "admission_status": "not_independently_recoverable",
+                                "write_replayed": False}
+                    staged_artifact_published = True
                 metadata = os.stat(memory_id + ".json", dir_fd=directory_fd,
                     follow_symlinks=False)
                 if metadata.st_nlink == 2:
@@ -588,10 +647,13 @@ class AdmittedRetentionWriter:
             "index_update_result": "raw_fragment_available",
         }
         verification = self.verify_committed_artifact(receipt, source_turn, session_id)
-        return {**verification, "receipt": receipt} if (
-            verification.get("artifact_status") == "verified"
-            and verification.get("admission_status")
-                == "policy_recomputed_not_execution_attested") else verification
+        if (verification.get("artifact_status") == "verified"
+                and verification.get("admission_status")
+                    == "policy_recomputed_not_execution_attested"):
+            return {**verification, "receipt": receipt,
+                    "staged_artifact_published": locals().get(
+                        "staged_artifact_published", False)}
+        return verification
 
     def _open_raw_directory(self, *, prepare_for_write: bool = False) -> int:
         return self.store.open_raw_directory(prepare_for_write=prepare_for_write)
@@ -760,6 +822,7 @@ class AdmittedRetentionWriter:
         if verification.get("artifact_status") != "verified":
             raise PermissionError("canonical_memory_artifact_reconciliation_failed")
         return receipt
+
 
 
 

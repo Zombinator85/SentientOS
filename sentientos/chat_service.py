@@ -37,7 +37,8 @@ from .conversation_session import (
     compact_runtime_generation_attribution,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
-    ExplicitRetentionAdmissionGate, sentientos_data_dir, sentientos_memory_dir)
+    ExplicitRetentionAdmissionGate, retention_request_id,
+    sentientos_data_dir, sentientos_memory_dir)
 from .local_model_authority import digest_payload
 
 LOGGER = logging.getLogger(__name__)
@@ -227,7 +228,9 @@ class PersistentConversationService:
                 self.sessions.update_turn_retention(
                     session_id, user_turn_id, state="retained", receipt=recovered_receipt)
                 retention = {
-                    "status": "retained_artifact_reconciled_no_write",
+                    "status": ("retained_artifact_completed_from_verified_stage"
+                        if recovery.get("staged_artifact_published") is True
+                        else "retained_artifact_reconciled_no_write"),
                     "recovery_verification": recovery,
                 }
             elif recovery.get("artifact_status") == "conflict":
@@ -558,8 +561,7 @@ class PersistentConversationService:
         retention_result: dict[str, object] = {"status": "not_requested"}
         if retain:
             operation_id = "retain:" + session["session_id"] + ":" + user_turn["turn_id"]
-            request_id = "retain-request-" + hashlib.sha256(
-                operation_id.encode("utf-8")).hexdigest()[:24]
+            request_id = retention_request_id(operation_id)
             candidate = {"candidate_type": CANDIDATE_TYPE, "session_id": session["session_id"],
                          "source_turn_id": user_turn["turn_id"], "source_role": "user",
                          "source_text_digest": user_turn["text_digest"], "explicitly_requested": True,
@@ -971,4 +973,5 @@ def run(host: str = "0.0.0.0", port: int = 5000) -> None:
     import uvicorn
 
     uvicorn.run(APP, host=host, port=port)
+
 
