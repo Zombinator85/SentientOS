@@ -5,25 +5,22 @@ require_admin_banner()
 require_lumos_approval()
 import argparse
 import json
-from pathlib import Path
 import memory_manager as mm
 TOMB_PATH = mm.TOMB_PATH
 
 
 def load_entries():
-    if not TOMB_PATH.exists():
-        return []
-    out = []
-    for line in TOMB_PATH.read_text(encoding="utf-8").splitlines():
-        try:
-            out.append(json.loads(line))
-        except Exception:
-            continue
-    return out
+    try:
+        return mm.list_tomb()
+    except mm.MemorySidecarIncompleteError as exc:
+        print(f"Tomb history incomplete: {exc}")
+        return None
 
 
 def list_entries(args: argparse.Namespace) -> None:
     entries = load_entries()
+    if entries is None:
+        return
     for e in entries:
         ts = e.get("time")
         reason = e.get("reason", "")
@@ -41,6 +38,8 @@ def wordcloud_command(args: argparse.Namespace) -> None:
         print("wordcloud package required")
         return
     entries = load_entries()
+    if entries is None:
+        return
     reasons = [e.get("reason", "") for e in entries]
     if not reasons:
         print("No entries")

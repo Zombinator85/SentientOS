@@ -1614,3 +1614,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Existing conversation roots are now checked with lstat, POSIX owner/private-mode validation, and the existing Windows private-ACL verifier. Only a missing root is created; reads/restarts no longer chmod an existing directory. Symlink ancestors are rejected before creation.
 - Python syntax compilation passed for `conversation_session.py`. No transcript path was opened or modified; behavior remains unverified.
 - **Next implementation dependency:** inspect path-based transcript reads and atomic publication against the verified root handle, especially restart reads under rename/symlink races. Keep installation transcript custody separate from user-memory root and developmental history.
+
+
+
+## New checkpoint — close external raw-memory bypasses
+
+- Fresh remote source before this increment: `67b4de410bb6d6f00ce4ad03804d30af69119e3c` (tree `61e303d3aecf3503a577979415a71f4ce8d697b3`).
+- Source review found two remaining paths outside the shared memory owner: `memory_tomb_cli.py` read and skipped malformed tomb lines directly, and distributed synchronization wrote received fragments with `Path.write_text`, bypassing local admission and safe publication.
+- The tomb CLI now reads through `memory_manager.list_tomb()` and reports incomplete history. Distributed fragment reconciliation now uses the existing authorized, bounded atomic legacy writer, which rejects canonical retained records and preserves the Administrator/Lumos boundary. No synchronization was started and no remote peers were contacted.
+- Python syntax compilation passed for `distributed_memory.py` and `memory_tomb_cli.py`. No network or memory operation was performed.
+- **Next implementation dependency:** review the remaining explicit user-memory surfaces and the remote merge's identity/conflict contract. Ensure shared memory provenance cannot be overwritten by a peer with same/newer timestamps, and keep that remote merge separate from installation transcript and resident developmental-history custody.

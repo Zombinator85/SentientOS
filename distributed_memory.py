@@ -163,11 +163,13 @@ def _write_fragment(fragment: dict) -> None:
     fragment_id = fragment.get("id")
     if not fragment_id:
         return
-    path = mm._fragment_path(fragment_id)  # type: ignore[attr-defined]
     try:
-        path.write_text(json.dumps(fragment, ensure_ascii=False), encoding="utf-8")
-    except OSError:
-        LOGGER.debug("Failed to write synchronised fragment %s", fragment_id, exc_info=True)
+        # Use the shared owner so remote reconciliation cannot bypass local
+        # mutation admission, canonical-retention exclusions, or atomic custody.
+        mm._write_fragment(str(fragment_id), fragment)  # type: ignore[attr-defined]
+    except (OSError, ValueError):
+        LOGGER.warning("Rejected synchronised fragment %s by local memory custody",
+            fragment_id, exc_info=True)
 
 
 class DistributedMemorySynchronizer:
