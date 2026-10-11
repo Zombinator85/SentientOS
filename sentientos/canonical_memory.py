@@ -33,8 +33,6 @@ class CanonicalMemoryStore:
     """Canonical raw-fragment domain compatible with memory_manager.RAW_PATH."""
     def __init__(self,memory_root:Path)->None:
         self.root=memory_root.resolve(); self.raw=self.root/"raw"; self.raw.mkdir(parents=True,exist_ok=True,mode=0o700)
-        self.legacy_sidecar_posture = self._legacy_sidecar_posture()
-        self.legacy_sidecar_present = self.legacy_sidecar_posture == "present_unverified"
 
     def _legacy_sidecar_posture(self) -> str:
         """Report bounded path metadata only; the legacy sidecar is never ingested here."""
@@ -159,6 +157,8 @@ class CanonicalMemoryStore:
 
     def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000)->dict[str,Any]:
         records, retrieval_posture = self._records()
+        legacy_sidecar_posture = self._legacy_sidecar_posture()
+        legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
         terms=set(re.findall(r"[a-z0-9]+",query.lower())); ranked=[]
         for record in records:
             score=len(terms & set(re.findall(r"[a-z0-9]+",record["text"].lower())))
@@ -169,12 +169,12 @@ class CanonicalMemoryStore:
             if used+len(record["text"])<=budget_chars: selected.append(record); used+=len(record["text"])
         identities=[(r.get("id"),r.get("text_digest") or digest({"text":r["text"]})) for r in selected]
         return {"memories":selected,"selected_memory_ids":[x[0] for x in identities],"read_only":True,
-                "legacy_sidecar_present":self.legacy_sidecar_present,
-                "legacy_sidecar_posture":self.legacy_sidecar_posture,
+                "legacy_sidecar_present":legacy_sidecar_present,
+                "legacy_sidecar_posture":legacy_sidecar_posture,
                 "retrieval_posture":retrieval_posture,
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
                     "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
-                    "legacy_sidecar_posture":self.legacy_sidecar_posture})}
+                    "legacy_sidecar_posture":legacy_sidecar_posture})}
 class AdmittedRetentionWriter:
     """Terminal executor validates admission evidence but never decides admission."""
     def __init__(self, store: CanonicalMemoryStore,

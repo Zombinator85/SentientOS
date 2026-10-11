@@ -1226,3 +1226,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `conversation_session.py`. No session write, fault injection, replay, or runtime validation was performed. Windows conversation publication remains unsupported by its existing owner.
 
 **Next implementation dependency:** inspect the exact chat request recovery path around an already-published assistant response. Confirm it verifies the persisted source turn and receipt before returning a response after restart, and that any incomplete request remains no-replay rather than creating a duplicate assistant turn.
+
+
+## New checkpoint — sample legacy-sidecar status at retrieval time
+
+- Fresh remote source before this increment: `329d1442cedc5820ba162830e7c78c0bf4d20965` (tree `6d67c142bf3ee959548a8d3f8ba9edc60491cd38`).
+- The previous sidecar custody posture was captured once when `CanonicalMemoryStore` was constructed and reused on later retrievals. A sidecar created, removed, or replaced after service startup would therefore be reported from stale metadata.
+- Sidecar status is now sampled by non-following `lstat` at each retrieval, alongside the retrieval posture. The response and snapshot digest use that same sampled posture; no sidecar content is opened or admitted. The existing status remains explicitly `present_unverified` when only basic metadata qualifies.
+- Python compilation passed for `canonical_memory.py`. No runtime sidecar changes or retrieval tests were performed.
+
+**Next implementation dependency:** continue source review of the current chat recovery path and runtime-generation evidence boundary, then advance to the next concrete owner integration without revisiting the already reconciled competing observation publisher.
