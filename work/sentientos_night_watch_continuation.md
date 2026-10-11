@@ -1286,3 +1286,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `conversation_session.py`. No session directory was scanned and no runtime/test/production verification was performed.
 
 **Next implementation dependency:** continue reviewing session and memory persistence consumers for bounded metadata exposure and exact retrieval provenance; retain fail-closed states when a directory exceeds its source bounds.
+
+
+## Correction — do not present malformed session listings as complete
+
+- Fresh remote source before this increment: `4679670286680f23f0bf5380232b7272f62052e3` (tree `26bee16a4827f1404aa7a16a0dc7848599c6ef53`).
+- After bounding listing work, malformed or custody-invalid matching session files were still silently skipped, which made an incomplete listing indistinguishable from a complete one. A genuine concurrent deletion remains skippable; other load failures now fail the listing with an explicit invalid-record posture.
+- Python compilation passed for `conversation_session.py`. No directory listing or runtime session read was performed.
+
+**Next implementation dependency:** inspect consumers of `list_recent()` and determine whether they can surface its explicit degraded error without falsely reporting an empty or complete session list.

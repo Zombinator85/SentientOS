@@ -452,8 +452,10 @@ class ConversationSessionStore:
                         raise ValueError("session_listing_byte_bound_exceeded")
                     try:
                         session = self.load(entry.name[:-5])
-                    except (OSError, ValueError):
+                    except FileNotFoundError:
                         continue
+                    except (OSError, ValueError) as exc:
+                        raise ValueError("session_listing_record_invalid") from exc
                     result.append({k: session.get(k) for k in (
                         "session_id", "created_at", "latest_activity_at", "title",
                         "revision", "lifecycle_state", "model_identity_digest")})
