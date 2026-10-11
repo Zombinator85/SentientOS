@@ -108,6 +108,9 @@ class ResidentEpistemicStateMutationController:
             path = self.receipt_root / "receipts" / stage
             path.mkdir(parents=True, exist_ok=True)
             if path.is_symlink(): raise EpistemicMutationError("receipt_path_symlink_forbidden")
+        self._recovery_status: dict[str, Any] = {"status": "unchecked",
+            "pending_evidence_intent_count": 0, "pending_state_intent_count": 0,
+            "recovered_receipt_count": 0}
         self.intent_root = self.receipt_root / "operations"
         if os.name == "posix":
             self.intent_root.mkdir(parents=True, exist_ok=True)
@@ -246,12 +249,16 @@ class ResidentEpistemicStateMutationController:
             raise EpistemicMutationError("mutation_intent_replay_blocked")
 
     def _recover_state_receipts(self) -> None:
+        pending_evidence_intents = 0
+        pending_state_intents = 0
         # lstat is read-only on both platforms and distinguishes a truly
         # absent root from a dangling symlink. Windows still uses only its
         # bounded handle reader below; it never repairs custody here.
         try:
             root_stat = self.intent_root.lstat()
         except FileNotFoundError:
+            self._recovery_status = {"status": "verified", "pending_evidence_intent_count": 0,
+                "pending_state_intent_count": 0, "recovered_receipt_count": 0}
             return
         except OSError as exc:
             raise EpistemicMutationError("mutation_intent_root_unavailable") from exc
@@ -336,6 +343,7 @@ class ResidentEpistemicStateMutationController:
                 stored = [item for item in self.owner.bindings(binding.proposition_id)
                           if item.binding_id == binding.binding_id]
                 if not stored:
+                    pending_evidence_intents += 1
                     continue  # Interrupted before append; never replay the mutation.
                 if stored != [binding]:
                     raise EpistemicMutationError("mutation_intent_binding_conflict")
@@ -371,6 +379,7 @@ class ResidentEpistemicStateMutationController:
                 and event.get("correlation_id") == correlation_id
                 and event.get("proposition_id") == candidate.proposition_id]
             if not matching_events:
+                pending_state_intents += 1
                 continue  # Interrupted before state commit; preserve, never replay.
             if len(matching_events) != 1:
                 raise EpistemicMutationError("mutation_intent_event_ambiguous")
@@ -398,6 +407,7 @@ class ResidentEpistemicStateMutationController:
                 "admission_binding_digest": admission.binding_digest,
                 "operation_id": operation_id, "correlation_id": correlation_id}
             if not matching_transactions:
+                pending_state_intents += 1
                 continue  # Legacy/direct update lacks an authenticated admission handoff.
             if (len(matching_transactions) != 1
                     or matching_transactions[0].get("mutation_binding") != expected_mutation_binding):
@@ -435,8 +445,16 @@ class ResidentEpistemicStateMutationController:
                     raise EpistemicMutationError("mutation_receipt_recovery_publication_unsupported")
             else:
                 self._write_receipt(receipt_stage, receipt)
+        self._recovery_status = {"status": ("incomplete" if pending_evidence_intents or pending_state_intents else "verified"),
+            "pending_evidence_intent_count": pending_evidence_intents,
+            "pending_state_intent_count": pending_state_intents,
+            "recovered_receipt_count": len(recovered_receipts)}
 
-    def verify_receipts(self) -> None:
+    @property
+    def recovery_status(self) -> Mapping[str, Any]:
+        return dict(self._recovery_status)
+
+    def verify_receipts(self) -> Mapping[str, Any]:
         self._recover_state_receipts()
         for stage, cls in (("evidence", EvidenceBindingMutationReceipt), ("state", EpistemicStateMutationReceipt)):
             directory = self.receipt_root / "receipts" / stage
@@ -473,6 +491,7 @@ class ResidentEpistemicStateMutationController:
                                              else "epistemic_state_update")
                         or name != rid + ".json"):
                     raise EpistemicMutationError("mutation_receipt_identity_mismatch")
+        return self.recovery_status
 
     def append_evidence_binding(self, *, binding: EvidenceBinding,
                                 source_proof: EpistemicEvidenceSourceProof,

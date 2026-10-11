@@ -87,6 +87,10 @@ class EpistemicDevelopmentFeedback:
     evidence_receipt_ids: tuple[str, ...]; state_receipt_ids: tuple[str, ...]
     successor_state_ids: tuple[str, ...]; generations: tuple[int, ...]
     next_tick_only: bool = True; authority: bool = False
+    recovery_status: str = "not_composed"
+    pending_evidence_intent_count: int = 0
+    pending_state_intent_count: int = 0
+    recovered_receipt_count: int = 0
 
 
 def load_epistemic_development_config(path: str | Path) -> EpistemicDevelopmentConfig:
@@ -635,8 +639,13 @@ class ResidentEpistemicDevelopmentRuntime:
             state_receipts.append(state_receipt.receipt_id); states.append(state_receipt.successor_state_id); generations.append(state_receipt.generation)
         partial = len(matches) > len(bounded) or len(touched) > self.config.max_updated_propositions_per_tick
         status = "bounded_partial" if partial else "state_advanced" if state_receipts else "evidence_appended" if evidence_receipts else "no_matching_evidence"
+        recovery = self.controller.recovery_status
         return EpistemicDevelopmentFeedback(status, snapshot.snapshot_id, len(self.config.rules), len(matches),
-            new_count, len(state_receipts), tuple(evidence_receipts), tuple(state_receipts), tuple(states), tuple(generations))
+            new_count, len(state_receipts), tuple(evidence_receipts), tuple(state_receipts), tuple(states), tuple(generations),
+            recovery_status=str(recovery.get("status", "unknown")),
+            pending_evidence_intent_count=int(recovery.get("pending_evidence_intent_count", 0)),
+            pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
+            recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
 
 
 __all__ = ["ResidentEpistemicDevelopmentRuntime", "EpistemicDevelopmentConfig",

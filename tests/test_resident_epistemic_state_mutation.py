@@ -80,6 +80,30 @@ def test_separate_admissions_append_update_and_prior_only_projection(tmp_path) -
             projection.policy, projection.goal) == (True, False, False, False, False)
 
 
+def test_restart_reports_interrupted_state_intent_without_replaying_it(tmp_path) -> None:
+    owner, proposition, authority, controller, _binding, _proof = setup(tmp_path)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id, predecessor_state_digest=None,
+        proposed_stance="unknown", evidence_binding_ids=(), reason="initialization",
+        rationale="bounded recovery fixture", uncertainty="unknown", model_id="caller")
+    operation_id = "state-interrupted"
+    admission = issue(authority, admission_id="state-interrupted-admission",
+        effects=STATE_UPDATE_EFFECTS, subject=candidate.candidate_id,
+        config=controller.state_configuration_digest(candidate=candidate, operation_id=operation_id),
+        sequence=1)
+    controller._write_state_intent(candidate=candidate, admission=admission,
+        operation_id=operation_id, correlation_id="interrupted-workflow")
+
+    recovered = ResidentEpistemicStateMutationController(owner=owner,
+        admission_verifier=RuntimeAdmissionVerifier(definitions=AUTHORITY_DEFINITIONS,
+            ledger=AdmissionLedger(tmp_path / "admissions.json")),
+        current_sequence=lambda: 10, receipt_root=tmp_path / "controller")
+    assert recovered.recovery_status["status"] == "incomplete"
+    assert recovered.recovery_status["pending_state_intent_count"] == 1
+    assert recovered.verify_receipts()["pending_state_intent_count"] == 1
+    assert owner.current_state(proposition.proposition_id) is None
+
+
 def test_cross_stage_broad_revoked_and_tampered_evidence_fail_without_mutation(tmp_path) -> None:
     owner, proposition, authority, controller, binding, proof = setup(tmp_path)
     config = controller.evidence_configuration_digest(binding=binding,
