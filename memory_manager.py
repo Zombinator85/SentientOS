@@ -1927,6 +1927,22 @@ def purge_memory(
 
 
 
+def _derived_summary_filename(kind: str, label: str, suffix: str) -> str:
+    """Map untrusted summary labels to bounded, flat, deterministic filenames."""
+    if (kind not in {"day", "topic", "session", "turn"}
+            or suffix not in {".txt", ".md", ".json"}
+            or not isinstance(label, str) or not label):
+        raise ValueError("derived_memory_summary_identity_invalid")
+    try:
+        encoded = label.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("derived_memory_summary_identity_invalid") from exc
+    if len(encoded) > 4096:
+        raise ValueError("derived_memory_summary_identity_exceeds_bound")
+    identity = kind.encode("ascii") + b":" + encoded
+    return hashlib.sha256(identity).hexdigest() + suffix
+
+
 def _write_topic_summaries(entries: Sequence[dict]) -> None:
     topics: Dict[str, List[str]] = {}
     for data in entries:
@@ -1941,7 +1957,7 @@ def _write_topic_summaries(entries: Sequence[dict]) -> None:
     for tag, lines in topics.items():
         if not tag:
             continue
-        out = TOPIC_PATH / f"{tag}.md"
+        out = TOPIC_PATH / _derived_summary_filename("topic", tag, ".md")
         with _open_legacy_memory_text(out, "w") as f:
             f.write(f"# {tag} memory capsule\n\n")
             for line in lines[-200:]:  # keep recent history manageable
@@ -1982,7 +1998,7 @@ def _write_session_digest(session_id: str, entries: Sequence[dict]) -> None:
             highlights.append(text[:240])
 
     common_tags = ", ".join(tag for tag, _ in tags.most_common(6)) or "(none)"
-    out = SESSION_PATH / f"{session_id}.md"
+    out = SESSION_PATH / _derived_summary_filename("session", session_id, ".md")
     with _open_legacy_memory_text(out, "w") as handle:
         handle.write(f"# Session {session_id}\n\n")
         handle.write(f"* timeframe: {start} → {end}\n")
@@ -2015,7 +2031,7 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
                     "tags": item.get("tags", []),
                 }
             )
-        out = TURN_PATH / f"{session_id}.json"
+        out = TURN_PATH / _derived_summary_filename("turn", session_id, ".json")
         with _open_legacy_memory_text(out, "w") as handle:
             handle.write(json.dumps(turns, ensure_ascii=False, indent=2))
         _write_session_digest(session_id, session_entries)
@@ -2040,7 +2056,7 @@ def _summarize_memory_unlocked() -> None:
         summaries.setdefault(day, []).append(f"[{ts}] {snippet}")
 
     for day, lines in summaries.items():
-        out = DAY_PATH / f"{day}.txt"
+        out = DAY_PATH / _derived_summary_filename("day", day, ".txt")
         with _open_legacy_memory_text(out, "w") as f:
             for line in lines:
                 f.write(line + "\n")

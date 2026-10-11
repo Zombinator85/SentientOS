@@ -1847,3 +1847,8 @@ Daily memory summary files now replace their prior derived projection rather tha
 ## 2026-10-11 checkpoint — keep Windows transcript composition read-only
 
 Conversation root initialization on Windows no longer recursively creates a missing directory. Since the conversation store's publication path is intentionally unsupported there, the constructor now fails clearly on a missing root and uses only the existing explicit private-ACL verifier when one exists. Production installation custody may provision its own root before composition; user memory and resident history are not involved. Python compilation passed; no Windows or filesystem action was run. Next dependency: continue examining the remaining root/source identity lifecycle and summary-retention presentation boundaries.
+
+
+## 2026-10-11 checkpoint — keep derived-summary labels out of filesystem paths
+
+The legacy user-memory summary writer now maps day, topic, session, and turn labels through a typed SHA-256 filename function. It rejects empty, non-text, invalid UTF-8, and over-bound labels before publication. Untrusted memory tags and session metadata can no longer create nested summary paths under the memory root or expose identifiers in filenames; human-readable labels remain in the derived file content. Source inspection found no readers of these projections, so raw memory and installation-scoped transcript identities are unchanged. Python compilation passed; no user-memory, transcript, or developmental-history path was accessed. Next dependency: continue reviewing summary lifecycle and root reconfiguration seams, including stale derived projections after explicit forgetting, without introducing cross-root ingestion.
