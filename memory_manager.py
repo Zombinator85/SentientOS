@@ -988,7 +988,7 @@ def _load_index() -> List[Dict]:
 
 
 @contextmanager
-def _observation_summary_lock():
+def _observation_log_lock():
     """Serialize one observation fragment/log publication across processes."""
     from sentientos.platform_fcntl import fcntl, require_flock
     require_flock()
@@ -1271,7 +1271,7 @@ def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
     if os.getenv("INCOGNITO") == "1":
         return _store_observation_summary_unlocked(summary)
     _authorize_legacy_mutation()
-    with _observation_summary_lock():
+    with _observation_log_lock():
         with _INDEX_LOCK, _vector_index_transaction():
             return _store_observation_summary_unlocked(summary)
 
@@ -1301,7 +1301,8 @@ def store_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
             _authorize_legacy_mutation()
             stash_highlight(policy, name, bytes(snapshot))
     else:
-        _append_jsonl(OBSERVATION_LOG_PATH, payload)
+        with _observation_log_lock():
+            _append_jsonl(OBSERVATION_LOG_PATH, payload)
     return payload
 
 
@@ -1368,27 +1369,29 @@ def recent_observations(
 
 @_legacy_mutation_operation
 def update_novelty_score(observation_id: str, delta: float) -> bool:
-    """Adjust the novelty score for an observation by ``delta``."""
+    """Adjust a novelty annotation with digest-bound sidecar publication."""
 
-    records = _load_observation_records()
-    updated = False
-    for record in records:
-        if record.get("observation_id") != observation_id:
-            continue
-        novelty = float(record.get("novelty", 0.0)) + float(delta)
-        record["novelty"] = max(0.0, min(1.0, novelty))
-        history = record.setdefault("novelty_history", [])
-        history.append(
-            {
+    _authorize_legacy_mutation()
+    with _observation_log_lock():
+        records = _load_observation_records()
+        updated = False
+        for record in records:
+            if record.get("observation_id") != observation_id:
+                continue
+            novelty = float(record.get("novelty", 0.0)) + float(delta)
+            record["novelty"] = max(0.0, min(1.0, novelty))
+            history = record.setdefault("novelty_history", [])
+            history.append({
                 "delta": float(delta),
                 "timestamp": datetime.datetime.utcnow().isoformat(),
-            }
-        )
-        updated = True
-        break
-    if updated:
-        _rewrite_observation_records(records)
-    return updated
+            })
+            record.pop("observation_record_digest", None)
+            record["observation_record_digest"] = _observation_digest(record)
+            updated = True
+            break
+        if updated:
+            _rewrite_observation_records(records)
+        return updated
 
 
 @_legacy_mutation_operation
@@ -1416,22 +1419,33 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
     record["fragment_id"] = fragment_id
     observation_id = record.get("observation_id")
     if observation_id:
-        obs_records = _load_observation_records()
-        changed = False
-        for obs in obs_records:
-            if obs.get("observation_id") == observation_id:
+        _authorize_legacy_mutation()
+        with _observation_log_lock():
+            obs_records = _load_observation_records()
+            changed = False
+            for obs in obs_records:
+                if obs.get("observation_id") != observation_id:
+                    continue
                 reflections = obs.setdefault("reflections", [])
-                reflections.append(
-                    {
-                        "reflection_id": reflection_id,
-                        "summary": summary,
-                        "timestamp": timestamp,
-                    }
-                )
-                changed = True
+                link = {
+                    "reflection_id": reflection_id,
+                    "summary": summary,
+                    "timestamp": timestamp,
+                }
+                existing = [item for item in reflections
+                    if isinstance(item, dict)
+                    and item.get("reflection_id") == reflection_id]
+                if existing and any(item != link for item in existing):
+                    raise MemorySidecarIncompleteError(
+                        "perception_reflection_link_conflict", 0)
+                if not existing:
+                    reflections.append(link)
+                    obs.pop("observation_record_digest", None)
+                    obs["observation_record_digest"] = _observation_digest(obs)
+                    changed = True
                 break
-        if changed:
-            _rewrite_observation_records(obs_records)
+            if changed:
+                _rewrite_observation_records(obs_records)
     return record
 
 
