@@ -1473,3 +1473,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `memory_manager.py`. No directories/files were opened or changed; no behavioral or production verification was performed.
 - **Next implementation dependency:** inspect the whole legacy memory-manager API for callers that convert custody exceptions into empty/success results, and verify the transcript/developmental-history path separation remains intact under the now-private shared root. Continue with any direct adjacent custody gap found.
 
+
+
+## New checkpoint — surface raw-memory custody failures
+
+- Fresh remote source before this increment: `7643d9e12509bf9bb9aea0fb936d2f2b787161a6` (tree `bd098abfe8a46f285477bac7a1accaae96ef76f6`).
+- Several legacy raw-fragment callers caught every exception and silently skipped the record. A no-follow, owner, link-count, mode, or size failure could therefore look like an ordinary missing memory.
+- The raw-fragment retrieval/search/purge/summary/recent-history callers now re-raise `PermissionError` from custody validation while preserving existing compatibility for malformed JSON and unrelated historical parse errors. Callers that already return a chat response continue to expose canonical-store retrieval posture; legacy APIs without a posture field now fail explicitly on custody denial.
+- Python compilation passed for `memory_manager.py`. No memory contents or callers were executed; no runtime or production verification was performed.
+- **Next implementation dependency:** verify source-level separation among shared user memory, installation-scoped chat transcripts, and resident developmental history at current HEAD. Then continue with the remaining sidecar write-path race (target replacement between preparation and path-based open) or another directly consequential shared-root boundary.
+

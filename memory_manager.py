@@ -274,6 +274,8 @@ def _notify_reflection_listeners(summary: dict) -> None:
     for listener in list(_REFLECTION_LISTENERS):
         try:
             listener(dict(summary))
+        except PermissionError:
+            raise
         except Exception:  # pragma: no cover - defensive
             LOGGER.debug("Reflection listener %r failed", listener, exc_info=True)
 
@@ -343,6 +345,8 @@ def _load_fragment(fragment_id: str) -> dict | None:
     try:
         payload = _read_legacy_raw_fragment(path.name)
         return json.loads(payload) if payload is not None else None
+    except PermissionError:
+        raise
     except Exception:
         return None
 
@@ -426,6 +430,8 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
     for fp in files:
         try:
             data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
+        except PermissionError:
+            raise
         except Exception:
             continue
         yield data
@@ -1028,6 +1034,8 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
             data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
             ts = data.get("timestamp")
             entries.append((ts, data))
+        except PermissionError:
+            raise
         except Exception:
             continue
     entries.sort(key=lambda x: x[0] or "", reverse=True)
@@ -1066,6 +1074,8 @@ def purge_memory(
             data = json.loads(_read_legacy_raw_fragment(f.name).decode("utf-8"))
             ts = _parse_ts(data.get("timestamp")).astimezone(timezone.utc)
             entries.append((ts, f, data))
+        except PermissionError:
+            raise
         except Exception:
             continue
     entries.sort(key=lambda x: x[0])
@@ -1211,6 +1221,8 @@ def summarize_memory() -> None:
     for fp in _legacy_fragment_paths():
         try:
             data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
+        except PermissionError:
+            raise
         except Exception:
             continue
         ts = data.get("timestamp")
@@ -1432,6 +1444,8 @@ def recent_reflections(
     for fp in files:
         try:
             data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
+        except PermissionError:
+            raise
         except Exception:
             continue
         if "reflection" not in data.get("tags", []):
@@ -1460,6 +1474,8 @@ def recent_patches(limit: int = 5) -> list[str]:
     for fp in files:
         try:
             data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
+        except PermissionError:
+            raise
         except Exception:
             continue
         if "self_patch" not in data.get("tags", []):
@@ -1477,6 +1493,8 @@ def recent_escalations(limit: int = 5) -> list[str]:
     for fp in files:
         try:
             data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
+        except PermissionError:
+            raise
         except Exception:
             continue
         if "escalation" not in data.get("tags", []):
