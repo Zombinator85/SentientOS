@@ -223,6 +223,51 @@ class DevelopmentalExperimentStore:
                 or value.get("run_digest") != _digest(semantic)
                 or run_id != prefix + str(value.get("run_digest", ""))[7:31]):
             raise DevelopmentalHistoryInterventionError("run_artifact_digest_mismatch")
+        # A valid outer digest only proves that this artifact is internally
+        # stable. Reconstruct the protocol and all three owner-produced
+        # cognition observations, then recompute the controlled comparison so
+        # recovery cannot promote a self-consistent but semantically incomplete
+        # run to valid experimental evidence.
+        expected_fields = {"schema_version", "protocol", "conditions", "summary",
+            "validity", "contamination_reasons", "run_id", "run_digest"}
+        protocol_raw, conditions = value.get("protocol"), value.get("conditions")
+        if (set(value) != expected_fields or not isinstance(protocol_raw, Mapping)
+                or not isinstance(conditions, list) or not isinstance(value.get("summary"), Mapping)
+                or value.get("validity") != "valid_controlled_observation"
+                or value.get("contamination_reasons") != []):
+            raise DevelopmentalHistoryInterventionError("run_artifact_control_invalid")
+        protocol_payload = dict(protocol_raw)
+        tuple_fields = ("current_fact_ids", "record_ids", "record_digests", "condition_order",
+            "planned_comparisons", "non_claims", "epistemic_state_digests",
+            "epistemic_evidence_set_digests", "self_model_claim_ids", "self_model_claim_digests")
+        try:
+            for key in tuple_fields:
+                protocol_payload[key] = tuple(protocol_payload.get(key, ()))
+            protocol = DevelopmentalHistoryInterventionProtocol(**protocol_payload)
+            verify_protocol(protocol)
+            from .resident_developmental_cognition import ResidentCognitionObservation
+            observation_tuple_fields = ("current_fact_ids", "retrieved_record_ids",
+                "retrieved_record_digests", "self_model_claim_ids", "self_model_claim_digests",
+                "epistemic_proposition_ids", "epistemic_state_ids", "epistemic_state_digests",
+                "epistemic_generations", "epistemic_evidence_set_digests",
+                "epistemic_consumed_packet_ids", "epistemic_consumed_packet_digests",
+                "epistemic_omitted_packets")
+            observations = []
+            for raw_observation in conditions:
+                if not isinstance(raw_observation, Mapping):
+                    raise TypeError("condition_observation_invalid")
+                observation_payload = dict(raw_observation)
+                for key in observation_tuple_fields:
+                    if key in observation_payload:
+                        observation_payload[key] = tuple(observation_payload[key])
+                observations.append(ResidentCognitionObservation(**observation_payload))
+            recomputed = summarize(protocol, observations)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DevelopmentalHistoryInterventionError("run_artifact_control_invalid") from exc
+        canonical = lambda item: json.dumps(item, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False)
+        if canonical(recomputed) != canonical(value["summary"]):
+            raise DevelopmentalHistoryInterventionError("run_artifact_summary_mismatch")
         return value
 
 

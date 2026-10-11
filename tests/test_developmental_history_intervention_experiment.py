@@ -109,6 +109,15 @@ def test_v2_comparison_rejects_unbound_observations_and_digest_rebinding() -> No
         summarize(protocol(), observations)
 
 
+def test_run_recovery_rejects_self_consistent_but_unbound_controlled_claim(tmp_path: Path) -> None:
+    store = DevelopmentalExperimentStore(tmp_path)
+    run_id = store.persist_run({"protocol": {"protocol_id": "missing"},
+        "conditions": [], "summary": {}, "validity": "valid_controlled_observation",
+        "contamination_reasons": []})
+    with pytest.raises(DevelopmentalHistoryInterventionError, match="run_artifact_control_invalid"):
+        store.load_run(run_id)
+
+
 def test_actual_current_evidence_is_bounded_and_independent_of_writeback_dedup(tmp_path: Path) -> None:
     composition, fake = owner(tmp_path)
     composition.run_tick(snapshot=snapshot(), tick_id="tick-n")
@@ -136,6 +145,8 @@ def test_formal_run_preregisters_then_withholds_without_mutating_and_restores_ex
     assert record_path.read_bytes() == before
     run = json.loads((composition.experiments.runs / f"{result.changed_cognition_measurement_id}.json").read_text())
     assert run["validity"] == "valid_controlled_observation"
+    recovered_run = composition.experiments.load_run(result.changed_cognition_measurement_id)
+    assert recovered_run == run
     assert run["protocol"]["record_digests"] == calls[2].upstream_evidence["record_digests"]
     assert not list((tmp_path / "history" / "records").glob("*withheld*"))
 
