@@ -190,13 +190,100 @@ def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
 
 
+def _history_context_packet(record: Mapping[str, Any]) -> dict[str, Any]:
+    """Project a verified durable record to the bounded semantics cognition needs.
+
+    Durable writeback retains the full source request/output for recovery and
+    provenance verification. Re-sending that custody envelope to every later
+    prompt wastes the inference budget and needlessly repeats source text. The
+    prompt receives the admitted interpretation and its scope/dependencies,
+    while exact record and candidate identities bind it to the full record.
+    """
+    candidate = record.get("candidate")
+    if not isinstance(candidate, Mapping):
+        raise ResidentDevelopmentalCognitionError("developmental_history_candidate_invalid")
+    record_id, record_digest = record.get("record_id"), record.get("record_digest")
+    candidate_id, candidate_digest = candidate.get("candidate_id"), candidate.get("candidate_digest")
+    if not all(isinstance(value, str) and value for value in
+            (record_id, record_digest, candidate_id, candidate_digest)):
+        raise ResidentDevelopmentalCognitionError("developmental_history_identity_invalid")
+    packet: dict[str, Any] = {
+        "record_id": record_id, "record_digest": record_digest,
+        "candidate_id": candidate_id, "candidate_digest": candidate_digest,
+        "interpretation": candidate.get("interpretation"),
+        "uncertainty": candidate.get("uncertainty"),
+        "epistemic_status": candidate.get("epistemic_status"),
+        "selected_fact_ids": list(candidate.get("selected_fact_ids", ()))[:MAX_FACTS],
+        "created_at": record.get("created_at"),
+        "epistemic_posture": record.get("epistemic_posture"),
+        "current_truth": False, "authority": False, "policy": False,
+    }
+    sources = candidate.get("selected_sources", ())
+    if isinstance(sources, (list, tuple)):
+        packet["source_bindings"] = [
+            {key: source.get(key) for key in ("source_id", "kind", "digest")}
+            for source in sources[:MAX_FACTS] if isinstance(source, Mapping)
+        ]
+    provenance = candidate.get("transformation_provenance")
+    if isinstance(provenance, Mapping):
+        packet["provenance_kind"] = provenance.get("kind")
+        lesson = provenance.get("lesson_candidate")
+        if isinstance(lesson, Mapping):
+            packet["scope"] = lesson.get("scope")
+            packet["applicability"] = lesson.get("applicability")
+            packet["uncertainty_rationale"] = lesson.get("uncertainty_rationale")
+            packet["evidence_dependencies"] = list(lesson.get("evidence_dependencies", ()))[:8]
+            packet["possible_contradiction_ids"] = list(
+                lesson.get("possible_contradiction_ids", ()))[:8]
+    encoded = json.dumps(packet, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    if len(encoded.encode("utf-8")) > 12_000:
+        raise ResidentDevelopmentalCognitionError("developmental_history_context_packet_unbounded")
+    return packet
+
+
+def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
+        records: tuple[Mapping[str, Any], ...],
+        projection: EpistemicCognitiveProjection | None
+        ) -> tuple[dict[str, Any], dict[str, Any], str, tuple[str, ...], tuple[str, ...]]:
+    """Fit whole recent history packets and epistemic packets to one input bound."""
+    packets = tuple(_history_context_packet(record) for record in records)
+    available = tuple({"record_id": packet["record_id"],
+        "record_digest": packet["record_digest"]} for packet in packets)
+    for count in range(len(packets), -1, -1):
+        selected = packets[len(packets) - count:] if count else ()
+        omitted = packets[:len(packets) - count] if count else packets
+        selected_refs = tuple({"record_id": packet["record_id"],
+            "record_digest": packet["record_digest"]} for packet in selected)
+        omitted_refs = tuple({"record_id": packet["record_id"],
+            "record_digest": packet["record_digest"]} for packet in omitted)
+        selection = {"schema_version": "sentientos.developmental_history_prompt_selection:v1",
+            "policy": "most_recent_complete_record_suffix:v1",
+            "available_records": list(available), "selected_records": list(selected_refs),
+            "omitted_records": list(omitted_refs),
+            "omitted_records_digest": _digest(list(omitted_refs)),
+            "omission_reason": "inference_input_budget" if omitted else None}
+        candidate = {**dict(context), "developmental_history": list(selected),
+            "developmental_history_selection": selection}
+        try:
+            bound, metadata, prompt = _bind_epistemic_context(
+                context=candidate, projection=projection)
+        except ResidentDevelopmentalCognitionError as exc:
+            if str(exc) != "cognition_input_budget_exceeded":
+                raise
+            continue
+        ids = tuple(str(item["record_id"]) for item in selected_refs)
+        digests = tuple(str(item["record_digest"]) for item in selected_refs)
+        return bound, metadata, prompt, ids, digests
+    raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+
+
 def _bind_epistemic_context(*, context: Mapping[str, Any],
                             projection: EpistemicCognitiveProjection | None
                             ) -> tuple[dict[str, Any], dict[str, Any], str]:
     """Select complete meaning packets that fit the actual inference input."""
     if projection is None:
         value = {**dict(context), "prior_epistemic_state": None}
-        prompt = json.dumps(value, sort_keys=True)
+        prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
             raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
         metadata = {"epistemic_projection_schema": None,
@@ -226,7 +313,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             "semantic_status": "canonical_definition_unavailable",
             "semantic_packets": []}
         value = {**dict(context), "prior_epistemic_state": prior}
-        prompt = json.dumps(value, sort_keys=True)
+        prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
             raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
         metadata = {"epistemic_projection_schema": "identifier_only_v1",
@@ -248,6 +335,16 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         packets = semantic_packets_for_projection(projection)
     except (TypeError, ValueError, KeyError) as exc:
         raise ResidentDevelopmentalCognitionError("prior_epistemic_semantics_invalid") from exc
+    # When the inference bound cannot carry every complete meaning packet,
+    # surface the most decision-relevant evidence first: withdrawn history,
+    # then contradiction, then unresolved dependency. Stable packet identity
+    # breaks ties; omitted packets remain explicitly digest-bound below.
+    packets = tuple(sorted(packets, key=lambda packet: (
+        0 if packet.get("removed_evidence_history") else 1,
+        0 if packet.get("contradicting_evidence") else 1,
+        0 if (isinstance(packet.get("evidence_posture"), Mapping)
+            and packet["evidence_posture"].get("dependency_unresolved") is True) else 1,
+        str(packet.get("packet_id", "")))))
     descriptors = tuple({"packet_id": packet["packet_id"],
         "packet_digest": packet["packet_digest"],
         "proposition_id": packet["proposition"]["proposition_id"],
@@ -272,7 +369,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             "omitted_packets_digest": _digest(list(omitted)),
             "omission_reason": "inference_input_budget" if omitted else None}
         candidate = {**dict(context), "prior_epistemic_state": prior}
-        candidate_prompt = json.dumps(candidate, sort_keys=True)
+        candidate_prompt = json.dumps(candidate, sort_keys=True, separators=(",", ":"))
         if len(candidate_prompt) <= MAX_RESIDENT_COGNITION_INPUT_CHARS:
             selected_count, selected_value, selected_omissions = count, candidate, omitted
             break
@@ -283,7 +380,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     consumed_ids = [str(packet["packet_id"]) for packet in consumed_packets]
     consumed_digests = [str(packet["packet_digest"]) for packet in consumed_packets]
     consumed_packet_digest = _digest(consumed_digests)
-    prompt = json.dumps(selected_value, sort_keys=True)
+    prompt = json.dumps(selected_value, sort_keys=True, separators=(",", ":"))
     projection_context_digest = _digest(prior_context)
     prompt_digest = _digest({"prompt": prompt})
     metadata = {"epistemic_projection_schema": schema,
@@ -839,7 +936,7 @@ class ResidentDevelopmentalCognitionOwner:
                         raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
                     descriptor: int | None = None
                     try:
-                        descriptor = os.open(name, os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0),
+                        descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0),
                                              dir_fd=root_fd)
                         opened = os.fstat(descriptor)
                         if (not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_COGNITION_OBSERVATION_BYTES
@@ -1289,11 +1386,14 @@ class ResidentDevelopmentalCognitionOwner:
             "current_evidence": current.semantic_payload(),
             "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
             "prior_epistemic_state": None,
-            "developmental_history": list(records),
+            "developmental_history": [],
             "developmental_history_posture": "historical_interpretation_not_current_truth",
         }
-        context, epistemic_metadata, prompt = _bind_epistemic_context(
-            context=context, projection=prior_epistemic_state)
+        context, epistemic_metadata, prompt, record_ids, record_digests = (
+            _bind_history_and_epistemic_context(context=context, records=records,
+                projection=prior_epistemic_state))
+        if with_history and not record_ids:
+            raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
         correlation = f"{tick_id}:resident_developmental_cognition:{condition_id}"
         request = self.invoker.build_request(
             purpose=purpose, prompt=prompt, caller=PRINCIPAL,

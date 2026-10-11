@@ -15,6 +15,10 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 from .platform_fcntl import fcntl, require_flock
+from .private_file_custody import (
+    PrivateFileCustodyError, list_bounded_json_names_at, open_private_directory,
+    publish_immutable_bytes, read_private_file_at,
+)
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROPOSITION_SCHEMA = "sentientos.epistemic_proposition:v1"

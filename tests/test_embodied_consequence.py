@@ -9,7 +9,7 @@ import pytest
 from sentientos.avatar_authoring import renderer_handoff
 from sentientos.embodied_consequence import (
     ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
-    SyntheticRenderer, evaluate_consequence, make_expectation, make_strategy_proposal,
+    SyntheticRenderer, digest, evaluate_consequence, make_expectation, make_strategy_proposal,
     run_strategy_experiment, world_state_records,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
@@ -114,11 +114,21 @@ class CognitiveFixture:
 
 def test_present_withheld_restored_strategy_experiment_and_external_score():
     *_,attribution,_=chain()
-    record={"record_id":"devrec:test","record_digest":"sha256:record","candidate":{"epistemic_posture":"historical_interpretation_not_current_truth"}}
+    fact={"fact_id":"fact:causal","source":{"source_id":attribution["attribution_id"],
+        "digest":attribution["attribution_digest"],"schema_version":attribution["schema_version"],
+        "kind":"embodiment"},"subject":{"subject_id":"body-a",
+        "subject_kind":"embodied_consequence_attribution"},"payload":attribution}
+    record={"candidate":{"epistemic_posture":"historical_interpretation_not_current_truth",
+        "selected_fact_ids":[fact["fact_id"]],"selected_facts":[fact]},
+        "created_at":TX,"current_truth":False,"authority":False,"policy":False}
+    record["record_digest"]=digest(record)
+    record["record_id"]="devrec-"+record["record_digest"][7:31]
+    situation={"situation_binding":"later-wave"}
     protocol={"protocol_id":"protocol-1","snapshot_digest":"sha256:snapshot","body_generation":2,"model_id":"deterministic-test-cognition",
         "model_artifact_digest":"sha256:model","inference_budget_digest":"sha256:budget","prompt_schema_digest":"sha256:prompt",
-        "renderer_situation_digest":"sha256:situation","software_generation":"test","environment_fixture_digest":"sha256:fixture"}
-    result=run_strategy_experiment(protocol=protocol,history_record=record,situation={"situation_binding":"later-wave"},backend=CognitiveFixture(attribution["attribution_id"]),consequence=attribution)
+        "renderer_situation_digest":digest(situation),"software_generation":"test","environment_fixture_digest":"sha256:fixture"}
+    result=run_strategy_experiment(protocol=protocol,history_record=record,situation=situation,
+        backend=CognitiveFixture(attribution["attribution_id"]),consequence=attribution)
     proposals=result["proposals"]
     assert proposals[0]==proposals[2] and proposals[0]!=proposals[1]
     assert result["scoring"]["outcome"]=="changed" and not result["scoring"]["improvement_claimed"]

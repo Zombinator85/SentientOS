@@ -54,7 +54,7 @@ class DevelopmentalWritebackError(ValueError):
 
 
 def _valid_store_identity(value: Any, prefix: str) -> bool:
-    marker = prefix + ":"
+    marker = prefix + "-"
     return (isinstance(value, str) and len(value) == len(marker) + 24
             and value.startswith(marker)
             and all(character in "0123456789abcdef" for character in value[len(marker):]))
@@ -1305,9 +1305,10 @@ class ResidentDevelopmentalWritebackController:
                     payload_value = dict(fact["payload"])
                     projection = payload_value.pop("interpretation_projection", None)
                     if projection is None:
-                        expected_id = "fact-" + digest((dict(subject), fact.get("stage"),
-                            fact.get("disposition"), source.get("digest"), dict(fact["payload"]),
-                            fact.get("effect_claimed"), fact.get("effect_proven")))[:16]
+                        expected_id = "fact-" + digest((subject.get("subject_id"), subject.get("subject_kind"),
+                            fact.get("stage"), fact.get("disposition"), source.get("digest"),
+                            dict(fact["payload"]), fact.get("effect_claimed"),
+                            fact.get("effect_proven")))[:16]
                         if fact.get("fact_id") != expected_id:
                             raise DevelopmentalWritebackError("durable_candidate_fact_identity_mismatch")
                     else:

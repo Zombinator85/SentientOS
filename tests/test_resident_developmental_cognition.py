@@ -224,13 +224,17 @@ def test_meaning_bearing_epistemic_packets_reach_actual_inference_request(tmp_pa
         if item.purpose == "resident_developmental_retrieval_cognition")
     consumed = json.loads(request.prompt)["prior_epistemic_state"]
     packets = consumed["semantic_packets"]
-    assert len(packets) == 2
-    assert {packet["state"]["stance"] for packet in packets} == {"contested"}
-    assert {packet["proposition"]["temporal_scope"]["window"] for packet in packets} == {
-        "morning", "evening"}
-    assert {packet["proposition"]["context_scope"]["room"] for packet in packets} == {
-        "lab-a", "lab-b"}
-    withdrawn = next(packet for packet in packets if packet["recently_removed_evidence"])
+    # The full two-packet projection exceeds the fixed input budget. Selection
+    # delivers the complete packet with recent withdrawal/contradiction first
+    # and binds the other packet as omitted rather than silently truncating it.
+    assert len(packets) == 1
+    assert packets[0]["state"]["stance"] == "contested"
+    assert packets[0]["proposition"]["temporal_scope"]["window"] == "evening"
+    assert packets[0]["proposition"]["context_scope"]["room"] == "lab-b"
+    assert request.upstream_evidence["epistemic_owner_packet_count"] == 2
+    assert len(request.upstream_evidence["epistemic_omitted_packets"]) == 1
+    assert request.upstream_evidence["epistemic_omitted_packets"][0]["packet_id"] != packets[0]["packet_id"]
+    withdrawn = next(packet for packet in packets if packet["removed_evidence_history"])
     assert withdrawn["removed_evidence_history"][0]["freshness"] == "stale"
     assert withdrawn["evidence_posture"]["dependency_unresolved"] is True
     assert withdrawn["contradicting_evidence"]
@@ -741,11 +745,21 @@ def test_retained_cognition_lesson_reaches_later_tick_after_restart(tmp_path: Pa
     record = first.writeback.store.get(retained.written_record_id)
     restarted, later_fake = owner(tmp_path)
     later = restarted.run_tick(snapshot=snapshot(3), tick_id="tick-3")
-    assert later.prior_record_ids == (record.record_id,)
+    assert record.record_id in later.prior_record_ids
     prompt = json.loads(next(
         request.prompt for request in later_fake.requests
         if request.purpose == "resident_developmental_retrieval_cognition"))
-    assert any(item["record_id"] == record.record_id for item in prompt["developmental_history"])
+    history_packet = next(item for item in prompt["developmental_history"]
+        if item["record_id"] == record.record_id)
+    assert {"record_id": record.record_id,
+        "record_digest": record.record_digest} in prompt[
+            "developmental_history_selection"]["selected_records"]
+    assert history_packet["interpretation"] == record.candidate["interpretation"]
+    lesson = record.candidate["transformation_provenance"]["lesson_candidate"]
+    assert history_packet["scope"] == lesson["scope"]
+    assert history_packet["applicability"] == lesson["applicability"]
+    assert history_packet["current_truth"] is False
+    assert "source_output_text" not in json.dumps(prompt)
     assert "Later reasoning should revisit the bounded cited condition." in json.dumps(prompt)
     assert "authority" not in record.candidate and "current_truth" not in record.candidate
     assert record.epistemic_posture == "historical_interpretation_not_current_truth"
@@ -814,7 +828,7 @@ def test_cognition_lesson_writeback_is_later_tick_only_and_recovery_is_idempoten
     with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
         restarted.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     later = restarted.run_tick(snapshot=snapshot(3), tick_id="tick-3")
-    assert later.prior_record_ids == (record.record_id,)
+    assert record.record_id in later.prior_record_ids
     assert any(request.purpose == "resident_developmental_retrieval_cognition"
         for request in fake.requests)
 
