@@ -1247,13 +1247,35 @@ class RuntimeMaintenanceSurfaces:
             }
             self._feedback["surfaces"]["post_adoption_attribution_projection"] = dict(
                 self._post_adoption_attribution_projection_status)
-        self._world_state_snapshot = snapshot
         out_dir = self._runtime_state_root / "world_state_board"
         out_dir.mkdir(parents=True, exist_ok=True)
         target = out_dir / "latest.json"
-        tmp = target.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(to_dict(snapshot), sort_keys=True, indent=2), encoding="utf-8")
-        tmp.replace(target)
+        temporary: str | None = None
+        try:
+            descriptor, temporary = tempfile.mkstemp(
+                prefix=".world-state-", suffix=".tmp", dir=out_dir)
+            with os.fdopen(descriptor, "wb") as stream:
+                encoded = json.dumps(to_dict(snapshot), sort_keys=True,
+                    indent=2).encode("utf-8") + bytes((10,))
+                stream.write(encoded)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, target)
+            temporary = None
+            if os.name == "posix":
+                directory_fd = os.open(out_dir, os.O_RDONLY
+                    | getattr(os, "O_DIRECTORY", 0)
+                    | getattr(os, "O_NOFOLLOW", 0))
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
+        finally:
+            if temporary is not None:
+                with suppress(OSError):
+                    os.unlink(temporary)
+        # Publish the in-memory terminal view only after durable replacement.
+        self._world_state_snapshot = snapshot
         feedback = {"status":"degraded" if snapshot.degraded or snapshot.contradicted else "ok", "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
         self._feedback["surfaces"]["world_state_evidence_board"] = feedback
         self._feedback["surfaces"]["production_chat_resource_observation"] = dict(self._resource_observation_health)

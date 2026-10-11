@@ -214,3 +214,21 @@ def test_generic_embodiment_owner_failure_degrades_optional_surface_only(tmp_pat
     assert status["status"] == "degraded"
     assert status["reason_code"] == "source_owner_rejected_input"
     assert status["effect_authority"] is False
+
+
+def test_world_state_memory_view_waits_for_snapshot_replacement(tmp_path, monkeypatch):
+    import sentientosd
+
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime")
+    surfaces._resident_succession_world_state_records = lambda _tick: []
+
+    def fail_replace(_source, _target):
+        raise OSError("publication interrupted")
+
+    monkeypatch.setattr(sentientosd.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="publication interrupted"):
+        surfaces.build_world_state_board(tick_id=NOW)
+    assert surfaces.current_world_state_snapshot is None
+    assert surfaces._world_state_snapshot_built_for_tick is None
+    assert not list((tmp_path / "runtime" / "world_state_board").glob(".world-state-*.tmp"))

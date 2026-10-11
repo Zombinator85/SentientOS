@@ -2112,3 +2112,10 @@ Next review whether these identity and uncertainty guarantees survive selected W
 The daemon now reports the generic explicitly injected embodiment owner on its own World-State projection surface. It distinguishes unverified caller assertions from receipt-backed projections, counts selected and source-limit-omitted identity/digest pairs, marks cross-owner source conflicts degraded, and catches an optional owner's rejection without aborting construction of the remaining World-State board. It never reports the owner as verified. Authored unexecuted composition cases cover the opt-in posture, 128-record truncation, and owner failure. Changed daemon and test files compile; diff whitespace checks pass. No daemon execution or behavioral test ran.
 
 Next inspect whether the now explicit omission posture is available to later cognition when a selected record is dropped; the current board carries a manifest-bound source-count conflict, while the separate projection surface is maintenance feedback. Preserve source-kind configuration and do not turn a degradation status into epistemic evidence.
+
+
+## 2026-10-11 checkpoint — publish World-State snapshots durably before exposing them in memory
+
+The daemon wrote `world_state_board/latest.json` through one fixed temporary filename, did not flush the file or parent directory, and set the in-memory current snapshot before the disk replacement. The latest-snapshot writer now uses a unique same-directory temporary file, flushes the file, atomically replaces the target, and fsyncs the containing directory on POSIX. The in-memory snapshot/tick cache advances only after replacement completes; interruption cleans up its temporary file and leaves the prior in-memory view intact. A real writer-path interruption case is authored but unexecuted. Python compilation and diff whitespace inspection only; no tests or production verification ran.
+
+Next continue the consumer/recovery review: verify what startup reconstructs from the latest board artifact versus durable source owners, and keep the artifact a replaceable diagnostic snapshot rather than treating it as the authoritative history or replay source.
