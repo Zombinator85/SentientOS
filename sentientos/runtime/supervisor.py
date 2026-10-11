@@ -20,6 +20,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Callable, Mapping
 
+from ..windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 from .services import HealthResult, ServiceAdapter
 
 SCHEMA = "sentientos.runtime_service:v1"
@@ -124,11 +125,19 @@ class RuntimeSupervisor:
                         for key, descriptor in self.registry.descriptors.items()}
         self._latest = {key: reason for key in self._states}
 
-    def _read_lifecycle_receipts(self) -> list[dict[str, object]]:
+    @staticmethod
+    def _read_custodied_file(path: Path, *, max_bytes: int) -> bytes | None:
         try:
-            with self._receipt_path.open("rb") as stream:
-                raw = stream.read(MAX_LIFECYCLE_JOURNAL_BYTES + 1)
-        except FileNotFoundError:
+            return read_explicit_file(path, max_bytes=max_bytes)
+        except WindowsHandleCustodyError as exc:
+            if exc.args == ("explicit_file_missing",):
+                return None
+            raise ValueError("runtime_supervisor_custody_file_unavailable") from exc
+
+    def _read_lifecycle_receipts(self) -> list[dict[str, object]]:
+        raw = self._read_custodied_file(
+            self._receipt_path, max_bytes=MAX_LIFECYCLE_JOURNAL_BYTES)
+        if raw is None:
             return []
         if len(raw) > MAX_LIFECYCLE_JOURNAL_BYTES:
             raise ValueError("lifecycle_receipt_journal_size_bound_exceeded")
@@ -182,13 +191,19 @@ class RuntimeSupervisor:
         return rows
 
     def _load(self) -> None:
-        state_exists = self._state_path.exists()
         state_sequence = 0
         state_generation: str | None = None
+        try:
+            raw_state = self._read_custodied_file(
+                self._state_path, max_bytes=MAX_LIFECYCLE_STATE_BYTES)
+        except (OSError, UnicodeError, ValueError, TypeError, KeyError,
+                json.JSONDecodeError):
+            self._recovery_failure("malformed_durable_state")
+            return
+        state_exists = raw_state is not None
         if state_exists:
             try:
-                with self._state_path.open("rb") as stream:
-                    raw_state = stream.read(MAX_LIFECYCLE_STATE_BYTES + 1)
+                assert raw_state is not None
                 if len(raw_state) > MAX_LIFECYCLE_STATE_BYTES:
                     raise ValueError("runtime_supervisor_state_size_bound_exceeded")
                 payload = json.loads(raw_state.decode("utf-8"))

@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `07ef4b4807f8d8b0d0f4a333618610a95bf4a755` (tree `8f9d5386512f8b29323ac201b65843a59f030cfb`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `9c77f8b90bb1de67b099b640963f040a06cecd9f` (tree `b68362aca5e4295eae05a624151594f63453fe86`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1082,3 +1082,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - The optional hook leaves other service adapters unchanged. It adds no effect authority, Windows write support, provider access, or runtime activation.
 - Both changed Python modules compiled and passed whitespace inspection. No child process, readiness endpoint, installation write, supervisor restart, Windows path, or runtime behavior was exercised.
 - Next inspect transition behavior when a new supervisor generation starts while the prior chat child may have survived; the old point record remains historical, but predecessor/overlap evidence must come only from an actual owner source. Continue elsewhere if that evidence source is unavailable.
+
+
+## New checkpoint — read supervisor lifecycle custody through bounded held-file verification
+
+- The prior remotely verified checkpoint was 9c77f8b90bb1de67b099b640963f040a06cecd9f (tree b68362aca5e4295eae05a624151594f63453fe86).
+- The lifecycle supervisor already bounds and canonicalizes its state snapshot and journal, but read them through `Path.exists()` and ordinary path opens. A final/interior symlink or concurrent replacement could therefore supply a different bounded file to restart-budget and service-state recovery.
+- Recovery now uses the existing `read_explicit_file` custody owner for both the state snapshot and lifecycle journal. It holds and verifies path components and file identity, rejects links/non-regular files and changed-during-read data, and preserves the existing byte bounds and canonical/journal reconciliation. Missing explicit files remain distinguishable from invalid custody. A custody failure flows into the supervisor's existing panic-stopped recovery posture.
+- No state schema, lifecycle authority, retry policy, or Windows write capability changed. This connects the supervisor's durable recovery path to the repository's existing safe read contract; concurrent multi-process supervisor ownership still has no shared transaction lock and is not established by this increment.
+- Python compilation of the changed supervisor module passed. No tests, fault-injection, filesystem race, Windows execution, process launch, or runtime behavior were exercised. Construction remains unverified.
+- Next inspect durable lifecycle transaction serialization and other independently implementable recovery gaps; keep any concurrency claim bounded to source evidence.
