@@ -106,6 +106,39 @@ def test_mutation_bound_state_is_not_cognized_without_verified_intent(tmp_path) 
     assert owner.current_state(proposition.proposition_id) == state
 
 
+def test_missing_transaction_for_admitted_state_intent_fails_closed(tmp_path) -> None:
+    owner, proposition, authority, controller, binding, proof = setup(tmp_path)
+    evidence = issue(authority, admission_id="evidence-before-state",
+        effects=EVIDENCE_BINDING_EFFECTS, subject=binding.binding_id,
+        config=controller.evidence_configuration_digest(binding=binding,
+            proposition_digest=proposition.proposition_digest, operation_id="bind-missing-tx"),
+        sequence=1)
+    controller.append_evidence_binding(binding=binding, source_proof=proof,
+        admission=evidence, operation_id="bind-missing-tx", correlation_id="missing-tx")
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id, predecessor_state_digest=None,
+        proposed_stance="provisionally_supported", evidence_binding_ids=(binding.binding_id,),
+        reason="initialization", rationale="authenticated evidence", uncertainty="medium",
+        model_id="caller")
+    admission = issue(authority, admission_id="state-with-missing-transaction",
+        effects=STATE_UPDATE_EFFECTS, subject=candidate.candidate_id,
+        config=controller.state_configuration_digest(candidate=candidate,
+            operation_id="state-missing-tx"), sequence=2)
+    controller.commit_update_candidate(candidate=candidate, admission=admission,
+        operation_id="state-missing-tx", correlation_id="missing-tx", tick=1,
+        recorded_at="2026-01-01T00:01:00Z")
+    transaction_paths = tuple((owner.root / "transactions").glob("*.json"))
+    assert len(transaction_paths) == 1
+    transaction_paths[0].unlink()
+
+    recovered_owner = PersistentEpistemicStateOwner(owner.root, allowed_namespaces=("test",))
+    with pytest.raises(EpistemicMutationError, match="mutation_intent_transaction_missing"):
+        ResidentEpistemicStateMutationController(owner=recovered_owner,
+            admission_verifier=controller.admission_verifier,
+            current_sequence=controller.current_sequence,
+            receipt_root=tmp_path / "controller")
+
+
 def test_restart_reports_interrupted_state_intent_without_replaying_it(tmp_path) -> None:
     owner, proposition, authority, controller, _binding, _proof = setup(tmp_path)
     candidate = make_epistemic_update_candidate(

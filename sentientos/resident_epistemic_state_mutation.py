@@ -415,8 +415,7 @@ class ResidentEpistemicStateMutationController:
                 "admission_binding_digest": admission.binding_digest,
                 "operation_id": operation_id, "correlation_id": correlation_id}
             if not matching_transactions:
-                pending_state_intents += 1
-                continue  # Legacy/direct update lacks an authenticated admission handoff.
+                raise EpistemicMutationError("mutation_intent_transaction_missing")
             if (len(matching_transactions) != 1
                     or matching_transactions[0].get("mutation_binding") != expected_mutation_binding):
                 raise EpistemicMutationError("mutation_intent_transaction_binding_mismatch")
@@ -460,7 +459,8 @@ class ResidentEpistemicStateMutationController:
         self._verified_mutation_bound_state_digests = set(validated_mutation_state_digests)
         self.owner._accept_mutation_lineage_verification(
             tuple(sorted(validated_mutation_state_digests)))
-        self._recovery_status = {"status": ("incomplete" if pending_evidence_intents or pending_state_intents else "verified"),
+        self._recovery_status = {"status": ("incomplete" if pending_evidence_intents or pending_state_intents
+                or owner_counts.get("incomplete_admission_bound_transactions", 0) else "verified"),
             "pending_evidence_intent_count": pending_evidence_intents,
             "pending_state_intent_count": pending_state_intents,
             "pending_transaction_count": int(owner_counts.get("incomplete_admission_bound_transactions", 0)),

@@ -2152,3 +2152,9 @@ A configured persistent epistemic owner could expose a fully published transacti
 Authored unexecuted regression cases cover valid controller-produced state projection, unverified bound state rejection, orphan transaction rejection, and restart-pending intent idempotency. Changed source and tests compile; whitespace checks are clean. No behavioral tests or production verification ran.
 
 Next review the durable developmental-history recovery and later-tick cognition handoff again against these owner-verification gates, especially interrupted writeback and history restoration after process restart.
+
+## 2026-10-11 checkpoint — fail closed on missing mutation transaction lineage
+
+The first projection gate also needed the reverse completeness check: a state intent could match persisted state/event files while its transaction record had disappeared, and the controller previously treated that as a legacy/direct update. An admitted state intent with no matching transaction now fails recovery. The owner projection gate therefore opens only when every published mutation-bound state is represented by exactly one validated mutation intent, transaction binding, and receipt lineage. Incomplete transactions with no published state remain pending and do not block the prior verified projection; complete orphan or substituted records block the epistemic composition. Added authored, unexecuted tests for both the actual controller positive path and missing/orphan transaction rejection. Python compilation and whitespace checks pass; no behavior or production verification ran.
+
+Next inspect the developmental-history writeback commit point and restart reconstruction alongside the next-tick history projection, focusing on cross-store interruption and causal ordering.
