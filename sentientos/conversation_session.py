@@ -462,7 +462,9 @@ class ConversationSessionStore:
                         "model_identity_scope": "session_creation_snapshot_only"})
         except OSError as exc:
             raise ValueError("session_listing_unavailable") from exc
-        return sorted(result, key=lambda item: (str(item["latest_activity_at"]),
+        return sorted(result, key=lambda item: (
+            datetime.fromisoformat(str(item["latest_activity_at"]).replace("Z", "+00:00"))
+                .astimezone(timezone.utc),
             str(item["session_id"])), reverse=True)[:max(0, limit)]
 
 

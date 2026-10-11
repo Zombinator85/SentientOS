@@ -1345,3 +1345,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - The complete 202,979-byte `sentientosd.py` fetched at this checkpoint was Python-compiled after the edit. No daemon was started, board built, tests run, or production behavior verified.
 
 **Next implementation dependency:** verify the explicit resource-observation owner remains the sole runtime composition path, then continue to adjacent World-State consumers; do not reintroduce the direct mutable ledger as a second observer.
+
+
+## New checkpoint — sort session activity by absolute time
+
+- Fresh remote source before this increment: `759b4f75ad56c1fe097594ac7307db99195c3508` (tree `206d8cb4ef27d680cfcd51332f946bbcd126a06e`).
+- Session loading accepts any timezone-aware ISO timestamp. The bounded `list_recent()` then sorted these timestamp strings lexicographically, which is not chronological when persisted offsets differ.
+- Sorting now parses the already-validated timestamps and normalizes them to UTC before ordering; the stored and returned event times are unchanged.
+- Python compilation passed for `conversation_session.py`. No timestamps or session listing were executed.
+
+**Next implementation dependency:** continue source review of World-State and resident epistemic composition after confirming the explicit resource-observation owner is the only production route. No direct chat-memory linkage currently enters those owners; retain that separation absent a configured source/admission contract.
