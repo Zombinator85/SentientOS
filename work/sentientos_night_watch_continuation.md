@@ -1951,3 +1951,14 @@ A restart with persisted launch provenance now requires a read-only process-pres
 The published module, tests and manifest at `55b0ca3fbc1c400dd439ab1588badcd4ada5904a` were independently refetched and the Python sources compiled. No process was observed or launched by this construction task.
 
 This is deliberately partial process reconciliation: PID absence is sufficient to avoid duplicating that recorded PID, but a PID still present does not establish executable, argv, cwd or software-generation identity. The parent module also remains uncomposed from `sentientosd.py` and lacks a singleton lifetime lock; source search at this checkpoint found no normal daemon injection path. Next dependency: inspect the existing installation-scoped locking API and composition boundary, then determine whether a source-only opt-in parent entry path can own a lifetime lock and authenticated child-generation handoff without recursive startup or changing default runtime behavior. If exact process identity cannot be obtained from an existing trusted observation owner, keep present/unknown cases fail-closed.
+
+
+## 2026-10-11 checkpoint — hold singleton parent custody
+
+The previous parent implementation serialized file writes only by assumption. Two independent instances could load the same snapshot and both launch an exact child. The existing `InstallationStateHandle.exclusive_lock` is installation-identity-bound and cannot soundly be applied because the parent config has no such identity; deriving one from a repository path would invent a binding.
+
+The explicit parent owner now acquires a no-follow, owner-checked, nonblocking POSIX flock under its private state root before it reads or writes parent custody, and holds that descriptor for its lifetime. A competing parent fails before publishing startup state or launching a child. Windows fails closed because this owner has no compatible established lifetime-lock contract there. Restart tests use descriptor closure only to model kernel release at process exit; they remain unexecuted.
+
+Published module/test/manifest checkpoint `bbebaf2183762127416d13ffb88f285a1d892188` was independently refetched and compiled. This does not add a normal daemon entrypoint: `sentientosd.py` and `sentientos/runtime/startup.py` still do not compose the parent owner. No production activation or child process operation occurred.
+
+Next dependency: close parent lifecycle durability under the lifetime lock (ensure journal append and state replacement cannot be interleaved or reused after partial publication), then establish whether the exact owner can be exposed as an explicit nondefault maintenance launch mode without recursive `sentientosd` startup. Exact running-process identity is still unproven; PID-present cases remain denied and no process is adopted or signalled.
