@@ -589,6 +589,11 @@ class CausalIntrospectionRuntime:
         if not self.config.enabled:
             raise IntrospectionError("introspection_disabled")
         history = self.reconstruct()
+        # A crash before the atomic hard-link publication can leave a private
+        # staging file. It is not a committed generation and must never be
+        # silently carried alongside later captures or treated as evidence.
+        if next(self.config.custody_root.glob(".causal-introspection-*.tmp"), None) is not None:
+            raise IntrospectionError("snapshot_staging_recovery_required")
         prior = history[-1] if history else None
         projections: list[OwnerIntrospectionProjection] = []
         findings: list[CaptureFinding] = []

@@ -215,3 +215,15 @@ def test_model_transition_preserves_introspection_chain(tmp_path):
     assert second.predecessor_snapshot_digest == first.snapshot_digest
     assert first.projections[0].observations[0].bounded_value == "model-A"
     assert second.projections[0].observations[0].bounded_value == "model-B"
+
+
+def test_orphaned_stage_blocks_new_capture_without_hiding_committed_history(tmp_path):
+    registration = ProviderRegistration("serving", "model_serving", _provider("serving", "model_serving"))
+    runtime = _runtime(tmp_path, (registration,))
+    committed = runtime.capture(CaptureContext("tick-1", capture_posture="synthetic_test"))
+    staging = runtime.config.custody_root / ".causal-introspection-interrupted.tmp"
+    staging.write_bytes(b"partial unpublished capture")
+
+    assert runtime.reconstruct() == (committed,)
+    with pytest.raises(IntrospectionError, match="snapshot_staging_recovery_required"):
+        runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))

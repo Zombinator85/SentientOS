@@ -2361,3 +2361,10 @@ Next inspect succession source records for any projection that still presents a 
 - The live causal-resource introspection callback projected every allocation digest, unlike its bounded attempt and receipt tails. A valid ledger near its byte limit could therefore exceed the 128 KiB projection bound and lose the entire metadata report. It now emits the latest 64 allocation identities plus total count, omitted count, and adjacent chain boundary; the complete ledger digest still binds the full owner snapshot. Overall retention posture now includes allocations.
 - Added an authored unexecuted regression for exact bounded selection and omission boundaries. Python compilation and whitespace inspection only; no resource owner or production behavior was exercised.
 - Next review causal-introspection publication and crash recovery for concrete stale temporary-custody or generation-gap behavior, then continue to the next owner handoff.
+
+
+## 2026-10-11 checkpoint — surface interrupted introspection staging custody
+
+- Committed causal-introspection generations remain atomically linked, digest-checked, predecessor-validated, and readable after restart; missing generation numbers and conflicts fail closed. Review found a crash before publication can leave a private staging file that reconstruction ignored and the next capture silently carried forward.
+- New captures now stop with an explicit incomplete-staging error when that unpublished artifact exists; reconstruction of previously committed generations remains available. No staging data is promoted or deleted. Added an authored unexecuted restart regression. Python compilation and source inspection only; no crash injection or production execution was performed.
+- Next continue through causal-introspection provider boundaries and the connected World-State/epistemic path, then advance to another independent owner handoff.
