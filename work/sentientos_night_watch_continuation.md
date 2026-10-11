@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-Before compacting longitudinal runtime invocation history, GitHub branch inspection verified `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`). Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the current remote branch and exact compare-and-swap ref updates.
+This continuation freshly fetched and verified the remote branch at `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the freshly fetched branch and exact compare-and-swap ref updates.
 
 ## Current constructed connections
 
@@ -1001,3 +1001,15 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the daemon and epistemic adapter. No process, Git probe, World-State runtime, or production observation was executed; this remains unverified construction.
 
 **Next implementation dependency:** trace the qualified current software observation through configured epistemic admission and durable later-tick cognition, and verify that repeated point observations do not accidentally create same-tick consumption or an unbounded active-evidence path.
+
+
+## New checkpoint — enforce causal tick identity during developmental recovery
+
+- The fresh branch lookup resolved to `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920`, while the new task text named an earlier `2439ae41` checkpoint. The live remote ref remains the authority; the named checkpoint was not assumed to be present.
+- The specifically reported `PersistentConversationService.chat()` ordering issue is already corrected at this source revision. `predecessor_runtime_lineage` is initialized before use and populated only after the historical receipt verifier confirms the exact serving/loaded model identities, receipt/request identity, output lineage, software attribution, and predecessor reference. Prompt construction and request linkage follow those checks. No patch was needed there.
+- Same-tick cognition receives the current World-State as present observation by design. This remains separate from the durable temporal path: the daemon captures the earlier self-model and epistemic projections before cognition, and runs epistemic development after cognition. Self-model projection excludes same/later tick records; epistemic projection pairs authenticated state with update events and excludes the latest state when its persisted update tick is at or after the cognition cutoff. Same-tick interpretation cannot flow through these durable channels into same-tick cognition.
+- A genuine temporal fail-open remained in resident developmental cognition. An invalid or naive incoming tick was silently treated as no prior history by `_prior_projection()`; persisted completed/incomplete rows accepted arbitrary nonempty tick strings, and recovered writeback correlation could supply such a tick. That could suppress prior history while allowing a cycle to appear valid.
+- Added one strict timezone-aware tick parser. New ticks are checked before state access and publication; saved completion/interruption rows, recovered history correlations, and recovered observation ticks are checked before they can define ordering. Malformed temporal identity now fails closed instead of silently removing earlier context. Normal daemon ticks are emitted using aware UTC ISO timestamps.
+- The edited module passed Python source compilation through the tool environment. No behavioral, restart, or runtime checks were run. Construction remains unverified.
+
+**Next implementation dependency:** inspect the independent tick/correlation producers and downstream history consumers for any accepted tick identity that is not the daemon's aware ISO form, then move to the next causal succession or observed-consequence gap.
