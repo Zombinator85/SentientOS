@@ -1594,3 +1594,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `_open_legacy_memory_text(..., "w")` now writes through a private temporary file under the held parent descriptor, enforces the existing 8 MiB read bound, fsyncs content, validates any existing target, then links or atomically replaces and fsyncs the directory. Append-mode tomb/log semantics and their existing Administrator/Lumos gate remain unchanged.
 - Python syntax compilation passed for `memory_manager.py`. No sidecar was written or inspected at runtime; no behavioral verification was run.
 - **Next implementation dependency:** inspect sidecar append/recovery semantics for interrupted tomb and observation lines, and ensure incomplete trailing records are represented as degraded rather than silently treated as a complete history.
+
+
+
+## New checkpoint — surface incomplete append-only memory history
+
+- Fresh remote source before this increment: `33c2a5180ba189bee78cce145219ee3bb788eaf8` (tree `8eda1353902c8a5b2664568ca921632f69cd499f`).
+- The tomb, observation-summary, and curiosity-reflection JSONL readers silently skipped malformed lines. An interrupted append could therefore make a partial history look complete to forgetting, novelty, or reflection consumers.
+- These readers now raise `MemorySidecarIncompleteError` with the exact sidecar and line number on malformed or non-object records. The tomb CLI reports its history as incomplete instead of returning a filtered subset as complete. No corrupted lines are repaired or discarded, and no operation is replayed.
+- Python syntax compilation passed for `memory_manager.py` and `memory_cli.py`. No runtime files were read; behavior remains unverified.
+- **Next implementation dependency:** check the multi-file observation-summary flow for an interrupted fragment/log pair and add idempotent reconciliation using the existing observation identity where possible. Preserve unknown/incomplete state instead of reconstructing missing records from current time.

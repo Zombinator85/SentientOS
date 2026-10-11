@@ -27,6 +27,14 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 LOGGER = logging.getLogger(__name__)
 
+
+class MemorySidecarIncompleteError(ValueError):
+    """An append-only memory sidecar contains malformed evidence."""
+    def __init__(self, sidecar: str, line_number: int) -> None:
+        self.sidecar = sidecar
+        self.line_number = line_number
+        super().__init__(f"memory_sidecar_incomplete:{sidecar}:line:{line_number}")
+
 # Vector type can be either an embedding vector or bag-of-words mapping
 Vector = Union[List[float], Dict[str, int]]
 from emotions import empty_emotion_vector
@@ -611,13 +619,15 @@ def list_tomb(
         return []
     out: List[Dict] = []
     lines = payload.decode("utf-8").splitlines()
-    for line in lines:
+    for line_number, line in enumerate(lines, 1):
         if not line.strip():
             continue
         try:
             entry = json.loads(line)
-        except Exception:
-            continue
+        except json.JSONDecodeError as exc:
+            raise MemorySidecarIncompleteError("memory_tomb", line_number) from exc
+        if not isinstance(entry, dict):
+            raise MemorySidecarIncompleteError("memory_tomb", line_number)
         frag = entry.get("fragment", {})
         if tag and tag not in frag.get("tags", []):
             continue
@@ -794,13 +804,16 @@ def _load_observation_records() -> List[Dict[str, Any]]:
     if payload is None:
         return []
     records: List[Dict[str, Any]] = []
-    for line in payload.decode("utf-8").splitlines():
-            if not line.strip():
-                continue
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+    for line_number, line in enumerate(payload.decode("utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise MemorySidecarIncompleteError("perception_observations", line_number) from exc
+        if not isinstance(value, dict):
+            raise MemorySidecarIncompleteError("perception_observations", line_number)
+        records.append(value)
     return records
 
 
@@ -1026,16 +1039,20 @@ def iter_curiosity_reflections(limit: int | None = None) -> List[Dict[str, Any]]
         return []
     lines = payload.decode("utf-8").splitlines()
     entries: List[Dict[str, Any]] = []
-    for line in reversed(lines):
+    parsed: list[dict[str, Any]] = []
+    for line_number, line in enumerate(lines, 1):
         if not line.strip():
             continue
         try:
-            entries.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-        if limit is not None and len(entries) >= limit:
-            break
-    return list(reversed(entries))
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise MemorySidecarIncompleteError("curiosity_reflections", line_number) from exc
+        if not isinstance(value, dict):
+            raise MemorySidecarIncompleteError("curiosity_reflections", line_number)
+        parsed.append(value)
+    if limit is not None:
+        parsed = parsed[-max(0, limit):] if limit else []
+    return parsed
 
 
 def summarise_daily_insights(date: str | None = None) -> Dict[str, Any]:

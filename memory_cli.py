@@ -287,7 +287,11 @@ def main() -> None:
             reason=args.reason or "",
         )
     elif args.cmd == "tomb":
-        entries = mm.list_tomb(tag=args.tag, reason=args.reason, date=args.date)
+        try:
+            entries = mm.list_tomb(tag=args.tag, reason=args.reason, date=args.date)
+        except mm.MemorySidecarIncompleteError as exc:
+            print(f"Tomb history incomplete: {exc}")
+            return
         for e in entries:
             if args.json:
                 print(json.dumps(e))
