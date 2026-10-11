@@ -84,3 +84,22 @@ def test_receipt_registry_recovery_suppresses_identical_duplicates(
     recovered = owner._recover_governed_invocation_receipts(())
 
     assert recovered == (payload,)
+
+
+def test_receipt_registry_recovery_rejects_conflicting_duplicate_identity(
+        tmp_path: Path) -> None:
+    _, invoker = _invoker(tmp_path)
+    payload = invoker.invoke(invoker.build_request(
+        purpose="local_user_chat", prompt="conflict", caller="test",
+        correlation_id="receipt-registry-conflict")).to_dict()
+    conflicting = dict(payload)
+    conflicting["receipt_digest"] = "sha256:" + ("0" * 64)
+    path = tmp_path / "runtime" / "governed_local_model_invocation" / "registered_receipts.json"
+    replace_private_bytes(path, json.dumps([payload, conflicting], sort_keys=True,
+        separators=(",", ":")).encode("utf-8"), max_bytes=16_777_216)
+
+    owner = object.__new__(RuntimeMaintenanceSurfaces)
+    owner._governed_invocation_receipts_path = path
+
+    with pytest.raises(ValueError, match="conflicting_recovered_invocation_receipt"):
+        owner._recover_governed_invocation_receipts(())

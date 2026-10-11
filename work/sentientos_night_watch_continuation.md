@@ -2711,3 +2711,10 @@ A later source correction was also composed from stale note text and displaced t
 - Recovery now suppresses byte-equivalent duplicate receipt identities and rejects same-ID/different-evidence collisions before publication. Malformed identities still reach the existing receipt verifier and fail closed; the on-disk schema and receipt identities are unchanged.
 - Added an authored, unexecuted identical-duplicate recovery case. `sentientosd.py` and the new test passed syntax compilation only; no restart or projection behavior was executed.
 - Next continue tracing the resource projection's use of registered versus independently recovered receipts and verify that bounded-tail omissions and conflicting attempts remain explicit in its evidence posture.
+
+
+## 2026-10-11 checkpoint — review resource lineage projection and conflicting receipt recovery
+
+- Continued the handoff review through the explicit installation observer and World-State producer. The observer validates bounded installation-scoped receipt files and direct predecessor references; the resource projection keeps missing attempt/effect links as findings, marks bounded tail omission, and leaves unmeasured shared CPU/GPU unknown. No new source repair was warranted in those paths during this pass.
+- Added an authored, unexecuted same-ID/different-evidence registry recovery case in addition to identical-duplicate suppression. The test module passed Python syntax compilation only. No test execution, resource invocation, restart, or runtime projection was performed.
+- Next inspect the allocation ledger's recovery snapshot and resource lineage reducer for cross-process locking, canonical registry bounds, and whether retained attempt state can be mistaken for a complete history.
