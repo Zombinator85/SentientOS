@@ -320,3 +320,46 @@ def test_conflicting_running_and_represented_generation_is_not_grouped(tmp_path:
         snapshot(source), tick_id="tick-software-conflict")
     assert not any(item.predicate == "software_generation.current_process_observation"
         for item in result.claims)
+
+
+
+def test_running_model_claim_carries_activation_predecessor_through_restart(tmp_path: Path) -> None:
+    observed = "2026-09-25T11:59:00Z"
+    source = record(source="runtime:model-session", observed=observed, extra={
+        "running_model_identity_observed": {"model_id": "model-b", "artifact_id": "artifact-b"},
+        "serving_session_id": "session-b",
+        "activation_state_digest": "sha256:" + "a" * 64,
+        "activation_receipt_id": "activation-b",
+        "activation_receipt_semantic_digest": "sha256:" + "b" * 64,
+        "activation_predecessor_state_digest": "sha256:" + "c" * 64,
+        "activation_generation": 8,
+        "activation_history_digest": "sha256:" + "d" * 64,
+        "activation_history_posture": "verified_selection_history_digest",
+        "transition_id": "transition-b",
+        "event_time_posture": "serving_session_observation_time_not_model_load_time",
+        "model_development_provenance": {"posture": "identity_binding_verified",
+            "provenance_manifest_digest": "sha256:" + "e" * 64},
+        "authority": False, "effect_proven": False,
+    })
+    source.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "observed_running_model",
+        "evidence_strength": "serving_session_observation"})
+    source["effect_claimed"] = False
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(source), tick_id="tick-model-session")
+    claim = next(item for item in result.claims
+        if item.predicate == "running_model_identity_observed")
+    assert claim.value["model_id"] == "model-b"
+    assert claim.value["activation_predecessor_state_digest"] == "sha256:" + "c" * 64
+    assert claim.value["observed_at"] == observed
+    assert claim.value["model_development_provenance"]["posture"] == "identity_binding_verified"
+    assert claim.current_truth is False
+
+    restarted = LongitudinalSelfModelOwner(tmp_path)
+    later = restarted.cognitive_projection(before_tick="tick-next", max_claims=8,
+        allowed_predicates=("running_model_identity_observed",))
+    assert later is not None
+    retained = next(item for item in later.selected_claims
+        if item["predicate"] == "running_model_identity_observed")
+    assert retained["value"]["activation_predecessor_state_digest"] == "sha256:" + "c" * 64
+    assert retained["value"]["observed_at"] == observed

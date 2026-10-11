@@ -2292,3 +2292,10 @@ Next inspect succession source records for any projection that still presents a 
 - Running model and software identity selectors now require a valid timezone-aware observation event time in addition to their owner/source scope. A non-time tick key or malformed timestamp remains visible as context but cannot receive current-observation priority.
 - Added an authored unexecuted malformed-time case. Changed Python/test compilation only; no behavioral or production verification ran.
 - Next inspect the serving observation's activation-predecessor and model-development provenance joins for contradictions, then resume the broader causal dependency sequence.
+
+
+### New checkpoint — carry model activation predecessor into later cognition
+
+- The existing longitudinal predicate for observed running model identity now retains the same serving observation's activation-state digest, activation receipt, predecessor-state digest, generation/history posture, transition ID, model-development provenance, source record identity, and World-State observation time. It adds these links to the existing model-identity claim rather than creating another selector surface.
+- Added an authored unexecuted restart/later-tick case for activation predecessor and provenance retention. Python compilation only; no behavior or production verification ran.
+- Next inspect whether the model transition journal's serving-stage evidence reconciles to the same activation predecessor before publishing that runtime identity, then continue to another causal subsystem.

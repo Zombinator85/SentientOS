@@ -283,6 +283,23 @@ def _claim_id(key: str, value: Any, fact_ids: Sequence[str]) -> str:
 
 
 def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
+    payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+    model_identity = payload.get("running_model_identity_observed")
+    verified_running_model_observation = (
+        fact.source.kind == "runtime_supervisor"
+        and fact.subject.subject_kind == "observed_running_model"
+        and fact.source.finding == "ok"
+        and fact.stage == "observation" and fact.disposition == "observed"
+        and fact.evidence_strength in {
+            "serving_session_observation", "current_serving_owner_session"}
+        and isinstance(model_identity, Mapping) and bool(model_identity)
+        and isinstance(payload.get("serving_session_id"), str)
+        and bool(payload.get("serving_session_id"))
+        and payload.get("event_time_posture")
+            == "serving_session_observation_time_not_model_load_time"
+        and isinstance(fact.observed_at, str) and bool(fact.observed_at)
+        and payload.get("authority") is False and payload.get("effect_proven") is False
+        and fact.effect_claimed is False and fact.effect_proven is False)
     historical_transition_event = (
         (fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
@@ -299,6 +316,20 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         and fact.subject.subject_kind == "chat_process_software_generation_invocation"
         and fact.source.finding == "ok")
     for predicate, keys in PAYLOAD_PREDICATES.items():
+        if predicate == "running_model_identity_observed" and verified_running_model_observation:
+            lineage = dict(model_identity)
+            lineage.update({key: payload.get(key) for key in (
+                "serving_session_id", "activation_state_digest",
+                "activation_receipt_id", "activation_receipt_semantic_digest",
+                "activation_predecessor_state_digest", "activation_generation",
+                "activation_history_digest", "activation_history_posture",
+                "transition_id", "event_time_posture", "model_development_provenance")})
+            lineage.update({"observed_at": fact.observed_at,
+                "source_record_id": fact.source.source_id,
+                "source_record_digest": fact.source.digest,
+                "current_truth": False, "authority": False, "effect_proven": False})
+            out.append((predicate, _bounded(lineage), "lineage"))
+            continue
         if compact_chat_invocation and predicate == "chat_model_serving_lineage":
             # Preserve exact invocation lineage below without allowing an
             # unbounded receipt list to discard the whole self-model claim.
