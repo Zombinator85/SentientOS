@@ -164,3 +164,39 @@ def test_parent_state_symlink_is_untrusted_and_not_republished(tmp_path: Path) -
     rebuilt, _, _ = _parent(tmp_path)
     assert rebuilt.status()["panic_latched"] is True
     assert receipt_path.read_bytes() == before
+
+
+def test_receipt_ahead_of_snapshot_is_rejected_without_sequence_reuse(tmp_path: Path) -> None:
+    controller, _, _ = _parent(tmp_path)
+    state_path = tmp_path / "parent" / "parent-state.json"
+    previous_snapshot = state_path.read_bytes()
+    controller.start()
+    receipt_path = tmp_path / "parent" / "parent-receipts.jsonl"
+    receipt_log = receipt_path.read_bytes()
+    state_path.write_bytes(previous_snapshot)
+
+    rebuilt, child, _ = _parent(tmp_path)
+    assert rebuilt.status()["panic_latched"] is True
+    assert rebuilt.status()["status"] == "fail_closed_state"
+    assert receipt_path.read_bytes() == receipt_log
+    with pytest.raises(RuntimeError, match="panic_latched"):
+        rebuilt.start()
+    assert child.starts == 0
+
+
+def test_corrupt_receipt_chain_fails_closed_without_republication(tmp_path: Path) -> None:
+    controller, _, _ = _parent(tmp_path)
+    controller.start()
+    receipt_path = tmp_path / "parent" / "parent-receipts.jsonl"
+    rows = [json.loads(line) for line in receipt_path.read_bytes().splitlines()]
+    rows[0]["receipt_digest"] = "sha256:" + "0" * 64
+    corrupt = b"\n".join(
+        json.dumps(row, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+        for row in rows
+    ) + b"\n"
+    receipt_path.write_bytes(corrupt)
+
+    rebuilt, _, _ = _parent(tmp_path)
+    assert rebuilt.status()["panic_latched"] is True
+    assert rebuilt.status()["status"] == "fail_closed_state"
+    assert receipt_path.read_bytes() == corrupt

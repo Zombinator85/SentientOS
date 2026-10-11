@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import stat
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -26,7 +27,10 @@ RECEIPT_SCHEMA = "sentientos.maintenance_resident_parent_supervision_receipt:v1"
 SERVICE_ID = "exact-maintenance-resident"
 MAX_PARENT_STATE_BYTES = 1_048_576
 MAX_PARENT_RESTART_HISTORY = 65_536
-MAX_PARENT_SEQUENCE = 1_000_000
+MAX_PARENT_RECEIPT_BYTES = 16_777_216
+MAX_PARENT_RECEIPT_ROWS = 65_536
+MAX_PARENT_RECEIPT_LINE_BYTES = 65_536
+MAX_PARENT_SEQUENCE = MAX_PARENT_RECEIPT_ROWS
 
 
 def _canonical(value: object) -> bytes:
@@ -57,6 +61,11 @@ class MaintenanceResidentParentSupervisor:
         if self.root == repository or repository in self.root.parents:
             raise ValueError("parent_supervision_custody_inside_repository")
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if os.name == "posix":
+            root_metadata = os.lstat(self.root)
+            if (not stat.S_ISDIR(root_metadata.st_mode) or root_metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(root_metadata.st_mode) & 0o077):
+                raise ValueError("parent_supervision_state_root_not_private")
         self._state_path = self.root / "parent-state.json"
         self._receipt_path = self.root / "parent-receipts.jsonl"
         self._readiness_guard, self._clock, self._sleep = resident_readiness_guard, clock, sleeper
@@ -71,6 +80,7 @@ class MaintenanceResidentParentSupervisor:
         self._adapter = adapter_factory(name=SERVICE_ID, argv=self._argv,
             cwd=Path(self.config["working_directory"]), environment=self._environment)
         self._sequence = 0; self._restart_history: list[float] = []
+        self._receipt_count = 0; self._receipt_bytes = 0; self._receipt_head_digest: str | None = None
         self._panic = False; self._shutdown = False; self._exhausted = False
         self._status = "configured"; self._generation_digest: str | None = None
         self._launch: dict[str, Any] | None = None
@@ -102,32 +112,86 @@ class MaintenanceResidentParentSupervisor:
             if os.path.exists(temporary): os.unlink(temporary)
 
     def _persist(self) -> None:
-        self._atomic({"schema_version": STATE_SCHEMA, "child_spec_digest": self._spec_digest,
+        state = {"schema_version": STATE_SCHEMA, "child_spec_digest": self._spec_digest,
             "sequence": self._sequence, "restart_history": self._restart_history,
             "panic_latched": self._panic, "shutdown_latched": self._shutdown,
             "restart_budget_exhausted": self._exhausted, "status": self._status,
-            "generation_digest": self._generation_digest, "launch": self._launch})
+            "generation_digest": self._generation_digest, "launch": self._launch,
+            "receipt_head_digest": self._receipt_head_digest}
+        state["state_digest"] = _digest(state)
+        self._atomic(state)
+
+    def _read_receipt_journal(self) -> list[dict[str, Any]]:
+        try:
+            raw = read_explicit_file(self._receipt_path, max_bytes=MAX_PARENT_RECEIPT_BYTES,
+                require_private_acl=os.name == "nt")
+        except WindowsHandleCustodyError as exc:
+            if exc.args == ("explicit_file_missing",):
+                return []
+            raise ValueError("parent_receipt_journal_custody_invalid") from exc
+        if raw and not raw.endswith(b"\n"):
+            raise ValueError("parent_receipt_journal_truncated")
+        lines = raw.split(b"\n")[:-1] if raw else []
+        if len(lines) > MAX_PARENT_RECEIPT_ROWS:
+            raise ValueError("parent_receipt_journal_retention_limit_exceeded")
+        rows: list[dict[str, Any]] = []
+        for index, line in enumerate(lines, start=1):
+            if not line or len(line) > MAX_PARENT_RECEIPT_LINE_BYTES:
+                raise ValueError("parent_receipt_journal_record_invalid")
+            row = json.loads(line.decode("utf-8"))
+            if not isinstance(row, dict):
+                raise ValueError("parent_receipt_journal_record_invalid")
+            claimed = row.pop("receipt_digest", None)
+            if (set(row) != {"schema_version", "sequence", "timestamp", "event",
+                    "child_spec_digest", "detail"}
+                    or row["schema_version"] != RECEIPT_SCHEMA
+                    or type(row["sequence"]) is not int or row["sequence"] != index
+                    or row["child_spec_digest"] != self._spec_digest
+                    or not isinstance(row["event"], str) or not row["event"] or len(row["event"]) > 128
+                    or not isinstance(row["timestamp"], str)
+                    or not isinstance(row["detail"], dict)
+                    or _digest(row) != claimed):
+                raise ValueError("parent_receipt_journal_binding_invalid")
+            row["receipt_digest"] = claimed
+            if _canonical(row) != line:
+                raise ValueError("parent_receipt_journal_noncanonical")
+            rows.append(row)
+        self._receipt_count = len(rows)
+        self._receipt_bytes = len(raw)
+        self._receipt_head_digest = rows[-1]["receipt_digest"] if rows else None
+        return rows
 
     def _load(self) -> None:
         try:
+            rows = self._read_receipt_journal()
             try:
                 raw = read_explicit_file(self._state_path, max_bytes=MAX_PARENT_STATE_BYTES,
                     require_private_acl=True)
             except WindowsHandleCustodyError as exc:
                 if exc.args == ("explicit_file_missing",):
+                    if rows:
+                        raise ValueError("parent_state_missing_with_receipts")
                     return
                 raise ValueError("parent_state_custody_invalid") from exc
             if not raw.endswith(b"\n"):
                 raise ValueError("parent_state_noncanonical")
             value = json.loads(raw[:-1].decode("utf-8"))
-            expected_fields = {"schema_version", "child_spec_digest", "sequence", "restart_history",
+            legacy_fields = {"schema_version", "child_spec_digest", "sequence", "restart_history",
                 "panic_latched", "shutdown_latched", "restart_budget_exhausted", "status",
                 "generation_digest", "launch"}
-            if (not isinstance(value, dict) or set(value) != expected_fields
+            current_fields = legacy_fields | {"receipt_head_digest", "state_digest"}
+            if (not isinstance(value, dict) or set(value) not in (legacy_fields, current_fields)
                     or _canonical(value) + b"\n" != raw
                     or value["schema_version"] != STATE_SCHEMA
                     or value["child_spec_digest"] != self._spec_digest):
                 raise ValueError("parent_state_binding_mismatch")
+            if set(value) == current_fields:
+                body = {key: item for key, item in value.items() if key != "state_digest"}
+                if (value["state_digest"] != _digest(body)
+                        or value["receipt_head_digest"] != self._receipt_head_digest):
+                    raise ValueError("parent_state_digest_or_receipt_head_mismatch")
+            if type(value["sequence"]) is not int or value["sequence"] != len(rows):
+                raise ValueError("parent_state_receipt_sequence_mismatch")
             sequence = value["sequence"]
             history = value["restart_history"]
             if (type(sequence) is not int or sequence < 0
@@ -175,16 +239,50 @@ class MaintenanceResidentParentSupervisor:
     def _receipt(self, event: str, detail: Mapping[str, Any] | None = None) -> None:
         if not self._state_recovery_valid:
             raise RuntimeError("parent_state_recovery_not_trusted")
-        if self._sequence >= MAX_PARENT_SEQUENCE:
+        if self._sequence >= MAX_PARENT_SEQUENCE or self._receipt_count >= MAX_PARENT_RECEIPT_ROWS:
             self._panic = True; self._status = "receipt_sequence_exhausted"
             raise RuntimeError("parent_receipt_sequence_limit_exceeded")
-        self._sequence += 1
-        row = {"schema_version": RECEIPT_SCHEMA, "sequence": self._sequence,
+        row = {"schema_version": RECEIPT_SCHEMA, "sequence": self._sequence + 1,
             "timestamp": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
             "event": event, "child_spec_digest": self._spec_digest, "detail": dict(detail or {})}
         row["receipt_digest"] = _digest(row)
-        with self._receipt_path.open("ab") as stream:
-            stream.write(_canonical(row) + b"\n"); stream.flush(); os.fsync(stream.fileno())
+        encoded = _canonical(row) + b"\n"
+        if (len(encoded) > MAX_PARENT_RECEIPT_LINE_BYTES
+                or self._receipt_bytes + len(encoded) > MAX_PARENT_RECEIPT_BYTES):
+            self._panic = True; self._status = "receipt_retention_limit_exceeded"
+            raise RuntimeError("parent_receipt_journal_retention_limit_exceeded")
+        try:
+            if os.name == "posix":
+                flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+                descriptor = os.open(self._receipt_path, flags, 0o600)
+                try:
+                    metadata = os.fstat(descriptor)
+                    if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                            or metadata.st_uid != os.geteuid()
+                            or metadata.st_size != self._receipt_bytes):
+                        raise ValueError("parent_receipt_journal_changed")
+                    if stat.S_IMODE(metadata.st_mode) & 0o077:
+                        os.fchmod(descriptor, 0o600)
+                    remaining = memoryview(encoded)
+                    while remaining:
+                        written = os.write(descriptor, remaining)
+                        if written <= 0:
+                            raise OSError("parent_receipt_write_incomplete")
+                        remaining = remaining[written:]
+                    os.fsync(descriptor)
+                finally:
+                    os.close(descriptor)
+            else:
+                with self._receipt_path.open("ab") as stream:
+                    stream.write(encoded); stream.flush(); os.fsync(stream.fileno())
+        except Exception:
+            self._state_recovery_valid = False
+            self._panic = True; self._status = "receipt_publication_failed"
+            raise
+        self._sequence += 1
+        self._receipt_count += 1
+        self._receipt_bytes += len(encoded)
+        self._receipt_head_digest = row["receipt_digest"]
         self._persist()
 
     def _current_generation(self) -> dict[str, Any]:
