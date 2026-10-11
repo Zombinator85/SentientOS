@@ -211,3 +211,52 @@ def test_recent_software_launch_is_historical_context_not_current_evidence() -> 
     assert binding.freshness == "unknown"
     assert binding.evidence_relation == "contextualizes"
     assert binding.dependency_kind == "unknown_dependency"
+
+
+
+def test_running_model_observation_preserves_observation_time_not_load_time() -> None:
+    record = {
+        "source_kind": "runtime_supervisor", "source_id": "resident-serving:session-a:tick-N",
+        "schema_version": "runtime.test.v1", "subject_id": "session-a",
+        "subject_kind": "observed_running_model", "stage": "observation",
+        "disposition": "observed", "evidence_strength": "serving_session_observation",
+        "observed_at": NOW,
+        "payload": {
+            "running_model_identity_observed": {"model_id": "model-a"},
+            "serving_session_id": "session-a",
+            "event_time_posture": "serving_session_observation_time_not_model_load_time",
+            "authority": False, "effect_proven": False,
+        },
+    }
+    snapshot = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    rule = EpistemicDevelopmentRule(
+        "rule-model", "proposition-model", "a" * 64, {}, "supports",
+        "independently_sourced_observation", "serving_owner_observation")
+    _proof, binding = ResidentEpistemicDevelopmentRuntime._adapt(snapshot, snapshot.facts[0], rule)
+    assert binding.observation_time == NOW
+    assert binding.freshness == "current"
+    assert binding.evidence_relation == "supports"
+
+
+def test_running_model_without_recorded_observation_time_is_not_current() -> None:
+    record = {
+        "source_kind": "runtime_supervisor", "source_id": "resident-serving:session-a:unknown",
+        "schema_version": "runtime.test.v1", "subject_id": "session-a",
+        "subject_kind": "observed_running_model", "stage": "observation",
+        "disposition": "observed", "evidence_strength": "serving_session_observation",
+        "observed_at": None,
+        "payload": {
+            "running_model_identity_observed": {"model_id": "model-a"},
+            "serving_session_id": "session-a",
+            "event_time_posture": "serving_session_time_not_retained",
+            "authority": False, "effect_proven": False,
+        },
+    }
+    snapshot = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    rule = EpistemicDevelopmentRule(
+        "rule-model", "proposition-model", "a" * 64, {}, "supports",
+        "independently_sourced_observation", "serving_owner_observation")
+    _proof, binding = ResidentEpistemicDevelopmentRuntime._adapt(snapshot, snapshot.facts[0], rule)
+    assert binding.observation_time == "undated"
+    assert binding.freshness == "unknown"
+    assert binding.evidence_relation == "contextualizes"

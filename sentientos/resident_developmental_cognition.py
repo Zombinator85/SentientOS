@@ -805,7 +805,8 @@ class ResidentDevelopmentalCognitionOwner:
             and bool(payload.get("running_model_identity_observed"))
             and isinstance(payload.get("serving_session_id"), str)
             and bool(payload.get("serving_session_id"))
-            and payload.get("event_time_posture") == "serving_session_time_not_retained"
+            and payload.get("event_time_posture")
+                == "serving_session_observation_time_not_model_load_time"
             and payload.get("authority") is False
             and payload.get("effect_proven") is False
             and fact.effect_claimed is False and fact.effect_proven is False

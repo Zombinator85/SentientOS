@@ -110,7 +110,7 @@ def test_running_model_priority_requires_observed_serving_session_lineage() -> N
     payload = {
         "running_model_identity_observed": {"model_id": "model-a", "artifact_id": "artifact-a"},
         "serving_session_id": "session-a",
-        "event_time_posture": "serving_session_time_not_retained",
+        "event_time_posture": "serving_session_observation_time_not_model_load_time",
         "authority": False,
         "effect_proven": False,
     }

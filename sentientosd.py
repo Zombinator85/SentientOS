@@ -1504,7 +1504,7 @@ class RuntimeMaintenanceSurfaces:
                     running_provenance_identity = ((running_provenance or {}).get("provenance_manifest_digest")
                         or (running_provenance or {}).get("posture", "unknown"))
                     records.append({"source_kind": "runtime_supervisor",
-                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}:{status.get('activation_history_digest') or 'activation_lineage_unavailable'}:{running_provenance_identity}",
+                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}:{status.get('activation_history_digest') or 'activation_lineage_unavailable'}:{running_provenance_identity}:{tick_id}",
                         "subject_id": str(status.get("resident_serving_session_id") or "resident-serving-session"),
                         "subject_kind": "observed_running_model", "stage": "observation",
                         "disposition": "observed", "evidence_strength": "serving_session_observation",
@@ -1518,11 +1518,11 @@ class RuntimeMaintenanceSurfaces:
                             "activation_history_posture": ("verified_selection_history_digest"
                                 if isinstance(status.get("activation_history_digest"), str) else "unavailable"),
                             "transition_id": transition_id,
-                            "event_time_posture": "serving_session_time_not_retained",
+                            "event_time_posture": "serving_session_observation_time_not_model_load_time",
                             "model_development_provenance": (running_provenance or
                                 {"posture": "unavailable_no_exact_running_identity_binding"}),
                             "authority": False, "effect_proven": False},
-                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                        "observed_at": tick_id, "effect_claimed": False, "effect_proven": False})
                 head = health.get("journal_head")
                 if head:
                     records.append({"source_kind": "runtime_supervisor",
@@ -1555,7 +1555,7 @@ class RuntimeMaintenanceSurfaces:
                 activation_history_digest = binding.get("activation_history_digest")
                 activation_digest = binding.get("activation_state_semantic_digest")
                 session_source = (f"resident_serving_session:{session.session_id}:"
-                    f"{activation_history_digest or 'activation_lineage_unavailable'}")
+                    f"{activation_history_digest or 'activation_lineage_unavailable'}:{tick_id}")
                 records.append({"source_kind": "runtime_supervisor", "source_id": session_source,
                     "subject_id": session.session_id, "subject_kind": "observed_running_model",
                     "stage": "observation", "disposition": "observed",
@@ -1572,9 +1572,9 @@ class RuntimeMaintenanceSurfaces:
                             if isinstance(activation_history_digest, str)
                             else "unavailable"),
                         "model_development_provenance": {"posture": "unavailable_no_transition_protocol"},
-                        "event_time_posture": "serving_session_time_not_retained",
+                        "event_time_posture": "serving_session_observation_time_not_model_load_time",
                         "authority": False, "effect_proven": False},
-                    "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                    "observed_at": tick_id, "effect_claimed": False, "effect_proven": False})
 
         software_controller = self._resident_software_transition_controller
         software_config = (software_controller.config if software_controller is not None

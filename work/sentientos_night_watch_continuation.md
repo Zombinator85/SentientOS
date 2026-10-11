@@ -2277,3 +2277,11 @@ Next inspect succession source records for any projection that still presents a 
 - Activation lineage remains a separate priority class; the runtime World-State payload now explicitly carries false authority/effect flags alongside its existing not-loaded-by-activation semantics.
 - Added authored unexecuted selection cases for qualified serving identity, forged source/phase lookalikes, and activation-only identity. Changed Python/tests compile only; no tests or production behavior ran.
 - Next inspect the serving observation's event-time and activation-predecessor bindings for contradictions, then advance to a separate causal integration.
+
+
+### New checkpoint — preserve the serving-session observation event separately from model load time
+
+- Both transition-composed and standalone serving-session World-State records now bind a per-tick source identity and the exact observation tick, while explicitly stating that the time is not the model-load event. Activation records remain non-load claims.
+- Epistemic development accepts only the exact serving-owner record with observed event time and non-authority/effect posture; missing or malformed timing remains undated, unknown, and contextual only. Resident cognition's highest model priority now requires that qualified live serving-session contract.
+- Added authored unexecuted selection and adapter cases. Changed Python/test files compile only; no behavior or production verification ran.
+- Next inspect the serving identity's activation predecessor and model-development provenance joins under the updated event scope, then continue into the next independent causal frontier.

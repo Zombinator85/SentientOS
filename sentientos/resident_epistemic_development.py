@@ -261,6 +261,27 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.payload.get("event_time_posture") in {
                 "owner_observed_model_load_time",
                 "reservation_time_model_load_outcome_unknown"})
+        current_running_model_candidate = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "observed_running_model")
+        current_model_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        verified_current_running_model_observation = (
+            current_running_model_candidate
+            and fact.stage == "observation" and fact.disposition == "observed"
+            and fact.evidence_strength in {
+                "serving_session_observation", "current_serving_owner_session"}
+            and isinstance(current_model_payload.get("running_model_identity_observed"), Mapping)
+            and bool(current_model_payload.get("running_model_identity_observed"))
+            and isinstance(current_model_payload.get("serving_session_id"), str)
+            and bool(current_model_payload.get("serving_session_id"))
+            and current_model_payload.get("event_time_posture")
+                == "serving_session_observation_time_not_model_load_time"
+            and _latest_historical_event_time([fact.observed_at]) is not None
+            and current_model_payload.get("authority") is False
+            and current_model_payload.get("effect_proven") is False
+            and fact.effect_claimed is False and fact.effect_proven is False)
+        unverified_current_running_model_observation = (
+            current_running_model_candidate and not verified_current_running_model_observation)
         current_software_candidate = (
             fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind == "verified_current_running_software_generation")
@@ -344,6 +365,7 @@ class ResidentEpistemicDevelopmentRuntime:
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
             or historical_software_launch_observation
+            or unverified_current_running_model_observation
             or historical_serving_operation_attempt or historical_serving_operation_history
             or (historical_transition_observation and not qualified_transition_observation)
             or historical_strategy_proposal
@@ -454,11 +476,14 @@ class ResidentEpistemicDevelopmentRuntime:
                 event_time = fact.payload.get("startup_timestamp")
                 observed = (_latest_historical_event_time([event_time])
                     if isinstance(event_time, str) else None)
-            elif fact.subject.subject_kind in {"observed_running_model",
-                    "resident_model_transition_recovery",
+            elif fact.subject.subject_kind == "observed_running_model":
+                # This is the serving owner's point observation time, not the
+                # model-load event time. Reject session records without it.
+                observed = (_latest_historical_event_time([fact.observed_at])
+                    if verified_current_running_model_observation else None)
+            elif fact.subject.subject_kind in {"resident_model_transition_recovery",
                     "software_generation_transition_recovery"}:
-                # Session-currentness checks and journal reconstruction time
-                # are not retained source events. Keep their chronology unknown.
+                # Journal reconstruction time is not a transition event.
                 observed = None
         if (fact.source.kind == "embodiment"
                 and fact.subject.subject_kind == "developmental_model_replacement_experiment"
@@ -520,6 +545,10 @@ class ResidentEpistemicDevelopmentRuntime:
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
             "event_time_posture": "owner_verified_current_software_point_observation"
                 if verified_current_software_observation
+                else "verified_serving_session_observation_time_not_model_load_time"
+                if verified_current_running_model_observation
+                else "unverified_running_model_context_time_unknown"
+                if unverified_current_running_model_observation
                 else "unverified_current_software_context_time_unknown"
                 if unverified_current_software_observation
                 else "software_launch_time_not_current_liveness"
@@ -553,6 +582,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 and not historical_strategy_proposal and not historical_strategy_review
                 and not unverified_embodiment_observation
                 and not unverified_current_software_observation
+                and not unverified_current_running_model_observation
                 and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
             freshness = "current"
         elif source_staleness in {"aging", "stale", "expired"}:
@@ -574,6 +604,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 else "unqualified_transition_observation_context" if historical_transition_observation
                 else "historical_transition_event_context" if historical_transition_event
                 else "historical_launch_provenance_context" if historical_software_launch_observation
+                else "unverified_running_model_context_only" if unverified_current_running_model_observation
                 else "proposal_source_not_world_truth" if historical_strategy_proposal
                 else "unverified_review_context_only" if historical_strategy_review
                 else "resource_lineage_incomplete_context_only" if incomplete_resource_lineage
