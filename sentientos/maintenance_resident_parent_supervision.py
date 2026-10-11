@@ -50,7 +50,8 @@ class MaintenanceResidentParentSupervisor:
                  min_backoff: float = 0.1, max_backoff: float = 30.0,
                  clock: Callable[[], float] = time.time,
                  sleeper: Callable[[float], None] = time.sleep,
-                 adapter_factory: Callable[..., ServiceAdapter] = ChildProcessServiceAdapter) -> None:
+                 adapter_factory: Callable[..., ServiceAdapter] = ChildProcessServiceAdapter,
+                 process_presence_observer: Callable[[int], bool | None] | None = None) -> None:
         if restart_budget < 0 or rolling_restart_window <= 0 or min_backoff < 0 or max_backoff < min_backoff:
             raise ValueError("invalid_parent_restart_policy")
         self.config = resident.validate_config(resident_config)
@@ -69,6 +70,7 @@ class MaintenanceResidentParentSupervisor:
         self._state_path = self.root / "parent-state.json"
         self._receipt_path = self.root / "parent-receipts.jsonl"
         self._readiness_guard, self._clock, self._sleep = resident_readiness_guard, clock, sleeper
+        self._process_presence_observer = process_presence_observer or self._observe_pid_presence
         self._budget, self._window = restart_budget, rolling_restart_window
         self._min_backoff, self._max_backoff = min_backoff, max_backoff
         self._environment = self._exact_environment()
@@ -323,10 +325,58 @@ class MaintenanceResidentParentSupervisor:
                           {"reason": type(exc).__name__})
             raise
 
+    @staticmethod
+    def _observe_pid_presence(pid: int) -> bool | None:
+        """Use OS PID presence only to deny duplicate launch, never to adopt or signal."""
+        if os.name != "posix":
+            return None
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except OSError:
+            return None
+
     def start(self) -> None:
         if self._panic: raise RuntimeError("panic_latched")
         if self._shutdown: raise RuntimeError("shutdown_latched")
-        self._launch_exact(self._current_generation(), recovery=False)
+        generation = self._current_generation()
+        if self._launch is not None:
+            prior_pid = self._launch.get("pid")
+            if type(prior_pid) is not int or prior_pid < 1:
+                self._status = "prior_child_unreconciled"
+                self._receipt("prior_child_reconciliation_blocked",
+                    {"reason": "prior_launch_pid_invalid"})
+                raise RuntimeError("prior_child_process_unreconciled")
+            try:
+                present = self._process_presence_observer(prior_pid)
+            except Exception:
+                present = None
+            if present is not False:
+                self._status = "prior_child_unreconciled"
+                self._receipt("prior_child_reconciliation_blocked", {
+                    "pid": prior_pid, "presence": "present" if present is True else "unknown",
+                    "launch_provenance_digest": self._launch["launch_provenance_digest"]})
+                raise RuntimeError("prior_child_process_unreconciled")
+            now = self._clock()
+            self._restart_history = [stamp for stamp in self._restart_history
+                if now - stamp <= self._window]
+            if len(self._restart_history) >= self._budget:
+                self._exhausted = True; self._status = "restart_budget_exhausted"
+                self._receipt("restart_budget_exhaustion",
+                    {"used": len(self._restart_history), "budget": self._budget})
+                raise RuntimeError("restart_budget_exhausted")
+            self._restart_history.append(now)
+            self._receipt("orphan_child_absence_reconciled", {
+                "pid": prior_pid,
+                "prior_launch_provenance_digest": self._launch["launch_provenance_digest"],
+                "generation_digest": generation["generation_digest"]})
+            self._launch_exact(generation, recovery=True)
+            return
+        self._launch_exact(generation, recovery=False)
 
     def observe(self) -> None:
         if self._panic or self._shutdown or self._exhausted: return

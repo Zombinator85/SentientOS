@@ -43,13 +43,15 @@ class Factory:
 
 
 def _parent(tmp_path: Path, *, ready: list[bool] | None = None, budget: int = 2,
-            factory: Factory | None = None) -> tuple[MaintenanceResidentParentSupervisor, FakeChild, dict[str, object]]:
+            factory: Factory | None = None,
+            process_presence_observer: Any = None) -> tuple[MaintenanceResidentParentSupervisor, FakeChild, dict[str, object]]:
     cfg, _, _, _ = _fixture(tmp_path)
     readiness = ready if ready is not None else [False]
     made = factory or Factory()
     controller = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
         resident_readiness_guard=lambda _: readiness[0], restart_budget=budget,
-        min_backoff=0, max_backoff=0, adapter_factory=made)
+        min_backoff=0, max_backoff=0, adapter_factory=made,
+        process_presence_observer=process_presence_observer)
     return controller, made.children[-1], cfg
 
 
@@ -200,3 +202,36 @@ def test_corrupt_receipt_chain_fails_closed_without_republication(tmp_path: Path
     assert rebuilt.status()["panic_latched"] is True
     assert rebuilt.status()["status"] == "fail_closed_state"
     assert receipt_path.read_bytes() == corrupt
+
+
+def test_restarted_parent_denies_launch_when_prior_child_pid_is_present(tmp_path: Path) -> None:
+    first, child, cfg = _parent(tmp_path, process_presence_observer=lambda _: True)
+    first.start()
+    assert child.alive
+
+    made = Factory()
+    rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
+        resident_readiness_guard=lambda _: True, adapter_factory=made,
+        process_presence_observer=lambda pid: True)
+    with pytest.raises(RuntimeError, match="prior_child_process_unreconciled"):
+        rebuilt.start()
+    assert made.children[0].starts == 0
+    assert rebuilt.status()["status"] == "prior_child_unreconciled"
+
+
+def test_restarted_parent_recovers_only_after_prior_pid_is_absent(tmp_path: Path) -> None:
+    first, child, cfg = _parent(tmp_path, process_presence_observer=lambda _: False)
+    first.start()
+    child.alive = False
+
+    made = Factory()
+    rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
+        resident_readiness_guard=lambda _: True, adapter_factory=made,
+        process_presence_observer=lambda pid: False)
+    rebuilt.start()
+    assert made.children[0].starts == 1
+    assert rebuilt.status()["restart_count"] == 1
+    rows = [json.loads(line) for line in
+        (tmp_path / "parent" / "parent-receipts.jsonl").read_text().splitlines()]
+    events = [row["event"] for row in rows]
+    assert events.index("orphan_child_absence_reconciled") < events.index("recovery_attempt")
