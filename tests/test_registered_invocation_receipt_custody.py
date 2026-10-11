@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from sentientos.private_file_custody import replace_private_bytes
 from sentientosd import RuntimeMaintenanceSurfaces
 
 from tests.test_governed_local_model_invocation import _invoker
+
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX receipt registry writes only")
 
 
 def test_receipt_registry_retains_visible_candidate_on_directory_fsync_uncertainty(

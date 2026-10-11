@@ -2718,3 +2718,10 @@ A later source correction was also composed from stale note text and displaced t
 - Continued the handoff review through the explicit installation observer and World-State producer. The observer validates bounded installation-scoped receipt files and direct predecessor references; the resource projection keeps missing attempt/effect links as findings, marks bounded tail omission, and leaves unmeasured shared CPU/GPU unknown. No new source repair was warranted in those paths during this pass.
 - Added an authored, unexecuted same-ID/different-evidence registry recovery case in addition to identical-duplicate suppression. The test module passed Python syntax compilation only. No test execution, resource invocation, restart, or runtime projection was performed.
 - Next inspect the allocation ledger's recovery snapshot and resource lineage reducer for cross-process locking, canonical registry bounds, and whether retained attempt state can be mistaken for a complete history.
+
+
+## 2026-10-11 continuation — preserve single-process ledger custody
+
+- The latest resource-ledger source confirms its mutable owner is deliberately single-process and uses an in-process lock; the installation observer instead validates immutable bounded bytes through a read-only owner. This pass makes no change to that authority boundary and does not claim the ledger supports multiple writer processes.
+- Receipt-registry behavioral cases are explicitly POSIX-only because publication and flock custody are unsupported on Windows; Windows continues to use bounded read-only receipt recovery. The test module passed Python syntax compilation only.
+- Next inspect retry and recovery semantics around the resource ledger's attempt journal, focusing on interrupted debit/reconciliation and whether restored state can be presented as a new event.
