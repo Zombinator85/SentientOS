@@ -1714,3 +1714,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Summary persistence now uses the existing event timestamp/text-derived observation identity and a stable raw-fragment ID. The raw fragment binds the complete observation record and source-input digest before the sidecar append. Re-entry adopts only an exact matching fragment, appends the missing record once, and rejects conflicting identities. The observation sidecar validates record digests and suppresses exact duplicate identities while treating conflicting duplicates as incomplete. Source timestamps remain intact; absent timestamps are explicitly labeled as ingestion-generated.
 - A bounded POSIX flock serializes recovery, fragment publication, index reconciliation, and sidecar append across processes after the existing Administrator/Lumos authorization. Historical records are reused only when their embedded observation identity/time match. Incognito returns a nonpersistent status. Python syntax compilation passed for memory_manager.py. No observations were written or recovered; behavior remains unverified.
 - **Next implementation dependency:** ensure recovery APIs expose missing or conflicting raw-fragment/index links as explicit incomplete state; then continue auditing user-memory mutation and retirement lineage.
+
+
+
+## New checkpoint — report observation fragment and index linkage
+
+- Fresh remote source before this increment: 1dd1c88a53509a3089a2b03e9375095dd58efd3a (tree 67eca51c7e1c4abdccefed2e1919f74279a77337).
+- Recent observation reads previously returned sidecar records without checking their linked raw fragment or derived vector-index entry. Malformed index lines were skipped and could look like a complete index.
+- Vector-index parsing now fails explicitly on malformed/non-object records. Recent-observation projections report fragment linkage, index linkage, and evidence-custody status independently; missing, malformed, unavailable, or contradictory links are labeled incomplete while preserving the historical event timestamp and record. The index remains derived metadata and does not independently qualify the observation.
+- Python syntax compilation passed for memory_manager.py. No observation, raw fragment, or index was read at runtime; behavior remains unverified.
+- **Next implementation dependency:** inspect the index writer's concurrent rebuild semantics and the remaining user-memory retirement/reconstruction consumers; preserve explicit incompleteness without letting index absence rewrite observation truth.

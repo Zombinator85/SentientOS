@@ -580,9 +580,12 @@ def _load_index_records() -> list[dict]:
         if not line.strip():
             continue
         try:
-            records.append(json.loads(line))
+            value = json.loads(line)
         except json.JSONDecodeError as exc:
-            print(f"[VECTOR INDEX WARNING] Skipped malformed line at #{i}: {exc}")
+            raise MemorySidecarIncompleteError("vector_index", i + 1) from exc
+        if not isinstance(value, dict):
+            raise MemorySidecarIncompleteError("vector_index", i + 1)
+        records.append(value)
     return records
 
 
@@ -951,6 +954,55 @@ def _load_observation_records() -> List[Dict[str, Any]]:
     return records
 
 
+def _observation_fragment_link_status(record: Mapping[str, Any]) -> str:
+    fragment_id = record.get("fragment_id")
+    if not isinstance(fragment_id, str) or not fragment_id:
+        return "missing_identity"
+    try:
+        raw = _read_legacy_raw_fragment(fragment_id + ".json")
+    except (OSError, ValueError):
+        return "custody_unavailable"
+    if raw is None:
+        return "missing_fragment"
+    try:
+        fragment = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError):
+        return "malformed_fragment"
+    if not isinstance(fragment, dict) or fragment.get("id") != fragment_id:
+        return "identity_conflict"
+    if fragment.get("text") != record.get("summary"):
+        return "payload_conflict"
+    meta = fragment.get("meta")
+    if not isinstance(meta, dict):
+        return "lineage_missing"
+    stored_record = meta.get("observation_record")
+    if stored_record is not None:
+        return "verified" if stored_record == dict(record) else "lineage_conflict"
+    historical = meta.get("observation")
+    if (isinstance(historical, dict)
+            and historical.get("observation_id") == record.get("observation_id")
+            and historical.get("timestamp") == record.get("timestamp")):
+        return "historical_identity_verified"
+    return "lineage_missing"
+
+
+def _observation_index_link_status(record: Mapping[str, Any],
+                                   index_records: Sequence[Mapping[str, Any]]) -> str:
+    fragment_id = record.get("fragment_id")
+    if not isinstance(fragment_id, str) or not fragment_id:
+        return "missing_identity"
+    matches = [entry for entry in index_records if entry.get("id") == fragment_id]
+    if not matches:
+        return "missing_index_entry"
+    if len(matches) != 1:
+        return "duplicate_index_identity"
+    entry = matches[0]
+    if (entry.get("snippet") != str(record.get("summary", ""))[:400]
+            or entry.get("tags") != record.get("tags", ["observation", "perception"])):
+        return "index_payload_conflict"
+    return "identity_and_excerpt_match"
+
+
 def _write_observation_record(record: Mapping[str, Any]) -> None:
     with _open_legacy_memory_text(OBSERVATION_LOG_PATH, "a") as handle:
         handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
@@ -1180,11 +1232,24 @@ def recent_observations(
     if limit > 0:
         records = records[-int(limit) :]
     records = list(reversed(records))
-    if include_embeddings:
-        return records
+    try:
+        index_records = _load_index_records()
+        index_status = "available"
+    except (MemorySidecarIncompleteError, PermissionError):
+        index_records = []
+        index_status = "incomplete_or_unavailable"
     sanitized: List[Dict[str, Any]] = []
     for rec in records:
-        clean = {k: v for k, v in rec.items() if k != "embedding"}
+        clean = dict(rec) if include_embeddings else {
+            k: v for k, v in rec.items() if k != "embedding"}
+        fragment_status = _observation_fragment_link_status(rec)
+        clean["fragment_link_status"] = fragment_status
+        clean["vector_index_link_status"] = (
+            _observation_index_link_status(rec, index_records)
+            if index_status == "available" else index_status)
+        clean["evidence_custody_status"] = (
+            "verified" if fragment_status in {"verified", "historical_identity_verified"}
+            else "incomplete")
         sanitized.append(clean)
     return sanitized
 
