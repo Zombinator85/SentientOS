@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch later reached `eb5cc2113066cfca92993f8f669308d8724bf4d6` (tree `1de1da537cc8132d7b7ff9121c46094a4f68551a`), which is the source base for the checkpoint appended below. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch later reached `970427376dee3d9fa59bf90704698db630036466` (tree `15609366636954e35b86e7f6afefb1a1ac405e20`), which is the source base for the checkpoint appended below. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1167,3 +1167,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation and whitespace inspection passed for `canonical_memory.py` and `chat_service.py`. No tests, runtime retrieval, Windows execution, filesystem race, or production behavior was exercised.
 
 **Next implementation dependency:** inspect how the shared legacy raw-memory writer publishes fragments into this reader's directory, then either compose it through the same bounded custody contract or keep its records explicitly segregated. Do not claim the broader legacy memory manager is covered by this chat-path hardening.
+
+
+## Correction — recover the create-only publication crash window
+
+- Fresh remote source before correction: `970427376dee3d9fa59bf90704698db630036466` (tree `15609366636954e35b86e7f6afefb1a1ac405e20`).
+- Source review of the new create-only hardlink publisher found a crash window: termination after linking the staged file to its final name but before unlinking the staging name leaves link count two. The prior verifier correctly rejects multi-link artifacts, so recovery would have treated this already-published record as invalid.
+- Retention staging names are now deterministic by operation. Recovery accepts the two-link shape only when exactly one bounded-scanned staging name points to the same held-directory inode and contains the exact same canonical record; it then removes only that duplicate name and fsyncs the directory before applying the usual one-link receipt/source/gate checks. A lone staging file is not promoted or replayed; conflicting or unresolvable hardlinks remain unverified.
+- Python compilation and whitespace inspection passed for `canonical_memory.py`. No crash, filesystem, hardlink, concurrency, or runtime test was run.
+
+**Next implementation dependency:** finish the legacy raw-memory interop review. `memory_manager.py` still writes shared raw fragments through path-based `write_text` and its forgetting path can mutate/delete files; determine a bounded owner boundary that protects explicitly retained artifacts without silently changing legacy memory authority or conflating that memory with resident developmental history.

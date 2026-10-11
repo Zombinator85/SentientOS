@@ -41,7 +41,8 @@ class CanonicalMemoryStore:
             descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
                 | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
             before = os.fstat(descriptor)
-            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink < 1
+                    or before.st_nlink > max_links
                     or before.st_uid != os.geteuid() or before.st_size > max_bytes):
                 raise WindowsHandleCustodyError("memory_record_custody_invalid")
             chunks: list[bytes] = []
@@ -282,23 +283,91 @@ class AdmittedRetentionWriter:
                     "write_replayed": False}
         operation = "retain:" + session_id + ":" + source_turn["turn_id"]
         memory_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
-        try:
-            raw = read_explicit_file(self.store.raw / (memory_id + ".json"),
-                max_bytes=MAX_RETENTION_RECORD_BYTES)
-        except WindowsHandleCustodyError as exc:
-            reason = ("artifact_missing" if exc.args == ("explicit_file_missing",)
-                      else "artifact_custody_unavailable")
-            return {"artifact_status": "unavailable", "reason_code": reason,
+        if os.name == "nt":
+            try:
+                raw = read_explicit_file(self.store.raw / (memory_id + ".json"),
+                    max_bytes=MAX_RETENTION_RECORD_BYTES)
+                record = json.loads(raw.decode("utf-8"))
+            except WindowsHandleCustodyError as exc:
+                reason = ("artifact_missing" if exc.args == ("explicit_file_missing",)
+                          else "artifact_custody_unavailable")
+                return {"artifact_status": "unavailable", "reason_code": reason,
+                        "admission_status": "not_independently_recoverable",
+                        "write_replayed": False}
+            except (UnicodeError, json.JSONDecodeError):
+                return {"artifact_status": "conflict", "reason_code": "artifact_malformed",
+                        "admission_status": "not_independently_recoverable",
+                        "write_replayed": False}
+        else:
+            directory_fd: int | None = None
+            try:
+                directory_fd = self._open_raw_directory()
+                record = self._read_raw_record(directory_fd, memory_id + ".json",
+                    max_links=2)
+                if record is None:
+                    return {"artifact_status": "unavailable",
+                            "reason_code": "artifact_missing",
+                            "admission_status": "not_independently_recoverable",
+                            "write_replayed": False}
+                metadata = os.stat(memory_id + ".json", dir_fd=directory_fd,
+                    follow_symlinks=False)
+                if metadata.st_nlink == 2:
+                    matching_temporaries: list[str] = []
+                    with os.scandir(directory_fd) as entries:
+                        for index, entry in enumerate(entries):
+                            if index >= MAX_MEMORY_SCAN_ENTRIES:
+                                return {"artifact_status": "conflict",
+                                    "reason_code": "artifact_recovery_scan_bound_exceeded",
+                                    "admission_status": "not_independently_recoverable",
+                                    "write_replayed": False}
+                            if (entry.name.startswith(".memory-")
+                                    and entry.name.endswith(".tmp")):
+                                item = entry.stat(follow_symlinks=False)
+                                if (item.st_dev == metadata.st_dev
+                                        and item.st_ino == metadata.st_ino):
+                                    matching_temporaries.append(entry.name)
+                    if len(matching_temporaries) != 1:
+                        return {"artifact_status": "conflict",
+                            "reason_code": "artifact_linked_temporary_unresolved",
+                            "admission_status": "not_independently_recoverable",
+                            "write_replayed": False}
+                    temporary = self._read_raw_record(directory_fd,
+                        matching_temporaries[0], max_links=2)
+                    if temporary != record:
+                        return {"artifact_status": "conflict",
+                            "reason_code": "artifact_temporary_content_mismatch",
+                            "admission_status": "not_independently_recoverable",
+                            "write_replayed": False}
+                    os.unlink(matching_temporaries[0], dir_fd=directory_fd)
+                    os.fsync(directory_fd)
+                    record = self._read_raw_record(directory_fd, memory_id + ".json")
+                    if record is None:
+                        return {"artifact_status": "unavailable",
+                            "reason_code": "artifact_missing_after_reconciliation",
+                            "admission_status": "not_independently_recoverable",
+                            "write_replayed": False}
+                elif metadata.st_nlink != 1:
+                    return {"artifact_status": "conflict",
+                        "reason_code": "artifact_link_count_invalid",
+                        "admission_status": "not_independently_recoverable",
+                        "write_replayed": False}
+                raw = (json.dumps(record, sort_keys=True, ensure_ascii=False)
+                    + "\n").encode("utf-8")
+            except FileNotFoundError:
+                return {"artifact_status": "unavailable", "reason_code": "artifact_missing",
+                        "admission_status": "not_independently_recoverable",
+                        "write_replayed": False}
+            except (OSError, PermissionError, WindowsHandleCustodyError):
+                return {"artifact_status": "unavailable",
+                    "reason_code": "artifact_custody_unavailable",
                     "admission_status": "not_independently_recoverable",
                     "write_replayed": False}
-        try:
-            record = json.loads(raw.decode("utf-8"))
-        except (UnicodeError, json.JSONDecodeError):
-            return {"artifact_status": "conflict", "reason_code": "artifact_malformed",
-                    "admission_status": "not_independently_recoverable",
-                    "write_replayed": False}
+            finally:
+                if directory_fd is not None:
+                    os.close(directory_fd)
         if (not isinstance(record, dict)
-                or raw != (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+                or raw != (json.dumps(record, sort_keys=True, ensure_ascii=False)
+                    + "\n").encode("utf-8")
                 or not isinstance(record.get("meta"), Mapping)):
             return {"artifact_status": "conflict", "reason_code": "artifact_noncanonical",
                     "admission_status": "not_independently_recoverable",
@@ -353,7 +422,8 @@ class AdmittedRetentionWriter:
             os.close(descriptor)
             raise
 
-    def _read_raw_record(self, directory_fd: int, name: str) -> dict[str, Any] | None:
+    def _read_raw_record(self, directory_fd: int, name: str, *,
+                         max_links: int = 1) -> dict[str, Any] | None:
         descriptor: int | None = None
         try:
             descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
@@ -364,7 +434,8 @@ class AdmittedRetentionWriter:
             raise PermissionError("canonical_memory_existing_artifact_unavailable") from exc
         try:
             before = os.fstat(descriptor)
-            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink < 1
+                    or before.st_nlink > max_links
                     or before.st_uid != os.geteuid()
                     or stat.S_IMODE(before.st_mode) & 0o077
                     or before.st_size > MAX_RETENTION_RECORD_BYTES):
@@ -381,6 +452,7 @@ class AdmittedRetentionWriter:
             after = os.fstat(descriptor)
             if (len(raw) > MAX_RETENTION_RECORD_BYTES or len(raw) != before.st_size
                     or after.st_size != before.st_size
+                    or after.st_nlink != before.st_nlink
                     or after.st_mtime_ns != before.st_mtime_ns
                     or after.st_ctime_ns != before.st_ctime_ns
                     or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
@@ -390,7 +462,7 @@ class AdmittedRetentionWriter:
             except (UnicodeError, json.JSONDecodeError) as exc:
                 raise PermissionError("canonical_memory_existing_artifact_malformed") from exc
             if (not isinstance(value, dict)
-                    or raw != (json.dumps(value, sort_keys=True, ensure_ascii=False) + "\\n").encode("utf-8")):
+                    or raw != (json.dumps(value, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")):
                 raise PermissionError("canonical_memory_existing_artifact_noncanonical")
             return value
         finally:
@@ -454,7 +526,7 @@ class AdmittedRetentionWriter:
         }
         encoded = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
         directory_fd = self._open_raw_directory()
-        temporary_name = ".memory-" + os.urandom(16).hex() + ".tmp"
+        temporary_name = ".memory-" + memory_id + ".tmp"
         temporary_fd: int | None = None
         temporary_created = False
         try:
