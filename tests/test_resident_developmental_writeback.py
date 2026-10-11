@@ -172,3 +172,18 @@ def test_dangling_receipt_root_is_not_recovered_as_empty(tmp_path: Path) -> None
     store.receipts_root.symlink_to(tmp_path / "missing-receipts-target", target_is_directory=True)
     with pytest.raises(DevelopmentalWritebackError, match="durable_receipt_root_invalid"):
         store.receipts()
+
+
+def test_recovery_rejects_receipt_without_its_durable_record(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("durable publication fixture requires POSIX semantics")
+    ctrl, authority = controller(tmp_path)
+    _, candidate, _ = candidate_for(ctrl)
+    record, _receipt = ctrl.append(
+        candidate, admission=issue(authority, candidate), operation_id="op-1",
+        correlation_id="c", created_at="fixed")
+    (ctrl.store.records_root / f"{record.record_id}.json").unlink()
+    with pytest.raises(DevelopmentalWritebackError, match="durable_receipt_orphaned"):
+        ctrl.recover_completed_records()

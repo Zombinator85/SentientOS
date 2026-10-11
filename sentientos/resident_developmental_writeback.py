@@ -846,8 +846,33 @@ class ResidentDevelopmentalWritebackController:
 
     def recover_completed_records(self) -> tuple[tuple[DevelopmentalRecord, WritebackReceipt], ...]:
         """Verify durable records and restore only their deterministic receipt metadata."""
+        durable_records = self.store.records()
+        records_by_id = {record.record_id: record for record in durable_records}
+        if len(records_by_id) != len(durable_records):
+            raise DevelopmentalWritebackError("durable_record_identity_collision")
+
+        # Reconcile the whole receipt inventory before repairing any interrupted
+        # record-to-receipt publication. A receipt whose record disappeared is
+        # contradictory custody, not an empty or safely ignorable history.
+        for stored_receipt in self.store.receipts():
+            linked_record = records_by_id.get(stored_receipt.record_id)
+            if linked_record is None:
+                raise DevelopmentalWritebackError("durable_receipt_orphaned")
+            candidate_id = linked_record.candidate.get("candidate_id")
+            candidate_digest = linked_record.candidate.get("candidate_digest")
+            if not isinstance(candidate_id, str) or not isinstance(candidate_digest, str):
+                raise DevelopmentalWritebackError("durable_receipt_candidate_identity_invalid")
+            receipt_raw = WritebackReceipt("", "", linked_record.record_id,
+                linked_record.record_digest, candidate_id, candidate_digest,
+                linked_record.admission_id, linked_record.admission_binding_digest,
+                linked_record.principal, linked_record.operation_id, True)
+            expected_id, expected_digest = _identity("devreceipt", receipt_raw.semantic_payload())
+            expected_receipt = replace(receipt_raw, receipt_id=expected_id, receipt_digest=expected_digest)
+            if stored_receipt != expected_receipt:
+                raise DevelopmentalWritebackError("durable_receipt_record_lineage_mismatch")
+
         recovered: list[tuple[DevelopmentalRecord, WritebackReceipt]] = []
-        for record in self.store.records():
+        for record in durable_records:
             try:
                 candidate_payload = dict(record.candidate)
                 candidate_payload["selected_fact_ids"] = tuple(candidate_payload["selected_fact_ids"])

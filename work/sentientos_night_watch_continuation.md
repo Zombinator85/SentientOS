@@ -2461,3 +2461,11 @@ Next inspect succession source records for any projection that still presents a 
 - Both readers now classify the root with `lstat()`: only a genuinely absent root yields an empty collection; inaccessible roots raise a stable unavailable error; symlink or non-directory roots fail as invalid before enumeration. Existing Windows held-handle parsing and POSIX per-file verification remain unchanged.
 - Added authored, unexecuted POSIX dangling-symlink cases for both records and receipts. Python compilation only; no tests or runtime recovery ran.
 - Next inspect adjacent history retrieval and later-cognition composition for identity collisions or replay that can turn historical interpretation into current evidence.
+
+
+## 2026-10-11 checkpoint — reconcile developmental-history receipt inventory before recovery repair
+
+- Recovery previously iterated durable records and recreated each deterministic writeback receipt, but did not enumerate existing receipts. A valid receipt whose record had been removed or lost was silently ignored, allowing contradictory custody to be presented as a clean recovered history.
+- Recovery now performs a full bounded, read-only inventory preflight: every stored receipt must reference a durable record and exactly equal the deterministic receipt derived from that record's candidate, admission, principal, and operation lineage. This happens before any missing receipt is reconstructed, preventing partial repair before a later orphan/conflict is discovered.
+- Added an authored, unexecuted orphan-receipt recovery case. Python compilation only; no tests, receipt repair, or runtime recovery ran.
+- Next inspect durable cognition observations and self-model reconciliation for recovery-order ambiguity and identity linkage across their separate stores.
