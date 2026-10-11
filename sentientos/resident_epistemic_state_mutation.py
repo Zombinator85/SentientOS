@@ -238,6 +238,9 @@ class ResidentEpistemicStateMutationController:
             if exc.code == "publication_unsupported":
                 raise EpistemicMutationError(
                     "mutation_custody_publication_unsupported_platform") from exc
+            if exc.code in {"directory_root_invalid", "directory_permissions_invalid",
+                    "directory_path_permissions_invalid"}:
+                raise EpistemicMutationError("mutation_custody_parent_invalid") from exc
             raise EpistemicMutationError("mutation_custody_publication_failed") from exc
 
     def _write_state_intent(self, *, candidate: EpistemicUpdateCandidate,

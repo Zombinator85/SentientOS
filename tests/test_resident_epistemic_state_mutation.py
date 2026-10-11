@@ -399,3 +399,20 @@ def test_mutation_immutable_publication_uses_create_once_identity(tmp_path: Path
         ResidentEpistemicStateMutationController._publish_immutable(
             target, b"substituted", collision="mutation_identity_conflict")
     assert target.read_bytes() == b"intent"
+
+
+def test_mutation_immutable_publication_rejects_symlink_parent_with_custody_error(
+        tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor-bound publication is required")
+    external = tmp_path / "external"
+    external.mkdir(mode=0o700)
+    link = tmp_path / "linked"
+    link.symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(EpistemicMutationError, match="mutation_custody_parent_invalid"):
+        ResidentEpistemicStateMutationController._publish_immutable(
+            link / "intent.json", b"intent", collision="mutation_identity_conflict")
+    assert not (external / "intent.json").exists()

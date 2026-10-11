@@ -2765,3 +2765,11 @@ A later source correction was also composed from stale note text and displaced t
 - Windows mutation recovery remains read-only and writes remain unsupported there. Added an authored, unexecuted create-once/idempotent-retry/substitution case.
 - Shared custody, mutation source, and test module passed Python syntax compilation only. No tests, admissions, state mutations, or recovery were executed.
 - Next review the immutable epistemic-state publisher's handling of already-present identical records and directory durability, then inspect developmental-history post-replace recovery for any operation that could replay cognition or duplicate state.
+
+
+## 2026-10-11 correction — preserve epistemic mutation error taxonomy
+
+- The descriptor-bound mutation publisher initially mapped invalid or insufficiently private parent directories to a generic publication error. The old owner exposed `mutation_custody_parent_invalid`; the mapping now preserves that fail-closed posture for no-follow directory identity and permission failures.
+- Added an authored, unexecuted symlink-parent rejection case. The shared epistemic record owner treats identical immutable identities as idempotent; the mutation controller still distinguishes a newly created intent from a prior identical intent so same-operation replay remains blocked.
+- Mutation source and test syntax compilation only; no tests or write/recovery behavior ran.
+- Next inspect developmental-history append recovery and verify the record/receipt partial-publication path remains idempotent with the shared custody helper's updated create-result contract.
