@@ -102,12 +102,30 @@ class ResidentEpistemicStateMutationController:
         self.owner, self.admission_verifier = owner, admission_verifier
         self.current_sequence = current_sequence
         self.receipt_root = Path(receipt_root)
-        if self.receipt_root.exists() and self.receipt_root.is_symlink():
-            raise EpistemicMutationError("receipt_root_symlink_forbidden")
+        try:
+            receipt_root_stat = self.receipt_root.lstat()
+        except FileNotFoundError:
+            receipt_root_stat = None
+        except OSError as exc:
+            raise EpistemicMutationError("receipt_root_unavailable") from exc
+        if receipt_root_stat is not None and (
+                stat.S_ISLNK(receipt_root_stat.st_mode) or not stat.S_ISDIR(receipt_root_stat.st_mode)):
+            raise EpistemicMutationError("receipt_root_invalid")
         for stage in ("evidence", "state"):
             path = self.receipt_root / "receipts" / stage
-            path.mkdir(parents=True, exist_ok=True)
-            if path.is_symlink(): raise EpistemicMutationError("receipt_path_symlink_forbidden")
+            if os.name == "nt":
+                try:
+                    stage_stat = path.lstat()
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    raise EpistemicMutationError("receipt_path_unavailable") from exc
+                if stat.S_ISLNK(stage_stat.st_mode) or not stat.S_ISDIR(stage_stat.st_mode):
+                    raise EpistemicMutationError("receipt_path_invalid")
+            else:
+                path.mkdir(parents=True, exist_ok=True)
+                if path.is_symlink() or not path.is_dir():
+                    raise EpistemicMutationError("receipt_path_invalid")
         self._recovery_status: dict[str, Any] = {"status": "unchecked",
             "pending_evidence_intent_count": 0, "pending_state_intent_count": 0,
             "pending_transaction_count": 0, "recovered_receipt_count": 0}
@@ -476,11 +494,21 @@ class ResidentEpistemicStateMutationController:
             directory = self.receipt_root / "receipts" / stage
             if os.name == "nt":
                 try:
-                    entries = read_regular_files(directory, max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
-                        max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
-                        max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
-                except WindowsHandleCustodyError as exc:
-                    raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
+                    directory_stat = directory.lstat()
+                except FileNotFoundError:
+                    entries = ()
+                except OSError as exc:
+                    raise EpistemicMutationError("receipt_path_unavailable") from exc
+                else:
+                    if (stat.S_ISLNK(directory_stat.st_mode)
+                            or not stat.S_ISDIR(directory_stat.st_mode)):
+                        raise EpistemicMutationError("receipt_path_invalid")
+                    try:
+                        entries = read_regular_files(directory, max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
+                            max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                            max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
+                    except WindowsHandleCustodyError as exc:
+                        raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
             else:
                 if directory.is_symlink() or not directory.is_dir():
                     raise EpistemicMutationError("receipt_path_symlink_forbidden")

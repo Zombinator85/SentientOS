@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,6 +15,7 @@ from sentientos.persistent_epistemic_state import (
     make_epistemic_update_candidate,
     make_evidence_binding, make_proposition,
 )
+import sentientos.resident_epistemic_state_mutation as mutation_module
 from sentientos.resident_epistemic_state_mutation import (
     EVIDENCE_BINDING_EFFECTS, PRINCIPAL, STATE_UPDATE_EFFECTS,
     EpistemicMutationError, ResidentEpistemicStateMutationController,
@@ -79,6 +82,20 @@ def test_separate_admissions_append_update_and_prior_only_projection(tmp_path) -
     assert projection is not None
     assert (projection.prior_position_only, projection.current_truth, projection.authority,
             projection.policy, projection.goal) == (True, False, False, False, False)
+
+
+def test_windows_controller_construction_does_not_create_receipt_custody(
+        monkeypatch, tmp_path: Path) -> None:
+    root = tmp_path / "windows-read-only-custody"
+    monkeypatch.setattr(mutation_module, "os", SimpleNamespace(name="nt"))
+    monkeypatch.setattr(ResidentEpistemicStateMutationController, "verify_receipts",
+        lambda self: {})
+    ResidentEpistemicStateMutationController(owner=object(), admission_verifier=object(),
+        current_sequence=lambda: 1, receipt_root=root)
+    assert not root.exists()
+    assert not (root / "receipts" / "evidence").exists()
+    assert not (root / "receipts" / "state").exists()
+    assert not (root / "operations").exists()
 
 
 def test_mutation_bound_state_is_not_cognized_without_verified_intent(tmp_path) -> None:
