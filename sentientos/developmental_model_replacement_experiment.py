@@ -1208,6 +1208,7 @@ class ModelReplacementArtifactStore:
             normalized_protocol = json.loads(json.dumps(asdict(protocol), sort_keys=True))
             if normalized_protocol != dict(protocol_value):
                 raise DevelopmentalModelReplacementError("run_projection_protocol_binding_mismatch")
+            projection_context: Mapping[str, Any] | None = None
             if run.get("context_lineage_posture") == "verified_persisted_frozen_context":
                 projection_context = self.load_verified_context(protocol.causal_context_id,
                     protocol.causal_context_digest)
@@ -1284,7 +1285,9 @@ class ModelReplacementArtifactStore:
                     "request_id", "request_digest",
                     "current_projection_id", "current_projection_digest", "history_withheld",
                     "history_record_ids", "history_record_digests", "inference_receipt_id",
-                    "inference_receipt_digest", "inference_event_time",
+                    "inference_receipt_digest", "model_serving_receipt_id",
+                    "model_serving_receipt_digest", "model_serving_lifetime_id",
+                    "model_serving_receipt_posture", "inference_event_time",
                     "inference_event_time_posture", "output_digest",
                     "model_id", "model_artifact_digest",
                     "prior_self_model_projection_id", "prior_self_model_projection_digest",
@@ -1324,10 +1327,12 @@ class ModelReplacementArtifactStore:
                 "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
                 "causal_context_id": protocol.causal_context_id,
                 "causal_context_digest": protocol.causal_context_digest,
-                "declared_repository_generation_identity": self.context.repository_generation_identity,
+                "declared_repository_generation_identity": (projection_context.get(
+                    "repository_generation_identity") if projection_context is not None else None),
                 "declared_repository_generation_posture": (
                     "frozen_context_declaration_not_running_observation"
-                    if self.context.repository_generation_identity is not None else "unknown"),
+                    if projection_context is not None and projection_context.get(
+                        "repository_generation_identity") is not None else "unknown"),
                 "software_generation_identity": None,
                 "software_generation_posture": "not_bound_by_selected_protocol",
                 "model_a_id": protocol.model_a_identity.model_id,

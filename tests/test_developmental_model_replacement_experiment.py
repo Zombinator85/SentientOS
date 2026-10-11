@@ -142,6 +142,12 @@ def test_serving_receipt_references_survive_controlled_run_recovery(tmp_path: Pa
     assert all(row["model_serving_receipt_posture"] ==
         "endpoint_receipt_reference_only_not_independently_reverified"
         for row in recovered["observations"])
+    records = exp.store.world_state_records(run_refs=((run["run_id"], run["run_digest"]),))
+    projected = records[0]["payload"]["observations"]
+    assert [row["model_serving_receipt_id"] for row in projected] == [
+        row["model_serving_receipt_id"] for row in recovered["observations"]]
+    assert all(row["model_serving_receipt_posture"] ==
+        "endpoint_receipt_reference_only_not_independently_reverified" for row in projected)
 
 
 def test_preregistered_five_condition_model_replacement_experiment(tmp_path: Path) -> None:
