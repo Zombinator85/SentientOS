@@ -394,24 +394,47 @@ class PersistentEpistemicStateOwner:
                     max_total_bytes=MAX_EPISTEMIC_COLLECTION_BYTES))
             except WindowsHandleCustodyError as exc:
                 raise EpistemicStateError("epistemic_collection_windows_recovery_failed") from exc
-        paths = tuple(sorted(directory.glob("*.json")))
-        if len(paths) > MAX_EPISTEMIC_RECORDS_PER_COLLECTION:
-            raise EpistemicStateError("epistemic_record_count_limit_exceeded")
-        records: list[tuple[str, bytes]] = []; total = 0
-        for path in paths:
-            data = _read_record_bytes(path)
-            total += len(data)
-            if total > MAX_EPISTEMIC_COLLECTION_BYTES:
-                raise EpistemicStateError("epistemic_collection_size_limit_exceeded")
-            records.append((path.name, data))
+
+        directory_fd: int | None = None
         try:
-            after = directory.lstat()
+            directory_fd = open_private_directory(directory, create=False)
+            opened = os.fstat(directory_fd)
+            if (not stat.S_ISDIR(opened.st_mode) or opened.st_ino != entries_mode.st_ino
+                    or opened.st_dev != entries_mode.st_dev):
+                raise EpistemicStateError("epistemic_collection_changed_during_read")
+            names = tuple(sorted(name for name in os.listdir(directory_fd) if name.endswith(".json")))
+            if len(names) > MAX_EPISTEMIC_RECORDS_PER_COLLECTION:
+                raise EpistemicStateError("epistemic_record_count_limit_exceeded")
+            records: list[tuple[str, bytes]] = []
+            total = 0
+            for name in names:
+                try:
+                    data = read_private_file_at(
+                        directory_fd, name, max_bytes=MAX_EPISTEMIC_RECORD_BYTES,
+                        require_private_mode=True)
+                except PrivateFileCustodyError as exc:
+                    if exc.code == "file_unbounded_or_not_private":
+                        raise EpistemicStateError("epistemic_record_unbounded_or_not_regular") from exc
+                    raise EpistemicStateError("epistemic_collection_changed_during_read") from exc
+                total += len(data)
+                if total > MAX_EPISTEMIC_COLLECTION_BYTES:
+                    raise EpistemicStateError("epistemic_collection_size_limit_exceeded")
+                records.append((name, data))
+            after = os.fstat(directory_fd)
+            if (after.st_ino != opened.st_ino or after.st_dev != opened.st_dev
+                    or after.st_mtime_ns != opened.st_mtime_ns
+                    or after.st_ctime_ns != opened.st_ctime_ns):
+                raise EpistemicStateError("epistemic_collection_changed_during_read")
+            return tuple(records)
+        except EpistemicStateError:
+            raise
+        except PrivateFileCustodyError as exc:
+            raise EpistemicStateError("epistemic_collection_custody_invalid") from exc
         except OSError as exc:
-            raise EpistemicStateError("epistemic_collection_changed_during_read") from exc
-        if (not stat.S_ISDIR(after.st_mode) or after.st_ino != entries_mode.st_ino
-                or after.st_dev != entries_mode.st_dev):
-            raise EpistemicStateError("epistemic_collection_changed_during_read")
-        return tuple(records)
+            raise EpistemicStateError("epistemic_collection_unavailable") from exc
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
 
     def _recover_transactions(self) -> int:
         """Recover storage-only pairs and count admitted pairs still awaiting owner validation."""

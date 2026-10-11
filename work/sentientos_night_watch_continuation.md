@@ -2649,3 +2649,10 @@ A later source correction was also composed from stale note text and displaced t
 - Persistent epistemic state already serialized generation compare-and-swap, but opened its lock through a path-based parent lookup and checked only that the result was a regular file. The lock now uses the shared no-follow directory descriptor, requires an owner-owned single-link file with private mode, and holds both descriptors for the full transaction.
 - Added an authored, unexecuted symlink and shared-mode lock-custody case. Changed source and test syntax compilation only; lock behavior is unverified.
 - Next inspect the longitudinal self-model's root-bound lock and persistent collection transactions for remaining path-based handoffs; preserve Windows read-only recovery.
+
+
+## 2026-10-11 checkpoint — pin epistemic inventory reads to one directory handle
+
+- After individual record reads and writes moved to descriptor custody, collection inventory still enumerated JSON paths and reopened the directory for each file. A replacement or mutation between enumeration and reads could cross the inventory boundary. POSIX recovery now opens and pins one verified collection directory, enumerates and reads bounded records relative to that descriptor, then checks directory identity and timestamps for concurrent mutation. Windows continues using its held-handle, read-only collection reader.
+- The prior symlink rejection case remains authored and unexecuted. Changed source syntax compilation only; collection race behavior is unverified.
+- Next inspect transaction repair publication for locking and consistency across the records/updates pair, ensuring a crash cannot leave a mixed generation visible to later cognition.
