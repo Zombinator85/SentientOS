@@ -104,3 +104,34 @@ def test_admission_ledger_refuses_symlinked_parent_custody(tmp_path):
     with pytest.raises(AdmissionError, match="publication_failed"):
         ledger.save((), ())
     assert list(external.iterdir()) == []
+
+
+def test_concurrent_admission_issuers_preserve_distinct_sequences(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    path = tmp_path / "authority" / "ledger.json"
+    barrier = Barrier(2)
+
+    def issue(admission_id, sequence):
+        ledger = AdmissionLedger(path)
+        authority = RuntimeAdmissionAuthority(definitions={CAPABILITY: DEFINITION}, ledger=ledger)
+        barrier.wait()
+        return authority.issue(
+            admission_id=admission_id, capability_id=CAPABILITY, definition_version=1,
+            subsystem_kind="fixture", principal_id="controller-a", principal_kind="fixture_controller",
+            effects=("bounded_external_model_network_egress",), subject_id="service-a:endpoint-a",
+            request_configuration_digest="sha256:binding", provenance="operator-reviewed-fixture",
+            issued_sequence=sequence, valid_through_sequence=5,
+            affirmative_preconditions=("operator_fixture_approval",))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(issue, "parallel-a", 2)
+        second = pool.submit(issue, "parallel-b", 3)
+        first.result()
+        second.result()
+
+    admissions, revocations = AdmissionLedger(path).load()
+    assert revocations == ()
+    assert {item.admission_id for item in admissions} == {"parallel-a", "parallel-b"}
+    assert {item.issued_sequence for item in admissions} == {2, 3}
