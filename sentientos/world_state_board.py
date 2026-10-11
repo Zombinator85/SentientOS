@@ -134,6 +134,12 @@ class WorldStateBoardBuilder:
             sid=str(r.get("source_id") or f"{kind}:{i}"); content={k:v for k,v in r.items() if k not in {"digest","observed_at","retrieved_at","latency","absolute_path","temporary_root","process_id","dashboard_request_time","output_location"}}
             dg=str(r.get("digest") or record_digest(r)); finding="ok"
             if r.get("digest") and r.get("digest") != record_digest(r): finding="digest-mismatch"
+            raw_effect_claimed = r.get("effect_claimed", False)
+            raw_effect_proven = r.get("effect_proven", False)
+            effect_flags_valid = (type(raw_effect_claimed) is bool
+                                  and type(raw_effect_proven) is bool)
+            if not effect_flags_valid and finding == "ok":
+                finding = "invalid-effect-flag-type"
             st=_source_staleness(kind, r.get("observed_at"), r.get("staleness"), now)
             event_token = _canon(r.get("observed_at"))
             source_event_tokens = seen_event_times.setdefault(sid, set())
@@ -152,10 +158,18 @@ class WorldStateBoardBuilder:
             subj=WorldStateSubject(str(r.get("subject_id",sid)), str(r.get("subject_kind",kind)))
             stage=str(r.get("stage","observation"));
             if stage not in LIFECYCLE_STAGES: raise ValueError(f"unsupported lifecycle stage: {stage}")
-            disp=str(r.get("disposition","unknown")); eff=bool(r.get("effect_claimed",False)); proven=bool(r.get("effect_proven",False))
+            disp=str(r.get("disposition","unknown"))
+            # Never let truthy strings, integers, or containers masquerade as
+            # a typed effect claim or proof in the aggregate World-State.
+            eff=raw_effect_claimed if effect_flags_valid else False
+            proven=raw_effect_proven if effect_flags_valid else False
             payload=dict(r.get("payload",{}))
             fid=_sid("fact",(subj.subject_id,subj.subject_kind,stage,disp,src.digest,payload,eff,proven))
             facts.append(WorldStateFact(fid,subj,stage,disp,str(r.get("evidence_strength","recorded")),src,payload,eff,proven,r.get("observed_at")))
+            if not effect_flags_valid:
+                conflicts.append(WorldStateConflict(_sid("conflict",(sid,"effect-flag-type-invalid",fid)),
+                    "effect_flag_type_invalid",sid,(fid,),"error",
+                    "effect_claimed and effect_proven must be JSON booleans"))
         conflicts += self._detect_conflicts(facts)
         entities=self._entities(facts,conflicts)
         counts=self._counts(sources,facts)

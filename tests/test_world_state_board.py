@@ -38,3 +38,21 @@ def test_delta_disappearance_not_deletion():
     d=diff_snapshots(before, after)
     assert d.changes[0]["change"] == "disappearance_from_current_observation"
     assert d.changes[0]["deletion_claimed"] is False
+
+
+def test_non_boolean_effect_flags_cannot_confer_proven_completion():
+    b=WorldStateBoardBuilder(clock=lambda: datetime(2026,1,1,tzinfo=timezone.utc))
+    s=b.build([
+        {"source_kind":"fulfillment","source_id":"valid","subject_id":"valid-effect",
+         "stage":"execution","effect_claimed":True,"effect_proven":True},
+        {"source_kind":"fulfillment","source_id":"malformed","subject_id":"false-text-effect",
+         "stage":"execution","effect_claimed":"false","effect_proven":"false"},
+    ])
+    facts={fact.subject.subject_id:fact for fact in s.facts}
+    assert facts["valid-effect"].effect_claimed is True
+    assert facts["valid-effect"].effect_proven is True
+    assert facts["false-text-effect"].effect_claimed is False
+    assert facts["false-text-effect"].effect_proven is False
+    assert s.summary.proven_completions==1
+    assert "invalid-effect-flag-type" in {source.finding for source in s.sources}
+    assert any(conflict.conflict_type=="effect_flag_type_invalid" for conflict in s.conflicts)

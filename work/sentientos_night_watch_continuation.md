@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 116993)
-Total output lines: 2969
+Warning: truncated output (original token count: 117252)
+Total output lines: 2976
 
 # SentientOS long construction continuation
 
@@ -310,14 +310,7 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The verified digest list is bounded to the newest 128 journal entries, matching the daemon's bounded transition projection. Older valid history remains in durable journal custody but is not individually emitted by this bounded World-State view.
 - The changed transition-controller and daemon sources passed `py_compile`. No runtime, crash/restart, cognition, World-State builder execution, tests, model activation, or production verification was performed. Work remains unverified for production.
 
-**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…86993 tokens truncated…# 2026-10-11 checkpoint — pin epistemic inventory reads to one directory handle
-
-- After individual record reads and writes moved to descriptor custody, collection inventory still enumerated JSON paths and reopened the directory for each file. A replacement or mutation between enumeration and reads could cross the inventory boundary. POSIX recovery now opens and pins one verified collection directory, enumerates and reads bounded records relative to that descriptor, then checks directory identity and timestamps for concurrent mutation. Windows continues using its held-handle, read-only collection reader.
-- The prior symlink rejection case remains authored and unexecuted. Changed source syntax compilation only; collection race behavior is unverified.
-- Next inspect transaction repair publication for locking and consistency across the records/updates pair, ensuring a crash cannot leave a mixed generation visible to later cognition.
-
-
-## 2026-10-11 checkpoint — bound JSON inventory enumeration through the custody helper
+**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…87252 tokens truncated…
 
 - Persistent epistemic and developmental-history inventories now enumerate bounded JSON names through a shared helper operating on one held directory descriptor. The helper caps both selected records and total directory entries, preventing large ignored-file inventories from bypassing parser bounds. Both owners read each record relative to the same descriptor and verify collection identity after the scan; existing Windows readers remain handle-bound and read-only.
 - Added authored, unexecuted cases for directory-entry and selected-file bounds plus linked-file rejection. Python syntax compilation only; inventory races and recovery remain unverified.
@@ -626,3 +619,10 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - The central verifier now also requires the producer's non-effect posture (`effect_proven is False`, no proven consequence value), a known classification and causal posture, and the explicit verified/unverified observation posture. This protects every consumer using this verifier, not only World-State projection.
 - Added a digest-recomputed false-to-true attribution attack regression. The focused `tests/test_embodied_consequence.py` module passes: 15 passed; Python compilation and `git diff --check` pass. Existing valid synthetic positive controls still pass and remain explicitly non-independent/non-effect evidence.
 - No actual observation, effect, learning, performance gain, or production event is demonstrated. The next useful source review is another direct consumer of developmental consequence evidence; synthetic integration tests do not settle that empirical gap.
+
+## 2026-10-11 checkpoint — World-State refuses truthy non-boolean effect fields
+
+- Continued from remote `c550484989e9066ee369c1f3e2a8bfa40e26728a`. A direct hostile input probe showed `WorldStateBoardBuilder` coerced `effect_claimed="false"` and `effect_proven="false"` with `bool(...)`, producing a conflict-free proven execution and incrementing `proven_completions`.
+- The builder now accepts only actual JSON booleans for these two fields. Malformed values project as false, degrade the source, and create an error conflict tied to the fact. Valid boolean positive controls still produce one proven completion.
+- `tests/test_world_state_board.py` under its configured legacy marker: 5 passed. The focused consequence module remains at 15 passed from the preceding source checkpoint. Compilation and diff checks pass. No production validation was performed.
+- Continue to the next direct consumer boundary after this shared World-State trust fix; the local-model and authenticated independent observer blockers remain unchanged.
