@@ -2200,3 +2200,12 @@ Added an unexecuted regression through the World-State builder and longitudinal 
 ## 2026-10-11 checkpoint — restore continuation history after stale-source write
 
 A remote compare caught that the preceding test-record update used an older fetched copy, dropping the immediately prior scope-writeback regression and newer continuation entries. Restored the exact test and append-only note from parent commit `ab624c13f404027dc2320c2868c30329eef7a906`, then added the chat-lineage case and this correction. No production source was changed in the recovery commit.
+
+
+## 2026-10-11 checkpoint — qualify invocation-linked chat software lineage
+
+The resource-to-World-State projection now carries the authenticated chat handoff's source scope and exact process-identity scope alongside each invocation-linked generation record, explicitly marking loaded code as not independently attested. Resident cognition only prioritizes those records when the explicit qualification matches the handoff's source scope. The underlying invocation receipt and handoff digest bindings are unchanged; the label adds no runtime or adoption authority.
+
+Added authored unexecuted selector cases for qualified and incomplete source-scope lineage. Changed Python sources and test compile only; no test, resource invocation, process, or production verification ran.
+
+Next inspect whether source-scope qualifications survive the model-replacement and recovery transition projections into durable history; preserve their existing event time and non-currentness semantics.
