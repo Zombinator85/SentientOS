@@ -1,6 +1,6 @@
 """Side-effect-free canonical live-memory storage and explicit retention authority."""
 from __future__ import annotations
-import hashlib, json, os, re, tempfile
+import hashlib, json, os, re, stat
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -215,21 +215,198 @@ class AdmittedRetentionWriter:
             and verification.get("admission_status")
                 == "policy_recomputed_not_execution_attested") else verification
 
-    def execute(self,candidate:Mapping[str,Any],admission:RetentionAdmission,source_turn:Mapping[str,Any])->dict[str,Any]:
-        if admission.decision!="retention_admitted" or admission.candidate_digest!=digest(candidate): raise PermissionError("valid_admission_evidence_required")
-        if candidate.get("candidate_type")!=CANDIDATE_TYPE or candidate.get("source_role")!="user": raise PermissionError("invalid_retention_candidate")
-        if source_turn.get("role")!="user" or source_turn.get("turn_id")!=candidate.get("source_turn_id"): raise PermissionError("source_turn_mismatch")
-        if source_turn.get("text_digest")!=candidate.get("source_text_digest") or digest({"text":source_turn.get("text")})!=candidate.get("source_text_digest"): raise PermissionError("source_text_mismatch")
-        op=str(candidate["operation_id"]); mid="memory-"+hashlib.sha256(op.encode()).hexdigest()[:24]; path=self.store.raw/f"{mid}.json"
-        record={"id":mid,"text":source_turn["text"],"text_digest":source_turn["text_digest"],"timestamp":datetime.now(timezone.utc).isoformat(),"source":"conversation_user_turn","category":"event","tags":["explicit-retention"],"importance":1.0,
-                "meta":{"session_id":candidate["session_id"],"turn_id":candidate["source_turn_id"],"request_id":candidate["request_id"],"operation_id":op,"admission_receipt_digest":admission.receipt_digest}}
-        if path.exists():
-            existing=json.loads(path.read_text(encoding="utf-8"))
-            for key in ("text","text_digest","source","meta"):
-                if existing.get(key)!=record.get(key): raise PermissionError("operation_replay_mismatch")
-            record=existing
-        else:
-            fd,temp=tempfile.mkstemp(prefix=".memory-",dir=self.store.raw)
-            with os.fdopen(fd,"w",encoding="utf-8") as stream: json.dump(record,stream,sort_keys=True,ensure_ascii=False);stream.write("\n");stream.flush();os.fsync(stream.fileno())
-            os.replace(temp,path)
-        return {"status":"memory_retention_committed","memory_id":mid,"source_session_id":candidate["session_id"],"source_turn_id":candidate["source_turn_id"],"source_text_digest":candidate["source_text_digest"],"admission_receipt_digest":admission.receipt_digest,"execution_operation_id":op,"canonical_stored_record_digest":digest(record),"target_root_identity":digest({"root":str(self.store.root)}),"index_update_result":"raw_fragment_available"}
+    def _open_raw_directory(self) -> int:
+        if os.name != "posix":
+            raise PermissionError("canonical_memory_atomic_publication_unsupported_platform")
+        nofollow = getattr(os, "O_NOFOLLOW", None)
+        directory = getattr(os, "O_DIRECTORY", None)
+        if (nofollow is None or directory is None
+                or os.open not in os.supports_dir_fd
+                or os.link not in os.supports_dir_fd
+                or os.unlink not in os.supports_dir_fd):
+            raise PermissionError("canonical_memory_safe_publication_unavailable")
+        absolute = Path(os.path.abspath(self.store.raw))
+        descriptor = os.open(os.sep, os.O_RDONLY | directory)
+        try:
+            for component in absolute.parts[1:]:
+                if component in {"", ".", ".."}:
+                    raise PermissionError("canonical_memory_path_component_invalid")
+                child = os.open(component, os.O_RDONLY | directory | nofollow,
+                    dir_fd=descriptor)
+                metadata = os.fstat(child)
+                if not stat.S_ISDIR(metadata.st_mode):
+                    os.close(child)
+                    raise PermissionError("canonical_memory_raw_root_invalid")
+                os.close(descriptor)
+                descriptor = child
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISDIR(metadata.st_mode)
+                    or metadata.st_uid != os.geteuid()):
+                raise PermissionError("canonical_memory_raw_root_owner_invalid")
+            os.fchmod(descriptor, 0o700)
+            return descriptor
+        except Exception:
+            os.close(descriptor)
+            raise
+
+    def _read_raw_record(self, directory_fd: int, name: str) -> dict[str, Any] | None:
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
+        except FileNotFoundError:
+            return None
+        except OSError as exc:
+            raise PermissionError("canonical_memory_existing_artifact_unavailable") from exc
+        try:
+            before = os.fstat(descriptor)
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                    or before.st_uid != os.geteuid()
+                    or stat.S_IMODE(before.st_mode) & 0o077
+                    or before.st_size > MAX_RETENTION_RECORD_BYTES):
+                raise PermissionError("canonical_memory_existing_artifact_custody_invalid")
+            chunks: list[bytes] = []
+            remaining = MAX_RETENTION_RECORD_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+            after = os.fstat(descriptor)
+            if (len(raw) > MAX_RETENTION_RECORD_BYTES or len(raw) != before.st_size
+                    or after.st_size != before.st_size
+                    or after.st_mtime_ns != before.st_mtime_ns
+                    or after.st_ctime_ns != before.st_ctime_ns
+                    or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+                raise PermissionError("canonical_memory_existing_artifact_changed")
+            try:
+                value = json.loads(raw.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise PermissionError("canonical_memory_existing_artifact_malformed") from exc
+            if (not isinstance(value, dict)
+                    or raw != (json.dumps(value, sort_keys=True, ensure_ascii=False) + "\\n").encode("utf-8")):
+                raise PermissionError("canonical_memory_existing_artifact_noncanonical")
+            return value
+        finally:
+            os.close(descriptor)
+
+    @staticmethod
+    def _same_operation_record(existing: Mapping[str, Any],
+                               proposed: Mapping[str, Any]) -> bool:
+        fields = {"id", "text", "text_digest", "timestamp", "source", "category",
+                  "tags", "importance", "meta"}
+        if set(existing) != fields or any(existing.get(key) != proposed.get(key)
+                for key in fields - {"timestamp"}):
+            return False
+        try:
+            timestamp = datetime.fromisoformat(
+                str(existing.get("timestamp", "")).replace("Z", "+00:00"))
+        except (OSError, OverflowError, TypeError, ValueError):
+            return False
+        return timestamp.tzinfo is not None and timestamp.utcoffset() is not None
+
+    def execute(self, candidate: Mapping[str, Any], admission: RetentionAdmission,
+                source_turn: Mapping[str, Any]) -> dict[str, Any]:
+        expected_candidate_fields = {"candidate_type", "session_id", "source_turn_id",
+            "source_role", "source_text_digest", "explicitly_requested", "request_id",
+            "operation_id"}
+        if (not isinstance(candidate, Mapping) or set(candidate) != expected_candidate_fields
+                or candidate.get("candidate_type") != CANDIDATE_TYPE
+                or candidate.get("source_role") != "user"
+                or candidate.get("explicitly_requested") is not True
+                or not isinstance(candidate.get("session_id"), str)
+                or not candidate.get("session_id")
+                or candidate.get("source_turn_id") != source_turn.get("turn_id")
+                or candidate.get("source_text_digest") != source_turn.get("text_digest")
+                or not isinstance(candidate.get("request_id"), str)
+                or not re.fullmatch(r"retain-request-[0-9a-f]{24}",
+                    candidate.get("request_id", ""))):
+            raise PermissionError("invalid_retention_candidate")
+        operation = "retain:" + candidate["session_id"] + ":" + candidate["source_turn_id"]
+        if candidate.get("operation_id") != operation:
+            raise PermissionError("retention_operation_binding_invalid")
+        if (source_turn.get("role") != "user"
+                or not isinstance(source_turn.get("text"), str)
+                or not isinstance(source_turn.get("text_digest"), str)
+                or digest({"text": source_turn.get("text")})
+                    != source_turn.get("text_digest")):
+            raise PermissionError("source_text_mismatch")
+        expected_admission = self.admission_gate.decide(candidate)
+        if admission != expected_admission or admission.decision != "retention_admitted":
+            raise PermissionError("valid_admission_evidence_required")
+        memory_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
+        record = {
+            "id": memory_id, "text": source_turn["text"],
+            "text_digest": source_turn["text_digest"],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source": "conversation_user_turn", "category": "event",
+            "tags": ["explicit-retention"], "importance": 1.0,
+            "meta": {"session_id": candidate["session_id"],
+                "turn_id": candidate["source_turn_id"],
+                "request_id": candidate["request_id"], "operation_id": operation,
+                "admission_receipt_digest": admission.receipt_digest},
+        }
+        encoded = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+        directory_fd = self._open_raw_directory()
+        temporary_name = ".memory-" + os.urandom(16).hex() + ".tmp"
+        temporary_fd: int | None = None
+        temporary_created = False
+        try:
+            existing = self._read_raw_record(directory_fd, memory_id + ".json")
+            if existing is not None:
+                if not self._same_operation_record(existing, record):
+                    raise PermissionError("operation_replay_mismatch")
+                record = existing
+            else:
+                flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                    | getattr(os, "O_CLOEXEC", 0))
+                temporary_fd = os.open(temporary_name, flags, 0o600, dir_fd=directory_fd)
+                temporary_created = True
+                view = memoryview(encoded)
+                while view:
+                    written = os.write(temporary_fd, view)
+                    if written <= 0:
+                        raise OSError("short_canonical_memory_artifact_write")
+                    view = view[written:]
+                os.fsync(temporary_fd)
+                try:
+                    os.link(temporary_name, memory_id + ".json",
+                        src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
+                        follow_symlinks=False)
+                except FileExistsError:
+                    existing = self._read_raw_record(directory_fd, memory_id + ".json")
+                    if (existing is None
+                            or not self._same_operation_record(existing, record)):
+                        raise PermissionError("operation_replay_mismatch")
+                    record = existing
+                else:
+                    os.fsync(directory_fd)
+        finally:
+            if temporary_fd is not None:
+                os.close(temporary_fd)
+            try:
+                if temporary_created:
+                    os.unlink(temporary_name, dir_fd=directory_fd)
+                    os.fsync(directory_fd)
+            except FileNotFoundError:
+                pass
+            finally:
+                os.close(directory_fd)
+        receipt = {
+            "status": "memory_retention_committed", "memory_id": memory_id,
+            "source_session_id": candidate["session_id"],
+            "source_turn_id": candidate["source_turn_id"],
+            "source_text_digest": candidate["source_text_digest"],
+            "admission_receipt_digest": admission.receipt_digest,
+            "execution_operation_id": operation,
+            "canonical_stored_record_digest": digest(record),
+            "target_root_identity": digest({"root": str(self.store.root)}),
+            "index_update_result": "raw_fragment_available",
+        }
+        verification = self.verify_committed_artifact(receipt, source_turn,
+            candidate["session_id"])
+        if verification.get("artifact_status") != "verified":
+            raise PermissionError("canonical_memory_artifact_reconciliation_failed")
+        return receipt

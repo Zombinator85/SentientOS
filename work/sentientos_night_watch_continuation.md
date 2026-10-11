@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch later reached `8427eda351c5967695c6c0b37891777206d07d45` (tree `3acf6f9fe2a849d2853f7ee890f3507f204e34b1`), which is the source base for the checkpoint appended below. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch later reached `441b962c190444b7f0f63b39fcae7c40f6abf06a` (tree `305ba4aab0eb4ea510a9b640077806f4bafa0ce3`), which is the source base for the checkpoint appended below. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1145,3 +1145,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation and trailing-whitespace checks passed for `canonical_memory.py` and `chat_service.py`. No tests, filesystem fault injection, memory write, runtime request, or production verification was performed. Construction remains untested.
 
 **Next implementation dependency:** inspect and harden the canonical memory artifact write transaction itself. Current writer still uses a path-existence/read/replace sequence and does not durably fsync the containing directory; preserve collision safety, exact root custody, and no-write recovery semantics while correcting it.
+
+
+## New checkpoint — publish explicit memory artifacts without replacement races
+
+- Fresh remote source before this increment: `441b962c190444b7f0f63b39fcae7c40f6abf06a` (tree `305ba4aab0eb4ea510a9b640077806f4bafa0ce3`).
+- The previous memory writer used `Path.exists()`, an unbounded path read for retries, and `os.replace()`; two concurrent requests or a symlink/collision could replace an artifact for the deterministic retention operation. Its file was fsynced, but directory publication was not.
+- Retention execution now rechecks the exact default-deny gate result and binds operation/session/turn/request/text identities before writing. POSIX publication opens the configured raw directory by a no-follow held descriptor, requires current-user ownership, narrows the directory to owner-only access, writes a bounded-mode exclusive temporary file, fsyncs it, publishes by create-only hardlink, and fsyncs the directory. Existing artifacts are bounded-read through the held directory, require regular single-link current-user custody and owner-only file permissions, and are reusable only when operation-bound content matches. A different record at the same deterministic identity fails closed.
+- No memory write is replayed during recovery; the preceding interruption reconciler can still attest only that the deterministic policy recomputes from the stored candidate, not that its original invocation ran. Windows mutation remains fail-closed because no equivalent existing atomic write owner is available.
+- Python compilation and whitespace inspection passed for `canonical_memory.py`. No tests, runtime memory writes, crash injection, concurrency test, or Windows execution was performed.
+
+**Next implementation dependency:** make bounded canonical-memory retrieval use the explicit-file custody reader while preserving legacy raw-fragment compatibility; the current `_records()` path still enumerates and reads with unbounded `glob`/`read_text` operations.
