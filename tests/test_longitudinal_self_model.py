@@ -394,3 +394,20 @@ def test_transition_activation_predecessor_fields_remain_lineage_claims(tmp_path
     assert posture.value == "verified_predecessor_state"
     assert predecessor.category == posture.category == "lineage"
     assert predecessor.current_truth is False and posture.current_truth is False
+
+
+def test_software_transition_retention_is_historical_interpretation(tmp_path: Path) -> None:
+    source = record(source="software-transition:retention", subject="transition-retention",
+        observed=None, extra={"omitted_event_count": 12,
+            "journal_head_digest": "head",
+            "event_time_posture": "journal_retention_is_not_a_transition_event"})
+    source.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "software_generation_transition_history_retention",
+        "disposition": "bounded_tail"})
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(source), tick_id="tick-transition-retention")
+    lifecycle = next(claim for claim in result.claims
+        if claim.predicate == "lifecycle.observation.disposition")
+    assert lifecycle.value == "bounded_tail"
+    assert lifecycle.category == "historical_interpretation"
+    assert lifecycle.current_truth is False

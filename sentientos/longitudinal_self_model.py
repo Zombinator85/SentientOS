@@ -305,6 +305,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
     historical_transition_event = (
         (fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
+                "software_generation_transition_history_retention",
                 "chat_process_recovery_transition",
                 "chat_process_runtime_generation_observation",
                 "observed_running_software_generation",

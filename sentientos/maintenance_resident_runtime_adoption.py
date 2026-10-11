@@ -310,6 +310,27 @@ def read_transition_events(config: Mapping[str, Any], *, limit: int = 128) -> tu
         raise ValueError("resident_transition_event_limit_invalid")
     return tuple(dict(row) for row in _rows(validate_config(config))[-limit:])
 
+def read_transition_event_projection(config: Mapping[str, Any], *, limit: int = 48
+        ) -> tuple[tuple[Mapping[str, Any], ...], Mapping[str, Any] | None]:
+    """Read a verified journal tail and exact omitted-prefix boundary from one custody read."""
+    if type(limit) is not int or not 1 <= limit <= 128:
+        raise ValueError("resident_transition_event_limit_invalid")
+    rows = _rows(validate_config(config))
+    omitted_count = max(0, len(rows) - limit)
+    retained = tuple(dict(row) for row in rows[omitted_count:])
+    if not omitted_count:
+        return retained, None
+    last_omitted = rows[omitted_count - 1]
+    return retained, {
+        "journal_head_digest": rows[-1]["event_digest"],
+        "omitted_event_count": omitted_count,
+        "last_omitted_event_digest": last_omitted["event_digest"],
+        "first_retained_prior_digest": retained[0].get("prior_event_digest") if retained else None,
+        "retained_event_count": len(retained),
+        "retained_tail_limit": limit,
+    }
+
+
 
 def _append(cfg: Mapping[str, Any], phase: str, tid: str, evidence: Mapping[str, Any], **detail: Any) -> dict[str, Any]:
     rows = _rows(cfg); expected = PHASES[len(rows) % len(PHASES)]

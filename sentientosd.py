@@ -1625,8 +1625,9 @@ class RuntimeMaintenanceSurfaces:
         if software_config is not None:
             try:
                 from sentientos.maintenance_resident_runtime_adoption import (
-                    inspect_transition_custody, read_transition_events)
-                rows = read_transition_events(software_config, limit=16)
+                    inspect_transition_custody, read_transition_event_projection)
+                rows, transition_retention = read_transition_event_projection(
+                    software_config, limit=48)
                 custody = inspect_transition_custody(software_config)
                 software_health = (software_controller.health() if software_controller is not None else
                     self._feedback.get("surfaces", {}).get("maintenance_resident_runtime_adoption", {}))
@@ -1661,6 +1662,22 @@ class RuntimeMaintenanceSurfaces:
                         "subject_kind": "software_generation_transition", "stage": "observation",
                         "disposition": disposition, "evidence_strength": "validated_software_transition_journal_entry",
                         "payload": payload, "observed_at": row.get("event_time"), "effect_claimed": False, "effect_proven": False})
+                if transition_retention is not None:
+                    transition_id_for_retention = str(rows[-1].get("transition_id") or
+                        "resident-software-transition")
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": (f"resident_software_transition_retention:"
+                            f"{transition_retention['journal_head_digest']}:"
+                            f"{transition_retention['omitted_event_count']}:"
+                            f"{transition_retention['last_omitted_event_digest']}"),
+                        "subject_id": transition_id_for_retention,
+                        "subject_kind": "software_generation_transition_history_retention",
+                        "stage": "observation", "disposition": "bounded_tail",
+                        "evidence_strength": "verified_journal_tail_with_omitted_prefix",
+                        "payload": {**dict(transition_retention),
+                            "event_time_posture": "journal_retention_is_not_a_transition_event",
+                            "authority": False, "effect_proven": False},
+                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
                 if rows:
                     last = rows[-1]
                     transaction_rows = [item for item in rows if item.get("transition_id") == last.get("transition_id")]

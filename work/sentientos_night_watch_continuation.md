@@ -2340,3 +2340,10 @@ Next inspect succession source records for any projection that still presents a 
 - The live-session World-State already carried the verified predecessor edge, but the separate activation-stage record omitted it. Added the predecessor digest and explicit initial/unknown posture to the activation record projection as historical selection evidence, still marked not loaded by activation.
 - Existing longitudinal payload handling did not retain these two fields on stage records. The same durable claim owner now stores each as lineage, with an authored unexecuted regression confirming the claims remain non-current and non-authoritative. Python compilation and static source inspection only.
 - Next review the persistent epistemic binding for exact source identity and replay-stable event time, then continue beyond succession attribution to the next dependency.
+
+
+## 2026-10-11 checkpoint — preserve omitted software succession history explicitly
+
+- The maintenance software-generation journal verified all up to 4,096 rows, but its World-State caller requested only the last 16 and emitted no omission boundary. Added an owner read that returns a verified bounded suffix and an exact omitted-prefix summary from the same journal read; the resident projection now retains the latest 48 rows and exposes the omitted count, chain boundary, and head digest as non-event metadata.
+- The retention marker is explicitly historical context in epistemic development and longitudinal history; it has no event timestamp, support relation, authority, or effect. Added authored unexecuted owner and adapter regressions. Changed Python compiles and static whitespace checks pass only.
+- Next inspect causal-introspection capture/recovery composition for another concrete owner-to-owner continuity break outside the succession journals.

@@ -396,3 +396,34 @@ def test_current_execution_provenance_limits_identity_scope_to_process_and_sourc
     assert current["software_generation_scope"] == (
         "configured_manifest_and_clean_repository_state_at_observation")
     assert current["loaded_code_identity_posture"] == "not_independently_attested"
+
+
+def test_verified_transition_projection_reports_exact_omitted_prefix(tmp_path: Path) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    disabled = _disabled(cfg)
+    total = 70
+    for sequence in range(total):
+        transaction = sequence // len(resident.PHASES)
+        evidence = {
+            "lineage_id": f"lineage-{transaction}",
+            "predecessor_generation_digest": f"sha256:predecessor-{transaction}",
+            "successor_generation_digest": f"sha256:successor-{transaction}",
+            "continuity_receipt_digest": f"sha256:continuity-{transaction}",
+            "pending_handoff_event_digest": f"sha256:handoff-{transaction}",
+        }
+        resident._append(disabled, resident.PHASES[sequence % len(resident.PHASES)],
+            f"transition-{transaction}", evidence)
+
+    retained, omission = resident.read_transition_event_projection(disabled, limit=48)
+
+    assert len(retained) == 48
+    assert retained[0]["event_digest"]
+    assert retained[-1]["event_digest"]
+    assert omission == {
+        "journal_head_digest": retained[-1]["event_digest"],
+        "omitted_event_count": 22,
+        "last_omitted_event_digest": retained[0]["prior_event_digest"],
+        "first_retained_prior_digest": retained[0]["prior_event_digest"],
+        "retained_event_count": 48,
+        "retained_tail_limit": 48,
+    }

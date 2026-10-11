@@ -230,7 +230,8 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "observed_running_software_generation")
         historical_transition_event = (
             fact.source.kind == "runtime_supervisor"
-            and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition"}
+            and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
+                "software_generation_transition_history_retention"}
             and isinstance(fact.payload, Mapping))
         historical_chat_recovery_event = (
             fact.source.kind == "runtime_supervisor"

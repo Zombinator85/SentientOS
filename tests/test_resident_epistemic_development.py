@@ -260,3 +260,28 @@ def test_running_model_without_recorded_observation_time_is_not_current() -> Non
     assert binding.observation_time == "undated"
     assert binding.freshness == "unknown"
     assert binding.evidence_relation == "contextualizes"
+
+
+def test_transition_retention_marker_is_undated_context_not_current_support() -> None:
+    record = {
+        "source_kind": "runtime_supervisor", "source_id": "software-transition-retention:head",
+        "schema_version": "runtime.test.v1", "subject_id": "transition-a",
+        "subject_kind": "software_generation_transition_history_retention",
+        "stage": "observation", "disposition": "bounded_tail",
+        "evidence_strength": "verified_journal_tail_with_omitted_prefix",
+        "observed_at": None,
+        "payload": {
+            "omitted_event_count": 12, "journal_head_digest": "head",
+            "event_time_posture": "journal_retention_is_not_a_transition_event",
+            "authority": False, "effect_proven": False,
+        },
+    }
+    snapshot = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    rule = EpistemicDevelopmentRule(
+        "rule-retention", "proposition-retention", "a" * 64, {}, "supports",
+        "independently_sourced_observation", "software_transition_owner")
+    _proof, binding = ResidentEpistemicDevelopmentRuntime._adapt(snapshot, snapshot.facts[0], rule)
+    assert binding.observation_time == "undated"
+    assert binding.freshness == "unknown"
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
