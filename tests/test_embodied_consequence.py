@@ -65,6 +65,15 @@ def test_synthetic_satisfied_retains_causal_limit():
     assert comparison["counts"]=={"satisfied":1,"contradicted":0,"missing":0,"indeterminate":0}
 
 
+def test_unissued_measurement_claims_cannot_enter_consequence_lineage():
+    handoff,expectation,report,observation,_,_=chain("idle")
+    with pytest.raises(EmbodiedConsequenceError,match="measured_evidence_source_unavailable"):
+        evaluate_consequence(expectation=expectation,handoff=handoff,current_body=pointer(),
+            renderer_report=report,observation=observation,
+            measured_evidence=({"measurement":"cpu_percent","value":100,"source":"caller"},),
+            evaluated_at=T2)
+
+
 @pytest.mark.parametrize("mutation,classification",[
     (lambda h,e,r,o: h.update(correlation_id="wrong"),"correlation_mismatch"),
     (lambda h,e,r,o: h.update(body_generation=3),"body_generation_mismatch"),
