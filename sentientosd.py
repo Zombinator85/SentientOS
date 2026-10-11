@@ -1398,6 +1398,8 @@ class RuntimeMaintenanceSurfaces:
         target = self._runtime_state_root / "world_state_board" / "latest.json"
         encoded = json.dumps(to_dict(snapshot), sort_keys=True,
             indent=2).encode("utf-8") + bytes((10,))
+        if len(encoded) > 64 * 1024 * 1024:
+            raise ValueError("world_state_snapshot_size_limit_exceeded")
         # Snapshot contents are source-bounded by the board builder and
         # publication is capped independently at 64 MiB. The shared owner
         # traverses a private no-follow directory descriptor and atomically

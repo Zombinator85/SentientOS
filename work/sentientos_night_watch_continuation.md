@@ -2733,3 +2733,11 @@ A later source correction was also composed from stale note text and displaced t
 - The World-State custody change initially would have made daemon snapshot publication fail on Windows because the shared descriptor publisher is POSIX-only and the existing Windows custody helper explicitly offers reads only. The daemon now retains its previous bounded temp-file/atomic-replace lifecycle on Windows, reports directory durability as unverified, and uses descriptor-bound publication on POSIX. The explicit 64 MiB artifact cap applies on both paths.
 - `sentientosd.py` passed syntax compilation only. No Windows or POSIX runtime publication was exercised.
 - Next inspect resident epistemic evidence selection and later-tick writeback against recovered World-State freshness, event time, and duplicate identity. Continue only where a concrete source-level gap remains.
+
+
+## 2026-10-11 correction — enforce the World-State artifact bound on Windows
+
+- The prior checkpoint stated that the explicit 64 MiB World-State artifact cap applied on both platforms. Review caught that Windows' compatibility branch bypassed the POSIX helper that enforced it. A platform-neutral pre-publication size check now runs before either branch.
+- Reinspection of the epistemic adapter confirms source event time is retained independently of retrieval time, historical sources are never promoted to current, and only healthy fresh sources may become current. No additional epistemic source change was warranted here.
+- `sentientosd.py` passed Python syntax compilation only; no platform runtime or cognition behavior was tested.
+- Next trace the configured World-State publication into post-cognition epistemic writeback for any concrete startup/restart or tick-order defect, then continue through the directly connected persistent-state owner.
