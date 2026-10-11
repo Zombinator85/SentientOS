@@ -972,6 +972,8 @@ class RuntimeMaintenanceSurfaces:
                 resource_records = resource_consumption_world_state_records(
                     ledger=observation.ledger,
                     invocation_receipts=observation.invocation_receipts,
+                    verified_predecessor_invocation_receipts=(
+                        observation.predecessor_invocation_receipts),
                     observed_at=tick_key,
                     source_identity={
                         "installation_identity": observation.installation_identity,
@@ -991,6 +993,8 @@ class RuntimeMaintenanceSurfaces:
                 records.extend(resource_records)
                 degraded = (observation.invocation_receipt_posture != "verified"
                             or any(item.get("disposition") != "recorded" for item in resource_records)
+                            or observation.predecessor_invocation_receipt_posture
+                                == "degraded_missing_direct_parent_receipt"
                             or observation.chat_process_recovery_posture.startswith("unknown_windows")
                             or observation.chat_process_runtime_observation_posture in {
                                 "unknown_missing", "historically_not_verified"}
@@ -1006,6 +1010,10 @@ class RuntimeMaintenanceSurfaces:
                     "provisioning_id": observation.provisioning_id,
                     "ledger_digest": observation.ledger.observation_snapshot()["ledger_digest"],
                     "invocation_receipt_posture": observation.invocation_receipt_posture,
+                    "predecessor_invocation_receipt_posture":
+                        observation.predecessor_invocation_receipt_posture,
+                    "predecessor_invocation_receipt_count": len(
+                        observation.predecessor_invocation_receipts),
                     "chat_process_generation_posture": observation.chat_process_generation_posture,
                     "verified_chat_process_generation_attribution_count": len(
                         observation.chat_process_generation_attributions),
@@ -2259,6 +2267,8 @@ def _compose_causal_introspection(
             records = resource_consumption_world_state_records(
                 ledger=observation.ledger,
                 invocation_receipts=observation.invocation_receipts,
+                verified_predecessor_invocation_receipts=(
+                    observation.predecessor_invocation_receipts),
                 source_identity={"installation_identity": observation.installation_identity,
                     "provisioning_id": observation.provisioning_id,
                     "manifest_digest": observation.manifest_digest},

@@ -86,6 +86,8 @@ class ProductionChatResourceObservation:
     serving_operation_attempts: tuple[Mapping[str, Any], ...] = ()
     serving_operation_attempt_posture: str = "unknown"
     serving_operation_history: tuple[Mapping[str, Any], ...] = ()
+    predecessor_invocation_receipts: tuple[Mapping[str, Any], ...] = ()
+    predecessor_invocation_receipt_posture: str = "unknown"
 
 
 class ProductionChatResourceObservationOwner:
@@ -176,7 +178,8 @@ class ProductionChatResourceObservationOwner:
                 current_time=allocation.validity.principal_currentness_checked_at)
         except (TypeError, ValueError) as exc:
             raise ProductionChatResourceObservationError("historical_principal_binding_invalid") from exc
-        invocation_receipts, receipt_posture, generation_attributions = self._invocation_receipts(
+        (invocation_receipts, receipt_posture, generation_attributions,
+         predecessor_receipts, predecessor_receipt_posture) = self._invocation_receipts(
             allocation.allocation_digest)
         completed_invocations = tuple(item for item in invocation_receipts
             if item.get("status") == "admitted_completed"
@@ -233,19 +236,22 @@ class ProductionChatResourceObservationOwner:
             str(manifest["manifest_digest"]), ledger, invocation_receipts, receipt_posture,
             generation_attributions, generation_posture, recovery_transitions, recovery_posture,
             runtime_observation, runtime_observation_posture,
-            serving_attempts, serving_attempt_posture, serving_operation_history)
+            serving_attempts, serving_attempt_posture, serving_operation_history,
+            predecessor_receipts, predecessor_receipt_posture)
 
     def _invocation_receipts(self, allocation_digest: str
-            ) -> tuple[tuple[Mapping[str, Any], ...], str, tuple[Mapping[str, Any], ...]]:
+            ) -> tuple[tuple[Mapping[str, Any], ...], str, tuple[Mapping[str, Any], ...],
+                       tuple[Mapping[str, Any], ...], str]:
         try:
             names = self._handle.list_regular_names(
                 "local-model/inference/receipts", max_entries=MAX_INVOCATION_RECEIPTS)
         except InstallationStateError as exc:
             if exc.code == "state_directory_missing":
-                return (), "degraded_missing_receipt_directory", ()
+                return (), "degraded_missing_receipt_directory", (), (), "degraded_missing_receipt_directory"
             raise ProductionChatResourceObservationError("invocation_receipt_directory_invalid") from exc
         receipts: list[Mapping[str, Any]] = []
         generation_attributions: list[Mapping[str, Any]] = []
+        verified_receipts_by_id: dict[str, Mapping[str, Any]] = {}
         for name in names:
             if _RECEIPT_TEMP_NAME.fullmatch(name) is not None:
                 continue  # Incomplete atomic-write staging is never receipt evidence.
@@ -265,6 +271,13 @@ class ProductionChatResourceObservationOwner:
             valid, findings = validate_receipt(value)
             if not valid:
                 raise ProductionChatResourceObservationError("invocation_receipt_invalid:" + findings[0])
+            receipt_id = str(value["receipt_id"])
+            prior = verified_receipts_by_id.get(receipt_id)
+            if prior is not None:
+                if dict(prior) != dict(value):
+                    raise ProductionChatResourceObservationError("invocation_receipt_identity_conflict")
+                raise ProductionChatResourceObservationError("invocation_receipt_duplicate_identity")
+            verified_receipts_by_id[receipt_id] = dict(value)
             request = value.get("request")
             linkage = request.get("linkage") if isinstance(request, Mapping) else None
             software = linkage.get("software_generation_attribution") if isinstance(linkage, Mapping) else None
@@ -319,9 +332,46 @@ class ProductionChatResourceObservationOwner:
         receipts.sort(key=lambda item: (str(item.get("observed_at", "")), str(item.get("receipt_id", ""))))
         generation_attributions.sort(key=lambda item: (
             str(item.get("invocation_receipt_id", "")), str(item.get("invocation_receipt_digest", ""))))
+
+        # Parent receipts corroborate only the digest-bound caller reference of
+        # a selected invocation. They stay separate from allocation-scoped
+        # invocation evidence and cannot add another resource consequence.
+        referenced_parent_ids: set[str] = set()
+        missing_parent = False
+        for invocation in receipts:
+            request = invocation.get("request")
+            linkage = request.get("linkage") if isinstance(request, Mapping) else None
+            caller = linkage.get("caller_context") if isinstance(linkage, Mapping) else None
+            reference = (caller.get("verified_predecessor_invocation")
+                if isinstance(caller, Mapping) else None)
+            if reference is None:
+                continue
+            if not isinstance(reference, Mapping) or not isinstance(reference.get("receipt_id"), str):
+                raise ProductionChatResourceObservationError(
+                    "invocation_predecessor_reference_invalid")
+            parent_id = str(reference["receipt_id"])
+            if parent_id == invocation.get("receipt_id"):
+                raise ProductionChatResourceObservationError(
+                    "invocation_predecessor_self_reference")
+            if parent_id not in verified_receipts_by_id:
+                missing_parent = True
+                continue
+            referenced_parent_ids.add(parent_id)
+        predecessor_receipts = tuple(
+            dict(verified_receipts_by_id[parent_id])
+            for parent_id in sorted(referenced_parent_ids))
+        if len(predecessor_receipts) > MAX_INVOCATION_RECEIPTS:
+            raise ProductionChatResourceObservationError(
+                "invocation_predecessor_receipt_bound_exceeded")
+        if missing_parent:
+            predecessor_posture = "degraded_missing_direct_parent_receipt"
+        elif predecessor_receipts:
+            predecessor_posture = "verified_direct_parent_receipts_present"
+        else:
+            predecessor_posture = "verified_no_direct_parent_reference"
         return (tuple(receipts),
             "verified" if receipts else "degraded_no_resource_invocation_receipts",
-            tuple(generation_attributions))
+            tuple(generation_attributions), predecessor_receipts, predecessor_posture)
 
 
 __all__ = [

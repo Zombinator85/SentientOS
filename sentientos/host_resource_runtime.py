@@ -281,6 +281,7 @@ def world_state_records(e: HostResourceRuntimeEvaluation) -> list[dict[str, Any]
 
 def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResourceLedger,
                                               invocation_receipts: Sequence[Mapping[str, Any]] = (),
+                                              verified_predecessor_invocation_receipts: Sequence[Mapping[str, Any]] = (),
                                               observed_at: str | None = None,
                                               max_receipts: int = 256,
                                               max_invocation_receipts: int = 256,
@@ -309,6 +310,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     raw_receipts = tuple(snapshot["receipts"])
     if len(invocation_receipts) > 256:
         raise ValueError("resource_invocation_receipt_bound_exceeded")
+    if len(verified_predecessor_invocation_receipts) > 256:
+        raise ValueError("resource_predecessor_invocation_receipt_bound_exceeded")
     if len(verified_chat_process_generation_attributions) > 256:
         raise ValueError("chat_process_generation_attribution_bound_exceeded")
     if len(verified_chat_process_recovery_transitions) > 256:
@@ -328,6 +331,23 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 raise ValueError("resource_invocation_receipt_identity_conflict")
             raise ValueError("resource_invocation_receipt_duplicate")
         invocation_by_id[receipt_id] = invocation
+    predecessor_invocation_by_id: dict[str, Mapping[str, Any]] = {}
+    for predecessor in verified_predecessor_invocation_receipts:
+        if not isinstance(predecessor, Mapping):
+            raise ValueError("resource_predecessor_invocation_receipt_invalid")
+        receipt_id = predecessor.get("receipt_id")
+        receipt_digest = predecessor.get("receipt_digest")
+        if (not isinstance(receipt_id, str) or not receipt_id
+                or not isinstance(receipt_digest, str) or not receipt_digest):
+            raise ValueError("resource_predecessor_invocation_receipt_identity_invalid")
+        if receipt_id in predecessor_invocation_by_id:
+            if dict(predecessor_invocation_by_id[receipt_id]) != dict(predecessor):
+                raise ValueError("resource_predecessor_invocation_receipt_identity_conflict")
+            raise ValueError("resource_predecessor_invocation_receipt_duplicate")
+        target_receipt = invocation_by_id.get(receipt_id)
+        if target_receipt is not None and dict(target_receipt) != dict(predecessor):
+            raise ValueError("resource_invocation_receipt_identity_conflict")
+        predecessor_invocation_by_id[receipt_id] = predecessor
     generation_attribution_by_receipt: dict[str, Mapping[str, Any]] = {}
     attribution_fields = {"invocation_receipt_id", "invocation_receipt_digest",
         "invocation_request_id", "invocation_request_digest", "chat_process_handoff",
@@ -618,8 +638,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         predecessor_reference["source_user_turn_id"]) is None
                     or predecessor_reference.get("receipt_id") == invocation.get("receipt_id")):
                 raise ValueError("chat_process_invocation_predecessor_reference_invalid")
-            predecessor_receipt = invocation_by_id.get(
-                predecessor_reference["receipt_id"])
+            predecessor_receipt = (invocation_by_id.get(predecessor_reference["receipt_id"])
+                or predecessor_invocation_by_id.get(predecessor_reference["receipt_id"]))
             if predecessor_receipt is None:
                 predecessor_reference_posture = (
                     "receipt_bound_predecessor_not_in_bounded_projection")

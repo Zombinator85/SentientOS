@@ -914,3 +914,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for `sentientos/host_resource_runtime.py`. No World-State execution, invocation, or production behavior was run.
 
 **Next implementation dependency:** inspect transcript publication interruption semantics. The invocation receipt intentionally retains output digest rather than response text, so preserve truthful no-replay/incomplete state instead of reconstructing a response from digest-only custody.
+
+## New checkpoint — reconcile direct predecessor receipts across allocation scope
+
+- The installation observer already scans and validates the bounded receipt directory, but its allocation-scoped output discarded completed predecessor receipts from other allocations. The World-State projector consequently could only report the exact predecessor link as outside its bounded projection.
+- The observer now retains only direct predecessor receipts referenced by the selected allocation's verified invocation receipts, in a separate bounded field. These records remain corroboration only: they are not merged into allocation-scoped invocation receipts, generation-attribution counts, resource debits, or consumption-event counts.
+- The projector accepts that separate verified parent set, rejects duplicate or conflicting identities, and reconciles the referenced receipt digest, request ID, completed local-model effect, session, and source user turn. The exact predecessor reference and its resulting posture remain in the digest-bound World-State payload. Missing direct parents remain explicitly unreconciled, and the daemon reports degraded custody for that case.
+- Both resident World-State construction call sites pass the separate parent evidence. No authority, allocation behavior, freshness, or effect path changed.
+- `python -m py_compile` passed for the changed observer, projector, and daemon source snapshots. No tests, fixture, inference, runtime, or production behavior was run. Construction remains unverified for production.
+
+**Next implementation dependency:** inspect the chat's durable user-turn and completed-invocation publication boundary. Preserve interrupted requests as incomplete and no-replay; do not reconstruct private response content from a digest.
