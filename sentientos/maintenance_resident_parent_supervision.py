@@ -49,6 +49,16 @@ def _digest(value: object) -> str:
     return "sha256:" + hashlib.sha256(_canonical(value)).hexdigest()
 
 
+def _valid_aware_timestamp(value: object) -> bool:
+    if not isinstance(value, str) or not value or len(value) > 128:
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (OverflowError, OSError, TypeError, ValueError):
+        return False
+    return parsed.tzinfo is not None and parsed.utcoffset() is not None
+
+
 def _valid_parent_process_observation(value: object) -> bool:
     if not isinstance(value, dict) or set(value) != {
         "process_id", "parent_process_id", "observed_at",
@@ -284,7 +294,7 @@ class MaintenanceResidentParentSupervisor:
                     or type(row["sequence"]) is not int or row["sequence"] != index
                     or row["child_spec_digest"] != self._spec_digest
                     or not isinstance(row["event"], str) or not row["event"] or len(row["event"]) > 128
-                    or not isinstance(row["timestamp"], str)
+                    or not _valid_aware_timestamp(row["timestamp"])
                     or not isinstance(row["detail"], dict)
                     or _digest(row) != claimed):
                 raise ValueError("parent_receipt_journal_binding_invalid")

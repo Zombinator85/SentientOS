@@ -255,6 +255,28 @@ def test_corrupt_receipt_chain_fails_closed_without_republication(tmp_path: Path
     assert receipt_path.read_bytes() == corrupt
 
 
+def test_parent_receipt_recovery_rejects_malformed_timestamp_without_republication(
+    tmp_path: Path,
+) -> None:
+    from sentientos import maintenance_resident_parent_supervision as parent
+
+    controller, _child, _cfg = _parent(tmp_path)
+    receipt_path = tmp_path / "parent" / "parent-receipts.jsonl"
+    rows = [json.loads(line) for line in receipt_path.read_bytes().splitlines()]
+    rows[0]["timestamp"] = "not-a-timestamp"
+    row = rows[0]
+    row.pop("receipt_digest")
+    row["receipt_digest"] = parent._digest(row)
+    malformed = json.dumps(row, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+    receipt_path.write_bytes(malformed)
+    _simulate_parent_process_exit(controller)
+
+    rebuilt, _, _ = _parent(tmp_path)
+    assert rebuilt.status()["panic_latched"] is True
+    assert rebuilt.status()["status"] == "fail_closed_state"
+    assert receipt_path.read_bytes() == malformed
+
+
 def test_restarted_parent_denies_launch_when_prior_child_pid_is_present(tmp_path: Path) -> None:
     first, child, cfg = _parent(tmp_path, process_presence_observer=lambda _: True)
     first.start()
