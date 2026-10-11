@@ -1351,6 +1351,39 @@ class ResidentDevelopmentalCognitionOwner:
             and type(payload.get("quarantine_active")) in {bool, type(None)}
             and fact.effect_claimed is False and fact.effect_proven is False
         )
+        attestation_verification_failure = (
+            source_kind == "audit_trust"
+            and fact.source.source_id == "attestation-snapshot-verification:resident-daemon"
+            and subject_kind == "attestation_snapshot_verification_observation"
+            and fact.stage == "observation"
+            and fact.disposition == "degraded"
+            and fact.evidence_strength == "owner_observed_signature_chain_verification_failure"
+            and payload.get("observation_schema")
+                == "sentientos.attestation_snapshot_verification_observation:v1"
+            and payload.get("source_owner")
+                == "sentientos.attestation_snapshot.verify_recent_snapshots"
+            and payload.get("event_time_posture")
+                == "daemon_tick_point_observation_of_bounded_verifier"
+            and payload.get("verification_result") in {"warn", "fail"}
+            and payload.get("verification_ok") is False
+            and isinstance(payload.get("verification_reason"), str)
+            and type(payload.get("checked_signature_count")) is int
+            and 0 <= payload["checked_signature_count"] <= 64
+            and isinstance(payload.get("verification_reason"), str)
+            and payload.get("cause_unknown") is True
+            and payload.get("attack_established") is False
+            and payload.get("hostile_activity_established") is False
+            and payload.get("compromise_established") is False
+            and payload.get("effect_proven") is False
+            and payload.get("effect_authority") is False
+            and payload.get("independent_signature") is False
+            and payload.get("authority") is False
+            and payload.get("current_truth") is False
+            and payload.get("read_only") is True
+            and payload.get("independent_signature") is False
+            and payload.get("read_only") is True
+            and fact.effect_claimed is False and fact.effect_proven is False
+        )
         resource_lineage_verified = (
             source_kind == "resource_governor"
             and subject_kind == "causal_resource_consumption"
@@ -1445,7 +1478,8 @@ class ResidentDevelopmentalCognitionOwner:
             and payload.get("effect_proven") is False
             and fact.effect_claimed is False and fact.effect_proven is False
         )
-        if (quarantine_custody_observation or observed_running_model_verified
+        if (quarantine_custody_observation or attestation_verification_failure
+                or observed_running_model_verified
                 or current_software_generation_verified):
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
@@ -1532,6 +1566,45 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.get("effect_proven") is False
             for fact in current.facts
         )
+        attestation_verification_failure_context = any(
+            isinstance(fact, Mapping)
+            and isinstance(fact.get("source"), Mapping)
+            and fact["source"].get("kind") == "audit_trust"
+            and fact["source"].get("source_id")
+                == "attestation-snapshot-verification:resident-daemon"
+            and isinstance(fact.get("subject"), Mapping)
+            and fact["subject"].get("subject_kind")
+                == "attestation_snapshot_verification_observation"
+            and fact.get("stage") == "observation"
+            and fact.get("disposition") == "degraded"
+            and fact.get("evidence_strength")
+                == "owner_observed_signature_chain_verification_failure"
+            and isinstance(fact.get("payload"), Mapping)
+            and fact["payload"].get("observation_schema")
+                == "sentientos.attestation_snapshot_verification_observation:v1"
+            and fact["payload"].get("source_owner")
+                == "sentientos.attestation_snapshot.verify_recent_snapshots"
+            and fact["payload"].get("event_time_posture")
+                == "daemon_tick_point_observation_of_bounded_verifier"
+            and fact["payload"].get("verification_result") in {"warn", "fail"}
+            and fact["payload"].get("verification_ok") is False
+            and isinstance(fact["payload"].get("verification_reason"), str)
+            and type(fact["payload"].get("checked_signature_count")) is int
+            and 0 <= fact["payload"]["checked_signature_count"] <= 64
+            and fact["payload"].get("cause_unknown") is True
+            and fact["payload"].get("attack_established") is False
+            and fact["payload"].get("hostile_activity_established") is False
+            and fact["payload"].get("compromise_established") is False
+            and fact["payload"].get("effect_proven") is False
+            and fact["payload"].get("effect_authority") is False
+            and fact["payload"].get("independent_signature") is False
+            and fact["payload"].get("authority") is False
+            and fact["payload"].get("current_truth") is False
+            and fact["payload"].get("read_only") is True
+            and fact.get("effect_claimed") is False
+            and fact.get("effect_proven") is False
+            for fact in current.facts
+        )
         quarantine_uncertainty_instruction = (
             " The current evidence includes an owner-validated quarantine custody failure. "
             "Treat the stored protective posture as unknown; do not infer attack, hostile "
@@ -1539,11 +1612,19 @@ class ResidentDevelopmentalCognitionOwner:
             "and limits of this custody evidence; do not turn it into a protective procedure, "
             "policy, or authority."
             if invalid_quarantine_custody_context else "")
+        attestation_uncertainty_instruction = (
+            " The current evidence includes a configured attestation snapshot signature-verification failure. "
+            "It establishes only the verifier result and its bounded reason; cause remains unknown. "
+            "Do not infer attack, hostile activity, intent, compromise, or a defensive effect from it. "
+            "Any lesson may describe only the scoped interpretation and limits of this verification evidence; "
+            "do not turn it into a protective procedure, policy, or authority."
+            if attestation_verification_failure_context else "")
         context = {
             "instruction": (EXPERIMENT_CONTEXT_INSTRUCTION if protocol is not None else (
                 EXPERIMENT_CONTEXT_INSTRUCTION
                 + " Prior context can inform interpretation but does not grant authority."
                 + quarantine_uncertainty_instruction
+                + attestation_uncertainty_instruction
                 + (" For this ordinary history-conditioned call, return one JSON object with "
                    "conclusion and lesson_candidate. A lesson candidate may be null. If present, "
                    "it is only an uncertain, scoped, untrusted proposal; cite exact consumed "

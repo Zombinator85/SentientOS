@@ -68,6 +68,10 @@ from sentientos.integrity_quarantine import (
     QuarantineStateError,
     load_state_with_status as load_quarantine_state_with_status,
 )
+from sentientos.attestation_snapshot import (
+    MAX_SNAPSHOT_VERIFY_ITEMS,
+    verify_recent_snapshots,
+)
 from sentientos.platform_fcntl import fcntl, require_flock
 from sentientos.private_file_custody import (
     PrivateFileCustodyError,
@@ -229,6 +233,82 @@ def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str)
         "evidence_strength": evidence_strength,
         "observed_at": observed_at,
         "staleness": "unknown" if payload["custody_result"] in {"invalid", "observer_unavailable"} else None,
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": payload,
+    }
+
+
+def _attestation_snapshot_verification_world_state_record(
+    repo_root: Path, *, observed_at: str,
+) -> dict[str, Any] | None:
+    """Project only the configured bounded signature-verifier result as context."""
+    if os.getenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0") != "1":
+        return None
+    try:
+        result = verify_recent_snapshots(repo_root, last=MAX_SNAPSHOT_VERIFY_ITEMS)
+        status = result.status if result.status in {"ok", "warn", "fail", "skipped"} else "invalid"
+        okay = result.ok if type(result.ok) is bool else None
+        checked = result.checked_n if type(result.checked_n) is int and 0 <= result.checked_n <= MAX_SNAPSHOT_VERIFY_ITEMS else None
+        reason = result.reason if isinstance(result.reason, str) and len(result.reason) <= 128 else None
+        last_hash = result.last_ok_hash
+        if (checked is None or status == "invalid"
+                or (last_hash is not None and (not isinstance(last_hash, str)
+                    or len(last_hash) != 64 or any(ch not in "0123456789abcdef" for ch in last_hash)))):
+            raise ValueError("verifier_result_contract_invalid")
+        if status == "ok" and okay is not True:
+            raise ValueError("verifier_result_contract_invalid")
+        if status in {"warn", "fail"} and okay is not False:
+            raise ValueError("verifier_result_contract_invalid")
+        event_meaning = (
+            f"The configured bounded attestation snapshot verifier returned {status}"
+            + (f" ({reason})" if reason else "")
+            + "; this is a verifier result, not an attribution of cause or hostile activity."
+        )
+        evidence_strength = (
+            "owner_observed_signature_chain_validation" if status == "ok"
+            else "owner_observed_signature_chain_verification_failure"
+            if status in {"warn", "fail"} else "owner_verification_coverage_unavailable")
+        disposition = "recorded" if status == "ok" else (
+            "degraded" if status in {"warn", "fail"} else "unavailable")
+        reason_code = reason
+    except Exception as exc:
+        status, okay, checked, last_hash = "unavailable", None, None, None
+        reason_code = "verifier_observation_unavailable:" + type(exc).__name__[:64]
+        event_meaning = "The configured attestation snapshot verifier did not return a usable result; cause is unknown."
+        evidence_strength = "owner_verification_observation_unavailable"
+        disposition = "unavailable"
+    payload = {
+        "observation_schema": "sentientos.attestation_snapshot_verification_observation:v1",
+        "source_owner": "sentientos.attestation_snapshot.verify_recent_snapshots",
+        "event_time_posture": "daemon_tick_point_observation_of_bounded_verifier",
+        "verification_result": status,
+        "verification_ok": okay,
+        "verification_reason": reason_code,
+        "checked_signature_count": checked,
+        "last_verified_signature_hash": last_hash,
+        "event_meaning": event_meaning,
+        "cause_unknown": True,
+        "attack_established": False,
+        "hostile_activity_established": False,
+        "compromise_established": False,
+        "independent_signature": False,
+        "effect_proven": False,
+        "effect_authority": False,
+        "authority": False,
+        "current_truth": False,
+        "read_only": True,
+    }
+    return {
+        "source_kind": WorldStateSourceKind.AUDIT_TRUST.value,
+        "source_id": "attestation-snapshot-verification:resident-daemon",
+        "schema_version": "sentientos.attestation_snapshot_verification_observation:v1",
+        "subject_id": "configured-attestation-snapshot-signature-chain",
+        "subject_kind": "attestation_snapshot_verification_observation",
+        "stage": "observation",
+        "disposition": disposition,
+        "evidence_strength": evidence_strength,
+        "observed_at": observed_at,
         "effect_claimed": False,
         "effect_proven": False,
         "payload": payload,
@@ -1110,6 +1190,22 @@ class RuntimeMaintenanceSurfaces:
         quarantine_record = _quarantine_custody_world_state_record(
             self._repo_root, observed_at=tick_key)
         records.append(quarantine_record)
+        attestation_record = _attestation_snapshot_verification_world_state_record(
+            self._repo_root, observed_at=tick_key)
+        if attestation_record is not None:
+            records.append(attestation_record)
+            self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
+                "status": attestation_record["payload"]["verification_result"],
+                "reason_code": attestation_record["payload"].get("verification_reason"),
+                "source_id": attestation_record["source_id"],
+                "read_only": True,
+                "attack_established": False,
+                "effect_authority": False,
+            }
+        else:
+            self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
+                "status": "disabled", "read_only": True, "effect_authority": False,
+            }
         self._feedback.setdefault("surfaces", {})["integrity_quarantine_custody"] = {
             "status": quarantine_record["payload"]["custody_result"],
             "reason_code": quarantine_record["payload"].get("custody_error_code"),

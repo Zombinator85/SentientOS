@@ -26,7 +26,11 @@ from sentientos.control_plane_kernel import (
     LifecyclePhase,
 )
 from sentientos.runtime_governor import PostureRuleEvaluation, RuntimeGovernor
-from sentientosd import RuntimeMaintenanceSurfaces, _run_maintenance_tick
+from sentientosd import (
+    RuntimeMaintenanceSurfaces,
+    _attestation_snapshot_verification_world_state_record,
+    _run_maintenance_tick,
+)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -45,6 +49,14 @@ class _GovernorDecisionStub:
             "reason_hash": "stub",
             "correlation_id": self.correlation_id,
         }
+
+
+def test_attestation_snapshot_world_state_source_requires_existing_opt_in(
+    monkeypatch, tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", raising=False)
+    assert _attestation_snapshot_verification_world_state_record(
+        tmp_path, observed_at="2026-10-11T00:00:00+00:00") is None
 
 
 class _GovernorStub:

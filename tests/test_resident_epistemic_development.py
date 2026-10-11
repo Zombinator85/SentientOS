@@ -102,6 +102,47 @@ def test_quarantine_custody_status_cannot_become_epistemic_support(tmp_path):
     assert binding.reliability_posture == "quarantine_custody_status_context_only"
 
 
+def test_attestation_verifier_failure_cannot_become_epistemic_support(tmp_path):
+    record = {
+        "source_kind": "audit_trust",
+        "source_id": "attestation-snapshot-verification:resident-daemon",
+        "schema_version": "sentientos.attestation_snapshot_verification_observation:v1",
+        "subject_id": "configured-attestation-snapshot-signature-chain",
+        "subject_kind": "attestation_snapshot_verification_observation",
+        "stage": "observation", "disposition": "degraded",
+        "evidence_strength": "owner_observed_signature_chain_verification_failure",
+        "observed_at": NOW, "effect_claimed": False, "effect_proven": False,
+        "payload": {
+            "observation_schema": "sentientos.attestation_snapshot_verification_observation:v1",
+            "source_owner": "sentientos.attestation_snapshot.verify_recent_snapshots",
+            "event_time_posture": "daemon_tick_point_observation_of_bounded_verifier",
+            "verification_result": "fail", "verification_ok": False,
+            "verification_reason": "signature_invalid", "checked_signature_count": 0,
+            "cause_unknown": True,
+            "attack_established": False, "hostile_activity_established": False,
+            "compromise_established": False, "independent_signature": False,
+            "effect_proven": False, "effect_authority": False,
+            "authority": False, "current_truth": False, "read_only": True,
+        },
+    }
+    board = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    _, proposition, _, runtime = fixture(tmp_path)
+    configured = replace(runtime.config.rules[0], selector={
+        "source_kind": "audit_trust",
+        "subject_kind": "attestation_snapshot_verification_observation",
+        "stage": "observation", "disposition": "degraded",
+    }, evidence_relation="supports", dependency_kind="independently_sourced_observation",
+       reliability_posture="verified", independence_basis="configured-test-source")
+    assert configured.proposition_id == proposition.proposition_id
+    _proof, binding = ResidentEpistemicDevelopmentRuntime._adapt(
+        board, board.facts[0], configured)
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.dependency_group is None
+    assert binding.reliability_posture == "attestation_signature_verifier_result_context_only"
+
+
 def test_incomplete_mutation_recovery_is_reported_without_new_admission(tmp_path):
     owner, proposition, ledger, runtime = fixture(tmp_path)
     candidate = make_epistemic_update_candidate(

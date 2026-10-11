@@ -27,7 +27,11 @@ from sentientos.resident_developmental_writeback import (
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.world_state_board import WorldStateBoardBuilder
-from sentientosd import RuntimeMaintenanceSurfaces, _load_epistemic_state_owner
+from sentientosd import (
+    RuntimeMaintenanceSurfaces,
+    _attestation_snapshot_verification_world_state_record,
+    _load_epistemic_state_owner,
+)
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
     make_proposition, make_evidence_binding, make_cognitive_projection,
     MeaningBearingEpistemicCognitiveProjection)
@@ -383,6 +387,92 @@ def test_quarantine_custody_context_can_yield_scoped_later_tick_lesson(tmp_path:
     retrieval_context = json.loads(retrieval.prompt)
     assert second_fake.lesson_statement in json.dumps(retrieval_context, sort_keys=True)
     assert third_result["status"] == "completed"
+
+
+def test_configured_snapshot_verifier_failure_reaches_scoped_cognition(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from sentientos.attestation_snapshot import (
+        AttestationSnapshot, SIGNATURE_INDEX_PATH, emit_snapshot, maybe_sign_snapshot,
+    )
+
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_SIGNING", "hmac-test")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_HMAC_SECRET", "fixture-only-secret")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_ENFORCE", "1")
+    snapshot_payload = AttestationSnapshot(
+        schema_version=1, ts="2099-01-01T00:00:00Z", policy_hash="fixture-policy",
+        integrity_status_hash="fixture-integrity", latest_rollup_sig_hash=None,
+        latest_strategic_sig_hash=None, latest_goal_graph_hash=None,
+        latest_catalog_checkpoint_hash=None, doctrine_bundle_sha256=None,
+        witness_summary={},
+    )
+    rel = emit_snapshot(tmp_path, snapshot_payload)
+    maybe_sign_snapshot(tmp_path, snapshot_rel_path=rel,
+        snapshot_payload=snapshot_payload.to_dict())
+    positive_record = _attestation_snapshot_verification_world_state_record(
+        tmp_path, observed_at="2026-10-11T00:00:00+00:00")
+    assert positive_record is not None
+    assert positive_record["payload"]["verification_result"] == "ok"
+    assert positive_record["payload"]["verification_ok"] is True
+    assert positive_record["payload"]["attack_established"] is False
+    index = tmp_path / SIGNATURE_INDEX_PATH
+    row = json.loads(index.read_text(encoding="utf-8").splitlines()[0])
+    row["signature"] = "deliberately-invalid-test-signature"
+    index.write_text(json.dumps(row, sort_keys=True) + "\n", encoding="utf-8")
+
+    first_owner, _first_fake = owner(
+        tmp_path / "cognition", allowed_source_kinds=("audit_trust",))
+    first_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=first_owner,  # type: ignore[arg-type]
+    )
+    first_tick = "2026-10-11T00:00:00+00:00"
+    first_surfaces.build_world_state_board(tick_id=first_tick)
+    first_snapshot = first_surfaces.current_world_state_snapshot
+    assert first_snapshot is not None
+    failure_fact = next(fact for fact in first_snapshot.facts
+        if fact.subject.subject_kind == "attestation_snapshot_verification_observation")
+    assert failure_fact.source.kind == "audit_trust"
+    assert failure_fact.disposition == "degraded"
+    assert failure_fact.payload["verification_result"] == "fail"
+    assert failure_fact.payload["verification_reason"] == "signature_invalid"
+    assert failure_fact.payload["attack_established"] is False
+    assert failure_fact.payload["compromise_established"] is False
+    first = first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    assert first["written_record_id"]
+    interpretation = next(request for request in _first_fake.requests
+        if request.purpose == "resident_developmental_interpretation")
+    assert "not attack, hostile activity, intent, compromise, or cause" in interpretation.prompt
+
+    second_fake = FakeInvoker()
+    second_fake.lesson_statement = (
+        "A failed signature check establishes a verifier result, while its cause remains unknown.")
+    second_fake.lesson_scope = "attestation snapshot verification result interpretation"
+    second_owner, _ = owner(tmp_path / "cognition", invoker=second_fake,
+        allowed_source_kinds=("audit_trust",))
+    second_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=second_owner,  # type: ignore[arg-type]
+    )
+    second_tick = "2026-10-11T00:00:01+00:00"
+    second_surfaces.build_world_state_board(tick_id=second_tick)
+    second_snapshot = second_surfaces.current_world_state_snapshot
+    assert second_snapshot is not None
+    current_failure = next(fact for fact in second_snapshot.facts
+        if fact.subject.subject_kind == "attestation_snapshot_verification_observation")
+    second_fake.lesson_dependency_override = current_failure.fact_id
+    second = second_surfaces.run_resident_developmental_cognition(tick_id=second_tick)
+    history_request = next(request for request in second_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert "cause remains unknown" in history_request.prompt
+    assert "Do not infer attack, hostile activity, intent, compromise, or a defensive effect" in (
+        history_request.prompt)
+    lesson_record = second_owner.writeback.store.get(second["written_record_id"])
+    assert lesson_record.candidate["epistemic_status"] == (
+        "untrusted_history_conditioned_cognition_candidate")
+    assert lesson_record.candidate["transformation_provenance"]["candidate_posture"] == (
+        "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure")
+    assert lesson_record.candidate["transformation_provenance"]["lesson_candidate"][
+        "evidence_dependencies"] == [current_failure.fact_id]
 
 
 @pytest.mark.parametrize(("active", "expected"), [(False, False), (True, True)])

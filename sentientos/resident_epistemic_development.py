@@ -381,6 +381,35 @@ class ResidentEpistemicDevelopmentRuntime:
             and quarantine_payload.get("authority") is False
             and quarantine_payload.get("effect_authority") is False
             and fact.effect_claimed is False and fact.effect_proven is False)
+        attestation_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        attestation_snapshot_verification_context = (
+            fact.source.kind == "audit_trust"
+            and fact.source.source_id == "attestation-snapshot-verification:resident-daemon"
+            and fact.subject.subject_kind == "attestation_snapshot_verification_observation"
+            and fact.stage == "observation"
+            and fact.disposition == "degraded"
+            and fact.evidence_strength == "owner_observed_signature_chain_verification_failure"
+            and attestation_payload.get("observation_schema")
+                == "sentientos.attestation_snapshot_verification_observation:v1"
+            and attestation_payload.get("source_owner")
+                == "sentientos.attestation_snapshot.verify_recent_snapshots"
+            and attestation_payload.get("event_time_posture")
+                == "daemon_tick_point_observation_of_bounded_verifier"
+            and attestation_payload.get("verification_result") in {"warn", "fail"}
+            and attestation_payload.get("verification_ok") is False
+            and isinstance(attestation_payload.get("verification_reason"), str)
+            and type(attestation_payload.get("checked_signature_count")) is int
+            and 0 <= attestation_payload["checked_signature_count"] <= 64
+            and attestation_payload.get("cause_unknown") is True
+            and attestation_payload.get("attack_established") is False
+            and attestation_payload.get("hostile_activity_established") is False
+            and attestation_payload.get("compromise_established") is False
+            and attestation_payload.get("authority") is False
+            and attestation_payload.get("effect_proven") is False
+            and attestation_payload.get("effect_authority") is False
+            and attestation_payload.get("independent_signature") is False
+            and attestation_payload.get("read_only") is True
+            and fact.effect_claimed is False and fact.effect_proven is False)
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
@@ -633,13 +662,16 @@ class ResidentEpistemicDevelopmentRuntime:
             source_schema=fact.source.schema_version, source_class=fact.source.kind,
             observation_time=observed,
             evidence_relation="contextualizes" if (unverified_source_context
-                or historical_transition_event or quarantine_custody_context) else rule.evidence_relation,
+                or historical_transition_event or quarantine_custody_context
+                or attestation_snapshot_verification_context) else rule.evidence_relation,
             dependency_kind=("unknown_dependency" if (unverified_source_context
-                or historical_transition_event or quarantine_custody_context)
+                or historical_transition_event or quarantine_custody_context
+                or attestation_snapshot_verification_context)
                 else rule.dependency_kind),
             dependency_group=(rule.independence_basis if rule.dependency_kind == "independently_sourced_observation"
                 and not unverified_source_context and not historical_transition_event
-                and not quarantine_custody_context else None),
+                and not quarantine_custody_context
+                and not attestation_snapshot_verification_context else None),
             upstream_binding_ids=(), freshness=freshness,
             reliability_posture=("qualified_historical_transition_owner_observation"
                 if qualified_transition_observation
@@ -651,6 +683,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 else "unverified_review_context_only" if historical_strategy_review
                 else "resource_lineage_incomplete_context_only" if incomplete_resource_lineage
                 else "quarantine_custody_status_context_only" if quarantine_custody_context
+                else "attestation_signature_verifier_result_context_only" if attestation_snapshot_verification_context
                 else "unverified_source_context_only" if unverified_source_context
                 else rule.reliability_posture))
         return proof, binding
