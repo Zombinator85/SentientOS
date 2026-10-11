@@ -332,6 +332,7 @@ def test_running_model_claim_carries_activation_predecessor_through_restart(tmp_
         "activation_receipt_id": "activation-b",
         "activation_receipt_semantic_digest": "sha256:" + "b" * 64,
         "activation_predecessor_state_digest": "sha256:" + "c" * 64,
+        "activation_predecessor_posture": "verified_predecessor_state",
         "activation_generation": 8,
         "activation_history_digest": "sha256:" + "d" * 64,
         "activation_history_posture": "verified_selection_history_digest",
@@ -351,6 +352,7 @@ def test_running_model_claim_carries_activation_predecessor_through_restart(tmp_
         if item.predicate == "running_model_identity_observed")
     assert claim.value["model_id"] == "model-b"
     assert claim.value["activation_predecessor_state_digest"] == "sha256:" + "c" * 64
+    assert claim.value["activation_predecessor_posture"] == "verified_predecessor_state"
     assert claim.value["observed_at"] == observed
     assert claim.value["model_development_provenance"]["posture"] == "identity_binding_verified"
     assert claim.current_truth is False
@@ -362,4 +364,5 @@ def test_running_model_claim_carries_activation_predecessor_through_restart(tmp_
     retained = next(item for item in later.selected_claims
         if item["predicate"] == "running_model_identity_observed")
     assert retained["value"]["activation_predecessor_state_digest"] == "sha256:" + "c" * 64
+    assert retained["value"]["activation_predecessor_posture"] == "verified_predecessor_state"
     assert retained["value"]["observed_at"] == observed

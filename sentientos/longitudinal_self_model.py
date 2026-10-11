@@ -321,8 +321,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             lineage.update({key: payload.get(key) for key in (
                 "serving_session_id", "activation_state_digest",
                 "activation_receipt_id", "activation_receipt_semantic_digest",
-                "activation_predecessor_state_digest", "activation_generation",
-                "activation_history_digest", "activation_history_posture",
+                "activation_predecessor_state_digest", "activation_predecessor_posture",
+                "activation_generation", "activation_history_digest", "activation_history_posture",
                 "transition_id", "event_time_posture", "model_development_provenance")})
             lineage.update({"observed_at": fact.observed_at,
                 "source_record_id": fact.source.source_id,

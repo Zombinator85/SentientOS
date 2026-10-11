@@ -2314,3 +2314,10 @@ Next inspect succession source records for any projection that still presents a 
 - New serving sessions now derive and bind the exact prior activation-state digest (or an explicit initial-activation posture) from verified activation history. In-memory session validation rechecks that derived edge. Transition activation evidence carries the predecessor, and new v3 serving-stage bindings reconcile it against both the prior activation and durable session; historical v2 bindings remain verifiable without claiming the added edge.
 - Added an authored unexecuted transition-binding regression. The resident World-State payloads and live transition status now also preserve the predecessor posture, so initial activation (no parent) remains distinguishable from a legacy binding with unknown predecessor. Python compilation and bounded diff inspection only; no behavioral, model, or production execution was performed.
 - Next follow the explicit predecessor through current World-State, epistemic selection, and durable developmental history, then continue to the next distinct source-backed causal dependency.
+
+
+## 2026-10-11 checkpoint — retain activation predecessor certainty in durable history
+
+- The running-model longitudinal self-model claim already retained the activation predecessor digest through restart, but did not retain the new initial-versus-legacy posture. The compact claim now preserves that posture beside the predecessor digest, so a known initial activation cannot collapse to the same representation as an older session with no predecessor binding.
+- Extended the existing authored restart/later-cognition case to assert both predecessor identity and posture before and after reconstruction. Python compilation and source inspection only; the case remains unexecuted and the claim remains historical interpretation.
+- Next inspect the epistemic binding/recovery contract for whether this activation-chain qualifier survives as stable provenance without becoming a current event on replay; then continue to the next causal dependency.
