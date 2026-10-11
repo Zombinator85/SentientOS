@@ -232,3 +232,25 @@ def test_world_state_memory_view_waits_for_snapshot_replacement(tmp_path, monkey
     assert surfaces.current_world_state_snapshot is None
     assert surfaces._world_state_snapshot_built_for_tick is None
     assert not list((tmp_path / "runtime" / "world_state_board").glob(".world-state-*.tmp"))
+
+
+def test_restart_rebuilds_world_state_from_sources_not_latest_artifact(tmp_path):
+    owner = EmbodimentEvidenceOwner([
+        observation("sensor_observation", "camera", {"present": True})])
+    runtime_root = tmp_path / "runtime"
+    first = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=runtime_root,
+        embodiment_evidence_owner=owner)
+    first_result = first.build_world_state_board(tick_id=NOW)
+    first_digest = first_result["snapshot_digest"]
+
+    latest = runtime_root / "world_state_board" / "latest.json"
+    latest.write_text("{corrupt diagnostic snapshot", encoding="utf-8")
+
+    restarted = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=runtime_root,
+        embodiment_evidence_owner=owner)
+    assert restarted.current_world_state_snapshot is None
+    second_result = restarted.build_world_state_board(tick_id=NOW)
+    assert second_result["snapshot_digest"] == first_digest
+    assert restarted.current_world_state_snapshot.digest == first_digest

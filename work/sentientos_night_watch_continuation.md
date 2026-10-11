@@ -2119,3 +2119,10 @@ Next inspect whether the now explicit omission posture is available to later cog
 The daemon wrote `world_state_board/latest.json` through one fixed temporary filename, did not flush the file or parent directory, and set the in-memory current snapshot before the disk replacement. The latest-snapshot writer now uses a unique same-directory temporary file, flushes the file, atomically replaces the target, and fsyncs the containing directory on POSIX. The in-memory snapshot/tick cache advances only after replacement completes; interruption cleans up its temporary file and leaves the prior in-memory view intact. A real writer-path interruption case is authored but unexecuted. Python compilation and diff whitespace inspection only; no tests or production verification ran.
 
 Next continue the consumer/recovery review: verify what startup reconstructs from the latest board artifact versus durable source owners, and keep the artifact a replaceable diagnostic snapshot rather than treating it as the authoritative history or replay source.
+
+
+## 2026-10-11 checkpoint — pin diagnostic snapshot restart semantics
+
+A source trace confirmed daemon startup does not recover `world_state_board/latest.json`; the authoritative records are reconstructed from explicitly composed owners and the World-State snapshot is rebuilt each tick. An authored unexecuted restart case now corrupts the replaceable latest artifact between two surface constructions and asserts the second board derives the same digest from its owner evidence. This prevents the diagnostic snapshot from becoming a history or replay authority. Python compilation and whitespace checks only; no behavioral test or restart was executed.
+
+Next source review: continue through persistent epistemic-state and developmental-history owners for any comparable latest-file-versus-journal recovery ambiguity, then choose the next repair from current code.
