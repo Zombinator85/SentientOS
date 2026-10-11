@@ -382,13 +382,28 @@ class ConversationSessionStore:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
 
     def update_turn_retention(self, session_id: str, turn_id: str, *, state: str, receipt: Mapping[str, Any]) -> None:
+        if state not in {"retained", "retention_failed"} or not isinstance(receipt, Mapping):
+            raise ValueError("invalid_turn_retention_update")
         lock = self._locked(session_id)
         try:
             session = self.load(session_id)
             matches = [turn for turn in session["turns"] if turn["turn_id"] == turn_id]
             if len(matches) != 1: raise KeyError(turn_id)
-            matches[0]["retention_state"] = state; matches[0]["retention_receipt"] = dict(receipt)
-            session["latest_activity_at"] = _now(); _atomic_json(self._path(session_id), session)
+            turn = matches[0]
+            if turn.get("role") != "user":
+                raise ValueError("retention_update_requires_user_turn")
+            current_state = turn.get("retention_state", "not_requested")
+            current_receipt = turn.get("retention_receipt")
+            if current_state == state:
+                if isinstance(current_receipt, Mapping) and dict(current_receipt) == dict(receipt):
+                    return
+                raise ValueError("turn_retention_receipt_conflict")
+            if current_state != "requested" or current_receipt is not None:
+                raise ValueError("turn_retention_transition_invalid")
+            turn["retention_state"] = state
+            turn["retention_receipt"] = dict(receipt)
+            session["latest_activity_at"] = _now()
+            _atomic_json(self._path(session_id), session)
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
 

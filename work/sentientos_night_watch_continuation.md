@@ -1216,3 +1216,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `chat_service.py`. No chat request, restart, test suite, or production verification was performed.
 
 **Next implementation dependency:** inspect the persistent conversation-session writer/recovery contract for canonical linkage publication behavior. Confirm exact atomicity and idempotent update semantics for retained metadata; preserve incomplete states if a crash occurs between assistant-turn publication and its metadata finalization.
+
+
+## New checkpoint — make retention metadata updates monotonic and idempotent
+
+- Fresh remote source before this increment: `80f474c7d533a84aac5e0c86942af55327acdd1d` (tree `49f3d7e22671d40b5776a83c67c34df9383363d8`).
+- The session owner publishes whole-session JSON atomically on POSIX with a same-directory private temp, file fsync, atomic replace/create-only link, and directory fsync. Appending a second assistant for one user turn is already rejected by source-lineage validation. A crash after assistant append but before retention metadata update leaves the user turn in its truthful `requested` state for the existing no-replay artifact reconciler.
+- The metadata updater itself previously overwrote any existing retention state/receipt and rewrote the session timestamp even for exact repeats. It now allows only `requested → retained|retention_failed`, requires a user turn and mapping receipt, rejects state/receipt substitution, and treats an exact same-state/same-receipt repeat as a no-op.
+- Python compilation passed for `conversation_session.py`. No session write, fault injection, replay, or runtime validation was performed. Windows conversation publication remains unsupported by its existing owner.
+
+**Next implementation dependency:** inspect the exact chat request recovery path around an already-published assistant response. Confirm it verifies the persisted source turn and receipt before returning a response after restart, and that any incomplete request remains no-replay rather than creating a duplicate assistant turn.
