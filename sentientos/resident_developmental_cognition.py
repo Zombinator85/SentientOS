@@ -1174,15 +1174,14 @@ class ResidentDevelopmentalCognitionOwner:
                     correlation_id=f"{tick_id}:resident_developmental_interpretation")
                 operation_id = f"resident-developmental-writeback:{tick_id}:{candidate.candidate_id}"
                 config_digest = self.writeback.admission_configuration_digest(candidate, operation_id=operation_id)
-                sequence = self.current_sequence()
-                admission = self.admission_authority.issue(
-                    admission_id=f"resident-admission-{candidate.candidate_id}-{sequence}",
+                admission = self.admission_authority.issue_next(
+                    admission_id_for_sequence=lambda sequence:
+                        f"resident-admission-{candidate.candidate_id}-{sequence}",
                     capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK, definition_version=1,
                     subsystem_kind="memory_context_reflection", principal_id=PRINCIPAL,
                     principal_kind=PRINCIPAL, effects=EFFECTS, subject_id=candidate.candidate_id,
                     request_configuration_digest=config_digest,
-                    provenance=f"configured-resident-control-plane:{tick_id}", issued_sequence=sequence,
-                    valid_through_sequence=sequence,
+                    provenance=f"configured-resident-control-plane:{tick_id}",
                     affirmative_preconditions=RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.approval_requirements,
                 )
                 record, receipt = self.writeback.append(candidate, admission=admission,

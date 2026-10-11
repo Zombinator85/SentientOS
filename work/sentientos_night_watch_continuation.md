@@ -2581,3 +2581,11 @@ Next inspect succession source records for any projection that still presents a 
 - The lower-level DevelopmentalHistoryStore and DevelopmentalExperimentStore had no equivalent direct-construction memory check even though the composed cognition config did. Their actual record/receipt and protocol/run roots now resolve against canonical memory and reject overlapping paths before access, while subsequent filesystem traversal still rejects symlink components.
 - Added authored, unexecuted direct-owner overlap cases. Changed source/tests passed Python compilation only; no tests or runtime storage initialization were executed.
 - Next complete the caller sequence handoff with the ledger authority itself so selection and admission publication happen under the same existing lock, preserving admission identity semantics for both resident-developmental owners.
+
+
+## 2026-10-11 checkpoint — allocate one-tick admissions inside the ledger lock
+
+- Two resident callers read the ledger's next sequence before invoking the locked issue operation. Concurrent owners therefore failed one request on a duplicate sequence instead of allocating distinct sequences atomically. RuntimeAdmissionAuthority now offers issue_next, which computes the next ledger-local sequence, derives the caller's existing admission ID, validates the same scope, and publishes the one-sequence admission while holding the ledger transaction lock.
+- Resident developmental writeback and resident epistemic mutation now use that operation. Existing explicit-sequence issue() remains available for callers with an externally governed sequence; no admission scope, effect, precondition, or validity window was added.
+- Added an authored, unexecuted concurrent-allocation case. Changed Python source and test modules passed compilation only; concurrency behavior remains unverified.
+- Next inspect interruption between admission publication and the admitted developmental mutation. Reconcile whether existing intents/recovery can identify the durable admission and resume truthfully without re-issuing or duplicating authority.

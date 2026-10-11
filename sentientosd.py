@@ -680,8 +680,6 @@ class RuntimeMaintenanceSurfaces:
                     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
                     def current_admission_sequence() -> int:
                         return ledger.current_sequence()
-                    def next_admission_sequence() -> int:
-                        return ledger.next_sequence()
                     writeback = ResidentDevelopmentalWritebackController(
                         history_root=config.history_root,
                         admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
@@ -690,7 +688,7 @@ class RuntimeMaintenanceSurfaces:
                     self._resident_developmental_owner = ResidentDevelopmentalCognitionOwner(
                         config=config, writeback=writeback,
                         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-                        invoker=resident_invoker, current_sequence=next_admission_sequence,
+                        invoker=resident_invoker, current_sequence=current_admission_sequence,
                     ) if resident_invoker is not None else None
                     if resident_invoker is None:
                         self._resident_developmental_configuration_error = "governed_local_invoker_unavailable"

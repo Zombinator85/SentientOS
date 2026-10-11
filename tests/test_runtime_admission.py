@@ -146,3 +146,31 @@ def test_admission_current_sequence_includes_revocations(tmp_path):
     assert ledger.next_sequence() == 5
     with pytest.raises(AdmissionError, match="revoked"):
         verify(verifier, admission, current_sequence=ledger.current_sequence())
+
+
+def test_concurrent_issue_next_allocates_sequences_inside_locked_transaction(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    path = tmp_path / "authority" / "ledger.json"
+    barrier = Barrier(2)
+
+    def issue_next():
+        authority = RuntimeAdmissionAuthority(definitions={CAPABILITY: DEFINITION},
+            ledger=AdmissionLedger(path))
+        barrier.wait()
+        return authority.issue_next(admission_id_for_sequence=lambda sequence: f"allocated-{sequence}",
+            capability_id=CAPABILITY, definition_version=1, subsystem_kind="fixture",
+            principal_id="controller-a", principal_kind="fixture_controller",
+            effects=("bounded_external_model_network_egress",), subject_id="service-a:endpoint-a",
+            request_configuration_digest="sha256:binding", provenance="operator-reviewed-fixture",
+            affirmative_preconditions=("operator_fixture_approval",))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(issue_next)
+        second = pool.submit(issue_next)
+        results = (first.result(), second.result())
+
+    assert {item.admission_id for item in results} == {"allocated-1", "allocated-2"}
+    assert {item.issued_sequence for item in results} == {1, 2}
+    assert len(AdmissionLedger(path).load()[0]) == 2

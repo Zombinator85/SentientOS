@@ -149,9 +149,6 @@ class ResidentEpistemicDevelopmentRuntime:
             if proposition.namespace not in config.allowed_namespaces or proposition.namespace not in owner.allowed_namespaces:
                 raise EpistemicDevelopmentError("proposition_namespace_not_allowed")
 
-    def _next_sequence(self) -> int:
-        return self.ledger.next_sequence()
-
     @staticmethod
     def _matches(rule: EpistemicDevelopmentRule, fact: WorldStateFact) -> bool:
         values = {"source_kind": fact.source.kind, "source_id": fact.source.source_id,
@@ -627,14 +624,12 @@ class ResidentEpistemicDevelopmentRuntime:
 
     def _issue(self, *, admission_id: str, effects: tuple[str, ...], subject_id: str,
                configuration_digest: str, provenance: str) -> Any:
-        sequence = self._next_sequence()
         definition = RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION
-        return self.authority.issue(admission_id=admission_id,
+        return self.authority.issue_next(admission_id_for_sequence=lambda _sequence: admission_id,
             capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
             subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
             effects=effects, subject_id=subject_id,
             request_configuration_digest=configuration_digest, provenance=provenance,
-            issued_sequence=sequence, valid_through_sequence=sequence,
             affirmative_preconditions=definition.approval_requirements)
 
     def process_snapshot(self, snapshot: WorldStateSnapshot, *, tick: int,
