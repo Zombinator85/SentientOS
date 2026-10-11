@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-This continuation freshly fetched and verified the remote branch at `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Each source commit is published through GitHub Git-data compare-and-swap and verified separately. Local Git `HEAD` is not authoritative. Continue from the freshly fetched branch and exact compare-and-swap ref updates.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The current remote branch has since advanced through independently fetched compare-and-swap publications; the newest exact checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1020,3 +1020,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - Replaced that overconstraint. Resident composition now requires a nonempty bounded tick identity, while prior developmental history is selected from the digest-verified durable completed-checkpoint sequence. This sequence records commits that existed before the current cycle; the current tick is rejected if already completed/incomplete and is persisted as in-progress before cognition. Thus same-tick writeback cannot enter the prior projection, without requiring wall-clock-formatted identifiers.
 - Removed timestamp parsing from history selection. Stored event/creation times remain provenance and are not rewritten; temporal ordering for this owner path comes from durable checkpoint order. Historical/recovered tick identities are still required to be nonempty strings, and repeated exact identities remain conflicts.
 - Construction correction is explicitly untested. The follow-up compilation and source checks are pending; no tests were run.
+
+
+## New checkpoint — harden session-lock custody before transcript access
+
+- Before this increment the remotely verified branch was a98104c79d06e2c9131cc2e694fe22f72fc64c01 (tree b9e038efa56e55f70d15df7db37b481deb0ffb32).
+- The session-ID validation in the transcript path occurred after lock-path construction in the per-session data lock. A malformed session ID could therefore influence a filesystem path before the canonical session validator ran. The lock path also had two implementations: the per-write lock followed a final symlink, while the whole-request lock used O_NOFOLLOW but did not prove a regular, single-link target.
+- Centralized both lock acquisitions through one bounded POSIX opener. It validates the session ID before path construction, requires flock and O_NOFOLLOW, opens nonblocking/close-on-exec, requires a regular single-link file owned by the current service user, and narrows its mode to 0600 before acquiring the existing independent lock. Windows remains fail-closed because the established lock owner lacks flock mutation support there.
+- Session data, request identity, inference admission, transcript publication, and retention boundaries are unchanged. The edit only protects the synchronization custody for those existing operations.
+- Python source compilation and whitespace inspection passed for the changed module. No concurrency, symlink, runtime, or Windows execution was performed.
+- The chat-process generation publisher itself requires the existing mutable POSIX InstallationStateHandle; Windows exposes only the read-only installation view and has no equivalent atomic publication owner. That remains an exact unsupported dependency. No mutation capability was added to Windows.
+- Construction is unverified. Next inspect recovery of transcript/session files and request reconciliation for identity substitutions that remain independently fixable without retaining response output or widening memory.

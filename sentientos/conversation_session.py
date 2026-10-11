@@ -10,6 +10,7 @@ import json
 from contextlib import contextmanager
 import os
 import re
+import stat
 import tempfile
 import uuid
 import time
@@ -36,6 +37,33 @@ def _now() -> str:
 def _digest(value: object) -> str:
     raw = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _open_session_lock_file(root: Path, name: str, *, unavailable_code: str) -> IO[str]:
+    try:
+        require_flock()
+    except OSError as exc:
+        raise ValueError("conversation_lock_custody_unsupported_platform") from exc
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise ValueError("conversation_lock_nofollow_unsupported")
+    flags = (os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW
+             | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+    try:
+        descriptor = os.open(root / name, flags, 0o600)
+    except OSError as exc:
+        raise ValueError(unavailable_code) from exc
+    try:
+        opened = os.fstat(descriptor)
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1
+                or opened.st_uid != os.getuid()):
+            raise ValueError("conversation_lock_identity_invalid")
+        os.fchmod(descriptor, 0o600)
+        handle = os.fdopen(descriptor, "a+")
+        descriptor = -1
+        return handle
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
 
 
 def _validate_turn_source_lineage(turns: Sequence[Mapping[str, Any]]) -> None:
@@ -117,11 +145,10 @@ class ConversationSessionStore:
         self.lock_timeout_seconds = lock_timeout_seconds
 
     def _locked(self, session_id: str) -> IO[str]:
-        try:
-            require_flock()
-        except OSError as exc:
-            raise ValueError("conversation_lock_custody_unsupported_platform") from exc
-        handle = (self.root / f".{session_id}.lock").open("a+")
+        if not _ID.fullmatch(session_id):
+            raise ValueError("invalid_session_id")
+        handle = _open_session_lock_file(self.root, f".{session_id}.lock",
+            unavailable_code="conversation_lock_unavailable")
         deadline = time.monotonic() + self.lock_timeout_seconds
         while True:
             try:
@@ -138,17 +165,8 @@ class ConversationSessionStore:
         """Serialize one session's read-context/infer/append transaction across processes."""
         if not _ID.fullmatch(session_id):
             raise ValueError("invalid_session_id")
-        try:
-            require_flock()
-        except OSError as exc:
-            raise ValueError("conversation_lock_custody_unsupported_platform") from exc
-        lock_path = self.root / f".{session_id}.chat.lock"
-        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
-        try:
-            fd = os.open(lock_path, flags, 0o600)
-        except OSError as exc:
-            raise ValueError("conversation_chat_lock_unavailable") from exc
-        handle = os.fdopen(fd, "a+")
+        handle = _open_session_lock_file(self.root, f".{session_id}.chat.lock",
+            unavailable_code="conversation_chat_lock_unavailable")
         deadline = time.monotonic() + self.lock_timeout_seconds
         acquired = False
         try:
