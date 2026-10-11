@@ -2384,3 +2384,11 @@ Next inspect succession source records for any projection that still presents a 
 - Validation now rejects non-tuple or unresolved observation references before a projection can be committed. Empty source-reference lists remain valid for owner-local measurements that genuinely have no supporting artifact reference; named references must resolve exactly within the projection inventory.
 - Added an authored, unexecuted regression. Changed Python files compile only; no tests or production capture ran.
 - Next review how capture tick identity is represented at the World-State boundary, especially whether source event time remains distinct from retrieval and freshness, then continue to another owner-level continuity dependency.
+
+
+## 2026-10-11 checkpoint — enforce introspection config limits at the owner boundary
+
+- The file loader bounded projection count and checked schema/domain relationships, but CausalIntrospectionRuntime trusted any directly constructed dataclass. A caller could bypass the 64-provider cap or supply inconsistent required domains.
+- The runtime constructor now independently checks schema, exact boolean types, absolute Path custody, bounded integer projection count, tuple domain shape, uniqueness, recognized domains, and required-domain inclusion before accepting providers. Valid loader-produced configurations retain their existing behavior.
+- Added authored, unexecuted constructor-boundary cases. Changed Python/test files compile only; no runtime capture, tests, or production verification ran.
+- Next inspect whether the explicit custody root ownership and directory operations remain stable across enumeration and publication, then continue to the next source-supported continuity dependency.

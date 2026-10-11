@@ -250,3 +250,17 @@ def test_observation_source_refs_must_resolve_to_inventory():
             source_references=(ref,), causal_references=(),
             observations=(OwnerObservation("session_id", "session-1", "identity",
                 source_refs=("unlisted-reference",), production_posture="synthetic_test"),))
+
+
+def test_runtime_constructor_enforces_loaded_configuration_bounds(tmp_path):
+    provider = _provider("owner", "model_serving")
+    oversized = IntrospectionConfig(True, tmp_path / "custody", True,
+        MAX_PROJECTIONS + 1, ("model_serving",), ())
+    with pytest.raises(IntrospectionError, match="invalid_max_projections"):
+        CausalIntrospectionRuntime(oversized, ())
+
+    unselected_required = IntrospectionConfig(True, tmp_path / "custody", True,
+        1, ("model_serving",), ("effects",))
+    with pytest.raises(IntrospectionError, match="invalid_config_domains"):
+        CausalIntrospectionRuntime(unselected_required, (
+            ProviderRegistration("owner", "model_serving", provider),))

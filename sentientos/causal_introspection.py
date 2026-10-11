@@ -506,10 +506,30 @@ def _snapshot_capacity_error(generation: int, custody_bytes: int, next_snapshot_
 
 class CausalIntrospectionRuntime:
     def __init__(self, config: IntrospectionConfig, registrations: Sequence[ProviderRegistration]):
+        if not isinstance(config, IntrospectionConfig) or config.schema != SCHEMA_VERSION:
+            raise IntrospectionError("unsupported_config_schema")
+        if (type(config.enabled) is not bool
+                or type(config.world_state_consumption_enabled) is not bool):
+            raise IntrospectionError("configuration_boolean_invalid")
+        if not isinstance(config.custody_root, Path) or not config.custody_root.is_absolute():
+            raise IntrospectionError("absolute_custody_root_required")
+        if (type(config.max_projections) is not int or config.max_projections < 1
+                or config.max_projections > MAX_PROJECTIONS):
+            raise IntrospectionError("invalid_max_projections")
+        if (not isinstance(config.enabled_domains, tuple)
+                or not isinstance(config.required_domains, tuple)
+                or any(not isinstance(item, str) for item in (*config.enabled_domains, *config.required_domains))):
+            raise IntrospectionError("configuration_domains_invalid")
+        if (len(set(config.enabled_domains)) != len(config.enabled_domains)
+                or len(set(config.required_domains)) != len(config.required_domains)):
+            raise IntrospectionError("duplicate_config_domain")
+        if (not set(config.enabled_domains) <= DOMAINS
+                or not set(config.required_domains) <= set(config.enabled_domains)):
+            raise IntrospectionError("invalid_config_domains")
+        if not isinstance(registrations, Sequence) or len(registrations) > config.max_projections:
+            raise IntrospectionError("provider_count_exceeded")
         self.config = config
         self.registrations = tuple(sorted(registrations, key=lambda item: (item.domain, item.owner_id)))
-        if len(self.registrations) > config.max_projections:
-            raise IntrospectionError("provider_count_exceeded")
         if any(isinstance(item.provider, CausalIntrospectionRuntime) or item.owner_id == "causal_introspection_runtime" for item in self.registrations):
             raise IntrospectionError("recursive_fabric_provider_rejected")
         owners = [item.owner_id for item in self.registrations]
