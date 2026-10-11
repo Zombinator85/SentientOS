@@ -2423,3 +2423,10 @@ Next inspect succession source records for any projection that still presents a 
 - The prior composition commit replaced an existing 11 KiB test module because the initial directory listing did not show its path. The original file is restored from the exact parent revision, and the new recovery-isolation cases are appended without removing its existing setup or coverage.
 - No production source changed in this correction. The corrected test file compiles only; no test was run.
 - Next continue the durable proof/admission recovery inspection from the prior checkpoint.
+
+
+## 2026-10-11 checkpoint — author restart continuity for introspection provenance
+
+- Source tracing confirmed that the evidence mutation admission durably binds the provenance ID, while the evidence receipt binds its admission identity and the evidence binding/source digest. Restart recovery verifies that full admission/intent/receipt chain; it does not replay evidence or state writes.
+- Added an authored, unexecuted end-to-end owner-path case that feeds parent snapshot lineage through World-State adaptation, durable evidence/state mutation, and a newly constructed owner/controller recovery, then checks the admission provenance is unchanged. This test is compiled only and was not run.
+- No additional production change was warranted in the current recovery path. Next inspect whether interruption recovery can distinguish a source proof whose provenance is malformed or semantically mismatched before durable admission, then continue to the next owner boundary.

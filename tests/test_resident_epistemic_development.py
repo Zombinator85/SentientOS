@@ -351,3 +351,65 @@ def test_introspection_recovery_failure_is_contextual_and_undated(tmp_path):
     assert binding.evidence_relation == "contextualizes"
     assert binding.dependency_kind == "unknown_dependency"
     assert binding.dependency_group is None
+
+
+def test_introspection_provenance_survives_epistemic_receipt_recovery(tmp_path):
+    owner, proposition, ledger, runtime = fixture(tmp_path)
+    rule = EpistemicDevelopmentRule("introspection-chain", proposition.proposition_id,
+        proposition.proposition_digest, {
+            "source_kind": "owner_introspection",
+            "subject_kind": "model_serving",
+            "stage": "observation",
+            "disposition": "owner_reported",
+        }, "supports", "unknown_dependency", "owner_introspection")
+    runtime.config = replace(runtime.config, rules=(rule,))
+    record = {
+        "source_kind": "owner_introspection", "source_id": "owner-projection-restart",
+        "subject_kind": "model_serving", "subject_id": "serving-owner",
+        "stage": "observation", "disposition": "owner_reported", "observed_at": NOW,
+        "payload": {
+            "introspection_snapshot_id": "causal-introspection-restart",
+            "introspection_snapshot_digest": "a" * 64,
+            "introspection_snapshot_generation": 3,
+            "introspection_snapshot_predecessor_digest": "b" * 64,
+            "introspection_capture_tick": NOW,
+            "introspection_snapshot_completion_posture": "complete",
+        },
+    }
+    board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    feedback = runtime.process_snapshot(board, tick=21, recorded_at=NOW)
+    assert feedback.new_binding_count == 1
+    assert feedback.state_receipt_ids
+
+    admissions, _revocations = ledger.load()
+    evidence_admission = next(item for item in admissions
+        if item.admission_id.startswith("epistemic-E-21-"))
+    admission_provenance = json.loads(evidence_admission.provenance)
+    expected_lineage = admission_provenance["causal_introspection_snapshot_lineage"]
+
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    def current():
+        stored_admissions, stored_revocations = ledger.load()
+        return max([item.issued_sequence for item in stored_admissions]
+            + [item.sequence for item in stored_revocations], default=1)
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_owner,
+        admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+        current_sequence=current, receipt_root=tmp_path / "receipts")
+    recovered_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=replace(runtime.config, rules=(rule,)), owner=recovered_owner,
+        mutation_controller=recovered_controller,
+        admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+        admission_ledger=ledger)
+    recovered = recovered_controller.verify_receipts()
+
+    assert recovered["status"] == "verified"
+    assert len(recovered_owner.bindings(proposition.proposition_id)) == 1
+    recovered_admissions, _ = ledger.load()
+    recovered_evidence_admission = next(item for item in recovered_admissions
+        if item.admission_id == evidence_admission.admission_id)
+    assert json.loads(recovered_evidence_admission.provenance)[
+        "causal_introspection_snapshot_lineage"] == expected_lineage
