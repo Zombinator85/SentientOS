@@ -88,7 +88,7 @@ def _validate_turn_source_lineage(turns: Sequence[Mapping[str, Any]]) -> None:
         linked_sources.add(source_id)
 
 
-def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:
+def _atomic_json(path: Path, payload: Mapping[str, Any], *, replace_existing: bool = True) -> None:
     if os.name != "posix":
         raise ValueError("conversation_publication_unsupported_platform")
     raw = (json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
@@ -99,7 +99,13 @@ def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:
         os.fchmod(fd, 0o600)
         with os.fdopen(fd, "wb") as handle:
             handle.write(raw); handle.flush(); os.fsync(handle.fileno())
-        os.replace(temporary, path)
+        if replace_existing:
+            os.replace(temporary, path)
+        else:
+            # A new session identity is create-only: an improbable UUID
+            # collision must never replace an existing durable transcript.
+            os.link(temporary, path, follow_symlinks=False)
+            os.unlink(temporary)
         directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
         try: os.fsync(directory)
         finally: os.close(directory)
@@ -200,8 +206,7 @@ class ConversationSessionStore:
                    "latest_activity_at": timestamp, "title": title, "model_identity": dict(model_identity),
                    "model_identity_digest": _digest(model_identity), "revision": 0, "lifecycle_state": "active", "turns": []}
         path = self._path(session_id)
-        if path.exists(): raise FileExistsError(session_id)
-        _atomic_json(path, payload)
+        _atomic_json(path, payload, replace_existing=False)
         return payload
 
     def load(self, session_id: str) -> dict[str, Any]:

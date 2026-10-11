@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `e13f54ff54a2769965c93357916db1430a39ba3f` (tree `eff0d9eb0e96dd708fa6dc260f3ab0d00813d400`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `a3be65f68cd23151a0acb084460772da1a3ecfcb` (tree `857831151860a95ba5ef5031ef2dcf575fd0e428`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1102,3 +1102,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Non-POSIX/Windows publication behavior is unchanged; no Windows write authority was added. Existing bounded schemas and recovery reconciliation remain unchanged.
 - Python compilation of `sentientos/runtime/supervisor.py` passed. No tests, process-concurrency/fault injection, filesystem race, Windows execution, service launch, or runtime behavior was exercised. This remains construction, unverified for production.
 - Next trace supervisor generation rejection against interrupted lifecycle recovery and the separately operating chat child; process overlap remains unknown unless an existing independent owner can establish it.
+
+
+## New checkpoint — create conversation sessions without replacement
+
+- The prior remotely verified checkpoint was a3be65f68cd23151a0acb084460772da1a3ecfcb (tree 857831151860a95ba5ef5031ef2dcf575fd0e428).
+- Session creation checked whether a random session path existed, then used the same atomic replace operation used for legitimate updates. The check and replacement were separate, so a collision/race could replace an existing session transcript instead of preserving the prior identity.
+- The existing atomic JSON publisher now has an explicit create-only mode for initial session publication. It fsyncs the temporary file, atomically links it to the final name without following links, removes the temporary name, and fsyncs the directory. Existing sessions continue using atomic replacement for their validated updates. The path-existence precheck is removed; an identity collision now fails without replacing prior custody.
+- Transcript scope, request identities, explicit retention, and model/invocation admission are unchanged.
+- Python compilation of `sentientos/conversation_session.py` passed. No collision injection, concurrent creator, tests, or runtime session operation was executed. Construction remains unverified.
+- Next review whether the durable transcript’s retained-memory result is revalidated against its independent retention owner on idempotent response recovery; do not treat transcript metadata alone as proof of memory admission.
