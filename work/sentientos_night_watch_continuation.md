@@ -1544,3 +1544,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `chat_service.py` now resolves and compares roots before establishing production serving, and rejects overlap between user memory and installation/transcript custody. Development composition applies the corresponding memory-versus-conversation-root check before replacing the active composition. The canonical store and transcript store keep their existing owners and paths; no content is migrated or merged.
 - Python syntax compilation passed for the changed chat service. No service, transcript, or memory store was opened; no behavior or production verification was performed.
 - **Next implementation dependency:** inspect the lifecycle of explicit user-memory-root configuration across independently launched chat instances and restart/recovery. Ensure the resolved root identity cannot drift during a serving lifetime and that missing/degraded user-memory custody remains distinct from transcript recovery and resident developmental history. Then continue to the next consequential causal boundary.
+
+
+
+## New checkpoint — unify process memory-root configuration
+
+- Fresh remote source before this increment: `7d87480b874af6997b220a203412d346f9e608d9` (tree `e6b0380494f0eba5885c95938618b89e63a2e166`).
+- Source review found that `memory_manager.py` snapshots `MEMORY_DIR` and data-root environment variables into module-level path constants, while `sentientos_memory_dir()` reread `MEMORY_DIR` on each call. Changing process environment after the legacy manager import could therefore split authorized legacy writes from chat retrieval into separate roots.
+- The canonical memory owner now freezes data/memory-root configuration on first import, and `memory_manager.py` derives its shared legacy paths through that same resolver. The explicit data-root argument remains available for isolated compositions when no process-wide `MEMORY_DIR` override is set. No root migration or write occurs.
+- Python syntax compilation passed for both changed modules. No memory root was opened and no behavior or production verification was performed.
+- **Next implementation dependency:** audit explicit development data-root overrides against the shared legacy manager root contract. Ensure an override cannot silently create a second user-memory domain while the legacy manager still addresses the process-wide root; then inspect restart and lifecycle handling for that resolved identity.

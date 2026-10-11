@@ -15,14 +15,24 @@ MAX_MEMORY_RECORDS = 1024
 MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
 def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+# Freeze shared root configuration at first import.  The legacy manager keeps
+# module-level path constants, so re-reading environment variables for chat would
+# otherwise let the two owners silently diverge after startup.
+_PROCESS_DATA_ROOT = Path(os.getenv("SENTIENTOS_DATA_DIR") or os.getenv("SENTIENTOS_DATA_ROOT")
+    or (Path.cwd() / "sentientos_data")).expanduser().resolve()
+_PROCESS_MEMORY_DIR = os.getenv("MEMORY_DIR")
+
+
 def sentientos_data_dir() -> Path:
-    return Path(os.getenv("SENTIENTOS_DATA_DIR") or os.getenv("SENTIENTOS_DATA_ROOT") or (Path.cwd()/"sentientos_data")).expanduser().resolve()
+    """Return this process's immutable data-root configuration."""
+    return _PROCESS_DATA_ROOT
+
+
 def sentientos_memory_dir(data_root: Path | None = None) -> Path:
-    """Resolve the shared memory_manager/canonical-chat memory directory."""
-    override = os.getenv("MEMORY_DIR")
-    if override:
-        return Path(override).expanduser().resolve()
-    return ((data_root or sentientos_data_dir()) / "memory").expanduser().resolve()
+    """Resolve shared user-memory custody from the process-start configuration."""
+    if _PROCESS_MEMORY_DIR:
+        return Path(_PROCESS_MEMORY_DIR).expanduser().resolve()
+    return ((data_root or _PROCESS_DATA_ROOT) / "memory").expanduser().resolve()
 @dataclass(frozen=True)
 class RetentionAdmission:
     decision: str; candidate_digest: str; request_id: str; receipt_digest: str; reason: str|None=None
