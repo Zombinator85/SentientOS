@@ -26,7 +26,8 @@ from .governed_local_model_invocation import (
 from .local_model_authority import digest_payload
 from .canonical_memory import sentientos_memory_dir
 from .private_file_custody import (
-    PrivateFileCustodyError, open_private_directory, read_private_file_at, publish_immutable_bytes,
+    PrivateFileCustodyError, list_bounded_json_names_at, open_private_directory,
+    read_private_file_at, publish_immutable_bytes,
 )
 from .platform_fcntl import fcntl, require_flock
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
@@ -585,6 +586,68 @@ def _publish_store_json(path: Path, payload: Mapping[str, Any], *, collision_err
         raise _map_custody_error(exc) from exc
 
 
+def _read_store_collection(path: Path, *, kind: str) -> tuple[tuple[str, bytes], ...]:
+    """Read one bounded immutable collection from a pinned directory handle."""
+    try:
+        before = path.lstat()
+    except FileNotFoundError:
+        return ()
+    except OSError as exc:
+        raise DevelopmentalWritebackError(f"durable_{kind}_root_unavailable") from exc
+    if not stat.S_ISDIR(before.st_mode):
+        raise DevelopmentalWritebackError(f"durable_{kind}_root_invalid")
+    if os.name == "nt":
+        try:
+            return tuple(read_regular_files(path, max_entries=MAX_DURABLE_RECORDS,
+                max_file_bytes=MAX_DURABLE_RECORD_BYTES,
+                max_total_bytes=MAX_DURABLE_RECORD_ROOT_BYTES))
+        except WindowsHandleCustodyError as exc:
+            raise DevelopmentalWritebackError(f"durable_{kind}_windows_recovery_failed") from exc
+
+    directory_fd: int | None = None
+    try:
+        directory_fd = _open_store_directory(path, create=False)
+        opened = os.fstat(directory_fd)
+        if (not stat.S_ISDIR(opened.st_mode) or opened.st_dev != before.st_dev
+                or opened.st_ino != before.st_ino):
+            raise DevelopmentalWritebackError(f"durable_{kind}_collection_changed_during_read")
+        try:
+            names = list_bounded_json_names_at(
+                directory_fd, max_entries=MAX_DURABLE_RECORDS,
+                max_directory_entries=MAX_DURABLE_RECORDS + 1024)
+        except PrivateFileCustodyError as exc:
+            if exc.code in {"directory_entry_limit_exceeded", "directory_file_count_limit_exceeded"}:
+                raise DevelopmentalWritebackError(f"durable_{kind}_limit_exceeded") from exc
+            raise DevelopmentalWritebackError(f"durable_{kind}_root_unavailable") from exc
+        entries: list[tuple[str, bytes]] = []
+        total = 0
+        for name in names:
+            try:
+                data = _read_store_file(directory_fd, name)
+            except DevelopmentalWritebackError as exc:
+                if str(exc) == "stored_payload_missing":
+                    raise DevelopmentalWritebackError(
+                        f"durable_{kind}_collection_changed_during_read") from exc
+                raise
+            total += len(data)
+            if total > MAX_DURABLE_RECORD_ROOT_BYTES:
+                raise DevelopmentalWritebackError(f"durable_{kind}_root_size_limit_exceeded")
+            entries.append((name, data))
+        after = os.fstat(directory_fd)
+        if (after.st_dev != opened.st_dev or after.st_ino != opened.st_ino
+                or after.st_mtime_ns != opened.st_mtime_ns
+                or after.st_ctime_ns != opened.st_ctime_ns):
+            raise DevelopmentalWritebackError(f"durable_{kind}_collection_changed_during_read")
+        return tuple(entries)
+    except DevelopmentalWritebackError:
+        raise
+    except (OSError, PrivateFileCustodyError) as exc:
+        raise DevelopmentalWritebackError(f"durable_{kind}_root_unavailable") from exc
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+
+
 class DevelopmentalHistoryStore:
     """Content-addressed immutable store, physically separate from canonical memory."""
     def __init__(self, root: Path) -> None:
@@ -696,91 +759,41 @@ class DevelopmentalHistoryStore:
         return value
 
     def records(self) -> tuple[DevelopmentalRecord, ...]:
-        try:
-            root_mode = self.records_root.lstat().st_mode
-        except FileNotFoundError:
-            return ()
-        except OSError as exc:
-            raise DevelopmentalWritebackError("durable_record_root_unavailable") from exc
-        if not stat.S_ISDIR(root_mode):
-            raise DevelopmentalWritebackError("durable_record_root_invalid")
-        if os.name == "nt":
+        entries = _read_store_collection(self.records_root, kind="record")
+        recovered: list[DevelopmentalRecord] = []
+        for name, data in entries:
             try:
-                entries = read_regular_files(self.records_root,
-                    max_entries=MAX_DURABLE_RECORDS, max_file_bytes=MAX_DURABLE_RECORD_BYTES,
-                    max_total_bytes=MAX_DURABLE_RECORD_ROOT_BYTES)
-            except WindowsHandleCustodyError as exc:
-                raise DevelopmentalWritebackError("durable_record_windows_recovery_failed") from exc
-            recovered: list[DevelopmentalRecord] = []
-            for name, data in entries:
-                try:
-                    payload = json.loads(data.decode("utf-8"))
-                    if (not isinstance(payload, dict)
-                            or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != data):
-                        raise DevelopmentalWritebackError("stored_payload_noncanonical")
-                    record = DevelopmentalRecord(**payload)
-                except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
-                    raise DevelopmentalWritebackError("record_missing_or_corrupt") from exc
-                self._verify_record(record)
-                if name != record.record_id + ".json":
-                    raise DevelopmentalWritebackError("durable_record_path_identity_mismatch")
-                recovered.append(record)
-            return tuple(recovered)
-        paths = sorted(self.records_root.glob("*.json"))
-        if len(paths) > MAX_DURABLE_RECORDS:
-            raise DevelopmentalWritebackError("durable_record_limit_exceeded")
-        records = tuple(self.get(path.stem) for path in paths)
-        total_bytes = sum(len(json.dumps(asdict(record), sort_keys=True, indent=2).encode("utf-8") + b"\n")
-                          for record in records)
-        if total_bytes > MAX_DURABLE_RECORD_ROOT_BYTES:
-            raise DevelopmentalWritebackError("durable_record_root_size_limit_exceeded")
-        if any(path.stem != record.record_id for path, record in zip(paths, records)):
-            raise DevelopmentalWritebackError("durable_record_path_identity_mismatch")
-        return records
+                payload = json.loads(data.decode("utf-8"))
+                if (not isinstance(payload, dict)
+                        or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != data):
+                    raise DevelopmentalWritebackError("stored_payload_noncanonical")
+                record = DevelopmentalRecord(**payload)
+            except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
+                raise DevelopmentalWritebackError("record_missing_or_corrupt") from exc
+            self._verify_record(record)
+            if name != record.record_id + ".json":
+                raise DevelopmentalWritebackError("durable_record_path_identity_mismatch")
+            recovered.append(record)
+        return tuple(recovered)
 
     def receipts(self) -> tuple[WritebackReceipt, ...]:
         """Recover the bounded receipt collection without creating or repairing custody."""
-        try:
-            root_mode = self.receipts_root.lstat().st_mode
-        except FileNotFoundError:
-            return ()
-        except OSError as exc:
-            raise DevelopmentalWritebackError("durable_receipt_root_unavailable") from exc
-        if not stat.S_ISDIR(root_mode):
-            raise DevelopmentalWritebackError("durable_receipt_root_invalid")
-        if os.name == "nt":
+        entries = _read_store_collection(self.receipts_root, kind="receipt")
+        recovered: list[WritebackReceipt] = []
+        for name, data in entries:
             try:
-                entries = read_regular_files(self.receipts_root,
-                    max_entries=MAX_DURABLE_RECORDS, max_file_bytes=MAX_DURABLE_RECORD_BYTES,
-                    max_total_bytes=MAX_DURABLE_RECORD_ROOT_BYTES)
-            except WindowsHandleCustodyError as exc:
-                raise DevelopmentalWritebackError("durable_receipt_windows_recovery_failed") from exc
-            recovered: list[WritebackReceipt] = []
-            for name, data in entries:
-                try:
-                    payload = json.loads(data.decode("utf-8"))
-                    if (not isinstance(payload, dict)
-                            or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != data):
-                        raise DevelopmentalWritebackError("stored_payload_noncanonical")
-                    receipt = WritebackReceipt(**payload)
-                except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
-                    raise DevelopmentalWritebackError("receipt_missing_or_corrupt") from exc
-                self._verify_receipt(receipt)
-                if name != receipt.receipt_id + ".json":
-                    raise DevelopmentalWritebackError("durable_receipt_path_identity_mismatch")
-                recovered.append(receipt)
-            return tuple(recovered)
-        paths = sorted(self.receipts_root.glob("*.json"))
-        if len(paths) > MAX_DURABLE_RECORDS:
-            raise DevelopmentalWritebackError("durable_receipt_limit_exceeded")
-        receipts = tuple(self.get_receipt(path.stem) for path in paths)
-        total_bytes = sum(len(json.dumps(asdict(receipt), sort_keys=True, indent=2).encode("utf-8") + b"\n")
-                          for receipt in receipts)
-        if total_bytes > MAX_DURABLE_RECORD_ROOT_BYTES:
-            raise DevelopmentalWritebackError("durable_receipt_root_size_limit_exceeded")
-        if any(path.stem != receipt.receipt_id for path, receipt in zip(paths, receipts)):
-            raise DevelopmentalWritebackError("durable_receipt_path_identity_mismatch")
-        return receipts
+                payload = json.loads(data.decode("utf-8"))
+                if (not isinstance(payload, dict)
+                        or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != data):
+                    raise DevelopmentalWritebackError("stored_payload_noncanonical")
+                receipt = WritebackReceipt(**payload)
+            except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
+                raise DevelopmentalWritebackError("receipt_missing_or_corrupt") from exc
+            self._verify_receipt(receipt)
+            if name != receipt.receipt_id + ".json":
+                raise DevelopmentalWritebackError("durable_receipt_path_identity_mismatch")
+            recovered.append(receipt)
+        return tuple(recovered)
 
     @staticmethod
     def _verify_record(record: DevelopmentalRecord) -> None:

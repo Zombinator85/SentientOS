@@ -3,6 +3,9 @@ import json
 
 import pytest
 
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError, list_bounded_json_names_at, open_private_directory,
+)
 from sentientos.persistent_epistemic_state import (
     FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
     PropositionRelation, evidence_posture, make_cognitive_projection,
@@ -235,3 +238,30 @@ def test_epistemic_mutation_lock_rejects_symlink_and_shared_permissions(tmp_path
     with pytest.raises(EpistemicStateError, match="epistemic_mutation_lock_invalid"):
         with owner._mutation_lock():
             pass
+
+
+def test_private_directory_json_inventory_is_bounded(tmp_path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor inventory is required")
+    root = tmp_path / "records"
+    root.mkdir(mode=0o700)
+    (root / "one.json").write_text("{}", encoding="utf-8")
+    (root / "ignored.tmp").write_text("temporary", encoding="utf-8")
+    descriptor = open_private_directory(root, create=False)
+    try:
+        assert list_bounded_json_names_at(
+            descriptor, max_entries=1, max_directory_entries=2) == ("one.json",)
+        (root / "overflow.tmp").write_text("temporary", encoding="utf-8")
+        with pytest.raises(PrivateFileCustodyError, match="directory_entry_limit_exceeded"):
+            list_bounded_json_names_at(
+                descriptor, max_entries=1, max_directory_entries=2)
+        (root / "overflow.tmp").unlink()
+        (root / "two.json").write_text("{}", encoding="utf-8")
+        with pytest.raises(PrivateFileCustodyError, match="directory_file_count_limit_exceeded"):
+            list_bounded_json_names_at(
+                descriptor, max_entries=1, max_directory_entries=3)
+    finally:
+        import os
+        os.close(descriptor)

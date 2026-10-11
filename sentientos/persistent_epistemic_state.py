@@ -402,9 +402,10 @@ class PersistentEpistemicStateOwner:
             if (not stat.S_ISDIR(opened.st_mode) or opened.st_ino != entries_mode.st_ino
                     or opened.st_dev != entries_mode.st_dev):
                 raise EpistemicStateError("epistemic_collection_changed_during_read")
-            names = tuple(sorted(name for name in os.listdir(directory_fd) if name.endswith(".json")))
-            if len(names) > MAX_EPISTEMIC_RECORDS_PER_COLLECTION:
-                raise EpistemicStateError("epistemic_record_count_limit_exceeded")
+            names = list_bounded_json_names_at(
+                directory_fd, max_entries=MAX_EPISTEMIC_RECORDS_PER_COLLECTION,
+                max_directory_entries=MAX_EPISTEMIC_RECORDS_PER_COLLECTION + 1024)
+
             records: list[tuple[str, bytes]] = []
             total = 0
             for name in names:
@@ -429,6 +430,8 @@ class PersistentEpistemicStateOwner:
         except EpistemicStateError:
             raise
         except PrivateFileCustodyError as exc:
+            if exc.code in {"directory_entry_limit_exceeded", "directory_file_count_limit_exceeded"}:
+                raise EpistemicStateError("epistemic_record_count_limit_exceeded") from exc
             raise EpistemicStateError("epistemic_collection_custody_invalid") from exc
         except OSError as exc:
             raise EpistemicStateError("epistemic_collection_unavailable") from exc

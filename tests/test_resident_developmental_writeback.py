@@ -281,3 +281,18 @@ def test_concurrent_retry_of_one_operation_reuses_durable_record(tmp_path: Path)
     assert left_receipt.receipt_id == right_receipt.receipt_id
     assert len(first.store.records()) == 1
     assert len(first.store.receipts()) == 1
+
+
+def test_developmental_history_inventory_rejects_linked_json_file(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor inventory is required")
+    store = DevelopmentalHistoryStore(tmp_path / "developmental-history")
+    store.records_root.mkdir(parents=True, mode=0o700)
+    external = tmp_path / "outside.json"
+    external.write_text("{}", encoding="utf-8")
+    (store.records_root / "linked.json").symlink_to(external)
+    with pytest.raises(DevelopmentalWritebackError):
+        store.records()
+    assert external.read_text(encoding="utf-8") == "{}"

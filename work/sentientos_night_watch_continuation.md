@@ -2656,3 +2656,10 @@ A later source correction was also composed from stale note text and displaced t
 - After individual record reads and writes moved to descriptor custody, collection inventory still enumerated JSON paths and reopened the directory for each file. A replacement or mutation between enumeration and reads could cross the inventory boundary. POSIX recovery now opens and pins one verified collection directory, enumerates and reads bounded records relative to that descriptor, then checks directory identity and timestamps for concurrent mutation. Windows continues using its held-handle, read-only collection reader.
 - The prior symlink rejection case remains authored and unexecuted. Changed source syntax compilation only; collection race behavior is unverified.
 - Next inspect transaction repair publication for locking and consistency across the records/updates pair, ensuring a crash cannot leave a mixed generation visible to later cognition.
+
+
+## 2026-10-11 checkpoint — bound JSON inventory enumeration through the custody helper
+
+- Persistent epistemic and developmental-history inventories now enumerate bounded JSON names through a shared helper operating on one held directory descriptor. The helper caps both selected records and total directory entries, preventing large ignored-file inventories from bypassing parser bounds. Both owners read each record relative to the same descriptor and verify collection identity after the scan; existing Windows readers remain handle-bound and read-only.
+- Added authored, unexecuted cases for directory-entry and selected-file bounds plus linked-file rejection. Python syntax compilation only; inventory races and recovery remain unverified.
+- Next inspect the World-State and resource-observation source readers for any remaining path-based recovery inventory that can be moved to the same bounded owner custody contract.

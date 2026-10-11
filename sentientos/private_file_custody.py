@@ -114,6 +114,38 @@ def read_private_file_at(directory_fd: int, name: str, *, max_bytes: int,
             os.close(descriptor)
 
 
+def list_bounded_json_names_at(directory_fd: int, *, max_entries: int,
+                                max_directory_entries: int | None = None) -> tuple[str, ...]:
+    """Enumerate bounded JSON names from one already-held directory descriptor."""
+    if (not isinstance(max_entries, int) or isinstance(max_entries, bool) or max_entries < 1):
+        raise PrivateFileCustodyError("directory_entry_bound_invalid")
+    if max_directory_entries is None:
+        max_directory_entries = max_entries + 1024
+    if (not isinstance(max_directory_entries, int) or isinstance(max_directory_entries, bool)
+            or max_directory_entries < max_entries):
+        raise PrivateFileCustodyError("directory_entry_bound_invalid")
+    names: list[str] = []
+    total_entries = 0
+    try:
+        with os.scandir(directory_fd) as entries:
+            for entry in entries:
+                total_entries += 1
+                if total_entries > max_directory_entries:
+                    raise PrivateFileCustodyError("directory_entry_limit_exceeded")
+                name = entry.name
+                if not isinstance(name, str) or name in {"", ".", ".."} or "/" in name or "\\" in name:
+                    raise PrivateFileCustodyError("directory_entry_name_invalid")
+                if name.endswith(".json"):
+                    names.append(name)
+                    if len(names) > max_entries:
+                        raise PrivateFileCustodyError("directory_file_count_limit_exceeded")
+    except PrivateFileCustodyError:
+        raise
+    except OSError as exc:
+        raise PrivateFileCustodyError("directory_entries_unavailable") from exc
+    return tuple(sorted(names))
+
+
 def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
                  collision_code: str) -> None:
     if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
