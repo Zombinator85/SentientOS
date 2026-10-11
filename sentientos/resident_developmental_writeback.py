@@ -650,9 +650,13 @@ class DevelopmentalHistoryStore:
         return value
 
     def records(self) -> tuple[DevelopmentalRecord, ...]:
-        if not self.records_root.exists():
+        try:
+            root_mode = self.records_root.lstat().st_mode
+        except FileNotFoundError:
             return ()
-        if self.records_root.is_symlink() or not self.records_root.is_dir():
+        except OSError as exc:
+            raise DevelopmentalWritebackError("durable_record_root_unavailable") from exc
+        if not stat.S_ISDIR(root_mode):
             raise DevelopmentalWritebackError("durable_record_root_invalid")
         if os.name == "nt":
             try:
@@ -690,9 +694,13 @@ class DevelopmentalHistoryStore:
 
     def receipts(self) -> tuple[WritebackReceipt, ...]:
         """Recover the bounded receipt collection without creating or repairing custody."""
-        if not self.receipts_root.exists():
+        try:
+            root_mode = self.receipts_root.lstat().st_mode
+        except FileNotFoundError:
             return ()
-        if self.receipts_root.is_symlink() or not self.receipts_root.is_dir():
+        except OSError as exc:
+            raise DevelopmentalWritebackError("durable_receipt_root_unavailable") from exc
+        if not stat.S_ISDIR(root_mode):
             raise DevelopmentalWritebackError("durable_receipt_root_invalid")
         if os.name == "nt":
             try:

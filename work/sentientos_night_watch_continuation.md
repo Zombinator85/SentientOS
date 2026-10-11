@@ -2453,3 +2453,11 @@ Next inspect succession source records for any projection that still presents a 
 - Reconstruction now converts malformed payload decoding into a stable fail-closed error and requires exact byte equality with the canonical decoded snapshot before predecessor/digest validation. Existing writer output is already canonical; no legacy writer migration is needed.
 - Added an authored, unexecuted regression for an extra canonical JSON field. Python syntax compilation only; no custody mutation beyond authored fixture code ran.
 - Next inspect remaining exact source identity and recovery boundaries in the resident developmental history owner, then continue the broader runtime-to-cognition chain.
+
+
+## 2026-10-11 checkpoint — distinguish damaged developmental-history roots from absent custody
+
+- The bounded record and receipt readers used `Path.exists()` before checking the root type. A dangling root symlink therefore appeared absent and recovery could report an empty history instead of rejecting damaged custody.
+- Both readers now classify the root with `lstat()`: only a genuinely absent root yields an empty collection; inaccessible roots raise a stable unavailable error; symlink or non-directory roots fail as invalid before enumeration. Existing Windows held-handle parsing and POSIX per-file verification remain unchanged.
+- Added authored, unexecuted POSIX dangling-symlink cases for both records and receipts. Python compilation only; no tests or runtime recovery ran.
+- Next inspect adjacent history retrieval and later-cognition composition for identity collisions or replay that can turn historical interpretation into current evidence.

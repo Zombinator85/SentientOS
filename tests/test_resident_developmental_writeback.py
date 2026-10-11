@@ -148,3 +148,27 @@ def test_developmental_history_is_physically_separate_from_canonical_memory(tmp_
     assert "canonical" not in ctrl.store.root.name and "memory" not in ctrl.store.root.name
     import sentientos.canonical_memory as canonical_memory
     assert not hasattr(canonical_memory, "resident_developmental_writeback")
+
+
+def test_dangling_record_root_is_not_recovered_as_empty(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("dangling symlink fixture requires POSIX filesystem semantics")
+    store = DevelopmentalHistoryStore(tmp_path / "history")
+    store.root.mkdir()
+    store.records_root.symlink_to(tmp_path / "missing-records-target", target_is_directory=True)
+    with pytest.raises(DevelopmentalWritebackError, match="durable_record_root_invalid"):
+        store.records()
+
+
+def test_dangling_receipt_root_is_not_recovered_as_empty(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("dangling symlink fixture requires POSIX filesystem semantics")
+    store = DevelopmentalHistoryStore(tmp_path / "history")
+    store.root.mkdir()
+    store.receipts_root.symlink_to(tmp_path / "missing-receipts-target", target_is_directory=True)
+    with pytest.raises(DevelopmentalWritebackError, match="durable_receipt_root_invalid"):
+        store.receipts()
