@@ -9,13 +9,17 @@ from sentientos.codex_task_authority_admission import (
     RESIDENT_EPISTEMIC_STATE_MUTATION,
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
 )
-from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner, make_proposition
+from sentientos.persistent_epistemic_state import (
+    PersistentEpistemicStateOwner, make_epistemic_update_candidate, make_proposition,
+)
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
 from sentientos.resident_epistemic_development import (
     MAX_BINDINGS_PER_TICK, EpistemicDevelopmentConfig, EpistemicDevelopmentError,
     EpistemicDevelopmentRule, ResidentEpistemicDevelopmentRuntime,
 )
-from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
+from sentientos.resident_epistemic_state_mutation import (
+    STATE_UPDATE_EFFECTS, ResidentEpistemicStateMutationController,
+)
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
 
@@ -68,6 +72,31 @@ def test_one_tick_evidence_and_state_mutation_uses_distinct_admissions(tmp_path)
     assert len(admissions) == 2 and admissions[0].admission_id != admissions[1].admission_id
     assert set(admissions[0].effects).isdisjoint(set(admissions[1].effects) - {"exact_epistemic_proposition_read", "epistemic_mutation_receipt_write", "read_only_epistemic_post_mutation_verification"})
     assert state.evidence_set_digest
+
+
+def test_incomplete_mutation_recovery_is_reported_without_new_admission(tmp_path):
+    owner, proposition, ledger, runtime = fixture(tmp_path)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id, predecessor_state_digest=None,
+        proposed_stance="unknown", evidence_binding_ids=(), reason="initialization",
+        rationale="interrupted state intent", uncertainty="unknown", model_id="fixture")
+    operation_id = "interrupted-state-update"
+    admission = runtime._issue(admission_id="interrupted-state-admission",
+        effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
+        configuration_digest=runtime.controller.state_configuration_digest(
+            candidate=candidate, operation_id=operation_id),
+        provenance="unexecuted recovery fixture")
+    runtime.controller._write_state_intent(candidate=candidate, admission=admission,
+        operation_id=operation_id, correlation_id="interrupted-state-workflow")
+
+    result = runtime.process_snapshot(snapshot(), tick=11, recorded_at=NOW)
+
+    admissions, _ = ledger.load()
+    assert result.status == "degraded"
+    assert result.recovery_status == "incomplete"
+    assert result.pending_state_intent_count == 1
+    assert len(admissions) == 1
+    assert owner.current_state(proposition.proposition_id) is None
 
 
 def test_two_tick_prior_firewall_and_contradiction_progression(tmp_path):

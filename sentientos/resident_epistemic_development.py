@@ -588,6 +588,15 @@ class ResidentEpistemicDevelopmentRuntime:
             raise EpistemicDevelopmentError("world_state_snapshot_invalid")
         matches = [(rule, fact) for rule in self.config.rules for fact in snapshot.facts if self._matches(rule, fact)]
         matches.sort(key=lambda pair: (pair[0].rule_id, pair[1].fact_id))
+        recovery = self.controller.verify_receipts()
+        if recovery.get("status") == "incomplete":
+            return EpistemicDevelopmentFeedback("degraded", snapshot.snapshot_id,
+                len(self.config.rules), len(matches), 0, 0, (), (), (), (),
+                recovery_status="incomplete",
+                pending_evidence_intent_count=int(recovery.get("pending_evidence_intent_count", 0)),
+                pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
+                pending_transaction_count=int(recovery.get("pending_transaction_count", 0)),
+                recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
         bounded = matches[:self.config.max_new_bindings_per_tick]
         evidence_receipts: list[str] = []; touched: set[str] = set(); new_count = 0
         for rule, fact in bounded:
