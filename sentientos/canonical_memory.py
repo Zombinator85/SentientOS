@@ -525,6 +525,18 @@ class AdmittedRetentionWriter:
                                 "reason_code": "artifact_missing",
                                 "admission_status": "not_independently_recoverable",
                                 "write_replayed": False}
+                    staged_meta = staged.get("meta")
+                    staged_request_id = (
+                        staged_meta.get("request_id")
+                        if isinstance(staged_meta, Mapping) else None
+                    )
+                    if (not isinstance(staged_request_id, str)
+                            or not re.fullmatch(
+                                r"retain-request-[0-9a-f]{24}", staged_request_id)):
+                        return {"artifact_status": "conflict",
+                                "reason_code": "staged_request_identity_invalid",
+                                "admission_status": "not_independently_recoverable",
+                                "write_replayed": False}
                     candidate = {
                         "candidate_type": CANDIDATE_TYPE,
                         "session_id": session_id,
@@ -532,7 +544,7 @@ class AdmittedRetentionWriter:
                         "source_role": "user",
                         "source_text_digest": source_turn["text_digest"],
                         "explicitly_requested": True,
-                        "request_id": retention_request_id(operation),
+                        "request_id": staged_request_id,
                         "operation_id": operation,
                     }
                     admission = self.admission_gate.decide(candidate)
@@ -822,6 +834,7 @@ class AdmittedRetentionWriter:
         if verification.get("artifact_status") != "verified":
             raise PermissionError("canonical_memory_artifact_reconciliation_failed")
         return receipt
+
 
 
 

@@ -1892,3 +1892,8 @@ The chat owner now asks its existing no-replay recovery path to reconcile a rete
 ## 2026-10-11 checkpoint — remove only empty legacy summary directories
 
 Descriptor-relative summary pruning now also removes a nested directory after its validated descendants have been reconciled, but only when the directory is empty. Nonempty directories that hold unrecognized files remain untouched; symlink, ownership, permission, depth, and entry checks still fail closed. This removes empty path-label remnants from the earlier legacy summary layout. Python compilation passed; no filesystem was accessed. Next dependency: continue bounded review of process-local memory-root identity limits and the remaining explicit-retention recovery states.
+
+
+## 2026-10-11 checkpoint — preserve valid historical staged request identities
+
+Verified stage recovery now takes the request id from the staged record itself, validates its historical request-id format, and recomputes the default-deny admission receipt over that exact candidate. This supports both new retry-stable IDs and earlier random IDs already bound in a private staged artifact; unbound, mismatched, or contradictory stages remain incomplete without publication. The recovered session/turn/text/operation identities still come from the durable transcript request. Python compilation passed; no storage was opened. Next dependency: inspect exact stage-to-target race handling and terminal recovery posture, then continue the broader memory-root continuity review.
