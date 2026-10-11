@@ -6,6 +6,7 @@ from pathlib import Path
 from sentientos.canonical_memory import (
     CANDIDATE_TYPE,
     ROOT_PATH_BINDING_SCOPE,
+    ROOT_FILESYSTEM_BINDING_SCOPE,
     AdmittedRetentionWriter,
     CanonicalMemoryStore,
     ExplicitRetentionAdmissionGate,
@@ -70,7 +71,7 @@ def _retention_fixture(tmp_path: Path):
     }
     record_path = raw_root / (memory_id + ".json")
     record_path.write_text(
-        json.dumps(record, sort_keys=True, ensure_ascii=False, indent=2) + "\n",
+        json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8")
     os.chmod(record_path, 0o600)
     receipt = {
@@ -142,7 +143,10 @@ def test_real_retention_writer_emits_and_reconciles_path_scoped_receipt(tmp_path
     assert "target_root_identity" not in receipt
     verified = writer.verify_committed_artifact(receipt, source_turn, session_id)
     assert verified["artifact_status"] == "verified"
-    assert verified["cross_restart_root_identity"] == "not_established"
+    assert verified["cross_restart_root_identity"] == "device_inode_rechecked_not_external_issuer"
+    assert receipt["target_root_filesystem_binding_scope"] == ROOT_FILESYSTEM_BINDING_SCOPE
+    assert receipt["target_root_filesystem_binding_digest"] == (
+        writer.store.root_filesystem_binding_digest())
 
     artifact = writer.store.raw / (receipt["memory_id"] + ".json")
     prior_bytes = artifact.read_bytes()
@@ -153,3 +157,52 @@ def test_real_retention_writer_emits_and_reconciles_path_scoped_receipt(tmp_path
     assert recovered["receipt"]["target_root_path_binding_digest"] == (
         receipt["target_root_path_binding_digest"])
     assert artifact.read_bytes() == prior_bytes
+
+
+def test_filesystem_root_identity_survives_process_restart_and_rejects_replacement(
+        tmp_path: Path, monkeypatch) -> None:
+    if os.name != "posix":
+        return
+    import shutil
+    import sentientos.canonical_memory as memory
+
+    writer, source_turn, _path_receipt = _retention_fixture(tmp_path)
+    session_id = "filesystem-root-binding"
+    operation = "retain:" + session_id + ":" + source_turn["turn_id"]
+    candidate = {
+        "candidate_type": CANDIDATE_TYPE,
+        "session_id": session_id,
+        "source_turn_id": source_turn["turn_id"],
+        "source_role": "user",
+        "source_text_digest": source_turn["text_digest"],
+        "explicitly_requested": True,
+        "request_id": retention_request_id(operation),
+        "operation_id": operation,
+    }
+    admission = writer.admission_gate.decide(candidate)
+    receipt = writer.execute(candidate, admission, source_turn)
+    first = writer.verify_committed_artifact(receipt, source_turn, session_id)
+    assert first["artifact_status"] == "verified"
+    assert first["cross_restart_root_identity"] == "device_inode_rechecked_not_external_issuer"
+
+    # A fresh process has no process-local path-to-inode cache; durable receipt
+    # evidence must still bind the exact filesystem directory observed at write.
+    monkeypatch.setattr(memory, "_PROCESS_MEMORY_ROOT_IDENTITIES", {})
+    restarted = AdmittedRetentionWriter(CanonicalMemoryStore(writer.store.root))
+    after_restart = restarted.verify_committed_artifact(
+        receipt, source_turn, session_id)
+    assert after_restart["artifact_status"] == "verified"
+    assert after_restart["cross_restart_root_identity"] == (
+        "device_inode_rechecked_not_external_issuer")
+
+    root = writer.store.root
+    moved = root.with_name(root.name + "-prior")
+    root.rename(moved)
+    shutil.copytree(moved, root)
+    os.chmod(root, 0o700)
+    monkeypatch.setattr(memory, "_PROCESS_MEMORY_ROOT_IDENTITIES", {})
+    replacement = AdmittedRetentionWriter(CanonicalMemoryStore(root))
+    rejected = replacement.verify_committed_artifact(
+        receipt, source_turn, session_id)
+    assert rejected["artifact_status"] == "conflict"
+    assert rejected["reason_code"] == "target_root_filesystem_identity_changed"

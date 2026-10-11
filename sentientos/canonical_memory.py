@@ -21,12 +21,27 @@ def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
 ROOT_PATH_BINDING_SCOPE = "configured_absolute_path_only"
+ROOT_FILESYSTEM_BINDING_SCOPE = "posix_device_inode_observation_not_external_issuer:v1"
 
 
 def configured_root_path_binding_digest(root: Path) -> str:
     """Hash a configured path spelling, not a durable filesystem identity."""
     absolute = Path(os.path.abspath(Path(root).expanduser()))
     return digest({"root": str(absolute)})
+
+
+def _filesystem_receipt_binding(record: Mapping[str, Any]) -> dict[str, str]:
+    meta = record.get("meta")
+    if (not isinstance(meta, Mapping)
+            or meta.get("memory_root_filesystem_binding_scope")
+                != ROOT_FILESYSTEM_BINDING_SCOPE
+            or not isinstance(meta.get("memory_root_filesystem_binding_digest"), str)):
+        return {}
+    return {
+        "target_root_filesystem_binding_digest":
+            str(meta["memory_root_filesystem_binding_digest"]),
+        "target_root_filesystem_binding_scope": ROOT_FILESYSTEM_BINDING_SCOPE,
+    }
 
 
 def retention_request_id(operation_id: str) -> str:
@@ -79,6 +94,16 @@ class CanonicalMemoryStore:
         # descriptor-relative root opener rejects such components instead.
         self.root = Path(os.path.abspath(Path(memory_root).expanduser()))
         self.raw = self.root / "raw"
+        # Pin an already-existing root at owner construction. A later pathname
+        # replacement then cannot become this process's first accepted identity.
+        # An absent root remains absent until an admitted write prepares it.
+        if os.name == "posix":
+            try:
+                descriptor = self.open_memory_root()
+            except FileNotFoundError:
+                pass
+            else:
+                os.close(descriptor)
 
     def _legacy_sidecar_posture(self) -> str:
         """Report bounded path metadata only; the legacy sidecar is never ingested here."""
@@ -331,6 +356,29 @@ class CanonicalMemoryStore:
             os.close(descriptor)
             raise
 
+    def root_filesystem_binding_digest(self) -> str:
+        descriptor = self.open_memory_root()
+        try:
+            metadata = os.fstat(descriptor)
+            return digest({"device": metadata.st_dev, "inode": metadata.st_ino})
+        finally:
+            os.close(descriptor)
+
+    @staticmethod
+    def root_filesystem_binding_digest_from_raw_directory(directory_fd: int) -> str:
+        """Bind to the verified raw directory's actual parent, not a reopened path."""
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open("..", flags, dir_fd=directory_fd)
+        try:
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISDIR(metadata.st_mode)
+                    or metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(metadata.st_mode) & 0o077):
+                raise PermissionError("canonical_memory_root_identity_custody_invalid")
+            return digest({"device": metadata.st_dev, "inode": metadata.st_ino})
+        finally:
+            os.close(descriptor)
+
     def open_raw_directory(self, *, prepare_for_write: bool = False) -> int:
         """Open the raw subtree relative to a verified private memory root."""
         if os.name != "posix":
@@ -402,6 +450,8 @@ class AdmittedRetentionWriter:
             "source_text_digest", "admission_receipt_digest", "execution_operation_id",
             "canonical_stored_record_digest", "target_root_path_binding_digest",
             "target_root_path_binding_scope", "index_update_result"}
+        filesystem_binding_fields = path_binding_fields | {
+            "target_root_filesystem_binding_digest", "target_root_filesystem_binding_scope"}
         if not isinstance(receipt, Mapping):
             return {"artifact_status": "conflict", "reason_code": "stored_receipt_binding_invalid",
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
@@ -411,8 +461,11 @@ class AdmittedRetentionWriter:
         binding_scope = ("legacy_target_root_identity_path_digest" if legacy_path_binding
             else receipt.get("target_root_path_binding_scope"))
         receipt_digest = receipt.get("admission_receipt_digest")
-        if (set(receipt) not in (legacy_fields, path_binding_fields)
+        filesystem_binding = set(receipt) == filesystem_binding_fields
+        if (set(receipt) not in (legacy_fields, path_binding_fields, filesystem_binding_fields)
                 or (not legacy_path_binding and binding_scope != ROOT_PATH_BINDING_SCOPE)
+                or (filesystem_binding and receipt.get("target_root_filesystem_binding_scope")
+                    != ROOT_FILESYSTEM_BINDING_SCOPE)
                 or receipt.get("status") != "memory_retention_committed"
                 or receipt.get("memory_id") != expected_id
                 or receipt.get("source_session_id") != session_id
@@ -426,33 +479,72 @@ class AdmittedRetentionWriter:
                 or any(char not in "0123456789abcdef" for char in receipt_digest)):
             return {"artifact_status": "conflict", "reason_code": "stored_receipt_binding_invalid",
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
+        root_filesystem_identity = None
+        if filesystem_binding:
+            claimed_root_identity = receipt.get("target_root_filesystem_binding_digest")
+            if (not isinstance(claimed_root_identity, str) or len(claimed_root_identity) != 64
+                    or any(char not in "0123456789abcdef" for char in claimed_root_identity)):
+                return {"artifact_status": "conflict",
+                    "reason_code": "target_root_filesystem_identity_invalid",
+                    "admission_status": "not_independently_recoverable", "write_replayed": False}
+            if os.name != "posix":
+                return {"artifact_status": "unavailable",
+                    "reason_code": "target_root_filesystem_identity_platform_unavailable",
+                    "admission_status": "not_independently_recoverable", "write_replayed": False}
+            root_filesystem_identity = claimed_root_identity
         stored_digest = receipt.get("canonical_stored_record_digest")
         if (not isinstance(stored_digest, str) or len(stored_digest) != 64
                 or any(char not in "0123456789abcdef" for char in stored_digest)):
             return {"artifact_status": "conflict", "reason_code": "stored_record_digest_invalid",
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
         path = self.store.raw / (expected_id + ".json")
+        directory_fd: int | None = None
+        observed_root_identity: str | None = None
         try:
-            from .windows_handle_custody import verify_explicit_directory
-            verify_explicit_directory(self.store.root, require_private_acl=True)
-            verify_explicit_directory(self.store.raw, require_private_acl=True)
-            raw = read_explicit_file(path, max_bytes=MAX_RETENTION_RECORD_BYTES,
-                require_private_acl=True)
+            if os.name == "posix":
+                directory_fd = self.store.open_raw_directory()
+                observed_root_identity = (
+                    self.store.root_filesystem_binding_digest_from_raw_directory(directory_fd))
+                if filesystem_binding:
+                    if observed_root_identity != root_filesystem_identity:
+                        return {"artifact_status": "conflict",
+                            "reason_code": "target_root_filesystem_identity_changed",
+                            "admission_status": "not_independently_recoverable",
+                            "write_replayed": False}
+                record = self._read_raw_record(directory_fd, expected_id + ".json")
+                if record is None:
+                    return {"artifact_status": "unavailable", "reason_code": "artifact_missing",
+                            "admission_status": "not_independently_recoverable",
+                            "write_replayed": False}
+                raw = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+            else:
+                from .windows_handle_custody import verify_explicit_directory
+                verify_explicit_directory(self.store.root, require_private_acl=True)
+                verify_explicit_directory(self.store.raw, require_private_acl=True)
+                raw = read_explicit_file(path, max_bytes=MAX_RETENTION_RECORD_BYTES,
+                    require_private_acl=True)
+                record = json.loads(raw.decode("utf-8"))
         except WindowsHandleCustodyError as exc:
             reason = ("artifact_missing" if exc.args == ("explicit_file_missing",)
                       else "artifact_custody_unavailable")
             return {"artifact_status": "unavailable", "reason_code": reason,
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
-        try:
-            record = json.loads(raw.decode("utf-8"))
-        except (UnicodeError, json.JSONDecodeError):
+        except (OSError, PermissionError):
+            return {"artifact_status": "unavailable", "reason_code": "artifact_custody_unavailable",
+                    "admission_status": "not_independently_recoverable", "write_replayed": False}
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
+        if not isinstance(record, dict):
             return {"artifact_status": "conflict", "reason_code": "artifact_malformed",
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
         fields = {"id", "text", "text_digest", "timestamp", "source", "category",
                   "tags", "importance", "meta"}
         meta = record.get("meta") if isinstance(record, dict) else None
-        expected_meta_fields = {"session_id", "turn_id", "request_id", "operation_id",
-                                "admission_receipt_digest"}
+        base_meta_fields = {"session_id", "turn_id", "request_id", "operation_id",
+                            "admission_receipt_digest"}
+        filesystem_meta_fields = base_meta_fields | {
+            "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
         timestamp = record.get("timestamp") if isinstance(record, dict) else None
         try:
             instant = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
@@ -468,7 +560,8 @@ class AdmittedRetentionWriter:
                 or record.get("tags") != ["explicit-retention"]
                 or type(record.get("importance")) is not float
                 or record.get("importance") != 1.0
-                or not isinstance(meta, dict) or set(meta) != expected_meta_fields
+                or not isinstance(meta, dict)
+                or set(meta) not in (base_meta_fields, filesystem_meta_fields)
                 or meta.get("session_id") != session_id
                 or meta.get("turn_id") != source_turn["turn_id"]
                 or not isinstance(meta.get("request_id"), str)
@@ -478,12 +571,31 @@ class AdmittedRetentionWriter:
                 or not timestamp_valid or digest(record) != stored_digest):
             return {"artifact_status": "conflict", "reason_code": "stored_artifact_binding_invalid",
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
+        has_record_root_binding = set(meta) == filesystem_meta_fields
+        if has_record_root_binding != filesystem_binding:
+            return {"artifact_status": "conflict",
+                "reason_code": "target_root_filesystem_binding_not_record_bound",
+                "admission_status": "not_independently_recoverable", "write_replayed": False}
+        if has_record_root_binding and (
+                os.name != "posix"
+                or meta.get("memory_root_filesystem_binding_scope")
+                    != ROOT_FILESYSTEM_BINDING_SCOPE
+                or not isinstance(meta.get("memory_root_filesystem_binding_digest"), str)
+                or meta.get("memory_root_filesystem_binding_digest")
+                    != receipt.get("target_root_filesystem_binding_digest")
+                or observed_root_identity
+                    != meta.get("memory_root_filesystem_binding_digest")):
+            return {"artifact_status": "conflict",
+                "reason_code": "target_root_filesystem_identity_changed",
+                "admission_status": "not_independently_recoverable", "write_replayed": False}
         if source_turn.get("retention_state") not in {"requested", "retained"}:
             return {"artifact_status": "verified", "memory_id": expected_id,
                     "record_digest": stored_digest,
                     "admission_status": "not_independently_recoverable",
                     "reason_code": "explicit_request_state_not_recoverable",
-                    "cross_restart_root_identity": "not_established",
+                    "cross_restart_root_identity": (
+                        "device_inode_rechecked_not_external_issuer" if filesystem_binding
+                        else "not_established"),
                     "root_path_binding_scope": binding_scope,
                     "write_replayed": False}
         candidate = {"candidate_type": CANDIDATE_TYPE, "session_id": session_id,
@@ -497,14 +609,18 @@ class AdmittedRetentionWriter:
             return {"artifact_status": "verified", "memory_id": expected_id,
                     "record_digest": stored_digest, "admission_status": "conflict",
                     "reason_code": "admission_digest_policy_mismatch",
-                    "cross_restart_root_identity": "not_established",
+                    "cross_restart_root_identity": (
+                        "device_inode_rechecked_not_external_issuer" if filesystem_binding
+                        else "not_established"),
                     "root_path_binding_scope": binding_scope,
                     "write_replayed": False}
         return {"artifact_status": "verified", "memory_id": expected_id,
                 "record_digest": stored_digest,
                 "admission_status": "policy_recomputed_not_execution_attested",
                 "admission_receipt_digest": receipt_digest,
-                "cross_restart_root_identity": "not_established",
+                "cross_restart_root_identity": (
+                    "device_inode_rechecked_not_external_issuer" if filesystem_binding
+                    else "not_established"),
                 "root_path_binding_scope": binding_scope,
                 "write_replayed": False}
 
@@ -528,6 +644,7 @@ class AdmittedRetentionWriter:
         operation = "retain:" + session_id + ":" + source_turn["turn_id"]
         memory_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
         staged_artifact_published = False
+        observed_root_identity: str | None = None
         if os.name == "nt":
             try:
                 raw = read_explicit_file(self.store.raw / (memory_id + ".json"),
@@ -547,6 +664,8 @@ class AdmittedRetentionWriter:
             directory_fd: int | None = None
             try:
                 directory_fd = self._open_raw_directory()
+                observed_root_identity = (
+                    self.store.root_filesystem_binding_digest_from_raw_directory(directory_fd))
                 record = self._read_raw_record(directory_fd, memory_id + ".json",
                     max_links=2)
                 if record is None:
@@ -680,6 +799,25 @@ class AdmittedRetentionWriter:
             return {"artifact_status": "conflict", "reason_code": "artifact_noncanonical",
                     "admission_status": "not_independently_recoverable",
                     "write_replayed": False}
+        meta = record["meta"]
+        base_meta_fields = {"session_id", "turn_id", "request_id", "operation_id",
+            "admission_receipt_digest"}
+        filesystem_meta_fields = base_meta_fields | {
+            "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
+        has_record_root_binding = set(meta) == filesystem_meta_fields
+        if set(meta) not in (base_meta_fields, filesystem_meta_fields):
+            return {"artifact_status": "conflict",
+                "reason_code": "stored_artifact_metadata_shape_invalid",
+                "admission_status": "not_independently_recoverable", "write_replayed": False}
+        if has_record_root_binding and (
+                os.name != "posix"
+                or meta.get("memory_root_filesystem_binding_scope")
+                    != ROOT_FILESYSTEM_BINDING_SCOPE
+                or not isinstance(meta.get("memory_root_filesystem_binding_digest"), str)
+                or observed_root_identity != meta.get("memory_root_filesystem_binding_digest")):
+            return {"artifact_status": "conflict",
+                "reason_code": "target_root_filesystem_identity_changed",
+                "admission_status": "not_independently_recoverable", "write_replayed": False}
         receipt = {
             "status": "memory_retention_committed", "memory_id": memory_id,
             "source_session_id": session_id, "source_turn_id": source_turn["turn_id"],
@@ -689,6 +827,7 @@ class AdmittedRetentionWriter:
             "canonical_stored_record_digest": digest(record),
             "target_root_path_binding_digest": configured_root_path_binding_digest(self.store.root),
             "target_root_path_binding_scope": ROOT_PATH_BINDING_SCOPE,
+            **_filesystem_receipt_binding(record),
             "index_update_result": "raw_fragment_available",
         }
         verification = self.verify_committed_artifact(receipt, source_turn, session_id)
@@ -753,8 +892,24 @@ class AdmittedRetentionWriter:
                                proposed: Mapping[str, Any]) -> bool:
         fields = {"id", "text", "text_digest", "timestamp", "source", "category",
                   "tags", "importance", "meta"}
-        if set(existing) != fields or any(existing.get(key) != proposed.get(key)
-                for key in fields - {"timestamp"}):
+        base_meta_fields = {"session_id", "turn_id", "request_id", "operation_id",
+            "admission_receipt_digest"}
+        filesystem_meta_fields = base_meta_fields | {
+            "memory_root_filesystem_binding_digest", "memory_root_filesystem_binding_scope"}
+        existing_meta, proposed_meta = existing.get("meta"), proposed.get("meta")
+        if (set(existing) != fields or set(proposed) != fields
+                or any(existing.get(key) != proposed.get(key)
+                    for key in fields - {"timestamp", "meta"})
+                or not isinstance(existing_meta, Mapping)
+                or not isinstance(proposed_meta, Mapping)
+                or set(existing_meta) not in (base_meta_fields, filesystem_meta_fields)
+                or set(proposed_meta) not in (base_meta_fields, filesystem_meta_fields)
+                or any(existing_meta.get(key) != proposed_meta.get(key)
+                    for key in base_meta_fields)
+                or (set(existing_meta) == filesystem_meta_fields
+                    and set(proposed_meta) == filesystem_meta_fields
+                    and any(existing_meta.get(key) != proposed_meta.get(key)
+                        for key in filesystem_meta_fields - base_meta_fields))):
             return False
         try:
             timestamp = datetime.fromisoformat(
@@ -804,12 +959,17 @@ class AdmittedRetentionWriter:
                 "request_id": candidate["request_id"], "operation_id": operation,
                 "admission_receipt_digest": admission.receipt_digest},
         }
-        encoded = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
         directory_fd = self._open_raw_directory(prepare_for_write=True)
         temporary_name = ".memory-" + memory_id + ".tmp"
         temporary_fd: int | None = None
         temporary_created = False
         try:
+            root_identity = self.store.root_filesystem_binding_digest_from_raw_directory(directory_fd)
+            record["meta"].update({
+                "memory_root_filesystem_binding_digest": root_identity,
+                "memory_root_filesystem_binding_scope": ROOT_FILESYSTEM_BINDING_SCOPE,
+            })
+            encoded = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
             existing = self._read_raw_record(directory_fd, memory_id + ".json")
             if existing is not None:
                 if not self._same_operation_record(existing, record):
@@ -860,6 +1020,8 @@ class AdmittedRetentionWriter:
             "canonical_stored_record_digest": digest(record),
             "target_root_path_binding_digest": configured_root_path_binding_digest(self.store.root),
             "target_root_path_binding_scope": ROOT_PATH_BINDING_SCOPE,
+            "target_root_filesystem_binding_digest": self.store.root_filesystem_binding_digest(),
+            "target_root_filesystem_binding_scope": ROOT_FILESYSTEM_BINDING_SCOPE,
             "index_update_result": "raw_fragment_available",
         }
         verification = self.verify_committed_artifact(receipt, source_turn,
