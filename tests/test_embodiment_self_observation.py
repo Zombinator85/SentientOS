@@ -143,3 +143,9 @@ def test_caller_embodiment_wrapper_cannot_mint_fulfillment_or_effect_proof():
     assert record["payload"]["caller_claimed_effect_proven"] is True
     assert record["payload"]["declared_provenance_class"] == "production"
     assert record["payload"]["observer_issuer_posture"] == "unverified_caller_assertion"
+
+
+def test_embodiment_owner_bounds_inventory_before_retaining_items():
+    item = observation("sensor_observation", "camera", {"present": True})
+    with pytest.raises(EmbodimentEvidenceError, match="embodiment_observation_count_exceeded"):
+        EmbodimentEvidenceOwner((item,) * 65)

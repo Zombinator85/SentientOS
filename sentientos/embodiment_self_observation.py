@@ -13,6 +13,8 @@ FRESHNESS_POSTURES = frozenset({"current", "fresh", "aging", "stale", "expired",
 CLASSES = frozenset({"body_manifest", "sensor_observation", "actuator_observation",
                      "avatar_commanded_state", "avatar_renderer_reported_state",
                      "avatar_independently_observed_state", "fulfillment_observation"})
+MAX_EMBODIMENT_OBSERVATIONS = 64
+MAX_EVIDENCE_ID_CHARS = 512
 FORBIDDEN = frozenset({"authority", "permission", "policy", "goal", "consciousness", "sentience"})
 FALSE_AUTHORITY = {"decision_authority": False, "admission_authority": False,
                    "execution_authority": False, "adoption_authority": False,
@@ -107,11 +109,12 @@ class EmbodimentObservation:
     schema_version: str = EVIDENCE_SCHEMA
 
     def validate(self) -> None:
+        identity_fields = (self.source_id, self.source_schema, self.source_digest,
+            self.observed_at, self.provenance_class, self.freshness, self.subject_id, self.subject_kind)
         if (self.schema_version != EVIDENCE_SCHEMA or self.evidence_class not in CLASSES
-                or self.posture not in POSTURES or not all((self.source_id, self.source_schema,
-                                                            self.source_digest, self.observed_at,
-                                                            self.provenance_class, self.freshness,
-                                                            self.subject_id, self.subject_kind))):
+                or self.posture not in POSTURES
+                or any(not isinstance(value, str) or not value
+                    or len(value) > MAX_EVIDENCE_ID_CHARS for value in identity_fields)):
             raise EmbodimentEvidenceError("embodiment_evidence_invalid")
         if not isinstance(self.freshness, str) or self.freshness not in FRESHNESS_POSTURES:
             raise EmbodimentEvidenceError("embodiment_freshness_invalid")
@@ -130,9 +133,15 @@ class EmbodimentEvidenceOwner:
     """Explicitly injected evidence owner; performs no discovery or effects."""
 
     def __init__(self, observations: Sequence[EmbodimentObservation]) -> None:
-        self._observations = tuple(observations)
-        for observation in self._observations:
+        bounded: list[EmbodimentObservation] = []
+        for observation in observations:
+            if len(bounded) >= MAX_EMBODIMENT_OBSERVATIONS:
+                raise EmbodimentEvidenceError("embodiment_observation_count_exceeded")
+            if not isinstance(observation, EmbodimentObservation):
+                raise EmbodimentEvidenceError("embodiment_evidence_invalid")
             observation.validate()
+            bounded.append(observation)
+        self._observations = tuple(bounded)
 
     def world_state_records(self) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
