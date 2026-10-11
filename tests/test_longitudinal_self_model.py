@@ -138,19 +138,37 @@ def test_restart_reconstruction_detects_tamper_and_retains_superseded_history(tm
 
 
 
-def test_qualified_software_generation_scope_survives_longitudinal_writeback(
-    tmp_path: Path,
-) -> None:
-    qualified = record(source="runtime:software", extra={
-        "process_role": "maintenance_daemon",
-        "process_identity_scope": "launch_provenance_bound_process_instance",
-        "software_generation_scope": "configured_manifest_and_clean_repository_state",
+def test_chat_runtime_history_binds_source_scope_and_loaded_code_limit(tmp_path: Path) -> None:
+    observation = {
+        "observation_semantic_digest": "a" * 64,
+        "runtime_supervisor_generation": "runtime-generation-1",
+        "observed_at": "2026-09-25T11:59:00Z",
+        "runtime_status": "running_observed",
+        "configured_serving_receipt_posture": "not_observed",
+        "configured_serving_operation_id": "serve-op-1",
+        "serving_receipt": None,
+        "handoff_id": "handoff-1",
+        "handoff_digest": "b" * 64,
+        "process_instance_id": "process-1",
+        "software_generation_digest": "sha256:" + "c" * 64,
+        "source_generation_scope": "sentientos_and_scripts_python_sources",
+    }
+    source = record(source="runtime:chat-process", extra={
+        "chat_process_runtime_observation": observation,
+        "linked_invocation_receipts": [],
+        "software_generation_scope": observation["source_generation_scope"],
         "loaded_code_identity_posture": "not_independently_attested",
+        "process_identity_scope":
+            "installation_bound_launcher_handoff_checked_at_recorded_observation",
     })
+    source["source_kind"] = "runtime_supervisor"
+    source["subject_kind"] = "chat_process_runtime_generation_observation"
     result = LongitudinalSelfModelOwner(tmp_path).reconcile(
-        snapshot(qualified), tick_id="tick-qualified-software")
-    values = {(claim.predicate, claim.value) for claim in result.claims}
-    assert ("process_role", "maintenance_daemon") in values
-    assert ("software_generation_scope",
-            "configured_manifest_and_clean_repository_state") in values
-    assert ("loaded_code_identity_posture", "not_independently_attested") in values
+        snapshot(source), tick_id="tick-chat-runtime")
+    lineage = next(claim for claim in result.claims
+        if claim.predicate == "chat_process_runtime.historical_generation_observation")
+    assert lineage.value["software_generation_scope"] == (
+        "sentientos_and_scripts_python_sources")
+    assert lineage.value["loaded_code_identity_posture"] == "not_independently_attested"
+    assert lineage.value["process_identity_scope"] == (
+        "installation_bound_launcher_handoff_checked_at_recorded_observation")

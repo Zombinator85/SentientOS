@@ -2184,10 +2184,8 @@ The epistemic mutation controller created both receipt-stage directories uncondi
 Next continue checking the remaining model/software succession owners and distinguish repository/process observations from runtime loaded-code attribution where no issuer exists.
 
 
-## 2026-10-11 checkpoint — retain succession identity scope in developmental memory
+## 2026-10-11 checkpoint — cover the durable chat-lineage qualification
 
-The World-State projections now distinguish process/source identity from loaded-code attestation for chat and maintenance runtime observations. The generic longitudinal self-model payload allowlist and the specialized historical chat-process lineage previously dropped those new qualifiers, so a later durable interpretation could retain a generation digest without its observation scope. Added explicit bounded predicates for process role, process identity scope, software-generation scope, and loaded-code identity posture; the specialized chat lineage now carries the same fields under its source-record digest. This remains historical interpretation and requires the existing predicate selection; it grants no truth or authority.
+Added an unexecuted regression case through the real World-State builder and longitudinal owner, asserting the historical chat-process lineage projection retains source scope, process identity scope, and the explicit absence of independent loaded-code attestation. Python compilation only; no test or runtime path was executed.
 
-A regression case for durable scope-label writeback is authored but unexecuted. Changed Python modules compile only. No behavior or production verification ran.
-
-Next inspect the chronological cognition selector to ensure these scoped developmental claims remain historical and cannot be mistaken for current running identity after restart.
+Next continue source inspection for another bounded causal continuity gap; independent loaded-code attestation and Windows lifetime custody remain unavailable rather than inferred.
