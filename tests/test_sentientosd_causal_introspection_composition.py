@@ -201,3 +201,19 @@ def test_serving_introspection_uses_non_invalidating_observation(tmp_path: Path)
     assert serving.observed_calls == 1
     assert next(item.bounded_value for item in projection.observations
         if item.observation_key == "session_present") is False
+
+
+def test_causal_resource_allocation_identity_projection_is_bounded_and_digest_located() -> None:
+    from sentientosd import _bounded_resource_allocation_identity_projection
+
+    values = tuple({"allocation_digest": f"allocation-{index}"} for index in range(70))
+    projection = _bounded_resource_allocation_identity_projection(values)
+
+    assert len(projection["allocation_digests"]) == 64
+    assert projection["allocation_digests"][0] == "allocation-6"
+    assert projection["allocation_digests"][-1] == "allocation-69"
+    assert projection["allocation_count"] == 70
+    assert projection["omitted_allocation_count"] == 6
+    assert projection["last_omitted_allocation_digest"] == "allocation-5"
+    assert projection["first_retained_allocation_digest"] == "allocation-6"
+    assert projection["allocation_retention_posture"] == "bounded_tail_incomplete"

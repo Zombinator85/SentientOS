@@ -422,6 +422,25 @@ def resolve_improvement_evidence_sources(
 RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT = 48
 
 
+def _bounded_resource_allocation_identity_projection(
+        allocations: Sequence[Mapping[str, Any]], *, limit: int = 64) -> dict[str, Any]:
+    """Expose a bounded allocation-identity tail and exact omitted boundary."""
+    if type(limit) is not int or limit < 1:
+        raise ValueError("resource_allocation_projection_limit_invalid")
+    identities = tuple(str(item.get("allocation_digest", ""))
+        for item in allocations if isinstance(item, Mapping))
+    omitted_count = max(0, len(identities) - limit)
+    retained = identities[omitted_count:]
+    return {
+        "allocation_digests": retained,
+        "allocation_count": len(identities),
+        "omitted_allocation_count": omitted_count,
+        "last_omitted_allocation_digest": identities[omitted_count - 1] if omitted_count else None,
+        "first_retained_allocation_digest": retained[0] if omitted_count and retained else None,
+        "allocation_retention_posture": "bounded_tail_incomplete" if omitted_count else "complete",
+    }
+
+
 def _bounded_resident_transition_entries(
         entries: Sequence[Mapping[str, Any]]) -> tuple[tuple[Mapping[str, Any], ...], dict[str, Any] | None]:
     """Retain a bounded journal tail while reporting the exact omitted prefix."""
@@ -2537,19 +2556,19 @@ def _compose_causal_introspection(
             latest_consumption_event_at = next((item.get("observed_at")
                 for item in reversed(tuple(receipt_values))
                 if isinstance(item, Mapping) and isinstance(item.get("observed_at"), str)), None)
+            allocation_projection = _bounded_resource_allocation_identity_projection(
+                ledger_snapshot["allocations"], limit=64)
             return {"installation_identity": observation.installation_identity,
                 "provisioning_id": observation.provisioning_id,
                 "manifest_digest": observation.manifest_digest,
                 "ledger_digest": str(payload.get("ledger_digest", "")),
-                "allocation_digests": tuple(str(item.get("allocation_digest", ""))
-                    for item in ledger_snapshot["allocations"] if isinstance(item, Mapping)),
+                **allocation_projection,
                 "attempt_ids": tuple(str(item.get("attempt_id", ""))
                     for item in ledger_snapshot["attempts"][-64:] if isinstance(item, Mapping)),
                 "retained_historical_consumption_receipt_digests": tuple(str(item.get("receipt_digest", ""))
                     for item in receipt_values[-64:] if isinstance(item, Mapping)),
                 "retained_invocation_receipt_digests": tuple(str(item.get("receipt_digest", ""))
                     for item in observation.invocation_receipts[-64:]),
-                "allocation_count": len(ledger_snapshot["allocations"]),
                 "attempt_count": len(ledger_snapshot["attempts"]),
                 "retained_historical_consumption_receipt_count": len(receipt_values),
                 "latest_consumption_event_at": latest_consumption_event_at,
@@ -2564,7 +2583,9 @@ def _compose_causal_introspection(
                 "chat_process_generation_posture": observation.chat_process_generation_posture,
                 "verified_chat_process_generation_attribution_count": len(
                     observation.chat_process_generation_attributions),
-                "identity_retention_posture": ("complete" if len(ledger_snapshot["attempts"]) <= 64
+                "identity_retention_posture": ("complete"
+                    if allocation_projection["allocation_retention_posture"] == "complete"
+                    and len(ledger_snapshot["attempts"]) <= 64
                     and len(receipt_values) <= 64 and len(observation.invocation_receipts) <= 64
                     else "bounded_tail_incomplete"),
                 "read_only": True, "effect_authority": False}
@@ -2574,9 +2595,14 @@ def _compose_causal_introspection(
                 domain="causal_resources", inspect=inspect_causal_resources,
                 observation_classes={"installation_identity": "identity", "provisioning_id": "identity",
                     "manifest_digest": "lineage", "ledger_digest": "lineage",
-                    "allocation_digests": "resource_attribution", "attempt_ids": "resource_attribution",
+                    "allocation_digests": "resource_attribution", "allocation_count": "count",
+                    "omitted_allocation_count": "count",
+                    "last_omitted_allocation_digest": "lineage",
+                    "first_retained_allocation_digest": "lineage",
+                    "allocation_retention_posture": "lifecycle",
+                    "attempt_ids": "resource_attribution",
                     "retained_historical_consumption_receipt_digests": "resource_attribution",
-                    "retained_invocation_receipt_digests": "resource_attribution", "allocation_count": "count",
+                    "retained_invocation_receipt_digests": "resource_attribution",
                     "attempt_count": "count", "retained_historical_consumption_receipt_count": "count",
                     "latest_consumption_event_at": "lifecycle",
                     "retained_invocation_receipt_count": "count", "incomplete_attempt_count": "count",

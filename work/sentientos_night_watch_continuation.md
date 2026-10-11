@@ -2354,3 +2354,10 @@ Next inspect succession source records for any projection that still presents a 
 - The causal-introspection provider called the serving controller's mutating `current_session()` API after its read-only health check. That API invalidates and unloads a stale worker and publishes an invalidation receipt. The serving owner already exposes `observed_current_session()`, which performs the same verification without invalidation or unload; introspection now uses that observation-only interface.
 - Added an authored unexecuted composition regression that fails if introspection invokes the mutating method. Python compilation and source inspection only; no serving process or production path was executed.
 - Next inspect the remaining live-owner introspection adapters for similar observer-to-mutator calls and ensure their recovery projections remain bounded and temporally honest.
+
+
+## 2026-10-11 checkpoint — bound causal-resource introspection allocation identities
+
+- The live causal-resource introspection callback projected every allocation digest, unlike its bounded attempt and receipt tails. A valid ledger near its byte limit could therefore exceed the 128 KiB projection bound and lose the entire metadata report. It now emits the latest 64 allocation identities plus total count, omitted count, and adjacent chain boundary; the complete ledger digest still binds the full owner snapshot. Overall retention posture now includes allocations.
+- Added an authored unexecuted regression for exact bounded selection and omission boundaries. Python compilation and whitespace inspection only; no resource owner or production behavior was exercised.
+- Next review causal-introspection publication and crash recovery for concrete stale temporary-custody or generation-gap behavior, then continue to the next owner handoff.
