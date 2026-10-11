@@ -2628,19 +2628,6 @@ Next inspect succession source records for any projection that still presents a 
 - Next inspect whether World-State/recovered source inventory is equally protected by descriptor-bound reads before choosing the following durable evidence boundary.
 
 
-## Continuation-record correction — restore omitted checkpoint entries
+## Source correction — retain lock hardening alongside descriptor-bound records
 
-A prior note update was composed from stale checkpoint text and displaced two preceding entries. This append-only correction restores their record here; source commits and their independently verified branch order are unchanged.
-
-### 2026-10-11 — make developmental writeback operation-idempotent (checkpoint restored)
-
-- Immutable content identities prevented byte substitution but did not prevent two controller instances from assigning different creation timestamps to concurrent retries of one operation, producing duplicate history records. The POSIX writeback owner serializes operation lookup, admission verification, record publication, and receipt publication with a private no-follow lock in the configured history root.
-- A retry reuses one existing record only when candidate content, admission identity, principal, operation, correlation, and any explicitly supplied creation time agree. It can reconstruct the deterministic receipt after record-only crash recovery; a reused operation with conflicting evidence is rejected. No cognition or external effect is replayed.
-- Added a concurrent-owner test case, authored and unexecuted. Changed source and test files passed Python syntax compilation only; record concurrency and crash recovery remain unverified.
-- Next inspect the epistemic-state mutation journal's multi-stage admission/intent/receipt transaction for the same operation-level duplication window, without weakening its state-generation compare-and-swap or admission separation.
-
-### 2026-10-11 — bind epistemic state locks to private roots (checkpoint restored)
-
-- Persistent epistemic state already serialized generation compare-and-swap, but opened its lock through a path-based parent lookup and checked only that the result was a regular file. The lock now uses the shared no-follow directory descriptor, requires an owner-owned single-link file with private mode, and holds both descriptors for the full transaction.
-- Added an authored, unexecuted symlink and shared-mode lock-custody case. Changed source and test syntax compilation only; lock behavior is unverified.
-- Next inspect the longitudinal self-model's root-bound lock and persistent collection transactions for remaining path-based handoffs; preserve Windows read-only recovery.
+A source comparison after publication found that the prior collection-reader increment had been composed from a stale owner version and therefore reverted the preceding lock-custody hardening. This forward correction combines both changes: the epistemic mutation lock is again opened relative to a held no-follow root descriptor and validates owner, single-link, and private mode; collection reads and immutable writes also use shared descriptor custody. No published commit was rewritten. The new lock and collection cases are authored but unexecuted; Python compilation only.
