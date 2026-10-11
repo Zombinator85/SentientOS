@@ -251,3 +251,33 @@ def test_developmental_store_rejects_storage_inside_canonical_memory(tmp_path: P
     with pytest.raises(DevelopmentalWritebackError,
                        match="durable_store_root_overlaps_canonical_memory"):
         DevelopmentalHistoryStore(memory_root / "retained-user-content")
+
+
+def test_concurrent_retry_of_one_operation_reuses_durable_record(tmp_path: Path) -> None:
+    import os
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    if os.name != "posix":
+        pytest.skip("POSIX operation lock is required")
+    first, authority = controller(tmp_path)
+    second, _ = controller(tmp_path)
+    _selection, candidate, _fake = candidate_for(first)
+    admission = issue(authority, candidate)
+    barrier = Barrier(2)
+
+    def append_with(owner):
+        barrier.wait()
+        return owner.append(candidate, admission=admission,
+            operation_id="one-operation", correlation_id="one-correlation")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        left = pool.submit(append_with, first)
+        right = pool.submit(append_with, second)
+        left_record, left_receipt = left.result()
+        right_record, right_receipt = right.result()
+
+    assert left_record.record_id == right_record.record_id
+    assert left_receipt.receipt_id == right_receipt.receipt_id
+    assert len(first.store.records()) == 1
+    assert len(first.store.receipts()) == 1

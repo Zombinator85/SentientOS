@@ -10,8 +10,9 @@ import os
 import stat
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence, cast
+from typing import Any, Callable, Iterator, Mapping, Sequence, cast
 
 from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -27,6 +28,7 @@ from .canonical_memory import sentientos_memory_dir
 from .private_file_custody import (
     PrivateFileCustodyError, open_private_directory, read_private_file_at, publish_immutable_bytes,
 )
+from .platform_fcntl import fcntl, require_flock
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
 from .world_state_board import WorldStateSnapshot, digest, to_dict, validate_snapshot
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
@@ -864,22 +866,107 @@ class ResidentDevelopmentalWritebackController:
     def admission_configuration_digest(candidate: DevelopmentalCandidate, *, operation_id: str) -> str:
         return _digest({"candidate_id":candidate.candidate_id,"candidate_digest":candidate.candidate_digest,"operation_id":operation_id,"principal":PRINCIPAL,"effects":list(EFFECTS)})
 
+    @contextmanager
+    def _operation_lock(self) -> Iterator[None]:
+        """Serialize operation identity lookup and durable publication."""
+        if os.name != "posix":
+            raise DevelopmentalWritebackError("developmental_writeback_lock_unsupported")
+        directory_fd: int | None = None
+        descriptor: int | None = None
+        try:
+            require_flock()
+            directory_fd = open_private_directory(self.store.root, create=True)
+            descriptor = os.open(
+                ".developmental-writeback.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                0o600,
+                dir_fd=directory_fd,
+            )
+            opened = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_uid != os.geteuid()
+                or opened.st_nlink != 1
+                or opened.st_mode & 0o077
+            ):
+                raise DevelopmentalWritebackError("developmental_writeback_lock_invalid")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except DevelopmentalWritebackError:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise
+        except (OSError, PrivateFileCustodyError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise DevelopmentalWritebackError("developmental_writeback_lock_unavailable") from exc
+        assert directory_fd is not None and descriptor is not None
+        try:
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+                os.close(directory_fd)
+
     def append(self, candidate: DevelopmentalCandidate, *, admission: AdmissionEvidence,
                operation_id: str, correlation_id: str, created_at: str | None = None) -> tuple[DevelopmentalRecord, WritebackReceipt]:
+        with self._operation_lock():
+            return self._append_locked(candidate, admission=admission, operation_id=operation_id,
+                correlation_id=correlation_id, created_at=created_at)
+
+    def _append_locked(self, candidate: DevelopmentalCandidate, *, admission: AdmissionEvidence,
+                       operation_id: str, correlation_id: str,
+                       created_at: str | None) -> tuple[DevelopmentalRecord, WritebackReceipt]:
         cid, cdigest = _identity("devcand", candidate.semantic_payload())
-        if (candidate.candidate_id, candidate.candidate_digest) != (cid, cdigest): raise DevelopmentalWritebackError("candidate_digest_mismatch")
+        if (candidate.candidate_id, candidate.candidate_digest) != (cid, cdigest):
+            raise DevelopmentalWritebackError("candidate_digest_mismatch")
         config = self.admission_configuration_digest(candidate, operation_id=operation_id)
-        if tuple(admission.effects) != EFFECTS: raise DevelopmentalWritebackError("admission_effect_surface_not_exact")
+        if tuple(admission.effects) != EFFECTS:
+            raise DevelopmentalWritebackError("admission_effect_surface_not_exact")
         try:
             for effect in EFFECTS:
-                self.admission_verifier.verify(admission, current_sequence=self.current_sequence(), capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK, principal_id=PRINCIPAL, effect=effect, subject_id=candidate.candidate_id, request_configuration_digest=config)
-        except AdmissionError as exc: raise DevelopmentalWritebackError(f"runtime_admission_rejected:{exc}") from exc
-        raw = DevelopmentalRecord("", "", asdict(candidate), admission.admission_id, admission.binding_digest, PRINCIPAL, operation_id, correlation_id, created_at or datetime.now(timezone.utc).isoformat())
-        rid, rdigest = _identity("devrec", raw.semantic_payload()); record = replace(raw, record_id=rid, record_digest=rdigest)
-        record = self.store.append(record)
-        receipt_raw = WritebackReceipt("", "", record.record_id, record.record_digest, candidate.candidate_id, candidate.candidate_digest, admission.admission_id, admission.binding_digest, PRINCIPAL, operation_id, True)
+                self.admission_verifier.verify(
+                    admission, current_sequence=self.current_sequence(),
+                    capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK, principal_id=PRINCIPAL,
+                    effect=effect, subject_id=candidate.candidate_id,
+                    request_configuration_digest=config)
+        except AdmissionError as exc:
+            raise DevelopmentalWritebackError(f"runtime_admission_rejected:{exc}") from exc
+
+        matches = [record for record in self.store.records() if record.operation_id == operation_id]
+        if len(matches) > 1:
+            raise DevelopmentalWritebackError("developmental_operation_identity_ambiguous")
+        if matches:
+            record = matches[0]
+            if (
+                digest_payload(record.candidate) != digest_payload(asdict(candidate))
+                or record.admission_id != admission.admission_id
+                or record.admission_binding_digest != admission.binding_digest
+                or record.principal != PRINCIPAL
+                or record.correlation_id != correlation_id
+                or (created_at is not None and record.created_at != created_at)
+            ):
+                raise DevelopmentalWritebackError("developmental_operation_identity_collision")
+        else:
+            raw = DevelopmentalRecord(
+                "", "", asdict(candidate), admission.admission_id, admission.binding_digest,
+                PRINCIPAL, operation_id, correlation_id,
+                created_at or datetime.now(timezone.utc).isoformat())
+            rid, rdigest = _identity("devrec", raw.semantic_payload())
+            record = self.store.append(replace(raw, record_id=rid, record_digest=rdigest))
+
+        receipt_raw = WritebackReceipt(
+            "", "", record.record_id, record.record_digest, candidate.candidate_id,
+            candidate.candidate_digest, admission.admission_id, admission.binding_digest,
+            PRINCIPAL, operation_id, True)
         receipt_id, receipt_digest = _identity("devreceipt", receipt_raw.semantic_payload())
-        receipt = self.store.write_receipt(replace(receipt_raw, receipt_id=receipt_id, receipt_digest=receipt_digest))
+        receipt = self.store.write_receipt(
+            replace(receipt_raw, receipt_id=receipt_id, receipt_digest=receipt_digest))
         return record, receipt
 
     def retrieve(self, record_ids: Sequence[str], *, limit: int = MAX_RETRIEVAL_RECORDS) -> DevelopmentalHistoryProjection:

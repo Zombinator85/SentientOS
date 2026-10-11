@@ -2611,3 +2611,11 @@ Next inspect succession source records for any projection that still presents a 
 - Multiple resident cognition owner instances sharing one configured state root could both read the same missing tick checkpoint before either wrote its in-progress marker. The owner now acquires a stable, private, no-follow POSIX lock around recovery, tick-intent publication, cognition calls, and completion publication. It rejects unsafe lock custody and keeps the existing Windows read-only behavior.
 - Added a concurrent-owner regression case to the test source; it is authored but unexecuted. Python syntax compilation is the only permitted check and does not establish concurrency or runtime behavior.
 - Next inspect concurrent epistemic mutation and developmental-history commit paths for read/verify/append races, then fix any sequence or predecessor selection that is not owned by the durable writer transaction.
+
+
+## 2026-10-11 checkpoint — make developmental writeback operation-idempotent
+
+- Immutable content identities prevented byte substitution but did not prevent two controller instances from assigning different creation timestamps to concurrent retries of one operation, producing duplicate history records. The POSIX writeback owner now serializes operation lookup, admission verification, record publication, and receipt publication with a private no-follow lock in the configured history root.
+- A retry reuses one existing record only when candidate content, admission identity, principal, operation, correlation, and any explicitly supplied creation time agree. It can reconstruct the deterministic receipt after record-only crash recovery; a reused operation with conflicting evidence is rejected. No cognition or external effect is replayed.
+- Added a concurrent-owner test case, authored and unexecuted. Changed source and test files passed Python syntax compilation only; record concurrency and crash recovery remain unverified.
+- Next inspect the epistemic-state mutation journal's multi-stage admission/intent/receipt transaction for the same operation-level duplication window, without weakening its state-generation compare-and-swap or admission separation.
