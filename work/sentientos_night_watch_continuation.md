@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `136465687028303a401dd00ed7f4837feb3c56f3` (tree `c308718c31c757e769e469ce0918c9e9521361f3`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `07ef4b4807f8d8b0d0f4a333618610a95bf4a755` (tree `8f9d5386512f8b29323ac201b65843a59f030cfb`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1071,3 +1071,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - The read-only resource observer and World-State composition already consume this current.json owner record as historical owner observation, not independent liveness or current truth. No Windows write path, serving authority, provider call, or effect was added.
 - Python compilation and whitespace inspection passed for both changed modules. No process launch, health probe, installation publication, concurrent supervisor, Windows, or production run was executed.
 - Next inspect whether the new observation’s lifecycle replaces old running status truthfully across supervisor generations and interruptions, then continue the next causal gap.
+
+
+## New checkpoint — connect supervised chat readiness to installation runtime custody
+
+- The prior remotely verified head was 07ef4b4807f8d8b0d0f4a333618610a95bf4a755 (tree 8f9d5386512f8b29323ac201b65843a59f030cfb).
+- Source tracing found a concrete composition omission: publish_chat_process_runtime_observation existed and the installation observer/World-State consumer already read it, but no caller published it. The supervisor verified child liveness and the chat adapter verified readiness and source-bound handoff, yet this owner evidence stopped at the service health object.
+- RuntimeSupervisor now sends its own journaled generation identity to an adapter that implements the explicit binding hook. LocalModelChatServiceAdapter uses the bound generation and its existing installation handle to publish the existing point-observation record only after child process, source handoff, and loopback readiness checks succeed. The runtime owner writer re-verifies historical handoff custody before replacing the observation image.
+- Missing process, failed readiness, and orderly observed exit write the existing not_verified posture with bounded reason codes; they do not assert that inference happened or that the child is definitely absent beyond the process check. The read-only downstream observer classifies the point as historical, not current liveness. Publication failure is reflected as unavailable health for the owner-composed runtime path; it does not stop or replay inference.
+- The optional hook leaves other service adapters unchanged. It adds no effect authority, Windows write support, provider access, or runtime activation.
+- Both changed Python modules compiled and passed whitespace inspection. No child process, readiness endpoint, installation write, supervisor restart, Windows path, or runtime behavior was exercised.
+- Next inspect transition behavior when a new supervisor generation starts while the prior chat child may have survived; the old point record remains historical, but predecessor/overlap evidence must come only from an actual owner source. Continue elsewhere if that evidence source is unavailable.
