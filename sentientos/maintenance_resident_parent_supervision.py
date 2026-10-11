@@ -12,6 +12,7 @@ import math
 import os
 import re
 import stat
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,11 +61,55 @@ def _valid_aware_timestamp(value: object) -> bool:
     return parsed.tzinfo is not None and parsed.utcoffset() is not None
 
 
+def _linux_process_start_ticks(process_id: int) -> int | None:
+    """Read Linux procfs stat field 22 as a limited PID-reuse discriminator."""
+    if sys.platform != "linux" or type(process_id) is not int or process_id < 1:
+        return None
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(f"/proc/{process_id}/stat",
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_CLOEXEC", 0))
+        chunks: list[bytes] = []
+        remaining = 4097
+        while remaining:
+            chunk = os.read(descriptor, min(4096, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+    except OSError:
+        return None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    if len(raw) > 4096 or not raw.endswith(b"\\n"):
+        return None
+    separator = raw.rfind(b")")
+    if separator < 0:
+        return None
+    try:
+        observed_pid = int(raw[:raw.find(b" ")])
+        fields_from_state = raw[separator + 1:].split()
+        # Field 3 (state) is index 0; Linux starttime field 22 is index 19.
+        start_ticks = int(fields_from_state[19])
+    except (ValueError, IndexError):
+        return None
+    if observed_pid != process_id or start_ticks < 0:
+        return None
+    return start_ticks
+
+
 def _valid_parent_process_observation(value: object) -> bool:
-    if not isinstance(value, dict) or set(value) != {
+    legacy_fields = {
         "process_id", "parent_process_id", "observed_at",
         "monotonic_observed_ns", "instance_nonce",
-    }:
+    }
+    procfs_fields = legacy_fields | {
+        "linux_proc_start_ticks", "linux_proc_start_ticks_posture",
+    }
+    if not isinstance(value, dict) or set(value) not in (legacy_fields, procfs_fields):
         return False
     if (type(value.get("process_id")) is not int or value["process_id"] < 1
             or type(value.get("parent_process_id")) is not int or value["parent_process_id"] < 0
@@ -73,6 +118,14 @@ def _valid_parent_process_observation(value: object) -> bool:
             or not isinstance(value.get("instance_nonce"), str)
             or re.fullmatch(r"[0-9a-f]{32}", value["instance_nonce"]) is None):
         return False
+    if set(value) == procfs_fields:
+        ticks = value.get("linux_proc_start_ticks")
+        posture = value.get("linux_proc_start_ticks_posture")
+        if ((posture == "linux_procfs_starttime_field_22" and
+                (type(ticks) is not int or ticks < 0))
+                or (posture == "unavailable" and ticks is not None)
+                or posture not in {"linux_procfs_starttime_field_22", "unavailable"}):
+            return False
     try:
         started = datetime.fromisoformat(str(value["observed_at"]).replace("Z", "+00:00"))
     except (OverflowError, OSError, TypeError, ValueError):
@@ -259,6 +312,17 @@ class ResidentParentLifecycleEvidenceReader:
         parent_instance_id = startup["detail"]["parent_process_instance_id"]
         if parent_observation["process_id"] != expected_parent_pid:
             raise ValueError("parent_observation_process_relation_unverified")
+        claimed_start_ticks = parent_observation.get("linux_proc_start_ticks")
+        if claimed_start_ticks is not None:
+            current_start_ticks = _linux_process_start_ticks(expected_parent_pid)
+            if current_start_ticks is None or current_start_ticks != claimed_start_ticks:
+                raise ValueError("parent_observation_kernel_process_start_mismatch")
+            process_relation_posture = (
+                "commissioned_parent_and_child_pid_match_linux_procfs_start_ticks;"
+                "pid_reuse_within_one_kernel_tick_not_excluded")
+        else:
+            process_relation_posture = (
+                "commissioned_parent_pid_and_child_launch_pid_match_pid_reuse_not_excluded")
         selected = [row for row in rows
             if row["detail"].get("parent_process_instance_id") == parent_instance_id]
         active_launch = state.get("launch")
@@ -299,7 +363,10 @@ class ResidentParentLifecycleEvidenceReader:
             "parent_pid": expected_parent_pid,
             "child_pid": expected_child_pid,
             "parent_process_started_at": parent_observation["observed_at"],
-            "process_relation_posture": "commissioned_parent_pid_and_child_launch_pid_match_pid_reuse_not_excluded",
+            "process_relation_posture": process_relation_posture,
+            "parent_linux_proc_start_ticks": claimed_start_ticks,
+            "parent_linux_proc_start_ticks_posture":
+                parent_observation.get("linux_proc_start_ticks_posture", "legacy_unavailable"),
             "launch_receipt_digest": launch_receipt["receipt_digest"],
             "source_observation_time_posture": "parent_startup_time_not_reconstruction_time",
             "parent_lifecycle_lineage": {
@@ -317,8 +384,10 @@ class ResidentParentLifecycleEvidenceReader:
                 "lifecycle_receipts_digest": _digest([row["receipt_digest"] for row in selected]),
                 "lifecycle_receipts_omitted": max(0, len(selected) - len(compact_receipts)),
                 "generation_posture": "launch_provenance_not_live_runtime_attestation",
-                "process_relation_posture":
-                    "commissioned_parent_pid_and_child_launch_pid_match_pid_reuse_not_excluded",
+                "process_relation_posture": process_relation_posture,
+                "parent_linux_proc_start_ticks": claimed_start_ticks,
+                "parent_linux_proc_start_ticks_posture":
+                    parent_observation.get("linux_proc_start_ticks_posture", "legacy_unavailable"),
                 "event_time": latest["timestamp"],
                 "event_time_posture": "verified_historical_receipt_time",
                 "historical_only": True, "current_truth": False,
@@ -402,12 +471,18 @@ class MaintenanceResidentParentSupervisor:
             else "child_owned_launch_provenance")
         self._verified_child_provenance: dict[str, Any] | None = None
         self._clock, self._sleep = clock, sleeper
+        process_id = os.getpid()
+        linux_start_ticks = _linux_process_start_ticks(process_id)
         self._parent_process_observation = {
-            "process_id": os.getpid(),
+            "process_id": process_id,
             "parent_process_id": os.getppid(),
             "observed_at": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
             "monotonic_observed_ns": time.monotonic_ns(),
             "instance_nonce": os.urandom(16).hex(),
+            "linux_proc_start_ticks": linux_start_ticks,
+            "linux_proc_start_ticks_posture": (
+                "linux_procfs_starttime_field_22" if linux_start_ticks is not None
+                else "unavailable"),
         }
         self._parent_process_instance_id = _digest(self._parent_process_observation)
         self._process_presence_observer = process_presence_observer or self._observe_pid_presence

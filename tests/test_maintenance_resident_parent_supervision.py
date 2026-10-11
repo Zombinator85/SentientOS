@@ -558,16 +558,27 @@ def test_parent_lifecycle_observation_binds_actual_parent_and_child_pid_receipts
 
 
 def test_parent_lifecycle_observation_rejects_unmatched_process_relationship(
-        tmp_path: Path) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     if os.name != "posix":
         pytest.skip("commissioned parent lifecycle custody requires POSIX")
+    from sentientos import maintenance_resident_parent_supervision as parent
+
     cfg, config_path = _commissioned_parent_fixture(tmp_path)
+    # Model a same-PID parent replacement while retaining all commissioned PID
+    # and launch-receipt bindings. Only the recorded procfs start tick differs.
+    monkeypatch.setattr(parent, "_linux_process_start_ticks", lambda _: 17)
     factory = Factory()
     supervisor = MaintenanceResidentParentSupervisor(
         cfg, state_root=Path(cfg["state_root"]) / "parent-supervision",
         adapter_factory=factory, commissioned_config_path=config_path)
     factory.children[-1].pid = os.getpid() - 1
     supervisor.start()
+    monkeypatch.setattr(parent, "_linux_process_start_ticks", lambda _: 18)
+    reader = ResidentParentLifecycleEvidenceReader(
+        config_path, parent_pid=os.getpid, child_pid=os.getpid)
+    with pytest.raises(ValueError, match="parent_observation_kernel_process_start_mismatch"):
+        reader.world_state_records(observed_at="2030-01-02T00:00:01Z")
+    monkeypatch.setattr(parent, "_linux_process_start_ticks", lambda _: 17)
     reader = ResidentParentLifecycleEvidenceReader(
         config_path, parent_pid=lambda: os.getpid() + 1, child_pid=os.getpid)
     with pytest.raises(ValueError, match="parent_observation_process_relation_unverified"):
