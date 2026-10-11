@@ -2749,3 +2749,11 @@ A later source correction was also composed from stale note text and displaced t
 - The status-returning mutable publisher now converts post-replace directory-close uncertainty into the same `False` result as fsync uncertainty. Pre-replacement errors still fail. Added an authored, unexecuted case that injects a close error after the target is visible and asserts the caller receives uncertainty with candidate bytes retained.
 - The helper and resource-allocation test module passed Python syntax compilation only. No tests, file operations, or crash behavior were executed.
 - Next inspect all status-sensitive publisher callers for consistent visible-candidate retention, then resume the epistemic writeback/recovery chain where source shows a concrete gap.
+
+
+## 2026-10-11 checkpoint — verify visible-candidate handling at status publisher call sites
+
+- Reviewed each known `replace_private_bytes_with_status` owner: the governed resource ledger retains its candidate before raising on uncertainty; the receipt registry retains its candidate before surfacing uncertainty; and the World-State daemon keeps the same in-memory snapshot and reports degraded publication. The cognition tick-intent state continues to fail closed before inference when its legacy throwing publisher cannot establish durability.
+- Epistemic durable evidence uses immutable publication and verifier-based reconstruction; the process remains read-only during recovery. No additional call-site repair was justified in this bounded review.
+- The helper and its authored close-error case were syntax-compiled only. No tests or runtime behavior were exercised.
+- Next continue inspecting durable epistemic mutation and developmental history after visible-but-uncertain file publication, with emphasis on idempotent recovery and avoiding state replay.
