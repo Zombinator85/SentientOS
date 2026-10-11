@@ -1580,8 +1580,7 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
 write_mem = append_memory
 
 
-@_legacy_mutation_operation
-def purge_memory(
+def _purge_memory_unlocked(
     max_age_days: Optional[int] = None,
     max_files: Optional[int] = None,
     *,
@@ -1592,6 +1591,10 @@ def purge_memory(
 
     Purged fragments are archived in the memory tomb.
     """
+    # Validate the derived index before any deletion.  The caller holds the
+    # shared index transaction across this complete raw/index mutation.
+    index_records = _load_index_records()
+    removed_ids: set[str] = set()
     tomb_records = list_tomb()
     pending_purge_ids = {
         str(fragment.get("id"))
@@ -1627,7 +1630,7 @@ def purge_memory(
                     "time": datetime.datetime.utcnow().isoformat()})
                 if deleted:
                     removed_names.add(fp.name)
-                    _remove_from_index(data.get("id", ""))
+                    removed_ids.add(str(data.get("id", "")))
                     removed += 1
     if max_files is not None and len(entries) - removed > max_files:
         remaining = [e for e in entries if e[1].name not in removed_names]
@@ -1645,10 +1648,32 @@ def purge_memory(
                 "time": datetime.datetime.utcnow().isoformat()})
             if deleted:
                 removed_names.add(fp.name)
-                _remove_from_index(data.get("id", ""))
+                removed_ids.add(str(data.get("id", "")))
                 removed += 1
+    if removed_ids:
+        _save_index_records([
+            record for record in index_records
+            if str(record.get("id", "")) not in removed_ids
+        ])
     if removed:
         print(f"[PURGE] Removed {removed} old memory fragments")
+
+@_legacy_mutation_operation
+def purge_memory(
+    max_age_days: Optional[int] = None,
+    max_files: Optional[int] = None,
+    *,
+    requestor: str = "system",
+    reason: str = "",
+) -> None:
+    """Purge memory under the same cross-process lock as index consumers."""
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        _purge_memory_unlocked(
+            max_age_days=max_age_days, max_files=max_files,
+            requestor=requestor, reason=reason,
+        )
+
 
 
 def _write_topic_summaries(entries: Sequence[dict]) -> None:
