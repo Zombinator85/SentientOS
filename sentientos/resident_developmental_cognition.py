@@ -1353,7 +1353,9 @@ class ResidentDevelopmentalCognitionOwner:
         source_kinds = {source.source_id: source.kind for source in snapshot.sources}
         facts = sorted((fact for fact in snapshot.facts if source_kinds.get(fact.source.source_id) in allowed),
                        key=lambda fact: self._fact_selection_key(fact, source_kinds[fact.source.source_id]))[:self.config.max_selected_facts]
-        selected = self.writeback.select_evidence(snapshot, fact_ids=tuple(f.fact_id for f in facts))
+        selected = (self.writeback.select_evidence(snapshot, fact_ids=tuple(f.fact_id for f in facts))
+            if facts else self.writeback.empty_selection(snapshot_id=snapshot.snapshot_id,
+                snapshot_digest=snapshot.digest))
         raw = CurrentWorldStateCognitiveProjection(snapshot.snapshot_id, snapshot.digest, selected.facts,
                                                     selected.sources, selected.conflicts,
                                                     tuple(str(x["fact_id"]) for x in selected.facts))

@@ -86,7 +86,7 @@ def test_missing_record_is_not_deliberate_withholding(tmp_path: Path) -> None:
     first, _ = owner(tmp_path); first.run_tick(snapshot=snapshot(), tick_id="tick-n")
     next((tmp_path / "history" / "records").glob("*.json")).unlink()
     composition, _ = owner(tmp_path, comparison=True)
-    with pytest.raises(Exception, match="record_missing_or_corrupt"):
+    with pytest.raises(Exception, match="developmental_history_recovery_failed"):
         composition.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
 
 

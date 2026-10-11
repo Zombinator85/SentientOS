@@ -62,6 +62,9 @@ _ARTIFACT_IDENTITIES = {
 FALSE_AUTHORITY = {"effect_authority": False, "adoption_authority": False,
                    "observation_authority": False, "goal_authority": False,
                    "authoring_authority": False, "execution_authority": False}
+HANDOFF_NO_AUTHORITY = {"decision_authority": False, "admission_authority": False,
+                        "execution_authority": False, "adoption_authority": False,
+                        "renderer_authority": False, "observation_authority": False}
 ATTRIBUTION_RESULTS = frozenset({"expectation_satisfied", "expectation_partially_satisfied",
     "expectation_contradicted", "observation_missing", "renderer_report_only", "indeterminate",
     "execution_failed", "body_generation_mismatch", "correlation_mismatch"})
@@ -174,7 +177,7 @@ def verify_renderer_handoff(value: Mapping[str, Any]) -> None:
             or value.get("evidence_class") != "commanded_output"
             or value.get("renderer_reported") is not False
             or value.get("independently_observed") is not False
-            or dict(value.get("authority") or {}) != dict(FALSE_AUTHORITY)
+            or dict(value.get("authority") or {}) != HANDOFF_NO_AUTHORITY
             or any(not isinstance(value.get(key), str) or not value.get(key) for key in (
                 "artifact_sha256", "body_manifest_digest", "renderer_interface_id",
                 "requested_test_pose", "requested_test_expression", "correlation_id"))):

@@ -18,7 +18,9 @@ from sentientos.resident_developmental_cognition import (
     CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
 )
-from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.resident_developmental_writeback import (
+    DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
+)
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientosd import RuntimeMaintenanceSurfaces, _load_epistemic_state_owner
@@ -114,13 +116,14 @@ class FakeInvoker:
             text = "cognition-with-history" if request.linkage.get("history_present") else "cognition-withheld"
         if original_output is None:
             original_output = text
-        if self.modify_cognition_output_after_digest and request.expected_output_format == "json":
+        if (self.modify_cognition_output_after_digest
+                and request.purpose == "resident_developmental_retrieval_cognition"):
             text = text + " substituted"
         receipt_request = request.to_receipt_request_dict()
         if self.cross_cognition_request_identity and request.expected_output_format == "json":
             receipt_request["request_id"] = "lmreq-crossed"
         receipt_text = None if (self.unavailable_cognition_output
-            and request.expected_output_format == "json") else text
+            and request.purpose == "resident_developmental_retrieval_cognition") else text
         return LocalModelInvocationReceipt(request=receipt_request, status="admitted_completed",
             reason_codes=("completed",), output_text=receipt_text, output_digest=digest_payload({"output":original_output}),
             output_size_bytes=len(original_output.encode()), admission_decision_ref="local",
@@ -482,13 +485,16 @@ def test_controlled_with_record_and_withheld_comparison_is_opt_in_and_difference
     assert measured["summary"]["classification"] == "history_presence_associated_stable_difference"
 
 
-def test_identical_processed_evidence_is_not_reinterpreted(tmp_path: Path) -> None:
+def test_repeated_current_evidence_does_not_reinterpret_after_history_changes(tmp_path: Path) -> None:
     composition, fake = owner(tmp_path)
     composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
     composition.run_tick(snapshot=snapshot(), tick_id="tick-2")
     later = composition.run_tick(snapshot=snapshot(), tick_id="tick-3")
-    assert later.written_record_id is None
-    assert len([r for r in fake.requests if r.purpose == "resident_developmental_interpretation"]) == 2
+    assert later.written_record_id is not None
+    record = composition.writeback.store.get(later.written_record_id)
+    assert record.candidate["transformation_provenance"]["kind"] == "history_conditioned_cognition_conclusion:v1"
+    assert len([r for r in fake.requests if r.purpose == "resident_developmental_interpretation"]) == 1
+    assert len([r for r in fake.requests if r.purpose == "resident_developmental_retrieval_cognition"]) == 2
 
 
 def test_missing_or_crossed_admission_prevents_history_mutation(tmp_path: Path) -> None:
@@ -660,7 +666,7 @@ def test_cognition_checkpoint_rejects_replaced_symlink_root(tmp_path: Path) -> N
     alias = tmp_path / "alias"
     alias.symlink_to(target, target_is_directory=True)
     with pytest.raises(ResidentDevelopmentalCognitionError,
-                       match="composition_state_root_invalid"):
+                       match="composition_state_publication_failed"):
         _replace_cognition_state(alias / "composition_state.json", {"state": "bounded"})
     assert list(target.iterdir()) == []
 
@@ -808,7 +814,7 @@ def test_experimental_history_arms_do_not_retain_cognition_lessons(tmp_path: Pat
         and "history_present" in request.linkage]
     assert len(experiment_calls) == 3
     assert all(request.expected_output_format == "text" for request in experiment_calls)
-    assert all("structured_output_schema" not in request.to_receipt_request_dict()
+    assert all(request.to_receipt_request_dict().get("structured_output_schema") is None
         for request in experiment_calls)
     records = experimental.writeback.store.records()
     assert all(record.candidate["transformation_provenance"].get("kind")
@@ -844,7 +850,8 @@ def test_modified_output_and_crossed_request_identity_are_rejected(tmp_path: Pat
     crossed, crossed_fake = owner(tmp_path / "crossed")
     crossed.run_tick(snapshot=snapshot(), tick_id="tick-1")
     crossed_fake.cross_cognition_request_identity = True
-    with pytest.raises(ResidentDevelopmentalCognitionError, match="request_binding_mismatch"):
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+                       match="cognition_epistemic_receipt_binding_mismatch"):
         crossed.run_tick(snapshot=snapshot(2), tick_id="tick-2")
 
 
@@ -886,7 +893,8 @@ def test_candidate_record_committed_before_checkpoint_recovers_once(tmp_path: Pa
     save_state = composition._save_state
 
     def interrupt_final_checkpoint(state):
-        if state["completed_ticks"]:
+        if (state["completed_ticks"]
+                and state["completed_ticks"][-1]["tick_id"] == "tick-2"):
             raise ResidentDevelopmentalCognitionError("simulated_after_candidate_before_checkpoint")
         save_state(state)
 

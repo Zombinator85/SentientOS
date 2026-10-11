@@ -60,7 +60,7 @@ def test_synthetic_contradiction_projects_and_selects_for_developmental_writebac
 def test_synthetic_satisfied_retains_causal_limit():
     _,_,_,_,attribution,comparison=chain("wave")
     assert attribution["classification"]=="expectation_satisfied"
-    assert attribution["causal_attribution_posture"]=="independent_environment_observation"
+    assert attribution["causal_attribution_posture"]=="renderer_internal_only"
     assert not attribution["effect_proven"] and attribution["proven_consequence_value"] is None
     assert comparison["counts"]=={"satisfied":1,"contradicted":0,"missing":0,"indeterminate":0}
 

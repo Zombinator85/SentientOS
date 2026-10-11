@@ -238,7 +238,7 @@ def test_authority_and_fabricated_or_missing_evidence_fail_closed(tmp_path):
     owner=PersistentEpistemicStateOwner(tmp_path,allowed_namespaces=["embodiment"]); p=proposition(); owner.register_proposition(p)
     with pytest.raises(EpistemicStateError,match="authority"):
         make_evidence_binding(proposition_id=p.proposition_id,source_artifact_id="model-text",source_digest="sha256:x",source_schema="model.free_text:v1",source_class="model_text",observation_time="2026-01-01T00:00:00Z",evidence_relation="supports",dependency_kind="unknown_dependency",dependency_group=None,upstream_binding_ids=(),freshness="current",reliability_posture="unknown",authority={**FALSE_AUTHORITY,"permission":True})
-    with pytest.raises(EpistemicStateError,match="not_found"):
+    with pytest.raises(EpistemicStateError,match="epistemic_evidence_delta_invalid"):
         owner.commit_update(proposition_id=p.proposition_id,expected_predecessor_digest=None,stance="supported",reason="new_evidence",active_binding_ids=["missing"],correlation_id="x",tick=1,recorded_at="2026-01-01T00:00:00Z")
 
 
