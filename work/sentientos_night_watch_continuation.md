@@ -2773,3 +2773,10 @@ A later source correction was also composed from stale note text and displaced t
 - Added an authored, unexecuted symlink-parent rejection case. The shared epistemic record owner treats identical immutable identities as idempotent; the mutation controller still distinguishes a newly created intent from a prior identical intent so same-operation replay remains blocked.
 - Mutation source and test syntax compilation only; no tests or write/recovery behavior ran.
 - Next inspect developmental-history append recovery and verify the record/receipt partial-publication path remains idempotent with the shared custody helper's updated create-result contract.
+## 2026-10-11 checkpoint — serialize developmental-history recovery
+
+- POSIX developmental-history recovery can publish a deterministic missing receipt. It now takes the same cross-process operation lock as append while reconciling the bounded record/receipt inventory, keeping recovery and operation-identity admission in one serialization domain. Windows remains on its existing read-only recovery path.
+- Added an authored, unexecuted interruption case that removes only the receipt after a valid record commit, checks exact deterministic receipt reconstruction, checks record bytes are unchanged, and checks repeated recovery is idempotent.
+- Changed source and test passed Python syntax compilation only. No behavioral test, append, receipt repair, or runtime recovery was executed.
+- Next inspect the configured later-tick composition checkpoint against recovered writeback identities, then continue to the next concrete lifecycle/recovery dependency in the current source.
+

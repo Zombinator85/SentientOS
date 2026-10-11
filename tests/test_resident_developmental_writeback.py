@@ -189,6 +189,27 @@ def test_recovery_rejects_receipt_without_its_durable_record(tmp_path: Path) -> 
         ctrl.recover_completed_records()
 
 
+def test_recovery_repairs_interrupted_receipt_publication_idempotently(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("immutable receipt repair requires POSIX publication")
+    ctrl, authority = controller(tmp_path)
+    _, candidate, _ = candidate_for(ctrl)
+    record, expected_receipt = ctrl.append(
+        candidate, admission=issue(authority, candidate), operation_id="op-1",
+        correlation_id="c", created_at="fixed")
+    record_path = ctrl.store.records_root / f"{record.record_id}.json"
+    original_record = record_path.read_bytes()
+    (ctrl.store.receipts_root / f"{expected_receipt.receipt_id}.json").unlink()
+
+    recovered = ctrl.recover_completed_records()
+    assert recovered == ((record, expected_receipt),)
+    assert record_path.read_bytes() == original_record
+    assert ctrl.store.get_receipt(expected_receipt.receipt_id) == expected_receipt
+    assert ctrl.recover_completed_records() == recovered
+
+
 def test_history_publication_uses_private_descriptor_bound_immutable_files(tmp_path: Path) -> None:
     import os
     import stat

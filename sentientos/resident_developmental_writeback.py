@@ -990,6 +990,19 @@ class ResidentDevelopmentalWritebackController:
         return DevelopmentalHistoryProjection(records, ids)
 
     def recover_completed_records(self) -> tuple[tuple[DevelopmentalRecord, WritebackReceipt], ...]:
+        """Verify and repair record/receipt custody under the append serialization lock."""
+        if os.name == "posix":
+            # Recovery may publish a missing deterministic receipt. Serialize its
+            # inventory snapshot and repair with append's operation-id lookup so
+            # restart reconciliation cannot race an authorized append.
+            with self._operation_lock():
+                return self._recover_completed_records_locked()
+        # Windows recovery remains read-only; the POSIX writer lock is unavailable.
+        return self._recover_completed_records_locked()
+
+    def _recover_completed_records_locked(
+        self,
+    ) -> tuple[tuple[DevelopmentalRecord, WritebackReceipt], ...]:
         """Verify durable records and restore only their deterministic receipt metadata."""
         durable_records = self.store.records()
         records_by_id = {record.record_id: record for record in durable_records}
