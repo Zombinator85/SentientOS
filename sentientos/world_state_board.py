@@ -261,7 +261,7 @@ def validate_snapshot(snapshot:WorldStateSnapshot)->WorldStateValidationResult:
         unproven_effect_claims=sum(fact.effect_claimed and not fact.effect_proven
                                    for fact in snapshot.facts),
     )
-    if snapshot.summary != expected_summary:
+    if _canon(snapshot.summary) != _canon(expected_summary):
         findings.append("summary_identity_mismatch")
     if (not isinstance(snapshot.authority, Mapping)
             or dict(snapshot.authority) != FALSE_AUTHORITY

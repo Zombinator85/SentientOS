@@ -116,3 +116,18 @@ def test_snapshot_verifier_requires_exact_authority_and_derived_posture():
     forged_counts=replace(snapshot,summary=forged_summary,digest=summary_digest,
         snapshot_id="world-state-"+summary_digest[:16])
     assert "summary_identity_mismatch" in validate_snapshot(forged_counts).findings
+
+    positive=b.build([{"source_kind":"fulfillment","source_id":"valid-effect",
+        "subject_id":"valid-effect","stage":"execution",
+        "effect_claimed":True,"effect_proven":True}])
+    boolean_count=replace(positive.summary,proven_completions=True)
+    boolean_base={"schema_version":"world_state_board.v1",
+        "manifest_digest":positive.manifest.digest,
+        "sources":[to_dict(source) for source in positive.sources],
+        "facts":[to_dict(fact) for fact in positive.facts],
+        "conflicts":[to_dict(item) for item in positive.conflicts],
+        "summary":to_dict(boolean_count),"authority":positive.authority}
+    boolean_digest=digest(boolean_base)
+    forged_boolean=replace(positive,summary=boolean_count,digest=boolean_digest,
+        snapshot_id="world-state-"+boolean_digest[:16])
+    assert "summary_identity_mismatch" in validate_snapshot(forged_boolean).findings

@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 117895)
-Total output lines: 2990
+Warning: truncated output (original token count: 118061)
+Total output lines: 2995
 
 # SentientOS long construction continuation
 
@@ -310,14 +310,7 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The verified digest list is bounded to the newest 128 journal entries, matching the daemon's bounded transition projection. Older valid history remains in durable journal custody but is not individually emitted by this bounded World-State view.
 - The changed transition-controller and daemon sources passed `py_compile`. No runtime, crash/restart, cognition, World-State builder execution, tests, model activation, or production verification was performed. Work remains unverified for production.
 
-**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…87895 tokens truncated…ed entitlement. The existing Windows writer path remains unchanged.
-- Added authored, unexecuted symlink rejection and visible-but-uncertain replacement cases. Changed source/test syntax compilation only; no ledger operation, crash recovery, or production behavior was exercised.
-- Next continue the read-only source inventory review through runtime World-State composition and identify any remaining cross-owner handoff that reads persistent evidence without exact descriptor or owner identity.
-
-
-## 2026-10-11 checkpoint — publish World-State through descriptor-bound custody
-
-- The resident daemon's terminal World-State snapshot previously used path-based directory creation, temporary-file creation, replacement, and a separately reopened directory for fsync. Publication now uses the shared private no-follow descriptor helper, with an explicit 64 MiB serialized-artifact bound.
+**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…88061 tokens truncated…rectory creation, temporary-file creation, replacement, and a separately reopened directory for fsync. Publication now uses the shared private no-follow descriptor helper, with an explicit 64 MiB serialized-artifact bound.
 - If replacement is visible but directory fsync is uncertain, the same snapshot remains available to later cognition in this process, while World-State feedback reports degraded `durability_uncertain`. Failures before confirmed replacement still stop the handoff. The snapshot identity and event times are unchanged, and persisted artifacts are not reloaded as authority after restart.
 - `sentientosd.py` passed Python syntax compilation. Behavioral tests remain authored elsewhere but unexecuted; no pytest, runtime, crash, or production behavior was exercised.
 - Next inspect resident developmental cognition's World-State snapshot handoff and durable writeback boundary for any remaining path-based or semantically ambiguous recovery input. Preserve its exact current-snapshot requirement and temporal separation.
@@ -622,3 +615,8 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Validation now requires the exact all-false authority map, checks degraded/stale/contradicted and valid-posture derivations, and recomputes the bounded summary counts from canonical sources and facts. This complements the previous source manifest and fact identity checks; it remains an integrity contract, not a signature.
 - Regression coverage now rebuilds outer identities around an altered effect fact, missing authority, stale flag, and proven-completion counter. Legacy World-State tests: 8 passed; direct consequence/World-State composition tests: 15 passed. Changed Python compilation and diff checks pass.
 - Next: continue through the downstream configured durable history/epistemic handoff, especially whether source-integrity and unknown observer posture remain intact through later cognition. External model/observer evidence remains unavailable.
+
+## 2026-10-11 checkpoint — summary validation uses JSON type semantics
+
+- Follow-up review found Python dataclass equality treats `True == 1`, so a summary counter encoded as boolean could match a recomputed integer count despite the canonical JSON identities differing. `validate_snapshot()` now compares canonical serialized summary values, retaining exact JSON boolean/integer distinctions.
+- Extended the World-State regression with a digest-rebuilt boolean `proven_completions` counter. The 8-node legacy World-State lane passes; compilation and diff checks pass. Next work remains on a different downstream consumer, not broader re-runs of this coverage.
