@@ -189,6 +189,10 @@ class EpistemicUpdateCandidate:
     def payload(self) -> dict[str, Any]:
         value = asdict(self); value.pop("candidate_id"); return value
 
+    @property
+    def candidate_digest(self) -> str:
+        return _identity("epistemic-candidate", self.payload())[1]
+
 
 def make_epistemic_update_candidate(**kwargs: Any) -> EpistemicUpdateCandidate:
     """Construct a proposal identity without conferring runtime authority."""
@@ -321,6 +325,9 @@ class PersistentEpistemicStateOwner:
     """Explicit-root immutable custody with verified reconstruction and CAS."""
     def __init__(self, root: str | Path, *, allowed_namespaces: Sequence[str]) -> None:
         self.root = Path(root); self.allowed_namespaces = frozenset(allowed_namespaces)
+        self._published_mutation_bound_state_digests: set[str] = set()
+        self._verified_mutation_bound_state_digests: set[str] = set()
+        self._incomplete_admission_bound_transactions = 0
         if not self.allowed_namespaces: raise EpistemicStateError("allowed_namespaces_required")
         if self.root.is_symlink(): raise EpistemicStateError("epistemic_custody_root_invalid")
         if os.name == "nt":
@@ -435,6 +442,7 @@ class PersistentEpistemicStateOwner:
     def _recover_transactions(self) -> int:
         """Recover storage-only pairs and count admitted pairs still awaiting owner validation."""
         incomplete_admission_bound = 0
+        published_mutation_bound_state_digests: set[str] = set()
         prepared: list[tuple[EpistemicState, EpistemicUpdateEvent]] = []
         generation_bindings: dict[tuple[str, int], tuple[str, str, str]] = {}
         admission_bound_state_digests: set[str] = set()
@@ -516,6 +524,7 @@ class PersistentEpistemicStateOwner:
                     if (existing_state != canonical_bytes(asdict(state)) + b"\n"
                             or existing_event != canonical_bytes(asdict(event)) + b"\n"):
                         raise EpistemicStateError("epistemic_transaction_record_conflict")
+                    published_mutation_bound_state_digests.add(state.state_digest)
                     continue
                 _write_new(state_path, asdict(state))
                 _write_new(event_path, asdict(event))
@@ -531,6 +540,12 @@ class PersistentEpistemicStateOwner:
             if (existing_state != canonical_bytes(asdict(state)) + b"\n"
                     or existing_event != canonical_bytes(asdict(event)) + b"\n"):
                 raise EpistemicStateError("epistemic_transaction_record_conflict")
+            if state.state_digest in admission_bound_state_digests:
+                published_mutation_bound_state_digests.add(state.state_digest)
+        self._published_mutation_bound_state_digests = published_mutation_bound_state_digests
+        self._verified_mutation_bound_state_digests.intersection_update(
+            published_mutation_bound_state_digests)
+        self._incomplete_admission_bound_transactions = incomplete_admission_bound
         return incomplete_admission_bound
 
     def register_proposition(self, proposition: EpistemicProposition) -> None:
@@ -636,6 +651,13 @@ class PersistentEpistemicStateOwner:
             raise EpistemicStateError("epistemic_active_evidence_lineage_mismatch")
         return tuple(sorted(active))
 
+    def _accept_mutation_lineage_verification(self, state_digests: Sequence[str]) -> None:
+        verified = set(state_digests)
+        if (len(verified) != len(state_digests)
+                or verified != self._published_mutation_bound_state_digests):
+            raise EpistemicStateError("epistemic_mutation_lineage_verification_mismatch")
+        self._verified_mutation_bound_state_digests = verified
+
     def cognitive_projection(self, *, max_states: int,
                              current_tick: int | None = None) -> EpistemicCognitiveProjection | None:
         """Capture a verified, bounded prior projection without changing custody.
@@ -653,6 +675,9 @@ class PersistentEpistemicStateOwner:
                 or isinstance(current_tick, bool) or current_tick < 0):
             raise EpistemicStateError("epistemic_projection_tick_invalid")
         self.verify()
+        if (self._published_mutation_bound_state_digests
+                - self._verified_mutation_bound_state_digests):
+            raise EpistemicStateError("epistemic_mutation_lineage_unverified")
         update_bytes = self._collection_bytes("updates")
         state_bytes = self._collection_bytes("states")
         if (update_bytes != self._collection_bytes("updates")

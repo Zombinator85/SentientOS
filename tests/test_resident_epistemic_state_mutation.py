@@ -9,7 +9,8 @@ from sentientos.codex_task_authority_admission import (
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
 )
 from sentientos.persistent_epistemic_state import (
-    FALSE_AUTHORITY, PersistentEpistemicStateOwner, make_epistemic_update_candidate,
+    FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
+    make_epistemic_update_candidate,
     make_evidence_binding, make_proposition,
 )
 from sentientos.resident_epistemic_state_mutation import (
@@ -78,6 +79,31 @@ def test_separate_admissions_append_update_and_prior_only_projection(tmp_path) -
     assert projection is not None
     assert (projection.prior_position_only, projection.current_truth, projection.authority,
             projection.policy, projection.goal) == (True, False, False, False, False)
+
+
+def test_mutation_bound_state_is_not_cognized_without_verified_intent(tmp_path) -> None:
+    owner, proposition, _authority, controller, _binding, _proof = setup(tmp_path)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id, predecessor_state_digest=None,
+        proposed_stance="unknown", evidence_binding_ids=(), reason="initialization",
+        rationale="unadmitted storage fixture", uncertainty="unknown", model_id="caller")
+    state, _event = owner.commit_update(
+        proposition_id=proposition.proposition_id, expected_predecessor_digest=None,
+        stance="unknown", reason="initialization", active_binding_ids=(),
+        candidate=candidate, correlation_id="unadmitted", tick=1,
+        recorded_at="2026-01-01T00:00:00Z", mutation_binding={
+            "candidate_id": candidate.candidate_id, "candidate_digest": candidate.candidate_digest,
+            "admission_id": "missing-admission", "admission_binding_digest": "sha256:missing",
+            "operation_id": "unadmitted-operation", "correlation_id": "unadmitted"})
+
+    with pytest.raises(EpistemicStateError, match="mutation_lineage_unverified"):
+        owner.cognitive_projection(max_states=1)
+    with pytest.raises(EpistemicMutationError, match="mutation_lineage_intent_missing"):
+        ResidentEpistemicStateMutationController(owner=owner,
+            admission_verifier=controller.admission_verifier,
+            current_sequence=controller.current_sequence,
+            receipt_root=tmp_path / "controller")
+    assert owner.current_state(proposition.proposition_id) == state
 
 
 def test_restart_reports_interrupted_state_intent_without_replaying_it(tmp_path) -> None:

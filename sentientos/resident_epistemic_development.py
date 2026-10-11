@@ -90,6 +90,7 @@ class EpistemicDevelopmentFeedback:
     recovery_status: str = "not_composed"
     pending_evidence_intent_count: int = 0
     pending_state_intent_count: int = 0
+    pending_transaction_count: int = 0
     recovered_receipt_count: int = 0
 
 
@@ -645,6 +646,7 @@ class ResidentEpistemicDevelopmentRuntime:
             recovery_status=str(recovery.get("status", "unknown")),
             pending_evidence_intent_count=int(recovery.get("pending_evidence_intent_count", 0)),
             pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
+            pending_transaction_count=int(recovery.get("pending_transaction_count", 0)),
             recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
 
 

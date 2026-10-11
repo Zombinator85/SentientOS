@@ -110,7 +110,8 @@ class ResidentEpistemicStateMutationController:
             if path.is_symlink(): raise EpistemicMutationError("receipt_path_symlink_forbidden")
         self._recovery_status: dict[str, Any] = {"status": "unchecked",
             "pending_evidence_intent_count": 0, "pending_state_intent_count": 0,
-            "recovered_receipt_count": 0}
+            "pending_transaction_count": 0, "recovered_receipt_count": 0}
+        self._verified_mutation_bound_state_digests: set[str] = set()
         self.intent_root = self.receipt_root / "operations"
         if os.name == "posix":
             self.intent_root.mkdir(parents=True, exist_ok=True)
@@ -251,21 +252,28 @@ class ResidentEpistemicStateMutationController:
     def _recover_state_receipts(self) -> None:
         pending_evidence_intents = 0
         pending_state_intents = 0
+        validated_mutation_state_digests: set[str] = set()
         # lstat is read-only on both platforms and distinguishes a truly
         # absent root from a dangling symlink. Windows still uses only its
         # bounded handle reader below; it never repairs custody here.
         try:
             root_stat = self.intent_root.lstat()
         except FileNotFoundError:
+            if self.owner._published_mutation_bound_state_digests:
+                raise EpistemicMutationError("mutation_lineage_intent_root_missing")
             self._recovery_status = {"status": "verified", "pending_evidence_intent_count": 0,
-                "pending_state_intent_count": 0, "recovered_receipt_count": 0}
+                "pending_state_intent_count": 0,
+                "pending_transaction_count": self.owner._incomplete_admission_bound_transactions,
+                "recovered_receipt_count": 0}
+            self.owner._accept_mutation_lineage_verification(())
+            self._verified_mutation_bound_state_digests = set()
             return
         except OSError as exc:
             raise EpistemicMutationError("mutation_intent_root_unavailable") from exc
         if (os.name != "nt"
                 and (stat.S_ISLNK(root_stat.st_mode) or not stat.S_ISDIR(root_stat.st_mode))):
             raise EpistemicMutationError("mutation_intent_root_invalid")
-        self.owner.verify()
+        owner_counts = self.owner.verify()
         try:
             if os.name == "nt":
                 entries = read_regular_files(self.intent_root,
@@ -412,6 +420,7 @@ class ResidentEpistemicStateMutationController:
             if (len(matching_transactions) != 1
                     or matching_transactions[0].get("mutation_binding") != expected_mutation_binding):
                 raise EpistemicMutationError("mutation_intent_transaction_binding_mismatch")
+            validated_mutation_state_digests.add(str(state["state_digest"]))
             raw_receipt = EpistemicStateMutationReceipt("", "", "epistemic_state_update",
                 candidate.candidate_id, candidate.proposition_id, candidate.predecessor_state_digest,
                 str(state["state_id"]), str(state["state_digest"]), str(event["event_id"]),
@@ -445,9 +454,16 @@ class ResidentEpistemicStateMutationController:
                     raise EpistemicMutationError("mutation_receipt_recovery_publication_unsupported")
             else:
                 self._write_receipt(receipt_stage, receipt)
+        published_mutation_state_digests = self.owner._published_mutation_bound_state_digests
+        if published_mutation_state_digests != validated_mutation_state_digests:
+            raise EpistemicMutationError("mutation_lineage_intent_missing_or_unverified")
+        self._verified_mutation_bound_state_digests = set(validated_mutation_state_digests)
+        self.owner._accept_mutation_lineage_verification(
+            tuple(sorted(validated_mutation_state_digests)))
         self._recovery_status = {"status": ("incomplete" if pending_evidence_intents or pending_state_intents else "verified"),
             "pending_evidence_intent_count": pending_evidence_intents,
             "pending_state_intent_count": pending_state_intents,
+            "pending_transaction_count": int(owner_counts.get("incomplete_admission_bound_transactions", 0)),
             "recovered_receipt_count": len(recovered_receipts)}
 
     @property
@@ -604,4 +620,8 @@ class ResidentEpistemicStateMutationController:
             event.event_id, event.event_digest, state.evidence_set_digest, state.generation,
             admission.admission_id, admission.binding_digest, PRINCIPAL, operation_id, correlation_id)
         rid, rdigest = _identity("epistemic-mutation-receipt", raw.payload())
-        return self._write_receipt("state", replace(raw, receipt_id=rid, receipt_digest=rdigest))
+        receipt = self._write_receipt("state", replace(raw, receipt_id=rid, receipt_digest=rdigest))
+        self._verified_mutation_bound_state_digests.add(state.state_digest)
+        self.owner._accept_mutation_lineage_verification(
+            tuple(sorted(self._verified_mutation_bound_state_digests)))
+        return receipt
