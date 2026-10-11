@@ -10,11 +10,11 @@ import stat
 import tempfile
 import threading
 import time
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, Iterator, Mapping, Sequence, cast
 
 from sentientos.boot_ceremony import (
     BootAnnouncer,
@@ -60,6 +60,7 @@ from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
     LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
+from sentientos.platform_fcntl import fcntl, require_flock
 from sentientos.private_file_custody import (
     PrivateFileCustodyError,
     open_private_directory,
@@ -731,6 +732,48 @@ class RuntimeMaintenanceSurfaces:
         if self._governed_local_invoker is not None:
             self._governed_local_invoker.register_evidence_sink(self.register_governed_invocation_receipt)
 
+    @contextmanager
+    def _registered_invocation_receipt_process_lock(self) -> Iterator[None]:
+        """Serialize receipt-registry read/merge/replace across daemon processes."""
+        if os.name != "posix":
+            raise ValueError("registered_invocation_receipt_lock_unsupported_platform")
+        directory_fd: int | None = None
+        descriptor: int | None = None
+        try:
+            require_flock()
+            directory_fd = open_private_directory(
+                self._governed_invocation_receipts_path.parent, create=True)
+            descriptor = os.open(
+                ".registered-invocation-receipts.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=directory_fd)
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.geteuid()
+                    or opened.st_nlink != 1 or opened.st_mode & 0o077):
+                raise ValueError("registered_invocation_receipt_lock_invalid")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except ValueError:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise
+        except (OSError, PrivateFileCustodyError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise ValueError("registered_invocation_receipt_lock_unavailable") from exc
+        assert directory_fd is not None and descriptor is not None
+        try:
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+                os.close(directory_fd)
+
     def register_governed_invocation_receipt(self, receipt: Mapping[str, Any]) -> None:
         """Admit an already-produced invocation receipt as bounded evidence.
 
@@ -747,22 +790,34 @@ class RuntimeMaintenanceSurfaces:
         if not receipt_id:
             raise ValueError("missing_governed_invocation_receipt_id")
         with self._governed_invocation_receipt_lock:
-            for item in self._governed_invocation_receipts:
-                if str(item.get("receipt_id") or "") == receipt_id:
-                    if dict(item) != dict(receipt):
+            with self._registered_invocation_receipt_process_lock():
+                durable = self._recover_governed_invocation_receipts(())
+                recovered: list[dict[str, Any]] = []
+                identities: dict[str, dict[str, Any]] = {}
+                for item in (*durable, *self._governed_invocation_receipts):
+                    prior = identities.get(str(item.get("receipt_id") or ""))
+                    if prior is not None:
+                        if prior != item:
+                            raise ValueError("conflicting_governed_invocation_receipt")
+                        continue
+                    identities[str(item.get("receipt_id") or "")] = item
+                    recovered.append(item)
+                prior = identities.get(receipt_id)
+                if prior is not None:
+                    if prior != dict(receipt):
                         raise ValueError("conflicting_governed_invocation_receipt")
+                    self._governed_invocation_receipts = tuple(recovered[-256:])
                     return
-            current = self._governed_invocation_receipts
-            if len(current) >= 256:
-                current = current[-255:]
-            candidate = (*current, dict(receipt))
-            durability_confirmed = self._persist_governed_invocation_receipts(candidate)
-            # Atomic replacement is already visible when the helper returns
-            # False. Retain that exact candidate in memory before surfacing
-            # uncertain directory durability; do not roll back visible evidence.
-            self._governed_invocation_receipts = candidate
-            if not durability_confirmed:
-                raise ValueError("registered_invocation_receipt_durability_uncertain")
+                if len(recovered) >= 256:
+                    recovered = recovered[-255:]
+                candidate = (*recovered, dict(receipt))
+                durability_confirmed = self._persist_governed_invocation_receipts(candidate)
+                # Atomic replacement is already visible when the helper returns
+                # False. Retain that exact candidate in memory before surfacing
+                # uncertain directory durability; do not roll back visible evidence.
+                self._governed_invocation_receipts = candidate
+                if not durability_confirmed:
+                    raise ValueError("registered_invocation_receipt_durability_uncertain")
 
     def _recover_governed_invocation_receipts(self, supplied: tuple[Mapping[str, Any], ...]) -> tuple[dict[str, Any], ...]:
         """Recover evidence only; no model call, ledger mutation, or replay."""
