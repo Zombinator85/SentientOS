@@ -1315,3 +1315,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `chat_service.py`. No API call, runtime session read, or tests were performed.
 
 **Next implementation dependency:** continue through adjacent session API composition, checking that historical session summaries are not mistaken for verified runtime/model evidence and that output links preserve the receipt-backed distinction.
+
+
+## New checkpoint — label session model identity as creation-time only
+
+- Fresh remote source before this increment: `7327a80a5ff084707e4797bc9b3606fb0fc95d46` (tree `091e584d4917973ff69ed48607a68d248dada064`).
+- Session list and inspect responses exposed the immutable `model_identity_digest` captured at session creation without stating that scope. Later model replacement could make a historical baseline look like current runtime identity.
+- Both summaries now include `model_identity_scope=session_creation_snapshot_only`. The existing digest is preserved for compatibility; it is not represented as current serving or running model evidence.
+- Python compilation passed for `conversation_session.py` and `chat_service.py`. No API or runtime session operation was performed.
+
+**Next implementation dependency:** continue into the UI/API consumer of these session summaries and preserve the explicit historical model scope when rendered; do not infer current model status from session creation metadata.

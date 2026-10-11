@@ -773,8 +773,9 @@ async def inspect_session(session_id: str) -> dict[str, Any]:
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=503,
             detail="conversation_session_unavailable_or_invalid") from exc
-    return {k: session[k] for k in ("session_id", "created_at", "latest_activity_at",
-        "title", "revision", "lifecycle_state", "model_identity_digest")}
+    return {**{k: session[k] for k in ("session_id", "created_at", "latest_activity_at",
+        "title", "revision", "lifecycle_state", "model_identity_digest")},
+        "model_identity_scope": "session_creation_snapshot_only"}
 
 
 @APP.get("/boot-feed", response_model=List[BootEvent])
