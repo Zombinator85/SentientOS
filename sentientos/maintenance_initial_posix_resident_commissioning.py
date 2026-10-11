@@ -306,6 +306,57 @@ def _verify_custody(root: Path, intent: Mapping[str, Any], *, require_complete: 
     return result
 
 
+def verify_commissioned_resident_config(config_path: str | Path) -> dict[str, Any]:
+    """Recover an exact commissioned resident config without relaunching it."""
+    path = Path(config_path)
+    if not path.is_absolute() or path.name != "resident-adoption.json" or path.is_symlink():
+        raise CommissioningError("resident_commissioned_config_path_invalid")
+    root = path.parent
+    if _unsafe_symlink(root):
+        raise CommissioningError("resident_commissioning_root_symlinked")
+    try:
+        metadata = os.lstat(root)
+    except OSError as exc:
+        raise CommissioningError("resident_commissioning_custody_unavailable") from exc
+    if (not stat.S_ISDIR(metadata.st_mode)
+            or (os.name == "posix" and (
+                metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != 0o700))):
+        raise CommissioningError("resident_commissioning_root_custody_invalid")
+    try:
+        config = resident.load_config(path)
+        intent = _load(root / "intent.json", "commissioning_intent_missing")
+        if not isinstance(intent, dict) or not isinstance(intent.get("manifest"), dict):
+            raise CommissioningError("commissioning_intent_invalid")
+        claimed_intent_digest = intent.get("intent_digest")
+        if (not isinstance(claimed_intent_digest, str)
+                or digest(intent, "intent_digest") != claimed_intent_digest):
+            raise CommissioningError("commissioning_intent_digest_invalid")
+        first_body = dict(intent)
+        first_body["intent_id"] = ""
+        first_body["intent_digest"] = ""
+        first_digest = digest(first_body, "intent_digest")
+        expected_id = "initial-resident-intent-" + first_digest.split(":", 1)[-1][:24]
+        if intent.get("intent_id") != expected_id:
+            raise CommissioningError("commissioning_intent_identity_invalid")
+        manifest = validate_manifest(intent["manifest"])
+        if Path(manifest["custody_root"]).resolve() != root.resolve():
+            raise CommissioningError("commissioning_root_binding_mismatch")
+        if Path(config["state_root"]).resolve() != (root / "resident-state").resolve():
+            raise CommissioningError("resident_config_state_root_mismatch")
+        details = _verify_custody(root, intent, require_complete=True)
+        approval = _load(root / "approval.json", "runtime_operator_approval_missing")
+        if approval.get("source") != "external_operator" or approval.get("synthetic") is not False:
+            raise CommissioningError("synthetic_commissioning_rejected")
+        if details.get("resident_config_digest") != config.get("config_digest"):
+            raise CommissioningError("resident_config_commissioning_digest_mismatch")
+    except CommissioningError:
+        raise
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise CommissioningError("resident_commissioning_custody_invalid") from exc
+    return {"status": "initial_resident_commissioning_verified",
+            "resident_config": config, **details, "read_only": True}
+
+
 def verify(value: Mapping[str, Any]) -> dict[str, Any]:
     intent = prepare_intent(value); root = Path(intent["custody_root"])
     try: details = _verify_custody(root, intent, require_complete=True)

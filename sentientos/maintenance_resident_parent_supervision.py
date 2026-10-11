@@ -710,4 +710,72 @@ class MaintenanceResidentParentSupervisor:
             "readiness_basis": self._readiness_basis}
 
 
-__all__ = ["MaintenanceResidentParentSupervisor", "STATE_SCHEMA", "RECEIPT_SCHEMA", "SERVICE_ID"]
+__all__ = ["MaintenanceResidentParentSupervisor", "STATE_SCHEMA", "RECEIPT_SCHEMA", "SERVICE_ID", "main"]
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the parent only when an operator names an exact resident config.
+
+    This is a separate process entrypoint; it is never composed into sentientosd
+    or the resident runtime, which prevents recursive parent launch.
+    """
+    import argparse
+    import signal
+    import sys
+    from threading import Event
+    from sentientos import maintenance_initial_posix_resident_commissioning as commissioning
+
+    parser = argparse.ArgumentParser(
+        description="Supervise one explicitly configured SentientOS maintenance resident.")
+    parser.add_argument("--config", required=True,
+        help="absolute path to the commissioned resident-adoption configuration")
+    args = parser.parse_args(argv)
+    try:
+        config_path = Path(args.config)
+        if not config_path.is_absolute():
+            raise ValueError("resident_config_path_must_be_absolute")
+        commissioning_result = commissioning.verify_commissioned_resident_config(config_path)
+        config = commissioning_result["resident_config"]
+        if config.get("enabled") is not True:
+            raise ValueError("resident_parent_supervision_disabled")
+        require_flock()
+        parent_root = Path(config["state_root"]) / "parent-supervision"
+        supervisor = MaintenanceResidentParentSupervisor(config, state_root=parent_root)
+    except Exception as exc:
+        print(f"resident parent configuration rejected: {type(exc).__name__}", file=sys.stderr)
+        return 2
+
+    stopping = Event()
+    previous_handlers: dict[int, Any] = {}
+
+    def request_stop(_signum: int, _frame: Any) -> None:
+        stopping.set()
+
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        previous_handlers[signum] = signal.signal(signum, request_stop)
+    result = 0
+    try:
+        supervisor.start()
+        while not stopping.wait(0.5):
+            supervisor.observe()
+            posture = supervisor.status()
+            if (posture["panic_latched"] or posture["restart_budget_exhausted"]
+                    or posture["status"] in {"fail_closed", "fail_closed_state",
+                        "parent_state_publication_failed", "panic_stopped"}):
+                result = 2
+                break
+    except Exception as exc:
+        print(f"resident parent supervision stopped: {type(exc).__name__}", file=sys.stderr)
+        result = 2
+    finally:
+        try:
+            supervisor.shutdown(panic=result != 0)
+        except Exception:
+            result = 2
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+    return result
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
