@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `a3be65f68cd23151a0acb084460772da1a3ecfcb` (tree `857831151860a95ba5ef5031ef2dcf575fd0e428`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `63f58efa6b38403d52b1aa40ef6a05cdf8d21554` (tree `7ca1b1f98f5ef511936a403c4c11bbc731832fce`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1112,3 +1112,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Transcript scope, request identities, explicit retention, and model/invocation admission are unchanged.
 - Python compilation of `sentientos/conversation_session.py` passed. No collision injection, concurrent creator, tests, or runtime session operation was executed. Construction remains unverified.
 - Next review whether the durable transcript’s retained-memory result is revalidated against its independent retention owner on idempotent response recovery; do not treat transcript metadata alone as proof of memory admission.
+
+
+## New checkpoint — distinguish recovered memory artifact from admission proof
+
+- The prior remotely verified checkpoint was 63f58efa6b38403d52b1aa40ef6a05cdf8d21554 (tree 7ca1b1f98f5ef511936a403c4c11bbc731832fce).
+- Idempotent conversation recovery returned the transcript's stored retention receipt verbatim. The canonical user-memory writer had no read-only verifier, and its gate receipt is not durably stored as an independently recoverable owner record. Transcript metadata therefore could be presented as proof of retained memory and historical admission without checking the artifact.
+- The existing retention writer now offers a bounded, exact-ID, explicit-file read that verifies the canonical memory record digest and binds its session, user turn, text digest, operation, admission-digest field and storage root to the retained transcript turn. It performs no write, admission replay, or memory retrieval.
+- Recovered chat responses no longer echo stored retention receipts as current proof. They report a verified artifact separately from `admission_status: not_independently_recoverable`; missing/conflicting artifacts remain unverified, and interrupted/failed retention remains non-replayed. Canonical user memory remains separate from resident developmental history.
+- Python compilation passed for `sentientos/canonical_memory.py` and `sentientos/chat_service.py`. No tests, memory-store runtime reads, retention operations, collision injection, or behavioral verification were run.
+- Remaining exact gap: no durable independent issuer/custody exists for the historical retention-admission decision. Do not infer that a matching memory artifact proves admission occurred. Continue on other causal continuity work without adding memory authority.

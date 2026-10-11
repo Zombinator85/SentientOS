@@ -220,10 +220,34 @@ class PersistentConversationService:
         retention_state = user_turn.get("retention_state")
         if retention_state == "requested":
             retention = {"status": "retention_interrupted_no_replay"}
-        elif isinstance(user_turn.get("retention_receipt"), Mapping):
-            retention = dict(user_turn["retention_receipt"])
+        elif retention_state == "retained":
+            verifier = getattr(self.retention_writer, "verify_committed_artifact", None)
+            stored_receipt = user_turn.get("retention_receipt")
+            if callable(verifier) and isinstance(stored_receipt, Mapping):
+                try:
+                    verification = verifier(stored_receipt, user_turn, session_id)
+                except Exception:
+                    verification = {"artifact_status": "unavailable",
+                        "reason_code": "artifact_verifier_failed",
+                        "admission_status": "not_independently_recoverable",
+                        "write_replayed": False}
+            else:
+                verification = {"artifact_status": "unavailable",
+                    "reason_code": "artifact_verifier_unavailable",
+                    "admission_status": "not_independently_recoverable",
+                    "write_replayed": False}
+            retention = {
+                "status": ("retained_artifact_verified_admission_unverified"
+                    if verification.get("artifact_status") == "verified"
+                    else "retained_state_unverified_no_replay"),
+                "recovery_verification": verification,
+            }
+        elif retention_state == "retention_failed":
+            retention = {"status": "retention_failed_historical_no_replay"}
+        elif retention_state == "not_requested":
+            retention = {"status": "not_requested"}
         else:
-            retention = {"status": str(retention_state or "unknown")}
+            retention = {"status": "retention_state_unknown_no_replay"}
         return ChatResponse(
             response=str(assistant["text"]), session_id=session_id,
             turn_id=str(assistant["turn_id"]),
