@@ -744,6 +744,8 @@ class ResidentDevelopmentalCognitionOwner:
                 == "invocation_receipt_and_historical_chat_handoff_verified"
             and isinstance(payload.get("chat_process_handoff"), Mapping)
             and payload.get("loaded_code_identity_posture") == "not_independently_attested"
+            and payload.get("software_generation")
+                == payload.get("running_software_generation_observed")
             and payload.get("software_generation_scope")
                 == payload["chat_process_handoff"].get("source_generation_scope")
             and isinstance(payload.get("invocation_receipt_digest"), str)

@@ -368,6 +368,8 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 and payload.get("software_generation_scope")
                     == "configured_manifest_and_clean_repository_state_at_observation"
                 and payload.get("loaded_code_identity_posture") == "not_independently_attested"
+                and payload.get("software_generation")
+                    == payload.get("running_software_generation_observed")
                 and payload.get("authority") is False and payload.get("effect_proven") is False
                 and fact.effect_claimed is False and fact.effect_proven is False
                 and all(isinstance(payload.get(key), str) and payload.get(key) for key in (

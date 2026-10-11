@@ -2248,3 +2248,10 @@ Next inspect succession source records for any projection that still presents a 
 - Launch-time runtime provenance is now classified as historical interpretation rather than current state. Its startup timestamp remains available to the existing epistemic adapter as a historical event.
 - Authored unexecuted history cases for both current point observation and launch-time history. Changed Python and test files compile only; no behavioral or production verification ran.
 - Next verify the completed software-generation observation lineage through durable self-model recovery and subsequent cognition selection, then follow the next distinct causal dependency.
+
+
+### New checkpoint — reject contradictory software generation identifiers
+
+- Current-running software evidence now requires its represented generation and running-generation identities to match in both the cognition selector and grouped developmental-history projection. A source payload cannot qualify by binding a process to one digest while naming another as the running generation.
+- Added authored unexecuted contradiction cases for both consumers. Changed Python/tests compile only; no behavioral execution or production verification ran.
+- Next inspect whether the qualified current source predicate is admitted by configured longitudinal cognition policy without widening the allowlist, then advance to another source-backed dependency.

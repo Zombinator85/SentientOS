@@ -285,3 +285,29 @@ def test_launch_software_observation_is_historical_interpretation(tmp_path: Path
     lifecycle = next(item for item in result.claims
         if item.predicate == "lifecycle.observation.disposition")
     assert lifecycle.claim_category == "historical_interpretation"
+
+
+
+def test_conflicting_running_and_represented_generation_is_not_grouped(tmp_path: Path) -> None:
+    source = record(source="runtime:software-conflict", extra={
+        "running_software_generation_observed": "sha256:" + "a" * 64,
+        "software_generation": "sha256:" + "b" * 64,
+        "process_instance_id": "sha256:" + "c" * 64,
+        "provenance_digest": "sha256:" + "d" * 64,
+        "repository_commit": "commit-sha", "repository_tree": "tree-sha",
+        "startup_timestamp": "2026-09-25T11:00:00Z",
+        "process_identity_scope":
+            "pid_startup_argv_executable_entrypoint_module_origin_and_environment",
+        "software_generation_scope":
+            "configured_manifest_and_clean_repository_state_at_observation",
+        "loaded_code_identity_posture": "not_independently_attested",
+        "currentness_posture": "owner_verified_process_and_source_at_observation",
+        "event_time_posture": "owner_point_observation_time",
+        "authority": False, "effect_proven": False})
+    source.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "verified_current_running_software_generation",
+        "evidence_strength": "owner_verified_current_process_and_clean_source"})
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(source), tick_id="tick-software-conflict")
+    assert not any(item.predicate == "software_generation.current_process_observation"
+        for item in result.claims)

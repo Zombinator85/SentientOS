@@ -59,6 +59,10 @@ def test_chat_recovery_priority_requires_loaded_code_scope_qualification() -> No
     incomplete.pop("loaded_code_identity_posture")
     fact.payload = incomplete
     assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 6
+    contradictory = {**payload, "authority": False, "effect_proven": False,
+        "software_generation": "other-generation"}
+    fact.payload = contradictory
+    assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 6
 
 
 
@@ -70,6 +74,8 @@ def test_current_software_generation_priority_requires_current_owner_scope() -> 
         "software_generation_scope":
             "configured_manifest_and_clean_repository_state_at_observation",
         "loaded_code_identity_posture": "not_independently_attested",
+        "software_generation": "generation-digest",
+        "running_software_generation_observed": "generation-digest",
         "process_instance_id": "process-instance",
         "provenance_digest": "provenance-digest",
     }
