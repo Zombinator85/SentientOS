@@ -904,3 +904,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for `sentientos/chat_service.py` and `sentientos/local_model_serving_inference.py`. No tests, inference, or restart behavior was executed.
 
 **Next implementation dependency:** review bounded transcript persistence and invocation receipt recovery around the post-inference/pre-assistant-append interruption window. Preserve the existing no-replay behavior where private output is not durably available, and avoid claiming a response was reconstructed when only its digest remains.
+
+
+## New checkpoint — carry predecessor receipt lineage into World-State
+
+- The exact previous invocation receipt reference added to the new chat invocation is now included in the read-only chat-process software-generation World-State projection.
+- The projector checks reference shape and, when the predecessor is present in the bounded invocation receipt set, reconciles receipt ID/digest, request ID, completed inference status, same session, and source user-turn identity. A missing predecessor from the bounded projection is explicitly marked as an unreconciled receipt-bound reference; malformed or contradictory references fail closed.
+- The source record's canonical digest covers the new linkage and posture. Resident epistemic adaptation continues to receive this as historical evidence, not current liveness or permission.
+- `python -m py_compile` passed for `sentientos/host_resource_runtime.py`. No World-State execution, invocation, or production behavior was run.
+
+**Next implementation dependency:** inspect transcript publication interruption semantics. The invocation receipt intentionally retains output digest rather than response text, so preserve truthful no-replay/incomplete state instead of reconstructing a response from digest-only custody.

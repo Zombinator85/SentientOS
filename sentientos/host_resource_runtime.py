@@ -594,6 +594,61 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             + ":" + str(handoff.get("handoff_digest", "")))
         request_linkage = request.get("linkage") if isinstance(request, Mapping) else None
         request_linkage = request_linkage if isinstance(request_linkage, Mapping) else {}
+        caller_context = request_linkage.get("caller_context")
+        caller_context = caller_context if isinstance(caller_context, Mapping) else None
+        predecessor_reference = (caller_context.get("verified_predecessor_invocation")
+            if isinstance(caller_context, Mapping) else None)
+        predecessor_reference_posture = "no_verified_predecessor_reference"
+        if predecessor_reference is not None:
+            expected_predecessor_fields = {
+                "receipt_id", "receipt_digest", "request_id", "source_user_turn_id"}
+            if (not isinstance(predecessor_reference, Mapping)
+                    or set(predecessor_reference) != expected_predecessor_fields
+                    or not isinstance(predecessor_reference.get("receipt_id"), str)
+                    or re.fullmatch(r"lmrec-[0-9a-f]{24}",
+                        predecessor_reference["receipt_id"]) is None
+                    or not isinstance(predecessor_reference.get("receipt_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}",
+                        predecessor_reference["receipt_digest"]) is None
+                    or not isinstance(predecessor_reference.get("request_id"), str)
+                    or re.fullmatch(r"lmreq-[0-9a-f]{24}",
+                        predecessor_reference["request_id"]) is None
+                    or not isinstance(predecessor_reference.get("source_user_turn_id"), str)
+                    or re.fullmatch(r"turn-[0-9a-f]{24}",
+                        predecessor_reference["source_user_turn_id"]) is None
+                    or predecessor_reference.get("receipt_id") == invocation.get("receipt_id")):
+                raise ValueError("chat_process_invocation_predecessor_reference_invalid")
+            predecessor_receipt = invocation_by_id.get(
+                predecessor_reference["receipt_id"])
+            if predecessor_receipt is None:
+                predecessor_reference_posture = (
+                    "receipt_bound_predecessor_not_in_bounded_projection")
+            else:
+                predecessor_request = predecessor_receipt.get("request")
+                predecessor_linkage = (predecessor_request.get("linkage")
+                    if isinstance(predecessor_request, Mapping) else None)
+                predecessor_caller = (predecessor_linkage.get("caller_context")
+                    if isinstance(predecessor_linkage, Mapping) else None)
+                current_session_id = caller_context.get("session_id")
+                if (predecessor_receipt.get("receipt_digest")
+                        != predecessor_reference["receipt_digest"]
+                        or predecessor_receipt.get("status") != "admitted_completed"
+                        or not isinstance(predecessor_receipt.get("effects"), Mapping)
+                        or predecessor_receipt["effects"].get("local_model_inference") is not True
+                        or not isinstance(predecessor_request, Mapping)
+                        or predecessor_request.get("request_id")
+                            != predecessor_reference["request_id"]
+                        or not isinstance(predecessor_caller, Mapping)
+                        or predecessor_caller.get("session_id") != current_session_id
+                        or predecessor_caller.get("user_turn_id")
+                            != predecessor_reference["source_user_turn_id"]):
+                    raise ValueError("chat_process_invocation_predecessor_receipt_mismatch")
+                predecessor_reference_posture = (
+                    "exact_predecessor_receipt_and_source_turn_reconciled")
+        payload["predecessor_invocation_reference"] = (
+            dict(predecessor_reference)
+            if isinstance(predecessor_reference, Mapping) else None)
+        payload["predecessor_invocation_reference_posture"] = predecessor_reference_posture
         serving_reference_fields = ("serving_receipt_id", "serving_receipt_semantic_digest",
             "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest")
         serving_reference_values = [request_linkage.get(key) for key in serving_reference_fields]
@@ -702,6 +757,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "model_id": request.get("model_id") if isinstance(request, Mapping) else None,
             "model_artifact_digest": request.get("model_artifact_digest")
                 if isinstance(request, Mapping) else None,
+            "predecessor_invocation_reference": (
+                dict(predecessor_reference)
+                if isinstance(predecessor_reference, Mapping) else None),
+            "predecessor_invocation_reference_posture": predecessor_reference_posture,
             "relation_posture": "co_bound_by_completed_invocation_request_and_receipt",
             "currentness": "historical_only",
             "effect_authority": False,
