@@ -304,3 +304,7 @@ def test_naive_evidence_source_time_is_rejected_before_intent(tmp_path) -> None:
             operation_id="naive-time-operation", correlation_id="naive-time")
     assert list(controller.intent_root.glob("*.json")) == []
     assert list((owner.root / "bindings").glob("*.json")) == []
+
+
+def test_explicit_undated_evidence_time_remains_unknown_without_failure() -> None:
+    ResidentEpistemicStateMutationController._validate_source_event_time("undated")

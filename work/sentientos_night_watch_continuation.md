@@ -2505,6 +2505,6 @@ Next inspect succession source records for any projection that still presents a 
 ## 2026-10-11 checkpoint — require qualified source event time before evidence intent
 
 - Evidence-source proof construction and binding identity checked nonempty time strings but accepted timezone-naive timestamps. The mutation controller could therefore admit and durably append a source binding whose event time has no unambiguous instant.
-- The evidence mutation path now requires a bounded timezone-aware ISO timestamp before owner recovery, admission, or intent publication. It still binds the exact source proof to the evidence binding and does not rewrite historical source records.
-- Added an authored, unexecuted rejection case ensuring no intent or binding is written. Changed Python files compile only; no mutation or tests ran.
+- The evidence mutation path now requires a bounded timezone-aware ISO timestamp before owner recovery, admission, or intent publication, while preserving the adapter's explicit `undated` sentinel as unknown. It still binds the exact source proof to the evidence binding and does not rewrite historical source records.
+- Added authored, unexecuted rejection and unknown-time positive-control cases; rejected evidence produces no intent or binding. Changed Python files compile only; no mutation or tests ran.
 - Next trace the configured epistemic-development adapter's timestamps into these mutation calls and ensure it passes source event time rather than snapshot/recovery time, then continue other independently grounded recovery defects.

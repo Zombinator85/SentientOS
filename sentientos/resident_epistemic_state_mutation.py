@@ -140,6 +140,8 @@ class ResidentEpistemicStateMutationController:
 
     @staticmethod
     def _validate_source_event_time(value: Any) -> None:
+        if value == "undated":
+            return
         if not isinstance(value, str) or not value or len(value) > 128:
             raise EpistemicMutationError("source_proof_recorded_at_invalid")
         try:
