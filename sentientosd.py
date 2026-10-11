@@ -13,7 +13,7 @@ from contextlib import suppress
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, Mapping, Sequence, cast
 
 from sentientos.boot_ceremony import (
     BootAnnouncer,
@@ -417,6 +417,28 @@ def resolve_improvement_evidence_sources(
         if len(out) > max_sources:
             raise ValueError("too_many_improvement_evidence_sources")
     return sorted(out, key=lambda item: (str(item.get("source_kind")), str(item.get("path"))))
+
+
+RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT = 48
+
+
+def _bounded_resident_transition_entries(
+        entries: Sequence[Mapping[str, Any]]) -> tuple[tuple[Mapping[str, Any], ...], dict[str, Any] | None]:
+    """Retain a bounded journal tail while reporting the exact omitted prefix."""
+    omitted_count = max(0, len(entries) - RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT)
+    retained = tuple(entries[omitted_count:])
+    if not omitted_count:
+        return retained, None
+    last_omitted = entries[omitted_count - 1]
+    head = entries[-1]
+    return retained, {
+        "journal_head_digest": head.get("entry_digest"),
+        "omitted_entry_count": omitted_count,
+        "last_omitted_entry_digest": last_omitted.get("entry_digest"),
+        "first_retained_prior_digest": retained[0].get("prior_digest") if retained else None,
+        "retained_entry_count": len(retained),
+        "retained_tail_limit": RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT,
+    }
 
 
 class RuntimeMaintenanceSurfaces:
@@ -1413,7 +1435,8 @@ class RuntimeMaintenanceSurfaces:
                         "payload": {"recovery_posture": "journal_reconstruction_failed", "error_class": type(exc).__name__},
                         "observed_at": None, "effect_claimed": False, "effect_proven": False})
                 else:
-                    for entry in entries[-128:]:
+                    retained_transition_entries, transition_retention = _bounded_resident_transition_entries(entries)
+                    for entry in retained_transition_entries:
                         evidence = entry.get("evidence") if isinstance(entry.get("evidence"), Mapping) else {}
                         phase = str(entry.get("phase") or "")
                         disposition = {"completed": "completed", "attempted": "attempted", "effected": "effected",
@@ -1495,6 +1518,19 @@ class RuntimeMaintenanceSurfaces:
                                 and stage_semantically_verified and disposition == "completed"
                                 else "digest_valid_transition_journal_entry"), "payload": payload,
                             "observed_at": entry.get("event_time"), "effect_claimed": False, "effect_proven": False})
+                if transition_retention is not None:
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": (f"resident_transition_retention:{transition_id}:"
+                            f"{transition_retention.get('journal_head_digest')}:"
+                            f"{transition_retention['omitted_entry_count']}"),
+                        "subject_id": transition_id,
+                        "subject_kind": "resident_model_transition_history_retention",
+                        "stage": "observation", "disposition": "bounded_tail",
+                        "evidence_strength": "verified_journal_tail_with_omitted_prefix",
+                        "payload": {**transition_retention,
+                            "event_time_posture": "journal_retention_is_not_a_transition_event",
+                            "authority": False, "effect_proven": False},
+                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
                 session_identity = status.get("resident_model_identity")
                 if session_identity is not None:
                     running_provenance = next((value for role, value in provenance_bindings.items()

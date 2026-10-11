@@ -2299,3 +2299,10 @@ Next inspect succession source records for any projection that still presents a 
 - The existing longitudinal predicate for observed running model identity now retains the same serving observation's activation-state digest, activation receipt, predecessor-state digest, generation/history posture, transition ID, model-development provenance, source record identity, and World-State observation time. It adds these links to the existing model-identity claim rather than creating another selector surface.
 - Added an authored unexecuted restart/later-tick case for activation predecessor and provenance retention. Python compilation only; no behavior or production verification ran.
 - Next inspect whether the model transition journal's serving-stage evidence reconciles to the same activation predecessor before publishing that runtime identity, then continue to another causal subsystem.
+
+
+### New checkpoint — reserve World-State capacity for live model observation
+
+- Resident model succession previously projected up to 128 transition rows before appending its running serving-session identity, matching the World-State source cap. Long journals could therefore crowd out the live identity. It now projects a 48-entry verified tail, includes the live session/recovery records within the reserved window, and emits a digest-linked omitted-prefix summary with exact count and chain boundary.
+- Added an authored unexecuted bounded-tail regression. Changed daemon and test compile only; no behavior or production verification ran.
+- Next inspect the activation predecessor binding against verified serving receipts and the source journal after this retention change, then continue the next causal frontier.
