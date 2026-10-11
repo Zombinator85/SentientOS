@@ -2477,3 +2477,10 @@ Next inspect succession source records for any projection that still presents a 
 - Recovery now validates each creation timestamp but orders already-completed records by their persisted checkpoint order and interrupted records by the pre-inference `in_progress` intent order. A recovered record without either a completed checkpoint or matching durable intent fails closed; timestamp and content-addressed filename are no longer sequencing evidence.
 - Added an authored, unexecuted regression for reversed timestamps with ordered durable intents. Both changed Python files compile only; no tests or runtime cognition ran.
 - Next inspect self-model recovery projections and the daemon handoff for similar use of snapshot time, stale generation identity, or implicit same-tick inclusion.
+
+
+## 2026-10-11 checkpoint — keep cognition recovery chronology independent of clock order
+
+- The cognition observation journal already rejects duplicate per-tick conditions, digest/path mismatches, and same-tick self-model use. The self-model store verifies its generation/predecessor chain and the daemon captures its projection before same-tick reconciliation.
+- The directly adjacent developmental recovery order defect was corrected in the preceding source change: tick intent order now controls reconstruction; timestamps remain validity-checked historical metadata only. New records without an exact interrupted intent are rejected rather than inserted into later cognition by guessed time order.
+- No additional source defect was established in the self-model projection boundary during this inspection. Next continue reviewing persistent epistemic recovery and tick boundary semantics, especially how the daemon's timestamp-derived tick value relates to committed state generations.
