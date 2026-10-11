@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
+from sentientos.platform_fcntl import fcntl, require_flock
 from sentientos import maintenance_resident_runtime_adoption as resident
 from sentientos import maintenance_successor_generation_adoption as successor
 from sentientos.runtime.services import ChildProcessServiceAdapter, HealthResult, ServiceAdapter
@@ -67,6 +68,8 @@ class MaintenanceResidentParentSupervisor:
             if (not stat.S_ISDIR(root_metadata.st_mode) or root_metadata.st_uid != os.geteuid()
                     or stat.S_IMODE(root_metadata.st_mode) & 0o077):
                 raise ValueError("parent_supervision_state_root_not_private")
+        self._owner_lock_fd: int | None = None
+        self._acquire_owner_lock()
         self._state_path = self.root / "parent-state.json"
         self._receipt_path = self.root / "parent-receipts.jsonl"
         self._readiness_guard, self._clock, self._sleep = resident_readiness_guard, clock, sleeper
@@ -87,9 +90,45 @@ class MaintenanceResidentParentSupervisor:
         self._status = "configured"; self._generation_digest: str | None = None
         self._launch: dict[str, Any] | None = None
         self._state_recovery_valid = True
-        self._load()
-        if self._state_recovery_valid:
-            self._receipt("parent_startup", {"child_spec_digest": self._spec_digest})
+        try:
+            self._load()
+            if self._state_recovery_valid:
+                self._receipt("parent_startup", {"child_spec_digest": self._spec_digest})
+        except Exception:
+            self._release_owner_lock()
+            raise
+
+    def _acquire_owner_lock(self) -> None:
+        require_flock()
+        nofollow = getattr(os, "O_NOFOLLOW", None)
+        if nofollow is None:
+            raise OSError("parent_supervision_safe_lock_unavailable")
+        descriptor = os.open(self.root / "parent-supervisor.lock",
+            os.O_RDWR | os.O_CREAT | nofollow | getattr(os, "O_CLOEXEC", 0), 0o600)
+        try:
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                    or metadata.st_uid != os.geteuid()):
+                raise OSError("parent_supervision_lock_custody_invalid")
+            os.fchmod(descriptor, 0o600)
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as exc:
+                raise RuntimeError("parent_supervision_owner_already_held") from exc
+            self._owner_lock_fd = descriptor
+            descriptor = -1
+        finally:
+            if descriptor >= 0:
+                os.close(descriptor)
+
+    def _release_owner_lock(self) -> None:
+        descriptor = self._owner_lock_fd
+        self._owner_lock_fd = None
+        if descriptor is not None:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
 
     def _exact_environment(self) -> dict[str, str]:
         env = {key: os.environ[key] for key in self.config["inherited_environment_allowlist"] if key in os.environ}

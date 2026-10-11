@@ -5,6 +5,10 @@
   "task_scope": "Prevent duplicate resident launches after parent restart; only permit a bounded recovery attempt after the persisted child's PID is independently observed absent.",
   "required_nodes": [
     {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_parent_supervision_owner_lock_is_singleton",
+      "rationale": "A second parent cannot acquire the same state-root lifetime lock."
+    },
+    {
       "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_denies_launch_when_prior_child_pid_is_present",
       "rationale": "A present prior PID blocks new child launch; the supervisor neither adopts nor signals it."
     },

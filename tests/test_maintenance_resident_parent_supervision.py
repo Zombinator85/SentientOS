@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,15 @@ def _parent(tmp_path: Path, *, ready: list[bool] | None = None, budget: int = 2,
     return controller, made.children[-1], cfg
 
 
+
+def _simulate_parent_process_exit(controller: MaintenanceResidentParentSupervisor) -> None:
+    """Close the lock descriptor to model the kernel releasing it at process exit."""
+    descriptor = controller._owner_lock_fd
+    if descriptor is not None:
+        os.close(descriptor)
+        controller._owner_lock_fd = None
+
+
 def test_exact_same_lineage_death_recovery_requires_readiness_and_links_receipts(tmp_path: Path) -> None:
     ready = [False]; controller, child, cfg = _parent(tmp_path, ready=ready)
     controller.start()
@@ -73,6 +83,7 @@ def test_exact_same_lineage_death_recovery_requires_readiness_and_links_receipts
     events = [row["event"] for row in rows]
     assert events.index("unexpected_child_death") < events.index("recovery_eligibility") < events.index("recovery_attempt")
     assert events[-2:] == ["child_resident_readiness", "recovery_success"]
+    _simulate_parent_process_exit(controller)
     reconstructed = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
         resident_readiness_guard=lambda _: True, restart_budget=2, min_backoff=0, max_backoff=0,
         adapter_factory=Factory())
@@ -109,6 +120,7 @@ def test_budget_panic_shutdown_and_reconstruction_prevent_resurrection(tmp_path:
     controller.start(); controller.observe(); child.alive = False; controller.observe()
     child.alive = False; controller.observe()
     assert controller.status()["restart_budget_exhausted"] is True and child.starts == 2
+    _simulate_parent_process_exit(controller)
     made = Factory(); rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
         resident_readiness_guard=lambda _: True, restart_budget=1, min_backoff=0, max_backoff=0,
         adapter_factory=made)
@@ -128,6 +140,7 @@ def test_persisted_provenance_or_configuration_mismatch_fails_closed(tmp_path: P
     controller, _, cfg = _parent(tmp_path); controller.start()
     state = tmp_path / "parent/parent-state.json"; value = json.loads(state.read_text())
     value["child_spec_digest"] = "sha256:foreign"; state.write_text(json.dumps(value))
+    _simulate_parent_process_exit(controller)
     rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
         resident_readiness_guard=lambda _: True, adapter_factory=Factory())
     assert rebuilt.status()["panic_latched"] is True
@@ -144,6 +157,7 @@ def test_invalid_state_recovery_does_not_append_duplicate_parent_receipt(
     state_path = tmp_path / "parent" / "parent-state.json"
     state_path.write_bytes(b"not-json\n")
 
+    _simulate_parent_process_exit(controller)
     rebuilt, child, _ = _parent(tmp_path)
     assert rebuilt.status()["panic_latched"] is True
     assert receipt_path.read_bytes() == before
@@ -163,6 +177,7 @@ def test_parent_state_symlink_is_untrusted_and_not_republished(tmp_path: Path) -
     target.write_text("{}", encoding="utf-8")
     state_path.symlink_to(target)
 
+    _simulate_parent_process_exit(controller)
     rebuilt, _, _ = _parent(tmp_path)
     assert rebuilt.status()["panic_latched"] is True
     assert receipt_path.read_bytes() == before
@@ -177,6 +192,7 @@ def test_receipt_ahead_of_snapshot_is_rejected_without_sequence_reuse(tmp_path: 
     receipt_log = receipt_path.read_bytes()
     state_path.write_bytes(previous_snapshot)
 
+    _simulate_parent_process_exit(controller)
     rebuilt, child, _ = _parent(tmp_path)
     assert rebuilt.status()["panic_latched"] is True
     assert rebuilt.status()["status"] == "fail_closed_state"
@@ -198,6 +214,7 @@ def test_corrupt_receipt_chain_fails_closed_without_republication(tmp_path: Path
     ) + b"\n"
     receipt_path.write_bytes(corrupt)
 
+    _simulate_parent_process_exit(controller)
     rebuilt, _, _ = _parent(tmp_path)
     assert rebuilt.status()["panic_latched"] is True
     assert rebuilt.status()["status"] == "fail_closed_state"
@@ -209,6 +226,10 @@ def test_restarted_parent_denies_launch_when_prior_child_pid_is_present(tmp_path
     first.start()
     assert child.alive
 
+    with pytest.raises(RuntimeError, match="parent_supervision_owner_already_held"):
+        MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
+            resident_readiness_guard=lambda _: True, adapter_factory=Factory())
+    _simulate_parent_process_exit(first)
     made = Factory()
     rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
         resident_readiness_guard=lambda _: True, adapter_factory=made,
@@ -224,6 +245,7 @@ def test_restarted_parent_recovers_only_after_prior_pid_is_absent(tmp_path: Path
     first.start()
     child.alive = False
 
+    _simulate_parent_process_exit(first)
     made = Factory()
     rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
         resident_readiness_guard=lambda _: True, adapter_factory=made,
@@ -235,3 +257,13 @@ def test_restarted_parent_recovers_only_after_prior_pid_is_absent(tmp_path: Path
         (tmp_path / "parent" / "parent-receipts.jsonl").read_text().splitlines()]
     events = [row["event"] for row in rows]
     assert events.index("orphan_child_absence_reconciled") < events.index("recovery_attempt")
+
+
+
+def test_parent_supervision_owner_lock_is_singleton(tmp_path: Path) -> None:
+    controller, child, cfg = _parent(tmp_path)
+    with pytest.raises(RuntimeError, match="parent_supervision_owner_already_held"):
+        MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
+            resident_readiness_guard=lambda _: True, adapter_factory=Factory())
+    assert child.starts == 0
+    _simulate_parent_process_exit(controller)
