@@ -1463,3 +1463,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `memory_manager.py`. No sidecar files were accessed or modified; no runtime or production verification was performed.
 - **Next implementation dependency:** make generic legacy sidecar write preparation verify and create nested directories descriptor-relatively, rejecting preexisting symlink/hardlink targets before any path-based writer runs. Preserve the existing authorization gate and fail closed on unsupported Windows mutation.
 
+
+
+## New checkpoint — prepare legacy sidecar targets through held directories
+
+- Fresh remote source before this increment: `ffad006830e5010fd3b34cc171622dee077b0d37` (tree `ee2adca844a68aafb9c9db76b5fbc04820af29d3`).
+- Generic legacy write preparation secured the shared root but created nested directories and accepted existing targets by path. A preexisting symlink or hardlink in a sidecar path could still redirect a later authorized writer.
+- `_prepare_write` now authorizes first, constrains the target beneath the configured memory root, creates/opens every parent relative to held no-follow directory descriptors, verifies owner/type, tightens nested directories to 0700, and rejects non-regular, aliased, or foreign-owned targets before path-based writers proceed. Existing regular target files are changed to 0600 only inside this authorized mutation path. Unsupported Windows mutation remains fail-closed.
+- Python compilation passed for `memory_manager.py`. No directories/files were opened or changed; no behavioral or production verification was performed.
+- **Next implementation dependency:** inspect the whole legacy memory-manager API for callers that convert custody exceptions into empty/success results, and verify the transcript/developmental-history path separation remains intact under the now-private shared root. Continue with any direct adjacent custody gap found.
+

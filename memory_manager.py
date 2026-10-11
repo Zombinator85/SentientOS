@@ -151,15 +151,60 @@ def _read_legacy_memory_file(path: Path, *, max_bytes: int = 8 * 1024 * 1024) ->
 
 
 def _prepare_write(path: Path) -> None:
-    """Authorize and secure the shared root before any legacy memory write."""
+    """Authorize and prepare a memory target relative to held private directories."""
     _authorize_legacy_mutation()
     try:
-        path.relative_to(MEMORY_DIR)
+        relative = path.relative_to(MEMORY_DIR)
     except ValueError as exc:
         raise PermissionError("legacy_memory_write_outside_configured_root") from exc
-    descriptor = _open_legacy_memory_root(prepare_for_write=True)
-    os.close(descriptor)
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not relative.parts or any(part in {"", ".", ".."} for part in relative.parts):
+        raise PermissionError("legacy_memory_write_path_invalid")
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    current_fd = root_fd
+    target_fd: int | None = None
+    try:
+        for component in relative.parts[:-1]:
+            created = False
+            try:
+                os.mkdir(component, mode=0o700, dir_fd=current_fd)
+                created = True
+            except FileExistsError:
+                pass
+            child_fd = os.open(component, directory_flags, dir_fd=current_fd)
+            metadata = os.fstat(child_fd)
+            if (not stat.S_ISDIR(metadata.st_mode)
+                    or metadata.st_uid != os.geteuid()):
+                os.close(child_fd)
+                raise PermissionError("legacy_memory_parent_custody_invalid")
+            if stat.S_IMODE(metadata.st_mode) & 0o077:
+                os.fchmod(child_fd, 0o700)
+                metadata = os.fstat(child_fd)
+                if stat.S_IMODE(metadata.st_mode) & 0o077:
+                    os.close(child_fd)
+                    raise PermissionError("legacy_memory_parent_permissions_invalid")
+            if created:
+                os.fsync(current_fd)
+            if current_fd != root_fd:
+                os.close(current_fd)
+            current_fd = child_fd
+        name = relative.parts[-1]
+        try:
+            target_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0), dir_fd=current_fd)
+        except FileNotFoundError:
+            return
+        metadata = os.fstat(target_fd)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()):
+            raise PermissionError("legacy_memory_target_custody_invalid")
+        os.fchmod(target_fd, 0o600)
+    finally:
+        if target_fd is not None:
+            os.close(target_fd)
+        if current_fd != root_fd:
+            os.close(current_fd)
+        os.close(root_fd)
 
 
 def _open_legacy_raw_directory(*, prepare_for_write: bool = False) -> int:
