@@ -2184,10 +2184,10 @@ The epistemic mutation controller created both receipt-stage directories uncondi
 Next continue checking the remaining model/software succession owners and distinguish repository/process observations from runtime loaded-code attribution where no issuer exists.
 
 
-## 2026-10-11 checkpoint — scope maintenance-daemon generation attribution
+## 2026-10-11 checkpoint — retain succession identity scope in developmental memory
 
-The maintenance adoption owner verifies the process instance, launch provenance, exact configured generation, and clean repository source state. Its World-State rows previously labelled that combined observation as a current running software generation without carrying the missing loaded-code attestation boundary. The owner API and both launch/current World-State payloads now identify the process role and scope these identities to process/path/environment plus configured manifest/repository state. They explicitly record loaded code as not independently attested. This keeps maintenance-daemon provenance separate from chat-process provenance and does not let either identify the other's software.
+The World-State projections now distinguish process/source identity from loaded-code attestation for chat and maintenance runtime observations. The generic longitudinal self-model payload allowlist and the specialized historical chat-process lineage previously dropped those new qualifiers, so a later durable interpretation could retain a generation digest without its observation scope. Added explicit bounded predicates for process role, process identity scope, software-generation scope, and loaded-code identity posture; the specialized chat lineage now carries the same fields under its source-record digest. This remains historical interpretation and requires the existing predicate selection; it grants no truth or authority.
 
-Added a focused source-owner case for the returned scope labels; authored but unexecuted. Changed Python sources compile only. No process observation, runtime operation, test, or production verification was performed.
+A regression case for durable scope-label writeback is authored but unexecuted. Changed Python modules compile only. No behavior or production verification ran.
 
-Next continue checking existing succession consumers for any path that drops these scope labels before later cognition; the repository has no independent loaded-code issuer, so do not synthesize one.
+Next inspect the chronological cognition selector to ensure these scoped developmental claims remain historical and cannot be mistaken for current running identity after restart.
