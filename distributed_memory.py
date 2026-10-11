@@ -30,6 +30,9 @@ except Exception as exc:  # pragma: no cover - optional dependency
     requests = SimpleNamespace(post=_requests_stub_post, RequestException=_RequestsStubException)
 from dotenv import load_dotenv
 
+# Load explicit local configuration before node_registry snapshots NODE_TOKEN.
+load_dotenv()
+
 import memory_manager as mm
 from node_registry import NODE_TOKEN, registry
 from secure_memory_storage import AESGCM
@@ -254,7 +257,7 @@ class DistributedMemorySynchronizer:
 
     def _sync_once(self) -> None:
         local_fragments = _local_fragments()
-        nodes = list(registry.iter_remote_nodes())
+        nodes = list(registry.iter_remote_nodes(trusted_only=True))
         if not nodes:
             return
         for node in nodes:
@@ -382,7 +385,7 @@ class DistributedMemorySynchronizer:
                 metadata["federation_import"] = {
                     "received_from_peer": str(hostname),
                     "source_fragment_digest": _fragment_digest(fragment),
-                    "provenance_status": "peer_claim_not_historical_authorship_proof",
+                    "provenance_status": "registry_target_claim_not_signed_response_or_authorship_proof",
                 }
             elif (not isinstance(prior_import, dict)
                     or prior_import.get("source_fragment_digest") != _fragment_digest(fragment)):
