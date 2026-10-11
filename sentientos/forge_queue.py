@@ -11,12 +11,23 @@ from pathlib import Path
 import uuid
 
 from sentientos.event_stream import record_forge_event
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 LOGGER = logging.getLogger(__name__)
 
 PULSE_ROOT = Path("pulse")
 QUEUE_PATH = PULSE_ROOT / "forge_queue.jsonl"
 RECEIPTS_PATH = PULSE_ROOT / "forge_receipts.jsonl"
+MAX_RECEIPT_LEDGER_BYTES = 1_048_576
+MAX_RECEIPT_LEDGER_ROWS = 4096
+
+
+class ForgeReceiptLedgerError(RuntimeError):
+    """Receipt custody is incomplete or cannot be safely reconstructed."""
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
 
 
 @dataclass(slots=True)
@@ -174,13 +185,51 @@ class ForgeQueue:
         return loaded
 
     def _load_receipts(self) -> list[ForgeReceipt]:
-        rows = self._read_jsonl(self.receipts_path)
+        try:
+            raw = read_explicit_file(
+                self.receipts_path,
+                max_bytes=MAX_RECEIPT_LEDGER_BYTES,
+                require_private_acl=False,
+            )
+        except WindowsHandleCustodyError as exc:
+            custody_code = str(exc)
+            if custody_code == "explicit_file_missing":
+                return []
+            raise ForgeReceiptLedgerError(f"receipt_custody_{custody_code}") from exc
+        except OSError as exc:
+            raise ForgeReceiptLedgerError("receipt_custody_unavailable") from exc
+        rows: list[dict[str, object]] = []
+        try:
+            text = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise ForgeReceiptLedgerError("receipt_ledger_encoding_invalid") from exc
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            if not line.strip():
+                continue
+            if len(rows) >= MAX_RECEIPT_LEDGER_ROWS:
+                raise ForgeReceiptLedgerError("receipt_ledger_row_limit_exceeded")
+            try:
+                payload = json.loads(
+                    line,
+                    object_pairs_hook=_unique_json_object,
+                    parse_constant=_reject_json_constant,
+                )
+            except (json.JSONDecodeError, ValueError, RecursionError) as exc:
+                raise ForgeReceiptLedgerError(
+                    f"receipt_ledger_json_invalid:{line_number}"
+                ) from exc
+            if not isinstance(payload, dict):
+                raise ForgeReceiptLedgerError(
+                    f"receipt_ledger_record_not_object:{line_number}"
+                )
+            rows.append(payload)
         loaded: list[ForgeReceipt] = []
-        for row in rows:
+        for line_number, row in enumerate(rows, start=1):
             receipt = _receipt_from_row(row)
             if receipt is None:
-                LOGGER.warning("forge_receipt_bad_entry", extra={"path": str(self.receipts_path), "row": row})
-                continue
+                raise ForgeReceiptLedgerError(
+                    f"receipt_ledger_identity_invalid:{line_number}"
+                )
             loaded.append(receipt)
         return loaded
 
@@ -280,6 +329,19 @@ def _request_from_row(row: dict[str, object]) -> ForgeRequest | None:
         max_budget_overrides={str(k): int(v) for k, v in max_budget_overrides.items() if isinstance(v, int)} if max_budget_overrides else None,
         metadata={str(k): v for k, v in metadata.items()},
     )
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(_value: str) -> None:
+    raise ValueError("nonstandard_json_constant")
 
 
 def _receipt_from_row(row: dict[str, object]) -> ForgeReceipt | None:

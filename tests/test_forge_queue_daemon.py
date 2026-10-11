@@ -7,7 +7,7 @@ import pytest
 
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_pr_notes import build_pr_notes
-from sentientos.forge_queue import ForgeQueue, ForgeRequest
+from sentientos.forge_queue import ForgeQueue, ForgeReceiptLedgerError, ForgeRequest
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +56,50 @@ def test_queue_read_tolerates_corrupt_lines(tmp_path: Path) -> None:
     pending = queue.pending_requests()
 
     assert [item.request_id for item in pending] == ["req-1"]
+
+
+def test_corrupt_receipt_ledger_cannot_requeue_request_or_reach_forge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.enqueue(ForgeRequest(request_id="req-1", goal="forge_smoke_noop", goal_id="forge_smoke_noop"))
+    queue.receipts_path.write_text('{"request_id":"req-1","status":"started"}\n{bad json\n', encoding="utf-8")
+    forge = _FakeForge(tmp_path)
+    daemon = ForgeDaemon(queue=queue, forge=forge, repo_root=tmp_path)
+    monkeypatch.setenv("SENTIENTOS_FORGE_DAEMON_ENABLED", "1")
+
+    with pytest.raises(ForgeReceiptLedgerError, match="receipt_ledger_json_invalid"):
+        daemon.run_tick()
+
+    assert forge.runs == []
+
+
+def test_legacy_terminal_receipt_remains_consumed(tmp_path: Path) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.enqueue(ForgeRequest(request_id="req-legacy", goal="forge_smoke_noop", goal_id="forge_smoke_noop"))
+    queue.receipts_path.parent.mkdir(parents=True, exist_ok=True)
+    queue.receipts_path.write_text('{"request_id":"req-legacy","status":"success"}\n', encoding="utf-8")
+
+    assert queue.next_request() is None
+
+
+@pytest.mark.parametrize("raw", [
+    b'{"request_id":"r","request_id":"r","status":"success"}\n',
+    b'[]\n',
+    b'{"request_id":"r","status":NaN}\n',
+    b"x" * (1_048_577),
+    b'{"request_id":"r","status":"success"}\n' * 4097,
+])
+def test_invalid_receipt_identity_and_oversized_ledger_fail_closed(
+    tmp_path: Path, raw: bytes,
+) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.enqueue(ForgeRequest(request_id="req-1", goal="forge_smoke_noop", goal_id="forge_smoke_noop"))
+    queue.receipts_path.parent.mkdir(parents=True, exist_ok=True)
+    queue.receipts_path.write_bytes(raw)
+
+    with pytest.raises(ForgeReceiptLedgerError):
+        queue.next_request()
 
 
 def test_next_request_priority_then_fifo(tmp_path: Path) -> None:
