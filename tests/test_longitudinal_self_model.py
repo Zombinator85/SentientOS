@@ -366,3 +366,31 @@ def test_running_model_claim_carries_activation_predecessor_through_restart(tmp_
     assert retained["value"]["activation_predecessor_state_digest"] == "sha256:" + "c" * 64
     assert retained["value"]["activation_predecessor_posture"] == "verified_predecessor_state"
     assert retained["value"]["observed_at"] == observed
+
+
+
+def test_transition_activation_predecessor_fields_remain_lineage_claims(tmp_path: Path) -> None:
+    source = record(source="transition:activation", subject="transition-a", extra={
+        "transition_id": "transition-a",
+        "transition_phase": "b_activation_committed",
+        "activation_state_digest": "sha256:" + "a" * 64,
+        "activation_receipt_id": "activation-receipt-b",
+        "activation_receipt_digest": "sha256:" + "b" * 64,
+        "activation_predecessor_state_digest": "sha256:" + "c" * 64,
+        "activation_predecessor_posture": "verified_predecessor_state",
+        "activation_history_digest": "sha256:" + "d" * 64,
+        "model_load_posture": "not_loaded_by_activation",
+    })
+    source.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "resident_model_transition",
+        "evidence_strength": "digest_valid_transition_journal_entry"})
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(source), tick_id="tick-activation-lineage")
+    predecessor = next(claim for claim in result.claims
+        if claim.predicate == "activation_predecessor_state_digest")
+    posture = next(claim for claim in result.claims
+        if claim.predicate == "activation_predecessor_posture")
+    assert predecessor.value == "sha256:" + "c" * 64
+    assert posture.value == "verified_predecessor_state"
+    assert predecessor.category == posture.category == "lineage"
+    assert predecessor.current_truth is False and posture.current_truth is False

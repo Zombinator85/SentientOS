@@ -55,6 +55,8 @@ PAYLOAD_PREDICATES = {
     "activation_receipt_id": ("activation_receipt_id",),
     "activation_receipt_digest": ("activation_receipt_digest",),
     "activation_state_digest": ("activation_state_digest",),
+    "activation_predecessor_state_digest": ("activation_predecessor_state_digest",),
+    "activation_predecessor_posture": ("activation_predecessor_posture",),
     "serving_binding_digest": ("serving_binding_digest",),
     "serving_activation_receipt_id": ("serving_activation_receipt_id",),
     "serving_activation_receipt_digest": ("serving_activation_receipt_digest",),
@@ -337,7 +339,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         for key in keys:
             if key in fact.payload:
                 out.append((predicate, _bounded(fact.payload[key]), "lineage"
-                    if any(token in predicate for token in ("generation", "model", "resource", "transition"))
+                    if any(token in predicate for token in ("generation", "model", "resource", "transition", "activation"))
                     else "configuration"))
                 break
     if compact_chat_invocation:

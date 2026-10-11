@@ -2333,3 +2333,10 @@ Next inspect succession source records for any projection that still presents a 
 ## 2026-10-11 checkpoint — keep the succession projection regression in its existing module
 
 - Independent compare review caught that the new owner-path regression had been published under a near-duplicate test filename. It has been moved into the existing tests/test_sentientosd_software_succession_projection.py module and the accidental duplicate path is removed. No production code changed in this correction.
+
+
+## 2026-10-11 checkpoint — preserve predecessor lineage on activation-stage evidence
+
+- The live-session World-State already carried the verified predecessor edge, but the separate activation-stage record omitted it. Added the predecessor digest and explicit initial/unknown posture to the activation record projection as historical selection evidence, still marked not loaded by activation.
+- Existing longitudinal payload handling did not retain these two fields on stage records. The same durable claim owner now stores each as lineage, with an authored unexecuted regression confirming the claims remain non-current and non-authoritative. Python compilation and static source inspection only.
+- Next review the persistent epistemic binding for exact source identity and replay-stable event time, then continue beyond succession attribution to the next dependency.

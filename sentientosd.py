@@ -1498,6 +1498,10 @@ class RuntimeMaintenanceSurfaces:
                             payload["activation_receipt_id"] = activation.get("receipt_id")
                             payload["activation_receipt_digest"] = activation.get("receipt_semantic_digest")
                             payload["activation_state_digest"] = activation.get("state_semantic_digest")
+                            payload["activation_predecessor_state_digest"] = activation.get(
+                                "activation_predecessor_state_digest")
+                            payload["activation_predecessor_posture"] = activation.get(
+                                "activation_predecessor_posture")
                         binding = evidence.get("stage_binding") if isinstance(evidence.get("stage_binding"), Mapping) else None
                         if (binding is not None and entry.get("status") == "completed"
                                 and phase in {"b_serving_bound", "restored_a_serving_bound"}):
