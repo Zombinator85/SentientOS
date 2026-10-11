@@ -8,6 +8,7 @@ import os
 import signal
 import stat
 import tempfile
+import threading
 import time
 from contextlib import suppress
 from dataclasses import asdict
@@ -59,7 +60,12 @@ from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
     LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
-from sentientos.private_file_custody import replace_private_bytes_with_status
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError,
+    open_private_directory,
+    read_private_file_at,
+    replace_private_bytes_with_status,
+)
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner
 from sentientos.embodiment_proposal_review import load_selected_review_world_state_records
 from sentientos.embodiment_fulfillment import (load_selected_fulfillment_world_state_records,
@@ -511,6 +517,7 @@ class RuntimeMaintenanceSurfaces:
             "read_only": True, "effect_authority": False,
         })
         self._governed_invocation_receipts_path = self._runtime_state_root / "governed_local_model_invocation" / "registered_receipts.json"
+        self._governed_invocation_receipt_lock = threading.RLock()
         self._governed_invocation_receipts = self._recover_governed_invocation_receipts(governed_invocation_receipts)
         self._genesis_advice_source = genesis_advice_source
         self._world_state_snapshot_built_for_tick: str | None = None
@@ -735,31 +742,51 @@ class RuntimeMaintenanceSurfaces:
             raise ValueError("registered_invocation_receipt_publication_unsupported_platform")
         valid, findings = validate_receipt(receipt)
         if not valid:
-            raise ValueError("invalid_governed_invocation_receipt:" + ",".join(findings))
+            raise ValueError("invalid_governed_local_model_invocation_receipt:" + ",".join(findings))
         receipt_id = str(receipt.get("receipt_id") or "")
         if not receipt_id:
             raise ValueError("missing_governed_invocation_receipt_id")
-        for item in self._governed_invocation_receipts:
-            if str(item.get("receipt_id") or "") == receipt_id:
-                if dict(item) != dict(receipt):
-                    raise ValueError("conflicting_governed_invocation_receipt")
-                return
-        if len(self._governed_invocation_receipts) >= 256:
-            self._governed_invocation_receipts = self._governed_invocation_receipts[-255:]
-        self._governed_invocation_receipts = (*self._governed_invocation_receipts, dict(receipt))
-        self._persist_governed_invocation_receipts()
+        with self._governed_invocation_receipt_lock:
+            for item in self._governed_invocation_receipts:
+                if str(item.get("receipt_id") or "") == receipt_id:
+                    if dict(item) != dict(receipt):
+                        raise ValueError("conflicting_governed_invocation_receipt")
+                    return
+            current = self._governed_invocation_receipts
+            if len(current) >= 256:
+                current = current[-255:]
+            candidate = (*current, dict(receipt))
+            durability_confirmed = self._persist_governed_invocation_receipts(candidate)
+            # Atomic replacement is already visible when the helper returns
+            # False. Retain that exact candidate in memory before surfacing
+            # uncertain directory durability; do not roll back visible evidence.
+            self._governed_invocation_receipts = candidate
+            if not durability_confirmed:
+                raise ValueError("registered_invocation_receipt_durability_uncertain")
 
     def _recover_governed_invocation_receipts(self, supplied: tuple[Mapping[str, Any], ...]) -> tuple[dict[str, Any], ...]:
         """Recover evidence only; no model call, ledger mutation, or replay."""
         recovered: list[dict[str, Any]] = []
-        try:
-            raw_bytes = read_explicit_file(self._governed_invocation_receipts_path,
-                max_bytes=16_777_216)
-        except WindowsHandleCustodyError as exc:
-            if str(exc) == "explicit_file_missing":
-                raw_bytes = None
-            else:
-                raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
+        path = self._governed_invocation_receipts_path
+        raw_bytes: bytes | None = None
+        if os.name == "posix":
+            directory_fd: int | None = None
+            try:
+                directory_fd = open_private_directory(path.parent, create=False)
+                raw_bytes = read_private_file_at(
+                    directory_fd, path.name, max_bytes=16_777_216)
+            except PrivateFileCustodyError as exc:
+                if exc.code not in {"directory_root_missing", "file_missing"}:
+                    raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
+            finally:
+                if directory_fd is not None:
+                    os.close(directory_fd)
+        else:
+            try:
+                raw_bytes = read_explicit_file(path, max_bytes=16_777_216)
+            except WindowsHandleCustodyError as exc:
+                if str(exc) != "explicit_file_missing":
+                    raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
         if raw_bytes is not None:
             try:
                 raw = json.loads(raw_bytes.decode("utf-8"))
@@ -786,29 +813,20 @@ class RuntimeMaintenanceSurfaces:
                 raise ValueError("invalid_recovered_invocation_receipt:" + ",".join(findings))
         return tuple(recovered[-256:])
 
-    def _persist_governed_invocation_receipts(self) -> None:
+    def _persist_governed_invocation_receipts(
+            self, receipts: tuple[dict[str, Any], ...] | None = None) -> bool:
         if os.name != "posix":
             raise ValueError("registered_invocation_receipt_publication_unsupported_platform")
         path = self._governed_invocation_receipts_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(list(self._governed_invocation_receipts), sort_keys=True,
+        selected = self._governed_invocation_receipts if receipts is None else receipts
+        payload = json.dumps(list(selected), sort_keys=True,
             separators=(",", ":")).encode("utf-8")
         if len(payload) > 16_777_216:
             raise ValueError("registered_invocation_receipts_size_limit_exceeded")
-        descriptor, temporary = tempfile.mkstemp(prefix=".registered-invocation-receipts-",
-            suffix=".tmp", dir=str(path.parent))
         try:
-            with os.fdopen(descriptor, "wb") as handle:
-                handle.write(payload); handle.flush(); os.fsync(handle.fileno())
-            os.replace(temporary, path)
-            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
-        finally:
-            try: os.unlink(temporary)
-            except FileNotFoundError: pass
+            return replace_private_bytes_with_status(path, payload, max_bytes=16_777_216)
+        except PrivateFileCustodyError as exc:
+            raise ValueError("registered_invocation_receipts_publication_failed") from exc
 
     def identify_improvement_signals(self) -> SignalPlaneEvaluation:
         records = collect_repository_evidence(repo_root=self._repo_root, artifacts=self._improvement_evidence_sources)
