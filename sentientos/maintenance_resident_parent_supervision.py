@@ -71,8 +71,8 @@ def _valid_parent_process_observation(value: object) -> bool:
 def _verify_parent_invocation_origin(config: Mapping[str, Any], *, executable: Path,
                                      working_directory: Path, module_path: Path) -> None:
     """Require the parent itself to run from the commissioned repo/runtime paths."""
-    expected_executable = Path(str(config["python_executable"]))
-    expected_working_directory = Path(str(config["working_directory"]))
+    expected_executable = Path(str(config["python_executable"])).resolve(strict=True)
+    expected_working_directory = Path(str(config["working_directory"])).resolve(strict=True)
     expected_module_path = Path(str(config["repository_root"])) / (
         "sentientos/maintenance_resident_parent_supervision.py")
     if (executable.resolve(strict=True) != expected_executable

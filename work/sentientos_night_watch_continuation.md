@@ -2072,3 +2072,8 @@ The parent-instance receipt fields previously called their wall and monotonic co
 ## 2026-10-11 checkpoint — bind the explicit parent entrypoint to commissioned runtime paths
 
 The standalone parent CLI now verifies that its actual interpreter, working directory, and imported module path resolve to the exact runtime and repository paths in the commissioned resident config before it takes parent custody or launches a child. This narrows the launch to the intended checkout and interpreter; it does not prove the bytes already loaded into the parent process or claim a software-generation digest. An authored unexecuted case accepts exact paths and rejects a substituted interpreter. This additional observation limit remains explicit.
+
+
+## 2026-10-11 checkpoint — canonicalize commissioned parent invocation paths
+
+The parent-origin check now resolves both configured interpreter and working-directory paths through the filesystem before comparison, matching the resident config validator and child adapter path semantics. The authored substituted-interpreter case now uses an existing fixture path so it reaches the intended mismatch decision rather than failing during strict path resolution. Python compilation and source whitespace inspection passed; no behavioral test ran.

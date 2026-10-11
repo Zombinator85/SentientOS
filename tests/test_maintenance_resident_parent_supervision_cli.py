@@ -42,6 +42,8 @@ def test_parent_origin_requires_exact_configured_repository_and_interpreter(tmp_
     module.write_text("# parent owner")
     interpreter = tmp_path / "python"
     interpreter.write_text("interpreter identity fixture")
+    other_interpreter = tmp_path / "other-python"
+    other_interpreter.write_text("substituted interpreter fixture")
     working_directory = repository
     config = {
         "repository_root": str(repository),
@@ -54,5 +56,5 @@ def test_parent_origin_requires_exact_configured_repository_and_interpreter(tmp_
         module_path=module)
     with pytest.raises(ValueError, match="resident_parent_process_origin_mismatch"):
         parent._verify_parent_invocation_origin(
-            config, executable=tmp_path / "other-python",
+            config, executable=other_interpreter,
             working_directory=working_directory, module_path=module)
