@@ -842,6 +842,22 @@ class RuntimeMaintenanceSurfaces:
             except WindowsHandleCustodyError as exc:
                 if str(exc) != "explicit_file_missing":
                     raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
+        identities: dict[str, dict[str, Any]] = {}
+
+        def retain(candidate_value: Mapping[str, Any]) -> None:
+            candidate = dict(candidate_value)
+            receipt_id_value = candidate.get("receipt_id")
+            if not isinstance(receipt_id_value, str) or not receipt_id_value:
+                recovered.append(candidate)
+                return
+            prior = identities.get(receipt_id_value)
+            if prior is not None:
+                if prior != candidate:
+                    raise ValueError("conflicting_recovered_invocation_receipt")
+                return
+            identities[receipt_id_value] = candidate
+            recovered.append(candidate)
+
         if raw_bytes is not None:
             try:
                 raw = json.loads(raw_bytes.decode("utf-8"))
@@ -851,17 +867,12 @@ class RuntimeMaintenanceSurfaces:
                     or any(not isinstance(item, Mapping) for item in raw)
                     or json.dumps(raw, sort_keys=True, separators=(",", ":")).encode("utf-8") != raw_bytes):
                 raise ValueError("registered_invocation_receipts_artifact_invalid")
-            recovered.extend(dict(item) for item in raw)
+            for item in raw:
+                retain(item)
         if len(supplied) > 256:
             raise ValueError("registered_invocation_receipts_retention_limit_exceeded")
         for item in supplied:
-            candidate = dict(item)
-            receipt_id = str(candidate.get("receipt_id") or "")
-            prior = next((existing for existing in recovered if str(existing.get("receipt_id") or "") == receipt_id), None)
-            if prior is not None and prior != candidate:
-                raise ValueError("conflicting_recovered_invocation_receipt")
-            if prior is None:
-                recovered.append(candidate)
+            retain(item)
         for item in recovered:
             valid, findings = validate_receipt(item)
             if not valid:

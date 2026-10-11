@@ -66,3 +66,21 @@ def test_stale_receipt_registry_owner_merges_durable_receipts(
     stored = json.loads(path.read_text(encoding="utf-8"))
     assert {item["receipt_id"] for item in stored} == {
         first_receipt["receipt_id"], second_receipt["receipt_id"]}
+
+
+def test_receipt_registry_recovery_suppresses_identical_duplicates(
+        tmp_path: Path) -> None:
+    _, invoker = _invoker(tmp_path)
+    payload = invoker.invoke(invoker.build_request(
+        purpose="local_user_chat", prompt="duplicate", caller="test",
+        correlation_id="receipt-registry-duplicate")).to_dict()
+    path = tmp_path / "runtime" / "governed_local_model_invocation" / "registered_receipts.json"
+    replace_private_bytes(path, json.dumps([payload, payload], sort_keys=True,
+        separators=(",", ":")).encode("utf-8"), max_bytes=16_777_216)
+
+    owner = object.__new__(RuntimeMaintenanceSurfaces)
+    owner._governed_invocation_receipts_path = path
+
+    recovered = owner._recover_governed_invocation_receipts(())
+
+    assert recovered == (payload,)

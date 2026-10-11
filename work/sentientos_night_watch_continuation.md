@@ -2703,3 +2703,11 @@ A later source correction was also composed from stale note text and displaced t
 - Receipt registration now takes a no-follow, owner-private POSIX file lock in the registry directory, reloads durable receipts while holding it, reconciles identities against its in-memory supplied/recovered set, and publishes the bounded merged candidate before adopting it. Conflicting duplicate identities fail closed. The governed invoker already treats sink failure after backend entry as post-effect custody failure and does not replay the invocation; that behavior is preserved.
 - Added an authored, unexecuted stale-owner merge case alongside the fsync-uncertainty case. Changed daemon and test syntax compilation only. Lock interprocess behavior, invocation failures, recovery, and production operation remain unverified.
 - Next inspect resource-linked receipt reconciliation and the exact World-State projection path under this newly serialized registry; ensure process restart, retention, and duplicate suppression preserve the same resource lineage without implying effect replay or measurements.
+
+
+## 2026-10-11 checkpoint — suppress duplicate recovered invocation receipt identities
+
+- The resource projection rejects duplicate invocation receipt IDs because they make attribution ambiguous. Registry startup recovery bounded and digest-validated its file but previously retained an identical repeated receipt, allowing otherwise unchanged custody to degrade downstream reconciliation.
+- Recovery now suppresses byte-equivalent duplicate receipt identities and rejects same-ID/different-evidence collisions before publication. Malformed identities still reach the existing receipt verifier and fail closed; the on-disk schema and receipt identities are unchanged.
+- Added an authored, unexecuted identical-duplicate recovery case. `sentientosd.py` and the new test passed syntax compilation only; no restart or projection behavior was executed.
+- Next continue tracing the resource projection's use of registered versus independently recovered receipts and verify that bounded-tail omissions and conflicting attempts remain explicit in its evidence posture.
