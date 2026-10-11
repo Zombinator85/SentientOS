@@ -28,6 +28,8 @@ from sentientos.runtime.services import ChildProcessServiceAdapter, HealthResult
 
 STATE_SCHEMA = "sentientos.maintenance_resident_parent_supervision_state:v1"
 RECEIPT_SCHEMA = "sentientos.maintenance_resident_parent_supervision_receipt:v1"
+PARENT_PROCESS_ATTRIBUTION_V1 = "sentientos.parent_process_attribution:v1"
+PARENT_PROCESS_ATTRIBUTION_V2 = "sentientos.parent_process_attribution:v2"
 SERVICE_ID = "exact-maintenance-resident"
 PARENT_CONFIG_PATH_ENV = "SENTIENTOS_RESIDENT_PARENT_CONFIG_PATH"
 MAX_PARENT_STATE_BYTES = 1_048_576
@@ -101,7 +103,7 @@ def _linux_process_start_ticks(process_id: int) -> int | None:
     return start_ticks
 
 
-def _valid_parent_process_observation(value: object) -> bool:
+def _valid_parent_process_observation(value: object, schema: str) -> bool:
     legacy_fields = {
         "process_id", "parent_process_id", "observed_at",
         "monotonic_observed_ns", "instance_nonce",
@@ -109,7 +111,9 @@ def _valid_parent_process_observation(value: object) -> bool:
     procfs_fields = legacy_fields | {
         "linux_proc_start_ticks", "linux_proc_start_ticks_posture",
     }
-    if not isinstance(value, dict) or set(value) not in (legacy_fields, procfs_fields):
+    expected_fields = (legacy_fields if schema == PARENT_PROCESS_ATTRIBUTION_V1
+        else procfs_fields if schema == PARENT_PROCESS_ATTRIBUTION_V2 else set())
+    if not isinstance(value, dict) or set(value) != expected_fields:
         return False
     if (type(value.get("process_id")) is not int or value["process_id"] < 1
             or type(value.get("parent_process_id")) is not int or value["parent_process_id"] < 0
@@ -118,7 +122,7 @@ def _valid_parent_process_observation(value: object) -> bool:
             or not isinstance(value.get("instance_nonce"), str)
             or re.fullmatch(r"[0-9a-f]{32}", value["instance_nonce"]) is None):
         return False
-    if set(value) == procfs_fields:
+    if schema == PARENT_PROCESS_ATTRIBUTION_V2:
         ticks = value.get("linux_proc_start_ticks")
         posture = value.get("linux_proc_start_ticks_posture")
         if ((posture == "linux_procfs_starttime_field_22" and
@@ -184,7 +188,8 @@ def _parse_parent_receipt_journal(raw: bytes, expected_spec_digest: str) -> list
         detail = row["detail"]
         attribution_schema = detail.get("parent_process_identity_schema")
         if ("parent_process_identity_schema" in detail
-                and (attribution_schema != "sentientos.parent_process_attribution:v1"
+                and (attribution_schema not in {
+                        PARENT_PROCESS_ATTRIBUTION_V1, PARENT_PROCESS_ATTRIBUTION_V2}
                     or "parent_process_instance_id" not in detail)):
             raise ValueError("parent_process_attribution_schema_invalid")
         if "parent_process_instance_id" in detail:
@@ -193,8 +198,11 @@ def _parse_parent_receipt_journal(raw: bytes, expected_spec_digest: str) -> list
                     or re.fullmatch(r"sha256:[0-9a-f]{64}", process_instance_id) is None):
                 raise ValueError("parent_process_instance_identity_invalid")
             observation = detail.get("parent_process_observation")
+            observation_schema = (attribution_schema if isinstance(attribution_schema, str)
+                else PARENT_PROCESS_ATTRIBUTION_V1)
             if row["event"] == "parent_startup":
-                if (not _valid_parent_process_observation(observation)
+                if (not _valid_parent_process_observation(
+                        observation, observation_schema)
                         or _digest(observation) != process_instance_id
                         or process_instance_id in known_process_instances):
                     raise ValueError("parent_process_startup_observation_invalid")
@@ -354,7 +362,7 @@ class ResidentParentLifecycleEvidenceReader:
         latest = selected[-1] if selected else startup
         launch = dict(active_launch)
         payload = {
-            "schema_version": "sentientos.parent_lifecycle_observation:v1",
+            "schema_version": "sentientos.parent_lifecycle_observation:v2",
             "commissioning_status": verified["status"],
             "resident_config_digest": config["config_digest"],
             "child_spec_digest": child_spec_digest,
@@ -721,7 +729,7 @@ class MaintenanceResidentParentSupervisor:
         if ("parent_process_instance_id" in receipt_detail
                 and receipt_detail["parent_process_instance_id"] != self._parent_process_instance_id):
             raise ValueError("parent_process_instance_binding_conflict")
-        receipt_detail["parent_process_identity_schema"] = "sentientos.parent_process_attribution:v1"
+        receipt_detail["parent_process_identity_schema"] = PARENT_PROCESS_ATTRIBUTION_V2
         receipt_detail["parent_process_instance_id"] = self._parent_process_instance_id
         row = {"schema_version": RECEIPT_SCHEMA, "sequence": self._sequence + 1,
             "timestamp": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),

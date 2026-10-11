@@ -2847,3 +2847,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - `_validate_root_separation` now rejects ancestor overlap in either direction. The existing exclusion remains explicit at config construction, preserving memory, transcript, and developmental-history custody as separate domains. Added an authored, unexecuted regression for developmental-root-contains-user-memory.
 - Python syntax compilation passed for the owner and its test module. No tests, chat service, persistence write, or runtime composition were executed.
 - Next inspect the concrete root-custody identity and composition for the transcript and developmental owners, including whether resolved-path overlap checks can miss a filesystem alias; retain path-only limits explicitly if the existing owners cannot observe physical ancestry safely.
+
+
+## 2026-10-11 checkpoint — version the expanded parent process attribution contract
+
+- The Linux start-tick field expanded parent process attribution while its journal detail remained labeled `sentientos.parent_process_attribution:v1`. New records now use v2 and the World-State observation schema is v2. The recovery parser still accepts legacy v1 only with its original five-field process observation, and verifies the observation digest against that exact shape; unversioned historical process identity records remain interpreted as v1. New v2 records require the tick and explicit available/unavailable posture pair.
+- Added authored, unexecuted checks for v2 production shape and v1 observation reconstruction. No historical journal was rewritten.
+- Python syntax compilation passed for the parent owner and test module. Runtime recovery and Linux `/proc` reads remain untested.
+- Next inspect whether any existing platform-native process-start evidence is composed for the non-Linux POSIX parent-supervision path; do not infer process identity from wall clock or userland nonce when it is absent.

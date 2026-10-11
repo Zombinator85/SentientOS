@@ -444,6 +444,11 @@ def test_receipt_events_bind_their_parent_process_instance(tmp_path: Path) -> No
         (tmp_path / "parent" / "parent-receipts.jsonl").read_text().splitlines()]
     assert first_rows[0]["event"] == "parent_startup"
     assert first_rows[0]["detail"]["parent_process_instance_id"] == first_instance
+    assert first_rows[0]["detail"]["parent_process_identity_schema"] == (
+        "sentientos.parent_process_attribution:v2")
+    assert first_rows[0]["detail"]["parent_process_observation"][
+        "linux_proc_start_ticks_posture"] in {
+            "linux_procfs_starttime_field_22", "unavailable"}
     assert first_rows[0]["detail"]["parent_process_observation"]["process_id"] == os.getpid()
 
     _simulate_parent_process_exit(controller)
@@ -457,6 +462,27 @@ def test_receipt_events_bind_their_parent_process_instance(tmp_path: Path) -> No
     assert rows[-1]["detail"]["parent_process_instance_id"] == second_instance
     assert all(row["detail"]["parent_process_instance_id"] == first_instance
         for row in rows[:-1])
+
+
+def test_v1_parent_process_observation_remains_readable(tmp_path: Path) -> None:
+    from sentientos import maintenance_resident_parent_supervision as parent
+
+    _, _, _ = _parent(tmp_path)
+    path = tmp_path / "parent" / "parent-receipts.jsonl"
+    row = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    observation = row["detail"]["parent_process_observation"]
+    observation.pop("linux_proc_start_ticks")
+    observation.pop("linux_proc_start_ticks_posture")
+    row["detail"]["parent_process_identity_schema"] = (
+        "sentientos.parent_process_attribution:v1")
+    row["detail"]["parent_process_instance_id"] = parent._digest(observation)
+    row.pop("receipt_digest", None)
+    row["receipt_digest"] = parent._digest(row)
+    encoded = (parent._canonical(row) + b"\n")
+    parsed = parent._parse_parent_receipt_journal(
+        encoded, row["child_spec_digest"])
+    assert parsed[0]["detail"]["parent_process_identity_schema"] == (
+        "sentientos.parent_process_attribution:v1")
 
 
 def test_legacy_parent_receipts_without_process_identity_remain_readable(tmp_path: Path) -> None:
