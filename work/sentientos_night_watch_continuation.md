@@ -2233,3 +2233,10 @@ Next inspect succession source records for any projection that still presents a 
 - Launch-baseline software facts remain available with their startup event time, but no longer receive the same highest cognition-selection priority as a point-revalidated current observation. Only source-qualified current records receive that priority.
 - Added authored unexecuted qualification and launch-baseline cases. Changed sources/tests compile only; no test or production behavior was run.
 - Next inspect cross-restart persistence of the software-current observation and its event time through epistemic binding/state receipts, then continue into another connected succession dependency.
+
+
+### New checkpoint — require the full non-authorizing current software observation contract
+
+- Cognition now gives top selection priority to a current software-generation record only when it is an observation with the owner-specific evidence strength, no authority/effect claims, exact current process/source scope, and explicit loaded-code non-attestation. Launch-time records and incomplete lookalikes remain lower-priority history.
+- Authored an unexecuted selector case covering qualified evidence and required-field omission. Changed Python and test compilation only; behavior and production remain unverified.
+- Next inspect the historical event-time binding and durable receipt recovery path for this exact qualified source, then continue to a separate causal dependency.

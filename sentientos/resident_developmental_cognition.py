@@ -785,6 +785,11 @@ class ResidentDevelopmentalCognitionOwner:
             and payload.get("software_generation_scope")
                 == "configured_manifest_and_clean_repository_state_at_observation"
             and payload.get("loaded_code_identity_posture") == "not_independently_attested"
+            and fact.stage == "observation"
+            and fact.evidence_strength == "owner_verified_current_process_and_clean_source"
+            and payload.get("authority") is False
+            and payload.get("effect_proven") is False
+            and fact.effect_claimed is False and fact.effect_proven is False
             and isinstance(payload.get("process_instance_id"), str)
             and isinstance(payload.get("provenance_digest"), str)
         )

@@ -75,9 +75,11 @@ def test_current_software_generation_priority_requires_current_owner_scope() -> 
     }
     fact = SimpleNamespace(
         subject=SimpleNamespace(subject_kind="verified_current_running_software_generation"),
-        disposition="observed", payload=payload,
+        disposition="observed", payload={**payload, "authority": False, "effect_proven": False},
         source=SimpleNamespace(source_id="runtime-source"),
-        fact_id="fact-current", stage="observation")
+        fact_id="fact-current", stage="observation",
+        evidence_strength="owner_verified_current_process_and_clean_source",
+        effect_claimed=False, effect_proven=False)
     owner = ResidentDevelopmentalCognitionOwner
     assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 0
     incomplete = dict(payload)
@@ -91,6 +93,7 @@ def test_launch_time_software_observation_is_not_current_running_priority() -> N
         subject=SimpleNamespace(subject_kind="observed_running_software_generation"),
         disposition="observed", payload={"startup_timestamp": "2026-10-11T00:00:00Z"},
         source=SimpleNamespace(source_id="runtime-source"),
-        fact_id="fact-launch", stage="observation")
+        fact_id="fact-launch", stage="observation", evidence_strength="resident_launch_provenance",
+        effect_claimed=False, effect_proven=False)
     assert ResidentDevelopmentalCognitionOwner._fact_selection_key(
         fact, "runtime_supervisor")[0] == 6
