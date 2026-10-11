@@ -1493,3 +1493,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `memory_manager.py`. No authorization, memory operation, or file publication was invoked; no behavioral or production verification was performed.
 - **Next implementation dependency:** review the existing memory-manager callers and chat/World-State wiring for truthful unavailable states and confirm that user-memory artifacts remain outside installation transcript and resident developmental-history custody. Then proceed to any direct adjacent owner gap surfaced by that review.
 
+
+
+## New checkpoint — verify canonical reads through the shared root handle
+
+- Fresh remote source before this increment: `acda9941bbbc0aa42beebe22cb794b3b43e00ccd` (tree `aeee7f52fc416b4fdb84dd780f8b62d530188a00`).
+- POSIX canonical retrieval still opened `raw/` directly by path, so it checked the raw child but did not verify the shared memory-root permissions established by the other owner paths.
+- `CanonicalMemoryStore._records()` now obtains its read descriptor through the same no-follow shared-root/raw opener used by authorized writes. Retrieval checks both root and raw-directory owner/private-mode custody and performs no mkdir/chmod. The source review also confirmed production chat keeps transcripts under the explicit installation handle's `chat/conversations`, uses a separate configured shared user-memory root, and neither resident epistemic development nor World-State imports/reads that user-memory store.
+- Python compilation passed for `canonical_memory.py` and `memory_manager.py`. Source composition was inspected only; no runtime or production verification was performed.
+- **Next implementation dependency:** decide whether the documented POSIX-only legacy memory mutation boundary warrants a safe Windows publisher under an existing owner. The current Windows installation-state API is explicitly read-only; no atomic Windows user-memory publication owner exists. Keep writes blocked until such a contract is implemented. Continue with another existing, independently implementable lifecycle dependency rather than deriving permission from the platform gap.
+

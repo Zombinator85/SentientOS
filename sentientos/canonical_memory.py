@@ -114,8 +114,7 @@ class CanonicalMemoryStore:
                         or os.open not in os.supports_dir_fd
                         or os.scandir not in os.supports_fd):
                     return [], "safe_directory_read_unsupported"
-                directory_fd = os.open(self.raw,
-                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                directory_fd = self.open_raw_directory()
                 metadata = os.fstat(directory_fd)
                 if (not stat.S_ISDIR(metadata.st_mode)
                         or metadata.st_uid != os.geteuid()
