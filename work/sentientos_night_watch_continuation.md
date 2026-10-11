@@ -2321,3 +2321,10 @@ Next inspect succession source records for any projection that still presents a 
 - The running-model longitudinal self-model claim already retained the activation predecessor digest through restart, but did not retain the new initial-versus-legacy posture. The compact claim now preserves that posture beside the predecessor digest, so a known initial activation cannot collapse to the same representation as an older session with no predecessor binding.
 - Extended the existing authored restart/later-cognition case to assert both predecessor identity and posture before and after reconstruction. Python compilation and source inspection only; the case remains unexecuted and the claim remains historical interpretation.
 - Next inspect the epistemic binding/recovery contract for whether this activation-chain qualifier survives as stable provenance without becoming a current event on replay; then continue to the next causal dependency.
+
+
+## 2026-10-11 checkpoint — apply the bounded succession tail to the whole verified journal
+
+- Source review found the World-State projection called the 48-row retention helper only after slicing the verified journal to its last 16 entries. That silently discarded older journal lineage and made the helper's omission summary unreachable in the real owner path.
+- The projection now passes the complete already-bounded journal to the 48-row tail helper. The verified journal parser itself caps entries and bytes; World-State retains the latest 48 plus the exact omitted-prefix boundary record. Added an authored, unexecuted owner-path regression for a journal longer than the retained tail. Python compilation and static checks only; no journal, daemon, or production behavior was run.
+- Next continue tracing the qualified activation predecessor through evidence binding and recovery, then advance to the next distinct causal dependency.

@@ -1403,7 +1403,7 @@ class RuntimeMaintenanceSurfaces:
                 health: dict[str, Any] = {}
                 status: dict[str, Any] = {}
                 try:
-                    entries = journal.entries()[-16:]
+                    entries = journal.entries()
                     if controller is not None:
                         health = dict(controller.health())
                     else:
