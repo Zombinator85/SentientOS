@@ -159,7 +159,31 @@ class CanonicalMemoryStore:
                 out.append(value)
             else:
                 posture = "partial_invalid_records"
-        return out, posture
+        unique: list[dict[str, Any]] = []
+        first_identity: dict[str, str] = {}
+        conflicting_ids: set[str] = set()
+        duplicate_seen = False
+        for record in out:
+            record_id = record.get("id")
+            if not isinstance(record_id, str) or not record_id:
+                unique.append(record)
+                continue
+            text_identity = digest({"text": record["text"]})
+            previous = first_identity.get(record_id)
+            if previous is None:
+                first_identity[record_id] = text_identity
+                unique.append(record)
+            else:
+                duplicate_seen = True
+                if previous != text_identity:
+                    conflicting_ids.add(record_id)
+        if conflicting_ids:
+            unique = [record for record in unique
+                if record.get("id") not in conflicting_ids]
+            posture = "partial_duplicate_identity_conflict"
+        elif duplicate_seen and posture == "complete":
+            posture = "partial_duplicate_records"
+        return unique, posture
 
     def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000)->dict[str,Any]:
         records, retrieval_posture = self._records()

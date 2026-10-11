@@ -1256,3 +1256,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py`. No records were loaded or prompt constructed; tests and production verification were not performed.
 
 **Next implementation dependency:** continue bounded identity review across memory records: ensure duplicate fragment IDs with conflicting content cannot be silently selected as separate context items, while preserving legacy compatibility and not turning retained user memory into developmental history.
+
+
+## New checkpoint — deduplicate memory identities and reject conflicts
+
+- Fresh remote source before this increment: `f1cbb9fa65d491625588a72363a076f1de2dc490` (tree `15a187192d1799a84b5ef49cb737832a44853968`).
+- Bounded retrieval could return multiple records with the same non-empty memory ID. Different text under one ID could then appear twice in one prompt even though the snapshot recorded each digest separately; identity conflict was not surfaced.
+- Retrieval now deduplicates repeated IDs with the same content identity and excludes every record for an ID whose texts conflict. The posture reports either duplicate records or a duplicate identity conflict, and that posture remains bound into the snapshot digest. Anonymous historical records remain compatible and are still individually content-digest-bound.
+- Python compilation passed for `canonical_memory.py`. No memory files or prompts were read and no runtime/tests were performed.
+
+**Next implementation dependency:** inspect selection and context-budget behavior after identity filtering. Ensure an omitted or malformed record cannot silently make the selected-memory list look complete, and then continue to the next causal owner boundary.
