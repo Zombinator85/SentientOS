@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 117252)
-Total output lines: 2976
+Warning: truncated output (original token count: 117578)
+Total output lines: 2983
 
 # SentientOS long construction continuation
 
@@ -310,16 +310,7 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The verified digest list is bounded to the newest 128 journal entries, matching the daemon's bounded transition projection. Older valid history remains in durable journal custody but is not individually emitted by this bounded World-State view.
 - The changed transition-controller and daemon sources passed `py_compile`. No runtime, crash/restart, cognition, World-State builder execution, tests, model activation, or production verification was performed. Work remains unverified for production.
 
-**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…87252 tokens truncated…
-
-- Persistent epistemic and developmental-history inventories now enumerate bounded JSON names through a shared helper operating on one held directory descriptor. The helper caps both selected records and total directory entries, preventing large ignored-file inventories from bypassing parser bounds. Both owners read each record relative to the same descriptor and verify collection identity after the scan; existing Windows readers remain handle-bound and read-only.
-- Added authored, unexecuted cases for directory-entry and selected-file bounds plus linked-file rejection. Python syntax compilation only; inventory races and recovery remain unverified.
-- Next inspect the World-State and resource-observation source readers for any remaining path-based recovery inventory that can be moved to the same bounded owner custody contract.
-
-
-## 2026-10-11 checkpoint — serialize admitted local mutations against revocation
-
-- The developmental-history and resident epistemic mutation owners previously verified an admission and then published durable state outside the admission ledger lock. A concurrent revocation could land between validation and the bounded local commit. RuntimeAdmissionVerifier now exposes an explicit local-commit transaction that holds the existing ledger lock; these owners verify and publish while issue/revoke operations are serialized against that interval.
+**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…87578 tokens truncated…fy and publish while issue/revoke operations are serialized against that interval.
 - This does not create or widen any admission. It only defines ordering between existing authorization and existing local mutation. Recovery remains read-only with respect to authority and still does not replay effects.
 - Added an authored, unexecuted lock-order case. Changed source and test syntax compilation only; concurrency and recovery behavior remain unverified.
 - Next continue the source inventory review through World-State and resource-observation custody, then address any remaining bounded owner handoff that lacks this durable identity boundary.
@@ -626,3 +617,10 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - The builder now accepts only actual JSON booleans for these two fields. Malformed values project as false, degrade the source, and create an error conflict tied to the fact. Valid boolean positive controls still produce one proven completion.
 - `tests/test_world_state_board.py` under its configured legacy marker: 5 passed. The focused consequence module remains at 15 passed from the preceding source checkpoint. Compilation and diff checks pass. No production validation was performed.
 - Continue to the next direct consumer boundary after this shared World-State trust fix; the local-model and authenticated independent observer blockers remain unchanged.
+
+## 2026-10-11 checkpoint — World-State producer/verifier identity closure
+
+- Continued from `09caf71d7a10b20f14df64f85d86ee977dbf671e`. A rebuilt-snapshot probe exposed that `validate_snapshot()` accepted a fact whose `effect_proven` value had changed while its semantic `fact_id` had not, provided the outer snapshot digest and snapshot ID were recomputed. The validator now checks snapshot identity, source-manifest identity/equality, and every canonical fact identity and exact boolean effect type.
+- That verifier then exposed a producer mismatch: manifest digests were computed over insertion-ordered sources while the stored source tuple was sorted. The producer now hashes the same sorted canonical source list the verifier checks; shuffled identical source records produce the same manifest and snapshot identities.
+- Added rebuilt-digest fact-tampering and source-order regressions. `tests/test_world_state_board.py` (legacy lane): 7 passed; `tests/test_embodied_consequence.py`: 15 passed. Compilation and `git diff --check` pass.
+- The verifier remains an integrity check, not a signature or independent effect issuer. Future investigation should follow the now-consistent canonical snapshot into configured durable history consumers without treating self-digests as external authentication.

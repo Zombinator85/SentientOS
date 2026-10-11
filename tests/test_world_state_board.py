@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from dataclasses import replace
-from sentientos.world_state_board import WorldStateBoardBuilder, validate_snapshot, diff_snapshots
+from sentientos.world_state_board import WorldStateBoardBuilder, validate_snapshot, diff_snapshots, digest, to_dict
 
 def test_world_state_snapshot_boundaries_and_authority_false():
     b=WorldStateBoardBuilder(clock=lambda: datetime(2026,1,1,tzinfo=timezone.utc))
@@ -56,3 +56,33 @@ def test_non_boolean_effect_flags_cannot_confer_proven_completion():
     assert s.summary.proven_completions==1
     assert "invalid-effect-flag-type" in {source.finding for source in s.sources}
     assert any(conflict.conflict_type=="effect_flag_type_invalid" for conflict in s.conflicts)
+
+
+def test_snapshot_verifier_recomputes_fact_identity_after_outer_digest_rebuild():
+    b=WorldStateBoardBuilder(clock=lambda: datetime(2026,1,1,tzinfo=timezone.utc))
+    snapshot=b.build([{"source_kind":"fulfillment","source_id":"effect-source",
+        "subject_id":"effect","stage":"execution","effect_claimed":False,"effect_proven":False}])
+    changed_fact=replace(snapshot.facts[0],effect_proven=True)
+    base={"schema_version":"world_state_board.v1","manifest_digest":snapshot.manifest.digest,
+        "sources":[to_dict(source) for source in snapshot.sources],
+        "facts":[to_dict(changed_fact)],"conflicts":[to_dict(item) for item in snapshot.conflicts],
+        "summary":to_dict(snapshot.summary),"authority":snapshot.authority}
+    rebuilt_digest=digest(base)
+    forged=replace(snapshot,snapshot_id="world-state-"+rebuilt_digest[:16],
+        digest=rebuilt_digest,facts=(changed_fact,))
+
+    result=validate_snapshot(forged)
+    assert not result.valid
+    assert "fact_identity_mismatch" in result.findings
+
+
+def test_manifest_identity_is_order_independent_like_its_canonical_source_list():
+    records=[
+        {"source_kind":"capability_registry","source_id":"a","subject_id":"a"},
+        {"source_kind":"capability_registry","source_id":"b","subject_id":"b"},
+    ]
+    b=WorldStateBoardBuilder(clock=lambda: datetime(2026,1,1,tzinfo=timezone.utc))
+    forward=b.build(records)
+    reverse=b.build(list(reversed(records)))
+    assert forward.manifest.digest==reverse.manifest.digest
+    assert forward.digest==reverse.digest

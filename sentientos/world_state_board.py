@@ -174,7 +174,9 @@ class WorldStateBoardBuilder:
         entities=self._entities(facts,conflicts)
         counts=self._counts(sources,facts)
         summary=WorldStateBoardSummary(counts=counts, conflicts=len(conflicts), pending_review=sum(f.disposition in {"pending","ready_for_review"} for f in facts), denied=sum(f.disposition=="deny" for f in facts), deferred=sum(f.disposition=="deferred" for f in facts), blocked=sum(f.disposition=="blocked" for f in facts), degraded=sum(s.finding!="ok" for s in sources), contradicted=len(conflicts), execution_attempts=sum(f.stage=="execution" for f in facts), proven_completions=sum(f.stage=="execution" and f.effect_proven for f in facts), rollbacks=sum(f.stage=="rollback" for f in facts), adoptions=sum(f.stage=="adoption" for f in facts), repository_handoffs=sum(f.stage=="repository_handoff" for f in facts), repository_landings=sum(f.stage=="repository_landing" for f in facts), unproven_effect_claims=sum(f.effect_claimed and not f.effect_proven for f in facts))
-        man=WorldStateSourceManifest(manifest_id,digest((self.allowed_roots, [to_dict(s) for s in sources])),self.allowed_roots,tuple(sorted(sources,key=lambda s:s.source_id)),self.max_source_count,self.max_artifact_size)
+        manifest_sources=tuple(sorted(sources,key=lambda s:s.source_id))
+        manifest_digest=digest((self.allowed_roots,[to_dict(source) for source in manifest_sources]))
+        man=WorldStateSourceManifest(manifest_id,manifest_digest,self.allowed_roots,manifest_sources,self.max_source_count,self.max_artifact_size)
         base={"schema_version":SCHEMA_VERSION,"manifest_digest":man.digest,"sources":[to_dict(s) for s in man.sources],"facts":[to_dict(f) for f in sorted(facts,key=lambda f:f.fact_id)],"conflicts":[to_dict(c) for c in sorted(conflicts,key=lambda c:c.conflict_id)],"summary":to_dict(summary),"authority":FALSE_AUTHORITY}
         dg=digest(base); snap=WorldStateSnapshot(f"world-state-{dg[:16]}",dg,man,man.sources,tuple(sorted(facts,key=lambda f:f.fact_id)),tuple(sorted(conflicts,key=lambda c:c.conflict_id)),tuple(lineage),entities,summary,{"observed_at":now.isoformat(),"schema_version":SCHEMA_VERSION},summary.degraded>0, any(s.staleness in {"stale","expired","undated"} for s in sources), bool(conflicts), "valid", FALSE_AUTHORITY)
         return snap
@@ -210,6 +212,21 @@ def validate_snapshot(snapshot:WorldStateSnapshot)->WorldStateValidationResult:
     expected=digest({"schema_version":SCHEMA_VERSION,"manifest_digest":snapshot.manifest.digest,"sources":[to_dict(s) for s in snapshot.sources],"facts":[to_dict(f) for f in snapshot.facts],"conflicts":[to_dict(c) for c in snapshot.conflicts],"summary":to_dict(snapshot.summary),"authority":snapshot.authority})
     findings=[]
     if expected!=snapshot.digest: findings.append("snapshot_digest_mismatch")
+    if snapshot.snapshot_id != f"world-state-{expected[:16]}":
+        findings.append("snapshot_identity_mismatch")
+    expected_manifest_digest = digest((snapshot.manifest.allowed_roots,
+        [to_dict(source) for source in snapshot.manifest.sources]))
+    if (snapshot.manifest.digest != expected_manifest_digest
+            or tuple(snapshot.sources) != tuple(snapshot.manifest.sources)):
+        findings.append("source_manifest_identity_mismatch")
+    for fact in snapshot.facts:
+        expected_fact_id = _sid("fact",(fact.subject.subject_id,fact.subject.subject_kind,
+            fact.stage,fact.disposition,fact.source.digest,dict(fact.payload),
+            fact.effect_claimed,fact.effect_proven))
+        if (type(fact.effect_claimed) is not bool or type(fact.effect_proven) is not bool
+                or fact.fact_id != expected_fact_id or fact.source not in snapshot.sources):
+            findings.append("fact_identity_mismatch")
+            break
     if any(snapshot.authority.values()): findings.append("authority_field_true")
     return WorldStateValidationResult(not findings,tuple(findings))
 
