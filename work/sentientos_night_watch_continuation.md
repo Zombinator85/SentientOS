@@ -1013,3 +1013,10 @@ Source review confirms this process handoff and recurring observation path alrea
 - The edited module passed Python source compilation through the tool environment. No behavioral, restart, or runtime checks were run. Construction remains unverified.
 
 **Next implementation dependency:** inspect the independent tick/correlation producers and downstream history consumers for any accepted tick identity that is not the daemon's aware ISO form, then move to the next causal succession or observed-consequence gap.
+
+## Correction — preserve opaque tick identities while retaining causal order
+
+- Source review of the existing resident cognition contract found that tick_id is an opaque owner identity, not a datetime API. Existing owner-level callers supply identities such as tick-n and tick-n-plus-one, and the longitudinal self-model owner supports opaque ordered tick names. The earlier strict timestamp-only parser would have broken that contract; it was not run or behaviorally tested.
+- Replaced that overconstraint. Resident composition now requires a nonempty bounded tick identity, while prior developmental history is selected from the digest-verified durable completed-checkpoint sequence. This sequence records commits that existed before the current cycle; the current tick is rejected if already completed/incomplete and is persisted as in-progress before cognition. Thus same-tick writeback cannot enter the prior projection, without requiring wall-clock-formatted identifiers.
+- Removed timestamp parsing from history selection. Stored event/creation times remain provenance and are not rewritten; temporal ordering for this owner path comes from durable checkpoint order. Historical/recovered tick identities are still required to be nonempty strings, and repeated exact identities remain conflicts.
+- Construction correction is explicitly untested. The follow-up compilation and source checks are pending; no tests were run.

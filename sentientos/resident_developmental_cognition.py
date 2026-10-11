@@ -77,19 +77,6 @@ def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
 
 
-def _tick_instant(value: Any) -> datetime:
-    """Parse the exact aware daemon tick required for causal ordering."""
-    if not isinstance(value, str) or not value:
-        raise ResidentDevelopmentalCognitionError("composition_tick_identity_invalid")
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (OverflowError, OSError, TypeError, ValueError) as exc:
-        raise ResidentDevelopmentalCognitionError("composition_tick_identity_invalid") from exc
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        raise ResidentDevelopmentalCognitionError("composition_tick_timezone_required")
-    return parsed.astimezone(timezone.utc)
-
-
 @dataclass(frozen=True)
 class ResidentDevelopmentalCognitionConfig:
     history_root: Path
@@ -326,8 +313,6 @@ class ResidentDevelopmentalCognitionOwner:
             migrated = {key: item for key, item in value.items() if key != "state_digest"}
             claimed = _digest(migrated)
             state = {**migrated, "state_digest": claimed}
-        for row in (*state["completed_ticks"], *state["incomplete_ticks"]):
-            _tick_instant(row.get("tick_id"))
         if (len(state["processed_selection_ids"]) > MAX_RECOVERED_FACT_IDS
                 or len(state["completed_ticks"]) + len(state["incomplete_ticks"]) > MAX_RECOVERED_TICKS):
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
@@ -382,7 +367,8 @@ class ResidentDevelopmentalCognitionOwner:
             if not correlation.endswith(suffix):
                 raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
             recovered_tick = correlation[:-len(suffix)]
-            _tick_instant(recovered_tick)
+            if not recovered_tick:
+                raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
             expected_operation = "resident-developmental-writeback:" + recovered_tick + ":" + str(candidate.get("candidate_id"))
             if not recovered_tick or record.operation_id != expected_operation:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_operation_binding_invalid")
@@ -404,7 +390,8 @@ class ResidentDevelopmentalCognitionOwner:
         # A durable cognition observation without its enclosing tick checkpoint
         # is an interrupted tick. Preserve it and reject same-tick replay.
         for recovered_tick, observation_ids in self._recover_observation_ticks().items():
-            _tick_instant(recovered_tick)
+            if not isinstance(recovered_tick, str) or not recovered_tick:
+                raise ResidentDevelopmentalCognitionError("recovered_tick_identity_invalid")
             if recovered_tick in ticks or recovered_tick in incomplete:
                 continue
             item = {"tick_id": recovered_tick, "observation_ids": list(observation_ids),
@@ -697,14 +684,14 @@ class ResidentDevelopmentalCognitionOwner:
         atomic_write_json(self.state_path, {**semantic, "state_digest": _digest(semantic)})
 
     def _prior_projection(self, state: Mapping[str, Any], tick_id: str) -> DevelopmentalHistoryProjection:
-        current_tick = _tick_instant(tick_id)
-        ids: list[str] = []
-        for completed in state["completed_ticks"]:
-            completed_tick = _tick_instant(completed.get("tick_id"))
-            if (completed.get("tick_id") != tick_id
-                    and completed_tick < current_tick
-                    and completed.get("record_id")):
-                ids.append(str(completed["record_id"]))
+        # Tick identifiers are opaque at this owner boundary. The durable,
+        # digest-verified completed-checkpoint sequence establishes which
+        # developmental records were committed before this cycle; wall-clock
+        # parsing is neither required nor a reliable substitute for that order.
+        # The current tick is separately guarded against replay and has not
+        # reached completed_ticks while this projection is captured.
+        ids = [str(completed["record_id"]) for completed in state["completed_ticks"]
+               if completed.get("tick_id") != tick_id and completed.get("record_id")]
         ids = ids[-self.config.max_retrieved_records:]
         return self.writeback.retrieve(ids, limit=self.config.max_retrieved_records)
 
@@ -974,7 +961,8 @@ class ResidentDevelopmentalCognitionOwner:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         if os.name != "posix":
             raise ResidentDevelopmentalCognitionError("composition_publication_unsupported_platform")
-        _tick_instant(tick_id)
+        if not isinstance(tick_id, str) or not tick_id or len(tick_id) > 256:
+            raise ResidentDevelopmentalCognitionError("composition_tick_identity_invalid")
         validation = validate_snapshot(snapshot)
         if not validation.valid:
             raise ResidentDevelopmentalCognitionError("invalid_world_state_snapshot")
