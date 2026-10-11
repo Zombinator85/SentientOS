@@ -2184,8 +2184,19 @@ The epistemic mutation controller created both receipt-stage directories uncondi
 Next continue checking the remaining model/software succession owners and distinguish repository/process observations from runtime loaded-code attribution where no issuer exists.
 
 
+## 2026-10-11 checkpoint — retain succession identity scope in developmental memory
+
+The World-State projections now distinguish process/source identity from loaded-code attestation for chat and maintenance runtime observations. The generic longitudinal self-model payload allowlist and the specialized historical chat-process lineage previously dropped those new qualifiers, so a later durable interpretation could retain a generation digest without its observation scope. Added explicit bounded predicates for process role, process identity scope, software-generation scope, and loaded-code identity posture; the specialized chat lineage now carries the same fields under its source-record digest. This remains historical interpretation and requires the existing predicate selection; it grants no truth or authority.
+
+A regression case for durable scope-label writeback is authored but unexecuted. Changed Python modules compile only. No behavior or production verification ran.
+
+Next inspect the chronological cognition selector to ensure these scoped developmental claims remain historical and cannot be mistaken for current running identity after restart.
+
+
 ## 2026-10-11 checkpoint — cover the durable chat-lineage qualification
 
-Added an unexecuted regression case through the real World-State builder and longitudinal owner, asserting the historical chat-process lineage projection retains source scope, process identity scope, and the explicit absence of independent loaded-code attestation. Python compilation only; no test or runtime path was executed.
+Added an unexecuted regression through the World-State builder and longitudinal owner, asserting the historical chat-process lineage projection retains source scope, process identity scope, and the explicit absence of independent loaded-code attestation. Python compilation only; no test or runtime path was executed.
 
-Next continue source inspection for another bounded causal continuity gap; independent loaded-code attestation and Windows lifetime custody remain unavailable rather than inferred.
+## 2026-10-11 checkpoint — restore continuation history after stale-source write
+
+A remote compare caught that the preceding test-record update used an older fetched copy, dropping the immediately prior scope-writeback regression and newer continuation entries. Restored the exact test and append-only note from parent commit `ab624c13f404027dc2320c2868c30329eef7a906`, then added the chat-lineage case and this correction. No production source was changed in the recovery commit.

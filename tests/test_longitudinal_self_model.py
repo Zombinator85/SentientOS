@@ -138,6 +138,25 @@ def test_restart_reconstruction_detects_tamper_and_retains_superseded_history(tm
 
 
 
+def test_qualified_software_generation_scope_survives_longitudinal_writeback(
+    tmp_path: Path,
+) -> None:
+    qualified = record(source="runtime:software", extra={
+        "process_role": "maintenance_daemon",
+        "process_identity_scope": "launch_provenance_bound_process_instance",
+        "software_generation_scope": "configured_manifest_and_clean_repository_state",
+        "loaded_code_identity_posture": "not_independently_attested",
+    })
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(qualified), tick_id="tick-qualified-software")
+    values = {(claim.predicate, claim.value) for claim in result.claims}
+    assert ("process_role", "maintenance_daemon") in values
+    assert ("software_generation_scope",
+            "configured_manifest_and_clean_repository_state") in values
+    assert ("loaded_code_identity_posture", "not_independently_attested") in values
+
+
+
 def test_chat_runtime_history_binds_source_scope_and_loaded_code_limit(tmp_path: Path) -> None:
     observation = {
         "observation_semantic_digest": "a" * 64,
