@@ -1069,6 +1069,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "provisioning_id": selected_source_identity.get("provisioning_id"),
                 "manifest_digest": selected_source_identity.get("manifest_digest"),
                 "chat_process_runtime_observation": dict(runtime),
+                "software_generation_scope": runtime["source_generation_scope"],
+                "loaded_code_identity_posture": "not_independently_attested",
+                "process_identity_scope":
+                    "installation_bound_launcher_handoff_checked_at_recorded_observation",
                 "linked_invocation_receipts": linked_invocations,
                 "invocation_linkage_posture": "exact_shared_chat_process_handoff"
                     if linked_invocations else "no_matching_retained_invocation_receipts",

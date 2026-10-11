@@ -760,6 +760,9 @@ class ResidentDevelopmentalCognitionOwner:
             and isinstance(payload.get("chat_process_runtime_observation"), Mapping)
             and payload["chat_process_runtime_observation"].get("currentness_posture")
                 == "runtime_owner_observed_at_recorded_event_time"
+            and payload.get("loaded_code_identity_posture") == "not_independently_attested"
+            and payload.get("software_generation_scope")
+                == payload["chat_process_runtime_observation"].get("source_generation_scope")
             and payload["chat_process_runtime_observation"].get("independent_signature") is False
             and payload["chat_process_runtime_observation"].get("effect_authority") is False
         )
