@@ -1940,3 +1940,14 @@ Startup now reads the receipt journal through the existing bounded explicit-file
 A prospective acceptance node covers receipt-ahead crash recovery, and another covers digest corruption without republishing. Both remain **unexecuted**. Exact published module, tests, and manifest were refetched at `13d9c4b951f640349ec7b1dd2f6507927462804b`; Python compilation and manifest parsing passed. No child lifecycle or recovery operation ran.
 
 Next dependency: singleton parent ownership and child-process reconciliation. The current module still lacks an interprocess lifetime lock and independently observable process-start identity; a PID alone cannot safely authorize orphan adoption or termination. Inspect existing runtime composition and platform custody to determine the smallest fail-closed bridge; do not resume or kill an unobserved child.
+
+
+## 2026-10-11 checkpoint — deny duplicate child launch after parent restart
+
+Fresh source at `76c35e821a602666cb86fffd2395715a3fbbb053` confirmed that a newly constructed parent loaded a prior launch record but `start()` unconditionally called the child adapter again. A parent restart while the old child survived could therefore create competing resident children.
+
+A restart with persisted launch provenance now requires a read-only process-presence result. The POSIX default probes only PID liveness: a present or unobservable PID blocks; only confirmed absence permits a new exact configured child launch. The absence is durably logged and consumes a restart-budget slot before the launch attempt. The supervisor never adopts, signals, or kills the unobserved process. On platforms without this PID observation, restart remains blocked. Two positive/negative acceptance nodes were authored in the existing parent-supervision test owner and recorded in a prospective manifest; neither was executed.
+
+The published module, tests and manifest at `55b0ca3fbc1c400dd439ab1588badcd4ada5904a` were independently refetched and the Python sources compiled. No process was observed or launched by this construction task.
+
+This is deliberately partial process reconciliation: PID absence is sufficient to avoid duplicating that recorded PID, but a PID still present does not establish executable, argv, cwd or software-generation identity. The parent module also remains uncomposed from `sentientosd.py` and lacks a singleton lifetime lock; source search at this checkpoint found no normal daemon injection path. Next dependency: inspect the existing installation-scoped locking API and composition boundary, then determine whether a source-only opt-in parent entry path can own a lifetime lock and authenticated child-generation handoff without recursive startup or changing default runtime behavior. If exact process identity cannot be obtained from an existing trusted observation owner, keep present/unknown cases fail-closed.
