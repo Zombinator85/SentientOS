@@ -1897,3 +1897,8 @@ Descriptor-relative summary pruning now also removes a nested directory after it
 ## 2026-10-11 checkpoint — preserve valid historical staged request identities
 
 Verified stage recovery now takes the request id from the staged record itself, validates its historical request-id format, and recomputes the default-deny admission receipt over that exact candidate. This supports both new retry-stable IDs and earlier random IDs already bound in a private staged artifact; unbound, mismatched, or contradictory stages remain incomplete without publication. The recovered session/turn/text/operation identities still come from the durable transcript request. Python compilation passed; no storage was opened. Next dependency: inspect exact stage-to-target race handling and terminal recovery posture, then continue the broader memory-root continuity review.
+
+
+## 2026-10-11 checkpoint — describe staged retention recovery precisely
+
+Updated the canonical retention recovery contract to state that it may finish linking an exact prewritten stage while never reconstructing its payload or replaying inference; deterministic admission is recomputed only as a binding check. This keeps the owner documentation consistent with the separate staged-publication posture now returned to chat. Python compilation passed; no storage was accessed. Next dependency: continue source review of durable root identity across restart and any remaining bounded recovery state transitions.

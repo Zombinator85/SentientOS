@@ -482,7 +482,11 @@ class AdmittedRetentionWriter:
 
     def recover_existing_artifact(self, source_turn: Mapping[str, Any],
                                   session_id: str) -> dict[str, Any]:
-        """Reconcile an exact preexisting memory artifact without repeating its write."""
+        """Verify a commit or finish linking its exact prior stage.
+
+        Recovery never reconstructs the record payload or replays inference. It
+        recomputes the deterministic admission policy only as a binding check.
+        """
         if (not isinstance(session_id, str) or not session_id
                 or source_turn.get("retention_state") != "requested"
                 or source_turn.get("role") != "user"
@@ -834,6 +838,7 @@ class AdmittedRetentionWriter:
         if verification.get("artifact_status") != "verified":
             raise PermissionError("canonical_memory_artifact_reconciliation_failed")
         return receipt
+
 
 
 
