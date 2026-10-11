@@ -1792,3 +1792,8 @@ The bounded vector-index owner now reconciles from owner-validated raw fragments
 ## 2026-10-11 checkpoint — preserve observation record digests on annotation writes
 
 Novelty updates and reflection backlinks now run under the same cross-process observation-log lock used by stable summary persistence. Every mutation recomputes the canonical observation record digest before atomic rewrite; reflection backlinks are idempotent and conflicting duplicate links are explicit incomplete custody. Generic observation-log appends use that lock as well. Historical event time and source digest remain unchanged. Python compilation passed; no sidecar was read or modified. Next dependency: make curiosity-reflection persistence itself idempotent across interruption and incognito mode, then continue reviewing raw and transcript root ownership.
+
+
+## 2026-10-11 checkpoint — make reflection persistence idempotent
+
+Curiosity reflection storage now has stable reflection and fragment identities, verifies canonical record digests, and publishes raw fragment, derived index, and sidecar record under one existing cross-process memory transaction. A retry adopts only an exact orphan fragment or exact recorded identity; conflicting or incomplete historical linkage is surfaced, not duplicated. Incognito mode now returns a nonpersistent result without writing either sidecar or raw memory. Observation backlinks remain idempotent and digest-bound. The module compiles; no reflection or memory operation ran. Next dependency: audit observation-log RMW writers and other shared user-memory sidecars for equivalent retry, digest, and process-lock behavior.

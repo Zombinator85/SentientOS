@@ -1396,8 +1396,7 @@ def update_novelty_score(observation_id: str, delta: float) -> bool:
 
 @_legacy_mutation_operation
 def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
-    """Persist a curiosity/reflexion insight and link it to observations."""
-
+    """Persist one idempotent reflection and bind it to its raw fragment."""
     summary = str(reflection.get("insight_summary") or "").strip()
     if not summary:
         raise ValueError("Reflection insight summary required")
@@ -1406,18 +1405,91 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
     record["timestamp"] = timestamp
     record.setdefault("goal_id", None)
     record.setdefault("observation_id", None)
-    reflection_id = record.get("reflection_id") or _hash(summary + timestamp)
+    supplied_identity = record.get("reflection_id")
+    reflection_id = str(supplied_identity) if supplied_identity else _hash(summary + timestamp)
+    if not reflection_id or len(reflection_id) > 256:
+        raise ValueError("Reflection identity is invalid")
     record["reflection_id"] = reflection_id
-    with _open_legacy_memory_text(CURIOSITY_REFLECTIONS_PATH, "a") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-    fragment_id = append_memory(
-        summary,
-        tags=["reflection", "curiosity"],
-        source="curiosity_executor",
-        meta={"curiosity_reflection": record},
-    )
+    fragment_id = "reflection-" + _hash(reflection_id)
     record["fragment_id"] = fragment_id
-    observation_id = record.get("observation_id")
+    record.pop("reflection_record_digest", None)
+    record["reflection_record_digest"] = _observation_digest(record)
+
+    if os.getenv("INCOGNITO") == "1":
+        result = dict(record)
+        result["fragment_id"] = None
+        result.pop("reflection_record_digest", None)
+        result["persistence_status"] = "incognito_not_persisted"
+        return result
+
+    fragment = {
+        "id": fragment_id,
+        "timestamp": timestamp,
+        "tags": ["reflection", "curiosity"],
+        "source": "curiosity_executor",
+        "text": summary,
+        "emotions": empty_emotion_vector(),
+        "emotion_features": {},
+        "emotion_breakdown": {},
+        "meta": {"curiosity_reflection": record},
+    }
+    fragment["importance"] = _estimate_importance(fragment)
+    fragment["access_count"] = 0
+    fragment["last_accessed"] = timestamp
+    vector = _vectorize(summary)
+
+    _authorize_legacy_mutation()
+    created = False
+    with _INDEX_LOCK, _vector_index_transaction():
+        prior_records = [
+            item for item in iter_curiosity_reflections()
+            if item.get("reflection_id") == reflection_id
+        ]
+        if len(prior_records) > 1:
+            raise MemorySidecarIncompleteError("curiosity_reflection_identity_conflict", 0)
+        if prior_records:
+            prior = prior_records[0]
+            if prior.get("reflection_record_digest") is not None:
+                unhashed = dict(prior)
+                stored_digest = unhashed.pop("reflection_record_digest")
+                if stored_digest != _observation_digest(unhashed):
+                    raise MemorySidecarIncompleteError(
+                        "curiosity_reflection_digest_mismatch", 0)
+            if prior != record:
+                raise MemorySidecarIncompleteError(
+                    "curiosity_reflection_replay_conflict", 0)
+            stored_fragment = _load_fragment(fragment_id)
+            if stored_fragment is None:
+                raise MemorySidecarIncompleteError(
+                    "curiosity_reflection_fragment_missing", 0)
+            meta = stored_fragment.get("meta")
+            if (stored_fragment.get("text") != summary
+                    or not isinstance(meta, dict)
+                    or meta.get("curiosity_reflection") != prior):
+                raise MemorySidecarIncompleteError(
+                    "curiosity_reflection_fragment_conflict", 0)
+            _update_vector_index_locked(stored_fragment, vector)
+            persisted = prior
+        else:
+            stored_fragment = _load_fragment(fragment_id)
+            if stored_fragment is not None:
+                meta = stored_fragment.get("meta")
+                if (stored_fragment != fragment or stored_fragment.get("text") != summary
+                        or not isinstance(meta, dict)
+                        or meta.get("curiosity_reflection") != record):
+                    raise MemorySidecarIncompleteError(
+                        "curiosity_reflection_orphan_conflict", 0)
+            else:
+                _write_fragment(fragment_id, fragment)
+            _update_vector_index_locked(fragment, vector)
+            with _open_legacy_memory_text(CURIOSITY_REFLECTIONS_PATH, "a") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+            persisted = record
+            created = True
+
+    if created:
+        em.add_emotion(fragment["emotions"])
+    observation_id = persisted.get("observation_id")
     if observation_id:
         _authorize_legacy_mutation()
         with _observation_log_lock():
@@ -1446,7 +1518,7 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
                 break
             if changed:
                 _rewrite_observation_records(obs_records)
-    return record
+    return dict(persisted)
 
 
 def iter_curiosity_reflections(limit: int | None = None) -> List[Dict[str, Any]]:
@@ -1465,6 +1537,13 @@ def iter_curiosity_reflections(limit: int | None = None) -> List[Dict[str, Any]]
             raise MemorySidecarIncompleteError("curiosity_reflections", line_number) from exc
         if not isinstance(value, dict):
             raise MemorySidecarIncompleteError("curiosity_reflections", line_number)
+        stored_digest = value.get("reflection_record_digest")
+        if stored_digest is not None:
+            unhashed = dict(value)
+            unhashed.pop("reflection_record_digest", None)
+            if stored_digest != _observation_digest(unhashed):
+                raise MemorySidecarIncompleteError(
+                    "curiosity_reflection_digest_mismatch", line_number)
         parsed.append(value)
     if limit is not None:
         parsed = parsed[-max(0, limit):] if limit else []
