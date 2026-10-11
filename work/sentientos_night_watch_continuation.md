@@ -2347,3 +2347,10 @@ Next inspect succession source records for any projection that still presents a 
 - The maintenance software-generation journal verified all up to 4,096 rows, but its World-State caller requested only the last 16 and emitted no omission boundary. Added an owner read that returns a verified bounded suffix and an exact omitted-prefix summary from the same journal read; the resident projection now retains the latest 48 rows and exposes the omitted count, chain boundary, and head digest as non-event metadata.
 - The retention marker is explicitly historical context in epistemic development and longitudinal history; it has no event timestamp, support relation, authority, or effect. Added authored unexecuted owner and adapter regressions. Changed Python compiles and static whitespace checks pass only.
 - Next inspect causal-introspection capture/recovery composition for another concrete owner-to-owner continuity break outside the succession journals.
+
+
+## 2026-10-11 checkpoint — keep causal introspection read-only at model-serving boundary
+
+- The causal-introspection provider called the serving controller's mutating `current_session()` API after its read-only health check. That API invalidates and unloads a stale worker and publishes an invalidation receipt. The serving owner already exposes `observed_current_session()`, which performs the same verification without invalidation or unload; introspection now uses that observation-only interface.
+- Added an authored unexecuted composition regression that fails if introspection invokes the mutating method. Python compilation and source inspection only; no serving process or production path was executed.
+- Next inspect the remaining live-owner introspection adapters for similar observer-to-mutator calls and ensure their recovery projections remain bounded and temporally honest.

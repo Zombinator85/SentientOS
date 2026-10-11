@@ -2653,7 +2653,9 @@ def _compose_causal_introspection(
     if "model_serving" in enabled and resident_serving_controller is not None:
         def inspect_serving() -> dict[str, Any]:
             health = resident_serving_controller.health()
-            session = resident_serving_controller.current_session()
+            # Introspection is observational: current_session() may invalidate,
+            # unload, and publish a receipt when the session has gone stale.
+            session = resident_serving_controller.observed_current_session()
             return {"serving_status": str(health.get("status", "unknown")),
                 "session_present": session is not None,
                 "session_id": session.session_id if session is not None else None}

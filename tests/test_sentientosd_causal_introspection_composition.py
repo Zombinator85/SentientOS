@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 import sentientosd
-from sentientos.causal_introspection import CausalIntrospectionRuntime
+from sentientos.causal_introspection import CausalIntrospectionRuntime, IntrospectionConfig
 
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -157,3 +157,47 @@ def test_run_loop_invalid_config_is_blocked_not_reinterpreted_as_absent(
     asyncio.run(sentientosd.run_loop(shutdown, interval_seconds=0))
     assert feedback[0]["status"] == "blocked"
     assert "unsupported_config_schema" in str(feedback[0]["reason"])
+
+
+def test_serving_introspection_uses_non_invalidating_observation(tmp_path: Path) -> None:
+    class Serving:
+        current_calls = 0
+        observed_calls = 0
+
+        def health(self):
+            return {"status": "stale", "read_only": True}
+
+        def current_session(self):
+            self.current_calls += 1
+            raise AssertionError("introspection must not invalidate through current_session")
+
+        def observed_current_session(self):
+            self.observed_calls += 1
+            return None
+
+    serving = Serving()
+    surfaces = SimpleNamespace(
+        _epistemic_state_owner=None, _epistemic_development_runtime=None,
+        _resource_observation_owner=None, _longitudinal_self_model_owner=None,
+        _resident_developmental_owner=None, _resident_transition_runtime=None,
+        _resident_transition_custody=None, _resident_cognitive_invoker=None,
+        _resident_software_transition_controller=None,
+        _resident_software_transition_config=None,
+        governance_feedback=lambda: {"surfaces": {}},
+    )
+    config = IntrospectionConfig(
+        enabled=True, custody_root=tmp_path / "introspection",
+        world_state_consumption_enabled=True, max_projections=1,
+        enabled_domains=("model_serving",), required_domains=("model_serving",))
+    runtime = sentientosd._compose_causal_introspection(
+        surfaces, resident_serving_controller=serving, config=config)
+
+    snapshot = runtime.capture(sentientosd.CaptureContext(
+        tick_id="2026-10-11T01:00:00Z", capture_posture="unknown"))
+
+    projection = snapshot.projections[0]
+    assert projection.domain == "model_serving"
+    assert serving.current_calls == 0
+    assert serving.observed_calls == 1
+    assert next(item.bounded_value for item in projection.observations
+        if item.observation_key == "session_present") is False
