@@ -1564,3 +1564,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Development composition now uses the same process-wide canonical memory root as the legacy manager; its optional data-root argument selects only transcript storage. The existing overlap check continues to reject transcript/user-memory containment. Production continues to use the same shared root and installation-scoped transcript directory.
 - Python syntax compilation passed for `chat_service.py`. No memory or transcript files were opened; behavior and production remain unverified.
 - **Next implementation dependency:** follow retrieval, explicit retention, deletion, and recovery through every user-memory writer to verify they all use this same captured root and preserve admission/tomb semantics. Then continue through the next independent custody or causal-continuity gap.
+
+
+
+## New checkpoint — route memory CLI reads through shared custody
+
+- Fresh remote source before this increment: `2148c0365b0b0d882cb77f93ee663792e5c311bd` (tree `2d52b2f5d69d09debab0ef985ccf9d7ec684fd8a`).
+- Retrieval and retention in chat used canonical custody, and `memory_manager` provided bounded descriptor-safe legacy fragment readers. Three `memory_cli.py` views nevertheless used `Path.glob` plus `Path.read_text` directly, bypassing that owner and following filesystem aliases.
+- Timeline, playback, and list views now enumerate and read through the existing bounded legacy fragment custody functions. Canonical explicitly retained artifacts remain excluded from legacy display/mutation semantics; malformed JSON remains omitted as before, while custody failures are no longer silently downgraded to empty data.
+- Python syntax compilation passed for `memory_cli.py`. No CLI or memory store was run or opened; behavior remains unverified.
+- **Next implementation dependency:** inspect remaining read/write entrypoints outside `memory_manager` that address the shared raw root directly, then trace explicit retention receipt/tomb recovery for identity and no-replay under the unified root.
