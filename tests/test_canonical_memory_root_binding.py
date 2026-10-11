@@ -118,3 +118,28 @@ def test_path_binding_receipt_rejects_substituted_path_and_scope(tmp_path: Path)
     wrong_scope["target_root_path_binding_scope"] = "filesystem_identity"
     assert writer.verify_committed_artifact(
         wrong_scope, source_turn, "session-root-binding")["artifact_status"] == "conflict"
+
+
+def test_real_retention_writer_emits_and_reconciles_path_scoped_receipt(tmp_path: Path) -> None:
+    writer, source_turn, _manual_receipt = _retention_fixture(tmp_path)
+    session_id = "writer-produced-session"
+    operation = "retain:" + session_id + ":" + source_turn["turn_id"]
+    candidate = {
+        "candidate_type": CANDIDATE_TYPE,
+        "session_id": session_id,
+        "source_turn_id": source_turn["turn_id"],
+        "source_role": "user",
+        "source_text_digest": source_turn["text_digest"],
+        "explicitly_requested": True,
+        "request_id": retention_request_id(operation),
+        "operation_id": operation,
+    }
+    admission = writer.admission_gate.decide(candidate)
+    receipt = writer.execute(candidate, admission, source_turn)
+    assert receipt["target_root_path_binding_digest"] == configured_root_path_binding_digest(
+        writer.store.root)
+    assert receipt["target_root_path_binding_scope"] == ROOT_PATH_BINDING_SCOPE
+    assert "target_root_identity" not in receipt
+    verified = writer.verify_committed_artifact(receipt, source_turn, session_id)
+    assert verified["artifact_status"] == "verified"
+    assert verified["cross_restart_root_identity"] == "not_established"

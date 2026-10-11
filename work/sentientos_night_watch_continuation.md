@@ -2034,3 +2034,8 @@ Cross-platform parent supervision remains unresolved: this change prevents parti
 ## 2026-10-11 checkpoint — bind parent custody beneath the existing resident state root
 
 The parent entrypoint derives a separate `parent-supervision` subdirectory from the commissioned resident state root. The commissioning verifier now requires that exact `resident-state` directory to remain present and owner-private before parent construction; it rejects a missing, non-directory, wrong-owner, or permissively-modeled POSIX state root rather than allowing `mkdir(parents=True)` to recreate or adopt it. An authored unexecuted acceptance case covers permissive mode. This preserves separate parent/child journals under the existing commissioned custody root.
+
+
+## 2026-10-11 checkpoint — cover the real retention receipt producer
+
+The path-binding schema tests now include the actual `AdmittedRetentionWriter.execute()` path. The authored case asks the existing explicit admission gate for a decision, performs one bounded local memory write in a temporary fixture, then reconciles the writer-produced receipt through the real verifier and checks that the result still says cross-restart filesystem identity is unestablished. This avoids treating handcrafted values as evidence of producer integration. Test remains unexecuted.
