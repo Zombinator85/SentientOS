@@ -165,3 +165,29 @@ def test_calibration_is_proposition_specific_and_temporally_bound(tmp_path):
         owner.record_calibration(proposition_id=a.proposition_id,forecast_artifact_id="forecast",forecast_state_digest=state_a.state_digest,observed_outcome_id="outcome",comparison_result="contradicted",source_binding_ids=(evidence.binding_id,),resolved_at="2025-01-01T00:00:00Z")
     event=owner.record_calibration(proposition_id=a.proposition_id,forecast_artifact_id="forecast",forecast_state_digest=state_a.state_digest,observed_outcome_id="outcome",comparison_result="contradicted",source_binding_ids=(evidence.binding_id,),resolved_at="2026-01-01T00:01:00Z")
     assert event.proposition_id==a.proposition_id and owner.verify()["calibrations"]==1
+
+
+@pytest.mark.parametrize("tick", [-1, True])
+def test_invalid_update_tick_cannot_publish_poisoned_transaction(tmp_path, tick):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    with pytest.raises(EpistemicStateError, match="epistemic_update_tick_invalid"):
+        owner.commit_update(
+            proposition_id=p.proposition_id, expected_predecessor_digest=None,
+            stance="unknown", reason="initialization", active_binding_ids=(),
+            correlation_id="invalid-tick", tick=tick, recorded_at="2026-01-01T00:00:00Z")
+    assert list((tmp_path / "transactions").glob("*.json")) == []
+    assert owner.verify()["updates"] == 0
+
+
+def test_update_recorded_at_requires_bounded_aware_timestamp(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    with pytest.raises(EpistemicStateError, match="epistemic_recorded_at_invalid"):
+        owner.commit_update(
+            proposition_id=p.proposition_id, expected_predecessor_digest=None,
+            stance="unknown", reason="initialization", active_binding_ids=(),
+            correlation_id="invalid-time", tick=1, recorded_at="2026-01-01T00:00:00")
+    assert list((tmp_path / "transactions").glob("*.json")) == []

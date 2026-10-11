@@ -2484,3 +2484,11 @@ Next inspect succession source records for any projection that still presents a 
 - The cognition observation journal already rejects duplicate per-tick conditions, digest/path mismatches, and same-tick self-model use. The self-model store verifies its generation/predecessor chain and the daemon captures its projection before same-tick reconciliation.
 - The directly adjacent developmental recovery order defect was corrected in the preceding source change: tick intent order now controls reconstruction; timestamps remain validity-checked historical metadata only. New records without an exact interrupted intent are rejected rather than inserted into later cognition by guessed time order.
 - No additional source defect was established in the self-model projection boundary during this inspection. Next continue reviewing persistent epistemic recovery and tick boundary semantics, especially how the daemon's timestamp-derived tick value relates to committed state generations.
+
+
+## 2026-10-11 checkpoint — reject invalid epistemic update time before transaction publication
+
+- Transaction recovery already rejected boolean and negative event ticks, but `commit_update` accepted them and durably published the transaction before verification could fail on restart. It also accepted an unbounded or timezone-naive `recorded_at` despite using it as durable state time.
+- The mutation entrypoint now validates a non-boolean, nonnegative integer tick and a bounded timezone-aware ISO timestamp before recovery or publication. Invalid requests cannot create transaction/state/update files.
+- Added authored, unexecuted checks for negative/boolean ticks and naive timestamps. Changed Python modules compile only; no mutation or tests ran.
+- Next inspect the epistemic mutation controller's admission/intent recovery composition for equivalent validation-before-publication gaps and ensure state changes still require independently verified admission lineage.

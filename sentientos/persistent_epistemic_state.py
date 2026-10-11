@@ -10,6 +10,7 @@ import json
 import os
 import stat
 import tempfile
+from datetime import datetime
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -738,6 +739,16 @@ class PersistentEpistemicStateOwner:
                       update_rule_revision: str | None = None, candidate: EpistemicUpdateCandidate | None = None,
                       correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None,
                       mutation_binding: Mapping[str, Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
+        if not isinstance(tick, int) or isinstance(tick, bool) or tick < 0:
+            raise EpistemicStateError("epistemic_update_tick_invalid")
+        if not isinstance(recorded_at, str) or not recorded_at or len(recorded_at) > 128:
+            raise EpistemicStateError("epistemic_recorded_at_invalid")
+        try:
+            recorded_instant = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise EpistemicStateError("epistemic_recorded_at_invalid") from exc
+        if recorded_instant.tzinfo is None or recorded_instant.utcoffset() is None:
+            raise EpistemicStateError("epistemic_recorded_at_invalid")
         self.verify(); self.proposition(proposition_id); prior=self.current_state(proposition_id)
         actual=prior.state_digest if prior else None
         if actual != expected_predecessor_digest: raise EpistemicStateError("epistemic_state_compare_and_swap_failed")
