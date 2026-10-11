@@ -85,6 +85,14 @@ class MaintenanceResidentParentSupervisor:
             else "child_owned_launch_provenance")
         self._verified_child_provenance: dict[str, Any] | None = None
         self._clock, self._sleep = clock, sleeper
+        self._parent_process_observation = {
+            "process_id": os.getpid(),
+            "parent_process_id": os.getppid(),
+            "started_at": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
+            "monotonic_started_ns": time.monotonic_ns(),
+            "instance_nonce": os.urandom(16).hex(),
+        }
+        self._parent_process_instance_id = _digest(self._parent_process_observation)
         self._process_presence_observer = process_presence_observer or self._observe_pid_presence
         self._budget, self._window = restart_budget, rolling_restart_window
         self._min_backoff, self._max_backoff = min_backoff, max_backoff
@@ -105,7 +113,8 @@ class MaintenanceResidentParentSupervisor:
         try:
             self._load()
             if self._state_recovery_valid:
-                self._receipt("parent_startup", {"child_spec_digest": self._spec_digest})
+                self._receipt("parent_startup", {"child_spec_digest": self._spec_digest,
+                    "parent_process_observation": self._parent_process_observation})
         except Exception:
             self._release_owner_lock()
             raise
@@ -300,9 +309,14 @@ class MaintenanceResidentParentSupervisor:
         if self._sequence >= MAX_PARENT_SEQUENCE or self._receipt_count >= MAX_PARENT_RECEIPT_ROWS:
             self._panic = True; self._status = "receipt_sequence_exhausted"
             raise RuntimeError("parent_receipt_sequence_limit_exceeded")
+        receipt_detail = dict(detail or {})
+        if ("parent_process_instance_id" in receipt_detail
+                and receipt_detail["parent_process_instance_id"] != self._parent_process_instance_id):
+            raise ValueError("parent_process_instance_binding_conflict")
+        receipt_detail["parent_process_instance_id"] = self._parent_process_instance_id
         row = {"schema_version": RECEIPT_SCHEMA, "sequence": self._sequence + 1,
             "timestamp": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
-            "event": event, "child_spec_digest": self._spec_digest, "detail": dict(detail or {})}
+            "event": event, "child_spec_digest": self._spec_digest, "detail": receipt_detail}
         row["receipt_digest"] = _digest(row)
         encoded = _canonical(row) + b"\n"
         if (len(encoded) > MAX_PARENT_RECEIPT_LINE_BYTES
@@ -708,6 +722,7 @@ class MaintenanceResidentParentSupervisor:
             "restart_budget_exhausted": self._exhausted, "restart_count": len(self._restart_history),
             "child_spec_digest": self._spec_digest, "generation_digest": self._generation_digest,
             "launch_provenance_digest": self._launch.get("launch_provenance_digest") if self._launch else None,
+            "parent_process_instance_id": self._parent_process_instance_id,
             "readiness_basis": self._readiness_basis}
 
 

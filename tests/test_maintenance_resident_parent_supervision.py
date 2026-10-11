@@ -363,3 +363,25 @@ def test_missing_native_lock_refuses_before_parent_state_creation(tmp_path: Path
     with pytest.raises(OSError, match="native_lock_unavailable"):
         MaintenanceResidentParentSupervisor(cfg, state_root=root)
     assert not root.exists()
+
+
+def test_receipt_events_bind_their_parent_process_instance(tmp_path: Path) -> None:
+    controller, _, cfg = _parent(tmp_path)
+    first_instance = controller.status()["parent_process_instance_id"]
+    first_rows = [json.loads(line) for line in
+        (tmp_path / "parent" / "parent-receipts.jsonl").read_text().splitlines()]
+    assert first_rows[0]["event"] == "parent_startup"
+    assert first_rows[0]["detail"]["parent_process_instance_id"] == first_instance
+    assert first_rows[0]["detail"]["parent_process_observation"]["process_id"] == os.getpid()
+
+    _simulate_parent_process_exit(controller)
+    rebuilt = MaintenanceResidentParentSupervisor(cfg, state_root=tmp_path / "parent",
+        resident_readiness_guard=lambda _: True, adapter_factory=Factory())
+    second_instance = rebuilt.status()["parent_process_instance_id"]
+    assert second_instance != first_instance
+    rows = [json.loads(line) for line in
+        (tmp_path / "parent" / "parent-receipts.jsonl").read_text().splitlines()]
+    assert rows[-1]["event"] == "parent_startup"
+    assert rows[-1]["detail"]["parent_process_instance_id"] == second_instance
+    assert all(row["detail"]["parent_process_instance_id"] == first_instance
+        for row in rows[:-1])

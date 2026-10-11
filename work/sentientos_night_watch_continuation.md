@@ -2039,3 +2039,12 @@ The parent entrypoint derives a separate `parent-supervision` subdirectory from 
 ## 2026-10-11 checkpoint — cover the real retention receipt producer
 
 The path-binding schema tests now include the actual `AdmittedRetentionWriter.execute()` path. The authored case asks the existing explicit admission gate for a decision, performs one bounded local memory write in a temporary fixture, then reconciles the writer-produced receipt through the real verifier and checks that the result still says cross-restart filesystem identity is unestablished. This avoids treating handcrafted values as evidence of producer integration. Test remains unexecuted.
+
+
+## 2026-10-11 checkpoint — attribute parent journal events to process incarnations
+
+The durable parent receipt chain previously identified one child spec and a global event sequence but did not distinguish which parent-process incarnation emitted individual events. The parent now generates a per-process instance ID from an observation containing its PID, parent PID, wall-clock startup time, monotonic startup counter, and an OS-random nonce. Every new receipt detail binds that ID; the `parent_startup` event also retains the observation, and status exposes the current ID. Historical v1 receipts remain valid because the existing verifier treats event detail as an opaque bounded mapping and their receipt digests are unchanged. This identifies a parent process incarnation only; it does not assert the executing parent software generation or runtime deployment identity.
+
+An authored unexecuted acceptance case reconstructs the controller from existing custody and checks that events remain attributable to the prior and new parent process instances. Changed Python compiles. No tests or child launches were performed.
+
+Next dependency: continue source-level succession attribution around parent software generation only if an existing runtime issuer can attest the loaded controller code. A Git commit alone is insufficient. Windows singleton locking and durable shared-memory-root identity remain separately blocked by missing native/independent custody owners.
