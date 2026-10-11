@@ -1273,6 +1273,14 @@ def purge_memory(
 
     Purged fragments are archived in the memory tomb.
     """
+    tomb_records = list_tomb()
+    pending_purge_ids = {
+        str(fragment.get("id"))
+        for record in tomb_records
+        if record.get("operation_state") == "incomplete"
+        and isinstance((fragment := record.get("fragment")), dict)
+        and fragment.get("id")
+    }
     files = list(_legacy_fragment_paths())
     entries: List[tuple[datetime.datetime, Path, dict]] = []
     for f in files:
@@ -1292,7 +1300,7 @@ def purge_memory(
     if max_age_days is not None:
         cutoff = now - datetime.timedelta(days=max_age_days)
         for ts, fp, data in entries:
-            if ts < cutoff:
+            if ts < cutoff and str(data.get("id", "")) not in pending_purge_ids:
                 operation_id = "purge-" + secrets.token_hex(16)
                 _append_tomb({"event_type": "purge_intent", "operation_id": operation_id,
                     "fragment": data, "requestor": requestor,
@@ -1308,7 +1316,9 @@ def purge_memory(
     if max_files is not None and len(entries) - removed > max_files:
         remaining = [e for e in entries if e[1].name not in removed_names]
         excess = len(remaining) - max_files
-        for ts, fp, data in remaining[:excess]:
+        candidates = [e for e in remaining
+            if str(e[2].get("id", "")) not in pending_purge_ids]
+        for ts, fp, data in candidates[:excess]:
             operation_id = "purge-" + secrets.token_hex(16)
             _append_tomb({"event_type": "purge_intent", "operation_id": operation_id,
                 "fragment": data, "requestor": requestor,

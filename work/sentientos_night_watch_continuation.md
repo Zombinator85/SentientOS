@@ -1694,3 +1694,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - No replay or automatic cleanup occurs during recovery. Legacy pre-journal tomb entries remain as historical records, and canonical retained chat records remain excluded from legacy purge enumeration.
 - Python syntax compilation passed for memory_manager.py. No files were read or deleted; behavior remains unverified.
 - **Next implementation dependency:** bind tomb operation IDs to source fragment identity and ensure retries do not repeat an unresolved deletion; then inspect the observation-summary fragment/log interruption path.
+
+
+
+## New checkpoint — do not replay unresolved purge intent
+
+- Fresh remote source before this increment: aa67c3a29c3ea435ad36b38302abe38a4b02971d (tree 12f5ad5313ee397d684490dc181f9d0b7d028cad).
+- The new purge journal exposed incomplete operations, but a later purge pass could still select the same present fragment and issue another deletion under a new operation ID.
+- Age/count purging now reads validated tomb state first and excludes every unresolved operation's fragment identity from deletion candidates. Those fragments remain counted toward total storage, so policy pressure is visible without replaying the prior effect. Corrupt tomb custody aborts before any deletion.
+- Python syntax compilation passed for memory_manager.py. No purge or file read was executed.
+- **Next implementation dependency:** add a bounded explicit recovery/adjudication path for pending purge intents, then continue through user-observation artifact/log idempotency and preserve exact historical timestamps.
