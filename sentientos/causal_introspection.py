@@ -622,7 +622,15 @@ class CausalIntrospectionRuntime:
             total_bytes += len(data)
             if total_bytes > MAX_SNAPSHOT_CUSTODY_BYTES:
                 raise IntrospectionError("snapshot_custody_limit_exceeded")
-            snapshot = _decode_snapshot(json.loads(data.decode("utf-8")))
+            try:
+                snapshot = _decode_snapshot(json.loads(data.decode("utf-8")))
+            except IntrospectionError:
+                raise
+            except (UnicodeError, json.JSONDecodeError, KeyError, TypeError,
+                    ValueError, RecursionError) as exc:
+                raise IntrospectionError("snapshot_payload_invalid") from exc
+            if data != _canonical(_plain(snapshot)):
+                raise IntrospectionError("snapshot_noncanonical")
             validate_snapshot(snapshot, snapshots[-1] if snapshots else None)
             snapshots.append(snapshot)
         return tuple(snapshots), total_bytes

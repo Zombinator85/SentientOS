@@ -283,3 +283,16 @@ def test_group_or_world_writable_custody_root_is_rejected_on_posix(tmp_path):
     runtime.config.custody_root.chmod(0o770)
     with pytest.raises(IntrospectionError, match="custody_root_writable_by_other_users"):
         runtime.reconstruct()
+
+
+def test_reconstruction_rejects_canonical_unknown_snapshot_fields(tmp_path):
+    registration = ProviderRegistration("serving", "model_serving", _provider("serving", "model_serving"))
+    runtime = _runtime(tmp_path, (registration,))
+    runtime.capture(CaptureContext("tick-1", capture_posture="synthetic_test"))
+    path = tmp_path / "custody" / "generation-00000000000000000001.json"
+    payload = json.loads(path.read_text())
+    payload["unrecognized_custody_field"] = "must not be silently discarded"
+    path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+    with pytest.raises(IntrospectionError, match="snapshot_noncanonical"):
+        runtime.reconstruct()

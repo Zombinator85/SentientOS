@@ -2445,3 +2445,11 @@ Next inspect succession source records for any projection that still presents a 
 - The generation-cap preflight ran immediately after reconstruction, before the existing same-tick equality check. At the configured maximum generation, retrying a byte-identical already committed capture failed despite requiring no append.
 - Moved generation-cap rejection after provider comparison and the same-tick idempotent return. New generations remain rejected at the hard bound; identical committed replay remains readable. The existing authored same-tick control covers the return path, and the capacity boundary cases remain authored but unexecuted.
 - Python compilation only; no tests or capture ran. Next continue beyond introspection custody into the next source-supported runtime-to-developmental handoff.
+
+
+## 2026-10-11 checkpoint — reject noncanonical committed snapshot bytes
+
+- Snapshot recovery decoded JSON into known dataclass fields and validated the resulting digest, but did not compare the stored bytes with the canonical serialized object. Unknown fields, duplicate JSON keys, or noncanonical encodings could therefore be silently discarded before integrity verification.
+- Reconstruction now converts malformed payload decoding into a stable fail-closed error and requires exact byte equality with the canonical decoded snapshot before predecessor/digest validation. Existing writer output is already canonical; no legacy writer migration is needed.
+- Added an authored, unexecuted regression for an extra canonical JSON field. Python syntax compilation only; no custody mutation beyond authored fixture code ran.
+- Next inspect remaining exact source identity and recovery boundaries in the resident developmental history owner, then continue the broader runtime-to-cognition chain.
