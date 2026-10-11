@@ -356,12 +356,11 @@ class MaintenanceResidentRuntimeAdoptionController:
     def health(self) -> dict[str, Any]: return dict(self._health)
 
     def current_execution_provenance(self) -> dict[str, Any]:
-        """Return current, owner-verified process and software generation identity.
+        """Return a current process and repository-generation observation.
 
-        This is read-only evidence for causal attribution.  A commit or manifest
-        by itself is not accepted: the captured launch provenance must still
-        describe this process, the configured generation, and a clean exact
-        repository state when queried.
+        This owner rechecks its process identity and the configured clean source
+        generation. It does not independently attest the Python code already
+        loaded in memory; consumers must preserve that distinction.
         """
         if not self.config["enabled"] or self._baseline is None:
             raise ValueError("resident_execution_provenance_unavailable")
@@ -414,7 +413,12 @@ class MaintenanceResidentRuntimeAdoptionController:
             "observed_tree_sha": stored["observed_tree_sha"],
             "startup_timestamp": stored["startup_timestamp"],
             "repository_identity": stored["repository_identity"],
-            "config_digest": stored["config_digest"]}
+            "config_digest": stored["config_digest"],
+            "process_identity_scope":
+                "pid_startup_argv_executable_entrypoint_module_origin_and_environment",
+            "software_generation_scope":
+                "configured_manifest_and_clean_repository_state_at_observation",
+            "loaded_code_identity_posture": "not_independently_attested"}
 
     def _within_lifecycle(self) -> None:
         if self._clock() - self._started > float(self.config["maximum_wall_clock_seconds"]):

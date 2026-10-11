@@ -2184,10 +2184,10 @@ The epistemic mutation controller created both receipt-stage directories uncondi
 Next continue checking the remaining model/software succession owners and distinguish repository/process observations from runtime loaded-code attribution where no issuer exists.
 
 
-## 2026-10-11 checkpoint — qualify chat source-generation observations before cognition
+## 2026-10-11 checkpoint — scope maintenance-daemon generation attribution
 
-The chat-process World-State projection already bound the installation-scoped runtime observation and exact linked invocation receipts, but its outer projection did not state the limit of the source-generation digest. It now carries the handoff's explicit source scope, labels loaded-code identity as not independently attested, and identifies the process evidence as an installation-bound launcher handoff checked at the recorded observation time. Resident developmental cognition only gives this row its existing priority when the qualification is present and matches the embedded handoff scope. Historical, unknown-currentness, no-signature, no-authority semantics remain unchanged; no chat identity is inferred from the maintenance daemon.
+The maintenance adoption owner verifies the process instance, launch provenance, exact configured generation, and clean repository source state. Its World-State rows previously labelled that combined observation as a current running software generation without carrying the missing loaded-code attestation boundary. The owner API and both launch/current World-State payloads now identify the process role and scope these identities to process/path/environment plus configured manifest/repository state. They explicitly record loaded code as not independently attested. This keeps maintenance-daemon provenance separate from chat-process provenance and does not let either identify the other's software.
 
-Changed Python modules compile only. No process, model, service, tests, or production verification ran. The independent loaded-code issuer remains unavailable; source-bundle provenance is the strongest current handoff.
+Added a focused source-owner case for the returned scope labels; authored but unexecuted. Changed Python sources compile only. No process observation, runtime operation, test, or production verification was performed.
 
-Next dependency: continue source review for a separately authenticated runtime loaded-code identity owner; if none exists, keep that boundary explicit and advance another independently implementable continuity path.
+Next continue checking existing succession consumers for any path that drops these scope labels before later cognition; the repository has no independent loaded-code issuer, so do not synthesize one.

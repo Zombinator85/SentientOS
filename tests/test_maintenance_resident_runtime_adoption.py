@@ -380,3 +380,19 @@ def test_resident_transition_journal_reader_rejects_invalid_lf_framing(
 
     with pytest.raises(ValueError):
         resident._rows(disabled)
+
+
+
+def test_current_execution_provenance_limits_identity_scope_to_process_and_source(
+    tmp_path: Path,
+) -> None:
+    cfg, _generation, _, _ = _fixture(tmp_path)
+    controller = resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: _observer(cfg))
+    controller.capture_baseline()
+    current = controller.current_execution_provenance()
+    assert current["process_identity_scope"] == (
+        "pid_startup_argv_executable_entrypoint_module_origin_and_environment")
+    assert current["software_generation_scope"] == (
+        "configured_manifest_and_clean_repository_state_at_observation")
+    assert current["loaded_code_identity_posture"] == "not_independently_attested"

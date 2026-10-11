@@ -1641,6 +1641,12 @@ class RuntimeMaintenanceSurfaces:
                         "disposition": "observed", "evidence_strength": "resident_launch_provenance",
                         "payload": {"running_software_generation_observed": baseline.get("represented_generation_digest"),
                             "software_generation": baseline.get("represented_generation_digest"),
+                            "process_role": "maintenance_daemon",
+                            "process_identity_scope":
+                                "launch_provenance_bound_maintenance_process_instance",
+                            "software_generation_scope":
+                                "configured_manifest_and_repository_source_at_launch",
+                            "loaded_code_identity_posture": "not_independently_attested",
                             "repository_commit": baseline.get("observed_commit_sha"),
                             "repository_tree": baseline.get("observed_tree_sha"),
                             "process_instance_id": baseline.get("process_instance_id"),
@@ -1675,8 +1681,15 @@ class RuntimeMaintenanceSurfaces:
                                 "repository_commit": current_provenance["observed_commit_sha"],
                                 "repository_tree": current_provenance["observed_tree_sha"],
                                 "startup_timestamp": current_provenance["startup_timestamp"],
+                                "process_role": "maintenance_daemon",
+                                "process_identity_scope":
+                                    current_provenance["process_identity_scope"],
+                                "software_generation_scope":
+                                    current_provenance["software_generation_scope"],
+                                "loaded_code_identity_posture":
+                                    current_provenance["loaded_code_identity_posture"],
                                 "currentness_posture":
-                                    "owner_verified_process_and_source_at_observation",
+                                    "maintenance_process_and_repository_verified_at_observation",
                                 "event_time_posture": "owner_point_observation_time",
                                 "authority": False, "effect_proven": False,
                             }
