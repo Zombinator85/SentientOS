@@ -51,14 +51,17 @@ class CanonicalMemoryStore:
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,"limit":limit,"budget_chars":budget_chars})}
 class AdmittedRetentionWriter:
     """Terminal executor validates admission evidence but never decides admission."""
-    def __init__(self,store:CanonicalMemoryStore)->None:self.store=store
+    def __init__(self, store: CanonicalMemoryStore,
+                 admission_gate: ExplicitRetentionAdmissionGate | None = None) -> None:
+        self.store = store
+        self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
     def verify_committed_artifact(self, receipt: Mapping[str, Any],
                                   source_turn: Mapping[str, Any],
                                   session_id: str) -> dict[str, Any]:
         """Verify the exact stored fragment without replaying admission or writes.
 
-        This verifies artifact/source custody only. The original admission gate
-        receipt is a digest in the transcript and is not durably reissued here.
+        The deterministic gate decision is recomputed from the artifact-bound
+        candidate. This does not attest that the original gate invocation ran.
         """
         if (not isinstance(session_id, str) or not session_id
                 or source_turn.get("role") != "user"
@@ -136,11 +139,82 @@ class AdmittedRetentionWriter:
                 or not timestamp_valid or digest(record) != stored_digest):
             return {"artifact_status": "conflict", "reason_code": "stored_artifact_binding_invalid",
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
+        if source_turn.get("retention_state") not in {"requested", "retained"}:
+            return {"artifact_status": "verified", "memory_id": expected_id,
+                    "record_digest": stored_digest,
+                    "admission_status": "not_independently_recoverable",
+                    "reason_code": "explicit_request_state_not_recoverable",
+                    "write_replayed": False}
+        candidate = {"candidate_type": CANDIDATE_TYPE, "session_id": session_id,
+            "source_turn_id": source_turn["turn_id"], "source_role": "user",
+            "source_text_digest": source_turn["text_digest"], "explicitly_requested": True,
+            "request_id": meta["request_id"], "operation_id": operation}
+        admission = self.admission_gate.decide(candidate)
+        if (admission.decision != "retention_admitted"
+                or admission.candidate_digest != digest(candidate)
+                or admission.receipt_digest != receipt_digest):
+            return {"artifact_status": "verified", "memory_id": expected_id,
+                    "record_digest": stored_digest, "admission_status": "conflict",
+                    "reason_code": "admission_digest_policy_mismatch",
+                    "write_replayed": False}
         return {"artifact_status": "verified", "memory_id": expected_id,
                 "record_digest": stored_digest,
-                "admission_status": "not_independently_recoverable",
-                "reason_code": "admission_receipt_not_durably_custodied",
+                "admission_status": "policy_recomputed_not_execution_attested",
+                "admission_receipt_digest": receipt_digest,
                 "write_replayed": False}
+
+    def recover_existing_artifact(self, source_turn: Mapping[str, Any],
+                                  session_id: str) -> dict[str, Any]:
+        """Reconcile an exact preexisting memory artifact without repeating its write."""
+        if (not isinstance(session_id, str) or not session_id
+                or source_turn.get("retention_state") != "requested"
+                or source_turn.get("role") != "user"
+                or not isinstance(source_turn.get("turn_id"), str)
+                or not isinstance(source_turn.get("text"), str)
+                or not isinstance(source_turn.get("text_digest"), str)
+                or digest({"text": source_turn.get("text")}) != source_turn.get("text_digest")):
+            return {"artifact_status": "unverified", "reason_code": "source_turn_invalid",
+                    "admission_status": "not_independently_recoverable",
+                    "write_replayed": False}
+        operation = "retain:" + session_id + ":" + source_turn["turn_id"]
+        memory_id = "memory-" + hashlib.sha256(operation.encode()).hexdigest()[:24]
+        try:
+            raw = read_explicit_file(self.store.raw / (memory_id + ".json"),
+                max_bytes=MAX_RETENTION_RECORD_BYTES)
+        except WindowsHandleCustodyError as exc:
+            reason = ("artifact_missing" if exc.args == ("explicit_file_missing",)
+                      else "artifact_custody_unavailable")
+            return {"artifact_status": "unavailable", "reason_code": reason,
+                    "admission_status": "not_independently_recoverable",
+                    "write_replayed": False}
+        try:
+            record = json.loads(raw.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError):
+            return {"artifact_status": "conflict", "reason_code": "artifact_malformed",
+                    "admission_status": "not_independently_recoverable",
+                    "write_replayed": False}
+        if (not isinstance(record, dict)
+                or raw != (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
+                or not isinstance(record.get("meta"), Mapping)):
+            return {"artifact_status": "conflict", "reason_code": "artifact_noncanonical",
+                    "admission_status": "not_independently_recoverable",
+                    "write_replayed": False}
+        receipt = {
+            "status": "memory_retention_committed", "memory_id": memory_id,
+            "source_session_id": session_id, "source_turn_id": source_turn["turn_id"],
+            "source_text_digest": source_turn["text_digest"],
+            "admission_receipt_digest": record["meta"].get("admission_receipt_digest"),
+            "execution_operation_id": operation,
+            "canonical_stored_record_digest": digest(record),
+            "target_root_identity": digest({"root": str(self.store.root)}),
+            "index_update_result": "raw_fragment_available",
+        }
+        verification = self.verify_committed_artifact(receipt, source_turn, session_id)
+        return {**verification, "receipt": receipt} if (
+            verification.get("artifact_status") == "verified"
+            and verification.get("admission_status")
+                == "policy_recomputed_not_execution_attested") else verification
+
     def execute(self,candidate:Mapping[str,Any],admission:RetentionAdmission,source_turn:Mapping[str,Any])->dict[str,Any]:
         if admission.decision!="retention_admitted" or admission.candidate_digest!=digest(candidate): raise PermissionError("valid_admission_evidence_required")
         if candidate.get("candidate_type")!=CANDIDATE_TYPE or candidate.get("source_role")!="user": raise PermissionError("invalid_retention_candidate")

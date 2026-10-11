@@ -121,7 +121,8 @@ class PersistentConversationService:
                  memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None) -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
         self.admission_gate = admission_gate or ExplicitRetentionAdmissionGate()
-        self.retention_writer = AdmittedRetentionWriter(memory_store)
+        self.retention_writer = AdmittedRetentionWriter(
+            memory_store, admission_gate=self.admission_gate)
         self.context_budget_chars = context_budget_chars; self.memory_budget_chars = memory_budget_chars
 
     def create_session(self) -> str:
@@ -219,7 +220,23 @@ class PersistentConversationService:
             raise ChatRequestStateError("chat_request_recovery_verifier_unavailable")
         retention_state = user_turn.get("retention_state")
         if retention_state == "requested":
-            retention = {"status": "retention_interrupted_no_replay"}
+            recovery = self.retention_writer.recover_existing_artifact(user_turn, session_id)
+            if (recovery.get("artifact_status") == "verified"
+                    and isinstance(recovery.get("receipt"), Mapping)):
+                recovered_receipt = dict(recovery.pop("receipt"))
+                self.sessions.update_turn_retention(
+                    session_id, user_turn_id, state="retained", receipt=recovered_receipt)
+                retention = {
+                    "status": "retained_artifact_reconciled_no_write",
+                    "recovery_verification": recovery,
+                }
+            elif recovery.get("artifact_status") == "conflict":
+                retention = {
+                    "status": "retention_interrupted_artifact_conflict_no_replay",
+                    "recovery_verification": recovery,
+                }
+            else:
+                retention = {"status": "retention_interrupted_no_replay"}
         elif retention_state == "retained":
             verifier = getattr(self.retention_writer, "verify_committed_artifact", None)
             stored_receipt = user_turn.get("retention_receipt")
@@ -236,12 +253,16 @@ class PersistentConversationService:
                     "reason_code": "artifact_verifier_unavailable",
                     "admission_status": "not_independently_recoverable",
                     "write_replayed": False}
-            retention = {
-                "status": ("retained_artifact_verified_admission_unverified"
-                    if verification.get("artifact_status") == "verified"
-                    else "retained_state_unverified_no_replay"),
-                "recovery_verification": verification,
-            }
+            if (verification.get("artifact_status") == "verified"
+                    and verification.get("admission_status")
+                        == "policy_recomputed_not_execution_attested"):
+                status = "retained_artifact_verified_policy_recomputed"
+            elif (verification.get("artifact_status") == "verified"
+                    and verification.get("admission_status") == "conflict"):
+                status = "retained_artifact_admission_conflict"
+            else:
+                status = "retained_state_unverified_no_replay"
+            retention = {"status": status, "recovery_verification": verification}
         elif retention_state == "retention_failed":
             retention = {"status": "retention_failed_historical_no_replay"}
         elif retention_state == "not_requested":

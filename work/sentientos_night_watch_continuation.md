@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch has since advanced through compare-and-swap publications, including `eb816f5b3d54d8b2793318938bcf4f25bba7ee94` (tree `4dbfa7a3a0078ec054903668a324c29c415ee9a8`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch later reached `8427eda351c5967695c6c0b37891777206d07d45` (tree `3acf6f9fe2a849d2853f7ee890f3507f204e34b1`), which is the source base for the checkpoint appended below. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1133,3 +1133,15 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for the modified adapter. No tests, runtime process, readiness endpoint, installation publication, or production behavior were exercised. This source construction remains untested and unverified for production.
 
 **Next implementation dependency:** continue tracing canonical startup recovery and runtime observation consumers for any remaining lifecycle ambiguity or evidence-status overstatement; do not restore an adapter-side writer to the replaceable observation image.
+
+
+## New checkpoint — reconcile explicit retention artifacts after interruption
+
+- Freshly verified remote source before this increment: `8427eda351c5967695c6c0b37891777206d07d45` (tree `3acf6f9fe2a849d2853f7ee890f3507f204e34b1`).
+- The campaign attachment's predecessor-lineage ordering defect does not reproduce at this source: `predecessor_runtime_lineage` begins absent, and is populated only inside the path that verifies the prior invocation receipt, request identity, serving/loaded model identities, output lineage, runtime attribution and predecessor reference. It is not merely initialized to suppress an exception.
+- Windows process-generation publication remains explicitly unsupported: the chat adapter requires the existing mutable POSIX installation handle, while Windows installation access is read-only. No issuer or mutation authority was invented.
+- Closed a separate interruption gap in explicit user-memory retention. If the canonical memory artifact was atomically present but the conversation turn still said `requested`, recovery previously returned interrupted without checking that exact artifact. The writer now reads the deterministic operation artifact through the bounded explicit-file reader, verifies its source/session/turn identity and canonical record, recomputes the existing default-deny gate decision from the artifact-bound candidate, and compares the receipt digest. Only an exact match reconciles the conversation receipt; it performs no memory write and reports `policy_recomputed_not_execution_attested`, not proof that the original gate invocation ran. Missing/custody-invalid artifacts remain interrupted; malformed, conflicting, or gate-mismatched evidence is not reconciled.
+- Existing retained responses now distinguish artifact verification plus deterministic policy recomputation from unverified admission and from an admission digest conflict. User memory remains canonical product memory, separate from resident developmental history.
+- Python compilation and trailing-whitespace checks passed for `canonical_memory.py` and `chat_service.py`. No tests, filesystem fault injection, memory write, runtime request, or production verification was performed. Construction remains untested.
+
+**Next implementation dependency:** inspect and harden the canonical memory artifact write transaction itself. Current writer still uses a path-existence/read/replace sequence and does not durably fsync the containing directory; preserve collision safety, exact root custody, and no-write recovery semantics while correcting it.
