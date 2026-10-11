@@ -2525,3 +2525,12 @@ Next inspect succession source records for any projection that still presents a 
 - Config loading and direct cognition-owner construction now resolve root identities and reject overlapping developmental roots, including artifact custody, plus any developmental root equal to or nested within the canonical user-memory root. The canonical memory owner itself remains unchanged.
 - Added authored, unexecuted path-alias and canonical-memory exclusion cases. Changed Python files compile only; tests and runtime initialization were not run.
 - Next inspect writeback root publication and directory permissions themselves: path-level config separation does not prove safe immutable publication if a configured directory is replaced or permissive.
+
+
+
+## 2026-10-11 checkpoint — descriptor-bound immutable developmental-history publication
+
+- Developmental records and receipts previously used atomic replacement after path-based checks. The POSIX owner now traverses store roots with no-follow directory descriptors, creates missing custody directories as owner-only, rejects writable or foreign-owned final directories, and publishes bounded canonical JSON with mode 0600 through immutable create-if-absent links. Parent-directory and file data are flushed before publication is acknowledged.
+- Recovery reads use the same descriptor-bound directory traversal and verify regular single-link owner-owned private files, stable file identity, bounded bytes, and canonical JSON. Exact existing bytes are idempotent; conflicting identities fail closed. Windows remains read-only and uses its existing held-handle reader.
+- Added authored, unexecuted cases for private immutable publication, exact duplicate acceptance, conflicting identity rejection, and symlinked directory refusal. Source and test files passed Python compilation only; no behavioral, platform, or production verification was performed.
+- Next inspect persistent developmental cognition checkpoint publication and its surrounding root custody. Reuse the repository's established held-handle/atomic owner patterns, preserve canonical user memory separation, and keep Windows writes disabled where equivalent safe publication is unavailable.

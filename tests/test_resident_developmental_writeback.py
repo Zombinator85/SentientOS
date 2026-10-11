@@ -187,3 +187,50 @@ def test_recovery_rejects_receipt_without_its_durable_record(tmp_path: Path) -> 
     (ctrl.store.records_root / f"{record.record_id}.json").unlink()
     with pytest.raises(DevelopmentalWritebackError, match="durable_receipt_orphaned"):
         ctrl.recover_completed_records()
+
+
+def test_history_publication_uses_private_descriptor_bound_immutable_files(tmp_path: Path) -> None:
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("descriptor-relative immutable publication requires POSIX")
+    from sentientos.resident_developmental_writeback import (
+        _publish_store_json,
+    )
+
+    path = tmp_path / "history" / "records" / "devrec-test.json"
+    payload = {"value": "original"}
+    _publish_store_json(path, payload, collision_error="record_identity_collision")
+
+    metadata = path.stat()
+    root_metadata = path.parent.stat()
+    assert stat.S_ISREG(metadata.st_mode)
+    assert metadata.st_uid == os.geteuid()
+    assert metadata.st_mode & 0o077 == 0
+    assert root_metadata.st_uid == os.geteuid()
+    assert root_metadata.st_mode & 0o022 == 0
+    assert DevelopmentalHistoryStore._read_json(path) == payload
+
+    _publish_store_json(path, payload, collision_error="record_identity_collision")
+    with pytest.raises(DevelopmentalWritebackError, match="record_identity_collision"):
+        _publish_store_json(path, {"value": "substituted"},
+                            collision_error="record_identity_collision")
+
+
+def test_history_publication_rejects_symlinked_directory_components(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("no-follow directory publication requires POSIX")
+    from sentientos.resident_developmental_writeback import _publish_store_json
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(DevelopmentalWritebackError,
+                       match="durable_store_root_unavailable|durable_store_path_permissions_invalid"):
+        _publish_store_json(alias / "records" / "devrec-test.json", {"safe": True},
+                            collision_error="record_identity_collision")
+    assert list(outside.iterdir()) == []
