@@ -191,3 +191,44 @@ def test_chat_runtime_history_binds_source_scope_and_loaded_code_limit(tmp_path:
     assert lineage.value["loaded_code_identity_posture"] == "not_independently_attested"
     assert lineage.value["process_identity_scope"] == (
         "installation_bound_launcher_handoff_checked_at_recorded_observation")
+
+
+
+def test_chat_recovery_history_retains_loaded_code_scope_posture(tmp_path: Path) -> None:
+    transition = {
+        "request_id": "recovery-request-1",
+        "attempt_phase_digest": "a" * 64,
+        "phase_evidence_posture":
+            "canonical_installation_custody_and_digest_chain_checked_not_independently_signed",
+        "predecessor_chat_process_handoff": {
+            "handoff_id": "predecessor-handoff",
+            "handoff_digest": "b" * 64,
+            "software_generation_digest": "sha256:" + "c" * 64,
+            "source_generation_scope": "sentientos_and_scripts_python_sources",
+        },
+        "successor_chat_process_handoff": {
+            "handoff_id": "successor-handoff",
+            "handoff_digest": "d" * 64,
+            "software_generation_digest": "sha256:" + "e" * 64,
+            "source_generation_scope": "sentientos_and_scripts_python_sources",
+        },
+    }
+    source = record(source="runtime:recovery", extra={
+        "chat_process_recovery_transition": transition,
+        "loaded_code_identity_posture": "not_independently_attested",
+        "process_identity_scope":
+            "installation_bound_handoff_and_digest_chained_recovery_receipts",
+        "source_generation_evidence_scope":
+            "source_bundle_handoff_identity_not_loaded_code_attestation",
+    })
+    source["source_kind"] = "runtime_supervisor"
+    source["subject_kind"] = "chat_process_recovery_transition"
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(source), tick_id="tick-chat-recovery")
+    lineage = next(claim for claim in result.claims
+        if claim.predicate == "chat_process_recovery.historical_phase_lineage")
+    assert lineage.value["loaded_code_identity_posture"] == "not_independently_attested"
+    assert lineage.value["process_identity_scope"] == (
+        "installation_bound_handoff_and_digest_chained_recovery_receipts")
+    assert lineage.value["predecessor_chat_process_handoff"]["source_generation_scope"] == (
+        "sentientos_and_scripts_python_sources")

@@ -875,6 +875,11 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             "provisioning_id": selected_source_identity.get("provisioning_id"),
             "manifest_digest": selected_source_identity.get("manifest_digest"),
             "chat_process_recovery_transition": dict(transition),
+            "loaded_code_identity_posture": "not_independently_attested",
+            "process_identity_scope":
+                "installation_bound_handoff_and_digest_chained_recovery_receipts",
+            "source_generation_evidence_scope":
+                "source_bundle_handoff_identity_not_loaded_code_attestation",
             "phase_event_times": {
                 "attempt_started_at": transition.get("attempt_started_at"),
                 "readiness_observed_at": transition.get("readiness_observed_at"),

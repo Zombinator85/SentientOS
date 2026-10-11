@@ -570,6 +570,10 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "terminal_status": transition.get("terminal_status"),
                 "decision_posture": transition.get("decision_posture"),
                 "runtime_currentness": transition.get("runtime_currentness"),
+                "loaded_code_identity_posture": fact.payload.get("loaded_code_identity_posture"),
+                "process_identity_scope": fact.payload.get("process_identity_scope"),
+                "source_generation_evidence_scope": fact.payload.get(
+                    "source_generation_evidence_scope"),
                 "historical_only": True, "current_truth": False,
                 "effect_proven": False, "authority": False,
             }

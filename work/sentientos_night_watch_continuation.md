@@ -2209,3 +2209,12 @@ The resource-to-World-State projection now carries the authenticated chat handof
 Added authored unexecuted selector cases for qualified and incomplete source-scope lineage. Changed Python sources and test compile only; no test, resource invocation, process, or production verification ran.
 
 Next inspect whether source-scope qualifications survive the model-replacement and recovery transition projections into durable history; preserve their existing event time and non-currentness semantics.
+
+
+## 2026-10-11 checkpoint — preserve source-scope limits through chat recovery lineage
+
+Recovery-transition World-State records now explicitly label their process identity as installation-bound handoffs plus digest-chained recovery receipts, identify source generation as a source-bundle handoff, and mark loaded code as not independently attested. Resident cognition only prioritizes that recovery evidence when these scope labels are present; longitudinal recovery lineage now carries them with the original phase and predecessor/successor handoff evidence. Existing event-time, historical-only, effect, and inference semantics remain unchanged.
+
+Authored unexecuted selector and history-retention cases cover the qualified recovery path. Changed Python sources and tests compile only; no behavior or production verification ran.
+
+Next inspect succession source records for any projection that still presents a source-bundle digest as an independently observed loaded runtime generation.

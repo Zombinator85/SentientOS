@@ -31,3 +31,31 @@ def test_chat_process_generation_priority_requires_scope_qualification() -> None
     incomplete.pop("loaded_code_identity_posture")
     assert ResidentDevelopmentalCognitionOwner._fact_selection_key(
         _fact(incomplete), "resource_governor")[0] == 6
+
+
+def test_chat_recovery_priority_requires_loaded_code_scope_qualification() -> None:
+    transition = {
+        "phase_evidence_posture":
+            "canonical_installation_custody_and_digest_chain_checked_not_independently_signed",
+        "effect_authority": False,
+        "inference_performed": False,
+    }
+    payload = {
+        "chat_process_recovery_transition": transition,
+        "loaded_code_identity_posture": "not_independently_attested",
+        "process_identity_scope":
+            "installation_bound_handoff_and_digest_chained_recovery_receipts",
+        "source_generation_evidence_scope":
+            "source_bundle_handoff_identity_not_loaded_code_attestation",
+    }
+    fact = SimpleNamespace(
+        subject=SimpleNamespace(subject_kind="chat_process_recovery_transition"),
+        disposition="recorded", payload=payload,
+        source=SimpleNamespace(source_id="chat-recovery"),
+        fact_id="fact-2")
+    owner = ResidentDevelopmentalCognitionOwner
+    assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 4
+    incomplete = dict(payload)
+    incomplete.pop("loaded_code_identity_posture")
+    fact.payload = incomplete
+    assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 6

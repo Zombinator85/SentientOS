@@ -756,6 +756,11 @@ class ResidentDevelopmentalCognitionOwner:
                 == "canonical_installation_custody_and_digest_chain_checked_not_independently_signed"
             and payload["chat_process_recovery_transition"].get("effect_authority") is False
             and payload["chat_process_recovery_transition"].get("inference_performed") is False
+            and payload.get("loaded_code_identity_posture") == "not_independently_attested"
+            and payload.get("process_identity_scope")
+                == "installation_bound_handoff_and_digest_chained_recovery_receipts"
+            and payload.get("source_generation_evidence_scope")
+                == "source_bundle_handoff_identity_not_loaded_code_attestation"
         )
         chat_process_runtime_observation = (
             source_kind == "runtime_supervisor"
