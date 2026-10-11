@@ -606,18 +606,17 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
     if resource_context_owner is not None and resource_provisioning_id is not None:
         raise ValueError("resource_owner_and_provisioning_id_mutually_exclusive")
     identity = InstallationIdentity.parse(installation_identity)
-    if runtime_handoff_id is not None:
-        try:
-            handle, _runtime_handoff = open_chat_process_handoff(
-                installation_identity=identity.value, handoff_id=runtime_handoff_id)
-            configured_operation = _runtime_handoff.get("configured_serving_operation_id")
-            if (configured_operation is not None
-                    and configured_operation != serving_operation_id):
-                raise RuntimeError("chat_process_serving_operation_handoff_mismatch")
-        except Exception as exc:
-            raise RuntimeError("chat_process_generation_handoff_invalid") from exc
-    else:
-        handle = InstallationStateRegistry.system().open(identity)
+    if runtime_handoff_id is None:
+        raise RuntimeError("chat_process_generation_handoff_required")
+    try:
+        handle, _runtime_handoff = open_chat_process_handoff(
+            installation_identity=identity.value, handoff_id=runtime_handoff_id)
+        configured_operation = _runtime_handoff.get("configured_serving_operation_id")
+        if (configured_operation is not None
+                and configured_operation != serving_operation_id):
+            raise RuntimeError("chat_process_serving_operation_handoff_mismatch")
+    except Exception as exc:
+        raise RuntimeError("chat_process_generation_handoff_invalid") from exc
     if resource_provisioning_id is not None:
         from .production_chat_resource_provisioning import load_production_chat_resource_context_owner
         resource_context_owner = load_production_chat_resource_context_owner(handle, resource_provisioning_id)
@@ -911,26 +910,21 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--serving-operation-id", required=True)
     parser.add_argument("--expected-activation-state-digest")
     parser.add_argument("--resource-provisioning-id")
-    parser.add_argument("--runtime-handoff-id")
-    parser.add_argument("--expected-software-generation-digest")
+    parser.add_argument("--runtime-handoff-id", required=True)
+    parser.add_argument("--expected-software-generation-digest", required=True)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5000)
     args = parser.parse_args(argv)
-    if args.runtime_handoff_id is None:
-        configure_production_chat(installation_identity=args.installation_identity,
-            serving_operation_id=args.serving_operation_id,
-            expected_activation_state_digest=args.expected_activation_state_digest,
-            resource_provisioning_id=args.resource_provisioning_id)
-        run(host=args.host, port=args.port)
-        return
 
     # Supervised children share one installation-scoped lifetime lock. This prevents
     # a replacement daemon from treating a second child as a successor while an
     # orphaned predecessor may still be serving.
     try:
-        handle, _handoff = open_chat_process_handoff(
+        handle, handoff = open_chat_process_handoff(
             installation_identity=args.installation_identity,
             handoff_id=args.runtime_handoff_id)
+        if handoff.get("software_generation_digest") != args.expected_software_generation_digest:
+            raise RuntimeError("chat_process_generation_expectation_mismatch")
         handoff_directory = handle.fixed_object("local-model/chat/runtime-handoffs")
         handle.ensure_directory(handoff_directory)
         process_lock = handle.fixed_object(

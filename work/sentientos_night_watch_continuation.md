@@ -1503,3 +1503,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py` and `memory_manager.py`. Source composition was inspected only; no runtime or production verification was performed.
 - **Next implementation dependency:** decide whether the documented POSIX-only legacy memory mutation boundary warrants a safe Windows publisher under an existing owner. The current Windows installation-state API is explicitly read-only; no atomic Windows user-memory publication owner exists. Keep writes blocked until such a contract is implemented. Continue with another existing, independently implementable lifecycle dependency rather than deriving permission from the platform gap.
 
+
+
+## New checkpoint — require supervised chat-process generation for production calls
+
+- Fresh remote source before this increment: `fa9a6f1758f74eeb8fc4b076e8b1103b984a81c3` (tree `c5defd5dd0bcfb237b1408f71658ce73c68bf29e`).
+- The canonical runtime launcher already published a child PID/parent/argv/environment/source-bound handoff and passed its exact source-generation digest. However, `chat_service.configure_production_chat()` and the CLI still permitted a direct production launch without that handoff; the inference owner represented software generation as unavailable but still allowed new calls.
+- Production chat configuration now requires the authenticated process handoff. The CLI requires both handoff ID and expected software-generation digest, verifies that digest equals the handoff, then runs only under the existing installation-scoped process lock. Development simulation remains separately configured. Historical records remain interpretable with their prior unavailable lineage.
+- Python compilation passed for `chat_service.py`. No chat process, provider, model, or production service was started; no behavior verification was performed.
+- **Next implementation dependency:** inspect restart/recovery boundaries for supervised chat startup when handoff publication succeeds but child readiness or serving establishment fails. Preserve the incomplete launch as evidence and avoid silently reusing a stale handoff; then continue to the next causal continuity owner.
+
