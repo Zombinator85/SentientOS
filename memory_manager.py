@@ -2,6 +2,7 @@
 from __future__ import annotations
 import collections
 import datetime
+import errno
 import hashlib
 import json
 import logging
@@ -1991,6 +1992,13 @@ def _prune_legacy_summary_files(
                         prune(child_fd, f"{prefix}{name}/", depth + 1)
                     finally:
                         os.close(child_fd)
+                    try:
+                        os.rmdir(name, dir_fd=current_fd)
+                    except OSError as exc:
+                        if exc.errno not in {errno.ENOTEMPTY, errno.EEXIST}:
+                            raise
+                    else:
+                        os.fsync(current_fd)
                     continue
                 relative_name = prefix + name
                 if not name.endswith(suffix) or relative_name in keep_names:
@@ -2595,4 +2603,5 @@ def get_goals(*, open_only: bool = False) -> list[dict]:
         )
     )
     return goals
+
 

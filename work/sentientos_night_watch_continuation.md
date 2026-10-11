@@ -1887,3 +1887,8 @@ Retry-stable retention request identity is now defined by the canonical user-mem
 ## 2026-10-11 checkpoint — reconcile staged retention before recording failure
 
 The chat owner now asks its existing no-replay recovery path to reconcile a retention artifact when the writer or transcript-receipt update raises. An exact, verified committed or staged artifact transitions the requested turn to retained, with staged publication reported distinctly; unavailable, conflicting, or otherwise unverified custody remains a terminal failure with the bounded recovery posture recorded. This closes the caught-exception path as well as abrupt-restart recovery without rerunning inference, weakening admission, or treating a proposal as stored memory. Python compilation passed; no request or storage operation was executed. Next dependency: inspect same-operation concurrent retry and session-lock coverage, then continue the independent root lifecycle review.
+
+
+## 2026-10-11 checkpoint — remove only empty legacy summary directories
+
+Descriptor-relative summary pruning now also removes a nested directory after its validated descendants have been reconciled, but only when the directory is empty. Nonempty directories that hold unrecognized files remain untouched; symlink, ownership, permission, depth, and entry checks still fail closed. This removes empty path-label remnants from the earlier legacy summary layout. Python compilation passed; no filesystem was accessed. Next dependency: continue bounded review of process-local memory-root identity limits and the remaining explicit-retention recovery states.
