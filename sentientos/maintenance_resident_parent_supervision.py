@@ -154,6 +154,11 @@ class MaintenanceResidentParentSupervisor:
         descriptor: int | None = None
         try:
             root_fd = open_private_directory(self.root, create=True)
+            root_metadata = os.fstat(root_fd)
+            if (not stat.S_ISDIR(root_metadata.st_mode)
+                    or root_metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(root_metadata.st_mode) & 0o077):
+                raise ValueError("parent_supervision_state_root_not_private")
             nofollow = getattr(os, "O_NOFOLLOW", None)
             if nofollow is None:
                 raise OSError("parent_supervision_safe_lock_unavailable")

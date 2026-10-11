@@ -69,6 +69,18 @@ def _simulate_parent_process_exit(controller: MaintenanceResidentParentSuperviso
         controller._owner_root_fd = None
 
 
+def test_parent_state_root_must_remain_owner_private(tmp_path: Path) -> None:
+    if os.name != "posix":
+        pytest.skip("POSIX directory mode contract")
+    cfg, _, _, _ = _fixture(tmp_path)
+    root = tmp_path / "parent"
+    root.mkdir(mode=0o755)
+    root.chmod(0o755)
+    with pytest.raises(ValueError, match="parent_supervision_state_root_not_private"):
+        MaintenanceResidentParentSupervisor(cfg, state_root=root, adapter_factory=Factory())
+    assert not (root / "parent-receipts.jsonl").exists()
+
+
 def test_parent_custody_io_stays_bound_to_the_locked_directory(tmp_path: Path) -> None:
     if os.name != "posix":
         pytest.skip("held directory descriptors require POSIX custody")

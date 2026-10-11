@@ -2794,3 +2794,7 @@ A later source correction was also composed from stale note text and displaced t
 - A POSIX path-replacement acceptance case was authored, and its restart helper now closes the held root descriptor as well as the flock. Changed parent source and tests passed Python syntax compilation only. No test or child process operation ran.
 - The active owner's root is now pinned; independent physical identity of that root across a fresh process remains unproven because no external root-identity issuer exists. Next review canonical user-memory writes for concrete path-based mutation gaps while preserving its separation from installation transcripts and developmental-history storage.
 
+## 2026-10-11 correction — retain the private-root mode boundary
+
+Review after the root-descriptor refactor caught that the shared directory opener rejects group/world write bits but allows read-only group/world access. The parent supervisor's prior contract required the complete root mode to be owner-only. The constructor now explicitly checks st_uid and all group/other permission bits on the held descriptor before opening its lifetime lock. Added an authored, unexecuted POSIX rejection case. Parent source and test were syntax-compiled again; no behavior ran.
+
