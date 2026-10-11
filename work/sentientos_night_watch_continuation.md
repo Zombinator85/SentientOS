@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `9c77f8b90bb1de67b099b640963f040a06cecd9f` (tree `b68362aca5e4295eae05a624151594f63453fe86`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `e13f54ff54a2769965c93357916db1430a39ba3f` (tree `eff0d9eb0e96dd708fa6dc260f3ab0d00813d400`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1092,3 +1092,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - No state schema, lifecycle authority, retry policy, or Windows write capability changed. This connects the supervisor's durable recovery path to the repository's existing safe read contract; concurrent multi-process supervisor ownership still has no shared transaction lock and is not established by this increment.
 - Python compilation of the changed supervisor module passed. No tests, fault-injection, filesystem race, Windows execution, process launch, or runtime behavior were exercised. Construction remains unverified.
 - Next inspect durable lifecycle transaction serialization and other independently implementable recovery gaps; keep any concurrency claim bounded to source evidence.
+
+
+## New checkpoint — serialize POSIX supervisor journal and snapshot publication
+
+- The prior remotely verified checkpoint was e13f54ff54a2769965c93357916db1430a39ba3f (tree eff0d9eb0e96dd708fa6dc260f3ab0d00813d400).
+- The safe-read increment left supervisor state and lifecycle-journal publication using path-based writes. POSIX construction now holds the configured state directory by descriptor, requires a same-owner non-group/world-writable root, performs bounded no-follow descriptor reads, and verifies regular single-link same-owner file identity and stable metadata.
+- State snapshots publish through an exclusive descriptor-relative temporary file and replace within that held directory; the directory is fsynced. Journal append opens the exact child relative to the held directory with no-follow, validates custody, takes the existing POSIX flock mechanism, replays the complete canonical journal, and rejects a stale sequence or superseded supervisor generation. It keeps the journal lock through durable append and snapshot publication, then fsyncs both file and directory. Concurrent stale owners therefore fail closed before service lifecycle publication.
+- Non-POSIX/Windows publication behavior is unchanged; no Windows write authority was added. Existing bounded schemas and recovery reconciliation remain unchanged.
+- Python compilation of `sentientos/runtime/supervisor.py` passed. No tests, process-concurrency/fault injection, filesystem race, Windows execution, service launch, or runtime behavior was exercised. This remains construction, unverified for production.
+- Next trace supervisor generation rejection against interrupted lifecycle recovery and the separately operating chat child; process overlap remains unknown unless an existing independent owner can establish it.

@@ -9,6 +9,7 @@ import hashlib
 import json
 import math
 import os
+import stat
 import tempfile
 import threading
 import time
@@ -20,6 +21,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Callable, Mapping
 
+from ..platform_fcntl import FLOCK_SUPPORTED, fcntl as platform_fcntl
 from ..windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 from .services import HealthResult, ServiceAdapter
 
@@ -107,6 +109,22 @@ class RuntimeSupervisor:
                  clock: Callable[[], float] = time.time, sleeper: Callable[[float], None] = time.sleep) -> None:
         registry.freeze(); self.registry = registry; self.root = (state_root or runtime_state_root()).resolve()
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self._root_fd: int | None = None
+        if os.name == "posix":
+            if not FLOCK_SUPPORTED:
+                raise OSError("runtime_supervisor_interprocess_lock_unavailable")
+            directory_flag = getattr(os, "O_DIRECTORY", None)
+            nofollow_flag = getattr(os, "O_NOFOLLOW", None)
+            if directory_flag is None or nofollow_flag is None:
+                raise OSError("runtime_supervisor_directory_custody_unavailable")
+            root_fd = os.open(self.root, os.O_RDONLY | directory_flag | nofollow_flag)
+            root_metadata = os.fstat(root_fd)
+            if (not stat.S_ISDIR(root_metadata.st_mode)
+                    or root_metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(root_metadata.st_mode) & 0o022):
+                os.close(root_fd)
+                raise OSError("runtime_supervisor_state_root_owner_invalid")
+            self._root_fd = root_fd
         self._state_path, self._receipt_path = self.root / "supervisor-state.json", self.root / "lifecycle-receipts.jsonl"
         self._clock, self._sleep, self._lock = clock, sleeper, threading.RLock()
         self._sequence = 0; self.generation = uuid.uuid4().hex; self.panic_latched = False
@@ -125,20 +143,54 @@ class RuntimeSupervisor:
                         for key, descriptor in self.registry.descriptors.items()}
         self._latest = {key: reason for key in self._states}
 
-    @staticmethod
-    def _read_custodied_file(path: Path, *, max_bytes: int) -> bytes | None:
+    def _read_custodied_file(self, path: Path, *, max_bytes: int) -> bytes | None:
+        if self._root_fd is None:
+            try:
+                return read_explicit_file(path, max_bytes=max_bytes)
+            except WindowsHandleCustodyError as exc:
+                if exc.args == ("explicit_file_missing",):
+                    return None
+                raise ValueError("runtime_supervisor_custody_file_unavailable") from exc
+        descriptor: int | None = None
         try:
-            return read_explicit_file(path, max_bytes=max_bytes)
-        except WindowsHandleCustodyError as exc:
-            if exc.args == ("explicit_file_missing",):
-                return None
-            raise ValueError("runtime_supervisor_custody_file_unavailable") from exc
+            flags = (os.O_RDONLY | getattr(os, "O_NOFOLLOW")
+                | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+            descriptor = os.open(path.name, flags, dir_fd=self._root_fd)
+            before = os.fstat(descriptor)
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                    or before.st_uid != os.geteuid()
+                    or stat.S_IMODE(before.st_mode) & 0o022
+                    or before.st_size > max_bytes):
+                raise ValueError("runtime_supervisor_custody_file_invalid")
+            chunks: list[bytes] = []
+            remaining = max_bytes + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+            after = os.fstat(descriptor)
+            if (len(raw) > max_bytes or len(raw) != before.st_size
+                    or after.st_size != before.st_size
+                    or after.st_mtime_ns != before.st_mtime_ns
+                    or after.st_ctime_ns != before.st_ctime_ns
+                    or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+                raise ValueError("runtime_supervisor_custody_file_changed")
+            return raw
+        except FileNotFoundError:
+            return None
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
 
     def _read_lifecycle_receipts(self) -> list[dict[str, object]]:
         raw = self._read_custodied_file(
             self._receipt_path, max_bytes=MAX_LIFECYCLE_JOURNAL_BYTES)
-        if raw is None:
-            return []
+        return [] if raw is None else self._parse_lifecycle_receipts(raw)
+
+    def _parse_lifecycle_receipts(self, raw: bytes) -> list[dict[str, object]]:
         if len(raw) > MAX_LIFECYCLE_JOURNAL_BYTES:
             raise ValueError("lifecycle_receipt_journal_size_bound_exceeded")
         if raw and not raw.endswith(b"\n"):
@@ -359,18 +411,51 @@ class RuntimeSupervisor:
         encoded = (json.dumps(payload, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
         if len(encoded) > MAX_LIFECYCLE_STATE_BYTES:
             raise ValueError("runtime_supervisor_state_size_bound_exceeded")
-        fd, tmp = tempfile.mkstemp(prefix=".supervisor-", dir=self.root)
+        if self._root_fd is None:
+            fd, tmp = tempfile.mkstemp(prefix=".supervisor-", dir=self.root)
+            try:
+                with os.fdopen(fd, "wb") as stream:
+                    written = stream.write(encoded)
+                    if written != len(encoded):
+                        raise OSError("short_runtime_supervisor_state_write")
+                    stream.flush(); os.fsync(stream.fileno())
+                os.replace(tmp, self._state_path)
+                directory = os.open(self.root, os.O_RDONLY)
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
+            finally:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+            return
+        temporary_name = f".supervisor-{uuid.uuid4().hex}.tmp"
+        descriptor: int | None = None
         try:
-            with os.fdopen(fd, "wb") as stream:
-                written = stream.write(encoded)
-                if written != len(encoded):
+            flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                | getattr(os, "O_NOFOLLOW") | getattr(os, "O_CLOEXEC", 0))
+            descriptor = os.open(temporary_name, flags, 0o600, dir_fd=self._root_fd)
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                    or metadata.st_uid != os.geteuid()):
+                raise OSError("runtime_supervisor_temp_custody_invalid")
+            view = memoryview(encoded)
+            while view:
+                written = os.write(descriptor, view)
+                if written <= 0:
                     raise OSError("short_runtime_supervisor_state_write")
-                stream.flush(); os.fsync(stream.fileno())
-            os.replace(tmp, self._state_path)
-            directory = os.open(self.root, os.O_RDONLY); os.fsync(directory); os.close(directory)
+                view = view[written:]
+            os.fsync(descriptor)
+            os.replace(temporary_name, self._state_path.name,
+                src_dir_fd=self._root_fd, dst_dir_fd=self._root_fd)
+            os.fsync(self._root_fd)
         finally:
-            if os.path.exists(tmp): os.unlink(tmp)
-
+            if descriptor is not None:
+                os.close(descriptor)
+            try:
+                os.unlink(temporary_name, dir_fd=self._root_fd)
+            except FileNotFoundError:
+                pass
     def _persist(self) -> None:
         self._atomic({"schema": "sentientos.runtime_supervisor_state:v1", "registry_digest": self.registry.digest(),
             "generation": self.generation, "sequence": self._sequence, "panic_latched": self.panic_latched,
@@ -389,28 +474,83 @@ class RuntimeSupervisor:
         encoded = (json.dumps(row, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
         if len(encoded) > MAX_LIFECYCLE_RECEIPT_BYTES:
             raise ValueError("lifecycle_receipt_row_size_bound_exceeded")
-        try:
-            current_size = self._receipt_path.stat().st_size if self._receipt_path.exists() else 0
-            if current_size + len(encoded) > MAX_LIFECYCLE_JOURNAL_BYTES:
-                raise ValueError("lifecycle_receipt_journal_size_bound_exceeded")
-            self._receipt_path.parent.mkdir(parents=True, exist_ok=True)
-            with self._receipt_path.open("ab") as stream:
-                written = stream.write(encoded)
-                if written != len(encoded):
-                    raise OSError("short_lifecycle_receipt_write")
-                stream.flush()
-                os.fsync(stream.fileno())
-        except Exception:
-            self._journal_write_failed = True
-            self.panic_latched = True
-            self._states = {key: "panic_stopped" if descriptor.enabled else "disabled"
-                            for key, descriptor in self.registry.descriptors.items()}
-            raise
-        # The append is now durable. Keep its sequence even if the following
-        # state snapshot replacement fails; recovery reconciles from the log.
-        self._sequence = sequence
-        self._persist()
-
+        if self._root_fd is None:
+            try:
+                current_size = self._receipt_path.stat().st_size if self._receipt_path.exists() else 0
+                if current_size + len(encoded) > MAX_LIFECYCLE_JOURNAL_BYTES:
+                    raise ValueError("lifecycle_receipt_journal_size_bound_exceeded")
+                self._receipt_path.parent.mkdir(parents=True, exist_ok=True)
+                with self._receipt_path.open("ab") as stream:
+                    written = stream.write(encoded)
+                    if written != len(encoded):
+                        raise OSError("short_lifecycle_receipt_write")
+                    stream.flush(); os.fsync(stream.fileno())
+            except Exception:
+                self._journal_write_failed = True
+                self.panic_latched = True
+                self._states = {key: "panic_stopped" if descriptor.enabled else "disabled"
+                    for key, descriptor in self.registry.descriptors.items()}
+                raise
+        else:
+            descriptor: int | None = None
+            locked = False
+            try:
+                flags = (os.O_RDWR | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW")
+                    | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+                descriptor = os.open(self._receipt_path.name, flags, 0o600, dir_fd=self._root_fd)
+                metadata = os.fstat(descriptor)
+                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                        or metadata.st_uid != os.geteuid()):
+                    raise OSError("lifecycle_receipt_custody_invalid")
+                os.fchmod(descriptor, 0o600)
+                platform_fcntl.flock(descriptor, platform_fcntl.LOCK_EX)
+                locked = True
+                raw = bytearray()
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                while len(raw) <= MAX_LIFECYCLE_JOURNAL_BYTES:
+                    chunk = os.read(descriptor, min(65_536, MAX_LIFECYCLE_JOURNAL_BYTES + 1 - len(raw)))
+                    if not chunk:
+                        break
+                    raw.extend(chunk)
+                rows = self._parse_lifecycle_receipts(bytes(raw))
+                if len(rows) != self._sequence:
+                    raise OSError("lifecycle_owner_sequence_changed")
+                if event == "registry_snapshot":
+                    if any(item.get("generation") == self.generation for item in rows):
+                        raise OSError("lifecycle_owner_generation_reused")
+                elif rows and rows[-1].get("generation") != self.generation:
+                    raise OSError("lifecycle_owner_generation_superseded")
+                metadata = os.fstat(descriptor)
+                if metadata.st_size + len(encoded) > MAX_LIFECYCLE_JOURNAL_BYTES:
+                    raise ValueError("lifecycle_receipt_journal_size_bound_exceeded")
+                view = memoryview(encoded)
+                while view:
+                    written = os.write(descriptor, view)
+                    if written <= 0:
+                        raise OSError("short_lifecycle_receipt_write")
+                    view = view[written:]
+                os.fsync(descriptor)
+                os.fsync(self._root_fd)
+                # Keep the interprocess journal lock through snapshot publication
+                # so a concurrent supervisor cannot publish stale recovered state.
+                self._sequence = sequence
+                self._persist()
+            except Exception:
+                self._journal_write_failed = True
+                self.panic_latched = True
+                self._states = {key: "panic_stopped" if descriptor.enabled else "disabled"
+                    for key, descriptor in self.registry.descriptors.items()}
+                raise
+            finally:
+                if descriptor is not None:
+                    if locked:
+                        platform_fcntl.flock(descriptor, platform_fcntl.LOCK_UN)
+                    os.close(descriptor)
+        if self._root_fd is None:
+            # Preserve the established non-POSIX publication behavior. POSIX
+            # keeps this same state write inside the journal lock above.
+            self._sequence = sequence
+            self._persist()
     def _call(self, fn: Callable[[], object], timeout: float) -> object:
         pool = ThreadPoolExecutor(max_workers=1)
         future = pool.submit(fn)
