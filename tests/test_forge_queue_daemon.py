@@ -3,9 +3,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_pr_notes import build_pr_notes
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
+
+
+@pytest.fixture(autouse=True)
+def _forge_events_are_local(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sentientos.event_stream.FORGE_EVENTS_PATH",
+        tmp_path / "pulse" / "forge_events.jsonl")
 
 
 class _FakeReport:
@@ -16,6 +24,11 @@ class _FakeReport:
         self.docket_path: str | None = None
         self.git_sha = "abc123"
         self.failure_reasons: list[str] = []
+        self.publish_remote: dict[str, object] = {}
+        self.transaction_status = "completed"
+        self.regression_reasons: list[str] = []
+        self.provenance_run_id: str | None = None
+        self.provenance_path: str | None = None
         self.goal_id = "adhoc"
 
 
@@ -24,7 +37,7 @@ class _FakeForge:
         self.repo_root = repo_root
         self.runs: list[str] = []
 
-    def run(self, goal: str) -> _FakeReport:
+    def run(self, goal: str, **_kwargs: object) -> _FakeReport:
         self.runs.append(goal)
         return _FakeReport()
 
@@ -73,7 +86,7 @@ def test_daemon_lock_prevents_concurrent_run(tmp_path: Path, monkeypatch) -> Non
 
 def test_daemon_writes_receipt_with_report_path(tmp_path: Path, monkeypatch) -> None:
     queue = ForgeQueue(pulse_root=tmp_path / "pulse")
-    queue.enqueue(ForgeRequest(request_id="req-1", goal="goal"))
+    queue.enqueue(ForgeRequest(request_id="req-1", goal="forge_smoke_noop", goal_id="forge_smoke_noop"))
     forge = _FakeForge(tmp_path)
     daemon = ForgeDaemon(queue=queue, forge=forge, repo_root=tmp_path)
     monkeypatch.setenv("SENTIENTOS_FORGE_DAEMON_ENABLED", "1")

@@ -87,7 +87,7 @@ class ForgeQueue:
         requests = self._load_requests()
         if not requests:
             return None
-        consumed_ids = {receipt.request_id for receipt in self._load_receipts() if receipt.status in {"started", "success", "failed", "skipped_budget", "rejected_policy"}}
+        consumed_ids = {receipt.request_id for receipt in self._load_receipts() if receipt.status in {"started", "success", "failed", "skipped_budget", "rejected_policy", "rejected_quarantine_custody"}}
         pending = [request for request in requests if request.request_id not in consumed_ids]
         if not pending:
             return None
@@ -158,7 +158,7 @@ class ForgeQueue:
 
     def pending_requests(self) -> list[ForgeRequest]:
         requests = self._load_requests()
-        consumed_ids = {receipt.request_id for receipt in self._load_receipts() if receipt.status in {"started", "success", "failed", "skipped_budget", "rejected_policy"}}
+        consumed_ids = {receipt.request_id for receipt in self._load_receipts() if receipt.status in {"started", "success", "failed", "skipped_budget", "rejected_policy", "rejected_quarantine_custody"}}
         pending = [request for request in requests if request.request_id not in consumed_ids]
         return sorted(pending, key=lambda req: (req.priority, req.requested_at, req.request_id))
 

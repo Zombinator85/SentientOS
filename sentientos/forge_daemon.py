@@ -25,7 +25,10 @@ from sentientos.event_stream import record as record_event, record_forge_event
 from sentientos.forge_index import update_index_incremental
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 from sentientos.integrity_pressure import compute_integrity_pressure, update_pressure_state
-from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.integrity_quarantine import (
+    QuarantineStateError,
+    load_state as load_quarantine_state,
+)
 from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.risk_budget import compute_risk_budget
@@ -58,7 +61,9 @@ class ForgeDaemon:
         forge: CathedralForge | None = None,
         repo_root: Path | None = None,
     ) -> None:
-        self.repo_root = (repo_root or Path.cwd()).resolve()
+        supplied_root = repo_root or Path.cwd()
+        self.repo_root_custody = Path(os.path.abspath(os.fspath(supplied_root)))
+        self.repo_root = self.repo_root_custody.resolve()
         self.queue = queue or ForgeQueue()
         self.forge = forge or CathedralForge(repo_root=self.repo_root)
         self.lock_path = self.repo_root / ".forge" / "forge.lock"
@@ -79,7 +84,31 @@ class ForgeDaemon:
         if request is None:
             return
 
-        quarantine = load_quarantine_state(self.repo_root)
+        try:
+            quarantine = load_quarantine_state(self.repo_root_custody)
+        except QuarantineStateError as exc:
+            # Quarantine custody is a pre-effector gate. Record a terminal
+            # non-execution receipt and return before any Forge work begins.
+            self.queue.mark_finished(
+                request.request_id,
+                status="rejected_quarantine_custody",
+                report_path=None,
+                error=exc.code,
+            )
+            record_forge_event({
+                "event": "forge_daemon",
+                "status": "rejected_quarantine_custody",
+                "request_id": request.request_id,
+                "goal_id": request.goal_id,
+                "error": exc.code,
+                "message": "rejected_quarantine_custody",
+                "level": "error",
+            })
+            self._emit(
+                f"ForgeDaemon rejected request {request.request_id}: invalid quarantine custody",
+                level="error",
+            )
+            return
         pressure_snapshot = compute_integrity_pressure(self.repo_root)
         pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
         throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)

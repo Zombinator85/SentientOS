@@ -12,7 +12,12 @@ from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.doctrine_identity import verify_doctrine_identity
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.integrity_pressure import compute_integrity_pressure
-from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.integrity_quarantine import (
+    QUARANTINE_PATH,
+    QuarantineState,
+    QuarantineStateError,
+    load_state_with_status as load_quarantine_state,
+)
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
@@ -47,7 +52,8 @@ class IntegrityStatus:
     strategic_posture: str
     operating_mode: str
     pressure_summary: dict[str, object]
-    quarantine_active: bool
+    quarantine_active: bool | None
+    quarantine_custody_status: str
     risk_budget_summary: dict[str, object]
     mutation_allowed: bool
     publish_allowed: bool
@@ -68,6 +74,7 @@ class IntegrityStatus:
             "operating_mode": self.operating_mode,
             "pressure_summary": self.pressure_summary,
             "quarantine_active": self.quarantine_active,
+            "quarantine_custody_status": self.quarantine_custody_status,
             "risk_budget_summary": self.risk_budget_summary,
             "mutation_allowed": self.mutation_allowed,
             "publish_allowed": self.publish_allowed,
@@ -117,8 +124,30 @@ class IntegrityBudget:
 def evaluate_integrity(repo_root: Path, *, policy_hash: str, replay_mode: bool = False) -> IntegrityStatus:
     _ = replay_mode
     root = repo_root.resolve()
+    quarantine_root = Path(os.path.abspath(os.fspath(repo_root)))
     checked_at = iso_now()
-    quarantine = load_quarantine_state(root)
+    try:
+        quarantine_load = load_quarantine_state(quarantine_root)
+        quarantine = quarantine_load.state
+        quarantine_active: bool | None = quarantine.active
+        quarantine_custody_status = quarantine_load.custody_status.value
+        quarantine_gate = IntegrityGateResult(
+            "quarantine_custody", "ok", quarantine_custody_status,
+            [QUARANTINE_PATH.as_posix()], checked_at,
+        )
+    except QuarantineStateError as exc:
+        # Unknown protective state is treated as active for all internal policy
+        # calculations, while the public diagnostic remains explicitly unknown.
+        quarantine = QuarantineState(
+            active=True, freeze_forge=True, allow_automerge=False,
+            allow_publish=False, allow_federation_sync=False, notes=[],
+        )
+        quarantine_active = None
+        quarantine_custody_status = "invalid:" + exc.code
+        quarantine_gate = IntegrityGateResult(
+            "quarantine_custody", "fail", "quarantine_custody_invalid:" + exc.code,
+            [QUARANTINE_PATH.as_posix()], checked_at,
+        )
     pressure = compute_integrity_pressure(root)
     posture = resolve_posture()
     throughput = derive_throughput_policy(integrity_pressure_level=pressure.level, quarantine=quarantine)
@@ -127,11 +156,11 @@ def evaluate_integrity(repo_root: Path, *, policy_hash: str, replay_mode: bool =
         posture=posture.posture,
         pressure_level=pressure.level,
         operating_mode=throughput.mode,
-        quarantine_active=quarantine.active,
+        quarantine_active=True if quarantine_active is None else quarantine_active,
     )
     integrity_budget = IntegrityBudget.from_env()
 
-    gates: list[IntegrityGateResult] = []
+    gates: list[IntegrityGateResult] = [quarantine_gate]
     gates.append(_gate_doctrine(root, checked_at))
     gates.append(_gate_receipt_chain(root, checked_at))
     gates.append(_gate_receipt_anchor(root, checked_at))
@@ -159,12 +188,13 @@ def evaluate_integrity(repo_root: Path, *, policy_hash: str, replay_mode: bool =
         "witness_attempts_per_window": integrity_budget.max_witness_attempts_per_window,
     }
     return IntegrityStatus(
-        schema_version=1,
+        schema_version=2,
         ts=checked_at,
         strategic_posture=posture.posture,
         operating_mode=throughput.mode,
         pressure_summary={"level": pressure.level, "metrics": pressure.metrics.to_dict()},
-        quarantine_active=quarantine.active,
+        quarantine_active=quarantine_active,
+        quarantine_custody_status=quarantine_custody_status,
         risk_budget_summary=risk_budget_summary(budget),
         mutation_allowed=mutation_allowed,
         publish_allowed=publish_allowed,

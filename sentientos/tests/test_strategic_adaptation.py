@@ -120,7 +120,13 @@ def test_auto_apply_prevented_when_unstable(tmp_path: Path) -> None:
     _seed_goal_graph(tmp_path)
     _seed_pulse(tmp_path)
     (tmp_path / "glow/forge/pressure_state.json").write_text(json.dumps({"schema_version": 1, "level": 3}) + "\n", encoding="utf-8")
-    (tmp_path / "glow/forge/quarantine.json").write_text(json.dumps({"schema_version": 1, "active": True}) + "\n", encoding="utf-8")
+    (tmp_path / "glow/forge/quarantine.json").write_text(json.dumps({
+        "schema_version": 1, "active": True, "activated_at": None,
+        "activated_by": None, "last_incident_id": None,
+        "freeze_forge": True, "allow_automerge": False,
+        "allow_publish": False, "allow_federation_sync": False,
+        "notes": [], "acknowledged_at": None,
+    }) + "\n", encoding="utf-8")
 
     _, rel = create_adjustment_proposal(tmp_path)
     approved, change_id = approve_proposal(

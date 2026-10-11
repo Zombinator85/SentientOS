@@ -43,8 +43,13 @@ def open_private_directory(path: Path, *, create: bool) -> int:
                     raise
                 try:
                     os.mkdir(component, 0o700, dir_fd=descriptor)
+                    # Persist each newly created child entry before relying on
+                    # descendants that may contain protective state.
+                    os.fsync(descriptor)
                 except FileExistsError:
                     pass
+                except OSError as exc:
+                    raise PrivateFileCustodyError("directory_create_unavailable") from exc
                 child = os.open(component, flags, dir_fd=descriptor)
             metadata = os.fstat(child)
             final = index == len(components) - 1
@@ -75,7 +80,8 @@ def open_private_directory(path: Path, *, create: bool) -> int:
 
 
 def read_private_file_at(directory_fd: int, name: str, *, max_bytes: int,
-                         require_private_mode: bool = True) -> bytes:
+                         require_private_mode: bool = True,
+                         require_owner_read: bool = False) -> bytes:
     """Read one stable, bounded, owner-controlled file relative to a held directory."""
     if not name or name in {".", ".."} or "/" in name or "\\" in name:
         raise PrivateFileCustodyError("file_path_invalid")
@@ -88,6 +94,8 @@ def read_private_file_at(directory_fd: int, name: str, *, max_bytes: int,
         if (not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes
                 or before.st_nlink != 1 or before.st_uid != os.geteuid() or invalid_mode):
             raise PrivateFileCustodyError("file_unbounded_or_not_private")
+        if require_owner_read and not before.st_mode & stat.S_IRUSR:
+            raise PrivateFileCustodyError("file_owner_read_permission_missing")
         chunks: list[bytes] = []
         remaining = max_bytes + 1
         while remaining:
@@ -107,6 +115,8 @@ def read_private_file_at(directory_fd: int, name: str, *, max_bytes: int,
         raise
     except FileNotFoundError as exc:
         raise PrivateFileCustodyError("file_missing") from exc
+    except PermissionError as exc:
+        raise PrivateFileCustodyError("file_permission_denied") from exc
     except OSError as exc:
         raise PrivateFileCustodyError("file_unavailable") from exc
     finally:

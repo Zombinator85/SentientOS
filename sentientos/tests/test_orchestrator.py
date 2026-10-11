@@ -41,7 +41,13 @@ def test_tick_updates_index_fields(tmp_path: Path) -> None:
 def test_tick_respects_quarantine_for_mutation(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     _seed_repo(tmp_path)
     (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "glow/forge/quarantine.json").write_text(json.dumps({"schema_version": 1, "active": True, "freeze_forge": True}) + "\n", encoding="utf-8")
+    (tmp_path / "glow/forge/quarantine.json").write_text(json.dumps({
+        "schema_version": 1, "active": True, "activated_at": None,
+        "activated_by": None, "last_incident_id": None,
+        "freeze_forge": True, "allow_automerge": False,
+        "allow_publish": False, "allow_federation_sync": False,
+        "notes": [], "acknowledged_at": None,
+    }) + "\n", encoding="utf-8")
 
     called = {"auto": 0}
 
