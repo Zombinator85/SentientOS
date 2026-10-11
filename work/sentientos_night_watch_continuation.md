@@ -1624,3 +1624,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - The tomb CLI now reads through `memory_manager.list_tomb()` and reports incomplete history. Distributed fragment reconciliation now uses the existing authorized, bounded atomic legacy writer, which rejects canonical retained records and preserves the Administrator/Lumos boundary. No synchronization was started and no remote peers were contacted.
 - Python syntax compilation passed for `distributed_memory.py` and `memory_tomb_cli.py`. No network or memory operation was performed.
 - **Next implementation dependency:** review the remaining explicit user-memory surfaces and the remote merge's identity/conflict contract. Ensure shared memory provenance cannot be overwritten by a peer with same/newer timestamps, and keep that remote merge separate from installation transcript and resident developmental-history custody.
+
+
+
+## New checkpoint — prevent peer substitution of shared-memory identities
+
+- Fresh remote source before this increment: `d1a91b1c200d9b1a17410cf8d6d6b51c322ea1b3` (tree `6206ac1bd5a8b1d4b29b769c6f9bc2bd2197f1a7`).
+- Peer merge used a later timestamp as permission to replace an existing same-ID fragment. A peer could therefore substitute content under an existing user-memory identity; the prior helper also counted rejected writes as successful updates.
+- Reconciliation now requires a nonempty string identity and parseable event time, compares canonical content for existing IDs, keeps identical records idempotent, and refuses conflicting same-ID replacement whether found in cache or on disk. Only absent identities use the existing locally authorized atomic writer, and update counts increase only after that writer succeeds.
+- Python syntax compilation passed for `distributed_memory.py`. No peer enumeration, network call, or memory read/write was performed.
+- **Next implementation dependency:** inspect peer snapshot provenance and bounded import semantics. The current shared node token authenticates transport context but does not prove a fragment's historical author; preserve imported-vs-local provenance and avoid treating peer data as independently verified user evidence.

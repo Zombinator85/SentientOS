@@ -159,17 +159,25 @@ def _local_fragments() -> Dict[str, dict]:
     return fragments
 
 
-def _write_fragment(fragment: dict) -> None:
+def _fragment_digest(fragment: Mapping[str, object]) -> str:
+    raw = json.dumps(dict(fragment), sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _write_fragment(fragment: dict) -> bool:
     fragment_id = fragment.get("id")
-    if not fragment_id:
-        return
+    if not isinstance(fragment_id, str) or not fragment_id:
+        return False
     try:
         # Use the shared owner so remote reconciliation cannot bypass local
         # mutation admission, canonical-retention exclusions, or atomic custody.
-        mm._write_fragment(str(fragment_id), fragment)  # type: ignore[attr-defined]
+        mm._write_fragment(fragment_id, fragment)  # type: ignore[attr-defined]
+        return True
     except (OSError, ValueError):
         LOGGER.warning("Rejected synchronised fragment %s by local memory custody",
             fragment_id, exc_info=True)
+        return False
 
 
 class DistributedMemorySynchronizer:
@@ -277,16 +285,38 @@ class DistributedMemorySynchronizer:
             if not isinstance(fragment, dict):
                 continue
             fragment_id = fragment.get("id")
-            if not fragment_id:
+            timestamp = fragment.get("timestamp")
+            if (not isinstance(fragment_id, str) or not fragment_id
+                    or not isinstance(timestamp, str)
+                    or _parse_timestamp(timestamp) <= 0):
+                LOGGER.warning("Rejected synchronized memory with incomplete identity/time")
                 continue
-            remote_ts = _parse_timestamp(str(fragment.get("timestamp", "")))
-            local_fragment = local_cache.get(str(fragment_id))
-            local_ts = _parse_timestamp(str(local_fragment.get("timestamp", ""))) if local_fragment else 0.0
-            if remote_ts and remote_ts <= local_ts:
+            local_fragment = local_cache.get(fragment_id)
+            if local_fragment is not None:
+                if _fragment_digest(local_fragment) != _fragment_digest(fragment):
+                    LOGGER.warning("Conflicting synchronized memory identity %s; preserving local record",
+                        fragment_id)
                 continue
-            _write_fragment(fragment)
-            local_cache[str(fragment_id)] = fragment
-            updates += 1
+            try:
+                existing_raw = mm._read_legacy_raw_fragment(fragment_id + ".json")  # type: ignore[attr-defined]
+            except (OSError, ValueError):
+                LOGGER.warning("Could not verify existing memory identity %s; preserving custody state",
+                    fragment_id, exc_info=True)
+                continue
+            if existing_raw is not None:
+                try:
+                    existing = json.loads(existing_raw.decode("utf-8"))
+                except (UnicodeError, json.JSONDecodeError):
+                    LOGGER.warning("Existing memory identity %s is malformed; refusing replacement",
+                        fragment_id)
+                    continue
+                if not isinstance(existing, dict) or _fragment_digest(existing) != _fragment_digest(fragment):
+                    LOGGER.warning("Conflicting stored memory identity %s; refusing replacement",
+                        fragment_id)
+                continue
+            if _write_fragment(fragment):
+                local_cache[fragment_id] = fragment
+                updates += 1
         if updates:
             LOGGER.info("[Memory] Synced %s fragments from %s", updates, hostname)
 
