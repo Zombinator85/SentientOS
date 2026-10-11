@@ -5,13 +5,16 @@ import json
 import math
 import os
 import stat
-import tempfile
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from .local_model_authority import digest_payload
+from .canonical_memory import sentientos_memory_dir
+from .private_file_custody import (
+    PrivateFileCustodyError, open_private_directory, read_private_file_at, publish_immutable_bytes,
+)
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
@@ -952,73 +955,43 @@ class LongitudinalSelfModelOwner:
     def __init__(self, root: Path) -> None:
         self.root = Path(root)
         self.entries = self.root / "reconciliations"
+        try:
+            memory_root = Path(sentientos_memory_dir()).expanduser().resolve(strict=False)
+            entries_root = self.entries.expanduser().resolve(strict=False)
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            raise LongitudinalSelfModelError("canonical_memory_root_identity_invalid") from exc
+        if (entries_root == memory_root or entries_root in memory_root.parents
+                or memory_root in entries_root.parents):
+            raise LongitudinalSelfModelError("self_model_root_overlaps_canonical_memory")
 
     @staticmethod
     def _read_entry(path: Path) -> bytes:
-        descriptor: int | None = None
         try:
-            metadata = path.lstat()
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_RECONCILIATION_BYTES:
-                raise LongitudinalSelfModelError("reconciliation_file_unbounded_or_not_regular")
-            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-            opened = os.fstat(descriptor)
-            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
-                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_RECONCILIATION_BYTES):
-                raise LongitudinalSelfModelError("reconciliation_file_changed_during_open")
-            chunks: list[bytes] = []
-            remaining = MAX_RECONCILIATION_BYTES + 1
-            while remaining:
-                chunk = os.read(descriptor, min(65_536, remaining))
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                remaining -= len(chunk)
-            data = b"".join(chunks)
-            after = os.fstat(descriptor)
-            if len(data) > MAX_RECONCILIATION_BYTES:
-                raise LongitudinalSelfModelError("reconciliation_file_unbounded_or_not_regular")
-            if (len(data) != opened.st_size or after.st_size != opened.st_size
-                    or after.st_mtime_ns != opened.st_mtime_ns):
-                raise LongitudinalSelfModelError("reconciliation_file_changed_during_read")
-            return data
-        except LongitudinalSelfModelError:
-            raise
-        except OSError as exc:
-            raise LongitudinalSelfModelError("reconciliation_file_unavailable") from exc
+            directory_fd = open_private_directory(path.parent, create=False)
+        except PrivateFileCustodyError as exc:
+            raise LongitudinalSelfModelError("reconciliation_custody_root_invalid") from exc
+        try:
+            try:
+                return read_private_file_at(directory_fd, path.name,
+                    max_bytes=MAX_RECONCILIATION_BYTES)
+            except PrivateFileCustodyError as exc:
+                raise LongitudinalSelfModelError("reconciliation_file_unavailable") from exc
         finally:
-            if descriptor is not None:
-                os.close(descriptor)
+            os.close(directory_fd)
 
     def _publish_entry(self, path: Path, result: SelfModelReconciliation) -> None:
         if os.name != "posix":
             raise LongitudinalSelfModelError("reconciliation_publication_unsupported_platform")
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if path.parent.is_symlink() or not path.parent.is_dir():
-            raise LongitudinalSelfModelError("reconciliation_custody_root_invalid")
         data = json.dumps(asdict(result), sort_keys=True, indent=2).encode("utf-8") + b"\n"
         if len(data) > MAX_RECONCILIATION_BYTES:
             raise LongitudinalSelfModelError("reconciliation_file_unbounded")
-        descriptor, temporary = tempfile.mkstemp(prefix=".reconciliation-", suffix=".tmp",
-            dir=str(path.parent))
         try:
-            with os.fdopen(descriptor, "wb") as handle:
-                handle.write(data)
-                handle.flush()
-                os.fsync(handle.fileno())
-            try:
-                os.link(temporary, path, follow_symlinks=False)
-            except FileExistsError as exc:
+            publish_immutable_bytes(path, data, max_bytes=MAX_RECONCILIATION_BYTES,
+                collision_code="reconciliation_path_collision")
+        except PrivateFileCustodyError as exc:
+            if exc.code == "reconciliation_path_collision":
                 raise LongitudinalSelfModelError("reconciliation_path_collision") from exc
-            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
-        finally:
-            try:
-                os.unlink(temporary)
-            except FileNotFoundError:
-                pass
+            raise LongitudinalSelfModelError("reconciliation_publication_failed") from exc
 
     def _load(self) -> tuple[SelfModelReconciliation, ...]:
         if self.root.is_symlink():
@@ -1040,10 +1013,26 @@ class LongitudinalSelfModelOwner:
             entry_rows: list[tuple[str, bytes | None, Path | None]] = [
                 (name, data, None) for name, data in windows_entries]
         else:
-            paths = sorted(self.entries.glob("*.json"))
-            if len(paths) > MAX_RECONCILIATION_ENTRIES:
-                raise LongitudinalSelfModelError("reconciliation_entry_limit_exceeded")
-            entry_rows = [(path.name, None, path) for path in paths]
+            try:
+                root_fd = open_private_directory(self.entries, create=False)
+            except PrivateFileCustodyError as exc:
+                if exc.code == "directory_root_missing":
+                    return ()
+                raise LongitudinalSelfModelError("reconciliation_custody_root_invalid") from exc
+            try:
+                names = sorted(name for name in os.listdir(root_fd) if name.endswith(".json"))
+                if len(names) > MAX_RECONCILIATION_ENTRIES:
+                    raise LongitudinalSelfModelError("reconciliation_entry_limit_exceeded")
+                entry_rows = []
+                for name in names:
+                    try:
+                        payload = read_private_file_at(root_fd, name,
+                            max_bytes=MAX_RECONCILIATION_BYTES)
+                    except PrivateFileCustodyError as exc:
+                        raise LongitudinalSelfModelError("reconciliation_file_unavailable") from exc
+                    entry_rows.append((name, payload, None))
+            finally:
+                os.close(root_fd)
         loaded: list[SelfModelReconciliation] = []
         total_bytes = 0
         for name, windows_data, path in entry_rows:
@@ -1248,7 +1237,6 @@ class LongitudinalSelfModelOwner:
                                         tuple(sorted(new_claims, key=lambda claim: (claim.claim_key, claim.claim_id, claim.status))),
                                         dict(FALSE_AUTHORITY))
         dg = _digest(_semantic(shell)); result = replace(shell, reconciliation_id="self-reconciliation-" + dg[7:31], reconciliation_digest=dg)
-        self.entries.mkdir(parents=True, exist_ok=True)
         target = self.entries / f"{generation:020d}-{result.reconciliation_id}.json"
         self._publish_entry(target, result)
         return result

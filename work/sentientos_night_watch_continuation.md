@@ -2589,3 +2589,11 @@ Next inspect succession source records for any projection that still presents a 
 - Resident developmental writeback and resident epistemic mutation now use that operation. Existing explicit-sequence issue() remains available for callers with an externally governed sequence; no admission scope, effect, precondition, or validity window was added.
 - Added an authored, unexecuted concurrent-allocation case. Changed Python source and test modules passed compilation only; concurrency behavior remains unverified.
 - Next inspect interruption between admission publication and the admitted developmental mutation. Reconcile whether existing intents/recovery can identify the durable admission and resume truthfully without re-issuing or duplicating authority.
+
+
+## 2026-10-11 checkpoint — admission interruption is fail-closed; self-model custody audited
+
+- The resident mutation path publishes a one-sequence admission before its durable mutation intent. A crash in that narrow interval can leave an unused admission row, but no owner mutation has started; the next ledger sequence expires it, the mutation owner never replays the missing operation, and bounded ledger recovery exposes no false completed receipt. No retry or inferred consumption status was added.
+- Review then found the longitudinal self-model owner could be directly rooted under canonical user memory despite the resident cognition config checking only its composed roots. Its constructor now rejects overlap using the actual reconciliation directory. POSIX reconciliation reads and immutable writes now use the shared descriptor-bound custody utility, including owner, permission, size, and no-follow checks.
+- Added authored, unexecuted direct-owner separation cases. Changed Python sources and test modules compile only. No behavior, recovery, or production verification ran.
+- Next serialize concurrent self-model reconciliation so generation and predecessor selection cannot be computed from the same stale history by two local writers; retain its existing one-snapshot idempotency and no-authority posture.

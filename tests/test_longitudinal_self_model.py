@@ -411,3 +411,19 @@ def test_software_transition_retention_is_historical_interpretation(tmp_path: Pa
     assert lifecycle.value == "bounded_tail"
     assert lifecycle.category == "historical_interpretation"
     assert lifecycle.current_truth is False
+
+
+def test_longitudinal_self_model_rejects_canonical_memory_root(tmp_path: Path) -> None:
+    from sentientos.canonical_memory import sentientos_memory_dir
+
+    with pytest.raises(LongitudinalSelfModelError,
+                       match="self_model_root_overlaps_canonical_memory"):
+        LongitudinalSelfModelOwner(sentientos_memory_dir())
+
+
+def test_longitudinal_self_model_rejects_storage_inside_canonical_memory() -> None:
+    from sentientos.canonical_memory import sentientos_memory_dir
+
+    with pytest.raises(LongitudinalSelfModelError,
+                       match="self_model_root_overlaps_canonical_memory"):
+        LongitudinalSelfModelOwner(sentientos_memory_dir() / "retained-user-content")
