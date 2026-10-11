@@ -2356,6 +2356,48 @@ def _run_resident_cognition_and_transition(runtime_surfaces: RuntimeMaintenanceS
     return cognition, transition
 
 
+def _software_generation_current_observation(
+        provenance: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Project only a revalidated maintenance-process generation observation.
+
+    A launch baseline or successor artifact is not a current process observation.
+    The owner rechecks process identity and clean repository source; it does not
+    attest the code bytes already loaded in memory.
+    """
+    unavailable = {
+        "running_software_generation_observed": None,
+        "running_software_observation_posture": "current_process_revalidation_unavailable",
+        "running_software_process_instance_id": None,
+        "running_software_provenance_digest": None,
+        "running_software_process_identity_scope": None,
+        "running_software_generation_scope": None,
+        "running_software_loaded_code_identity_posture": "unknown",
+        "running_software_process_role": "maintenance_daemon",
+    }
+    required = (
+        "represented_generation_digest", "process_instance_id", "provenance_digest",
+        "process_identity_scope", "software_generation_scope",
+        "loaded_code_identity_posture",
+    )
+    if (not isinstance(provenance, Mapping)
+            or any(not isinstance(provenance.get(key), str) or not provenance.get(key)
+                for key in required)
+            or provenance.get("loaded_code_identity_posture") != "not_independently_attested"):
+        return unavailable
+    return {
+        "running_software_generation_observed": provenance["represented_generation_digest"],
+        "running_software_observation_posture":
+            "process_identity_and_repository_revalidated_loaded_code_unattested",
+        "running_software_process_instance_id": provenance["process_instance_id"],
+        "running_software_provenance_digest": provenance["provenance_digest"],
+        "running_software_process_identity_scope": provenance["process_identity_scope"],
+        "running_software_generation_scope": provenance["software_generation_scope"],
+        "running_software_loaded_code_identity_posture":
+            provenance["loaded_code_identity_posture"],
+        "running_software_process_role": "maintenance_daemon",
+    }
+
+
 def _compose_causal_introspection(
         runtime_surfaces: RuntimeMaintenanceSurfaces,
         *, resident_serving_controller: ResidentCognitiveModelServingController | None,
@@ -2635,7 +2677,14 @@ def _compose_causal_introspection(
             rows = read_transition_events(software_config, limit=1)
             health = (software_controller.health() if software_controller is not None else
                 runtime_surfaces.governance_feedback().get("surfaces", {}).get("maintenance_resident_runtime_adoption", {}))
-            baseline = getattr(software_controller, "_baseline", None) if software_controller is not None else None
+            current_provenance = None
+            if software_controller is not None:
+                try:
+                    current_provenance = software_controller.current_execution_provenance()
+                except Exception:
+                    # The startup baseline is historical if this point check fails.
+                    current_provenance = None
+            running = _software_generation_current_observation(current_provenance)
             last = rows[-1] if rows else {}
             return {"transition_id": last.get("transition_id"),
                 "journal_head_digest": last.get("event_digest", "GENESIS"),
@@ -2643,8 +2692,7 @@ def _compose_causal_introspection(
                 "recovery_status": health.get("status"),
                 "predecessor_generation_digest": last.get("predecessor_generation_digest"),
                 "successor_generation_digest": last.get("successor_generation_digest"),
-                "running_software_generation_observed": (baseline.get("represented_generation_digest")
-                    if isinstance(baseline, Mapping) else None)}
+                **running}
         registrations.append(ProviderRegistration("resident-software-succession", "software_succession",
             LiveOwnerMetadataProvider(provider_id="resident-software-succession-v1",
                 owner_id="resident-software-succession", owner_kind="resident_software_generation_adoption_controller",
@@ -2653,7 +2701,14 @@ def _compose_causal_introspection(
                     "transition_phase": "lifecycle", "recovery_status": "health",
                     "predecessor_generation_digest": "lineage",
                     "successor_generation_digest": "lineage",
-                    "running_software_generation_observed": "lineage"})))
+                    "running_software_generation_observed": "lineage",
+                    "running_software_observation_posture": "currentness",
+                    "running_software_process_instance_id": "identity",
+                    "running_software_provenance_digest": "identity",
+                    "running_software_process_identity_scope": "lineage",
+                    "running_software_generation_scope": "lineage",
+                    "running_software_loaded_code_identity_posture": "boundary",
+                    "running_software_process_role": "boundary"})))
     runtime = CausalIntrospectionRuntime(config, registrations)
     runtime.reconstruct()  # fail closed on malformed or tampered predecessor custody
     return runtime

@@ -2218,3 +2218,10 @@ Recovery-transition World-State records now explicitly label their process ident
 Authored unexecuted selector and history-retention cases cover the qualified recovery path. Changed Python sources and tests compile only; no behavior or production verification ran.
 
 Next inspect succession source records for any projection that still presents a source-bundle digest as an independently observed loaded runtime generation.
+
+
+### New checkpoint — require a current owner observation for succession introspection
+
+- The software-succession introspection projection used the controller's private launch baseline as the running generation on every capture. It now asks the explicitly injected controller for its current process/source revalidation; if that check is unavailable or malformed, running generation is unknown. The projection retains exact process-instance/provenance identities and scope while explicitly preserving that loaded code is not independently attested. Successor artifacts and journal phase remain separate lineage evidence.
+- Added authored, unexecuted cases for qualified current evidence and absent/overstated provenance. Changed Python compiled and diff checked only; no behavioral or production verification ran.
+- Next inspect runtime-succession transition projections for any remaining claims that exceed their actual per-process observation, then continue to the next causal continuity dependency.
