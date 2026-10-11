@@ -58,11 +58,33 @@ def _parent(tmp_path: Path, *, ready: list[bool] | None = None, budget: int = 2,
 
 
 def _simulate_parent_process_exit(controller: MaintenanceResidentParentSupervisor) -> None:
-    """Close the lock descriptor to model the kernel releasing it at process exit."""
+    """Close held custody descriptors to model kernel release at process exit."""
     descriptor = controller._owner_lock_fd
     if descriptor is not None:
         os.close(descriptor)
         controller._owner_lock_fd = None
+    root_fd = controller._owner_root_fd
+    if root_fd is not None:
+        os.close(root_fd)
+        controller._owner_root_fd = None
+
+
+def test_parent_custody_io_stays_bound_to_the_locked_directory(tmp_path: Path) -> None:
+    if os.name != "posix":
+        pytest.skip("held directory descriptors require POSIX custody")
+    controller, _child, _cfg = _parent(tmp_path)
+    original_root = controller.root
+    moved_root = tmp_path / "parent-original"
+    original_root.rename(moved_root)
+    original_root.mkdir(mode=0o700)
+
+    controller._receipt("descriptor_bound_custody_probe")
+
+    assert (moved_root / "parent-receipts.jsonl").exists()
+    assert (moved_root / "parent-state.json").exists()
+    assert not (original_root / "parent-receipts.jsonl").exists()
+    assert not (original_root / "parent-state.json").exists()
+    controller._release_owner_lock()
 
 
 def test_exact_same_lineage_death_recovery_requires_readiness_and_links_receipts(tmp_path: Path) -> None:

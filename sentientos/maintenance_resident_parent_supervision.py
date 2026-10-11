@@ -12,17 +12,18 @@ import math
 import os
 import re
 import stat
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
 from sentientos.platform_fcntl import fcntl, require_flock
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError, open_private_directory, read_private_file_at,
+)
 from sentientos import maintenance_resident_runtime_adoption as resident
 from sentientos import maintenance_successor_generation_adoption as successor
 from sentientos.runtime.services import ChildProcessServiceAdapter, HealthResult, ServiceAdapter
-from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 STATE_SCHEMA = "sentientos.maintenance_resident_parent_supervision_state:v1"
 RECEIPT_SCHEMA = "sentientos.maintenance_resident_parent_supervision_receipt:v1"
@@ -97,17 +98,12 @@ class MaintenanceResidentParentSupervisor:
         self.config = resident.validate_config(resident_config)
         if not self.config["enabled"]:
             raise ValueError("resident_parent_supervision_disabled")
-        self.root = Path(state_root).resolve()
+        self.root = Path(os.path.abspath(os.fspath(state_root)))
         repository = Path(self.config["repository_root"])
         if self.root == repository or repository in self.root.parents:
             raise ValueError("parent_supervision_custody_inside_repository")
         require_flock()
-        self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if os.name == "posix":
-            root_metadata = os.lstat(self.root)
-            if (not stat.S_ISDIR(root_metadata.st_mode) or root_metadata.st_uid != os.geteuid()
-                    or stat.S_IMODE(root_metadata.st_mode) & 0o077):
-                raise ValueError("parent_supervision_state_root_not_private")
+        self._owner_root_fd: int | None = None
         self._owner_lock_fd: int | None = None
         self._acquire_owner_lock()
         self._state_path = self.root / "parent-state.json"
@@ -154,35 +150,46 @@ class MaintenanceResidentParentSupervisor:
 
     def _acquire_owner_lock(self) -> None:
         require_flock()
-        nofollow = getattr(os, "O_NOFOLLOW", None)
-        if nofollow is None:
-            raise OSError("parent_supervision_safe_lock_unavailable")
-        descriptor = os.open(self.root / "parent-supervisor.lock",
-            os.O_RDWR | os.O_CREAT | nofollow | getattr(os, "O_CLOEXEC", 0), 0o600)
+        root_fd: int | None = None
+        descriptor: int | None = None
         try:
+            root_fd = open_private_directory(self.root, create=True)
+            nofollow = getattr(os, "O_NOFOLLOW", None)
+            if nofollow is None:
+                raise OSError("parent_supervision_safe_lock_unavailable")
+            descriptor = os.open("parent-supervisor.lock",
+                os.O_RDWR | os.O_CREAT | nofollow | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=root_fd)
             metadata = os.fstat(descriptor)
             if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
-                    or metadata.st_uid != os.geteuid()):
+                    or metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(metadata.st_mode) & 0o077):
                 raise OSError("parent_supervision_lock_custody_invalid")
-            os.fchmod(descriptor, 0o600)
             try:
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as exc:
                 raise RuntimeError("parent_supervision_owner_already_held") from exc
+            self._owner_root_fd = root_fd
             self._owner_lock_fd = descriptor
-            descriptor = -1
+            root_fd = descriptor = None
         finally:
-            if descriptor >= 0:
+            if descriptor is not None:
                 os.close(descriptor)
+            if root_fd is not None:
+                os.close(root_fd)
 
     def _release_owner_lock(self) -> None:
         descriptor = self._owner_lock_fd
+        root_fd = self._owner_root_fd
         self._owner_lock_fd = None
+        self._owner_root_fd = None
         if descriptor is not None:
             try:
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
             finally:
                 os.close(descriptor)
+        if root_fd is not None:
+            os.close(root_fd)
 
     def _exact_environment(self) -> dict[str, str]:
         env = {key: os.environ[key] for key in self.config["inherited_environment_allowlist"] if key in os.environ}
@@ -191,20 +198,40 @@ class MaintenanceResidentParentSupervisor:
         return env
 
     def _atomic(self, value: Mapping[str, Any]) -> None:
-        fd, temporary = tempfile.mkstemp(prefix=".parent-", dir=self.root)
+        directory_fd = self._owner_root_fd
+        if directory_fd is None:
+            raise OSError("parent_supervision_root_custody_unavailable")
+        data = _canonical(value) + b"\n"
+        if len(data) > MAX_PARENT_STATE_BYTES:
+            raise ValueError("parent_state_size_limit_exceeded")
+        temporary = ".parent-" + os.urandom(16).hex()
+        descriptor: int | None = None
+        created = False
         try:
-            with os.fdopen(fd, "wb") as stream:
-                stream.write(_canonical(value) + b"\n"); stream.flush(); os.fsync(stream.fileno())
-            os.replace(temporary, self._state_path)
-            if os.name == "posix":
-                directory_fd = os.open(self.root, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
-                    | getattr(os, "O_NOFOLLOW", 0))
-                try:
-                    os.fsync(directory_fd)
-                finally:
-                    os.close(directory_fd)
+            descriptor = os.open(temporary,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                | getattr(os, "O_CLOEXEC", 0), 0o600, dir_fd=directory_fd)
+            created = True
+            remaining = memoryview(data)
+            while remaining:
+                written = os.write(descriptor, remaining)
+                if written <= 0:
+                    raise OSError("parent_state_write_incomplete")
+                remaining = remaining[written:]
+            os.fsync(descriptor)
+            os.close(descriptor)
+            descriptor = None
+            os.replace(temporary, "parent-state.json",
+                src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+            os.fsync(directory_fd)
         finally:
-            if os.path.exists(temporary): os.unlink(temporary)
+            if descriptor is not None:
+                os.close(descriptor)
+            if created:
+                try:
+                    os.unlink(temporary, dir_fd=directory_fd)
+                except FileNotFoundError:
+                    pass
 
     def _persist(self) -> None:
         state = {"schema_version": STATE_SCHEMA, "child_spec_digest": self._spec_digest,
@@ -222,11 +249,14 @@ class MaintenanceResidentParentSupervisor:
             raise
 
     def _read_receipt_journal(self) -> list[dict[str, Any]]:
+        directory_fd = self._owner_root_fd
+        if directory_fd is None:
+            raise ValueError("parent_supervision_root_custody_unavailable")
         try:
-            raw = read_explicit_file(self._receipt_path, max_bytes=MAX_PARENT_RECEIPT_BYTES,
-                require_private_acl=os.name == "nt")
-        except WindowsHandleCustodyError as exc:
-            if exc.args == ("explicit_file_missing",):
+            raw = read_private_file_at(directory_fd, "parent-receipts.jsonl",
+                max_bytes=MAX_PARENT_RECEIPT_BYTES, require_private_mode=True)
+        except PrivateFileCustodyError as exc:
+            if exc.code == "file_missing":
                 return []
             raise ValueError("parent_receipt_journal_custody_invalid") from exc
         if raw and not raw.endswith(b"\n"):
@@ -286,11 +316,14 @@ class MaintenanceResidentParentSupervisor:
     def _load(self) -> None:
         try:
             rows = self._read_receipt_journal()
+            directory_fd = self._owner_root_fd
+            if directory_fd is None:
+                raise ValueError("parent_supervision_root_custody_unavailable")
             try:
-                raw = read_explicit_file(self._state_path, max_bytes=MAX_PARENT_STATE_BYTES,
-                    require_private_acl=True)
-            except WindowsHandleCustodyError as exc:
-                if exc.args == ("explicit_file_missing",):
+                raw = read_private_file_at(directory_fd, "parent-state.json",
+                    max_bytes=MAX_PARENT_STATE_BYTES, require_private_mode=True)
+            except PrivateFileCustodyError as exc:
+                if exc.code == "file_missing":
                     if rows:
                         raise ValueError("parent_state_missing_with_receipts")
                     return
@@ -381,16 +414,18 @@ class MaintenanceResidentParentSupervisor:
             raise RuntimeError("parent_receipt_journal_retention_limit_exceeded")
         try:
             if os.name == "posix":
-                flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-                descriptor = os.open(self._receipt_path, flags, 0o600)
+                directory_fd = self._owner_root_fd
+                if directory_fd is None:
+                    raise OSError("parent_supervision_root_custody_unavailable")
+                flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+                descriptor = os.open("parent-receipts.jsonl", flags, 0o600, dir_fd=directory_fd)
                 try:
                     metadata = os.fstat(descriptor)
                     if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
                             or metadata.st_uid != os.geteuid()
+                            or stat.S_IMODE(metadata.st_mode) & 0o077
                             or metadata.st_size != self._receipt_bytes):
                         raise ValueError("parent_receipt_journal_changed")
-                    if stat.S_IMODE(metadata.st_mode) & 0o077:
-                        os.fchmod(descriptor, 0o600)
                     remaining = memoryview(encoded)
                     while remaining:
                         written = os.write(descriptor, remaining)

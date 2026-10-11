@@ -2780,3 +2780,17 @@ A later source correction was also composed from stale note text and displaced t
 - Changed source and test passed Python syntax compilation only. No behavioral test, append, receipt repair, or runtime recovery was executed.
 - Next inspect the configured later-tick composition checkpoint against recovered writeback identities, then continue to the next concrete lifecycle/recovery dependency in the current source.
 
+## 2026-10-11 checkpoint — anchor parent lifecycle custody to its held root
+
+- The developmental composition review found no new temporal gap: durable completed ticks provide recovery order, orphan writeback records require their original tick intent, same-tick replay is denied, and existing authored cases cover restart eligibility at N+1. No cognition-path change was warranted.
+- The parent supervisor's singleton lock was held by descriptor, but lock acquisition, journal reads/appends, and snapshot replacement still reopened the root by path. It now opens one private no-follow directory descriptor for the owner's lifetime, creates and flocks the lock relative to that handle, reads canonical bounded state/journal files through the held handle, and appends/replaces relative to it. Replacing the configured path while the owner remains alive cannot redirect its later custody writes away from the directory containing its lock.
+- Added an authored, unexecuted POSIX path-replacement case; process-exit fixtures now release both lock and root descriptors. Changed source and test passed Python syntax compilation only. No test, journal write, child lifecycle, or production behavior was executed.
+- The independent cross-restart physical identity of a replaced commissioned root remains unestablished; this change pins an active owner lifetime and does not invent an external root identity issuer. Next inspect the existing canonical user-memory writer for any remaining path-based mutation within its already verified root, and keep its storage identity separate from installation and developmental-history custody.
+
+## 2026-10-11 checkpoint — pin parent lifecycle writes to the singleton root
+
+- Composition source review confirmed restart reconstruction uses persisted completed-tick order, rejects writeback records without the matching tick intent, bars same-tick replay, and makes recovered tick-N history eligible to tick N+1 cognition. Existing authored cases cover these paths; no additional temporal source change was justified.
+- The parent supervisor now holds its private state-root directory descriptor alongside the lifetime lock. Lock creation, bounded journal/snapshot reads, append, and atomic snapshot replacement use that descriptor, preventing active-owner I/O from being redirected if the configured directory pathname changes after acquisition.
+- A POSIX path-replacement acceptance case was authored, and its restart helper now closes the held root descriptor as well as the flock. Changed parent source and tests passed Python syntax compilation only. No test or child process operation ran.
+- The active owner's root is now pinned; independent physical identity of that root across a fresh process remains unproven because no external root-identity issuer exists. Next review canonical user-memory writes for concrete path-based mutation gaps while preserving its separation from installation transcripts and developmental-history storage.
+
