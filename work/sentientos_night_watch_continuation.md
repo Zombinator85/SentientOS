@@ -873,3 +873,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the supervisor source. No tests, runtime observations, process actions, or production verification were run.
 
 **Next implementation dependency:** determine whether the installation-scoped chat launch/runtime observation can be made truthful on Windows using an existing write-capable owner contract. If not, preserve explicit unsupported/degraded posture and continue the broader downstream causal-history path without claiming cross-platform running-generation proof.
+
+
+## New checkpoint — verify predecessor provenance before chat inference
+
+- `PersistentConversationService.chat()` previously assembled the prompt and called inference using `predecessor_runtime_lineage` before the variable was initialized and before the prior invocation receipt was verified later in the same call.
+- The service now verifies the prior assistant invocation, exact receipt and digest, prior user turn, model identities, output lineage, software-generation attribution, and any retained client-request digest before reconstructing the prompt. Only the verified historical runtime attribution is passed into prompt assembly and bound into the new invocation caller linkage.
+- Missing or conflicting prior provenance remains unknown; the transcript may still provide ordinary conversation context but cannot establish a model/software predecessor. Idempotent interrupted requests still exit through the existing no-replay recovery path before inference.
+- Source review covered the current continuation record, `AGENTS.md`, the project thesis, persistent-conversation architecture note, chat service, and the invocation verifier. The Windows installation-state owner remains read-only, so no authorized Windows handoff issuer was found.
+- `python -m py_compile` passed for `sentientos/chat_service.py`. No tests or inference/runtime behavior were executed. This is unverified construction.
+
+**Next implementation dependency:** trace the newly pre-inference predecessor evidence through invocation receipt validation, transcript recovery, and subsequent-turn verification; identify and close any remaining lineage loss without widening retained user memory or changing model authority.

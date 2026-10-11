@@ -214,6 +214,78 @@ class PersistentConversationService:
                 raise ChatRequestStateError(str(exc)) from exc
             if not created:
                 return self._recover_idempotent_response(session["session_id"], user_turn)
+        prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
+            if turn.get("role") == "assistant"), None)
+        predecessor_identity_digest = str(session.get("model_identity_digest", ""))
+        predecessor_identity: Mapping[str, Any] | None = None
+        predecessor_runtime_lineage: Mapping[str, Any] | None = None
+        predecessor_invocation_verified = False
+        if prior_assistant is not None and isinstance(prior_assistant.get("linkage"), Mapping):
+            prior_linkage = prior_assistant["linkage"]
+            predecessor_identity_digest = str(prior_linkage.get("active_model_identity_digest", ""))
+            stored_identity = prior_linkage.get("active_model_identity")
+            prior_source_user_turn_id = prior_linkage.get("source_user_turn_id")
+            prior_user_turn = next((turn for turn in reversed(session.get("turns", ()))
+                if turn.get("role") == "user"
+                and turn.get("turn_id") == prior_source_user_turn_id), None)
+            prior_user_linkage = (prior_user_turn.get("linkage")
+                if isinstance(prior_user_turn, Mapping) else None)
+            prior_client_request_digest = (prior_user_linkage.get("client_request_id_digest")
+                if isinstance(prior_user_linkage, Mapping) else None)
+            prior_client_digest_valid = (prior_client_request_digest is None
+                or (isinstance(prior_client_request_digest, str)
+                    and len(prior_client_request_digest) == 64
+                    and all(character in "0123456789abcdef"
+                        for character in prior_client_request_digest)))
+            verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
+            if (callable(verifier) and isinstance(stored_identity, Mapping)
+                    and isinstance(prior_linkage.get("invocation_receipt_id"), str)
+                    and isinstance(prior_linkage.get("invocation_receipt_digest"), str)
+                    and isinstance(prior_source_user_turn_id, str)
+                    and isinstance(prior_user_turn, Mapping) and prior_client_digest_valid):
+                try:
+                    verified_prior = verifier(receipt_id=prior_linkage["invocation_receipt_id"],
+                        receipt_digest=prior_linkage["invocation_receipt_digest"],
+                        session_id=session["session_id"], user_turn_id=prior_source_user_turn_id,
+                        assistant_text=str(prior_assistant.get("text", "")),
+                        client_request_id_digest=prior_client_request_digest)
+                    observed_prior_identity = verified_prior.get("serving_identity")
+                    observed_loaded_identity = verified_prior.get("loaded_model_identity")
+                    stored_loaded_identity = prior_linkage.get("loaded_model_identity")
+                    observed_output_lineage = verified_prior.get("assistant_output_lineage")
+                    stored_output_lineage = prior_linkage.get("assistant_output_lineage")
+                    observed_runtime_lineage = verified_prior.get("software_generation_attribution")
+                    stored_runtime_lineage = prior_linkage.get("software_generation_attribution")
+                    output_lineage_matches = (
+                        stored_output_lineage is None
+                        or (isinstance(observed_output_lineage, Mapping)
+                            and isinstance(stored_output_lineage, Mapping)
+                            and dict(observed_output_lineage) == dict(stored_output_lineage))
+                    )
+                    runtime_lineage_matches = (
+                        stored_runtime_lineage is None
+                        or (isinstance(observed_runtime_lineage, Mapping)
+                            and isinstance(stored_runtime_lineage, Mapping)
+                            and (dict(observed_runtime_lineage) == dict(stored_runtime_lineage)
+                                or compact_runtime_generation_attribution(observed_runtime_lineage)
+                                    == dict(stored_runtime_lineage)))
+                    )
+                    if (output_lineage_matches and runtime_lineage_matches
+                            and isinstance(observed_prior_identity, Mapping)
+                            and isinstance(observed_loaded_identity, Mapping)
+                            and isinstance(stored_loaded_identity, Mapping)
+                            and dict(observed_prior_identity) == dict(stored_identity)
+                            and dict(observed_loaded_identity) == dict(stored_loaded_identity)
+                            and predecessor_identity_digest == hashlib.sha256(json.dumps(dict(stored_identity),
+                                sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()):
+                        predecessor_identity = observed_prior_identity
+                        if isinstance(observed_runtime_lineage, Mapping):
+                            predecessor_runtime_lineage = dict(observed_runtime_lineage)
+                        predecessor_invocation_verified = True
+                except Exception:
+                    # Prior transcript remains usable as untrusted chat context;
+                    # it cannot establish a transition predecessor.
+                    pass
         history = self.sessions.reconstruct(session["session_id"], budget_chars=self.context_budget_chars,
                                             exclude_turn_id=user_turn["turn_id"])
         memory = self.memories.retrieve(message, budget_chars=self.memory_budget_chars)
@@ -308,63 +380,6 @@ class PersistentConversationService:
             separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
         loaded_identity_digest = hashlib.sha256(json.dumps(dict(invoked_identity), sort_keys=True,
             separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
-        prior_assistant = next((turn for turn in reversed(session.get("turns", ()))
-            if turn.get("role") == "assistant"), None)
-        predecessor_identity_digest = str(session.get("model_identity_digest", ""))
-        predecessor_identity: Mapping[str, Any] | None = None
-        predecessor_runtime_lineage: Mapping[str, Any] | None = None
-        predecessor_invocation_verified = False
-        if prior_assistant is not None and isinstance(prior_assistant.get("linkage"), Mapping):
-            prior_linkage = prior_assistant["linkage"]
-            predecessor_identity_digest = str(prior_linkage.get("active_model_identity_digest", ""))
-            stored_identity = prior_linkage.get("active_model_identity")
-            verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
-            if (callable(verifier) and isinstance(stored_identity, Mapping)
-                    and isinstance(prior_linkage.get("invocation_receipt_id"), str)
-                    and isinstance(prior_linkage.get("invocation_receipt_digest"), str)
-                    and isinstance(prior_linkage.get("source_user_turn_id"), str)):
-                try:
-                    verified_prior = verifier(receipt_id=prior_linkage["invocation_receipt_id"],
-                        receipt_digest=prior_linkage["invocation_receipt_digest"],
-                        session_id=session["session_id"], user_turn_id=prior_linkage["source_user_turn_id"],
-                        assistant_text=str(prior_assistant.get("text", "")))
-                    observed_prior_identity = verified_prior.get("serving_identity")
-                    observed_loaded_identity = verified_prior.get("loaded_model_identity")
-                    stored_loaded_identity = prior_linkage.get("loaded_model_identity")
-                    observed_output_lineage = verified_prior.get("assistant_output_lineage")
-                    stored_output_lineage = prior_linkage.get("assistant_output_lineage")
-                    observed_runtime_lineage = verified_prior.get("software_generation_attribution")
-                    stored_runtime_lineage = prior_linkage.get("software_generation_attribution")
-                    output_lineage_matches = (
-                        stored_output_lineage is None
-                        or (isinstance(observed_output_lineage, Mapping)
-                            and isinstance(stored_output_lineage, Mapping)
-                            and dict(observed_output_lineage) == dict(stored_output_lineage))
-                    )
-                    runtime_lineage_matches = (
-                        stored_runtime_lineage is None
-                        or (isinstance(observed_runtime_lineage, Mapping)
-                            and isinstance(stored_runtime_lineage, Mapping)
-                            and (dict(observed_runtime_lineage) == dict(stored_runtime_lineage)
-                                or compact_runtime_generation_attribution(observed_runtime_lineage)
-                                    == dict(stored_runtime_lineage)))
-                    )
-                    if (output_lineage_matches and runtime_lineage_matches
-                            and isinstance(observed_prior_identity, Mapping)
-                            and isinstance(observed_loaded_identity, Mapping)
-                            and isinstance(stored_loaded_identity, Mapping)
-                            and dict(observed_prior_identity) == dict(stored_identity)
-                            and dict(observed_loaded_identity) == dict(stored_loaded_identity)
-                            and predecessor_identity_digest == hashlib.sha256(json.dumps(dict(stored_identity),
-                                sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()):
-                        predecessor_identity = observed_prior_identity
-                        if isinstance(observed_runtime_lineage, Mapping):
-                            predecessor_runtime_lineage = dict(observed_runtime_lineage)
-                        predecessor_invocation_verified = True
-                except Exception:
-                    # Prior transcript remains usable as untrusted chat context;
-                    # it cannot establish a transition predecessor.
-                    pass
         continuity_posture = "model_identity_changed_predecessor_relation_unverified"
         if predecessor_identity_digest == serving_identity_digest:
             continuity_posture = ("same_exact_serving_identity_and_prior_invocation_verified"
