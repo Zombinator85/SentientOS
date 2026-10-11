@@ -24,6 +24,9 @@ UPDATE_SCHEMA = "sentientos.epistemic_update_event:v1"
 CANDIDATE_SCHEMA = "sentientos.epistemic_update_candidate:v2"
 LEGACY_CANDIDATE_SCHEMA = "sentientos.epistemic_update_candidate:v1"
 CALIBRATION_SCHEMA = "sentientos.epistemic_calibration_event:v1"
+COGNITIVE_PROJECTION_SCHEMA_V2 = "sentientos.epistemic_cognitive_projection:v2"
+COGNITIVE_PACKET_SCHEMA = "sentientos.epistemic_cognitive_packet:v1"
+MAX_COGNITIVE_PROJECTION_STATES = 128
 PROPOSITION_CLASSES = frozenset({"descriptive", "predictive", "causal_hypothesis", "capability", "environmental", "relational", "system_hypothesis"})
 RELATIONS = frozenset({"refines", "narrows", "broadens", "supersedes", "contradicts", "related_to"})
 EVIDENCE_RELATIONS = frozenset({"supports", "contradicts", "undercuts", "contextualizes", "resolves", "predictive_outcome", "reliability_evidence"})
@@ -35,6 +38,7 @@ RECORD_COLLECTIONS = frozenset({"propositions", "bindings", "states", "updates",
 MAX_EPISTEMIC_RECORD_BYTES = 1_048_576
 MAX_EPISTEMIC_RECORDS_PER_COLLECTION = 65_536
 MAX_EPISTEMIC_COLLECTION_BYTES = 67_108_864
+MAX_EPISTEMIC_COGNITIVE_PROJECTION_BYTES = 4_194_304
 
 
 class EpistemicStateError(ValueError):
@@ -165,7 +169,23 @@ class EpistemicCognitiveProjection:
     current_truth: bool = False; authority: bool = False; policy: bool = False; goal: bool = False
 
 
-def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: int, current_tick: int) -> EpistemicCognitiveProjection:
+@dataclass(frozen=True)
+class MeaningBearingEpistemicCognitiveProjection(EpistemicCognitiveProjection):
+    """Versioned prior projection with canonical definitions and evidence joins."""
+    schema_version: str = COGNITIVE_PROJECTION_SCHEMA_V2
+    current_tick: int = 0
+    propositions: tuple[Mapping[str, Any], ...] = ()
+    active_evidence_bindings: tuple[tuple[Mapping[str, Any], ...], ...] = ()
+    removed_evidence_bindings: tuple[tuple[Mapping[str, Any], ...], ...] = ()
+    update_events: tuple[tuple[Mapping[str, Any], ...], ...] = ()
+
+
+def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: int, current_tick: int,
+                              propositions: Sequence[Mapping[str, Any]] | None = None,
+                              active_evidence_bindings: Sequence[Sequence[Mapping[str, Any]]] | None = None,
+                              removed_evidence_bindings: Sequence[Sequence[Mapping[str, Any]]] | None = None,
+                              update_events: Sequence[Sequence[Mapping[str, Any]]] | None = None
+                              ) -> EpistemicCognitiveProjection:
     if source_tick >= current_tick: raise EpistemicStateError("same_tick_epistemic_state_forbidden")
     ordered=tuple(sorted(states,key=lambda x:x.proposition_id)); payload={"source_tick":source_tick,
         "proposition_ids":tuple(x.proposition_id for x in ordered),"state_ids":tuple(x.state_id for x in ordered),
@@ -173,10 +193,267 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
         "evidence_set_digests":tuple(x.evidence_set_digest for x in ordered),"states":tuple(asdict(x) for x in ordered),
         "evidence_only":False,"prior_position_only":True,"current_truth":False,"authority":False,"policy":False,"goal":False}
     pid,pdg=_identity("epistemic-projection",payload)
-    return EpistemicCognitiveProjection(pid, pdg, source_tick, tuple(x.proposition_id for x in ordered),
-        tuple(x.state_id for x in ordered), tuple(x.state_digest for x in ordered),
-        tuple(x.generation for x in ordered), tuple(x.evidence_set_digest for x in ordered),
-        tuple(asdict(x) for x in ordered))
+    common = dict(projection_id=pid, projection_digest=pdg, source_tick=source_tick,
+        proposition_ids=tuple(x.proposition_id for x in ordered),
+        state_ids=tuple(x.state_id for x in ordered),
+        state_digests=tuple(x.state_digest for x in ordered),
+        generations=tuple(x.generation for x in ordered),
+        evidence_set_digests=tuple(x.evidence_set_digest for x in ordered),
+        states=tuple(asdict(x) for x in ordered))
+    if all(value is None for value in (propositions, active_evidence_bindings,
+            removed_evidence_bindings, update_events)):
+        return EpistemicCognitiveProjection(**common)
+    if any(value is None for value in (propositions, active_evidence_bindings,
+            removed_evidence_bindings, update_events)):
+        raise EpistemicStateError("epistemic_semantic_projection_incomplete")
+    semantic_rows = tuple(dict(item) for item in propositions or ())
+    active_rows = tuple(tuple(dict(item) for item in rows)
+        for rows in active_evidence_bindings or ())
+    removed_rows = tuple(tuple(dict(item) for item in rows)
+        for rows in removed_evidence_bindings or ())
+    event_rows = tuple(tuple(dict(item) for item in rows) for rows in update_events or ())
+    if any(len(rows) != len(ordered) for rows in
+            (semantic_rows, active_rows, removed_rows, event_rows)):
+        raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
+    semantic_payload = {**payload, "schema_version": COGNITIVE_PROJECTION_SCHEMA_V2,
+        "current_tick": current_tick, "propositions": semantic_rows,
+        "active_evidence_bindings": active_rows,
+        "removed_evidence_bindings": removed_rows, "update_events": event_rows}
+    if len(canonical_bytes(semantic_payload)) > MAX_EPISTEMIC_COGNITIVE_PROJECTION_BYTES:
+        raise EpistemicStateError("epistemic_projection_size_limit_exceeded")
+    semantic_id, semantic_digest = _identity("epistemic-projection", semantic_payload)
+    projection = MeaningBearingEpistemicCognitiveProjection(
+        **{**common, "projection_id": semantic_id, "projection_digest": semantic_digest},
+        current_tick=current_tick, propositions=semantic_rows,
+        active_evidence_bindings=active_rows, removed_evidence_bindings=removed_rows,
+        update_events=event_rows)
+    validate_cognitive_projection(projection, require_meaning=True)
+    return projection
+
+
+def _normalize_state_record(raw: Mapping[str, Any]) -> EpistemicState:
+    value = dict(raw)
+    value["support_binding_ids"] = tuple(value["support_binding_ids"])
+    value["contradiction_binding_ids"] = tuple(value["contradiction_binding_ids"])
+    return EpistemicState(**value)
+
+
+def _normalize_binding_record(raw: Mapping[str, Any]) -> EvidenceBinding:
+    value = dict(raw)
+    value["upstream_binding_ids"] = tuple(value["upstream_binding_ids"])
+    return EvidenceBinding(**value)
+
+
+def _normalize_update_record(raw: Mapping[str, Any]) -> EpistemicUpdateEvent:
+    value = dict(raw)
+    value["added_binding_ids"] = tuple(value["added_binding_ids"])
+    value["removed_binding_ids"] = tuple(value["removed_binding_ids"])
+    return EpistemicUpdateEvent(**value)
+
+
+def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Mapping[str, Any], *,
+                                  require_meaning: bool = False) -> None:
+    """Verify projection identity and every canonical position/evidence join."""
+    raw = asdict(projection) if not isinstance(projection, Mapping) else dict(projection)
+    try:
+        if len(canonical_bytes(raw)) > MAX_EPISTEMIC_COGNITIVE_PROJECTION_BYTES + 4096:
+            raise EpistemicStateError("epistemic_projection_size_limit_exceeded")
+    except (TypeError, ValueError) as exc:
+        raise EpistemicStateError("epistemic_projection_shape_invalid") from exc
+    schema = raw.get("schema_version")
+    legacy_payload = {"source_tick": raw.get("source_tick"),
+        "proposition_ids": raw.get("proposition_ids"), "state_ids": raw.get("state_ids"),
+        "state_digests": raw.get("state_digests"), "generations": raw.get("generations"),
+        "evidence_set_digests": raw.get("evidence_set_digests"), "states": raw.get("states"),
+        "evidence_only": False, "prior_position_only": True, "current_truth": False,
+        "authority": False, "policy": False, "goal": False}
+    if schema is None:
+        if require_meaning:
+            raise EpistemicStateError("epistemic_semantic_projection_required")
+        calculated = _identity("epistemic-projection", legacy_payload)
+        if (raw.get("projection_id") != calculated[0]
+                or raw.get("projection_digest") != calculated[1]):
+            raise EpistemicStateError("epistemic_projection_identity_mismatch")
+        states = raw.get("states")
+        ids = raw.get("proposition_ids")
+        if not isinstance(states, (list, tuple)) or not isinstance(ids, (list, tuple)):
+            raise EpistemicStateError("epistemic_projection_shape_invalid")
+        normalized = tuple(_normalize_state_record(item) for item in states)
+        if (tuple(ids) != tuple(item.proposition_id for item in normalized)
+                or len(set(ids)) != len(ids)
+                or tuple(raw.get("state_ids", ())) != tuple(item.state_id for item in normalized)
+                or tuple(raw.get("state_digests", ())) != tuple(item.state_digest for item in normalized)
+                or tuple(raw.get("generations", ())) != tuple(item.generation for item in normalized)
+                or tuple(raw.get("evidence_set_digests", ())) != tuple(
+                    item.evidence_set_digest for item in normalized)
+                or raw.get("evidence_only") is not False
+                or raw.get("prior_position_only") is not True
+                or raw.get("current_truth") is not False
+                or any(raw.get(key) is not False for key in ("authority", "policy", "goal"))):
+            raise EpistemicStateError("epistemic_projection_pairing_ambiguous")
+        for state in normalized:
+            if (dict(state.authority) != FALSE_AUTHORITY
+                    or _identity("epistemic-state", state.payload()) !=
+                        (state.state_id, state.state_digest)):
+                raise EpistemicStateError("epistemic_state_digest_mismatch")
+        return
+    if schema != COGNITIVE_PROJECTION_SCHEMA_V2:
+        raise EpistemicStateError("epistemic_projection_schema_unsupported")
+    states_raw = raw.get("states")
+    props_raw = raw.get("propositions")
+    active_raw = raw.get("active_evidence_bindings")
+    removed_raw = raw.get("removed_evidence_bindings")
+    events_raw = raw.get("update_events")
+    if (type(raw.get("current_tick")) is not int or type(raw.get("source_tick")) is not int
+            or raw["source_tick"] >= raw["current_tick"]
+            or not all(isinstance(value, (list, tuple)) for value in
+                (states_raw, props_raw, active_raw, removed_raw, events_raw))
+            or len(states_raw) > MAX_COGNITIVE_PROJECTION_STATES or not states_raw
+            or any(len(value) != len(states_raw) for value in
+                (props_raw, active_raw, removed_raw, events_raw))):
+        raise EpistemicStateError("epistemic_semantic_projection_shape_invalid")
+    if (any(not isinstance(row, (list, tuple)) or not row for row in events_raw)
+            or sum(len(row) for row in events_raw) > MAX_EPISTEMIC_RECORDS_PER_COLLECTION):
+        raise EpistemicStateError("epistemic_semantic_event_history_bound_invalid")
+    normalized_states = tuple(_normalize_state_record(item) for item in states_raw)
+    if tuple(item.proposition_id for item in normalized_states) != tuple(raw.get("proposition_ids", ())):
+        raise EpistemicStateError("epistemic_projection_pairing_ambiguous")
+    if len({item.proposition_id for item in normalized_states}) != len(normalized_states):
+        raise EpistemicStateError("epistemic_projection_pairing_ambiguous")
+    event_ticks: list[int] = []
+    for i, (state, proposition_raw, active_values, removed_values, event_history_raw) in enumerate(
+            zip(normalized_states, props_raw, active_raw, removed_raw, events_raw)):
+        proposition = EpistemicProposition(**dict(proposition_raw))
+        expected_proposition = make_proposition(**{key: value for key, value in
+            asdict(proposition).items() if key not in {"proposition_id", "proposition_digest", "schema_version"}})
+        if (proposition != expected_proposition or proposition.proposition_id != state.proposition_id
+                or dict(state.authority) != FALSE_AUTHORITY
+                or raw["state_ids"][i] != state.state_id
+                or raw["state_digests"][i] != state.state_digest
+                or raw["generations"][i] != state.generation
+                or raw["evidence_set_digests"][i] != state.evidence_set_digest):
+            raise EpistemicStateError("epistemic_semantic_proposition_state_join_invalid")
+        state_id, state_digest = _identity("epistemic-state", state.payload())
+        if (state_id, state_digest) != (state.state_id, state.state_digest):
+            raise EpistemicStateError("epistemic_state_digest_mismatch")
+        active = tuple(_normalize_binding_record(item) for item in active_values)
+        removed = tuple(_normalize_binding_record(item) for item in removed_values)
+        for binding in (*active, *removed):
+            expected_binding = make_evidence_binding(**{key: value for key, value in
+                asdict(binding).items() if key not in {"binding_id", "binding_digest", "schema_version"}})
+            if binding != expected_binding or binding.proposition_id != state.proposition_id:
+                raise EpistemicStateError("epistemic_semantic_evidence_join_invalid")
+        all_binding_rows: dict[str, EvidenceBinding] = {}
+        for binding in (*active, *removed):
+            existing = all_binding_rows.get(binding.binding_id)
+            if existing is not None and existing != binding:
+                raise EpistemicStateError("epistemic_semantic_evidence_identity_conflict")
+            all_binding_rows[binding.binding_id] = binding
+        active_ids = tuple(sorted(binding.binding_id for binding in active))
+        if len(active_ids) != len(set(active_ids)):
+            raise EpistemicStateError("epistemic_semantic_evidence_posture_mismatch")
+        events = tuple(_normalize_update_record(item) for item in event_history_raw)
+        if (len(events) != state.generation + 1 or state.update_rule_id == ""
+                or not state.created_at or not state.updated_at):
+            raise EpistemicStateError("epistemic_semantic_state_scope_invalid")
+        reconstructed_active: set[str] = set()
+        historically_removed: set[str] = set()
+        predecessor_digest: str | None = None
+        for generation, event in enumerate(events):
+            event_ticks.append(event.tick)
+            event_id, event_digest = _identity("epistemic-update", event.identity_payload())
+            added, removed_ids = set(event.added_binding_ids), set(event.removed_binding_ids)
+            if (event.event_id != event_id or event.event_digest != event_digest
+                    or dict(event.authority) != FALSE_AUTHORITY
+                    or event.proposition_id != state.proposition_id
+                    or event.generation != generation
+                    or event.prior_state_digest != predecessor_digest
+                    or event.tick >= raw["current_tick"]
+                    or event.tick > raw["source_tick"]
+                    or added & removed_ids or added & reconstructed_active
+                    or not removed_ids <= reconstructed_active
+                    or not (added | removed_ids) <= set(all_binding_rows)
+                    or (event.update_rule_revision is not None
+                        and not isinstance(event.update_rule_revision, str))):
+                raise EpistemicStateError("epistemic_semantic_update_join_invalid")
+            reconstructed_active.difference_update(removed_ids)
+            reconstructed_active.update(added)
+            historically_removed.update(removed_ids)
+            predecessor_digest = event.successor_state_digest
+        event = events[-1]
+        active_freshness = {binding.freshness for binding in active if not binding.withdrawn}
+        expected_freshness = ("current" if "current" in active_freshness else
+            "stale" if "stale" in active_freshness else "unknown")
+        if (digest(sorted(reconstructed_active)) != state.evidence_set_digest
+                or tuple(sorted(reconstructed_active)) != active_ids
+                or tuple(sorted(historically_removed)) != tuple(sorted(
+                    binding.binding_id for binding in removed))
+                or tuple(sorted(state.support_binding_ids)) != tuple(sorted(
+                    binding.binding_id for binding in active if binding.evidence_relation == "supports"
+                    or binding.reliability_posture == "supports"))
+                or tuple(sorted(state.contradiction_binding_ids)) != tuple(sorted(
+                    binding.binding_id for binding in active if binding.evidence_relation == "contradicts"
+                    or binding.reliability_posture == "contradicts"))
+                or state.dependency_unresolved != any(binding.dependency_kind == "unknown_dependency"
+                    for binding in active)
+                or state.freshness != expected_freshness
+                or event.successor_state_digest != state.state_digest
+                or event.prior_state_digest != state.predecessor_state_digest
+                or state.last_update_event_id != event.event_id):
+            raise EpistemicStateError("epistemic_semantic_evidence_posture_mismatch")
+        PersistentEpistemicStateOwner.validate_update_timestamp(
+            tick=event.tick, recorded_at=state.updated_at)
+    if max(event_ticks) != raw["source_tick"]:
+        raise EpistemicStateError("epistemic_semantic_source_tick_mismatch")
+    if (raw.get("evidence_only") is not False or raw.get("prior_position_only") is not True
+            or raw.get("current_truth") is not False
+            or any(raw.get(key) is not False for key in ("authority", "policy", "goal"))):
+        raise EpistemicStateError("epistemic_projection_authority_invalid")
+    payload = {key: raw[key] for key in ("source_tick", "proposition_ids", "state_ids",
+        "state_digests", "generations", "evidence_set_digests", "states")}
+    payload.update({"schema_version": schema, "current_tick": raw["current_tick"],
+        "propositions": props_raw, "active_evidence_bindings": active_raw,
+        "removed_evidence_bindings": removed_raw, "update_events": events_raw,
+        "evidence_only": False, "prior_position_only": True, "current_truth": False,
+        "authority": False, "policy": False, "goal": False})
+    identity = _identity("epistemic-projection", payload)
+    if (identity[0], identity[1]) != (raw.get("projection_id"), raw.get("projection_digest")):
+        raise EpistemicStateError("epistemic_semantic_projection_digest_mismatch")
+
+
+def semantic_packets_for_projection(projection: EpistemicCognitiveProjection) -> tuple[dict[str, Any], ...]:
+    """Return exact canonical packets; callers may select only whole packets."""
+    validate_cognitive_projection(projection, require_meaning=True)
+    assert isinstance(projection, MeaningBearingEpistemicCognitiveProjection)
+    packets = []
+    for proposition, state, bindings, removed, event_history in zip(projection.propositions,
+            projection.states, projection.active_evidence_bindings,
+            projection.removed_evidence_bindings, projection.update_events):
+        support_ids = set(state["support_binding_ids"])
+        contradiction_ids = set(state["contradiction_binding_ids"])
+        packet = {"schema_version": COGNITIVE_PACKET_SCHEMA,
+            "proposition": dict(proposition), "state": dict(state),
+            "statement_posture": "display_wording_not_proposition_identity",
+            "active_evidence_bindings": [dict(item) for item in bindings],
+            "evidence_posture": dict(evidence_posture(tuple(
+                _normalize_binding_record(item) for item in bindings))),
+            "supporting_evidence": [item["binding_id"] for item in bindings
+                if item["binding_id"] in support_ids],
+            "contradicting_evidence": [item["binding_id"] for item in bindings
+                if item["binding_id"] in contradiction_ids],
+            "removed_evidence_history": [dict(item) for item in removed],
+            "update_event_history": [dict(item) for item in event_history],
+            "last_update_event": dict(event_history[-1]),
+            "applicability": {"temporal_scope": proposition["temporal_scope"],
+                "context_scope": proposition["context_scope"],
+                "source_update_tick": event_history[-1]["tick"],
+                "current_tick_cutoff": projection.current_tick},
+            "interpretation_posture": "canonical_prior_position_not_current_truth",
+            "authority": False, "policy": False, "goal": False}
+        packet_identity = _identity("epistemic-packet", packet)
+        packets.append({**packet, "packet_id": packet_identity[0],
+            "packet_digest": packet_identity[1]})
+    return tuple(packets)
 
 
 @dataclass(frozen=True)
@@ -682,7 +959,7 @@ class PersistentEpistemicStateOwner:
         daemon tick strings are deliberately not interpreted as epistemic time.
         """
         if (not isinstance(max_states, int) or isinstance(max_states, bool)
-                or not 1 <= max_states <= MAX_EPISTEMIC_RECORDS_PER_COLLECTION):
+                or not 1 <= max_states <= MAX_COGNITIVE_PROJECTION_STATES):
             raise EpistemicStateError("epistemic_projection_bound_invalid")
         if current_tick is not None and (not isinstance(current_tick, int)
                 or isinstance(current_tick, bool) or current_tick < 0):
@@ -693,14 +970,23 @@ class PersistentEpistemicStateOwner:
             raise EpistemicStateError("epistemic_mutation_lineage_unverified")
         update_bytes = self._collection_bytes("updates")
         state_bytes = self._collection_bytes("states")
+        proposition_bytes = self._collection_bytes("propositions")
+        binding_bytes = self._collection_bytes("bindings")
         if (update_bytes != self._collection_bytes("updates")
-                or state_bytes != self._collection_bytes("states")):
+                or state_bytes != self._collection_bytes("states")
+                or proposition_bytes != self._collection_bytes("propositions")
+                or binding_bytes != self._collection_bytes("bindings")):
             raise EpistemicStateError("epistemic_projection_boundary_changed")
         events = [EpistemicUpdateEvent(**json.loads(raw)) for _, raw in update_bytes]
         states = [EpistemicState(**json.loads(raw)) for _, raw in state_bytes]
-        allowed_propositions = {item.proposition_id for item in
-            (EpistemicProposition(**raw) for raw in self._read("propositions"))
+        propositions = [EpistemicProposition(**json.loads(raw)) for _, raw in proposition_bytes]
+        bindings = [EvidenceBinding(**{**json.loads(raw),
+            "upstream_binding_ids": tuple(json.loads(raw)["upstream_binding_ids"])})
+            for _, raw in binding_bytes]
+        proposition_by_id = {item.proposition_id: item for item in propositions
             if item.namespace in self.allowed_namespaces}
+        binding_by_id = {item.binding_id: item for item in bindings}
+        allowed_propositions = set(proposition_by_id)
         paired = {event.successor_state_digest: event for event in events}
         if len(paired) != len(events) or any(state.state_digest not in paired for state in states):
             raise EpistemicStateError("epistemic_projection_pairing_ambiguous")
@@ -717,15 +1003,56 @@ class PersistentEpistemicStateOwner:
         # as the current prior position. This remains effective after restart,
         # because the cutoff is compared with the authenticated update event's
         # persisted tick, not process-local ordering.
+        events_by_proposition: dict[str, list[EpistemicUpdateEvent]] = {}
+        for event in events:
+            events_by_proposition.setdefault(event.proposition_id, []).append(event)
         if current_tick is not None:
             latest = {proposition_id: state for proposition_id, state in latest.items()
-                if paired[state.state_digest].tick < current_tick}
+                if all(event.tick < current_tick for event in
+                    events_by_proposition.get(proposition_id, ()))}
         selected = tuple(sorted(latest.values(), key=lambda item: item.proposition_id)[:max_states])
         if not selected:
             return None
-        source_tick = max(paired[state.state_digest].tick for state in selected)
+        event_histories_by_state = {state.proposition_id: tuple(sorted((item for item in
+            events_by_proposition.get(state.proposition_id, ()) if item.generation <= state.generation),
+            key=lambda item: item.generation)) for state in selected}
+        selected_events = tuple(history[-1] for history in
+            (event_histories_by_state[state.proposition_id] for state in selected))
+        source_tick = max(event.tick for history in event_histories_by_state.values()
+            for event in history)
         projection_tick = current_tick if current_tick is not None else source_tick + 1
-        return make_cognitive_projection(selected, source_tick=source_tick, current_tick=projection_tick)
+        active_by_proposition: dict[str, set[str]] = {}
+        for event in sorted(events, key=lambda item: (item.proposition_id, item.generation)):
+            active = active_by_proposition.setdefault(event.proposition_id, set())
+            active.difference_update(event.removed_binding_ids)
+            active.update(event.added_binding_ids)
+        active_records: list[tuple[Mapping[str, Any], ...]] = []
+        removed_records: list[tuple[Mapping[str, Any], ...]] = []
+        event_histories: list[tuple[Mapping[str, Any], ...]] = []
+        for state in selected:
+            active_ids = tuple(sorted(active_by_proposition.get(state.proposition_id, set())))
+            history = event_histories_by_state[state.proposition_id]
+            if len(history) != state.generation + 1:
+                raise EpistemicStateError("epistemic_projection_update_history_incomplete")
+            removed_ids = tuple(sorted({binding_id for item in history
+                for binding_id in item.removed_binding_ids}))
+            if any(binding_id not in binding_by_id for binding_id in active_ids):
+                raise EpistemicStateError("epistemic_projection_binding_missing")
+            if digest(list(active_ids)) != state.evidence_set_digest:
+                raise EpistemicStateError("epistemic_active_evidence_lineage_mismatch")
+            if any(binding_id not in binding_by_id for binding_id in removed_ids):
+                raise EpistemicStateError("epistemic_projection_removed_binding_missing")
+            active_records.append(tuple(asdict(binding_by_id[binding_id])
+                for binding_id in active_ids))
+            removed_records.append(tuple(asdict(binding_by_id[binding_id])
+                for binding_id in removed_ids))
+            event_histories.append(tuple(asdict(item) for item in history))
+        return make_cognitive_projection(selected, source_tick=source_tick,
+            current_tick=projection_tick,
+            propositions=tuple(asdict(proposition_by_id[state.proposition_id]) for state in selected),
+            active_evidence_bindings=tuple(active_records),
+            removed_evidence_bindings=tuple(removed_records),
+            update_events=tuple(event_histories))
 
     @staticmethod
     def validate_update_timestamp(*, tick: int, recorded_at: str) -> None:

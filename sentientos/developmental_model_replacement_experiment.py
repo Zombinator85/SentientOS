@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
 
 from .local_model_authority import digest_payload
+from .persistent_epistemic_state import validate_cognitive_projection
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PURPOSE = "resident_developmental_model_replacement_experiment"
@@ -93,9 +94,17 @@ def _prior_cognition_bindings(payload: Mapping[str, Any]) -> dict[str, Any]:
     if epistemic is not None:
         if not isinstance(epistemic, Mapping):
             raise DevelopmentalModelReplacementError("prior_epistemic_state_binding_invalid")
+        semantic_projection = epistemic.get("schema_version") is not None
+        if semantic_projection:
+            try:
+                validate_cognitive_projection(epistemic, require_meaning=True)
+            except (TypeError, ValueError, KeyError) as exc:
+                raise DevelopmentalModelReplacementError(
+                    "prior_epistemic_state_binding_invalid") from exc
         states = epistemic.get("states")
         if (type(epistemic.get("source_tick")) is not int or epistemic["source_tick"] >= current_tick
-                or not isinstance(states, (list, tuple)) or len(states) > 64):
+                or not isinstance(states, (list, tuple))
+                or len(states) > (128 if semantic_projection else 64)):
             raise DevelopmentalModelReplacementError("prior_epistemic_state_binding_invalid")
         state_ids, state_digests = [], []
         for state in states:
@@ -121,8 +130,9 @@ def _prior_cognition_bindings(payload: Mapping[str, Any]) -> dict[str, Any]:
             "states": states, "evidence_only": False, "prior_position_only": True,
             "current_truth": False, "authority": False, "policy": False, "goal": False}
         calculated = _digest(bindings)
-        if (epistemic.get("projection_digest") != calculated
-                or epistemic.get("projection_id") != "epistemic-projection:" + calculated[7:31]
+        legacy_identity_valid = (epistemic.get("projection_digest") == calculated
+            and epistemic.get("projection_id") == "epistemic-projection:" + calculated[7:31])
+        if ((not semantic_projection and not legacy_identity_valid)
                 or epistemic.get("evidence_only") is not False
                 or epistemic.get("prior_position_only") is not True
                 or epistemic.get("current_truth") is not False

@@ -10,6 +10,8 @@ from sentientos.persistent_epistemic_state import (
     FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
     PropositionRelation, evidence_posture, make_cognitive_projection,
     make_evidence_binding, make_proposition, make_epistemic_update_candidate, _write_new,
+    MeaningBearingEpistemicCognitiveProjection, semantic_packets_for_projection,
+    validate_cognitive_projection,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -102,6 +104,90 @@ def test_owner_projection_is_verified_latest_bounded_deterministic_and_empty(tmp
     event_path=next((tmp_path/"updates").glob("*.json"))
     event=json.loads(event_path.read_text()); event["tick"]=100; event_path.write_text(json.dumps(event))
     with pytest.raises(EpistemicStateError): owner.cognitive_projection(max_states=2)
+
+
+def test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    propositions = [make_proposition(namespace="embodiment", subject="robot:g7",
+        predicate="renderer_observed", object_value={"pose": "wave"}, polarity="positive",
+        qualifiers={"renderer": "r1"}, temporal_scope={"window": window},
+        context_scope={"location": place}, proposition_class="predictive",
+        statement="exact canonical statement")
+        for window, place in (("trial-a", "left"), ("trial-b", "right"))]
+    states = []
+    for index, proposition_value in enumerate(propositions):
+        owner.register_proposition(proposition_value)
+        support = binding(proposition_value, f"support-{index}")
+        owner.bind_evidence(support)
+        state, _ = owner.commit_update(proposition_id=proposition_value.proposition_id,
+            expected_predecessor_digest=None, stance="provisionally_supported",
+            reason="initialization", active_binding_ids=[support.binding_id],
+            added_binding_ids=[support.binding_id],
+            correlation_id=f"position-{index}", tick=index + 1,
+            recorded_at="2026-01-01T00:00:00Z", confidence={"range": "wide"})
+        states.append(state)
+    projection = owner.cognitive_projection(max_states=2, current_tick=3)
+    assert isinstance(projection, MeaningBearingEpistemicCognitiveProjection)
+    validate_cognitive_projection(projection, require_meaning=True)
+    packets = semantic_packets_for_projection(projection)
+    assert [packet["state"]["stance"] for packet in packets] == [
+        "provisionally_supported", "provisionally_supported"]
+    assert {packet["proposition"]["temporal_scope"]["window"] for packet in packets} == {
+        "trial-a", "trial-b"}
+    assert {packet["proposition"]["context_scope"]["location"] for packet in packets} == {
+        "left", "right"}
+    assert all(packet["proposition"]["proposition_digest"] ==
+        next(p.proposition_digest for p in propositions
+             if p.proposition_id == packet["proposition"]["proposition_id"])
+        for packet in packets)
+    recovered = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    replay = recovered.cognitive_projection(max_states=2, current_tick=3)
+    assert replay is not None and replay.projection_digest == projection.projection_digest
+
+
+def test_semantic_projection_rejects_substituted_meaning_and_bad_join(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    proposition_value = proposition()
+    owner.register_proposition(proposition_value)
+    state, _ = owner.commit_update(proposition_id=proposition_value.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=[], correlation_id="initial", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    projection = owner.cognitive_projection(max_states=1, current_tick=2)
+    assert projection is not None
+    substituted = dict(projection.propositions[0])
+    substituted["context_scope"] = {"fixture": "substituted"}
+    with pytest.raises(EpistemicStateError, match="semantic|digest|join"):
+        validate_cognitive_projection(replace(projection,
+            propositions=(substituted,)), require_meaning=True)
+    mismatched_state = dict(projection.states[0])
+    mismatched_state["proposition_id"] = "proposition:" + "0" * 24
+    with pytest.raises(EpistemicStateError):
+        validate_cognitive_projection(replace(projection, states=(mismatched_state,)),
+            require_meaning=True)
+    legacy = make_cognitive_projection([state], source_tick=1, current_tick=2)
+    validate_cognitive_projection(legacy)
+    assert not getattr(legacy, "schema_version", None)
+
+
+def test_stale_position_keeps_stale_freshness_in_prior_packet(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    stale = binding(p, "stale-source", freshness="stale")
+    owner.bind_evidence(stale)
+    state, _ = owner.commit_update(proposition_id=p.proposition_id,
+        expected_predecessor_digest=None, stance="provisionally_supported",
+        reason="initialization", active_binding_ids=[stale.binding_id],
+        added_binding_ids=[stale.binding_id], correlation_id="stale-prior", tick=4,
+        recorded_at="2026-01-01T00:00:00Z")
+    projection = owner.cognitive_projection(max_states=1, current_tick=5)
+    assert projection is not None
+    packet = semantic_packets_for_projection(projection)[0]
+    assert packet["state"]["state_digest"] == state.state_digest
+    assert packet["state"]["freshness"] == "stale"
+    assert packet["interpretation_posture"] == "canonical_prior_position_not_current_truth"
+    assert packet["evidence_posture"]["posture"] == "all_evidence_stale"
 
 
 

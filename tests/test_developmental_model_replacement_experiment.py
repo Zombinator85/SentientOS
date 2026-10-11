@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -11,8 +11,11 @@ from sentientos.developmental_model_replacement_experiment import (
     CONDITION_ORDER, PURPOSE, CognitiveModelIdentity, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext,
     ModelDevelopmentClaim, ModelDevelopmentProvenance,
+    _prior_cognition_bindings,
 )
 from sentientos.local_model_authority import digest_payload
+from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
+    make_proposition, make_cognitive_projection)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -147,6 +150,29 @@ def test_exact_model_a_restoration(tmp_path: Path) -> None:
     assert result["differences"]["model_a_restoration"]
     assert result["observations"][0]["model_identity_digest"] == result["observations"][4]["model_identity_digest"]
     assert a.calls[0]["prompt"] == a.calls[2]["prompt"]
+
+
+def test_semantic_epistemic_projection_v2_and_legacy_v1_identity_are_accepted(tmp_path: Path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    proposition = make_proposition(namespace="embodiment", subject="system:g1",
+        predicate="has_prior_position", object_value="unknown", polarity="positive",
+        qualifiers={"bounded": True}, temporal_scope={"window": "prior"},
+        context_scope={"source": "fixture"}, proposition_class="system_hypothesis")
+    owner.register_proposition(proposition)
+    state, _ = owner.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=[], correlation_id="fixture", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    semantic = owner.cognitive_projection(max_states=1, current_tick=3)
+    legacy = make_cognitive_projection([state], source_tick=1, current_tick=3)
+    semantic_binding = _prior_cognition_bindings({"prior_epistemic_state": asdict(semantic),
+        "tick_id": "tick-3", "current_tick": 3})
+    legacy_binding = _prior_cognition_bindings({"prior_epistemic_state": asdict(legacy),
+        "tick_id": "tick-3", "current_tick": 3})
+    assert semantic_binding["prior_epistemic_projection_id"] == semantic.projection_id
+    assert semantic_binding["prior_epistemic_state_ids"] == [state.state_id]
+    assert legacy_binding["prior_epistemic_projection_id"] == legacy.projection_id
+    assert legacy_binding["prior_epistemic_state_digests"] == [state.state_digest]
 
 
 def test_provenance_claim_remains_source_bound_non_truth_metadata(tmp_path: Path) -> None:

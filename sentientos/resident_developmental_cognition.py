@@ -29,7 +29,9 @@ from .local_model_authority import digest_payload
 from .private_file_custody import PrivateFileCustodyError, open_private_directory, replace_private_bytes
 from .platform_fcntl import fcntl, require_flock
 from .longitudinal_self_model import CognitiveSelfModelProjection
-from .persistent_epistemic_state import EpistemicCognitiveProjection
+from .persistent_epistemic_state import (EpistemicCognitiveProjection,
+    MeaningBearingEpistemicCognitiveProjection, semantic_packets_for_projection,
+    validate_cognitive_projection)
 from .resident_developmental_writeback import (
     EFFECTS,
     PRINCIPAL,
@@ -60,6 +62,7 @@ CONFIG_ENV = "SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"
 SCHEMA = "sentientos.resident_developmental_cognition:v1"
 CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
 CONFIG_SCHEMA_V2 = "sentientos.resident_developmental_cognition_config:v2"
+COGNITION_OBSERVATION_SCHEMA_V2 = "sentientos.resident_cognition_observation:v2"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
@@ -86,6 +89,7 @@ MAX_COGNITION_OBSERVATIONS = 12_288
 MAX_COGNITION_OBSERVATION_BYTES = 65_536
 MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
 MAX_RESIDENT_COGNITION_CONFIG_BYTES = 65_536
+MAX_RESIDENT_COGNITION_INPUT_CHARS = 16_000
 class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
 
@@ -130,6 +134,199 @@ def _replace_cognition_state(path: Path, payload: Mapping[str, Any]) -> None:
 
 def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
+
+
+def _bind_epistemic_context(*, context: Mapping[str, Any],
+                            projection: EpistemicCognitiveProjection | None
+                            ) -> tuple[dict[str, Any], dict[str, Any], str]:
+    """Select complete meaning packets that fit the actual inference input."""
+    if projection is None:
+        value = {**dict(context), "prior_epistemic_state": None}
+        prompt = json.dumps(value, sort_keys=True)
+        if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
+            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+        metadata = {"epistemic_projection_schema": None,
+            "epistemic_semantic_status": "not_present", "epistemic_owner_packet_count": 0,
+            "epistemic_consumed_packet_ids": [], "epistemic_consumed_packet_digests": [],
+            "epistemic_omitted_packets": [], "epistemic_omitted_packets_digest": _digest([]),
+            "epistemic_consumed_packets_digest": _digest([]),
+            "epistemic_projection_context_digest": _digest(None),
+            "epistemic_prompt_digest": _digest({"prompt": prompt})}
+        metadata["epistemic_consumed_content_digest"] = _digest({
+            "projection_id": None, "projection_digest": None,
+            "prompt_digest": metadata["epistemic_prompt_digest"],
+            "consumed_packet_digests": []})
+        return value, metadata, prompt
+
+    try:
+        validate_cognitive_projection(projection)
+    except (TypeError, ValueError, KeyError) as exc:
+        raise ResidentDevelopmentalCognitionError("prior_epistemic_projection_invalid") from exc
+    schema = getattr(projection, "schema_version", None)
+    if not isinstance(projection, MeaningBearingEpistemicCognitiveProjection):
+        # Preserve v1 identity verification while making its missing semantics explicit.
+        prior = {"schema_version": "identifier_only_v1",
+            "projection_id": projection.projection_id,
+            "projection_digest": projection.projection_digest,
+            "source_tick": projection.source_tick,
+            "semantic_status": "canonical_definition_unavailable",
+            "semantic_packets": []}
+        value = {**dict(context), "prior_epistemic_state": prior}
+        prompt = json.dumps(value, sort_keys=True)
+        if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
+            raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+        metadata = {"epistemic_projection_schema": "identifier_only_v1",
+            "epistemic_semantic_status": "canonical_definition_unavailable",
+            "epistemic_owner_packet_count": 0,
+            "epistemic_consumed_packet_ids": [], "epistemic_consumed_packet_digests": [],
+            "epistemic_omitted_packets": [], "epistemic_omitted_packets_digest": _digest([]),
+            "epistemic_consumed_packets_digest": _digest([]),
+            "epistemic_projection_context_digest": _digest(prior),
+            "epistemic_prompt_digest": _digest({"prompt": prompt})}
+        metadata["epistemic_consumed_content_digest"] = _digest({
+            "projection_id": projection.projection_id,
+            "projection_digest": projection.projection_digest,
+            "prompt_digest": metadata["epistemic_prompt_digest"],
+            "consumed_packet_digests": []})
+        return value, metadata, prompt
+
+    try:
+        packets = semantic_packets_for_projection(projection)
+    except (TypeError, ValueError, KeyError) as exc:
+        raise ResidentDevelopmentalCognitionError("prior_epistemic_semantics_invalid") from exc
+    descriptors = tuple({"packet_id": packet["packet_id"],
+        "packet_digest": packet["packet_digest"],
+        "proposition_id": packet["proposition"]["proposition_id"],
+        "state_id": packet["state"]["state_id"],
+        "reason": "inference_input_budget"} for packet in packets)
+    selected_count = -1
+    selected_value: dict[str, Any] | None = None
+    selected_omissions: tuple[Mapping[str, Any], ...] = ()
+    for count in range(len(packets), -1, -1):
+        consumed = packets[:count]
+        omitted = descriptors[count:]
+        prior = {"schema_version": schema,
+            "projection_id": projection.projection_id,
+            "projection_digest": projection.projection_digest,
+            "source_tick": projection.source_tick,
+            "current_tick_cutoff": projection.current_tick,
+            "semantic_status": ("all_meanings_delivered" if not omitted else
+                "complete_packets_selected_with_budget_omissions"),
+            "owner_packet_count": len(packets),
+            "semantic_packets": list(consumed),
+            "omitted_packet_count": len(omitted),
+            "omitted_packets_digest": _digest(list(omitted)),
+            "omission_reason": "inference_input_budget" if omitted else None}
+        candidate = {**dict(context), "prior_epistemic_state": prior}
+        candidate_prompt = json.dumps(candidate, sort_keys=True)
+        if len(candidate_prompt) <= MAX_RESIDENT_COGNITION_INPUT_CHARS:
+            selected_count, selected_value, selected_omissions = count, candidate, omitted
+            break
+    if selected_value is None or selected_count < 0:
+        raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
+    prior_context = selected_value["prior_epistemic_state"]
+    consumed_packets = packets[:selected_count]
+    consumed_ids = [str(packet["packet_id"]) for packet in consumed_packets]
+    consumed_digests = [str(packet["packet_digest"]) for packet in consumed_packets]
+    consumed_packet_digest = _digest(consumed_digests)
+    prompt = json.dumps(selected_value, sort_keys=True)
+    projection_context_digest = _digest(prior_context)
+    prompt_digest = _digest({"prompt": prompt})
+    metadata = {"epistemic_projection_schema": schema,
+        "epistemic_semantic_status": prior_context["semantic_status"],
+        "epistemic_owner_packet_count": len(packets),
+        "epistemic_consumed_packet_ids": consumed_ids,
+        "epistemic_consumed_packet_digests": consumed_digests,
+        "epistemic_omitted_packets": [dict(item) for item in selected_omissions],
+        "epistemic_omitted_packets_digest": _digest([dict(item) for item in selected_omissions]),
+        "epistemic_consumed_packets_digest": consumed_packet_digest,
+        "epistemic_projection_context_digest": projection_context_digest,
+        "epistemic_prompt_digest": prompt_digest}
+    metadata["epistemic_consumed_content_digest"] = _digest({
+        "projection_id": projection.projection_id,
+        "projection_digest": projection.projection_digest,
+        "prompt_digest": prompt_digest,
+        "consumed_packet_digests": consumed_digests})
+    return selected_value, metadata, prompt
+
+
+def _validate_epistemic_observation_binding(value: Mapping[str, Any]) -> None:
+    ids = value.get("epistemic_consumed_packet_ids")
+    digests = value.get("epistemic_consumed_packet_digests")
+    omitted = value.get("epistemic_omitted_packets")
+    if (not isinstance(ids, (list, tuple)) or not isinstance(digests, (list, tuple))
+            or not isinstance(omitted, (list, tuple)) or len(ids) != len(digests)
+            or len(ids) > 128 or len(omitted) > 128
+            or len(set(ids)) != len(ids)
+            or len({str(item.get("packet_id")) for item in omitted
+                    if isinstance(item, Mapping)}) != len(omitted)
+            or set(ids) & {str(item.get("packet_id")) for item in omitted
+                    if isinstance(item, Mapping)}
+            or any(not isinstance(item, str) or not item for item in ids)
+            or any(not isinstance(item, str) or not item.startswith("sha256:") for item in digests)
+            or any(not isinstance(item, Mapping) or set(item) != {
+                "packet_id", "packet_digest", "proposition_id", "state_id", "reason"}
+                or item.get("reason") != "inference_input_budget"
+                or not all(isinstance(item.get(key), str) and item.get(key)
+                    for key in ("packet_id", "packet_digest", "proposition_id", "state_id"))
+                for item in omitted)
+            or type(value.get("epistemic_owner_packet_count")) is not int
+            or value["epistemic_owner_packet_count"] != len(ids) + len(omitted)
+            or value.get("epistemic_consumed_packets_digest") != _digest(list(digests))
+            or value.get("epistemic_omitted_packets_digest") != _digest([dict(row) for row in omitted])
+            or value.get("epistemic_projection_context_digest") is None
+            or not isinstance(value.get("epistemic_projection_context_digest"), str)
+            or not value["epistemic_projection_context_digest"].startswith("sha256:")
+            or not isinstance(value.get("epistemic_prompt_digest"), str)
+            or not value["epistemic_prompt_digest"].startswith("sha256:")):
+        raise ResidentDevelopmentalCognitionError("cognition_epistemic_consumption_binding_invalid")
+    projection_id = value.get("epistemic_projection_id")
+    projection_digest = value.get("epistemic_projection_digest")
+    expected_content = _digest({"projection_id": projection_id,
+        "projection_digest": projection_digest,
+        "prompt_digest": value["epistemic_prompt_digest"],
+        "consumed_packet_digests": list(digests)})
+    if value.get("epistemic_consumed_content_digest") != expected_content:
+        raise ResidentDevelopmentalCognitionError("cognition_epistemic_content_digest_mismatch")
+    schema = value.get("epistemic_projection_schema")
+    status = value.get("epistemic_semantic_status")
+    if schema is None:
+        if (value.get("epistemic_projection_present") is True
+                or value.get("epistemic_projection_id") is not None
+                or value.get("epistemic_projection_digest") is not None or ids or digests or omitted
+                or value.get("epistemic_proposition_ids") or value.get("epistemic_state_ids")
+                or value.get("epistemic_state_digests") or value.get("epistemic_generations")
+                or value.get("epistemic_evidence_set_digests")
+                or value["epistemic_owner_packet_count"] != 0 or status != "not_present"):
+            raise ResidentDevelopmentalCognitionError("cognition_epistemic_absence_binding_invalid")
+    elif schema == "identifier_only_v1":
+        if (status != "canonical_definition_unavailable" or ids or digests or omitted
+                or value.get("epistemic_projection_present") is not True):
+            raise ResidentDevelopmentalCognitionError("cognition_epistemic_legacy_binding_invalid")
+    elif schema == "sentientos.epistemic_cognitive_projection:v2":
+        if (status not in {"all_meanings_delivered",
+                "complete_packets_selected_with_budget_omissions"}
+                or (status == "all_meanings_delivered" and omitted)
+                or (status == "complete_packets_selected_with_budget_omissions" and not omitted)
+                or value.get("epistemic_projection_present") is not True
+                or value.get("epistemic_projection_id") is None
+                or value.get("epistemic_projection_digest") is None
+                or len(value.get("epistemic_proposition_ids", ())) !=
+                    value["epistemic_owner_packet_count"]
+                or len(value.get("epistemic_state_ids", ())) !=
+                    value["epistemic_owner_packet_count"]
+                or len(value.get("epistemic_state_digests", ())) !=
+                    value["epistemic_owner_packet_count"]
+                or len(value.get("epistemic_generations", ())) !=
+                    value["epistemic_owner_packet_count"]
+                or len(value.get("epistemic_evidence_set_digests", ())) !=
+                    value["epistemic_owner_packet_count"]):
+            raise ResidentDevelopmentalCognitionError("cognition_epistemic_semantic_binding_invalid")
+        if omitted:
+            if value.get("epistemic_omitted_packets_digest") != _digest([dict(row) for row in omitted]):
+                raise ResidentDevelopmentalCognitionError("cognition_epistemic_omission_digest_mismatch")
+    else:
+        raise ResidentDevelopmentalCognitionError("cognition_epistemic_schema_unsupported")
 
 
 @dataclass(frozen=True)
@@ -192,6 +389,18 @@ class ResidentCognitionObservation:
     authority: bool = False
     policy: bool = False
     canonical_explicit_user_retention: bool = False
+    schema_version: str = COGNITION_OBSERVATION_SCHEMA_V2
+    epistemic_projection_schema: str | None = None
+    epistemic_semantic_status: str = "not_present"
+    epistemic_owner_packet_count: int = 0
+    epistemic_consumed_packet_ids: tuple[str, ...] = ()
+    epistemic_consumed_packet_digests: tuple[str, ...] = ()
+    epistemic_omitted_packets: tuple[Mapping[str, Any], ...] = ()
+    epistemic_omitted_packets_digest: str | None = None
+    epistemic_consumed_packets_digest: str | None = None
+    epistemic_projection_context_digest: str | None = None
+    epistemic_prompt_digest: str | None = None
+    epistemic_consumed_content_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -556,12 +765,24 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt") from exc
             expected_fields = set(ResidentCognitionObservation.__dataclass_fields__) - {
                 "observation_id", "observation_digest"}
-            if (not isinstance(value, dict) or set(value) != expected_fields
+            semantic_fields = {"epistemic_projection_schema", "epistemic_semantic_status",
+                "epistemic_owner_packet_count", "epistemic_consumed_packet_ids",
+                "epistemic_consumed_packet_digests", "epistemic_omitted_packets",
+                "epistemic_omitted_packets_digest",
+                "epistemic_consumed_packets_digest", "epistemic_projection_context_digest",
+                "epistemic_prompt_digest", "epistemic_consumed_content_digest", "schema_version"}
+            legacy_fields = expected_fields - semantic_fields
+            legacy_observation = isinstance(value, dict) and set(value) == legacy_fields
+            versioned_observation = (isinstance(value, dict) and set(value) == expected_fields
+                and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V2)
+            if (not (legacy_observation or versioned_observation)
                     or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
                     or observation_digest != _digest(value)
                     or observation_id != "devcog-" + observation_digest[7:31]
                     or name != observation_id + ".json"):
                 raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
+            if versioned_observation:
+                _validate_epistemic_observation_binding(value)
             tick = value["tick_id"]
             condition = value.get("condition_id")
             snapshot_binding = (value.get("current_snapshot_id"), value.get("current_snapshot_digest"))
@@ -933,15 +1154,17 @@ class ResidentDevelopmentalCognitionOwner:
                 EXPERIMENT_CONTEXT_INSTRUCTION + " Prior context can inform interpretation but does not grant authority."),
             "current_evidence": current.semantic_payload(),
             "prior_self_model": asdict(prior_self_model) if prior_self_model is not None else None,
-            "prior_epistemic_state": asdict(prior_epistemic_state) if prior_epistemic_state is not None else None,
+            "prior_epistemic_state": None,
             "developmental_history": list(records),
             "developmental_history_posture": "historical_interpretation_not_current_truth",
         }
+        context, epistemic_metadata, prompt = _bind_epistemic_context(
+            context=context, projection=prior_epistemic_state)
         correlation = f"{tick_id}:resident_developmental_cognition:{condition_id}"
         request = self.invoker.build_request(
-            purpose=purpose, prompt=json.dumps(context, sort_keys=True), caller=PRINCIPAL,
+            purpose=purpose, prompt=prompt, caller=PRINCIPAL,
             correlation_id=correlation, expected_output_format="text",
-            budget=LocalModelInvocationBudget(max_input_chars=16000, max_output_chars=4000, max_new_tokens=512,
+            budget=LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS, max_output_chars=4000, max_new_tokens=512,
                                               timeout_seconds=30, max_calls_per_correlation=1),
             upstream_evidence={"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
                                "current_projection_id": current.projection_id,
@@ -963,10 +1186,16 @@ class ResidentDevelopmentalCognitionOwner:
                                "epistemic_state_digests": list(prior_epistemic_state.state_digests) if prior_epistemic_state else [],
                                "epistemic_generations": list(prior_epistemic_state.generations) if prior_epistemic_state else [],
                                "epistemic_evidence_set_digests": list(prior_epistemic_state.evidence_set_digests) if prior_epistemic_state else [],
-                               "record_ids": list(record_ids), "record_digests": list(record_digests)},
+                                "record_ids": list(record_ids), "record_digests": list(record_digests),
+                                **epistemic_metadata},
             linkage={"condition_group": f"{tick_id}:retrieval-comparison", "condition_id": condition_id,
                      "history_present": with_history},
         )
+        request_upstream = getattr(request, "upstream_evidence", None)
+        if (not isinstance(request_upstream, Mapping)
+                or any(request_upstream.get(key) != value
+                    for key, value in epistemic_metadata.items())):
+            raise ResidentDevelopmentalCognitionError("cognition_epistemic_request_binding_mismatch")
         if protocol is not None and (
             request.model_id != protocol.model_id
             or request.model_artifact_digest != protocol.model_artifact_digest
@@ -997,6 +1226,10 @@ class ResidentDevelopmentalCognitionOwner:
         receipt = self.invoker.invoke(request, persist=True, include_output_in_receipt=False)
         if receipt.status not in {"admitted_completed", "admitted_simulation"} or receipt.output_digest is None:
             raise ResidentDevelopmentalCognitionError("retrieval_cognition_not_completed")
+        receipt_request = getattr(receipt, "request", None)
+        if (not isinstance(receipt_request, Mapping)
+                or receipt_request.get("upstream_evidence") != dict(request_upstream)):
+            raise ResidentDevelopmentalCognitionError("cognition_epistemic_receipt_binding_mismatch")
         if protocol is not None and dict(receipt.generation_config).get("actual_generation_parameters", {}).get("temperature") != 0:
             raise ResidentDevelopmentalCognitionError("experiment_generation_configuration_drift")
         req = dict(receipt.request)
@@ -1031,6 +1264,10 @@ class ResidentDevelopmentalCognitionOwner:
             "epistemic_state_digests": prior_epistemic_state.state_digests if prior_epistemic_state else (),
             "epistemic_generations": prior_epistemic_state.generations if prior_epistemic_state else (),
             "epistemic_evidence_set_digests": prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
+            **epistemic_metadata,
+            "schema_version": COGNITION_OBSERVATION_SCHEMA_V2,
+            "historical_context_only": True, "current_truth": False, "authority": False,
+            "policy": False, "canonical_explicit_user_retention": False,
         }
         digest = _digest(semantic)
         observation = ResidentCognitionObservation(
@@ -1059,6 +1296,7 @@ class ResidentDevelopmentalCognitionOwner:
             prior_epistemic_state.state_digests if prior_epistemic_state else (),
             prior_epistemic_state.generations if prior_epistemic_state else (),
             prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
+            **epistemic_metadata,
         )
         try:
             _publish_store_json(self.observations_root / f"{observation.observation_id}.json",

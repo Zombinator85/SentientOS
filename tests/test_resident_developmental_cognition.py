@@ -10,13 +10,15 @@ from sentientos.governed_local_model_invocation import LocalModelInvocationRecei
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import (
     CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
-    ResidentDevelopmentalCognitionOwner, load_config,
+    ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientosd import RuntimeMaintenanceSurfaces, _load_epistemic_state_owner
-from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner, make_proposition
+from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
+    make_proposition, make_evidence_binding, make_cognitive_projection,
+    MeaningBearingEpistemicCognitiveProjection)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -36,9 +38,12 @@ class FakeInvoker:
     def build_request(self, **kwargs):
         request = type("Request", (), {})()
         for key, value in kwargs.items(): setattr(request, key, value)
+        request.prompt_digest = digest_payload({"prompt": kwargs["prompt"]})
+        request.prompt_size = len(kwargs["prompt"].encode("utf-8"))
         request.model_id = "model-a"; request.model_artifact_digest = "sha256:model"
         request.authority_map_digest = "test-authority-map"; request.active_model_identity = {}
-        semantic = {"purpose": kwargs["purpose"], "correlation_id": kwargs["correlation_id"],
+        semantic = {"purpose": kwargs["purpose"], "prompt_digest": request.prompt_digest,
+                    "prompt_size": request.prompt_size, "correlation_id": kwargs["correlation_id"],
                     "upstream_evidence": kwargs["upstream_evidence"], "linkage": kwargs["linkage"]}
         request.request_digest = digest_payload(semantic); request.request_id = "lmreq-" + request.request_digest[:24]
         request.to_receipt_request_dict = lambda: {**semantic, "request_id":request.request_id,
@@ -90,6 +95,130 @@ def epistemic_projection(root: Path):
     projection = epistemic.cognitive_projection(max_states=1)
     assert projection is not None
     return projection, proposition, state
+
+
+def test_meaning_bearing_epistemic_packets_reach_actual_inference_request(tmp_path: Path):
+    epistemic = PersistentEpistemicStateOwner(tmp_path / "epistemic",
+        allowed_namespaces=["embodiment"])
+    propositions = [make_proposition(namespace="embodiment", subject="sensor:g9",
+        predicate="reports_temperature", object_value={"celsius": 20}, polarity="positive",
+        qualifiers={"sensor": "exact-a"}, temporal_scope={"window": window},
+        context_scope={"room": room}, proposition_class="descriptive",
+        statement="canonical temperature proposition")
+        for window, room in (("morning", "lab-a"), ("evening", "lab-b"))]
+    for index, proposition_value in enumerate(propositions):
+        epistemic.register_proposition(proposition_value)
+        support = make_evidence_binding(proposition_id=proposition_value.proposition_id,
+            source_artifact_id=f"support-{index}", source_digest="sha256:" + str(index + 1) * 64,
+            source_schema="sentientos.test_sensor:v1", source_class="fixture",
+            observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+            dependency_kind="independently_sourced_observation", dependency_group=f"group-{index}",
+            upstream_binding_ids=(), freshness="current", reliability_posture="verified")
+        contradiction = make_evidence_binding(proposition_id=proposition_value.proposition_id,
+            source_artifact_id=f"contradiction-{index}", source_digest="sha256:" + str(index + 3) * 64,
+            source_schema="sentientos.test_sensor:v1", source_class="fixture",
+            observation_time="2025-01-01T00:00:00Z", evidence_relation="contradicts",
+            dependency_kind="unknown_dependency", dependency_group=None,
+            upstream_binding_ids=(), freshness="stale", reliability_posture="unverified")
+        epistemic.bind_evidence(support)
+        epistemic.bind_evidence(contradiction)
+        state, _ = epistemic.commit_update(proposition_id=proposition_value.proposition_id,
+            expected_predecessor_digest=None, stance="contested", reason="initialization",
+            active_binding_ids=[support.binding_id, contradiction.binding_id],
+            added_binding_ids=[support.binding_id, contradiction.binding_id],
+            correlation_id=f"contested-{index}", tick=1,
+            recorded_at="2026-01-01T00:00:00Z", confidence={"uncertainty": "high"})
+        if index == 1:
+            current_contradiction = make_evidence_binding(
+                proposition_id=proposition_value.proposition_id,
+                source_artifact_id="contradiction-current",
+                source_digest="sha256:" + "5" * 64,
+                source_schema="sentientos.test_sensor:v1", source_class="fixture",
+                observation_time="2026-01-02T00:00:00Z", evidence_relation="contradicts",
+                dependency_kind="unknown_dependency", dependency_group=None,
+                upstream_binding_ids=(), freshness="current", reliability_posture="unverified")
+            epistemic.bind_evidence(current_contradiction)
+            changed_state, _ = epistemic.commit_update(proposition_id=proposition_value.proposition_id,
+                expected_predecessor_digest=state.state_digest, stance="contested",
+                reason="evidence_withdrawal", active_binding_ids=[support.binding_id,
+                    current_contradiction.binding_id], added_binding_ids=[current_contradiction.binding_id],
+                removed_binding_ids=[contradiction.binding_id], correlation_id="withdraw-stale",
+                tick=2, recorded_at="2026-01-02T00:00:00Z")
+            epistemic.commit_update(proposition_id=proposition_value.proposition_id,
+                expected_predecessor_digest=changed_state.state_digest, stance="contested",
+                reason="update_rule_correction", active_binding_ids=[support.binding_id,
+                    current_contradiction.binding_id], update_rule_id="fixture-rule:v2",
+                correlation_id="after-withdrawal", tick=3,
+                recorded_at="2026-01-03T00:00:00Z")
+    projection = epistemic.cognitive_projection(max_states=2, current_tick=4)
+    assert isinstance(projection, MeaningBearingEpistemicCognitiveProjection)
+    composition, fake = owner(tmp_path / "cognition")
+    result = composition.run_tick(snapshot=snapshot(), tick_id="tick-2",
+        prior_epistemic_state=projection)
+    request = next(item for item in fake.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    consumed = json.loads(request.prompt)["prior_epistemic_state"]
+    packets = consumed["semantic_packets"]
+    assert len(packets) == 2
+    assert {packet["state"]["stance"] for packet in packets} == {"contested"}
+    assert {packet["proposition"]["temporal_scope"]["window"] for packet in packets} == {
+        "morning", "evening"}
+    assert {packet["proposition"]["context_scope"]["room"] for packet in packets} == {
+        "lab-a", "lab-b"}
+    withdrawn = next(packet for packet in packets if packet["recently_removed_evidence"])
+    assert withdrawn["removed_evidence_history"][0]["freshness"] == "stale"
+    assert withdrawn["evidence_posture"]["dependency_unresolved"] is True
+    assert withdrawn["contradicting_evidence"]
+    upstream = request.upstream_evidence
+    assert upstream["epistemic_consumed_packet_ids"] == [p["packet_id"] for p in packets]
+    assert upstream["epistemic_consumed_packet_digests"] == [p["packet_digest"] for p in packets]
+    assert upstream["epistemic_prompt_digest"] == "sha256:" + request.prompt_digest
+    observation_id = result.cognition_observation_ids[0]
+    recovered, _ = owner(tmp_path / "cognition")
+    observation = recovered.verified_cognition_observation(observation_id)
+    assert observation["epistemic_consumed_packet_ids"] == upstream["epistemic_consumed_packet_ids"]
+    assert observation["epistemic_consumed_content_digest"] == upstream["epistemic_consumed_content_digest"]
+
+
+def test_legacy_identifier_projection_is_valid_but_not_delivered_as_meaning(tmp_path: Path):
+    semantic, proposition_value, state = epistemic_projection(tmp_path / "epistemic")
+    legacy = make_cognitive_projection([state], source_tick=1, current_tick=2)
+    composition, fake = owner(tmp_path / "cognition")
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-2", prior_epistemic_state=legacy)
+    request = next(item for item in fake.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    prior = json.loads(request.prompt)["prior_epistemic_state"]
+    assert prior["semantic_status"] == "canonical_definition_unavailable"
+    assert prior["semantic_packets"] == []
+    assert proposition_value.predicate not in request.prompt
+    assert request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
+
+
+def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(tmp_path: Path):
+    epistemic = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    for index in range(2):
+        proposition_value = make_proposition(namespace="embodiment", subject=f"sensor:{index}",
+            predicate="long_scoped_measurement", object_value={"value": index}, polarity="positive",
+            qualifiers={"canonical_qualifier": "q" * 4500},
+            temporal_scope={"window": f"exact-window-{index}"},
+            context_scope={"facility": f"facility-{index}"}, proposition_class="descriptive",
+            statement="complete statement " + ("s" * 4500))
+        epistemic.register_proposition(proposition_value)
+        epistemic.commit_update(proposition_id=proposition_value.proposition_id,
+            expected_predecessor_digest=None, stance="unknown", reason="initialization",
+            active_binding_ids=[], correlation_id=f"long-{index}", tick=index + 1,
+            recorded_at="2026-01-01T00:00:00Z")
+    projection = epistemic.cognitive_projection(max_states=2, current_tick=3)
+    context, metadata, prompt = _bind_epistemic_context(
+        context={"instruction": "prior positions are not truth"}, projection=projection)
+    assert len(prompt) <= 16_000
+    prior = context["prior_epistemic_state"]
+    assert len(prior["semantic_packets"]) == 1
+    assert len(metadata["epistemic_omitted_packets"]) == 1
+    delivered = prior["semantic_packets"][0]
+    assert delivered["proposition"]["qualifiers"]["canonical_qualifier"] == "q" * 4500
+    assert delivered["proposition"]["context_scope"]["facility"] in {"facility-0", "facility-1"}
+    assert prior["omitted_packets_digest"] == metadata["epistemic_omitted_packets_digest"]
 
 
 def self_model_projection(root: Path):
