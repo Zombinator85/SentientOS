@@ -98,6 +98,8 @@ class CanonicalMemoryStore:
     def _records(self) -> tuple[list[dict[str, Any]], str]:
         if os.name == "nt":
             try:
+                from .windows_handle_custody import verify_explicit_directory
+                verify_explicit_directory(self.root, require_private_acl=True)
                 entries = read_regular_files(self.raw, max_entries=MAX_MEMORY_RECORDS,
                     max_file_bytes=MAX_RETENTION_RECORD_BYTES,
                     max_total_bytes=MAX_MEMORY_TOTAL_BYTES, suffix=".json",
@@ -352,7 +354,11 @@ class AdmittedRetentionWriter:
                     "admission_status": "not_independently_recoverable", "write_replayed": False}
         path = self.store.raw / (expected_id + ".json")
         try:
-            raw = read_explicit_file(path, max_bytes=MAX_RETENTION_RECORD_BYTES)
+            from .windows_handle_custody import verify_explicit_directory
+            verify_explicit_directory(self.store.root, require_private_acl=True)
+            verify_explicit_directory(self.store.raw, require_private_acl=True)
+            raw = read_explicit_file(path, max_bytes=MAX_RETENTION_RECORD_BYTES,
+                require_private_acl=True)
         except WindowsHandleCustodyError as exc:
             reason = ("artifact_missing" if exc.args == ("explicit_file_missing",)
                       else "artifact_custody_unavailable")

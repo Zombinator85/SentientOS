@@ -114,6 +114,17 @@ def _read_legacy_memory_file(path: Path, *, max_bytes: int = 8 * 1024 * 1024) ->
         raise PermissionError("legacy_memory_read_outside_configured_root") from exc
     if len(relative.parts) != 1 or relative.name in {"", ".", ".."}:
         raise PermissionError("legacy_memory_sidecar_path_invalid")
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import (
+            WindowsHandleCustodyError, read_explicit_file, verify_explicit_directory,
+        )
+        try:
+            verify_explicit_directory(MEMORY_DIR, require_private_acl=True)
+            return read_explicit_file(path, max_bytes=max_bytes, require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if exc.args == ("explicit_file_missing",):
+                return None
+            raise PermissionError("legacy_memory_sidecar_custody_unavailable") from exc
     root_fd = _open_legacy_memory_root()
     descriptor: int | None = None
     try:
@@ -229,6 +240,18 @@ def _read_legacy_raw_fragment(name: str) -> bytes | None:
             or name in {".", ".."} or "/" in name or "\\" in name
             or _is_canonical_retention_path(Path(name))):
         raise PermissionError("legacy_raw_memory_fragment_name_invalid")
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import (
+            WindowsHandleCustodyError, read_explicit_file, verify_explicit_directory,
+        )
+        try:
+            verify_explicit_directory(RAW_PATH, require_private_acl=True)
+            return read_explicit_file(RAW_PATH / name, max_bytes=262144,
+                require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if exc.args == ("explicit_file_missing",):
+                return None
+            raise PermissionError("legacy_raw_memory_fragment_custody_unavailable") from exc
     directory_fd = _open_legacy_raw_directory()
     descriptor: int | None = None
     try:
@@ -314,6 +337,21 @@ def _is_canonical_retention_path(path: Path) -> bool:
 
 def _legacy_fragment_paths() -> list[Path]:
     """Enumerate bounded owner-private legacy fragments through a held directory."""
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import (
+            WindowsHandleCustodyError, read_regular_files, verify_explicit_directory,
+        )
+        try:
+            verify_explicit_directory(MEMORY_DIR, require_private_acl=True)
+            entries = read_regular_files(RAW_PATH, max_entries=4096,
+                max_file_bytes=262144, max_total_bytes=16777216,
+                suffix=".json", require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if exc.args == ("explicit_file_missing",):
+                return []
+            raise PermissionError("legacy_raw_memory_scan_custody_unavailable") from exc
+        return [RAW_PATH / name for name, _data in entries
+            if not _is_canonical_retention_path(Path(name))]
     try:
         directory_fd = _open_legacy_raw_directory()
     except FileNotFoundError:

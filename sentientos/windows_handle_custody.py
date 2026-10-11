@@ -146,15 +146,17 @@ def verify_private_handle_acl(handle: int) -> None:
             local_free(descriptor)
 
 
-def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
+def read_explicit_file(path: Path, *, max_bytes: int,
+                       require_private_acl: bool = False) -> bytes:
     """Read one explicit regular file without following links or racing replacement."""
-    if type(max_bytes) is not int or max_bytes < 1:
+    if (type(max_bytes) is not int or max_bytes < 1
+            or type(require_private_acl) is not bool):
         raise WindowsHandleCustodyError("explicit_file_limit_invalid")
     source = Path(path)
     if os.name == "nt":
         entries = read_regular_files(source.parent, max_entries=1,
             max_file_bytes=max_bytes, max_total_bytes=max_bytes,
-            selected_names=(source.name,))
+            selected_names=(source.name), require_private_acl=require_private_acl)
         if not entries:
             raise WindowsHandleCustodyError("explicit_file_missing")
         if len(entries) != 1 or entries[0][0] != source.name:
@@ -185,7 +187,10 @@ def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
         descriptor = os.open(absolute.name,
             os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0), dir_fd=parent_descriptor)
         before = os.fstat(descriptor)
-        if (not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes or before.st_nlink != 1):
+        if (not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes
+                or before.st_nlink != 1
+                or (require_private_acl and (before.st_uid != os.geteuid()
+                    or stat.S_IMODE(before.st_mode) & 0o077))):
             raise WindowsHandleCustodyError("explicit_file_changed_during_open")
         chunks: list[bytes] = []
         remaining = max_bytes + 1
@@ -214,14 +219,16 @@ def read_explicit_file(path: Path, *, max_bytes: int) -> bytes:
             os.close(parent_descriptor)
 
 
-def verify_explicit_directory(path: Path) -> None:
+def verify_explicit_directory(path: Path, *, require_private_acl: bool = False) -> None:
     """Verify one configured Windows directory through held, reparse-safe handles."""
+    if type(require_private_acl) is not bool:
+        raise WindowsHandleCustodyError("explicit_directory_acl_flag_invalid")
     if os.name != "nt":
         raise WindowsHandleCustodyError("explicit_directory_windows_reader_on_non_windows")
     # An empty explicit selection opens and validates the directory chain but
     # reads no children and does not grant discovery over its contents.
     read_regular_files(Path(path), max_entries=1, max_file_bytes=1,
-        max_total_bytes=1, selected_names=())
+        max_total_bytes=1, selected_names=(), require_private_acl=require_private_acl)
 
 
 def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,

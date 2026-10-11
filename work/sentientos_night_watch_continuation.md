@@ -1523,3 +1523,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No memory files were inspected or migrated; no behavioral or production verification was performed.
 - **Next implementation dependency:** inspect the effects of the new private-root gate on existing chat retrieval and legacy sidecar consumers, preserving explicit degraded/unavailable status and then advance to the next independently implementable lifecycle gap.
 
+
+
+## New checkpoint — add ACL-verified Windows memory reads
+
+- Fresh remote source before this increment: `b5978ad9e139d8d72a55595a226e6e911f62173d` (tree `f8927c0839b1a0707aeb68ec571f96349ca0eee1`).
+- Windows canonical memory retrieval already checked raw-root and file ACLs, but legacy sidecar/raw-fragment reads were POSIX-only and failed closed despite the existing bounded Windows handle reader.
+- `read_explicit_file` and explicit-directory verification now accept a private-ACL requirement. The legacy memory manager uses those handle reads for bounded root sidecars and raw fragments; it verifies the shared memory root and raw directory, then each record file. Directory scans remain explicitly rooted and bounded. Canonical retrieval/recovery also verifies the shared root ACL before reading raw records.
+- Windows legacy mutation still fails closed; no write API, ACL grant, or new effect authority was added.
+- Python compilation passed for `windows_handle_custody.py`, `canonical_memory.py`, and `memory_manager.py`. Windows ACL/runtime behavior was not executed; no production verification was performed.
+- **Next implementation dependency:** continue reviewing the cross-platform conversation/recovery boundary and the no-replay consequences of missing or degraded user-memory custody. Preserve installation-scoped transcript custody and resident-history separation; do not broaden user memory into developmental evidence.
+
