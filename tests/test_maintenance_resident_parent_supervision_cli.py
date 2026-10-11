@@ -32,3 +32,27 @@ def test_parent_entrypoint_rejects_relative_config_before_loading(monkeypatch) -
     monkeypatch.setattr(commissioning, "verify_commissioned_resident_config", forbidden)
     assert parent.main(["--config", "resident.json"]) == 2
     assert loaded is False
+
+
+def test_parent_origin_requires_exact_configured_repository_and_interpreter(tmp_path) -> None:
+    repository = tmp_path / "repository"
+    package = repository / "sentientos"
+    package.mkdir(parents=True)
+    module = package / "maintenance_resident_parent_supervision.py"
+    module.write_text("# parent owner")
+    interpreter = tmp_path / "python"
+    interpreter.write_text("interpreter identity fixture")
+    working_directory = repository
+    config = {
+        "repository_root": str(repository),
+        "python_executable": str(interpreter),
+        "working_directory": str(working_directory),
+    }
+
+    parent._verify_parent_invocation_origin(
+        config, executable=interpreter, working_directory=working_directory,
+        module_path=module)
+    with pytest.raises(ValueError, match="resident_parent_process_origin_mismatch"):
+        parent._verify_parent_invocation_origin(
+            config, executable=tmp_path / "other-python",
+            working_directory=working_directory, module_path=module)

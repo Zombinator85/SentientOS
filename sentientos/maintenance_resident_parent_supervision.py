@@ -68,6 +68,19 @@ def _valid_parent_process_observation(value: object) -> bool:
     return started.tzinfo is not None and started.utcoffset() is not None
 
 
+def _verify_parent_invocation_origin(config: Mapping[str, Any], *, executable: Path,
+                                     working_directory: Path, module_path: Path) -> None:
+    """Require the parent itself to run from the commissioned repo/runtime paths."""
+    expected_executable = Path(str(config["python_executable"]))
+    expected_working_directory = Path(str(config["working_directory"]))
+    expected_module_path = Path(str(config["repository_root"])) / (
+        "sentientos/maintenance_resident_parent_supervision.py")
+    if (executable.resolve(strict=True) != expected_executable
+            or working_directory.resolve(strict=True) != expected_working_directory
+            or module_path.resolve(strict=True) != expected_module_path.resolve(strict=True)):
+        raise ValueError("resident_parent_process_origin_mismatch")
+
+
 class MaintenanceResidentParentSupervisor:
     """Own exactly one ``sentientosd`` child and no generation-selection policy."""
 
@@ -797,6 +810,8 @@ def main(argv: list[str] | None = None) -> int:
         config = commissioning_result["resident_config"]
         if config.get("enabled") is not True:
             raise ValueError("resident_parent_supervision_disabled")
+        _verify_parent_invocation_origin(config, executable=Path(sys.executable),
+            working_directory=Path.cwd(), module_path=Path(__file__))
         require_flock()
         parent_root = Path(config["state_root"]) / "parent-supervision"
         supervisor = MaintenanceResidentParentSupervisor(config, state_root=parent_root)

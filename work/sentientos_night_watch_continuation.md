@@ -2067,3 +2067,8 @@ The real writer acceptance case now continues through `recover_existing_artifact
 ## 2026-10-11 checkpoint — label controller timestamps as observations
 
 The parent-instance receipt fields previously called their wall and monotonic counters “started” even though the owner samples them during supervisor construction, after the Python process may already have started. The field names now say `observed_at` and `monotonic_observed_ns`. This preserves the timestamp values and their identity binding while avoiding a false claim that they are kernel process-creation times. The process identity remains a controller-generated observation, not OS-issued evidence of the parent executable or software generation. Changed source compiles; no tests ran.
+
+
+## 2026-10-11 checkpoint — bind the explicit parent entrypoint to commissioned runtime paths
+
+The standalone parent CLI now verifies that its actual interpreter, working directory, and imported module path resolve to the exact runtime and repository paths in the commissioned resident config before it takes parent custody or launches a child. This narrows the launch to the intended checkout and interpreter; it does not prove the bytes already loaded into the parent process or claim a software-generation digest. An authored unexecuted case accepts exact paths and rejects a substituted interpreter. This additional observation limit remains explicit.
