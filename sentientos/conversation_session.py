@@ -270,6 +270,15 @@ class ConversationSessionStore:
             if not isinstance(turn_id, str) or not _TURN_ID.fullmatch(turn_id) or turn_id in seen_ids:
                 raise ValueError("invalid_turn_identity")
             seen_ids.add(turn_id)
+            retention_state = turn.get("retention_state", "not_requested")
+            retention_receipt = turn.get("retention_receipt")
+            if (retention_state not in {"not_requested", "requested", "retained", "retention_failed"}
+                    or (retention_receipt is not None and not isinstance(retention_receipt, Mapping))
+                    or (role == "assistant"
+                        and (retention_state != "not_requested" or retention_receipt is not None))
+                    or (role == "user" and retention_state in {"not_requested", "requested"}
+                        and retention_receipt is not None)):
+                raise ValueError("invalid_turn_retention_state")
             request_digest = linkage.get("client_request_id_digest")
             if request_digest is not None:
                 if (role != "user" or not isinstance(request_digest, str)

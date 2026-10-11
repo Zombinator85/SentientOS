@@ -1236,3 +1236,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py`. No runtime sidecar changes or retrieval tests were performed.
 
 **Next implementation dependency:** continue source review of the current chat recovery path and runtime-generation evidence boundary, then advance to the next concrete owner integration without revisiting the already reconciled competing observation publisher.
+
+
+## New checkpoint — validate persisted retention-state shape on session recovery
+
+- Fresh remote source before this increment: `a366907022b70ad0c94a71c83731c42555e9395a` (tree `0a91463ad59cc737e66e15869cf11b8007e63ec4`).
+- The session reader verified turn text and lineage but accepted arbitrary retention-state values and non-mapping receipts. Such records would fall through to an ambiguous recovery posture rather than being identified as malformed custody.
+- Session recovery now validates the retained-state vocabulary and receipt shape. Missing state remains compatible with older records as `not_requested`; receipts are disallowed for assistant turns and for user turns still `not_requested` or `requested`. Completed historical states without a receipt remain loadable but are still reported as unverified by chat recovery.
+- Python compilation passed for `conversation_session.py`. No session parsing tests or runtime recovery were performed.
+
+**Next implementation dependency:** the current chat recovery path was source-reviewed: production responses require a stored invocation verifier, exactly one assistant per source user turn, model/runtime lineage comparison, and no-replay error postures when the invocation response is missing or incomplete. Continue into the next owner integration; platform-backed or production transition evidence remains unverified.
