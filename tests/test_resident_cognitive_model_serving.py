@@ -41,6 +41,8 @@ def test_session_receipt_reference_rechecks_durable_privilege_witness(monkeypatc
     current=evidence(); ctl,handle,_,_=make(monkeypatch,tmp_path,[current,current,current])
     session=ctl.establish(operation_id="resident-operation-1")
     reference=resident_serving_session_receipt_reference(session)
+    assert len(reference["session_receipt_semantic_digest"]) == 64
+    assert all(character in "0123456789abcdef" for character in reference["session_receipt_semantic_digest"])
     verified=verify_resident_serving_session_receipt_reference(handle,
         reference["session_receipt_id"],reference["session_receipt_semantic_digest"],
         expected_session_id=session.session_id,

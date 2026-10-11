@@ -141,9 +141,9 @@ class SessionBoundFakeInvoker(FakeInvoker):
         self.session_id = "fixture-serving-session"
         self.session_binding = {
             "model_serving_admission_ref": "fixture-model-serving-admission",
-            "activation_state_semantic_digest": "sha256:" + "a" * 64,
+            "activation_state_semantic_digest": "a" * 64,
             "session_receipt_id": "resident-serving-receipt-" + "b" * 24,
-            "session_receipt_semantic_digest": "sha256:" + "c" * 64,
+            "session_receipt_semantic_digest": "c" * 64,
         }
         self.receipts = {}
         self.verified_receipts = []

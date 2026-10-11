@@ -1066,16 +1066,19 @@ class ResidentDevelopmentalCognitionOwner:
             if versioned_v3_observation or versioned_v4_observation:
                 session_id, session_binding = value.get("serving_session_id"), value.get("serving_session_binding")
                 absent = session_id is None and session_binding is None
+                activation_digest = (session_binding.get("activation_state_semantic_digest")
+                    if isinstance(session_binding, Mapping) else None)
+                activation_digest_raw = (isinstance(activation_digest, str) and len(activation_digest) == 64
+                    and all(ch in "0123456789abcdef" for ch in activation_digest))
+                activation_digest_legacy = (isinstance(activation_digest, str) and len(activation_digest) == 71
+                    and activation_digest.startswith("sha256:")
+                    and all(ch in "0123456789abcdef" for ch in activation_digest[7:]))
                 present = (isinstance(session_id, str) and 0 < len(session_id) <= 256
                     and isinstance(session_binding, Mapping)
                     and set(session_binding) == {"model_serving_admission_ref", "activation_state_semantic_digest"}
                     and isinstance(session_binding.get("model_serving_admission_ref"), str)
                     and bool(session_binding["model_serving_admission_ref"])
-                    and isinstance(session_binding.get("activation_state_semantic_digest"), str)
-                    and len(session_binding["activation_state_semantic_digest"]) == 71
-                    and session_binding["activation_state_semantic_digest"].startswith("sha256:")
-                    and all(ch in "0123456789abcdef"
-                        for ch in session_binding["activation_state_semantic_digest"][7:]))
+                    and (activation_digest_raw or (versioned_v3_observation and activation_digest_legacy)))
                 if not (absent or present):
                     raise ResidentDevelopmentalCognitionError("cognition_observation_serving_session_binding_invalid")
                 if versioned_v4_observation:
@@ -1085,9 +1088,8 @@ class ResidentDevelopmentalCognitionOwner:
                     receipt_present = (present and isinstance(receipt_id, str)
                         and receipt_id.startswith("resident-serving-receipt-")
                         and len(receipt_id) == len("resident-serving-receipt-") + 24
-                        and isinstance(receipt_digest, str) and len(receipt_digest) == 71
-                        and receipt_digest.startswith("sha256:")
-                        and all(ch in "0123456789abcdef" for ch in receipt_digest[7:]))
+                        and isinstance(receipt_digest, str) and len(receipt_digest) == 64
+                        and all(ch in "0123456789abcdef" for ch in receipt_digest))
                     if not (receipt_absent or receipt_present):
                         raise ResidentDevelopmentalCognitionError("cognition_observation_serving_receipt_binding_invalid")
             tick = value["tick_id"]
