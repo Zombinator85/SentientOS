@@ -1177,3 +1177,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation and whitespace inspection passed for `canonical_memory.py`. No crash, filesystem, hardlink, concurrency, or runtime test was run.
 
 **Next implementation dependency:** finish the legacy raw-memory interop review. `memory_manager.py` still writes shared raw fragments through path-based `write_text` and its forgetting path can mutate/delete files; determine a bounded owner boundary that protects explicitly retained artifacts without silently changing legacy memory authority or conflating that memory with resident developmental history.
+
+
+## Correction — keep retrieval link-count validation local
+
+- Fresh remote source before correction: `daf6c01ece2bba19fefca74deee02a47cccec7dd` (tree `6b045892def9cd26a9fcd6c707003ad65c6ceebc`).
+- Review caught that the hardlink-recovery allowance was accidentally applied to the ordinary retrieval helper, where `max_links` was undefined. Ordinary retrieval now again requires exactly one link. The allowance of one or two links remains limited to the write-artifact recovery reader, which checks the link count stays stable while reading and reconciles the deterministic same-inode temporary entry before normal verification.
+- The correction was Python-compiled only. No tests, hardlink exercise, filesystem fault injection, or production verification was performed.
+
+**Next implementation dependency:** continue the bounded shared legacy-memory review below; specifically identify whether legacy fragment writes can mutate canonical retained artifacts and define the narrowest safe compatibility boundary before changing behavior.

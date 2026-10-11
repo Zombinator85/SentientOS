@@ -41,8 +41,7 @@ class CanonicalMemoryStore:
             descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
                 | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
             before = os.fstat(descriptor)
-            if (not stat.S_ISREG(before.st_mode) or before.st_nlink < 1
-                    or before.st_nlink > max_links
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
                     or before.st_uid != os.geteuid() or before.st_size > max_bytes):
                 raise WindowsHandleCustodyError("memory_record_custody_invalid")
             chunks: list[bytes] = []
