@@ -1436,3 +1436,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No store was instantiated and no filesystem state was changed; no runtime, behavior, or production verification was performed.
 - **Next implementation dependency:** inspect the remaining legacy memory-root sidecars/indexes/tomb files for their own owner/mode and bounded-read contracts, without widening canonical raw-memory scope or mixing chat transcripts/developmental history. Revisit callers that collapse raw-custody exceptions into empty results and preserve a degraded indication where an existing output contract allows it.
 
+
+
+## New checkpoint — secure the shared legacy memory root
+
+- Fresh remote source before this increment: `bb989a1a433b80d2d78644856d49e8c747fb17f9` (tree `1534398385af00e5301f8774f0fd816ce8091d86`).
+- Raw-fragment custody was private, but legacy indexes, tombs, observations, goals and other sidecars share the configured `MEMORY_DIR`. Writes could create or use a group/world-accessible top-level root.
+- The canonical owner now exposes a no-follow, owner-verified opener for the shared memory root. On authorized POSIX writes it creates/tightens that root to 0700, creates the raw child relative to the held root, and fsyncs the parent when that child is new. Read-side opening never creates or repairs permissions. Legacy writes are constrained to the configured root and secure it after the existing authorization gate; root-backed index, tomb, observation, curiosity and goal readers verify existing root custody before reading.
+- Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No memory files/directories were accessed or changed; no behavior or production verification was performed. The root owner/read contract remains POSIX-only; legacy memory-manager access on Windows fails closed.
+- **Next implementation dependency:** give legacy sidecar reads explicit bounded, no-follow file custody instead of verifying the root and then using path-based reads. Preserve existing per-record compatibility and surface malformed/oversized custody as degraded or unavailable through existing callers.
+

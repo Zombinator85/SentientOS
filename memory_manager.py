@@ -97,10 +97,37 @@ def _authorize_legacy_mutation() -> None:
         _LEGACY_OPERATION_STATE.set((depth, True))
 
 
+def _open_legacy_memory_root(*, prepare_for_write: bool = False) -> int:
+    """Use the canonical owner for the shared user-memory root."""
+    if os.name != "posix":
+        raise PermissionError("legacy_memory_root_custody_unsupported_platform")
+    from sentientos.canonical_memory import CanonicalMemoryStore
+    return CanonicalMemoryStore(MEMORY_DIR).open_memory_root(
+        prepare_for_write=prepare_for_write)
+
+
+def _require_legacy_memory_root() -> bool:
+    """Verify existing root custody without creating it."""
+    try:
+        descriptor = _open_legacy_memory_root()
+    except FileNotFoundError:
+        return False
+    try:
+        return True
+    finally:
+        os.close(descriptor)
+
+
 def _prepare_write(path: Path) -> None:
-    """Authorize and create only the parent custody needed by this write."""
+    """Authorize and secure the shared root before any legacy memory write."""
     _authorize_legacy_mutation()
-    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.relative_to(MEMORY_DIR)
+    except ValueError as exc:
+        raise PermissionError("legacy_memory_write_outside_configured_root") from exc
+    descriptor = _open_legacy_memory_root(prepare_for_write=True)
+    os.close(descriptor)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
 
 def _open_legacy_raw_directory(*, prepare_for_write: bool = False) -> int:
@@ -331,6 +358,8 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
 
 
 def _load_index_records() -> list[dict]:
+    if not _require_legacy_memory_root():
+        return []
     if not VECTOR_INDEX_PATH.exists():
         return []
     lines = VECTOR_INDEX_PATH.read_text(encoding="utf-8").splitlines()
@@ -376,6 +405,8 @@ def list_tomb(
     *, tag: str | None = None, reason: str | None = None, date: str | None = None
 ) -> List[Dict]:
     """Return tomb entries filtered by tag, reason, or date."""
+    if not _require_legacy_memory_root():
+        return []
     if not TOMB_PATH.exists():
         return []
     out: List[Dict] = []
@@ -559,6 +590,8 @@ def _load_index() -> List[Dict]:
 
 
 def _load_observation_records() -> List[Dict[str, Any]]:
+    if not _require_legacy_memory_root():
+        return []
     if not OBSERVATION_LOG_PATH.exists():
         return []
     records: List[Dict[str, Any]] = []
@@ -794,6 +827,8 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def iter_curiosity_reflections(limit: int | None = None) -> List[Dict[str, Any]]:
+    if not _require_legacy_memory_root():
+        return []
     if not CURIOSITY_REFLECTIONS_PATH.exists():
         return []
     with open(CURIOSITY_REFLECTIONS_PATH, "r", encoding="utf-8") as handle:
@@ -1384,6 +1419,8 @@ def recent_escalations(limit: int = 5) -> list[str]:
 # --- Goal management -------------------------------------------------------
 
 def _load_goals() -> list[dict]:
+    if not _require_legacy_memory_root():
+        return []
     if GOALS_PATH.exists():
         try:
             return json.loads(GOALS_PATH.read_text(encoding="utf-8"))
