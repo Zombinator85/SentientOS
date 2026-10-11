@@ -9,6 +9,7 @@ import math
 import os
 import stat
 import secrets
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import timezone
 from functools import wraps
@@ -163,8 +164,9 @@ def _read_legacy_memory_file(path: Path, *, max_bytes: int = 8 * 1024 * 1024) ->
         os.close(root_fd)
 
 
+@contextmanager
 def _open_legacy_memory_text(path: Path, mode: str):
-    """Open one sidecar relative to held private directories after authorization."""
+    """Open a shared sidecar through held custody; replace-mode writes publish atomically."""
     if mode not in {"a", "w"}:
         raise ValueError("legacy_memory_write_mode_invalid")
     _authorize_legacy_mutation()
@@ -178,6 +180,8 @@ def _open_legacy_memory_text(path: Path, mode: str):
     root_fd = _open_legacy_memory_root(prepare_for_write=True)
     current_fd = root_fd
     descriptor: int | None = None
+    temporary_name: str | None = None
+    temporary_exists = False
     try:
         for component in relative.parts[:-1]:
             created = False
@@ -188,8 +192,7 @@ def _open_legacy_memory_text(path: Path, mode: str):
                 pass
             child_fd = os.open(component, directory_flags, dir_fd=current_fd)
             metadata = os.fstat(child_fd)
-            if (not stat.S_ISDIR(metadata.st_mode)
-                    or metadata.st_uid != os.geteuid()):
+            if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.geteuid():
                 os.close(child_fd)
                 raise PermissionError("legacy_memory_parent_custody_invalid")
             if stat.S_IMODE(metadata.st_mode) & 0o077:
@@ -203,25 +206,79 @@ def _open_legacy_memory_text(path: Path, mode: str):
             if current_fd != root_fd:
                 os.close(current_fd)
             current_fd = child_fd
-        flags = (os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW
-            | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+        target_name = relative.parts[-1]
         if mode == "a":
-            flags |= os.O_APPEND
-        descriptor = os.open(relative.parts[-1], flags, 0o600, dir_fd=current_fd)
-        metadata = os.fstat(descriptor)
-        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
-                or metadata.st_uid != os.geteuid()):
-            raise PermissionError("legacy_memory_target_custody_invalid")
-        os.fchmod(descriptor, 0o600)
-        if mode == "w":
-            os.ftruncate(descriptor, 0)
-        os.fsync(current_fd)
-        result = os.fdopen(descriptor, mode, encoding="utf-8")
-        descriptor = None
-        return result
+            flags = (os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+            descriptor = os.open(target_name, flags, 0o600, dir_fd=current_fd)
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                    or metadata.st_uid != os.geteuid()):
+                raise PermissionError("legacy_memory_target_custody_invalid")
+            os.fchmod(descriptor, 0o600)
+            result = os.fdopen(descriptor, "a", encoding="utf-8")
+            descriptor = None
+            try:
+                yield result
+            finally:
+                result.flush()
+                os.fsync(result.fileno())
+                result.close()
+                os.fsync(current_fd)
+        else:
+            temporary_name = f".legacy-sidecar-{secrets.token_hex(16)}.tmp"
+            flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+            descriptor = os.open(temporary_name, flags, 0o600, dir_fd=current_fd)
+            temporary_exists = True
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                    or metadata.st_uid != os.geteuid()):
+                raise PermissionError("legacy_memory_temporary_custody_invalid")
+            os.fchmod(descriptor, 0o600)
+            result = os.fdopen(descriptor, "w", encoding="utf-8")
+            descriptor = None
+            try:
+                yield result
+                result.flush()
+                if os.fstat(result.fileno()).st_size > 8 * 1024 * 1024:
+                    raise ValueError("legacy_memory_sidecar_size_limit")
+                os.fsync(result.fileno())
+            finally:
+                result.close()
+            try:
+                current = os.stat(target_name, dir_fd=current_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                try:
+                    os.link(temporary_name, target_name, src_dir_fd=current_fd,
+                        dst_dir_fd=current_fd, follow_symlinks=False)
+                except FileExistsError:
+                    current = os.stat(target_name, dir_fd=current_fd, follow_symlinks=False)
+                    if (not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+                            or current.st_uid != os.geteuid()):
+                        raise PermissionError("legacy_memory_target_custody_invalid")
+                    os.replace(temporary_name, target_name,
+                        src_dir_fd=current_fd, dst_dir_fd=current_fd)
+                    temporary_exists = False
+                else:
+                    os.fsync(current_fd)
+            else:
+                if (not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+                        or current.st_uid != os.geteuid()):
+                    raise PermissionError("legacy_memory_target_custody_invalid")
+                os.replace(temporary_name, target_name,
+                    src_dir_fd=current_fd, dst_dir_fd=current_fd)
+                temporary_exists = False
+            os.fsync(current_fd)
     finally:
         if descriptor is not None:
             os.close(descriptor)
+        if temporary_exists and temporary_name is not None and current_fd >= 0:
+            try:
+                os.unlink(temporary_name, dir_fd=current_fd)
+                os.fsync(current_fd)
+            except FileNotFoundError:
+                pass
         if current_fd != root_fd:
             os.close(current_fd)
         os.close(root_fd)

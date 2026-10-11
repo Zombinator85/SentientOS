@@ -1584,3 +1584,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `memory_manager._write_fragment()` now enforces the same 256 KiB bound used by its reader, writes a 0600 temporary file within the held raw-directory descriptor, fsyncs it, and publishes create-only or by same-directory atomic replacement after validating an existing target. Administrator/Lumos authorization and canonical-retention path exclusion remain in force. This does not replay memory operations or expand mutation authority.
 - Python syntax compilation passed for `memory_manager.py`. No memory was opened or written; behavior remains unverified.
 - **Next implementation dependency:** review atomic publication and duplicate/conflict semantics for auxiliary legacy sidecars and the vector index. Keep explicitly retained artifacts outside the legacy mutation/forget path and preserve truthful partial state after interrupted sidecar updates.
+
+
+
+## New checkpoint — publish rewritten user-memory sidecars atomically
+
+- Fresh remote source before this increment: `17de189983dbe1ae4655316c584feaca176e35e2` (tree `995ac2e1d9920c406a2aeaee263f8e5a308f6aab`).
+- The vector index and other rewritten user-memory sidecars still used an authorized descriptor-relative writer that truncated the published file before writing. An interruption could leave a partial index or state sidecar even though root custody was correct.
+- `_open_legacy_memory_text(..., "w")` now writes through a private temporary file under the held parent descriptor, enforces the existing 8 MiB read bound, fsyncs content, validates any existing target, then links or atomically replaces and fsyncs the directory. Append-mode tomb/log semantics and their existing Administrator/Lumos gate remain unchanged.
+- Python syntax compilation passed for `memory_manager.py`. No sidecar was written or inspected at runtime; no behavioral verification was run.
+- **Next implementation dependency:** inspect sidecar append/recovery semantics for interrupted tomb and observation lines, and ensure incomplete trailing records are represented as degraded rather than silently treated as a complete history.
