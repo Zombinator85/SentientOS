@@ -1206,3 +1206,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py`. No sidecar file was opened, runtime retrieval executed, tests run, or production behavior verified.
 
 **Next implementation dependency:** inspect whether conversation/session recovery should carry the sidecar posture into assistant linkage. It is currently a retrieval snapshot attribute but only selected memory identities and the snapshot digest are persisted; determine whether that is sufficient for interruption replay to preserve the same retrieval provenance.
+
+
+## New checkpoint — persist sidecar posture through chat recovery
+
+- Fresh remote source before this increment: `6e64b7023fc795d4b3ec7516089dd840e2572720` (tree `630335cbc953504edb10b9b4ddbc462b4fa234c2`).
+- The canonical-memory snapshot digest now binds sidecar status, but chat assistant linkage and its recovered response only persisted the digest and the general retrieval posture. The digest preserved identity, yet recovery could not report the same qualified status transparently.
+- Chat assistant lineage now persists the exact `legacy_sidecar_posture` returned by the memory store. Normal and recovered response context carries it; old transcripts and injected legacy memory adapters remain compatible through an explicit `unknown_legacy` posture. This remains diagnostic metadata only and does not admit sidecar content into prompt memory.
+- Python compilation passed for `chat_service.py`. No chat request, restart, test suite, or production verification was performed.
+
+**Next implementation dependency:** inspect the persistent conversation-session writer/recovery contract for canonical linkage publication behavior. Confirm exact atomicity and idempotent update semantics for retained metadata; preserve incomplete states if a crash occurs between assistant-turn publication and its metadata finalization.

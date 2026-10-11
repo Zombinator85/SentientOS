@@ -276,6 +276,7 @@ class PersistentConversationService:
                 "conversation_snapshot_digest": linkage.get("context_snapshot_digest"),
                 "memory_snapshot_digest": linkage.get("memory_snapshot_digest"),
                 "memory_retrieval_posture": linkage.get("memory_retrieval_posture", "unknown_legacy"),
+                "legacy_sidecar_posture": linkage.get("legacy_sidecar_posture", "unknown_legacy"),
                 "active_model_identity_digest": linkage.get("active_model_identity_digest"),
                 "loaded_model_identity_digest": linkage.get("loaded_model_identity_digest"),
                 "recovered_without_inference": True,
@@ -548,7 +549,8 @@ class PersistentConversationService:
                      "model_identity_continuity_posture": continuity_posture,
                      "context_snapshot_digest": history.snapshot_digest,
                      "memory_snapshot_digest": memory["snapshot_digest"],
-                     "memory_retrieval_posture": memory["retrieval_posture"]})
+                     "memory_retrieval_posture": memory["retrieval_posture"],
+                     "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy")})
         retention_result: dict[str, object] = {"status": "not_requested"}
         if retain:
             request_id = "retain-request-" + uuid.uuid4().hex[:24]
@@ -569,6 +571,7 @@ class PersistentConversationService:
                             context={"conversation_snapshot_digest": history.snapshot_digest,
                                      "memory_snapshot_digest": memory["snapshot_digest"],
                                      "memory_retrieval_posture": memory["retrieval_posture"],
+                                     "legacy_sidecar_posture": memory.get("legacy_sidecar_posture", "unknown_legacy"),
                                      "active_model_identity_digest": serving_identity_digest,
                                      "loaded_model_identity_digest": loaded_identity_digest,
                                      "model_identity_continuity_posture": continuity_posture,
