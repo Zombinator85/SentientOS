@@ -1973,3 +1973,14 @@ The exact parent owner now opens a no-follow owner-checked lock file under its p
 The existing parent test helper now models kernel lock release for restart cases and adds a singleton-denial node. Tests were only authored; Python compilation passed after exact remote refetch at `0b6da1f96dd2e216a3cd347791cbb6928c56ab17`. No behavioral or process-level check ran.
 
 Next dependency: inspect the precise explicit launch/composition boundary. The maintenance parent supervisor is still absent from `sentientosd.py` and canonical runtime startup, and its readiness guard is injected rather than independently composed; there is no safe default to activate. Determine whether an existing maintenance launch owner can supply explicit trusted installation custody and child readiness observations. If none exists, leave normal startup unchanged and continue the user-memory-root continuity review rather than introducing an implicit/recursive daemon mode.
+
+
+## 2026-10-11 checkpoint — stop writes after uncertain parent snapshot publication
+
+Reviewing the receipt/state transaction under the new singleton lock exposed one remaining failure window: if the receipt append succeeded but atomic snapshot replacement or directory fsync failed, the controller could otherwise continue appending from an uncertain in-memory state. The parent now latches recovery untrusted on any snapshot publication error; all further receipt writes are denied. The exact receipt remains on disk for later bounded reconciliation rather than being overwritten or replayed.
+
+A focused acceptance node covers this partial-publication posture. It was authored but not run. Exact remote Python sources compiled at 553f534b8355a6eb4728363a878ecd59395b0ca2; no behavioral or process check ran.
+
+The parent continuity wing remains partial: there is no sentientosd or canonical startup composition for this owner, no authenticated running-process identity source for a PID that remains present, and Windows lacks an established lifetime lock for this config. These are genuine interface/evidence dependencies, not reasons to manufacture activation.
+
+Next dependency: finish the bounded shared-memory-root review. The root is frozen from process startup, path traversal is no-follow, root device/inode is pinned only in process memory, and production chat rejects overlap with installation/transcript custody. There is no separately authenticated user-memory-root identity issuer across restart. Confirm whether any existing owner can provide such identity without conflating user memory with installation records; otherwise preserve that precise limit and continue into the next source-supported continuity gap.
