@@ -157,6 +157,7 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
     descriptor: int | None = None
     created = False
     durability_uncertain = False
+    replaced = False
     try:
         descriptor = os.open(temporary_name,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
@@ -182,6 +183,7 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
                     raise PrivateFileCustodyError(collision_code)
         else:
             os.replace(temporary_name, path.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+            replaced = True
         try:
             os.fsync(directory_fd)
         except OSError:
@@ -203,7 +205,16 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
                 os.unlink(temporary_name, dir_fd=directory_fd)
             except OSError:
                 pass
-        os.close(directory_fd)
+        try:
+            os.close(directory_fd)
+        except OSError as exc:
+            if report_replace_durability and not immutable and replaced:
+                # close(2) can fail after replacement just like directory fsync.
+                # The new bytes are already visible, so tell the owner to retain
+                # the candidate and report durability uncertainty.
+                durability_uncertain = True
+            else:
+                raise PrivateFileCustodyError("directory_close_unavailable") from exc
     return not durability_uncertain
 
 

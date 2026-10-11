@@ -191,3 +191,36 @@ def test_replace_status_reports_visible_but_uncertain_directory_commit(tmp_path:
         target, b"candidate", max_bytes=64)
     assert durable is False
     assert target.read_bytes() == b"candidate"
+
+
+def test_replace_status_reports_visible_but_uncertain_directory_close(
+        tmp_path: Path, monkeypatch) -> None:
+    import os
+    import stat
+
+    import sentientos.private_file_custody as custody
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor replacement is required")
+    target = tmp_path / "private" / "ledger.json"
+    target.parent.mkdir(mode=0o700)
+    directory_stat = target.parent.stat()
+    real_close = os.close
+    failed = False
+
+    def close_directory_with_uncertain_status(descriptor: int) -> None:
+        nonlocal failed
+        opened = os.fstat(descriptor)
+        if (not failed and stat.S_ISDIR(opened.st_mode)
+                and opened.st_dev == directory_stat.st_dev
+                and opened.st_ino == directory_stat.st_ino):
+            failed = True
+            real_close(descriptor)
+            raise OSError("simulated directory close uncertainty")
+        real_close(descriptor)
+
+    monkeypatch.setattr(custody.os, "close", close_directory_with_uncertain_status)
+    durable = custody.replace_private_bytes_with_status(
+        target, b"candidate", max_bytes=64)
+    assert durable is False
+    assert target.read_bytes() == b"candidate"

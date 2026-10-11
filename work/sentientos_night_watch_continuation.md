@@ -2741,3 +2741,11 @@ A later source correction was also composed from stale note text and displaced t
 - Reinspection of the epistemic adapter confirms source event time is retained independently of retrieval time, historical sources are never promoted to current, and only healthy fresh sources may become current. No additional epistemic source change was warranted here.
 - `sentientosd.py` passed Python syntax compilation only; no platform runtime or cognition behavior was tested.
 - Next trace the configured World-State publication into post-cognition epistemic writeback for any concrete startup/restart or tick-order defect, then continue through the directly connected persistent-state owner.
+
+
+## 2026-10-11 checkpoint — retain candidates after directory-close uncertainty
+
+- Inspection of the shared private publisher found that a directory-fsync failure after atomic replacement was converted into `False`, but a directory descriptor close failure in the same post-replace interval escaped as an exception. Stateful callers could then retain their old in-memory value while the new bytes were already visible.
+- The status-returning mutable publisher now converts post-replace directory-close uncertainty into the same `False` result as fsync uncertainty. Pre-replacement errors still fail. Added an authored, unexecuted case that injects a close error after the target is visible and asserts the caller receives uncertainty with candidate bytes retained.
+- The helper and resource-allocation test module passed Python syntax compilation only. No tests, file operations, or crash behavior were executed.
+- Next inspect all status-sensitive publisher callers for consistent visible-candidate retention, then resume the epistemic writeback/recovery chain where source shows a concrete gap.
