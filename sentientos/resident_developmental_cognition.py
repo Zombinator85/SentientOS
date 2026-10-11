@@ -9,10 +9,11 @@ from __future__ import annotations
 import json
 import os
 import stat
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Mapping, cast
+from typing import Any, Callable, Iterator, Mapping, cast
 
 from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -25,7 +26,8 @@ from .developmental_history_intervention_experiment import (
     PURPOSE as EXPERIMENT_PURPOSE,
 )
 from .local_model_authority import digest_payload
-from .private_file_custody import PrivateFileCustodyError, replace_private_bytes
+from .private_file_custody import PrivateFileCustodyError, open_private_directory, replace_private_bytes
+from .platform_fcntl import fcntl, require_flock
 from .longitudinal_self_model import CognitiveSelfModelProjection
 from .persistent_epistemic_state import EpistemicCognitiveProjection
 from .resident_developmental_writeback import (
@@ -1064,7 +1066,66 @@ class ResidentDevelopmentalCognitionOwner:
                 "cognition_observation_publication_failed") from exc
         return observation
 
+    @contextmanager
+    def _composition_lock(self) -> Iterator[None]:
+        """Serialize the complete durable tick across owner instances/processes."""
+        if os.name != "posix":
+            raise ResidentDevelopmentalCognitionError("composition_lock_unsupported_platform")
+        directory_fd: int | None = None
+        descriptor: int | None = None
+        try:
+            require_flock()
+            directory_fd = open_private_directory(self.state_path.parent, create=True)
+            descriptor = os.open(
+                ".resident-developmental-cognition.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                0o600,
+                dir_fd=directory_fd,
+            )
+            opened = os.fstat(descriptor)
+            if (
+                not stat.S_ISREG(opened.st_mode)
+                or opened.st_uid != os.geteuid()
+                or opened.st_nlink != 1
+                or opened.st_mode & 0o077
+            ):
+                raise ResidentDevelopmentalCognitionError("composition_lock_invalid")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except ResidentDevelopmentalCognitionError:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise
+        except (OSError, PrivateFileCustodyError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise ResidentDevelopmentalCognitionError("composition_lock_unavailable") from exc
+        assert directory_fd is not None and descriptor is not None
+        try:
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+                os.close(directory_fd)
+
     def run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str,
+                 prior_self_model: CognitiveSelfModelProjection | None = None,
+                 prior_epistemic_state: EpistemicCognitiveProjection | None = None) -> ResidentDevelopmentalCycleResult:
+        if not self.config.enabled:
+            return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
+        if os.name != "posix":
+            return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
+                prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state)
+        with self._composition_lock():
+            return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
+                prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state)
+
+    def _run_tick_locked(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
                  prior_epistemic_state: EpistemicCognitiveProjection | None = None) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:

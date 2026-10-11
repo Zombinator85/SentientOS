@@ -457,3 +457,33 @@ def test_cognition_checkpoint_rejects_replaced_symlink_root(tmp_path: Path) -> N
                        match="composition_state_root_invalid"):
         _replace_cognition_state(alias / "composition_state.json", {"state": "bounded"})
     assert list(target.iterdir()) == []
+
+
+def test_concurrent_developmental_ticks_cannot_replay_one_tick(tmp_path: Path) -> None:
+    import os
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    if os.name != "posix":
+        pytest.skip("POSIX cognition tick lock is required")
+    first, _ = owner(tmp_path)
+    second, _ = owner(tmp_path)
+    tick_snapshot = WorldStateBoardBuilder().build([])
+    barrier = Barrier(2)
+
+    def run(owner_instance):
+        barrier.wait()
+        return owner_instance.run_tick(snapshot=tick_snapshot, tick_id="one-shared-tick")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        left = pool.submit(run, first)
+        right = pool.submit(run, second)
+        results = []
+        for future in (left, right):
+            try:
+                results.append(future.result())
+            except ResidentDevelopmentalCognitionError as exc:
+                results.append(str(exc))
+
+    assert sum(getattr(result, "status", None) == "completed" for result in results) == 1
+    assert results.count("tick_already_completed") == 1

@@ -2604,3 +2604,10 @@ Next inspect succession source records for any projection that still presents a 
 - Reconciliation derived generation and predecessor from a snapshot read before publication, so concurrent local owners could both select the same generation. POSIX reconciliation now holds a stable private lock file for the full read/reconcile/immutable-publish transaction. Exact repeated snapshots remain idempotent; distinct concurrent snapshots receive an ordered predecessor chain. Windows remains read-only: it can return an already persisted snapshot match, while any new publication still fails closed.
 - Added an authored, unexecuted concurrent two-owner predecessor-chain case. Python compilation only; no concurrency behavior or production runtime was exercised.
 - Next inspect adjacent state-owner append sequencing for the same stale-predecessor race, then assess whether the resident daemon's singleton is still being relied upon where the owner itself can enforce lineage.
+
+
+## 2026-10-11 checkpoint — serialize resident cognition tick admission
+
+- Multiple resident cognition owner instances sharing one configured state root could both read the same missing tick checkpoint before either wrote its in-progress marker. The owner now acquires a stable, private, no-follow POSIX lock around recovery, tick-intent publication, cognition calls, and completion publication. It rejects unsafe lock custody and keeps the existing Windows read-only behavior.
+- Added a concurrent-owner regression case to the test source; it is authored but unexecuted. Python syntax compilation is the only permitted check and does not establish concurrency or runtime behavior.
+- Next inspect concurrent epistemic mutation and developmental-history commit paths for read/verify/append races, then fix any sequence or predecessor selection that is not owned by the durable writer transaction.
