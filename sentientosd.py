@@ -1402,16 +1402,41 @@ class RuntimeMaintenanceSurfaces:
         # publication is capped independently at 64 MiB. The shared owner
         # traverses a private no-follow directory descriptor and atomically
         # replaces this mutable terminal view.
-        durability_confirmed = replace_private_bytes_with_status(
-            target, encoded, max_bytes=64 * 1024 * 1024)
-        # A directory-fsync error happens after replacement is already visible.
-        # Keep the same snapshot available to this process, but report uncertain
-        # durability rather than pretending publication was fully durable.
+        if os.name == "posix":
+            durability_confirmed = replace_private_bytes_with_status(
+                target, encoded, max_bytes=64 * 1024 * 1024)
+            publication_status = ("durable" if durability_confirmed
+                else "durability_uncertain")
+        else:
+            # Windows' existing daemon publisher uses bounded atomic replacement
+            # but has no corresponding safe descriptor-relative write contract.
+            # Preserve that supported lifecycle while declining to claim directory
+            # durability that the platform path does not verify.
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary: str | None = None
+            try:
+                descriptor, temporary = tempfile.mkstemp(
+                    prefix=".world-state-", suffix=".tmp", dir=target.parent)
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(encoded)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, target)
+                temporary = None
+            finally:
+                if temporary is not None:
+                    with suppress(OSError):
+                        os.unlink(temporary)
+            durability_confirmed = False
+            publication_status = "directory_durability_unverified"
+        # Atomic replacement has made the artifact visible. Keep the same
+        # snapshot available in memory, while reporting whether directory
+        # durability was confirmed for this platform.
         self._world_state_snapshot = snapshot
         feedback_status = "degraded" if snapshot.degraded or snapshot.contradicted else "ok"
         if not durability_confirmed:
             feedback_status = "degraded"
-        feedback = {"status":feedback_status, "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "publication_status": "durable" if durability_confirmed else "durability_uncertain", "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
+        feedback = {"status":feedback_status, "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "publication_status": publication_status, "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
         self._feedback["surfaces"]["world_state_evidence_board"] = feedback
         self._feedback["surfaces"]["production_chat_resource_observation"] = dict(self._resource_observation_health)
         self._world_state_snapshot_built_for_tick = tick_key

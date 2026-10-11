@@ -2725,3 +2725,11 @@ A later source correction was also composed from stale note text and displaced t
 - The latest resource-ledger source confirms its mutable owner is deliberately single-process and uses an in-process lock; the installation observer instead validates immutable bounded bytes through a read-only owner. This pass makes no change to that authority boundary and does not claim the ledger supports multiple writer processes.
 - Receipt-registry behavioral cases are explicitly POSIX-only because publication and flock custody are unsupported on Windows; Windows continues to use bounded read-only receipt recovery. The test module passed Python syntax compilation only.
 - Next inspect retry and recovery semantics around the resource ledger's attempt journal, focusing on interrupted debit/reconciliation and whether restored state can be presented as a new event.
+
+
+## 2026-10-11 checkpoint — preserve World-State publication on Windows
+
+- Ledger review confirmed provisional attempts remain debited, begun attempts preserve their exact receipt predecessor chain, restored/not-begun attempts record zero consumption, and bounded World-State projection reports incomplete history rather than treating omitted tails as complete. The ledger remains single-process mutable custody; its installation observer is separately read-only.
+- The World-State custody change initially would have made daemon snapshot publication fail on Windows because the shared descriptor publisher is POSIX-only and the existing Windows custody helper explicitly offers reads only. The daemon now retains its previous bounded temp-file/atomic-replace lifecycle on Windows, reports directory durability as unverified, and uses descriptor-bound publication on POSIX. The explicit 64 MiB artifact cap applies on both paths.
+- `sentientosd.py` passed syntax compilation only. No Windows or POSIX runtime publication was exercised.
+- Next inspect resident epistemic evidence selection and later-tick writeback against recovered World-State freshness, event time, and duplicate identity. Continue only where a concrete source-level gap remains.
