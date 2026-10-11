@@ -25,6 +25,7 @@ from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
+from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientosd import RuntimeMaintenanceSurfaces, _load_epistemic_state_owner
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
@@ -211,7 +212,8 @@ def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(
         for item in invoker.verified_receipts)
 
 
-def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None):
+def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
+          allowed_source_kinds: tuple[str, ...] = ("capability_registry",)):
     ledger = AdmissionLedger(root / "state" / "admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -223,10 +225,98 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
         admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger), current_sequence=current)
     fake = invoker or FakeInvoker()
     result = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(
-        root / "history", root / "state", ("capability_registry",), 1, 4, comparison), writeback=ctrl,
+        root / "history", root / "state", allowed_source_kinds, 1, 4, comparison), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence)
     return result, fake
+
+
+def test_quarantine_custody_failure_reaches_configured_cognition_and_next_tick_history(
+    tmp_path: Path,
+) -> None:
+    from sentientos.integrity_quarantine import QUARANTINE_PATH
+
+    target = tmp_path / QUARANTINE_PATH
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b'{"schema_version":1')
+    narrative = tmp_path / "pulse" / "integrity_incidents.jsonl"
+    narrative.parent.mkdir(parents=True)
+    narrative.write_text('{"severity":"critical","triggers":["attack confirmed"]}\n')
+
+    cognition, fake = owner(tmp_path / "cognition", allowed_source_kinds=("quarantine",))
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=cognition,  # type: ignore[arg-type]
+    )
+    tick = "2026-10-11T00:00:00+00:00"
+    surfaces.build_world_state_board(tick_id=tick)
+    snapshot_value = surfaces.current_world_state_snapshot
+    assert snapshot_value is not None
+    facts = [fact for fact in snapshot_value.facts
+             if fact.source.kind == "quarantine"]
+    assert len(facts) == 1
+    fact = facts[0]
+    assert fact.subject.subject_kind == "quarantine_custody_observation"
+    assert fact.disposition == "custody_invalid"
+    assert fact.observed_at == tick
+    assert fact.source.staleness == "unknown"
+    assert fact.payload["custody_error_code"] == "quarantine_json_invalid"
+    assert fact.payload["quarantine_active"] is None
+    assert fact.payload["attack_established"] is False
+    assert fact.payload["hostile_activity_established"] is False
+
+    first = surfaces.run_resident_developmental_cognition(tick_id=tick)
+    record_id = first["written_record_id"]
+    assert first["status"] == "completed" and record_id
+    interpretation = next(request for request in fake.requests
+        if request.purpose == "resident_developmental_interpretation")
+    interpretation_input = json.loads(interpretation.prompt)
+    selected = interpretation_input["selection"]["facts"]
+    assert "Do not infer hostile activity, attack, intent, or cause" in interpretation_input["instruction"]
+    assert len(selected) == 1
+    selected_payload = selected[0]["payload"]
+    assert selected_payload["custody_error_code"] == "quarantine_json_invalid"
+    assert selected_payload["quarantine_active"] is None
+    assert selected_payload["attack_established"] is False
+    assert "attack confirmed" not in interpretation.prompt
+    stored = cognition.writeback.store.get(record_id)
+    assert stored.candidate["selected_facts"][0]["source"]["kind"] == "quarantine"
+
+    restarted, later_fake = owner(tmp_path / "cognition", invoker=FakeInvoker(),
+        allowed_source_kinds=("quarantine",))
+    later_fake.no_cognition_lesson = True
+    later_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=restarted,  # type: ignore[arg-type]
+    )
+    later_tick = "2026-10-11T00:00:01+00:00"
+    later_surfaces.build_world_state_board(tick_id=later_tick)
+    later = later_surfaces.run_resident_developmental_cognition(tick_id=later_tick)
+    retrieval = next(request for request in later_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert retrieval.upstream_evidence["record_ids"] == [record_id]
+    assert fact.fact_id in retrieval.upstream_evidence["current_fact_ids"]
+    context = json.loads(retrieval.prompt)
+    assert context["current_evidence"]["facts"][0]["payload"]["custody_error_code"] == "quarantine_json_invalid"
+    assert later["status"] == "completed"
+
+
+@pytest.mark.parametrize(("active", "expected"), [(False, False), (True, True)])
+def test_valid_quarantine_state_projection_preserves_actual_posture(
+    tmp_path: Path, active: bool, expected: bool,
+) -> None:
+    save_state(tmp_path, QuarantineState(active=active, allow_publish=not active,
+        allow_automerge=not active, freeze_forge=active, allow_federation_sync=not active))
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "runtime")
+    surfaces.build_world_state_board(tick_id="2026-10-11T00:00:00+00:00")
+    snapshot_value = surfaces.current_world_state_snapshot
+    assert snapshot_value is not None
+    facts = [fact for fact in snapshot_value.facts if fact.source.kind == "quarantine"]
+    assert len(facts) == 1
+    assert facts[0].disposition == "recorded"
+    assert facts[0].payload["custody_result"] == "valid_v1"
+    assert facts[0].payload["quarantine_active"] is expected
+    assert facts[0].payload["attack_established"] is False
 
 
 def epistemic_projection(root: Path):

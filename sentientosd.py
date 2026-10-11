@@ -63,6 +63,11 @@ from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
     LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
+from sentientos.integrity_quarantine import (
+    QuarantineCustodyStatus,
+    QuarantineStateError,
+    load_state_with_status as load_quarantine_state_with_status,
+)
 from sentientos.platform_fcntl import fcntl, require_flock
 from sentientos.private_file_custody import (
     PrivateFileCustodyError,
@@ -123,6 +128,111 @@ LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
 RESOURCE_OBSERVATION_INSTALLATION_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_INSTALLATION_IDENTITY"
 RESOURCE_OBSERVATION_PROVISIONING_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_PROVISIONING_ID"
+
+
+def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str) -> dict[str, Any]:
+    """Project the actual protective-state owner read, without parsing incident narratives."""
+    try:
+        loaded = load_quarantine_state_with_status(repo_root)
+    except QuarantineStateError as exc:
+        code = exc.code if (isinstance(exc.code, str) and 0 < len(exc.code) <= 128
+                            and all(ch.islower() or ch.isdigit() or ch == "_" for ch in exc.code)) else "unclassified_custody_failure"
+        payload: dict[str, Any] = {
+            "observation_schema": "sentientos.integrity_quarantine_custody_observation:v1",
+            "source_owner": "sentientos.integrity_quarantine.load_state_with_status",
+            "custody_result": "invalid",
+            "custody_error_code": code,
+            "stored_state_present": None,
+            "quarantine_active": None,
+            "allow_publish": None,
+            "allow_automerge": None,
+            "freeze_forge": None,
+            "allow_federation_sync": None,
+            "event_meaning": "The configured protective quarantine record could not be verified at this observation.",
+            "cause_unknown": True,
+            "hostile_activity_established": False,
+            "attack_established": False,
+            "independent_signature": False,
+            "event_time_posture": "daemon_tick_point_observation_of_owner_read",
+            "effect_proven": False,
+            "effect_authority": False,
+            "authority": False,
+            "current_truth": False,
+            "read_only": True,
+        }
+        disposition = "custody_invalid"
+        evidence_strength = "owner_validated_custody_failure"
+    except Exception as exc:
+        payload = {
+            "observation_schema": "sentientos.integrity_quarantine_custody_observation:v1",
+            "source_owner": "sentientos.integrity_quarantine.load_state_with_status",
+            "custody_result": "observer_unavailable",
+            "custody_error_code": "observer_failure:" + type(exc).__name__[:64],
+            "stored_state_present": None,
+            "quarantine_active": None,
+            "event_meaning": "The protective-state observation owner did not return a custody result.",
+            "cause_unknown": True,
+            "hostile_activity_established": False,
+            "attack_established": False,
+            "independent_signature": False,
+            "event_time_posture": "daemon_tick_point_observation_of_owner_read",
+            "effect_proven": False,
+            "effect_authority": False,
+            "authority": False,
+            "current_truth": False,
+            "read_only": True,
+        }
+        disposition = "observer_unavailable"
+        evidence_strength = "owner_observation_unavailable"
+    else:
+        state = loaded.state
+        first_use = loaded.custody_status is QuarantineCustodyStatus.FIRST_USE_ABSENT
+        payload = {
+            "observation_schema": "sentientos.integrity_quarantine_custody_observation:v1",
+            "source_owner": "sentientos.integrity_quarantine.load_state_with_status",
+            "custody_result": "first_use_absent" if first_use else "valid_v1",
+            "custody_error_code": None,
+            "stored_state_present": not first_use,
+            # Absence means no stored policy was observed; do not promote the
+            # loader's default object to an explicit inactive record.
+            "quarantine_active": None if first_use else state.active,
+            "freeze_forge": None if first_use else state.freeze_forge,
+            "allow_publish": None if first_use else state.allow_publish,
+            "allow_automerge": None if first_use else state.allow_automerge,
+            "allow_federation_sync": None if first_use else state.allow_federation_sync,
+            "event_meaning": (
+                "No stored protective quarantine record was present at this first-use observation."
+                if first_use else
+                "The protective quarantine record passed owner validation and its stored posture is represented below."
+            ),
+            "cause_unknown": first_use,
+            "hostile_activity_established": False,
+            "attack_established": False,
+            "independent_signature": False,
+            "event_time_posture": "daemon_tick_point_observation_of_owner_read",
+            "effect_proven": False,
+            "effect_authority": False,
+            "authority": False,
+            "current_truth": False,
+            "read_only": True,
+        }
+        disposition = "recorded"
+        evidence_strength = "owner_validated_custody_observation"
+    return {
+        "source_kind": WorldStateSourceKind.QUARANTINE.value,
+        "source_id": "integrity-quarantine-custody:resident-daemon",
+        "schema_version": "sentientos.integrity_quarantine_custody_observation:v1",
+        "subject_id": "configured-protective-quarantine-state",
+        "subject_kind": "quarantine_custody_observation",
+        "stage": "observation",
+        "disposition": disposition,
+        "evidence_strength": evidence_strength,
+        "observed_at": observed_at,
+        "staleness": "unknown" if payload["custody_result"] in {"invalid", "observer_unavailable"} else None,
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": payload,
+    }
 LONGITUDINAL_SELF_MODEL_CONFIG_ENV = "SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG"
 EPISTEMIC_STATE_CONFIG_ENV = "SENTIENTOS_EPISTEMIC_STATE_CONFIG"
 EMBODIED_CONSEQUENCE_PROJECTION_CONFIG_ENV = "SENTIENTOS_EMBODIED_CONSEQUENCE_PROJECTION_CONFIG"
@@ -997,6 +1107,17 @@ class RuntimeMaintenanceSurfaces:
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
+        quarantine_record = _quarantine_custody_world_state_record(
+            self._repo_root, observed_at=tick_key)
+        records.append(quarantine_record)
+        self._feedback.setdefault("surfaces", {})["integrity_quarantine_custody"] = {
+            "status": quarantine_record["payload"]["custody_result"],
+            "reason_code": quarantine_record["payload"].get("custody_error_code"),
+            "source_id": quarantine_record["source_id"],
+            "read_only": True,
+            "attack_established": False,
+            "effect_authority": False,
+        }
         selected_resource_lineage_source_ids: set[str] = set()
         selected_embodied_source_ids: set[str] = set()
         selected_embodiment_observation_source_ids: set[str] = set()

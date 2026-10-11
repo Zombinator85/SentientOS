@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import datetime, timezone
 
@@ -22,6 +23,7 @@ from sentientos.resident_epistemic_state_mutation import (
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
+from sentientosd import _quarantine_custody_world_state_record
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -72,6 +74,32 @@ def test_one_tick_evidence_and_state_mutation_uses_distinct_admissions(tmp_path)
     assert len(admissions) == 2 and admissions[0].admission_id != admissions[1].admission_id
     assert set(admissions[0].effects).isdisjoint(set(admissions[1].effects) - {"exact_epistemic_proposition_read", "epistemic_mutation_receipt_write", "read_only_epistemic_post_mutation_verification"})
     assert state.evidence_set_digest
+
+
+def test_quarantine_custody_status_cannot_become_epistemic_support(tmp_path):
+    from sentientos.integrity_quarantine import QUARANTINE_PATH
+
+    target = tmp_path / QUARANTINE_PATH
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"not-json")
+    record = _quarantine_custody_world_state_record(tmp_path, observed_at=NOW)
+    board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    _, proposition, _, runtime = fixture(tmp_path)
+    configured = replace(runtime.config.rules[0], selector={
+        "source_kind": "quarantine",
+        "subject_kind": "quarantine_custody_observation",
+        "stage": "observation",
+        "disposition": "custody_invalid",
+    }, evidence_relation="supports", dependency_kind="independently_sourced_observation",
+       reliability_posture="verified", independence_basis="configured-test-source")
+    assert configured.proposition_id == proposition.proposition_id
+    _proof, binding = ResidentEpistemicDevelopmentRuntime._adapt(
+        board, board.facts[0], configured)
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.dependency_group is None
+    assert binding.freshness == "unknown"
+    assert binding.reliability_posture == "quarantine_custody_status_context_only"
 
 
 def test_incomplete_mutation_recovery_is_reported_without_new_admission(tmp_path):

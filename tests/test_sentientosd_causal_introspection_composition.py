@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 import sentientosd
+from sentientosd import _causal_introspection_world_state_records
 from sentientos.causal_introspection import CausalIntrospectionRuntime, IntrospectionConfig
 
 
@@ -60,7 +61,8 @@ def _patch_startup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(sentientosd, "ForgeMergeTrain", lambda **_kwargs: SimpleNamespace())
     monkeypatch.setattr(sentientosd, "ContractSentinel", lambda: SimpleNamespace())
     monkeypatch.setattr(sentientosd, "build_local_model_authority_map", lambda: {})
-    monkeypatch.setattr(sentientosd, "GovernedLocalModelInvoker", lambda **_kwargs: SimpleNamespace())
+    monkeypatch.setattr(sentientosd, "GovernedLocalModelInvoker",
+                        lambda **_kwargs: SimpleNamespace(register_evidence_sink=lambda *_args: None))
     monkeypatch.setattr(sentientosd, "GenesisModelAdviceCoordinator", lambda **_kwargs: SimpleNamespace())
     monkeypatch.setattr(sentientosd, "resolve_improvement_evidence_sources", lambda _root: [])
     monkeypatch.setattr(sentientosd, "_start_maintenance_daemon_owners_after_resident_decision",

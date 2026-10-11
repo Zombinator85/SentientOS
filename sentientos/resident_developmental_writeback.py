@@ -1068,7 +1068,9 @@ class ResidentDevelopmentalWritebackController:
         schema = {"type":"object", "required":["interpretation","uncertainty"], "additionalProperties":False,
                   "properties":{"interpretation":{"type":"string","maxLength":MAX_INTERPRETATION_CHARS},
                                 "uncertainty":{"type":"string","enum":["low","medium","high","unknown"]}}}
-        request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":("Interpret selected historical evidence without asserting truth, authority, policy, goals, or storage. "
+        request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":("Interpret selected World-State evidence only as bounded context, without asserting truth, authority, policy, goals, or storage. "
+            "Preserve whether each source time is current, historical, or unknown; the World-State observation clock is not an event time unless the owner says so. "
+            "Do not infer hostile activity, attack, intent, or cause from a protective-state custody failure; unreadable custody leaves the stored protective state unknown. "
             "Keep provenance and uncertainty attached to each interpretation. For resource evidence, distinguish measured, "
             "estimated, predicted, and unknown values by their source posture; shared host usage is not invocation attribution. "
             "Resource expenditure is not inherently good or bad and must not become a reward, penalty, or objective."),

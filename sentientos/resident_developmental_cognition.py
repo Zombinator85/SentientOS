@@ -1317,6 +1317,40 @@ class ResidentDevelopmentalCognitionOwner:
         """Keep current identities and qualified causal evidence ahead of journal volume."""
         subject_kind = str(fact.subject.subject_kind)
         payload = fact.payload
+        quarantine_result = payload.get("custody_result")
+        quarantine_custody_observation = (
+            source_kind == "quarantine"
+            and subject_kind == "quarantine_custody_observation"
+            and fact.stage == "observation"
+            and payload.get("observation_schema")
+                == "sentientos.integrity_quarantine_custody_observation:v1"
+            and payload.get("source_owner")
+                == "sentientos.integrity_quarantine.load_state_with_status"
+            and quarantine_result in {"first_use_absent", "valid_v1", "invalid", "observer_unavailable"}
+            and payload.get("event_time_posture")
+                == "daemon_tick_point_observation_of_owner_read"
+            and payload.get("independent_signature") is False
+            and isinstance(payload.get("event_meaning"), str)
+            and bool(payload.get("event_meaning"))
+            and payload.get("attack_established") is False
+            and payload.get("hostile_activity_established") is False
+            and payload.get("effect_proven") is False
+            and payload.get("effect_authority") is False
+            and payload.get("authority") is False
+            and payload.get("current_truth") is False
+            and payload.get("read_only") is True
+            and ((fact.disposition == "custody_invalid"
+                    and fact.evidence_strength == "owner_validated_custody_failure"
+                    and quarantine_result == "invalid")
+                or (fact.disposition == "recorded"
+                    and fact.evidence_strength == "owner_validated_custody_observation"
+                    and quarantine_result in {"first_use_absent", "valid_v1"})
+                or (fact.disposition == "observer_unavailable"
+                    and fact.evidence_strength == "owner_observation_unavailable"
+                    and quarantine_result == "observer_unavailable"))
+            and type(payload.get("quarantine_active")) in {bool, type(None)}
+            and fact.effect_claimed is False and fact.effect_proven is False
+        )
         resource_lineage_verified = (
             source_kind == "resource_governor"
             and subject_kind == "causal_resource_consumption"
@@ -1411,7 +1445,8 @@ class ResidentDevelopmentalCognitionOwner:
             and payload.get("effect_proven") is False
             and fact.effect_claimed is False and fact.effect_proven is False
         )
-        if observed_running_model_verified or current_software_generation_verified:
+        if (quarantine_custody_observation or observed_running_model_verified
+                or current_software_generation_verified):
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
             priority = 1

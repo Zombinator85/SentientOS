@@ -364,6 +364,23 @@ class ResidentEpistemicDevelopmentRuntime:
             and conflict.conflict_type in {"source_digest_mismatch",
                 "source_observation_time_mismatch"}
             for conflict in snapshot.conflicts))
+        quarantine_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        quarantine_custody_context = (
+            fact.source.kind == "quarantine"
+            and fact.subject.subject_kind == "quarantine_custody_observation"
+            and quarantine_payload.get("observation_schema")
+                == "sentientos.integrity_quarantine_custody_observation:v1"
+            and quarantine_payload.get("source_owner")
+                == "sentientos.integrity_quarantine.load_state_with_status"
+            and quarantine_payload.get("custody_result") in {
+                "first_use_absent", "valid_v1", "invalid", "observer_unavailable"}
+            and quarantine_payload.get("event_time_posture")
+                == "daemon_tick_point_observation_of_owner_read"
+            and quarantine_payload.get("independent_signature") is False
+            and quarantine_payload.get("attack_established") is False
+            and quarantine_payload.get("authority") is False
+            and quarantine_payload.get("effect_authority") is False
+            and fact.effect_claimed is False and fact.effect_proven is False)
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
@@ -615,11 +632,14 @@ class ResidentEpistemicDevelopmentRuntime:
             source_artifact_id=artifact_id, source_digest=stable_source_digest,
             source_schema=fact.source.schema_version, source_class=fact.source.kind,
             observation_time=observed,
-            evidence_relation="contextualizes" if (unverified_source_context or historical_transition_event) else rule.evidence_relation,
-            dependency_kind=("unknown_dependency" if (unverified_source_context or historical_transition_event)
+            evidence_relation="contextualizes" if (unverified_source_context
+                or historical_transition_event or quarantine_custody_context) else rule.evidence_relation,
+            dependency_kind=("unknown_dependency" if (unverified_source_context
+                or historical_transition_event or quarantine_custody_context)
                 else rule.dependency_kind),
             dependency_group=(rule.independence_basis if rule.dependency_kind == "independently_sourced_observation"
-                and not unverified_source_context and not historical_transition_event else None),
+                and not unverified_source_context and not historical_transition_event
+                and not quarantine_custody_context else None),
             upstream_binding_ids=(), freshness=freshness,
             reliability_posture=("qualified_historical_transition_owner_observation"
                 if qualified_transition_observation
@@ -630,6 +650,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 else "proposal_source_not_world_truth" if historical_strategy_proposal
                 else "unverified_review_context_only" if historical_strategy_review
                 else "resource_lineage_incomplete_context_only" if incomplete_resource_lineage
+                else "quarantine_custody_status_context_only" if quarantine_custody_context
                 else "unverified_source_context_only" if unverified_source_context
                 else rule.reliability_posture))
         return proof, binding
