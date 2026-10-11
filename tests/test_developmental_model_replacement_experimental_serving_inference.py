@@ -49,3 +49,16 @@ def test_serving_transition_performs_zero_inference() -> None:
     establish = source[source.index("    def establish"):source.index("class ExperimentalCognitiveEndpoint")]
     assert ".generate(" not in establish and ".invoke(" not in establish
     assert '"inference_performed_by_serving_transition": False' in establish
+
+
+def test_historical_receipt_reconciliation_is_read_only_and_endpoint_bound() -> None:
+    serving = Path("sentientos/developmental_model_replacement_experimental_serving.py").read_text()
+    verifier = serving[serving.index("    def verify_persisted_observation_receipts"):
+        serving.index("    def prepare_intent")]
+    experiment = Path("sentientos/developmental_model_replacement_experiment.py").read_text()
+    observation_verifier = experiment[experiment.index("    def _verify_observation"):
+        experiment.index("    def _persist_partial_run")]
+    assert "self._handle.read_regular" in verifier
+    assert "verify_commissioned_model" in verifier and "validate_receipt" in verifier
+    assert "_factory(" not in verifier and ".invoke(" not in verifier
+    assert "verify_persisted_observation_receipts" in observation_verifier
