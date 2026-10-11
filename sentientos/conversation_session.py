@@ -201,6 +201,20 @@ class ConversationSessionStore:
         if not isinstance(loaded, dict): raise ValueError("invalid_session")
         payload: dict[str, Any] = loaded
         if payload.get("schema_version") != SCHEMA or payload.get("session_id") != session_id: raise ValueError("invalid_session")
+        for field in ("created_at", "latest_activity_at"):
+            value = payload.get(field)
+            if not isinstance(value, str):
+                raise ValueError("invalid_session_timestamp")
+            try:
+                instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except (OverflowError, OSError, ValueError) as exc:
+                raise ValueError("invalid_session_timestamp") from exc
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                raise ValueError("invalid_session_timestamp")
+        if (not isinstance(payload.get("lifecycle_state"), str)
+                or not payload.get("lifecycle_state")
+                or (payload.get("title") is not None and not isinstance(payload.get("title"), str))):
+            raise ValueError("invalid_session_lifecycle_metadata")
         turns = payload.get("turns")
         model_identity = payload.get("model_identity")
         if (not isinstance(model_identity, Mapping)

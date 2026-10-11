@@ -964,3 +964,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the changed session-store source snapshot. No transcript fixtures or restart behavior were exercised.
 
 **Next implementation dependency:** continue tracing transcript identities through context snapshots and historical invocation verification; check whether session creation and reload validate top-level lifecycle timestamps and source identity consistently, without making legacy transcript rows unreadable.
+
+## New checkpoint — validate recovered conversation lifecycle metadata
+
+- The session reader validated each turn's timestamp but accepted malformed or offset-free top-level creation/activity times and unchecked lifecycle metadata. These fields are consulted by session listing and recovery-facing UI even though they do not carry a separate whole-session digest.
+- Reload now requires timezone-aware ISO timestamps for both top-level time fields, a nonempty lifecycle-state string, and a string-or-null title. It does not assume timestamps are monotonic, because wall-clock correction can legitimately move time backward.
+- Existing generated sessions and turn records retain their schema; the change rejects incomplete or malformed custody without claiming tamper-proof authentication.
+- `python -m py_compile` passed for the session-store source snapshot. No session fixtures or restart behavior were run.
+
+**Next implementation dependency:** inspect whether World-State's invocation evidence consumer uses the new direct-parent receipt posture, then continue through adjacent transcript/model-history attribution only where an authenticated owner provides evidence.
