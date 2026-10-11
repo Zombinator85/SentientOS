@@ -2805,3 +2805,10 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Added an authored, unexecuted malformed-time journal case that recomputes the record digest and confirms restart remains fail-closed without rewriting bytes. Parent source and test syntax compilation passed; no journal or process behavior was exercised.
 - Next inspect whether authenticated parent lifecycle receipts have a configured, bounded path into resident World-State and developmental cognition. Preserve the standalone default and only compose an explicitly enabled read-only source if existing commissioning custody can bind it without guessing the running process identity.
 
+## 2026-10-11 checkpoint — carry the commissioned parent config into the child contract
+
+- The parent and resident daemon had no authenticated handoff from the explicit parent CLI to a child-side observer: the child argv was fixed, but its environment exposed no path from which to reverify the commissioning custody that authorized parent supervision.
+- The standalone parent entrypoint now passes its already verified absolute commissioning-config path through a reserved child environment key. The value participates in the exact child-spec digest, is removed from inherited caller values, and is absent for direct/default parent construction. Normal daemon startup remains unchanged.
+- Added an authored, unexecuted exact-environment/spec-binding case. Parent source and test syntax compilation only; no child was launched and commissioning was not executed.
+- Next add a read-only consumer for this explicit handoff. It must reverify commissioning, bind the observed parent process to the actual process parent, reconcile bounded lifecycle journal and snapshot custody, and expose only historical evidence to the existing World-State path.
+

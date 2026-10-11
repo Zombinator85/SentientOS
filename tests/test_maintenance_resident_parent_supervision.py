@@ -69,6 +69,20 @@ def _simulate_parent_process_exit(controller: MaintenanceResidentParentSuperviso
         controller._owner_root_fd = None
 
 
+def test_commissioned_parent_config_is_explicitly_handed_to_child(tmp_path: Path) -> None:
+    from sentientos import maintenance_resident_parent_supervision as parent
+
+    cfg, _generation, _custody, _repository = _fixture(tmp_path)
+    config_path = Path(str(cfg[resident.CONFIG_ENV])).resolve(strict=True)
+    child_factory = Factory()
+    controller = MaintenanceResidentParentSupervisor(
+        cfg, state_root=tmp_path / "parent", adapter_factory=child_factory,
+        commissioned_config_path=config_path)
+    assert child_factory.children[0].environment[parent.PARENT_CONFIG_PATH_ENV] == str(config_path)
+    assert controller._spec["environment"][parent.PARENT_CONFIG_PATH_ENV] == str(config_path)
+    _simulate_parent_process_exit(controller)
+
+
 def test_parent_state_root_must_remain_owner_private(tmp_path: Path) -> None:
     if os.name != "posix":
         pytest.skip("POSIX directory mode contract")

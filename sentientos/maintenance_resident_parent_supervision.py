@@ -28,6 +28,7 @@ from sentientos.runtime.services import ChildProcessServiceAdapter, HealthResult
 STATE_SCHEMA = "sentientos.maintenance_resident_parent_supervision_state:v1"
 RECEIPT_SCHEMA = "sentientos.maintenance_resident_parent_supervision_receipt:v1"
 SERVICE_ID = "exact-maintenance-resident"
+PARENT_CONFIG_PATH_ENV = "SENTIENTOS_RESIDENT_PARENT_CONFIG_PATH"
 MAX_PARENT_STATE_BYTES = 1_048_576
 MAX_PARENT_RESTART_HISTORY = 65_536
 MAX_PARENT_RECEIPT_BYTES = 16_777_216
@@ -102,7 +103,8 @@ class MaintenanceResidentParentSupervisor:
                  clock: Callable[[], float] = time.time,
                  sleeper: Callable[[float], None] = time.sleep,
                  adapter_factory: Callable[..., ServiceAdapter] = ChildProcessServiceAdapter,
-                 process_presence_observer: Callable[[int], bool | None] | None = None) -> None:
+                 process_presence_observer: Callable[[int], bool | None] | None = None,
+                 commissioned_config_path: Path | None = None) -> None:
         if restart_budget < 0 or rolling_restart_window <= 0 or min_backoff < 0 or max_backoff < min_backoff:
             raise ValueError("invalid_parent_restart_policy")
         self.config = resident.validate_config(resident_config)
@@ -135,6 +137,9 @@ class MaintenanceResidentParentSupervisor:
         self._process_presence_observer = process_presence_observer or self._observe_pid_presence
         self._budget, self._window = restart_budget, rolling_restart_window
         self._min_backoff, self._max_backoff = min_backoff, max_backoff
+        self._commissioned_config_path = (
+            Path(commissioned_config_path).resolve(strict=True)
+            if commissioned_config_path is not None else None)
         self._environment = self._exact_environment()
         self._argv = (self.config["python_executable"], "-m", "sentientosd")
         self._spec = {"service_id": SERVICE_ID, "executable": self._argv[0], "argv": list(self._argv),
@@ -210,6 +215,9 @@ class MaintenanceResidentParentSupervisor:
         env = {key: os.environ[key] for key in self.config["inherited_environment_allowlist"] if key in os.environ}
         env.update(self.config["required_environment"])
         env.pop("PYTHONPATH", None); env.pop("PYTHONHOME", None); env.pop(resident.TRANSITION_ENV, None)
+        env.pop(PARENT_CONFIG_PATH_ENV, None)
+        if self._commissioned_config_path is not None:
+            env[PARENT_CONFIG_PATH_ENV] = str(self._commissioned_config_path)
         return env
 
     def _atomic(self, value: Mapping[str, Any]) -> None:
@@ -832,7 +840,8 @@ class MaintenanceResidentParentSupervisor:
             "readiness_basis": self._readiness_basis}
 
 
-__all__ = ["MaintenanceResidentParentSupervisor", "STATE_SCHEMA", "RECEIPT_SCHEMA", "SERVICE_ID", "main"]
+__all__ = ["MaintenanceResidentParentSupervisor", "STATE_SCHEMA", "RECEIPT_SCHEMA", "SERVICE_ID",
+    "PARENT_CONFIG_PATH_ENV", "main"]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -864,7 +873,8 @@ def main(argv: list[str] | None = None) -> int:
             working_directory=Path.cwd(), module_path=Path(__file__))
         require_flock()
         parent_root = Path(config["state_root"]) / "parent-supervision"
-        supervisor = MaintenanceResidentParentSupervisor(config, state_root=parent_root)
+        supervisor = MaintenanceResidentParentSupervisor(
+            config, state_root=parent_root, commissioned_config_path=config_path)
     except Exception as exc:
         print(f"resident parent configuration rejected: {type(exc).__name__}", file=sys.stderr)
         return 2
