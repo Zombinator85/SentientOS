@@ -2029,3 +2029,8 @@ The first authored CLI test version still mocked the direct resident-config load
 A follow-up traced the POSIX-only lock boundary into the supervisor constructor. Although the explicit CLI preflight already refuses unsupported locking before creating the parent state directory, direct construction reached `mkdir` before `_acquire_owner_lock()` raised on Windows. The constructor now checks the required native lock before any parent custody directory mutation. A focused authored test asserts that lock unavailability leaves the state root absent; it is unexecuted.
 
 Cross-platform parent supervision remains unresolved: this change prevents partial state creation but does not implement Windows process-wide exclusion or restart child-presence proof. Keep the existing fail-closed platform policy until a separately designed native custody contract is available.
+
+
+## 2026-10-11 checkpoint — bind parent custody beneath the existing resident state root
+
+The parent entrypoint derives a separate `parent-supervision` subdirectory from the commissioned resident state root. The commissioning verifier now requires that exact `resident-state` directory to remain present and owner-private before parent construction; it rejects a missing, non-directory, wrong-owner, or permissively-modeled POSIX state root rather than allowing `mkdir(parents=True)` to recreate or adopt it. An authored unexecuted acceptance case covers permissive mode. This preserves separate parent/child journals under the existing commissioned custody root.

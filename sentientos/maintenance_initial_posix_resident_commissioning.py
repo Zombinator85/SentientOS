@@ -341,8 +341,18 @@ def verify_commissioned_resident_config(config_path: str | Path) -> dict[str, An
         manifest = validate_manifest(intent["manifest"])
         if Path(manifest["custody_root"]).resolve() != root.resolve():
             raise CommissioningError("commissioning_root_binding_mismatch")
-        if Path(config["state_root"]).resolve() != (root / "resident-state").resolve():
+        state_root = root / "resident-state"
+        if Path(config["state_root"]).resolve() != state_root.resolve():
             raise CommissioningError("resident_config_state_root_mismatch")
+        try:
+            state_metadata = os.lstat(state_root)
+        except OSError as exc:
+            raise CommissioningError("resident_state_root_unavailable") from exc
+        if (not stat.S_ISDIR(state_metadata.st_mode)
+                or (os.name == "posix" and (
+                    state_metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(state_metadata.st_mode) != 0o700))):
+            raise CommissioningError("resident_state_root_custody_invalid")
         details = _verify_custody(root, intent, require_complete=True)
         approval = _load(root / "approval.json", "runtime_operator_approval_missing")
         if approval.get("source") != "external_operator" or approval.get("synthetic") is not False:

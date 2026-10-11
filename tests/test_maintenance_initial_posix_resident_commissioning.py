@@ -245,3 +245,20 @@ def test_parent_config_recovery_rejects_synthetic_commissioning(tmp_path: Path) 
     root = Path(str(manifest["custody_root"]))
     with pytest.raises(commissioning.CommissioningError, match="synthetic_commissioning_rejected"):
         commissioning.verify_commissioned_resident_config(root / "resident-adoption.json")
+
+
+def test_parent_config_recovery_rejects_changed_state_root_permissions(tmp_path: Path) -> None:
+    manifest = fixture(tmp_path)
+    intent = commissioning.prepare_intent(manifest)
+    evidence = approval(intent, synthetic=False)
+    path = external_approval(manifest, evidence)
+    commissioning.commission(
+        manifest, evidence, kernel=Kernel(), correlation_id="parent-state-root",
+        clock=lambda: NOW, launch_runner=launch,
+        allow_synthetic_approval_for_tests=True, approval_evidence_path=path)
+    root = Path(str(manifest["custody_root"]))
+    os.chmod(root / "resident-state", 0o755)
+    with pytest.raises(commissioning.CommissioningError,
+                       match="resident_state_root_custody_invalid"):
+        commissioning.verify_commissioned_resident_config(
+            root / "resident-adoption.json")
