@@ -106,16 +106,48 @@ def _open_legacy_memory_root(*, prepare_for_write: bool = False) -> int:
         prepare_for_write=prepare_for_write)
 
 
-def _require_legacy_memory_root() -> bool:
-    """Verify existing root custody without creating it."""
+def _read_legacy_memory_file(path: Path, *, max_bytes: int = 8 * 1024 * 1024) -> bytes | None:
+    """Read one top-level memory sidecar through the held private root."""
     try:
-        descriptor = _open_legacy_memory_root()
-    except FileNotFoundError:
-        return False
+        relative = path.relative_to(MEMORY_DIR)
+    except ValueError as exc:
+        raise PermissionError("legacy_memory_read_outside_configured_root") from exc
+    if len(relative.parts) != 1 or relative.name in {"", ".", ".."}:
+        raise PermissionError("legacy_memory_sidecar_path_invalid")
+    root_fd = _open_legacy_memory_root()
+    descriptor: int | None = None
     try:
-        return True
+        try:
+            descriptor = os.open(relative.name, os.O_RDONLY | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0), dir_fd=root_fd)
+        except FileNotFoundError:
+            return None
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_uid != os.geteuid()
+                or before.st_size > max_bytes):
+            raise PermissionError("legacy_memory_sidecar_custody_invalid")
+        chunks: list[bytes] = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if (len(payload) > max_bytes or len(payload) != before.st_size
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns
+                or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+            raise PermissionError("legacy_memory_sidecar_changed")
+        return payload
     finally:
-        os.close(descriptor)
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(root_fd)
 
 
 def _prepare_write(path: Path) -> None:
@@ -358,11 +390,10 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
 
 
 def _load_index_records() -> list[dict]:
-    if not _require_legacy_memory_root():
+    payload = _read_legacy_memory_file(VECTOR_INDEX_PATH)
+    if payload is None:
         return []
-    if not VECTOR_INDEX_PATH.exists():
-        return []
-    lines = VECTOR_INDEX_PATH.read_text(encoding="utf-8").splitlines()
+    lines = payload.decode("utf-8").splitlines()
     records: list[dict] = []
     for i, line in enumerate(lines):
         if not line.strip():
@@ -405,12 +436,11 @@ def list_tomb(
     *, tag: str | None = None, reason: str | None = None, date: str | None = None
 ) -> List[Dict]:
     """Return tomb entries filtered by tag, reason, or date."""
-    if not _require_legacy_memory_root():
-        return []
-    if not TOMB_PATH.exists():
+    payload = _read_legacy_memory_file(TOMB_PATH)
+    if payload is None:
         return []
     out: List[Dict] = []
-    lines = TOMB_PATH.read_text(encoding="utf-8").splitlines()
+    lines = payload.decode("utf-8").splitlines()
     for line in lines:
         if not line.strip():
             continue
@@ -590,13 +620,11 @@ def _load_index() -> List[Dict]:
 
 
 def _load_observation_records() -> List[Dict[str, Any]]:
-    if not _require_legacy_memory_root():
-        return []
-    if not OBSERVATION_LOG_PATH.exists():
+    payload = _read_legacy_memory_file(OBSERVATION_LOG_PATH)
+    if payload is None:
         return []
     records: List[Dict[str, Any]] = []
-    with open(OBSERVATION_LOG_PATH, "r", encoding="utf-8") as handle:
-        for line in handle:
+    for line in payload.decode("utf-8").splitlines():
             if not line.strip():
                 continue
             try:
@@ -827,12 +855,10 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def iter_curiosity_reflections(limit: int | None = None) -> List[Dict[str, Any]]:
-    if not _require_legacy_memory_root():
+    payload = _read_legacy_memory_file(CURIOSITY_REFLECTIONS_PATH)
+    if payload is None:
         return []
-    if not CURIOSITY_REFLECTIONS_PATH.exists():
-        return []
-    with open(CURIOSITY_REFLECTIONS_PATH, "r", encoding="utf-8") as handle:
-        lines = handle.readlines()
+    lines = payload.decode("utf-8").splitlines()
     entries: List[Dict[str, Any]] = []
     for line in reversed(lines):
         if not line.strip():
@@ -1419,11 +1445,10 @@ def recent_escalations(limit: int = 5) -> list[str]:
 # --- Goal management -------------------------------------------------------
 
 def _load_goals() -> list[dict]:
-    if not _require_legacy_memory_root():
-        return []
-    if GOALS_PATH.exists():
+    payload = _read_legacy_memory_file(GOALS_PATH)
+    if payload is not None:
         try:
-            return json.loads(GOALS_PATH.read_text(encoding="utf-8"))
+            return json.loads(payload.decode("utf-8"))
         except Exception:
             return []
     return []

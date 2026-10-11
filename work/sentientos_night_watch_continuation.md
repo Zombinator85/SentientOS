@@ -1453,3 +1453,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - The remote Python compilation check at `19a30ced4074592d7212896a3c1a24ce50825346` found a duplicated `else` branch in the new canonical raw-directory creation path.
 - Removed the duplicate branch and recompiled the corrected remote `canonical_memory.py` successfully before publication. No runtime or behavior checks were run.
 
+
+
+## New checkpoint — bind legacy sidecar reads to root handles
+
+- Fresh remote source before this increment: `5e35bd3b450865179faf02d2dc62ac122a1f06d4` (tree `2e7ea3010b3ee73112d50a0b294b42f1f4588cd0`).
+- Root-level memory indexes, tombs, observations, curiosity records, and goals checked the configured root but then reopened files by path without no-follow, owner, link-count, stability, or size checks.
+- These legacy sidecar readers now open one configured-root child relative to the verified held root, reject links/non-regular or wrong-owner files, enforce an 8 MiB read bound, and verify the opened file did not change while read. Missing files remain a distinct empty/missing result; malformed JSON retains each consumer's prior behavior. The owner-root custody check remains read-only.
+- Python compilation passed for `memory_manager.py`. No sidecar files were accessed or modified; no runtime or production verification was performed.
+- **Next implementation dependency:** make generic legacy sidecar write preparation verify and create nested directories descriptor-relatively, rejecting preexisting symlink/hardlink targets before any path-based writer runs. Preserve the existing authorization gate and fail closed on unsupported Windows mutation.
+
