@@ -420,3 +420,40 @@ def test_developmental_roots_resolve_aliases_and_exclude_canonical_memory(tmp_pa
                        match="configuration_root_overlaps_canonical_memory"):
         _validate_root_separation(memory / "developmental-history", tmp_path / "state",
                                   memory_root=memory)
+
+
+def test_cognition_checkpoint_round_trips_through_private_descriptor_custody(tmp_path: Path) -> None:
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("cognition checkpoint publication requires POSIX custody")
+    cognition, _ = owner(tmp_path)
+    state = cognition._state()
+    cognition._save_state(state)
+
+    metadata = cognition.state_path.stat()
+    root_metadata = cognition.state_path.parent.stat()
+    assert stat.S_ISREG(metadata.st_mode)
+    assert metadata.st_uid == os.geteuid()
+    assert metadata.st_mode & 0o077 == 0
+    assert root_metadata.st_uid == os.geteuid()
+    assert root_metadata.st_mode & 0o022 == 0
+    assert cognition._state() == state
+
+
+def test_cognition_checkpoint_rejects_replaced_symlink_root(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("no-follow checkpoint publication requires POSIX")
+    from sentientos.resident_developmental_cognition import _replace_cognition_state
+
+    target = tmp_path / "external"
+    target.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+                       match="composition_state_root_invalid"):
+        _replace_cognition_state(alias / "composition_state.json", {"state": "bounded"})
+    assert list(target.iterdir()) == []

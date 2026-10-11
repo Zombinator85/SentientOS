@@ -587,7 +587,7 @@ def _open_store_directory(path: Path, *, create: bool) -> int:
             os.close(descriptor)
 
 
-def _read_store_file(directory_fd: int, name: str) -> bytes:
+def _read_store_file(directory_fd: int, name: str, *, max_bytes: int = MAX_DURABLE_RECORD_BYTES) -> bytes:
     if not name or name in {".", ".."} or "/" in name or "\\" in name:
         raise DevelopmentalWritebackError("stored_payload_path_invalid")
     flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
@@ -595,12 +595,12 @@ def _read_store_file(directory_fd: int, name: str) -> bytes:
     try:
         descriptor = os.open(name, flags, dir_fd=directory_fd)
         before = os.fstat(descriptor)
-        if (not stat.S_ISREG(before.st_mode) or before.st_size > MAX_DURABLE_RECORD_BYTES
+        if (not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes
                 or before.st_nlink != 1 or before.st_uid != os.geteuid()
                 or before.st_mode & 0o077):
             raise DevelopmentalWritebackError("stored_payload_unbounded_or_not_regular")
         chunks: list[bytes] = []
-        remaining = MAX_DURABLE_RECORD_BYTES + 1
+        remaining = max_bytes + 1
         while remaining:
             chunk = os.read(descriptor, min(65_536, remaining))
             if not chunk:

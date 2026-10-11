@@ -24,7 +24,7 @@ from .developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, make_protocol, summarize,
     PURPOSE as EXPERIMENT_PURPOSE,
 )
-from .local_model_authority import atomic_write_json, digest_payload
+from .local_model_authority import digest_payload
 from .longitudinal_self_model import CognitiveSelfModelProjection
 from .persistent_epistemic_state import EpistemicCognitiveProjection
 from .resident_developmental_writeback import (
@@ -35,6 +35,9 @@ from .resident_developmental_writeback import (
     DevelopmentalWritebackError,
     ResidentDevelopmentalWritebackController,
     measure_changed_cognition,
+    _open_store_directory,
+    _read_store_file,
+    _publish_store_json,
 )
 from .runtime_admission import RuntimeAdmissionAuthority
 from .world_state_board import WorldStateSnapshot, validate_snapshot
@@ -108,6 +111,49 @@ def _validate_root_separation(history_root: Path, state_root: Path,
            for root in roots):
         raise ResidentDevelopmentalCognitionError(
             "configuration_root_overlaps_canonical_memory")
+
+
+def _replace_cognition_state(path: Path, payload: Mapping[str, Any]) -> None:
+    """Atomically replace mutable cognition state through a held private directory."""
+    try:
+        directory_fd = _open_store_directory(path.parent, create=True)
+    except DevelopmentalWritebackError as exc:
+        raise ResidentDevelopmentalCognitionError("composition_state_root_invalid") from exc
+    temporary_name = ".pending-" + os.urandom(16).hex()
+    descriptor: int | None = None
+    created = False
+    try:
+        data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
+        if len(data) > MAX_COMPOSITION_STATE_BYTES:
+            raise ResidentDevelopmentalCognitionError("composition_state_unbounded")
+        descriptor = os.open(temporary_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+            0o600, dir_fd=directory_fd)
+        created = True
+        view = memoryview(data)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise ResidentDevelopmentalCognitionError("composition_state_short_write")
+            view = view[written:]
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        os.replace(temporary_name, path.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+        os.fsync(directory_fd)
+    except ResidentDevelopmentalCognitionError:
+        raise
+    except OSError as exc:
+        raise ResidentDevelopmentalCognitionError("composition_state_publication_failed") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if created:
+            try:
+                os.unlink(temporary_name, dir_fd=directory_fd)
+            except OSError:
+                pass
+        os.close(directory_fd)
 
 
 def _digest(value: Any) -> str:
@@ -315,34 +361,20 @@ class ResidentDevelopmentalCognitionOwner:
                     if name != self.state_path.name:
                         raise ResidentDevelopmentalCognitionError("composition_state_identity_ambiguous")
         else:
-            if self.state_path.is_symlink():
-                raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
-            if self.state_path.exists():
-                descriptor: int | None = None
+            try:
+                root_fd = _open_store_directory(self.state_path.parent, create=False)
+            except DevelopmentalWritebackError as exc:
+                if str(exc) != "durable_store_root_missing":
+                    raise ResidentDevelopmentalCognitionError("composition_state_root_invalid") from exc
+            else:
                 try:
-                    descriptor = os.open(self.state_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-                                         | getattr(os, "O_NONBLOCK", 0))
-                    opened = os.fstat(descriptor)
-                    if not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_COMPOSITION_STATE_BYTES:
-                        raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
-                    chunks: list[bytes] = []
-                    remaining = MAX_COMPOSITION_STATE_BYTES + 1
-                    while remaining:
-                        chunk = os.read(descriptor, min(65_536, remaining))
-                        if not chunk:
-                            break
-                        chunks.append(chunk); remaining -= len(chunk)
-                    state_bytes = b"".join(chunks)
-                    after = os.fstat(descriptor)
-                    if (len(state_bytes) > MAX_COMPOSITION_STATE_BYTES or len(state_bytes) != opened.st_size
-                            or after.st_size != opened.st_size or after.st_mtime_ns != opened.st_mtime_ns
-                            or after.st_dev != opened.st_dev or after.st_ino != opened.st_ino):
-                        raise ResidentDevelopmentalCognitionError("composition_state_unbounded_or_not_regular")
-                except (OSError, ValueError) as exc:
-                    raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
+                    try:
+                        state_bytes = _read_store_file(root_fd, self.state_path.name, max_bytes=MAX_COMPOSITION_STATE_BYTES)
+                    except DevelopmentalWritebackError as exc:
+                        if str(exc) != "stored_payload_missing":
+                            raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
                 finally:
-                    if descriptor is not None:
-                        os.close(descriptor)
+                    os.close(root_fd)
         if state_bytes is None:
             semantic = {"schema": STATE_SCHEMA, "processed_selection_ids": [], "completed_ticks": [],
                 "incomplete_ticks": []}
@@ -483,21 +515,17 @@ class ResidentDevelopmentalCognitionOwner:
             if total_bytes > MAX_COGNITION_OBSERVATION_ROOT_BYTES:
                 raise ResidentDevelopmentalCognitionError("cognition_observation_retention_limit_exceeded")
         else:
-            nofollow = getattr(os, "O_NOFOLLOW", None)
-            directory_flag = getattr(os, "O_DIRECTORY", None)
-            if nofollow is None or directory_flag is None or os.open not in os.supports_dir_fd:
-                raise ResidentDevelopmentalCognitionError("cognition_observation_safe_reads_unsupported")
             try:
-                root_fd = os.open(self.observations_root,
-                    os.O_RDONLY | directory_flag | nofollow | getattr(os, "O_NONBLOCK", 0))
-            except FileNotFoundError:
-                return {}
-            except OSError as exc:
+                root_fd = _open_store_directory(self.observations_root, create=False)
+            except DevelopmentalWritebackError as exc:
+                if str(exc) == "durable_store_root_missing":
+                    return {}
                 raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid") from exc
             total_bytes = 0
             try:
                 root_stat = os.fstat(root_fd)
-                if not stat.S_ISDIR(root_stat.st_mode):
+                if (not stat.S_ISDIR(root_stat.st_mode) or root_stat.st_uid != os.geteuid()
+                        or root_stat.st_mode & 0o022):
                     raise ResidentDevelopmentalCognitionError("cognition_observation_root_invalid")
                 names = sorted(name for name in os.listdir(root_fd) if name.endswith(".json"))
                 if len(names) > MAX_COGNITION_OBSERVATIONS:
@@ -510,7 +538,9 @@ class ResidentDevelopmentalCognitionOwner:
                         descriptor = os.open(name, os.O_RDONLY | nofollow | getattr(os, "O_NONBLOCK", 0),
                                              dir_fd=root_fd)
                         opened = os.fstat(descriptor)
-                        if not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_COGNITION_OBSERVATION_BYTES:
+                        if (not stat.S_ISREG(opened.st_mode) or opened.st_size > MAX_COGNITION_OBSERVATION_BYTES
+                                or opened.st_nlink != 1 or opened.st_uid != os.geteuid()
+                                or opened.st_mode & 0o077):
                             raise ResidentDevelopmentalCognitionError("cognition_observation_not_regular")
                         chunks: list[bytes] = []
                         remaining = MAX_COGNITION_OBSERVATION_BYTES + 1
@@ -738,7 +768,7 @@ class ResidentDevelopmentalCognitionOwner:
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
         if len(json.dumps(semantic, sort_keys=True, separators=(",", ":")).encode("utf-8")) > MAX_COMPOSITION_STATE_BYTES:
             raise ResidentDevelopmentalCognitionError("composition_state_unbounded")
-        atomic_write_json(self.state_path, {**semantic, "state_digest": _digest(semantic)})
+        _replace_cognition_state(self.state_path, {**semantic, "state_digest": _digest(semantic)})
 
     def _prior_projection(self, state: Mapping[str, Any], tick_id: str) -> DevelopmentalHistoryProjection:
         # Tick identifiers are opaque at this owner boundary. The durable,
@@ -1058,7 +1088,12 @@ class ResidentDevelopmentalCognitionOwner:
             prior_epistemic_state.generations if prior_epistemic_state else (),
             prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
         )
-        atomic_write_json(self.observations_root / f"{observation.observation_id}.json", asdict(observation))
+        try:
+            _publish_store_json(self.observations_root / f"{observation.observation_id}.json",
+                asdict(observation), collision_error="cognition_observation_identity_collision")
+        except DevelopmentalWritebackError as exc:
+            raise ResidentDevelopmentalCognitionError(
+                "cognition_observation_publication_failed") from exc
         return observation
 
     def run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str,
