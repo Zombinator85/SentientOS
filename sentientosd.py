@@ -1689,7 +1689,7 @@ class RuntimeMaintenanceSurfaces:
                                 "loaded_code_identity_posture":
                                     current_provenance["loaded_code_identity_posture"],
                                 "currentness_posture":
-                                    "maintenance_process_and_repository_verified_at_observation",
+                                    "owner_verified_process_and_source_at_observation",
                                 "event_time_posture": "owner_point_observation_time",
                                 "authority": False, "effect_proven": False,
                             }

@@ -2225,3 +2225,11 @@ Next inspect succession source records for any projection that still presents a 
 - The software-succession introspection projection used the controller's private launch baseline as the running generation on every capture. It now asks the explicitly injected controller for its current process/source revalidation; if that check is unavailable or malformed, running generation is unknown. The projection retains exact process-instance/provenance identities and scope while explicitly preserving that loaded code is not independently attested. Successor artifacts and journal phase remain separate lineage evidence.
 - Added authored, unexecuted cases for qualified current evidence and absent/overstated provenance. Changed Python compiled and diff checked only; no behavioral or production verification ran.
 - Next inspect runtime-succession transition projections for any remaining claims that exceed their actual per-process observation, then continue to the next causal continuity dependency.
+
+
+### New checkpoint — connect revalidated software evidence to configured epistemic eligibility
+
+- The live software-generation World-State record used a currentness posture string different from the existing epistemic selector contract, so the configured selector treated it as unverified. The producer now emits the selector's owner-verified process/source posture and the selector additionally requires exact process/scope labels plus the explicit no-loaded-code-attestation boundary.
+- Launch-baseline software facts remain available with their startup event time, but no longer receive the same highest cognition-selection priority as a point-revalidated current observation. Only source-qualified current records receive that priority.
+- Added authored unexecuted qualification and launch-baseline cases. Changed sources/tests compile only; no test or production behavior was run.
+- Next inspect cross-restart persistence of the software-current observation and its event time through epistemic binding/state receipts, then continue into another connected succession dependency.

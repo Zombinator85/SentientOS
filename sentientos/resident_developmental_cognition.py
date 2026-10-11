@@ -774,7 +774,21 @@ class ResidentDevelopmentalCognitionOwner:
             and payload["chat_process_runtime_observation"].get("independent_signature") is False
             and payload["chat_process_runtime_observation"].get("effect_authority") is False
         )
-        if subject_kind in {"observed_running_model", "observed_running_software_generation"}:
+        current_software_generation_verified = (
+            source_kind == "runtime_supervisor"
+            and subject_kind == "verified_current_running_software_generation"
+            and fact.disposition == "observed"
+            and payload.get("currentness_posture")
+                == "owner_verified_process_and_source_at_observation"
+            and payload.get("process_identity_scope")
+                == "pid_startup_argv_executable_entrypoint_module_origin_and_environment"
+            and payload.get("software_generation_scope")
+                == "configured_manifest_and_clean_repository_state_at_observation"
+            and payload.get("loaded_code_identity_posture") == "not_independently_attested"
+            and isinstance(payload.get("process_instance_id"), str)
+            and isinstance(payload.get("provenance_digest"), str)
+        )
+        if subject_kind == "observed_running_model" or current_software_generation_verified:
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
             priority = 1

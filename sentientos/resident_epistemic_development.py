@@ -273,6 +273,12 @@ class ResidentEpistemicDevelopmentRuntime:
                 == "owner_verified_process_and_source_at_observation"
             and current_software_payload.get("event_time_posture")
                 == "owner_point_observation_time"
+            and current_software_payload.get("process_identity_scope")
+                == "pid_startup_argv_executable_entrypoint_module_origin_and_environment"
+            and current_software_payload.get("software_generation_scope")
+                == "configured_manifest_and_clean_repository_state_at_observation"
+            and current_software_payload.get("loaded_code_identity_posture")
+                == "not_independently_attested"
             and bound_digest(current_software_payload.get("running_software_generation_observed"))
             and bound_digest(current_software_payload.get("software_generation"))
             and current_software_payload.get("running_software_generation_observed")
