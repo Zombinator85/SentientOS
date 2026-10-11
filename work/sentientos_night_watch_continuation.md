@@ -1807,3 +1807,8 @@ All legacy user-memory JSONL append operations now authorize before opening the 
 ## 2026-10-11 checkpoint — protect shared goal sidecar mutations
 
 Goal loading now distinguishes a missing file from malformed, non-list, malformed-entry, or duplicate-identity custody instead of silently returning an empty list. Add/save/delete use a bounded descriptor-relative interprocess lock across each read/modify/atomic-write transaction, and notification remains outside the lock. This applies only to the shared user-memory goals sidecar; installation-scoped chat transcripts and resident developmental history remain separate. Python compilation passed; no goals were read or changed. Next dependency: inspect long-lived profile/configuration sidecars and finalize process-start root and permission behavior without weakening their owner boundaries.
+
+
+## 2026-10-11 checkpoint — create memory-root components through held descriptors
+
+CanonicalMemoryStore no longer calls recursive Path.mkdir on the configured user-memory path before validation. It now opens each component without following symlinks and creates a missing component relative to the already-held parent descriptor, fsyncing that parent before continuing. The final root still receives the existing owner/private-mode checks, and unsupported platforms remain fail-closed for mutation. Python syntax compilation passed; no filesystem path was created or inspected at runtime. Next dependency: review fixed-root configuration and install-transcript overlap checks for symlink changes between composition and first use.

@@ -241,18 +241,29 @@ class CanonicalMemoryStore:
             raise PermissionError("canonical_memory_atomic_publication_unsupported_platform")
         nofollow = getattr(os, "O_NOFOLLOW", None)
         directory = getattr(os, "O_DIRECTORY", None)
-        if nofollow is None or directory is None or os.open not in os.supports_dir_fd:
+        if (nofollow is None or directory is None or os.open not in os.supports_dir_fd
+                or (prepare_for_write and os.mkdir not in os.supports_dir_fd)):
             raise PermissionError("canonical_memory_safe_publication_unavailable")
-        if prepare_for_write:
-            self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
         absolute = Path(os.path.abspath(self.root))
         descriptor = os.open(os.sep, os.O_RDONLY | directory)
         try:
             for component in absolute.parts[1:]:
                 if component in {"", ".", ".."}:
                     raise PermissionError("canonical_memory_path_component_invalid")
-                child = os.open(component, os.O_RDONLY | directory | nofollow,
-                    dir_fd=descriptor)
+                try:
+                    child = os.open(component, os.O_RDONLY | directory | nofollow,
+                        dir_fd=descriptor)
+                except FileNotFoundError:
+                    if not prepare_for_write:
+                        raise
+                    try:
+                        os.mkdir(component, mode=0o700, dir_fd=descriptor)
+                    except FileExistsError:
+                        pass
+                    else:
+                        os.fsync(descriptor)
+                    child = os.open(component, os.O_RDONLY | directory | nofollow,
+                        dir_fd=descriptor)
                 metadata = os.fstat(child)
                 if not stat.S_ISDIR(metadata.st_mode):
                     os.close(child)
