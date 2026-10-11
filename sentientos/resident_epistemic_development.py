@@ -225,6 +225,9 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "causal_resources")
         historical_unverified_owner_record = (fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "post_adoption_attribution_campaign")
+        historical_introspection_recovery_failure = (
+            fact.source.kind == "owner_introspection"
+            and fact.subject.subject_kind == "causal_introspection_recovery")
         historical_software_launch_observation = (
             fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind == "observed_running_software_generation")
@@ -365,6 +368,7 @@ class ResidentEpistemicDevelopmentRuntime:
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
+            or historical_introspection_recovery_failure
             or historical_software_launch_observation
             or unverified_current_running_model_observation
             or historical_serving_operation_attempt or historical_serving_operation_history
@@ -561,6 +565,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 if historical_transition_event else "historical_or_unknown"
                 if historical_resource_fact or historical_resource_introspection
                 or historical_undated_consequence or historical_unverified_owner_record
+                or historical_introspection_recovery_failure
                 or historical_strategy_proposal or historical_strategy_review
                 or source_integrity_conflict
                 else "source_time_unverified" if unverified_embodiment_observation

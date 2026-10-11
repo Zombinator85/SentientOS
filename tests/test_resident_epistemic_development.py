@@ -322,3 +322,32 @@ def test_owner_introspection_snapshot_chain_survives_epistemic_binding(tmp_path)
     }
     assert binding.source_digest == board.facts[0].source.digest
     assert binding.freshness == "current"
+
+
+def test_introspection_recovery_failure_is_contextual_and_undated(tmp_path):
+    _owner, proposition, _ledger, runtime = fixture(tmp_path)
+    record = {
+        "source_kind": "owner_introspection",
+        "source_id": "causal-introspection:recovery-unavailable:RuntimeError",
+        "subject_kind": "causal_introspection_recovery",
+        "subject_id": "causal-introspection-runtime",
+        "stage": "observation",
+        "disposition": "incomplete",
+        "evidence_strength": "recovery_error_class_only",
+        "payload": {"recovery_posture": "committed_snapshot_history_unavailable",
+            "error_class": "RuntimeError", "authority": False, "current_truth": False},
+        "observed_at": None, "retrieved_at": NOW, "staleness": "unknown",
+        "effect_claimed": False, "effect_proven": False,
+    }
+    board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    rule = EpistemicDevelopmentRule("introspection-recovery", proposition.proposition_id,
+        proposition.proposition_digest, {}, "supports", "unknown_dependency", "owner_failure")
+    proof, binding = runtime._adapt(board, board.facts[0], rule)
+    provenance = json.loads(proof.provenance_id)
+
+    assert provenance["event_time_posture"] == "historical_or_unknown"
+    assert binding.observation_time == "undated"
+    assert binding.freshness == "unknown"
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.dependency_group is None

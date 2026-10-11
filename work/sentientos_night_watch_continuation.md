@@ -2408,3 +2408,11 @@ Next inspect succession source records for any projection that still presents a 
 - The existing epistemic adapter now copies those fields into the durable evidence-source provenance ID when it sees the complete lineage tuple. Historical v1 records without these optional fields remain compatible; their World-State source/fact digest and enclosing World-State snapshot remain bound as before.
 - Added authored, unexecuted checks for exact lineage in World-State and epistemic evidence binding. Changed Python files compile only; no tests, mutation, or production cognition ran.
 - Next inspect persistent evidence and developmental-history consumers for whether the opaque provenance ID is retained intact through restart and later cognition; continue with any directly evidenced truncation or schema boundary.
+
+
+## 2026-10-11 checkpoint — isolate optional introspection recovery failure
+
+- Source composition called causal-introspection reconstruction directly while building World-State. A malformed or unavailable optional introspection chain could abort the full board build, which then skipped unrelated resident cognition and epistemic work.
+- The daemon now converts reconstruction/export failure into one bounded owner-introspection recovery record containing only the exception class, no source event time, unknown freshness, and false authority/truth/effect flags. The epistemic adapter recognizes that recovery subject as contextual-only with unknown dependency, so an explicitly selected failure cannot act as current support.
+- Added authored, unexecuted composition and adapter cases. Python compilation only; no tests, runtime, or production cognition ran.
+- Note: the immediately preceding remote commit repeated an already-published tree and has no source diff; the active source checkpoint is this continuation. Next verify durable proof/admission recovery preserves the provenance ID after restart, then continue into the next configured owner handoff.

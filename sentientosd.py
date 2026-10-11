@@ -460,6 +460,37 @@ def _bounded_resident_transition_entries(
     }
 
 
+def _causal_introspection_world_state_records(runtime: CausalIntrospectionRuntime | None,
+        *, tick_id: str) -> list[dict[str, Any]]:
+    """Keep optional introspection recovery failure visible without aborting the board."""
+    if runtime is None:
+        return []
+    try:
+        next_generation = len(runtime.reconstruct()) + 1
+        return list(runtime.world_state_records(before_generation=next_generation))
+    except Exception as exc:
+        error_class = type(exc).__name__[:80]
+        return [{
+            "source_kind": "owner_introspection",
+            "source_id": f"causal-introspection:recovery-unavailable:{error_class}",
+            "subject_id": "causal-introspection-runtime",
+            "subject_kind": "causal_introspection_recovery",
+            "stage": "observation",
+            "disposition": "incomplete",
+            "evidence_strength": "recovery_error_class_only",
+            "payload": {
+                "recovery_posture": "committed_snapshot_history_unavailable",
+                "error_class": error_class,
+                "event_time_posture": "reconstruction_failure_is_not_a_source_event",
+                "read_only": True, "current_truth": False, "authority": False,
+            },
+            "observed_at": None,
+            "retrieved_at": tick_id,
+            "staleness": "unknown",
+            "effect_claimed": False, "effect_proven": False,
+        }]
+
+
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
@@ -887,11 +918,8 @@ class RuntimeMaintenanceSurfaces:
         selected_fulfillment_source_ids: set[str] = set()
         selected_post_adoption_source_ids: set[str] = set()
         records.extend(self._resident_succession_world_state_records(tick_key))
-        if self._causal_introspection_runtime is not None:
-            # Generation, not a parsed tick string, enforces the temporal firewall.
-            next_capture_generation = len(self._causal_introspection_runtime.reconstruct()) + 1
-            records.extend(self._causal_introspection_runtime.world_state_records(
-                before_generation=next_capture_generation))
+        records.extend(_causal_introspection_world_state_records(
+            self._causal_introspection_runtime, tick_id=tick_key))
         if self._embodiment_evidence_owner is not None:
             # Explicit injection only: no ambient discovery and no avatar daemon startup.
             # This source remains a caller-assertion context, never a verified
