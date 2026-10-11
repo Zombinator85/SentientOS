@@ -382,3 +382,20 @@ def test_authorized_local_commit_orders_revocation_after_mutation_boundary(tmp_p
         assert not finished.wait(timeout=0.05)
     thread.join(timeout=1)
     assert finished.is_set()
+
+
+def test_mutation_immutable_publication_uses_create_once_identity(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor-bound publication is required")
+    target = tmp_path / "epistemic" / "mutation-intent.json"
+
+    assert ResidentEpistemicStateMutationController._publish_immutable(
+        target, b"intent", collision="mutation_identity_conflict")
+    assert not ResidentEpistemicStateMutationController._publish_immutable(
+        target, b"intent", collision="mutation_identity_conflict")
+    with pytest.raises(EpistemicMutationError, match="mutation_identity_conflict"):
+        ResidentEpistemicStateMutationController._publish_immutable(
+            target, b"substituted", collision="mutation_identity_conflict")
+    assert target.read_bytes() == b"intent"

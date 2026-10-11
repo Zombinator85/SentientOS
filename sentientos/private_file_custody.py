@@ -158,6 +158,7 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
     created = False
     durability_uncertain = False
     replaced = False
+    target_created = False
     try:
         descriptor = os.open(temporary_name,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
@@ -176,6 +177,7 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
             try:
                 os.link(temporary_name, path.name, src_dir_fd=directory_fd,
                         dst_dir_fd=directory_fd, follow_symlinks=False)
+                target_created = True
             except FileExistsError:
                 existing = read_private_file_at(directory_fd, path.name,
                     max_bytes=max_bytes, require_private_mode=True)
@@ -215,13 +217,13 @@ def _write_bytes(path: Path, data: bytes, *, max_bytes: int, immutable: bool,
                 durability_uncertain = True
             else:
                 raise PrivateFileCustodyError("directory_close_unavailable") from exc
-    return not durability_uncertain
+    return target_created if immutable else not durability_uncertain
 
 
 def publish_immutable_bytes(path: Path, data: bytes, *, max_bytes: int,
-                            collision_code: str = "immutable_content_conflict") -> None:
-    """Create once; accept retries only if the existing bytes are identical."""
-    _write_bytes(path, data, max_bytes=max_bytes, immutable=True, collision_code=collision_code)
+                            collision_code: str = "immutable_content_conflict") -> bool:
+    """Create once; return whether this call created it, accepting identical retries."""
+    return _write_bytes(path, data, max_bytes=max_bytes, immutable=True, collision_code=collision_code)
 
 
 def replace_private_bytes(path: Path, data: bytes, *, max_bytes: int) -> None:

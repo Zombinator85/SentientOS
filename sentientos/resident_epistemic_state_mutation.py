@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import os
 import stat
-import tempfile
 from datetime import datetime
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -19,6 +18,7 @@ from .persistent_epistemic_state import (
 )
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from .private_file_custody import PrivateFileCustodyError, publish_immutable_bytes
 
 PRINCIPAL = "deterministic_resident_epistemic_state_controller"
 EVIDENCE_BINDING_EFFECTS = tuple(sorted({
@@ -226,31 +226,19 @@ class ResidentEpistemicStateMutationController:
             raise EpistemicMutationError("mutation_custody_publication_unsupported_platform")
         if len(raw) > MAX_MUTATION_CUSTODY_FILE_BYTES:
             raise EpistemicMutationError("mutation_custody_file_unbounded")
-        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if path.parent.is_symlink() or not path.parent.is_dir():
-            raise EpistemicMutationError("mutation_custody_parent_invalid")
-        descriptor, temporary = tempfile.mkstemp(prefix=".epistemic-mutation-", suffix=".tmp",
-            dir=str(path.parent))
         try:
-            with os.fdopen(descriptor, "wb") as stream:
-                stream.write(raw); stream.flush(); os.fsync(stream.fileno())
-            try:
-                os.link(temporary, path, follow_symlinks=False)
-            except FileExistsError:
-                if ResidentEpistemicStateMutationController._read_bounded(path) != raw:
-                    raise EpistemicMutationError(collision)
-                return False
-            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-            try: os.fsync(directory)
-            finally: os.close(directory)
-            return True
-        except EpistemicMutationError:
-            raise
-        except OSError as exc:
+            return publish_immutable_bytes(path, raw,
+                max_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                collision_code=collision)
+        except PrivateFileCustodyError as exc:
+            if exc.code == collision:
+                raise EpistemicMutationError(collision) from exc
+            if exc.code == "payload_size_limit_exceeded":
+                raise EpistemicMutationError("mutation_custody_file_unbounded") from exc
+            if exc.code == "publication_unsupported":
+                raise EpistemicMutationError(
+                    "mutation_custody_publication_unsupported_platform") from exc
             raise EpistemicMutationError("mutation_custody_publication_failed") from exc
-        finally:
-            try: os.unlink(temporary)
-            except FileNotFoundError: pass
 
     def _write_state_intent(self, *, candidate: EpistemicUpdateCandidate,
                             admission: AdmissionEvidence, operation_id: str,

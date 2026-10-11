@@ -2757,3 +2757,11 @@ A later source correction was also composed from stale note text and displaced t
 - Epistemic durable evidence uses immutable publication and verifier-based reconstruction; the process remains read-only during recovery. No additional call-site repair was justified in this bounded review.
 - The helper and its authored close-error case were syntax-compiled only. No tests or runtime behavior were exercised.
 - Next continue inspecting durable epistemic mutation and developmental history after visible-but-uncertain file publication, with emphasis on idempotent recovery and avoiding state replay.
+
+
+## 2026-10-11 checkpoint — use shared descriptor custody for epistemic mutation records
+
+- The separately admitted epistemic mutation controller had retained a private path-based temporary-file/hard-link publisher despite the shared no-follow private-directory contract. Its writer now uses the common bounded immutable publisher, which returns whether it created the identity so exact retries remain distinguishable from new publication and same-path substitutions still fail closed.
+- Windows mutation recovery remains read-only and writes remain unsupported there. Added an authored, unexecuted create-once/idempotent-retry/substitution case.
+- Shared custody, mutation source, and test module passed Python syntax compilation only. No tests, admissions, state mutations, or recovery were executed.
+- Next review the immutable epistemic-state publisher's handling of already-present identical records and directory durability, then inspect developmental-history post-replace recovery for any operation that could replay cognition or duplicate state.
