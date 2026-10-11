@@ -1634,3 +1634,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Reconciliation now requires a nonempty string identity and parseable event time, compares canonical content for existing IDs, keeps identical records idempotent, and refuses conflicting same-ID replacement whether found in cache or on disk. Only absent identities use the existing locally authorized atomic writer, and update counts increase only after that writer succeeds.
 - Python syntax compilation passed for `distributed_memory.py`. No peer enumeration, network call, or memory read/write was performed.
 - **Next implementation dependency:** inspect peer snapshot provenance and bounded import semantics. The current shared node token authenticates transport context but does not prove a fragment's historical author; preserve imported-vs-local provenance and avoid treating peer data as independently verified user evidence.
+
+
+
+## New checkpoint — bound peer snapshots and label imported memory
+
+- Fresh remote source before this increment: `f459bd9f6b26e24af0a25d8d5181e2e1f14f6b17` (tree `0628159d49c95202d60b22eb7f9dc7cf5a807dda`).
+- The merge path identified conflicting IDs, but accepted response snapshots had no explicit payload/fragment-count bounds and imported records were indistinguishable from locally written memory.
+- Serialization and decompression now cap payloads at 32 MiB, decoded fragment count at 4096, and each fragment at 256 KiB. Newly imported records retain their event timestamp and identity while receiving a `meta.federation_import` claim naming the responding peer and the source-fragment digest. That claim is explicitly labeled as not proving historical authorship; digest comparison ignores only this import annotation so repeated exact synchronization remains idempotent. No peer was contacted.
+- Python syntax compilation passed for `distributed_memory.py`. Compression/runtime compatibility and actual sync remain unverified.
+- **Next implementation dependency:** audit the export and registry trust boundary, especially whether untrusted peers receive user memory and whether peer identity is bound to response data. Preserve explicit opt-in, user intent, and separation from developmental history; do not infer historical authorship from shared-node credentials.

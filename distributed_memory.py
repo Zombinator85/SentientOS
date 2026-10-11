@@ -52,6 +52,9 @@ _REFLECTION_ENDPOINT = "/reflect/sync"
 _REFLECTION_ENCODING = "aesgcm+base64"
 _REFLECTION_ASSOCIATED_DATA = b"sentientos-reflection-v1"
 _NODE_ID_HEADER = "X-Node-Id"
+_MAX_SYNC_PAYLOAD_BYTES = 32 * 1024 * 1024
+_MAX_SYNC_FRAGMENTS = 4096
+_MAX_SYNC_FRAGMENT_BYTES = 262144
 
 
 def _local_node_id() -> str:
@@ -130,6 +133,8 @@ def encode_payload(payload: Dict[str, object], *, allow_compression: bool = Fals
     """
 
     raw = json.dumps(payload).encode("utf-8")
+    if len(raw) > _MAX_SYNC_PAYLOAD_BYTES:
+        raise ValueError("memory_sync_payload_size_limit")
     headers: Dict[str, str] = {"Content-Type": "application/json"}
     if allow_compression and zstd:
         compressor = zstd.ZstdCompressor()
@@ -139,15 +144,42 @@ def encode_payload(payload: Dict[str, object], *, allow_compression: bool = Fals
     return raw, headers
 
 
+def _read_bounded_response(response: object) -> bytes:
+    iterator = getattr(response, "iter_content", None)
+    if not callable(iterator):
+        raise ValueError("memory_sync_streaming_response_required")
+    chunks: list[bytes] = []
+    total = 0
+    for chunk in iterator(chunk_size=65_536):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > _MAX_SYNC_PAYLOAD_BYTES:
+            raise ValueError("memory_sync_payload_size_limit")
+        chunks.append(bytes(chunk))
+    return b"".join(chunks)
+
+
 def _decompress_payload(data: bytes, encoding: str | None) -> Dict[str, object]:
-    if not encoding:
-        return json.loads(data.decode("utf-8"))
-    if encoding == _COMPRESSED_ENCODING and zstd:
-        decoded = base64.b64decode(data)
+    if len(data) > _MAX_SYNC_PAYLOAD_BYTES:
+        raise ValueError("memory_sync_payload_size_limit")
+    if encoding == _COMPRESSED_ENCODING:
+        if not zstd:
+            raise ValueError("memory_sync_compression_unavailable")
+        decoded = base64.b64decode(data, validate=True)
+        if len(decoded) > _MAX_SYNC_PAYLOAD_BYTES:
+            raise ValueError("memory_sync_compressed_size_limit")
         decompressor = zstd.ZstdDecompressor()
-        restored = decompressor.decompress(decoded)
-        return json.loads(restored.decode("utf-8"))
-    return json.loads(data.decode("utf-8"))
+        restored = decompressor.decompress(decoded,
+            max_output_size=_MAX_SYNC_PAYLOAD_BYTES + 1)
+        if len(restored) > _MAX_SYNC_PAYLOAD_BYTES:
+            raise ValueError("memory_sync_decompressed_size_limit")
+        value = json.loads(restored.decode("utf-8"))
+    else:
+        value = json.loads(data.decode("utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("memory_sync_payload_invalid")
+    return value
 
 
 def _local_fragments() -> Dict[str, dict]:
@@ -160,7 +192,13 @@ def _local_fragments() -> Dict[str, dict]:
 
 
 def _fragment_digest(fragment: Mapping[str, object]) -> str:
-    raw = json.dumps(dict(fragment), sort_keys=True, separators=(",", ":"),
+    value = dict(fragment)
+    metadata = value.get("meta")
+    if isinstance(metadata, dict) and "federation_import" in metadata:
+        metadata = dict(metadata)
+        metadata.pop("federation_import", None)
+        value["meta"] = metadata
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":"),
         ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
 
@@ -268,17 +306,25 @@ class DistributedMemorySynchronizer:
         url = f"http://{ip}:{port}{_MEMORY_ENDPOINT}"
         headers = {_HEADER_TOKEN: NODE_TOKEN}
         try:
-            response = requests.get(url, headers=headers, timeout=_REMOTE_TIMEOUT)
+            response = requests.get(url, headers=headers, timeout=_REMOTE_TIMEOUT, stream=True)
         except requests.RequestException as exc:
             LOGGER.debug("Memory fetch from %s failed: %s", hostname, exc)
             return
-        if response.status_code != 200:
-            LOGGER.debug("Memory fetch from %s returned %s", hostname, response.status_code)
+        try:
+            if response.status_code != 200:
+                LOGGER.debug("Memory fetch from %s returned %s", hostname, response.status_code)
+                return
+            encoding = response.headers.get("Content-Encoding")
+            payload = _decompress_payload(_read_bounded_response(response), encoding)
+        except (OSError, ValueError, json.JSONDecodeError, UnicodeError) as exc:
+            LOGGER.warning("Rejected bounded memory snapshot from %s: %s", hostname, exc)
             return
-        encoding = response.headers.get("Content-Encoding")
-        payload = _decompress_payload(response.content, encoding)
+        finally:
+            response.close()
         fragments = payload.get("fragments")
-        if not isinstance(fragments, list):
+        if (not isinstance(fragments, list)
+                or len(fragments) > _MAX_SYNC_FRAGMENTS):
+            LOGGER.warning("Rejected memory snapshot with invalid fragment count from %s", hostname)
             return
         updates = 0
         for fragment in fragments:
@@ -290,6 +336,14 @@ class DistributedMemorySynchronizer:
                     or not isinstance(timestamp, str)
                     or _parse_timestamp(timestamp) <= 0):
                 LOGGER.warning("Rejected synchronized memory with incomplete identity/time")
+                continue
+            try:
+                fragment_bytes = json.dumps(fragment, ensure_ascii=False).encode("utf-8")
+            except (TypeError, ValueError):
+                LOGGER.warning("Rejected noncanonical synchronized memory from %s", hostname)
+                continue
+            if len(fragment_bytes) > _MAX_SYNC_FRAGMENT_BYTES:
+                LOGGER.warning("Rejected oversized synchronized memory identity %s", fragment_id)
                 continue
             local_fragment = local_cache.get(fragment_id)
             if local_fragment is not None:
@@ -314,8 +368,29 @@ class DistributedMemorySynchronizer:
                     LOGGER.warning("Conflicting stored memory identity %s; refusing replacement",
                         fragment_id)
                 continue
-            if _write_fragment(fragment):
-                local_cache[fragment_id] = fragment
+            import_copy = dict(fragment)
+            metadata = import_copy.get("meta")
+            if metadata is None:
+                metadata = {}
+            elif not isinstance(metadata, dict):
+                LOGGER.warning("Rejected memory identity %s with invalid metadata", fragment_id)
+                continue
+            else:
+                metadata = dict(metadata)
+            prior_import = metadata.get("federation_import")
+            if prior_import is None:
+                metadata["federation_import"] = {
+                    "received_from_peer": str(hostname),
+                    "source_fragment_digest": _fragment_digest(fragment),
+                    "provenance_status": "peer_claim_not_historical_authorship_proof",
+                }
+            elif (not isinstance(prior_import, dict)
+                    or prior_import.get("source_fragment_digest") != _fragment_digest(fragment)):
+                LOGGER.warning("Rejected conflicting peer provenance for identity %s", fragment_id)
+                continue
+            import_copy["meta"] = metadata
+            if _write_fragment(import_copy):
+                local_cache[fragment_id] = import_copy
                 updates += 1
         if updates:
             LOGGER.info("[Memory] Synced %s fragments from %s", updates, hostname)
