@@ -2613,9 +2613,9 @@ Next inspect succession source records for any projection that still presents a 
 - Next inspect concurrent epistemic mutation and developmental-history commit paths for read/verify/append races, then fix any sequence or predecessor selection that is not owned by the durable writer transaction.
 
 
-## 2026-10-11 checkpoint — make developmental writeback operation-idempotent
+## 2026-10-11 checkpoint — retain epistemic source proofs across recovery
 
-- Immutable content identities prevented byte substitution but did not prevent two controller instances from assigning different creation timestamps to concurrent retries of one operation, producing duplicate history records. The POSIX writeback owner now serializes operation lookup, admission verification, record publication, and receipt publication with a private no-follow lock in the configured history root.
-- A retry reuses one existing record only when candidate content, admission identity, principal, operation, correlation, and any explicitly supplied creation time agree. It can reconstruct the deterministic receipt after record-only crash recovery; a reused operation with conflicting evidence is rejected. No cognition or external effect is replayed.
-- Added a concurrent-owner test case, authored and unexecuted. Changed source and test files passed Python syntax compilation only; record concurrency and crash recovery remain unverified.
-- Next inspect the epistemic-state mutation journal's multi-stage admission/intent/receipt transaction for the same operation-level duplication window, without weakening its state-generation compare-and-swap or admission separation.
+- Evidence-binding intents previously persisted the binding and admission but omitted the source-proof object checked before append. Recovery could verify the binding and its admission, yet could not reconstruct that proof-to-binding/provenance equality. New v2 intents retain the canonical source proof; recovery validates its own identity, exact source fields, non-authority posture, and the admission provenance link before deriving a receipt.
+- Historical v1 state and evidence intents remain accepted with their original immutable identity and recovery rules; they are not rewritten. New state intents also use v2 without adding irrelevant proof data.
+- Added an authored, unexecuted test for exact proof recovery and substitution rejection. Changed Python source/test syntax compilation only; recovery behavior remains unverified.
+- Next inspect bounded evidence expiration and source-freshness ownership after mutation recovery, ensuring recovered proof timestamps remain event evidence and do not acquire currentness from reconstruction.

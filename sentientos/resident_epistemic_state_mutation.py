@@ -35,7 +35,8 @@ STATE_UPDATE_EFFECTS = tuple(sorted({
 }))
 SOURCE_PROOF_SCHEMA = "sentientos.epistemic_evidence_source_proof:v1"
 RECEIPT_SCHEMA = "sentientos.resident_epistemic_mutation_receipt:v1"
-INTENT_SCHEMA = "sentientos.resident_epistemic_mutation_intent:v1"
+INTENT_SCHEMA = "sentientos.resident_epistemic_mutation_intent:v2"
+LEGACY_INTENT_SCHEMA = "sentientos.resident_epistemic_mutation_intent:v1"
 MAX_MUTATION_CUSTODY_ENTRIES = 65_536
 MAX_MUTATION_CUSTODY_FILE_BYTES = 1_048_576
 MAX_MUTATION_CUSTODY_TOTAL_BYTES = 67_108_864
@@ -267,9 +268,11 @@ class ResidentEpistemicStateMutationController:
             raise EpistemicMutationError("mutation_intent_replay_blocked")
 
     def _write_evidence_intent(self, *, binding: EvidenceBinding,
+                               source_proof: EpistemicEvidenceSourceProof,
                                admission: AdmissionEvidence, operation_id: str,
                                correlation_id: str) -> None:
         semantic = {"schema": INTENT_SCHEMA, "stage": "evidence", "binding": asdict(binding),
+            "source_proof": asdict(source_proof),
             "admission_id": admission.admission_id,
             "admission_binding_digest": admission.binding_digest,
             "operation_id": operation_id, "correlation_id": correlation_id}
@@ -336,11 +339,15 @@ class ResidentEpistemicStateMutationController:
                 raise EpistemicMutationError("mutation_intent_corrupt") from exc
             stage = value.get("stage") if isinstance(value, dict) else None
             payload_field = "binding" if stage == "evidence" else "candidate" if stage == "state" else None
+            legacy = isinstance(value, dict) and value.get("schema") == LEGACY_INTENT_SCHEMA
+            current = isinstance(value, dict) and value.get("schema") == INTENT_SCHEMA
             expected_fields = {"schema", "stage", payload_field, "admission_id",
                 "admission_binding_digest", "operation_id", "correlation_id", "intent_id", "intent_digest"}
+            if current and stage == "evidence":
+                expected_fields.add("source_proof")
             if (not isinstance(value, dict) or set(value) != expected_fields
                     or canonical_bytes(value) + b"\n" != raw
-                    or value.get("schema") != INTENT_SCHEMA or payload_field is None):
+                    or not (legacy or current) or payload_field is None):
                 raise EpistemicMutationError("mutation_intent_shape_invalid")
             semantic = {key: value[key] for key in expected_fields - {"intent_id", "intent_digest"}}
             intent_id, intent_digest = _identity("epistemic-intent", semantic)
@@ -370,6 +377,24 @@ class ResidentEpistemicStateMutationController:
                     raise EpistemicMutationError("mutation_intent_binding_invalid") from exc
                 if binding != expected_binding or dict(binding.authority) != FALSE_AUTHORITY:
                     raise EpistemicMutationError("mutation_intent_binding_digest_mismatch")
+                if current:
+                    try:
+                        source_proof_raw = dict(value["source_proof"])
+                        source_proof = EpistemicEvidenceSourceProof(**source_proof_raw)
+                        expected_proof = make_epistemic_evidence_source_proof(**{
+                            key: item for key, item in asdict(source_proof).items()
+                            if key not in {"proof_id", "proof_digest", "schema_version"}})
+                    except (KeyError, TypeError, ValueError, EpistemicMutationError) as exc:
+                        raise EpistemicMutationError("mutation_intent_source_proof_invalid") from exc
+                    self._validate_source_event_time(source_proof.recorded_at)
+                    binding_fields = (binding.source_artifact_id, binding.source_digest,
+                        binding.source_schema, binding.source_class, binding.observation_time)
+                    proof_fields = (source_proof.source_artifact_id, source_proof.source_digest,
+                        source_proof.source_schema, source_proof.source_class, source_proof.recorded_at)
+                    if (source_proof != expected_proof or dict(source_proof.authority) != FALSE_AUTHORITY
+                            or binding_fields != proof_fields
+                            or admission.provenance != source_proof.provenance_id):
+                        raise EpistemicMutationError("mutation_intent_source_proof_binding_mismatch")
                 configuration = self.evidence_configuration_digest(binding=binding,
                     proposition_digest=proposition.proposition_digest, operation_id=operation_id)
                 try:
@@ -628,8 +653,8 @@ class ResidentEpistemicStateMutationController:
                     subject_id=binding.binding_id, configuration_digest=configuration)
         if admission.provenance != source_proof.provenance_id:
             raise EpistemicMutationError("source_proof_admission_provenance_mismatch")
-        self._write_evidence_intent(binding=binding, admission=admission,
-            operation_id=operation_id, correlation_id=correlation_id)
+        self._write_evidence_intent(binding=binding, source_proof=source_proof,
+            admission=admission, operation_id=operation_id, correlation_id=correlation_id)
         self.owner.bind_evidence(binding); self.owner.verify()
         matches = [item for item in self.owner.bindings(binding.proposition_id) if item.binding_id == binding.binding_id]
         if matches != [binding] or dict(matches[0].authority) != FALSE_AUTHORITY:

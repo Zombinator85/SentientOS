@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import replace
+import json
+from dataclasses import asdict, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -332,3 +333,23 @@ def test_orphan_mutation_receipt_is_not_reported_verified(tmp_path) -> None:
         ResidentEpistemicStateMutationController(
             owner=owner, admission_verifier=controller.admission_verifier,
             current_sequence=controller.current_sequence, receipt_root=tmp_path / "controller")
+
+
+def test_evidence_intent_recovers_exact_source_proof_and_rejects_substitution(tmp_path) -> None:
+    owner, proposition, authority, controller, binding, proof = setup(tmp_path)
+    admission = issue(authority, admission_id="evidence-proof", effects=EVIDENCE_BINDING_EFFECTS,
+        subject=binding.binding_id, config=controller.evidence_configuration_digest(
+            binding=binding, proposition_digest=proposition.proposition_digest,
+            operation_id="proof-operation"), sequence=1, provenance=proof.provenance_id)
+    controller.append_evidence_binding(binding=binding, source_proof=proof, admission=admission,
+        operation_id="proof-operation", correlation_id="proof-correlation")
+    intent_path = next(controller.intent_root.glob("*.json"))
+    intent = json.loads(intent_path.read_text(encoding="utf-8"))
+    assert intent["source_proof"] == asdict(proof)
+
+    # Recovery verifies the exact source proof retained in the v2 intent.
+    controller.verify_receipts()
+    intent["source_proof"]["adapter_id"] = "substituted-adapter"
+    intent_path.write_bytes(mutation_module.canonical_bytes(intent) + b"\n")
+    with pytest.raises(EpistemicMutationError, match="mutation_intent_identity_mismatch"):
+        controller.verify_receipts()
