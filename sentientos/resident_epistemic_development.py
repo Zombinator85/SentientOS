@@ -319,7 +319,8 @@ class ResidentEpistemicDevelopmentRuntime:
         historical_strategy_review = (fact.source.kind == "embodiment"
             and fact.subject.subject_kind == "embodied_strategy_proposal_review")
         unverified_embodiment_observation = (fact.source.kind == "embodiment"
-            and fact.subject.subject_kind == "avatar_independently_observed_state")
+            and (isinstance(fact.payload.get("embodiment_evidence_class"), str)
+                or fact.subject.subject_kind == "avatar_independently_observed_state"))
         source_integrity_conflict = (fact.source.finding != "ok" or any(
             conflict.subject_id == fact.source.source_id
             and conflict.conflict_type in {"source_digest_mismatch",

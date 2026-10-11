@@ -10,6 +10,7 @@ from sentientos.codex_task_authority_admission import (
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
 )
 from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner, make_proposition
+from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
 from sentientos.resident_epistemic_development import (
     MAX_BINDINGS_PER_TICK, EpistemicDevelopmentConfig, EpistemicDevelopmentError,
     EpistemicDevelopmentRule, ResidentEpistemicDevelopmentRuntime,
@@ -123,3 +124,26 @@ def test_snapshot_tamper_fails_before_admission(tmp_path):
     with pytest.raises(EpistemicDevelopmentError, match="snapshot"):
         runtime.process_snapshot(bad, tick=10, recorded_at=NOW)
     assert not ledger.load()[0] and not owner.bindings(proposition.proposition_id)
+
+
+def test_unverified_embodiment_assertion_stays_contextual_and_unknown(tmp_path):
+    owner, proposition, _, runtime = fixture(tmp_path)
+    item = EmbodimentObservation(
+        "caller:sensor", "fixture:v1", "sha256:" + "e" * 64, NOW,
+        "production", "fresh", "production", "sensor_observation", "camera", "sensor",
+        {"present": True, "healthy": True},
+    )
+    board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build(
+        EmbodimentEvidenceOwner((item,)).world_state_records())
+    fact = board.facts[0]
+    assert fact.observed_at is None and fact.source.staleness == "unknown"
+    rule = replace(runtime.config.rules[0], selector={
+        "source_kind": "embodiment", "subject_kind": "sensor_observation",
+        "subject_id": "camera", "stage": "observation", "disposition": "recorded",
+    }, evidence_relation="supports", dependency_kind="independently_sourced_observation",
+       independence_basis="sensor-owner")
+    _, binding = runtime._adapt(board, fact, rule)
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.dependency_group is None
+    assert binding.freshness == "unknown"

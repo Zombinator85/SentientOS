@@ -144,7 +144,12 @@ class EmbodimentEvidenceOwner:
             seen[item.source_id] = item.source_digest
             # This wrapper validates shape and bounds only. It has no issuer or
             # receipt verifier, so caller labels cannot establish production
-            # provenance, independent observation, fulfillment, or effect proof.
+            # provenance, event time, independent observation, fulfillment, or effect proof.
+            payload = dict(item.payload)
+            claimed_event_times = {
+                name: payload.pop(name) for name in (
+                    "created_at", "commanded_at", "completed_at", "observed_at", "evaluated_at")
+                if name in payload}
             records.append({
                 "source_kind": "embodiment",
                 "source_id": item.source_id, "schema_version": item.source_schema,
@@ -152,13 +157,15 @@ class EmbodimentEvidenceOwner:
                 "subject_kind": item.subject_kind,
                 "stage": "observation",
                 "disposition": "recorded", "evidence_strength": "unverified_caller_assertion",
-                "staleness": item.freshness, "observed_at": item.observed_at,
+                "staleness": "unknown", "observed_at": None,
                 "effect_claimed": item.effect_claimed or item.effect_proven,
                 "effect_proven": False,
-                "payload": {**dict(item.payload), "embodiment_evidence_class": item.evidence_class,
+                "payload": {**payload, "embodiment_evidence_class": item.evidence_class,
                             "evidence_posture": item.posture,
                             "declared_provenance_class": item.provenance_class,
                             "declared_source_freshness": item.freshness,
+                            "caller_claimed_observed_at": item.observed_at,
+                            "caller_claimed_payload_event_times": claimed_event_times,
                             "observer_issuer_posture": "unverified_caller_assertion",
                             "caller_claimed_effect_proven": item.effect_proven,
                             "source_semantic_digest": item.source_digest},

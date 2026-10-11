@@ -134,6 +134,10 @@ def test_caller_embodiment_wrapper_cannot_mint_fulfillment_or_effect_proof():
     assert record["source_kind"] == "embodiment"
     assert record["stage"] == "observation"
     assert record["evidence_strength"] == "unverified_caller_assertion"
+    assert record["staleness"] == "unknown"
+    assert record["observed_at"] is None
+    assert record["payload"]["caller_claimed_observed_at"] == NOW
+    assert record["payload"]["declared_source_freshness"] == "fresh"
     assert record["effect_claimed"] is True
     assert record["effect_proven"] is False
     assert record["payload"]["caller_claimed_effect_proven"] is True
