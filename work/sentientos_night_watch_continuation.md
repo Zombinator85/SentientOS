@@ -1704,3 +1704,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Age/count purging now reads validated tomb state first and excludes every unresolved operation's fragment identity from deletion candidates. Those fragments remain counted toward total storage, so policy pressure is visible without replaying the prior effect. Corrupt tomb custody aborts before any deletion.
 - Python syntax compilation passed for memory_manager.py. No purge or file read was executed.
 - **Next implementation dependency:** add a bounded explicit recovery/adjudication path for pending purge intents, then continue through user-observation artifact/log idempotency and preserve exact historical timestamps.
+
+
+
+## New checkpoint — make observation-summary persistence recoverable
+
+- Fresh remote source before this increment: c09d5653f72dc951600bce4be28c13430f58fa09 (tree 16d54d8527daf3bdf1a484297056ceda77a1b305).
+- Observation summaries were written as a random-ID raw fragment followed by a JSONL record. A restart between those writes could leave an orphan; a retry generated another fragment, and duplicate observation IDs were not reconciled.
+- Summary persistence now uses the existing event timestamp/text-derived observation identity and a stable raw-fragment ID. The raw fragment binds the complete observation record and source-input digest before the sidecar append. Re-entry adopts only an exact matching fragment, appends the missing record once, and rejects conflicting identities. The observation sidecar validates record digests and suppresses exact duplicate identities while treating conflicting duplicates as incomplete. Source timestamps remain intact; absent timestamps are explicitly labeled as ingestion-generated.
+- A bounded POSIX flock serializes recovery, fragment publication, index reconciliation, and sidecar append across processes after the existing Administrator/Lumos authorization. Historical records are reused only when their embedded observation identity/time match. Incognito returns a nonpersistent status. Python syntax compilation passed for memory_manager.py. No observations were written or recovered; behavior remains unverified.
+- **Next implementation dependency:** ensure recovery APIs expose missing or conflicting raw-fragment/index links as explicit incomplete state; then continue auditing user-memory mutation and retirement lineage.

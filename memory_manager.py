@@ -9,6 +9,7 @@ import math
 import os
 import stat
 import secrets
+import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import timezone
@@ -873,11 +874,55 @@ def _load_index() -> List[Dict]:
     return list(_load_index_records())
 
 
+@contextmanager
+def _observation_summary_lock():
+    """Serialize one observation fragment/log publication across processes."""
+    from sentientos.platform_fcntl import fcntl, require_flock
+    require_flock()
+    if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        raise PermissionError("observation_lock_custody_unsupported")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    descriptor: int | None = None
+    acquired = False
+    try:
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(".observation-summary.lock", flags, 0o600, dir_fd=root_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("observation_lock_custody_invalid")
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("observation_lock_timeout")
+                time.sleep(0.01)
+        yield
+    finally:
+        if descriptor is not None:
+            if acquired:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        os.close(root_fd)
+
+
+def _observation_digest(value: Mapping[str, Any]) -> str:
+    raw = json.dumps(dict(value), sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 def _load_observation_records() -> List[Dict[str, Any]]:
     payload = _read_legacy_memory_file(OBSERVATION_LOG_PATH)
     if payload is None:
         return []
     records: List[Dict[str, Any]] = []
+    identities: dict[str, Dict[str, Any]] = {}
     for line_number, line in enumerate(payload.decode("utf-8").splitlines(), 1):
         if not line.strip():
             continue
@@ -887,6 +932,21 @@ def _load_observation_records() -> List[Dict[str, Any]]:
             raise MemorySidecarIncompleteError("perception_observations", line_number) from exc
         if not isinstance(value, dict):
             raise MemorySidecarIncompleteError("perception_observations", line_number)
+        stored_digest = value.get("observation_record_digest")
+        if stored_digest is not None:
+            unhashed = dict(value)
+            unhashed.pop("observation_record_digest", None)
+            if (not isinstance(stored_digest, str)
+                    or stored_digest != _observation_digest(unhashed)):
+                raise MemorySidecarIncompleteError("perception_observation_digest_mismatch", line_number)
+        identity = value.get("observation_id")
+        if isinstance(identity, str) and identity:
+            prior = identities.get(identity)
+            if prior is not None:
+                if prior != value:
+                    raise MemorySidecarIncompleteError("perception_observation_identity_conflict", line_number)
+                continue
+            identities[identity] = value
         records.append(value)
     return records
 
@@ -919,46 +979,137 @@ def _parse_observation_timestamp(value: str | None) -> datetime.datetime:
         return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
 
 
-@_legacy_mutation_operation
-def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
-    """Persist a perception observation summary with novelty scoring."""
-
+def _store_observation_summary_unlocked(summary: Mapping[str, Any]) -> Dict[str, Any]:
+    """Persist one source-timestamped observation idempotently across interruption."""
     summary_text = str(summary.get("summary") or summary.get("text") or "").strip()
     if not summary_text:
         raise ValueError("Observation summary text is required")
-    timestamp = str(summary.get("timestamp") or datetime.datetime.utcnow().isoformat())
-    embedding = _embedding(summary_text)
+    supplied_timestamp = summary.get("timestamp")
+    timestamp = str(supplied_timestamp or datetime.datetime.utcnow().isoformat())
+    source_payload = dict(summary)
+    source_payload["timestamp"] = timestamp
+    source_payload["summary"] = summary_text
+    source_digest = _observation_digest(source_payload)
+    observation_id = _hash(summary_text + timestamp)
+    fragment_id = "observation-" + observation_id
+    if os.getenv("INCOGNITO") == "1":
+        return {"summary": summary_text, "timestamp": timestamp,
+            "observation_id": observation_id, "fragment_id": None,
+            "event_time_status": ("source_timestamp_supplied" if supplied_timestamp
+                else "timestamp_generated_at_ingestion"),
+            "persistence_status": "incognito_not_persisted"}
+
     previous = _load_observation_records()
-    similarities = [
-        _cosine(embedding, rec.get("embedding", []))
-        for rec in previous
-        if isinstance(rec.get("embedding"), list)
-    ]
-    novelty = max(0.0, min(1.0, 1.0 - (max(similarities) if similarities else 0.0)))
-    record: Dict[str, Any] = dict(summary)
-    record["timestamp"] = timestamp
-    record["summary"] = summary_text
-    record.setdefault("objects", [])
-    record.setdefault("novel_objects", [])
-    record.setdefault("transcripts", [])
-    record.setdefault("screen", [])
-    record.setdefault("emotions", {})
-    record.setdefault("source_events", 0)
-    record["novelty"] = novelty
-    record["embedding"] = embedding
-    record["observation_id"] = _hash(summary_text + timestamp)
-    meta_payload = {k: v for k, v in record.items() if k not in {"embedding"}}
-    fragment_id = append_memory(
-        summary_text,
-        tags=list(summary.get("tags", ["observation", "perception"])),
-        source=str(summary.get("source", "perception_reasoner")),
-        emotions=record.get("emotions"),
-        meta={"observation": meta_payload},
-    )
-    record["fragment_id"] = fragment_id
+    prior_records = [record for record in previous
+        if record.get("observation_id") == observation_id]
+    if len(prior_records) > 1:
+        raise MemorySidecarIncompleteError("perception_observation_identity_conflict", 0)
+    if prior_records:
+        prior = prior_records[0]
+        prior_source_digest = prior.get("observation_source_digest")
+        if (prior.get("summary") != summary_text or prior.get("timestamp") != timestamp
+                or (prior_source_digest is not None and prior_source_digest != source_digest)):
+            raise MemorySidecarIncompleteError("perception_observation_identity_conflict", 0)
+        prior_fragment_id = prior.get("fragment_id")
+        if not isinstance(prior_fragment_id, str) or not prior_fragment_id:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_link_missing", 0)
+        raw_fragment = _read_legacy_raw_fragment(prior_fragment_id + ".json")
+        if raw_fragment is None:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_missing", 0)
+        try:
+            stored_fragment = json.loads(raw_fragment.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_malformed", 0) from exc
+        meta = stored_fragment.get("meta") if isinstance(stored_fragment, dict) else None
+        stored_observation = meta.get("observation_record") if isinstance(meta, dict) else None
+        legacy_observation = meta.get("observation") if isinstance(meta, dict) else None
+        if stored_observation is not None and stored_observation != prior:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_conflict", 0)
+        if stored_observation is None and (
+                not isinstance(legacy_observation, dict)
+                or legacy_observation.get("observation_id") != observation_id
+                or legacy_observation.get("timestamp") != timestamp):
+            raise MemorySidecarIncompleteError("perception_observation_fragment_conflict", 0)
+        if (not isinstance(stored_fragment, dict)
+                or stored_fragment.get("id") != prior_fragment_id
+                or stored_fragment.get("text") != summary_text):
+            raise MemorySidecarIncompleteError("perception_observation_fragment_conflict", 0)
+        return prior
+
+    raw_existing = _read_legacy_raw_fragment(fragment_id + ".json")
+    if raw_existing is not None:
+        try:
+            existing_fragment = json.loads(raw_existing.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_malformed", 0) from exc
+        existing_meta = existing_fragment.get("meta") if isinstance(existing_fragment, dict) else None
+        existing_record = (existing_meta.get("observation_record")
+            if isinstance(existing_meta, dict) else None)
+        if (not isinstance(existing_record, dict)
+                or existing_record.get("observation_source_digest") != source_digest
+                or existing_record.get("observation_id") != observation_id
+                or existing_record.get("fragment_id") != fragment_id):
+            raise MemorySidecarIncompleteError("perception_observation_fragment_conflict", 0)
+        stored_digest = existing_record.get("observation_record_digest")
+        unhashed = dict(existing_record)
+        unhashed.pop("observation_record_digest", None)
+        if stored_digest != _observation_digest(unhashed):
+            raise MemorySidecarIncompleteError("perception_observation_fragment_digest_mismatch", 0)
+        record = existing_record
+        fragment = existing_fragment
+    else:
+        embedding = _embedding(summary_text)
+        similarities = [
+            _cosine(embedding, rec.get("embedding", []))
+            for rec in previous if isinstance(rec.get("embedding"), list)
+        ]
+        novelty = max(0.0, min(1.0, 1.0 - (max(similarities) if similarities else 0.0)))
+        record: Dict[str, Any] = dict(source_payload)
+        record.setdefault("objects", [])
+        record.setdefault("novel_objects", [])
+        record.setdefault("transcripts", [])
+        record.setdefault("screen", [])
+        record.setdefault("emotions", {})
+        record.setdefault("source_events", 0)
+        record["novelty"] = novelty
+        record["embedding"] = embedding
+        record["observation_id"] = observation_id
+        record["fragment_id"] = fragment_id
+        record["observation_source_digest"] = source_digest
+        record["event_time_status"] = ("source_timestamp_supplied" if supplied_timestamp
+            else "timestamp_generated_at_ingestion")
+        record["observation_record_digest"] = _observation_digest(record)
+        tags = list(record.get("tags", ["observation", "perception"]))
+        emotions = record.get("emotions") or empty_emotion_vector()
+        meta_payload = {key: value for key, value in record.items() if key != "embedding"}
+        fragment = {
+            "id": fragment_id, "timestamp": timestamp, "tags": tags,
+            "source": str(record.get("source", "perception_reasoner")),
+            "text": summary_text, "emotions": emotions,
+            "emotion_features": dict(record.get("emotion_features") or {}),
+            "emotion_breakdown": dict(record.get("emotion_breakdown") or {}),
+            "meta": {"observation": meta_payload, "observation_record": record},
+        }
+        fragment["importance"] = _estimate_importance(fragment)
+        fragment["access_count"] = 0
+        fragment["last_accessed"] = timestamp
+        _write_fragment(fragment_id, fragment)
+
+    _update_vector_index(fragment)
     _write_observation_record(record)
+    emotions_to_add = record.get("emotions")
+    if isinstance(emotions_to_add, dict):
+        em.add_emotion(emotions_to_add)
     return record
 
+
+@_legacy_mutation_operation
+def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
+    if os.getenv("INCOGNITO") == "1":
+        return _store_observation_summary_unlocked(summary)
+    _authorize_legacy_mutation()
+    with _observation_summary_lock():
+        return _store_observation_summary_unlocked(summary)
 
 @_legacy_mutation_operation
 def store_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
