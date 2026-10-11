@@ -1335,3 +1335,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `conversation_session.py`. No prompt was assembled and no inference/runtime validation occurred.
 
 **Next implementation dependency:** continue source review of the resident epistemic consumer paths. Confirm that conversation-only memory provenance does not cross into World-State or developmental memory without an existing explicit selector and source admission contract.
+
+
+## New checkpoint — reject dual resource projection owners
+
+- Fresh remote source before this increment: `e36242c8593ea149a0a6b62f7784b8b2c4a00` (tree `acd5e60f42659633b635691c08a6441f92c8b635`).
+- `RuntimeMaintenanceSurfaces.build_world_state_board()` projected resource consumption once from the optional direct ledger and again from the richer read-only observation owner when both were configured. The base projection uses one semantic source ID while the observation path also binds installation/provisioning/source identity; the World-State verifier would therefore see conflicting digests for one source identity.
+- Constructor composition now rejects simultaneous direct-ledger and resource-observation-owner inputs. The normal daemon configuration supplies the observation owner; the direct ledger remains an alternative compatibility composition. This avoids duplicate projection and ambiguous custody without changing either owner.
+- The complete 202,979-byte `sentientosd.py` fetched at this checkpoint was Python-compiled after the edit. No daemon was started, board built, tests run, or production behavior verified.
+
+**Next implementation dependency:** verify the explicit resource-observation owner remains the sole runtime composition path, then continue to adjacent World-State consumers; do not reintroduce the direct mutable ledger as a second observer.
