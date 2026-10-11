@@ -58,7 +58,11 @@ class ExplicitRetentionAdmissionGate:
 class CanonicalMemoryStore:
     """Canonical raw-fragment domain compatible with memory_manager.RAW_PATH."""
     def __init__(self,memory_root:Path)->None:
-        self.root=memory_root.resolve(); self.raw=self.root/"raw"
+        # Preserve the already-fixed path spelling. Resolution here could follow a
+        # substituted symlink after process-start configuration was frozen; the
+        # descriptor-relative root opener rejects such components instead.
+        self.root = Path(os.path.abspath(Path(memory_root).expanduser()))
+        self.raw = self.root / "raw"
 
     def _legacy_sidecar_posture(self) -> str:
         """Report bounded path metadata only; the legacy sidecar is never ingested here."""
@@ -751,4 +755,5 @@ class AdmittedRetentionWriter:
         if verification.get("artifact_status") != "verified":
             raise PermissionError("canonical_memory_artifact_reconciliation_failed")
         return receipt
+
 
