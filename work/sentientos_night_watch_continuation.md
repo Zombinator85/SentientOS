@@ -1305,3 +1305,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `chat_service.py`. No API/runtime request or tests were performed.
 
 **Next implementation dependency:** inspect the related single-session inspection endpoint and runtime-generation evidence shown there. Keep it bounded and ensure read failures remain distinguishable from a genuinely missing session.
+
+
+## New checkpoint — distinguish missing sessions from invalid custody
+
+- Fresh remote source before this increment: `58527dfce0c42efa3f1b298976bfdedf615ac34d` (tree `367ac8a64c42ca71bfa8bef949a65fc4f3c31e58`).
+- The single-session endpoint exposed store exceptions as generic server errors. The owner distinguishes a missing transcript from malformed or inaccessible custody.
+- `GET /sessions/{session_id}` now returns 404 for a genuinely absent session and 503 for invalid/unavailable session custody, with generic non-sensitive details. Successful output remains the existing bounded summary fields.
+- Python compilation passed for `chat_service.py`. No API call, runtime session read, or tests were performed.
+
+**Next implementation dependency:** continue through adjacent session API composition, checking that historical session summaries are not mistaken for verified runtime/model evidence and that output links preserve the receipt-backed distinction.

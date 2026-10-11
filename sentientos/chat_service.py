@@ -766,8 +766,15 @@ async def list_sessions() -> list[dict[str, Any]]:
 
 @APP.get("/sessions/{session_id}")
 async def inspect_session(session_id: str) -> dict[str, Any]:
-    session = _get_conversation_service().sessions.load(session_id)
-    return {k: session[k] for k in ("session_id", "created_at", "latest_activity_at", "title", "revision", "lifecycle_state", "model_identity_digest")}
+    try:
+        session = _get_conversation_service().sessions.load(session_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="conversation_session_not_found") from exc
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=503,
+            detail="conversation_session_unavailable_or_invalid") from exc
+    return {k: session[k] for k in ("session_id", "created_at", "latest_activity_at",
+        "title", "revision", "lifecycle_state", "model_identity_digest")}
 
 
 @APP.get("/boot-feed", response_model=List[BootEvent])
