@@ -112,3 +112,40 @@ def test_active_model_drift_invalidates_before_later_condition(tmp_path: Path) -
         composition.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
     assert list(composition.experiments.protocols.glob("*.json"))
     assert len(list(composition.experiments.runs.glob("*.json"))) == 0
+
+
+def test_experiment_artifact_publication_is_private_and_immutable(tmp_path: Path) -> None:
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("descriptor-relative experiment publication requires POSIX")
+    experiment_store = DevelopmentalExperimentStore(tmp_path)
+    path = experiment_store.protocols / "devexp-protocol-000000000000000000000000.json"
+    payload = {"bounded": "protocol"}
+    experiment_store._write_immutable(path, payload)
+    metadata = path.stat()
+    assert stat.S_ISREG(metadata.st_mode)
+    assert metadata.st_uid == os.geteuid()
+    assert metadata.st_mode & 0o077 == 0
+    assert experiment_store._read_json(path) == payload
+    experiment_store._write_immutable(path, payload)
+    with pytest.raises(DevelopmentalHistoryInterventionError, match="artifact_identity_collision"):
+        experiment_store._write_immutable(path, {"bounded": "substitution"})
+
+
+def test_experiment_artifact_publication_rejects_symlinked_owner_root(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("no-follow experiment publication requires POSIX")
+    target = tmp_path / "external"
+    target.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+    experiment_store = DevelopmentalExperimentStore(alias)
+    path = experiment_store.protocols / "devexp-protocol-000000000000000000000000.json"
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+                       match="experiment_artifact_custody_invalid|experiment_artifact_publication_failed"):
+        experiment_store._write_immutable(path, {"bounded": "protocol"})
+    assert list(target.iterdir()) == []

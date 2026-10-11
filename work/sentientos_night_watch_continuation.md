@@ -2542,3 +2542,11 @@ Next inspect succession source records for any projection that still presents a 
 - Durable cognition observations now use the shared immutable publisher. Duplicate semantic identities are accepted only on byte-identical replay; substitutions fail closed. Recovery validates the same owner-only directory and single-link private file posture. The common bounded reader accepts the cognition owner's existing 16 MiB state ceiling without changing developmental-history record bounds.
 - Added authored, unexecuted checkpoint round-trip and symlink-root refusal cases. Python compilation passed for both changed owner modules and test modules; tests, platform behavior, and production execution remain unverified.
 - Next inspect DevelopmentalExperimentStore under the same configured cognition root, then adjacent admission-ledger custody. Determine whether those sibling owners need the same explicit root/descriptor contract or already satisfy it before changing them.
+
+
+## 2026-10-11 checkpoint — bind developmental experiment artifacts to private custody
+
+- The controlled history experiment store used a path-based existence check followed by replaceable atomic writes for content-addressed protocol/run artifacts. POSIX reads now traverse held private directories and require bounded, canonical, owner-owned single-link files. Publication uses the common immutable create-if-absent path; exact retries remain idempotent and conflicting bytes retain the existing artifact-collision error.
+- The experiment store keeps its declared 4 MiB artifact bound; shared history publication retains its 1 MiB default. Windows continues to use the existing held-handle read path and refuses new publication.
+- Added authored, unexecuted private-mode, retry/collision, and symlink-root cases. Changed Python source and test modules passed compilation only. No behavioral tests, platform execution, or production verification ran.
+- Next inspect the mutable runtime-admission ledger's atomicity, permissions, and lock ownership independently. Its data governs admission; preserve the issuer/verifier boundary and do not couple it to developmental-history policy.

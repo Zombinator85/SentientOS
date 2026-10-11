@@ -7,8 +7,11 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from .local_model_authority import atomic_write_json, digest_payload
-from .resident_developmental_writeback import CognitionObservation, DevelopmentalHistoryProjection, measure_changed_cognition
+from .local_model_authority import digest_payload
+from .resident_developmental_writeback import (
+    CognitionObservation, DevelopmentalHistoryProjection, measure_changed_cognition,
+    DevelopmentalWritebackError, _open_store_directory, _read_store_file, _publish_store_json,
+)
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 LEGACY_SCHEMA = "sentientos.developmental_history_intervention_protocol:v1"
@@ -103,12 +106,28 @@ class DevelopmentalExperimentStore:
 
     @staticmethod
     def _read_json(path: Path) -> dict[str, Any]:
-        try:
-            raw = read_explicit_file(path, max_bytes=MAX_EXPERIMENT_ARTIFACT_BYTES)
-        except WindowsHandleCustodyError as exc:
-            if str(exc) == "explicit_file_missing":
-                raise FileNotFoundError(path) from exc
-            raise DevelopmentalHistoryInterventionError("experiment_artifact_not_regular") from exc
+        if os.name == "nt":
+            try:
+                raw = read_explicit_file(path, max_bytes=MAX_EXPERIMENT_ARTIFACT_BYTES)
+            except WindowsHandleCustodyError as exc:
+                if str(exc) == "explicit_file_missing":
+                    raise FileNotFoundError(path) from exc
+                raise DevelopmentalHistoryInterventionError("experiment_artifact_not_regular") from exc
+        else:
+            try:
+                directory_fd = _open_store_directory(path.parent, create=False)
+            except DevelopmentalWritebackError as exc:
+                if str(exc) == "durable_store_root_missing":
+                    raise FileNotFoundError(path) from exc
+                raise DevelopmentalHistoryInterventionError("experiment_artifact_custody_invalid") from exc
+            try:
+                raw = _read_store_file(directory_fd, path.name, max_bytes=MAX_EXPERIMENT_ARTIFACT_BYTES)
+            except DevelopmentalWritebackError as exc:
+                if str(exc) == "stored_payload_missing":
+                    raise FileNotFoundError(path) from exc
+                raise DevelopmentalHistoryInterventionError("experiment_artifact_not_regular") from exc
+            finally:
+                os.close(directory_fd)
         try:
             value = json.loads(raw.decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError) as exc:
@@ -131,7 +150,13 @@ class DevelopmentalExperimentStore:
             return
         if os.name != "posix":
             raise DevelopmentalHistoryInterventionError("experiment_artifact_publication_unsupported_platform")
-        atomic_write_json(path, payload)
+        try:
+            _publish_store_json(path, payload, collision_error="artifact_identity_collision",
+                                max_bytes=MAX_EXPERIMENT_ARTIFACT_BYTES)
+        except DevelopmentalWritebackError as exc:
+            if str(exc) == "artifact_identity_collision":
+                raise DevelopmentalHistoryInterventionError("artifact_identity_collision") from exc
+            raise DevelopmentalHistoryInterventionError("experiment_artifact_publication_failed") from exc
 
     def persist_protocol(self, protocol: DevelopmentalHistoryInterventionProtocol) -> None:
         verify_protocol(protocol)

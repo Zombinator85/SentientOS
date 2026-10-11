@@ -625,7 +625,8 @@ def _read_store_file(directory_fd: int, name: str, *, max_bytes: int = MAX_DURAB
             os.close(descriptor)
 
 
-def _publish_store_json(path: Path, payload: Mapping[str, Any], *, collision_error: str) -> None:
+def _publish_store_json(path: Path, payload: Mapping[str, Any], *, collision_error: str,
+                       max_bytes: int = MAX_DURABLE_RECORD_BYTES) -> None:
     """Publish canonical immutable JSON without following mutable path components."""
     directory_fd = _open_store_directory(path.parent, create=True)
     temporary_name = ".pending-" + os.urandom(16).hex()
@@ -633,7 +634,7 @@ def _publish_store_json(path: Path, payload: Mapping[str, Any], *, collision_err
     temporary_created = False
     try:
         data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
-        if len(data) > MAX_DURABLE_RECORD_BYTES:
+        if len(data) > max_bytes:
             raise DevelopmentalWritebackError("durable_payload_size_limit_exceeded")
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
         descriptor = os.open(temporary_name, flags, 0o600, dir_fd=directory_fd)
