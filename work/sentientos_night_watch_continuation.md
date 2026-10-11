@@ -1425,3 +1425,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `windows_handle_custody.py` and `canonical_memory.py`. Windows API behavior was not executed or tested, and this remains unverified for production. The raw-memory legacy writer remains POSIX-only because the repository has no equivalent safe Windows publisher.
 - **Next implementation dependency:** review how explicit-retention/retrieval callers surface custody-unavailable postures, and ensure a permission-degraded memory result is not presented as a complete successful retrieval. Keep transcript and developmental-history owners separate.
 
+
+
+## New checkpoint — defer raw-root creation until authorized writes
+
+- Fresh remote source before this increment: `f3f946a37c46a1630777d592bd68bc1ff88e3377` (tree `00cf1b6c7198e05f2b1b64db24ff4959007cc27e`).
+- `CanonicalMemoryStore` construction created the shared raw directory even when the caller only intended read-only retrieval or custody inspection. That was an avoidable filesystem mutation during chat composition.
+- Store construction is now path-only. The raw directory is created by the held POSIX directory opener only when called with `prepare_for_write=True`; the canonical retention writer reaches that mode after its existing admission gate, and the legacy writer reaches it after its existing Administrator/Lumos authorization. Read and recovery paths do not create the root.
+- The chat owner persists `memory_retrieval_posture`, selection posture and omissions in both assistant linkage and the API response; optional retention failure is persisted as `retention_failed`, rather than reported as retained. No change to those consumer contracts was needed.
+- Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No store was instantiated and no filesystem state was changed; no runtime, behavior, or production verification was performed.
+- **Next implementation dependency:** inspect the remaining legacy memory-root sidecars/indexes/tomb files for their own owner/mode and bounded-read contracts, without widening canonical raw-memory scope or mixing chat transcripts/developmental history. Revisit callers that collapse raw-custody exceptions into empty results and preserve a degraded indication where an existing output contract allows it.
+

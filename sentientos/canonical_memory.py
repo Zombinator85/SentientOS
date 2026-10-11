@@ -37,10 +37,8 @@ class ExplicitRetentionAdmissionGate:
         return RetentionAdmission(decision,cd,body["request_id"],digest(body),None if valid else "invalid_explicit_user_candidate")
 class CanonicalMemoryStore:
     """Canonical raw-fragment domain compatible with memory_manager.RAW_PATH."""
-    def __init__(self,memory_root:Path, *, create_raw: bool = True)->None:
+    def __init__(self,memory_root:Path)->None:
         self.root=memory_root.resolve(); self.raw=self.root/"raw"
-        if create_raw:
-            self.raw.mkdir(parents=True,exist_ok=True,mode=0o700)
 
     def _legacy_sidecar_posture(self) -> str:
         """Report bounded path metadata only; the legacy sidecar is never ingested here."""
@@ -236,6 +234,8 @@ class CanonicalMemoryStore:
                 or os.link not in os.supports_dir_fd
                 or os.unlink not in os.supports_dir_fd):
             raise PermissionError("canonical_memory_safe_publication_unavailable")
+        if prepare_for_write:
+            self.raw.mkdir(parents=True, exist_ok=True, mode=0o700)
         absolute = Path(os.path.abspath(self.raw))
         descriptor = os.open(os.sep, os.O_RDONLY | directory)
         try:

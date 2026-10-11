@@ -108,9 +108,8 @@ def _open_legacy_raw_directory(*, prepare_for_write: bool = False) -> int:
     if os.name != "posix":
         raise PermissionError("legacy_raw_memory_private_custody_unsupported_platform")
     from sentientos.canonical_memory import CanonicalMemoryStore
-    return CanonicalMemoryStore(MEMORY_DIR,
-        create_raw=prepare_for_write).open_raw_directory(
-            prepare_for_write=prepare_for_write)
+    return CanonicalMemoryStore(MEMORY_DIR).open_raw_directory(
+        prepare_for_write=prepare_for_write)
 
 
 def _read_legacy_raw_fragment(name: str) -> bytes | None:
