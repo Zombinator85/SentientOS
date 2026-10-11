@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of this continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch subsequently advanced through compare-and-swap publications, most recently verified as `63f58efa6b38403d52b1aa40ef6a05cdf8d21554` (tree `7ca1b1f98f5ef511936a403c4c11bbc731832fce`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints, including `febd1d686110aa1c8d8b9c6bc6cf8a15dd7387cc` (tree `20b628c099e9f4fa3ec9c2ee8ce171b1c70a3eac`), remain historical. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch has since advanced through compare-and-swap publications, including `eb816f5b3d54d8b2793318938bcf4f25bba7ee94` (tree `4dbfa7a3a0078ec054903668a324c29c415ee9a8`). The latest checkpoint is recorded at the end of this continuation. Earlier checkpoints remain historical. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1122,3 +1122,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - Recovered chat responses no longer echo stored retention receipts as current proof. They report a verified artifact separately from `admission_status: not_independently_recoverable`; missing/conflicting artifacts remain unverified, and interrupted/failed retention remains non-replayed. Canonical user memory remains separate from resident developmental history.
 - Python compilation passed for `sentientos/canonical_memory.py` and `sentientos/chat_service.py`. No tests, memory-store runtime reads, retention operations, collision injection, or behavioral verification were run.
 - Remaining exact gap: no durable independent issuer/custody exists for the historical retention-admission decision. Do not infer that a matching memory artifact proves admission occurred. Continue on other causal continuity work without adding memory authority.
+
+
+## New checkpoint — keep canonical runtime observation single-owner
+
+- The fresh remote source at the start of this correction was `eb816f5b3d54d8b2793318938bcf4f25bba7ee94` (tree `4dbfa7a3a0078ec054903668a324c29c415ee9a8`).
+- Source comparison confirmed two publishers targeted the same replaceable installation record, `local-model/chat/runtime-observations/current.json`, through `publish_chat_process_runtime_observation()`. The canonical loop in `sentientos/runtime/startup.py` binds observations to its supervisor generation and validated source handoff, and selects the exact configured serving receipt only when its operation matches the handoff. Its projection preserves the serving receipt ID/digest, model identity, and selection posture. The adapter's health/stop publisher had only the handoff and supervisor generation, so it could overwrite the richer record, including replacing it with `not_verified` after readiness failure.
+- Removed runtime-observation publication from `LocalModelChatServiceAdapter`. Its service health now reflects the actual child-process check and loopback readiness probe only; optional observation I/O cannot turn a ready service unhealthy. The canonical startup owner continues publishing point observations and shutdown/recovery posture, while RuntimeSupervisor retains its durable per-service health and lifecycle journal.
+- Kept handoff publication/verification intact; it is distinct input custody used by startup. No serving, inference, allocation, or effect authority changed.
+- Python compilation passed for the modified adapter. No tests, runtime process, readiness endpoint, installation publication, or production behavior were exercised. This source construction remains untested and unverified for production.
+
+**Next implementation dependency:** continue tracing canonical startup recovery and runtime observation consumers for any remaining lifecycle ambiguity or evidence-status overstatement; do not restore an adapter-side writer to the replaceable observation image.
