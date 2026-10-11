@@ -8,7 +8,9 @@ from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_runtime_provisioning import semantic_digest
 pytestmark = pytest.mark.no_legacy_skip
 
-from sentientos.resident_cognitive_model_serving import (ACTION, CONFIG_SCHEMA, ResidentCognitiveModelServingController, ResidentCognitiveModelServingError, load_config)
+from sentientos.resident_cognitive_model_serving import (ACTION, CONFIG_SCHEMA,
+    ResidentCognitiveModelServingController, ResidentCognitiveModelServingError, load_config,
+    resident_serving_session_receipt_reference, verify_resident_serving_session_receipt_reference)
 
 class Kernel:
     def __init__(self, outcome=AdmissionOutcome.ALLOW): self.outcome, self.requests = outcome, []
@@ -21,7 +23,7 @@ class Model:
 
 def evidence(generation=1):
     state={"installation_identity":"install-1","generation":generation,"model_id":"model-1","artifact_id":"artifact-1","artifact_path":"/models/exact.gguf","artifact_sha256":"a"*64,"artifact_size_bytes":42,"route_id":"route-1","runtime_id":"runtime-1","interpreter_path":"/runtime/python","load_configuration":{"n_ctx":1024,"n_gpu_layers":0},"authority_map_digest":"authority-1","commissioning_receipt_id":"commissioning-1","commissioning_receipt_semantic_digest":"commissioning-digest"}; state["state_semantic_digest"]=semantic_digest(state)
-    return {"active_state":state,"activation_receipt":{"receipt_id":"activation-1","receipt_semantic_digest":"activation-digest","resulting_state_digest":state["state_semantic_digest"]},"catalog_proof":{"proof_semantic_digest":"proof-digest"}}
+    return {"active_state":state,"activation_receipt":{"receipt_id":"activation-1","receipt_semantic_digest":"activation-digest","resulting_state_digest":state["state_semantic_digest"]},"activation_history":[{"activation_state_digest":state["state_semantic_digest"]}],"catalog_proof":{"proof_semantic_digest":"proof-digest"}}
 def identity(**changes):
     values=dict(engine="llama_cpp",resolved_artifact_path="/models/exact.gguf",semantic_artifact_identity="sha256:"+"a"*64,model_content_sha256="a"*64,artifact_size_bytes=42,sidecar_metadata_digest=None,configuration_digest="config-1",candidate_index=0,posture="production",fallback=False); values.update(changes); return ActiveModelIdentity(**values)
 def make(monkeypatch,tmp_path, sequence, outcome=AdmissionOutcome.ALLOW):
@@ -34,6 +36,25 @@ def test_exact_current_activation_establishes_separate_zero_inference_receipt(mo
     assert receipt["resident_serving_bound"] is True and receipt["inference_performed"] is False
     assert receipt["canonical_activation_mutated"] is False and receipt["production_chat_serving_mutated"] is False and receipt["cognitive_model_transition_performed"] is False
     assert session.binding["serving_config_digest"]=="c"*64 and not model.closed
+
+def test_session_receipt_reference_rechecks_durable_privilege_witness(monkeypatch,tmp_path):
+    current=evidence(); ctl,handle,_,_=make(monkeypatch,tmp_path,[current,current,current])
+    session=ctl.establish(operation_id="resident-operation-1")
+    reference=resident_serving_session_receipt_reference(session)
+    verified=verify_resident_serving_session_receipt_reference(handle,
+        reference["session_receipt_id"],reference["session_receipt_semantic_digest"],
+        expected_session_id=session.session_id,
+        expected_model_serving_admission_ref=session.binding["model_serving_admission_ref"],
+        expected_activation_state_semantic_digest=session.binding["activation_state_semantic_digest"],
+        expected_active_model_identity=session.binding["observed_loaded_model_identity"])
+    assert verified["receipt_id"] == reference["session_receipt_id"]
+    with pytest.raises(ResidentCognitiveModelServingError,match="historical_serving_receipt_binding_mismatch"):
+        verify_resident_serving_session_receipt_reference(handle,
+            reference["session_receipt_id"],reference["session_receipt_semantic_digest"],
+            expected_session_id=session.session_id,
+            expected_model_serving_admission_ref=session.binding["model_serving_admission_ref"],
+            expected_activation_state_semantic_digest=session.binding["activation_state_semantic_digest"],
+            expected_active_model_identity={"posture":"substituted"})
 
 def test_activation_change_invalidates_without_automatic_rebind(monkeypatch,tmp_path):
     one,two=evidence(1),evidence(2); ctl,handle,model,kernel=make(monkeypatch,tmp_path,[one,one,two]); ctl.establish(operation_id="resident-operation-1"); assert ctl.current_session() is None and model.closed; assert len(kernel.requests)==1

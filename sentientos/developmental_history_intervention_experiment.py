@@ -302,6 +302,7 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
         "epistemic_projection_digest", "epistemic_proposition_ids", "epistemic_state_ids",
         "epistemic_state_digests", "epistemic_generations", "epistemic_evidence_set_digests",
         "serving_session_id", "serving_session_binding",
+        "serving_session_receipt_id", "serving_session_receipt_digest",
     )
     full_controls = all(hasattr(item, "current_snapshot_digest")
                         and hasattr(item, "retrieved_record_digests") for item in observations)
@@ -326,7 +327,8 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                 semantic_observation.pop("serving_session_binding", None)
                 calculated = _digest(semantic_observation)
             if (schema_version not in {"sentientos.resident_cognition_observation:v2",
-                        "sentientos.resident_cognition_observation:v3"}
+                        "sentientos.resident_cognition_observation:v3",
+                        "sentientos.resident_cognition_observation:v4"}
                     or observation_digest != calculated
                     or observation_id != "devcog-" + calculated[7:31]):
                 raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")

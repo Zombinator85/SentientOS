@@ -142,6 +142,8 @@ class SessionBoundFakeInvoker(FakeInvoker):
         self.session_binding = {
             "model_serving_admission_ref": "fixture-model-serving-admission",
             "activation_state_semantic_digest": "sha256:" + "a" * 64,
+            "session_receipt_id": "resident-serving-receipt-" + "b" * 24,
+            "session_receipt_semantic_digest": "sha256:" + "c" * 64,
         }
         self.receipts = {}
         self.verified_receipts = []
@@ -149,7 +151,11 @@ class SessionBoundFakeInvoker(FakeInvoker):
     def build_request(self, **kwargs):
         linkage = dict(kwargs.get("linkage") or {})
         linkage["resident_cognitive_serving"] = {
-            "session_id": self.session_id, **self.session_binding}
+            "session_id": self.session_id,
+            **{key: value for key, value in self.session_binding.items()
+                if key in {"model_serving_admission_ref", "activation_state_semantic_digest"}},
+            "session_receipt_id": self.session_binding["session_receipt_id"],
+            "session_receipt_semantic_digest": self.session_binding["session_receipt_semantic_digest"]}
         kwargs["linkage"] = linkage
         return super().build_request(**kwargs)
 
@@ -164,9 +170,13 @@ class SessionBoundFakeInvoker(FakeInvoker):
         assert receipt.receipt_digest == receipt_digest
         assert receipt.request["request_id"] == expected["expected_request_id"]
         assert receipt.request["request_digest"] == expected["expected_request_digest"]
-        assert receipt.request["linkage"]["resident_cognitive_serving"] == {
+        expected_serving = {
             "session_id": expected["expected_session_id"],
             **dict(expected["expected_session_binding"])}
+        if expected.get("expected_session_receipt_id") is not None:
+            expected_serving.update({"session_receipt_id": expected["expected_session_receipt_id"],
+                "session_receipt_semantic_digest": expected["expected_session_receipt_digest"]})
+        assert receipt.request["linkage"]["resident_cognitive_serving"] == expected_serving
         assert receipt.request["active_model_identity"] == expected["expected_active_model_identity"]
         return {"receipt_id": receipt.receipt_id, "receipt_digest": receipt.receipt_digest,
             "request": receipt.request, "status": receipt.status,
@@ -181,7 +191,12 @@ def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(
     observations = first._recover_observation_ticks(include_records=True)
     assert observations
     assert all(row["serving_session_id"] == invoker.session_id for row in observations.values())
-    assert all(row["serving_session_binding"] == invoker.session_binding for row in observations.values())
+    expected_binding = {key: invoker.session_binding[key] for key in (
+        "model_serving_admission_ref", "activation_state_semantic_digest")}
+    assert all(row["serving_session_binding"] == expected_binding for row in observations.values())
+    assert all(row["serving_session_receipt_id"] == invoker.session_binding["session_receipt_id"]
+        and row["serving_session_receipt_digest"] == invoker.session_binding[
+            "session_receipt_semantic_digest"] for row in observations.values())
 
     loaded = first.experiments.load_run(experiment_result.changed_cognition_measurement_id)
     assert loaded["validity"] == "valid_controlled_observation"
