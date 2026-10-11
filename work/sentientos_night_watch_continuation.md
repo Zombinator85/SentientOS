@@ -2679,3 +2679,11 @@ A later source correction was also composed from stale note text and displaced t
 - Directory-fsync uncertainty is reported separately after atomic replacement, and the in-memory candidate is retained before the owner raises, avoiding rollback of already visible consumed entitlement. The existing Windows writer path remains unchanged.
 - Added authored, unexecuted symlink rejection and visible-but-uncertain replacement cases. Changed source/test syntax compilation only; no ledger operation, crash recovery, or production behavior was exercised.
 - Next continue the read-only source inventory review through runtime World-State composition and identify any remaining cross-owner handoff that reads persistent evidence without exact descriptor or owner identity.
+
+
+## 2026-10-11 checkpoint — publish World-State through descriptor-bound custody
+
+- The resident daemon's terminal World-State snapshot previously used path-based directory creation, temporary-file creation, replacement, and a separately reopened directory for fsync. Publication now uses the shared private no-follow descriptor helper, with an explicit 64 MiB serialized-artifact bound.
+- If replacement is visible but directory fsync is uncertain, the same snapshot remains available to later cognition in this process, while World-State feedback reports degraded `durability_uncertain`. Failures before confirmed replacement still stop the handoff. The snapshot identity and event times are unchanged, and persisted artifacts are not reloaded as authority after restart.
+- `sentientosd.py` passed Python syntax compilation. Behavioral tests remain authored elsewhere but unexecuted; no pytest, runtime, crash, or production behavior was exercised.
+- Next inspect resident developmental cognition's World-State snapshot handoff and durable writeback boundary for any remaining path-based or semantically ambiguous recovery input. Preserve its exact current-snapshot requirement and temporal separation.

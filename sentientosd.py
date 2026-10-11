@@ -59,6 +59,7 @@ from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
     LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
+from sentientos.private_file_custody import replace_private_bytes_with_status
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner
 from sentientos.embodiment_proposal_review import load_selected_review_world_state_records
 from sentientos.embodiment_fulfillment import (load_selected_fulfillment_world_state_records,
@@ -1310,36 +1311,23 @@ class RuntimeMaintenanceSurfaces:
             }
             self._feedback["surfaces"]["post_adoption_attribution_projection"] = dict(
                 self._post_adoption_attribution_projection_status)
-        out_dir = self._runtime_state_root / "world_state_board"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        target = out_dir / "latest.json"
-        temporary: str | None = None
-        try:
-            descriptor, temporary = tempfile.mkstemp(
-                prefix=".world-state-", suffix=".tmp", dir=out_dir)
-            with os.fdopen(descriptor, "wb") as stream:
-                encoded = json.dumps(to_dict(snapshot), sort_keys=True,
-                    indent=2).encode("utf-8") + bytes((10,))
-                stream.write(encoded)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, target)
-            temporary = None
-            if os.name == "posix":
-                directory_fd = os.open(out_dir, os.O_RDONLY
-                    | getattr(os, "O_DIRECTORY", 0)
-                    | getattr(os, "O_NOFOLLOW", 0))
-                try:
-                    os.fsync(directory_fd)
-                finally:
-                    os.close(directory_fd)
-        finally:
-            if temporary is not None:
-                with suppress(OSError):
-                    os.unlink(temporary)
-        # Publish the in-memory terminal view only after durable replacement.
+        target = self._runtime_state_root / "world_state_board" / "latest.json"
+        encoded = json.dumps(to_dict(snapshot), sort_keys=True,
+            indent=2).encode("utf-8") + bytes((10,))
+        # Snapshot contents are source-bounded by the board builder and
+        # publication is capped independently at 64 MiB. The shared owner
+        # traverses a private no-follow directory descriptor and atomically
+        # replaces this mutable terminal view.
+        durability_confirmed = replace_private_bytes_with_status(
+            target, encoded, max_bytes=64 * 1024 * 1024)
+        # A directory-fsync error happens after replacement is already visible.
+        # Keep the same snapshot available to this process, but report uncertain
+        # durability rather than pretending publication was fully durable.
         self._world_state_snapshot = snapshot
-        feedback = {"status":"degraded" if snapshot.degraded or snapshot.contradicted else "ok", "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
+        feedback_status = "degraded" if snapshot.degraded or snapshot.contradicted else "ok"
+        if not durability_confirmed:
+            feedback_status = "degraded"
+        feedback = {"status":feedback_status, "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "publication_status": "durable" if durability_confirmed else "durability_uncertain", "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
         self._feedback["surfaces"]["world_state_evidence_board"] = feedback
         self._feedback["surfaces"]["production_chat_resource_observation"] = dict(self._resource_observation_health)
         self._world_state_snapshot_built_for_tick = tick_key
