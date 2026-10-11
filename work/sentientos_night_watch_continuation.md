@@ -884,3 +884,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for `sentientos/chat_service.py`. No tests or inference/runtime behavior were executed. This is unverified construction.
 
 **Next implementation dependency:** trace the newly pre-inference predecessor evidence through invocation receipt validation, transcript recovery, and subsequent-turn verification; identify and close any remaining lineage loss without widening retained user memory or changing model authority.
+
+
+## New checkpoint — bind idempotent recovery to software-generation custody
+
+- The pre-inference prior-turn verifier checks the source user turn and any recorded client-request digest before making its software-generation attribution available to prompt assembly.
+- The interrupted-request recovery path now compares the assistant transcript's stored software-generation attribution with the exact invocation receipt's recovered attribution, accepting the existing compact representation and historical records where the field was absent. A conflicting present attribution cannot be returned as verified idempotent response state.
+- This does not replay inference or retention work, and it does not promote the transcript into canonical retained user memory.
+- `python -m py_compile` passed for `sentientos/chat_service.py`. No behavioral tests or invocation were run.
+
+**Next implementation dependency:** inspect conversation transcript publication/recovery for atomicity between completed invocation receipts and assistant-turn persistence. Preserve the no-replay contract when the invocation completed but transcript publication was interrupted.

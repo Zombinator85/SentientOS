@@ -158,9 +158,20 @@ class PersistentConversationService:
                 raise ChatRequestStateError("chat_request_response_receipt_unavailable") from exc
             active_identity = linkage.get("active_model_identity")
             loaded_identity = linkage.get("loaded_model_identity")
+            stored_runtime_lineage = linkage.get("software_generation_attribution")
+            observed_runtime_lineage = verified.get("software_generation_attribution")
+            runtime_lineage_matches = (
+                stored_runtime_lineage is None
+                or (isinstance(stored_runtime_lineage, Mapping)
+                    and isinstance(observed_runtime_lineage, Mapping)
+                    and (dict(observed_runtime_lineage) == dict(stored_runtime_lineage)
+                        or compact_runtime_generation_attribution(observed_runtime_lineage)
+                            == dict(stored_runtime_lineage)))
+            )
             if (not isinstance(active_identity, Mapping) or not isinstance(loaded_identity, Mapping)
                     or dict(verified.get("serving_identity", {})) != dict(active_identity)
                     or dict(verified.get("loaded_model_identity", {})) != dict(loaded_identity)
+                    or not runtime_lineage_matches
                     or (linkage.get("assistant_output_lineage") is not None
                         and dict(verified.get("assistant_output_lineage", {}))
                             != dict(linkage["assistant_output_lineage"]))):
