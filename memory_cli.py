@@ -22,17 +22,11 @@ from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 import presence_analytics as pa
 import ritual
 def _read_legacy_memory_entries() -> list[dict[str, Any]]:
-    """Read bounded legacy fragments through memory_manager's shared custody owner."""
+    """Read legacy fragments through the shared identity-validating owner."""
     entries: list[dict[str, Any]] = []
     for path in mm._legacy_fragment_paths():
-        try:
-            raw = mm._read_legacy_raw_fragment(path.name)
-            if raw is None:
-                continue
-            value = json.loads(raw.decode("utf-8"))
-        except (UnicodeError, json.JSONDecodeError):
-            continue
-        if isinstance(value, dict):
+        value = mm._load_fragment(path.stem)
+        if value is not None:
             entries.append(value)
     return entries
 
