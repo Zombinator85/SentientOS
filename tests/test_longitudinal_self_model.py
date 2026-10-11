@@ -452,3 +452,35 @@ def test_concurrent_self_model_writers_preserve_generation_predecessors(tmp_path
     assert [item.generation for item in history] == [1, 2]
     assert history[1].previous_reconciliation_id == history[0].reconciliation_id
     assert len({item.snapshot_id for item in history}) == 2
+
+
+def test_parent_lifecycle_lineage_is_retained_as_non_authoritative_history(tmp_path: Path) -> None:
+    lineage = {
+        "parent_process_instance_id": "sha256:" + "a" * 64,
+        "resident_config_digest": "sha256:" + "b" * 64,
+        "child_spec_digest": "sha256:" + "c" * 64,
+        "launch_receipt_digest": "sha256:" + "d" * 64,
+        "generation_digest": "generation-proposed",
+        "generation_posture": "launch_provenance_not_live_runtime_attestation",
+        "current_truth": False, "authority": False, "effect_proven": False,
+    }
+    source = record(source="resident-parent:fixture", subject="parent-instance",
+        extra={"parent_lifecycle_lineage": lineage})
+    source["source_kind"] = "runtime_supervisor"
+    source["subject_kind"] = "resident_parent_lifecycle_history"
+    world = snapshot(source)
+    result = LongitudinalSelfModelOwner(tmp_path / "self-model").reconcile(
+        world, tick_id="tick-parent-lifecycle")
+    claim = next(item for item in result.claims
+        if item.predicate == "resident_parent_lifecycle_lineage")
+    assert claim.value == lineage
+    assert claim.category == "historical_interpretation"
+    assert claim.current_truth is False
+    assert claim.status == "historical"
+    assert claim.freshness == "unknown"
+    assert claim.authority == {
+        "decision_authority": False, "admission_authority": False,
+        "execution_authority": False, "adoption_authority": False,
+        "policy_authority": False, "goal_authority": False,
+        "source_mutation_authority": False, "model_authorship_authority": False,
+    }

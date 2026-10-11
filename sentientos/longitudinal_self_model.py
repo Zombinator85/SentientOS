@@ -46,6 +46,7 @@ FORBIDDEN_PREDICATES = {
 PAYLOAD_PREDICATES = {
     "software_generation": ("software_generation", "runtime_generation"),
     "chat_process_generation_attribution": ("verified_chat_process_generation_attributions",),
+    "resident_parent_lifecycle_lineage": ("parent_lifecycle_lineage",),
     "chat_model_serving_lineage": ("chat_model_serving_lineage",),
     "cognitive_model_identity": ("cognitive_model_id", "serving_model", "model_id"),
     "declared_repository_generation_identity": ("declared_repository_generation_identity",),
@@ -313,6 +314,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 "software_generation_transition_history_retention",
                 "chat_process_recovery_transition",
                 "chat_process_runtime_generation_observation",
+                "resident_parent_lifecycle_history",
                 "observed_running_software_generation",
                 "serving_operation_attempt", "serving_operation_history"})
         or (fact.source.kind == "resource_governor"
@@ -344,8 +346,13 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             continue
         for key in keys:
             if key in fact.payload:
-                out.append((predicate, _bounded(fact.payload[key]), "lineage"
-                    if any(token in predicate for token in ("generation", "model", "resource", "transition", "activation"))
+                out.append((predicate, _bounded(fact.payload[key]),
+                    "historical_interpretation"
+                    if (fact.source.kind == "runtime_supervisor"
+                        and fact.subject.subject_kind == "resident_parent_lifecycle_history")
+                    else "lineage"
+                    if any(token in predicate for token in (
+                        "generation", "model", "resource", "transition", "activation"))
                     else "configuration"))
                 break
     if compact_chat_invocation:

@@ -218,6 +218,57 @@ def _runtime_history_projection(fact: Mapping[str, Any]) -> dict[str, Any] | Non
             "historical_only": True, "current_truth": False, "authority": False,
             "effect_proven": False,
         }
+    elif kind == "resident_parent_lifecycle_history":
+        if source.get("kind") != "runtime_supervisor":
+            return None
+        receipts = original.get("lifecycle_receipts", ())
+        if (not isinstance(receipts, (list, tuple)) or len(receipts) > 8
+                or any(not isinstance(item, Mapping) for item in receipts)):
+            return None
+        selected_receipts = []
+        for item in receipts:
+            selected = {key: item.get(key) for key in (
+                "sequence", "timestamp", "event", "receipt_digest", "child_pid",
+                "generation_digest", "launch_provenance_digest", "readiness_basis",
+                "reason", "presence")}
+            if (type(selected["sequence"]) is not int
+                    or not isinstance(selected["timestamp"], str)
+                    or not isinstance(selected["event"], str)
+                    or not isinstance(selected["receipt_digest"], str)):
+                return None
+            selected_receipts.append(selected)
+        summary = {
+            "schema_version": original.get("schema_version"),
+            "commissioning_status": original.get("commissioning_status"),
+            "resident_config_digest": original.get("resident_config_digest"),
+            "child_spec_digest": original.get("child_spec_digest"),
+            "parent_process_instance_id": original.get("parent_process_instance_id"),
+            "parent_process_observation_digest": original.get("parent_process_observation_digest"),
+            "parent_pid": original.get("parent_pid"), "child_pid": original.get("child_pid"),
+            "parent_process_started_at": original.get("parent_process_started_at"),
+            "process_relation_posture": original.get("process_relation_posture"),
+            "source_observation_time_posture": original.get("source_observation_time_posture"),
+            "parent_lifecycle_lineage": (
+                dict(original["parent_lifecycle_lineage"])
+                if isinstance(original.get("parent_lifecycle_lineage"), Mapping) else None),
+            "launch_receipt_digest": original.get("launch_receipt_digest"),
+            "journal_sequence": original.get("journal_sequence"),
+            "journal_head_digest": original.get("journal_head_digest"),
+            "lifecycle_receipts": selected_receipts,
+            "lifecycle_receipts_digest": original.get("lifecycle_receipts_digest"),
+            "lifecycle_receipts_omitted": original.get("lifecycle_receipts_omitted"),
+            "projection_posture": original.get("projection_posture"),
+            "latest_event": original.get("latest_event"),
+            "event_time": original.get("event_time"),
+            "event_time_posture": original.get("event_time_posture"),
+            "generation_digest": original.get("generation_digest"),
+            "generation_posture": original.get("generation_posture"),
+            "launch_provenance_digest": original.get("launch_provenance_digest"),
+            "maintenance_status_claim": original.get("maintenance_status_claim"),
+            "freshness": "unknown", "current_running_generation_proven": False,
+            "historical_only": True, "current_truth": False, "authority": False,
+            "effect_authority": False, "effect_proven": False,
+        }
     elif kind == "serving_operation_history":
         summary = {
             "serving_history_status": original.get("serving_history_status"),
@@ -1102,6 +1153,7 @@ class ResidentDevelopmentalWritebackController:
                                             and subject.get("subject_kind") in {
                                                 "chat_process_runtime_generation_observation",
                                                 "chat_process_recovery_transition",
+                                                "resident_parent_lifecycle_history",
                                                 "serving_operation_history"})
                                         or (source.get("kind") == "resource_governor"
                                             and subject.get("subject_kind")

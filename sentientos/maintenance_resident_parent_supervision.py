@@ -80,6 +80,282 @@ def _valid_parent_process_observation(value: object) -> bool:
     return started.tzinfo is not None and started.utcoffset() is not None
 
 
+def _build_exact_child_environment(
+    config: Mapping[str, Any], source_environment: Mapping[str, str],
+    commissioned_config_path: Path | None,
+) -> dict[str, str]:
+    env = {key: source_environment[key] for key in config["inherited_environment_allowlist"]
+        if key in source_environment}
+    env.update(config["required_environment"])
+    env.pop("PYTHONPATH", None)
+    env.pop("PYTHONHOME", None)
+    env.pop(resident.TRANSITION_ENV, None)
+    env.pop(PARENT_CONFIG_PATH_ENV, None)
+    if commissioned_config_path is not None:
+        env[PARENT_CONFIG_PATH_ENV] = str(commissioned_config_path)
+    return env
+
+
+def _resident_child_spec(config: Mapping[str, Any], environment: Mapping[str, str]) -> dict[str, Any]:
+    argv = [str(config["python_executable"]), "-m", "sentientosd"]
+    return {"service_id": SERVICE_ID, "executable": argv[0], "argv": argv,
+        "cwd": str(config["working_directory"]), "environment": dict(environment),
+        "resident_config_digest": config["config_digest"]}
+
+
+def _parse_parent_receipt_journal(raw: bytes, expected_spec_digest: str) -> list[dict[str, Any]]:
+    if raw and not raw.endswith(b"\\n"):
+        raise ValueError("parent_receipt_journal_truncated")
+    lines = raw.split(b"\\n")[:-1] if raw else []
+    if len(lines) > MAX_PARENT_RECEIPT_ROWS:
+        raise ValueError("parent_receipt_journal_retention_limit_exceeded")
+    rows: list[dict[str, Any]] = []
+    known_process_instances: set[str] = set()
+    for index, line in enumerate(lines, start=1):
+        if not line or len(line) > MAX_PARENT_RECEIPT_LINE_BYTES:
+            raise ValueError("parent_receipt_journal_record_invalid")
+        row = json.loads(line.decode("utf-8"))
+        if not isinstance(row, dict):
+            raise ValueError("parent_receipt_journal_record_invalid")
+        claimed = row.pop("receipt_digest", None)
+        if (set(row) != {"schema_version", "sequence", "timestamp", "event",
+                "child_spec_digest", "detail"}
+                or row["schema_version"] != RECEIPT_SCHEMA
+                or type(row["sequence"]) is not int or row["sequence"] != index
+                or row["child_spec_digest"] != expected_spec_digest
+                or not isinstance(row["event"], str) or not row["event"] or len(row["event"]) > 128
+                or not _valid_aware_timestamp(row["timestamp"])
+                or not isinstance(row["detail"], dict)
+                or _digest(row) != claimed):
+            raise ValueError("parent_receipt_journal_binding_invalid")
+        detail = row["detail"]
+        attribution_schema = detail.get("parent_process_identity_schema")
+        if ("parent_process_identity_schema" in detail
+                and (attribution_schema != "sentientos.parent_process_attribution:v1"
+                    or "parent_process_instance_id" not in detail)):
+            raise ValueError("parent_process_attribution_schema_invalid")
+        if "parent_process_instance_id" in detail:
+            process_instance_id = detail["parent_process_instance_id"]
+            if (not isinstance(process_instance_id, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", process_instance_id) is None):
+                raise ValueError("parent_process_instance_identity_invalid")
+            observation = detail.get("parent_process_observation")
+            if row["event"] == "parent_startup":
+                if (not _valid_parent_process_observation(observation)
+                        or _digest(observation) != process_instance_id
+                        or process_instance_id in known_process_instances):
+                    raise ValueError("parent_process_startup_observation_invalid")
+                known_process_instances.add(process_instance_id)
+            elif (process_instance_id not in known_process_instances or observation is not None):
+                raise ValueError("parent_process_event_lineage_invalid")
+        row["receipt_digest"] = claimed
+        if _canonical(row) != line:
+            raise ValueError("parent_receipt_journal_noncanonical")
+        rows.append(row)
+    return rows
+
+
+def _validate_parent_state_snapshot(raw: bytes, *, expected_spec_digest: str,
+                                    expected_config_digest: str,
+                                    rows: list[dict[str, Any]]) -> dict[str, Any]:
+    if not raw.endswith(b"\\n"):
+        raise ValueError("parent_state_noncanonical")
+    value = json.loads(raw[:-1].decode("utf-8"))
+    legacy_fields = {"schema_version", "child_spec_digest", "sequence", "restart_history",
+        "panic_latched", "shutdown_latched", "restart_budget_exhausted", "status",
+        "generation_digest", "launch"}
+    current_fields = legacy_fields | {"receipt_head_digest", "state_digest"}
+    if (not isinstance(value, dict) or set(value) not in (legacy_fields, current_fields)
+            or _canonical(value) + b"\\n" != raw
+            or value["schema_version"] != STATE_SCHEMA
+            or value["child_spec_digest"] != expected_spec_digest):
+        raise ValueError("parent_state_binding_mismatch")
+    if set(value) == current_fields:
+        body = {key: item for key, item in value.items() if key != "state_digest"}
+        expected_head = rows[-1]["receipt_digest"] if rows else None
+        if value["state_digest"] != _digest(body) or value["receipt_head_digest"] != expected_head:
+            raise ValueError("parent_state_digest_or_receipt_head_mismatch")
+    if (type(value["sequence"]) is not int or value["sequence"] != len(rows)
+            or not isinstance(value["restart_history"], list)
+            or len(value["restart_history"]) > MAX_PARENT_RESTART_HISTORY
+            or any(type(item) not in (int, float) or not math.isfinite(item)
+                   for item in value["restart_history"])
+            or any(type(value[key]) is not bool for key in
+                ("panic_latched", "shutdown_latched", "restart_budget_exhausted"))
+            or not isinstance(value["status"], str) or not value["status"]
+            or len(value["status"]) > 128):
+        raise ValueError("parent_state_shape_invalid")
+    generation_digest = value["generation_digest"]
+    launch = value["launch"]
+    if generation_digest is not None and not isinstance(generation_digest, str):
+        raise ValueError("parent_generation_identity_invalid")
+    if launch is not None:
+        launch_fields = {"child_spec_digest", "config_digest", "lineage_id",
+            "generation_digest", "pid", "launched_at", "launch_provenance_digest"}
+        body = {key: item for key, item in launch.items()
+            if key != "launch_provenance_digest"} if isinstance(launch, dict) else {}
+        if (not isinstance(launch, dict) or set(launch) != launch_fields
+                or launch["child_spec_digest"] != expected_spec_digest
+                or launch["config_digest"] != expected_config_digest
+                or not isinstance(launch["lineage_id"], str) or not launch["lineage_id"]
+                or not isinstance(launch["generation_digest"], str) or not launch["generation_digest"]
+                or type(launch["pid"]) is not int or launch["pid"] < 1
+                or type(launch["launched_at"]) not in (int, float)
+                or not math.isfinite(launch["launched_at"])
+                or launch["launch_provenance_digest"] != _digest(body)
+                or launch["generation_digest"] != generation_digest):
+            raise ValueError("parent_launch_provenance_invalid")
+    return value
+
+
+class ResidentParentLifecycleEvidenceReader:
+    """Read commissioned parent lifecycle history without owning or controlling it."""
+
+    def __init__(self, commissioned_config_path: Path, *,
+                 parent_pid: Callable[[], int] = os.getppid,
+                 child_pid: Callable[[], int] = os.getpid) -> None:
+        path = Path(commissioned_config_path)
+        if not path.is_absolute():
+            raise ValueError("parent_observation_config_path_must_be_absolute")
+        self.config_path = path
+        self._parent_pid = parent_pid
+        self._child_pid = child_pid
+
+    def world_state_records(self, *, observed_at: str) -> list[dict[str, Any]]:
+        if not _valid_aware_timestamp(observed_at):
+            raise ValueError("parent_observation_time_invalid")
+        from sentientos import maintenance_initial_posix_resident_commissioning as commissioning
+
+        verified = commissioning.verify_commissioned_resident_config(self.config_path)
+        config = resident.validate_config(verified["resident_config"])
+        if not config["enabled"]:
+            raise ValueError("parent_observation_supervision_disabled")
+        config_path = self.config_path.resolve(strict=True)
+        environment = _build_exact_child_environment(config, os.environ, config_path)
+        child_spec_digest = _digest(_resident_child_spec(config, environment))
+        expected_parent_pid = self._parent_pid()
+        expected_child_pid = self._child_pid()
+        if (type(expected_parent_pid) is not int or expected_parent_pid < 1
+                or type(expected_child_pid) is not int or expected_child_pid < 1):
+            raise ValueError("parent_observation_pid_invalid")
+        root = Path(config["state_root"]) / "parent-supervision"
+        directory_fd = open_private_directory(root, create=False)
+        try:
+            journal_bytes = read_private_file_at(directory_fd, "parent-receipts.jsonl",
+                max_bytes=MAX_PARENT_RECEIPT_BYTES, require_private_mode=True)
+            state_bytes = read_private_file_at(directory_fd, "parent-state.json",
+                max_bytes=MAX_PARENT_STATE_BYTES, require_private_mode=True)
+        finally:
+            os.close(directory_fd)
+        rows = _parse_parent_receipt_journal(journal_bytes, child_spec_digest)
+        state = _validate_parent_state_snapshot(
+            state_bytes, expected_spec_digest=child_spec_digest,
+            expected_config_digest=config["config_digest"], rows=rows)
+        startup_rows = [row for row in rows if row["event"] == "parent_startup"]
+        if not startup_rows:
+            raise ValueError("parent_observation_startup_receipt_missing")
+        startup = startup_rows[-1]
+        parent_observation = startup["detail"]["parent_process_observation"]
+        parent_instance_id = startup["detail"]["parent_process_instance_id"]
+        if parent_observation["process_id"] != expected_parent_pid:
+            raise ValueError("parent_observation_process_relation_unverified")
+        selected = [row for row in rows
+            if row["detail"].get("parent_process_instance_id") == parent_instance_id]
+        active_launch = state.get("launch")
+        if not isinstance(active_launch, Mapping) or active_launch.get("pid") != expected_child_pid:
+            raise ValueError("parent_observation_child_launch_unverified")
+        launch_fields = {"child_spec_digest", "config_digest", "lineage_id",
+            "generation_digest", "pid", "launched_at", "launch_provenance_digest"}
+        launch_receipts = [row for row in selected
+            if row["event"] == "launch_provenance_verified"
+            and {key: row["detail"].get(key) for key in launch_fields} == dict(active_launch)]
+        if len(launch_receipts) != 1:
+            raise ValueError("parent_observation_launch_receipt_unverified")
+        launch_receipt = launch_receipts[0]
+        compact_receipts = []
+        for row in selected[-8:]:
+            detail = row["detail"]
+            launch_detail = detail.get("launch")
+            launch_detail = launch_detail if isinstance(launch_detail, Mapping) else {}
+            compact_receipts.append({
+                "sequence": row["sequence"], "timestamp": row["timestamp"],
+                "event": row["event"], "receipt_digest": row["receipt_digest"],
+                "child_pid": detail.get("pid", launch_detail.get("pid")),
+                "generation_digest": detail.get("generation_digest", launch_detail.get("generation_digest")),
+                "launch_provenance_digest": detail.get(
+                    "launch_provenance_digest", launch_detail.get("launch_provenance_digest")),
+                "readiness_basis": detail.get("readiness_basis"),
+                "reason": detail.get("reason"), "presence": detail.get("presence"),
+            })
+        latest = selected[-1] if selected else startup
+        launch = dict(active_launch)
+        payload = {
+            "schema_version": "sentientos.parent_lifecycle_observation:v1",
+            "commissioning_status": verified["status"],
+            "resident_config_digest": config["config_digest"],
+            "child_spec_digest": child_spec_digest,
+            "parent_process_instance_id": parent_instance_id,
+            "parent_process_observation_digest": _digest(parent_observation),
+            "parent_pid": expected_parent_pid,
+            "child_pid": expected_child_pid,
+            "parent_process_started_at": parent_observation["observed_at"],
+            "process_relation_posture": "commissioned_parent_pid_and_child_launch_pid_match_pid_reuse_not_excluded",
+            "launch_receipt_digest": launch_receipt["receipt_digest"],
+            "source_observation_time_posture": "parent_startup_time_not_reconstruction_time",
+            "parent_lifecycle_lineage": {
+                "parent_process_instance_id": parent_instance_id,
+                "parent_process_observation_digest": _digest(parent_observation),
+                "resident_config_digest": config["config_digest"],
+                "child_spec_digest": child_spec_digest,
+                "parent_pid": expected_parent_pid, "child_pid": expected_child_pid,
+                "launch_receipt_digest": launch_receipt["receipt_digest"],
+                "launch_provenance_digest": launch.get("launch_provenance_digest"),
+                "generation_digest": launch.get("generation_digest"),
+                "journal_sequence": state["sequence"],
+                "journal_head_digest": state.get("receipt_head_digest",
+                    rows[-1]["receipt_digest"] if rows else None),
+                "lifecycle_receipts_digest": _digest([row["receipt_digest"] for row in selected]),
+                "lifecycle_receipts_omitted": max(0, len(selected) - len(compact_receipts)),
+                "generation_posture": "launch_provenance_not_live_runtime_attestation",
+                "process_relation_posture":
+                    "commissioned_parent_pid_and_child_launch_pid_match_pid_reuse_not_excluded",
+                "event_time": latest["timestamp"],
+                "event_time_posture": "verified_historical_receipt_time",
+                "historical_only": True, "current_truth": False,
+                "authority": False, "effect_proven": False,
+            },
+            "journal_sequence": state["sequence"],
+            "journal_head_digest": state.get("receipt_head_digest",
+                rows[-1]["receipt_digest"] if rows else None),
+            "lifecycle_receipts": compact_receipts,
+            "lifecycle_receipts_digest": _digest([row["receipt_digest"] for row in selected]),
+            "lifecycle_receipts_omitted": max(0, len(selected) - len(compact_receipts)),
+            "projection_posture": "complete" if len(selected) <= len(compact_receipts)
+                else "bounded_history_incomplete",
+            "latest_event": latest["event"],
+            "event_time": latest["timestamp"],
+            "event_time_posture": "verified_historical_receipt_time",
+            "generation_digest": launch.get("generation_digest"),
+            "generation_posture": "launch_provenance_not_live_runtime_attestation",
+            "launch_provenance_digest": launch.get("launch_provenance_digest"),
+            "maintenance_status_claim": state["status"],
+            "freshness": "unknown",
+            "current_running_generation_proven": False,
+            "historical_only": True, "current_truth": False,
+            "effect_authority": False, "effect_proven": False,
+        }
+        payload["source_record_digest"] = _digest(payload)
+        return [{
+            "source_kind": "runtime_supervisor",
+            "source_id": "resident-parent:" + parent_instance_id.removeprefix("sha256:"),
+            "subject_id": parent_instance_id,
+            "subject_kind": "resident_parent_lifecycle_history",
+            "stage": "observation", "disposition": "recorded",
+            "observed_at": parent_observation["observed_at"],
+            "staleness": "unknown", "payload": payload,
+        }]
+
+
 def _verify_parent_invocation_origin(config: Mapping[str, Any], *, executable: Path,
                                      working_directory: Path, module_path: Path) -> None:
     """Require the parent itself to run from the commissioned repo/runtime paths."""
@@ -141,10 +417,8 @@ class MaintenanceResidentParentSupervisor:
             Path(commissioned_config_path).resolve(strict=True)
             if commissioned_config_path is not None else None)
         self._environment = self._exact_environment()
-        self._argv = (self.config["python_executable"], "-m", "sentientosd")
-        self._spec = {"service_id": SERVICE_ID, "executable": self._argv[0], "argv": list(self._argv),
-            "cwd": self.config["working_directory"], "environment": self._environment,
-            "resident_config_digest": self.config["config_digest"]}
+        self._spec = _resident_child_spec(self.config, self._environment)
+        self._argv = tuple(self._spec["argv"])
         self._spec_digest = _digest(self._spec)
         self._adapter = adapter_factory(name=SERVICE_ID, argv=self._argv,
             cwd=Path(self.config["working_directory"]), environment=self._environment)
@@ -212,13 +486,8 @@ class MaintenanceResidentParentSupervisor:
             os.close(root_fd)
 
     def _exact_environment(self) -> dict[str, str]:
-        env = {key: os.environ[key] for key in self.config["inherited_environment_allowlist"] if key in os.environ}
-        env.update(self.config["required_environment"])
-        env.pop("PYTHONPATH", None); env.pop("PYTHONHOME", None); env.pop(resident.TRANSITION_ENV, None)
-        env.pop(PARENT_CONFIG_PATH_ENV, None)
-        if self._commissioned_config_path is not None:
-            env[PARENT_CONFIG_PATH_ENV] = str(self._commissioned_config_path)
-        return env
+        return _build_exact_child_environment(
+            self.config, os.environ, self._commissioned_config_path)
 
     def _atomic(self, value: Mapping[str, Any]) -> None:
         directory_fd = self._owner_root_fd
@@ -280,57 +549,10 @@ class MaintenanceResidentParentSupervisor:
                 max_bytes=MAX_PARENT_RECEIPT_BYTES, require_private_mode=True)
         except PrivateFileCustodyError as exc:
             if exc.code == "file_missing":
-                return []
-            raise ValueError("parent_receipt_journal_custody_invalid") from exc
-        if raw and not raw.endswith(b"\n"):
-            raise ValueError("parent_receipt_journal_truncated")
-        lines = raw.split(b"\n")[:-1] if raw else []
-        if len(lines) > MAX_PARENT_RECEIPT_ROWS:
-            raise ValueError("parent_receipt_journal_retention_limit_exceeded")
-        rows: list[dict[str, Any]] = []
-        known_process_instances: set[str] = set()
-        for index, line in enumerate(lines, start=1):
-            if not line or len(line) > MAX_PARENT_RECEIPT_LINE_BYTES:
-                raise ValueError("parent_receipt_journal_record_invalid")
-            row = json.loads(line.decode("utf-8"))
-            if not isinstance(row, dict):
-                raise ValueError("parent_receipt_journal_record_invalid")
-            claimed = row.pop("receipt_digest", None)
-            if (set(row) != {"schema_version", "sequence", "timestamp", "event",
-                    "child_spec_digest", "detail"}
-                    or row["schema_version"] != RECEIPT_SCHEMA
-                    or type(row["sequence"]) is not int or row["sequence"] != index
-                    or row["child_spec_digest"] != self._spec_digest
-                    or not isinstance(row["event"], str) or not row["event"] or len(row["event"]) > 128
-                    or not _valid_aware_timestamp(row["timestamp"])
-                    or not isinstance(row["detail"], dict)
-                    or _digest(row) != claimed):
-                raise ValueError("parent_receipt_journal_binding_invalid")
-            detail = row["detail"]
-            attribution_schema = detail.get("parent_process_identity_schema")
-            if ("parent_process_identity_schema" in detail
-                    and (attribution_schema != "sentientos.parent_process_attribution:v1"
-                        or "parent_process_instance_id" not in detail)):
-                raise ValueError("parent_process_attribution_schema_invalid")
-            if "parent_process_instance_id" in detail:
-                process_instance_id = detail["parent_process_instance_id"]
-                if (not isinstance(process_instance_id, str)
-                        or re.fullmatch(r"sha256:[0-9a-f]{64}", process_instance_id) is None):
-                    raise ValueError("parent_process_instance_identity_invalid")
-                observation = detail.get("parent_process_observation")
-                if row["event"] == "parent_startup":
-                    if (not _valid_parent_process_observation(observation)
-                            or _digest(observation) != process_instance_id
-                            or process_instance_id in known_process_instances):
-                        raise ValueError("parent_process_startup_observation_invalid")
-                    known_process_instances.add(process_instance_id)
-                elif (process_instance_id not in known_process_instances
-                        or observation is not None):
-                    raise ValueError("parent_process_event_lineage_invalid")
-            row["receipt_digest"] = claimed
-            if _canonical(row) != line:
-                raise ValueError("parent_receipt_journal_noncanonical")
-            rows.append(row)
+                raw = b""
+            else:
+                raise ValueError("parent_receipt_journal_custody_invalid") from exc
+        rows = _parse_parent_receipt_journal(raw, self._spec_digest)
         self._receipt_count = len(rows)
         self._receipt_bytes = len(raw)
         self._receipt_head_digest = rows[-1]["receipt_digest"] if rows else None
@@ -840,8 +1062,8 @@ class MaintenanceResidentParentSupervisor:
             "readiness_basis": self._readiness_basis}
 
 
-__all__ = ["MaintenanceResidentParentSupervisor", "STATE_SCHEMA", "RECEIPT_SCHEMA", "SERVICE_ID",
-    "PARENT_CONFIG_PATH_ENV", "main"]
+__all__ = ["MaintenanceResidentParentSupervisor", "ResidentParentLifecycleEvidenceReader",
+    "STATE_SCHEMA", "RECEIPT_SCHEMA", "SERVICE_ID", "PARENT_CONFIG_PATH_ENV", "main"]
 
 
 def main(argv: list[str] | None = None) -> int:

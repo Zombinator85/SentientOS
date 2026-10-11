@@ -413,3 +413,37 @@ def test_introspection_provenance_survives_epistemic_receipt_recovery(tmp_path):
         if item.admission_id == evidence_admission.admission_id)
     assert json.loads(recovered_evidence_admission.provenance)[
         "causal_introspection_snapshot_lineage"] == expected_lineage
+
+
+def test_parent_lifecycle_receipt_time_stays_historical_context(tmp_path):
+    owner, proposition, ledger, runtime = fixture(tmp_path)
+    event_time = "2026-09-20T09:30:00+00:00"
+    parent_payload = {
+        "schema_version": "sentientos.parent_lifecycle_observation:v1",
+        "event_time": event_time,
+        "event_time_posture": "verified_historical_receipt_time",
+        "freshness": "unknown",
+        "historical_only": True,
+        "current_truth": False,
+        "effect_authority": False,
+        "effect_proven": False,
+        "current_running_generation_proven": False,
+    }
+    world = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([{
+            "source_kind": "runtime_supervisor",
+            "source_id": "resident-parent:fixture",
+            "subject_id": "service-a",
+            "subject_kind": "resident_parent_lifecycle_history",
+            "stage": "observation",
+            "disposition": "nominal",
+            "observed_at": NOW,
+            "staleness": "unknown",
+            "payload": parent_payload,
+        }])
+    proof, binding = runtime._adapt(world, world.facts[0], runtime.config.rules[0])
+    assert proof.recorded_at == event_time
+    assert binding.observation_time == event_time
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.freshness == "unknown"

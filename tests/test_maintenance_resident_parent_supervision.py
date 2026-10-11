@@ -6,7 +6,9 @@ from typing import Any
 import pytest
 
 from sentientos import maintenance_resident_runtime_adoption as resident
-from sentientos.maintenance_resident_parent_supervision import MaintenanceResidentParentSupervisor
+from sentientos.maintenance_resident_parent_supervision import (
+    MaintenanceResidentParentSupervisor, ResidentParentLifecycleEvidenceReader,
+)
 from sentientos.runtime.services import HealthResult
 from tests.test_maintenance_resident_runtime_adoption import _fixture, _journal_prefix
 
@@ -503,3 +505,75 @@ def test_current_receipt_cannot_drop_its_process_identity_field(tmp_path: Path) 
     path.write_bytes(module._canonical(row) + b"\n")
     with pytest.raises(ValueError, match="parent_process_attribution_schema_invalid"):
         controller._read_receipt_journal()
+
+
+def _commissioned_parent_fixture(tmp_path: Path) -> tuple[dict[str, Any], Path]:
+    from tests.test_maintenance_initial_posix_resident_commissioning import (
+        NOW, Kernel as CommissioningKernel, approval, fixture, launch, commissioning,
+    )
+
+    manifest = fixture(tmp_path)
+    intent = commissioning.prepare_intent(manifest)
+    commissioned = commissioning.commission(
+        manifest, approval(intent), kernel=CommissioningKernel(),
+        correlation_id="parent-lifecycle-observation", clock=lambda: NOW,
+        launch_runner=launch,
+        allow_synthetic_approval_for_tests=True,
+    )
+    assert commissioned["status"] == "initial_resident_commissioned"
+    config_path = Path(str(manifest["custody_root"])) / "resident-adoption.json"
+    verified = commissioning.verify_commissioned_resident_config(config_path)
+    return verified["resident_config"], config_path
+
+
+def test_parent_lifecycle_observation_binds_actual_parent_and_child_pid_receipts(
+        tmp_path: Path) -> None:
+    if os.name != "posix":
+        pytest.skip("commissioned parent lifecycle custody requires POSIX")
+    from sentientos import maintenance_resident_parent_supervision as parent
+
+    cfg, config_path = _commissioned_parent_fixture(tmp_path)
+    factory = Factory()
+    supervisor = MaintenanceResidentParentSupervisor(
+        cfg, state_root=Path(cfg["state_root"]) / "parent-supervision",
+        adapter_factory=factory, commissioned_config_path=config_path)
+    # This adapter fixture writes a real, digest-bound parent launch receipt
+    # while the injected process-ID readers identify this test process.
+    factory.children[-1].pid = os.getpid() - 1
+    supervisor.start()
+    reader = ResidentParentLifecycleEvidenceReader(
+        config_path, parent_pid=os.getpid, child_pid=os.getpid)
+    records = reader.world_state_records(observed_at="2030-01-02T00:00:01Z")
+    assert len(records) == 1
+    record = records[0]
+    assert record["subject_kind"] == "resident_parent_lifecycle_history"
+    assert record["observed_at"] == record["payload"]["parent_process_started_at"]
+    assert record["staleness"] == "unknown"
+    assert record["payload"]["child_pid"] == os.getpid()
+    assert record["payload"]["launch_receipt_digest"]
+    assert record["payload"]["event_time_posture"] == "verified_historical_receipt_time"
+    assert record["payload"]["current_running_generation_proven"] is False
+    assert record["payload"]["effect_authority"] is False
+    _simulate_parent_process_exit(supervisor)
+
+
+def test_parent_lifecycle_observation_rejects_unmatched_process_relationship(
+        tmp_path: Path) -> None:
+    if os.name != "posix":
+        pytest.skip("commissioned parent lifecycle custody requires POSIX")
+    cfg, config_path = _commissioned_parent_fixture(tmp_path)
+    factory = Factory()
+    supervisor = MaintenanceResidentParentSupervisor(
+        cfg, state_root=Path(cfg["state_root"]) / "parent-supervision",
+        adapter_factory=factory, commissioned_config_path=config_path)
+    factory.children[-1].pid = os.getpid() - 1
+    supervisor.start()
+    reader = ResidentParentLifecycleEvidenceReader(
+        config_path, parent_pid=lambda: os.getpid() + 1, child_pid=os.getpid)
+    with pytest.raises(ValueError, match="parent_observation_process_relation_unverified"):
+        reader.world_state_records(observed_at="2030-01-02T00:00:01Z")
+    reader = ResidentParentLifecycleEvidenceReader(
+        config_path, parent_pid=os.getpid, child_pid=lambda: os.getpid() + 1)
+    with pytest.raises(ValueError, match="parent_observation_child_launch_unverified"):
+        reader.world_state_records(observed_at="2030-01-02T00:00:01Z")
+    _simulate_parent_process_exit(supervisor)

@@ -232,6 +232,9 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
                 "software_generation_transition_history_retention"}
             and isinstance(fact.payload, Mapping))
+        historical_parent_lifecycle = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "resident_parent_lifecycle_history")
         historical_chat_recovery_event = (
             fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind == "chat_process_recovery_transition"
@@ -364,6 +367,7 @@ class ResidentEpistemicDevelopmentRuntime:
         unverified_source_context = (historical_undated_consequence
             or historical_unverified_owner_record
             or historical_chat_recovery_event or historical_chat_runtime_observation
+            or historical_parent_lifecycle
             or historical_introspection_recovery_failure
             or historical_software_launch_observation
             or unverified_current_running_model_observation
@@ -450,7 +454,12 @@ class ResidentEpistemicDevelopmentRuntime:
             observed = (_latest_historical_event_time(raw_times)
                 if all(isinstance(value, str) for value in raw_times) and raw_times else None)
         if fact.source.kind == "runtime_supervisor":
-            if fact.subject.subject_kind == "serving_operation_attempt" and isinstance(fact.payload, Mapping):
+            if fact.subject.subject_kind == "resident_parent_lifecycle_history" and isinstance(fact.payload, Mapping):
+                event_time = fact.payload.get("event_time")
+                observed = (_latest_historical_event_time([event_time])
+                    if fact.payload.get("event_time_posture") == "verified_historical_receipt_time"
+                    and isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind == "serving_operation_attempt" and isinstance(fact.payload, Mapping):
                 attempt = fact.payload.get("serving_operation_attempt")
                 event_time = attempt.get("reserved_at") if isinstance(attempt, Mapping) else None
                 observed = (_latest_historical_event_time([event_time])
@@ -554,6 +563,8 @@ class ResidentEpistemicDevelopmentRuntime:
                 if unverified_current_software_observation
                 else "software_launch_time_not_current_liveness"
                 if historical_software_launch_observation
+                else "parent_lifecycle_receipt_time_not_reconstruction_time"
+                if historical_parent_lifecycle
                 else "runtime_owner_observation_time_not_current_liveness"
                 if historical_chat_runtime_observation else "chat_recovery_phase_time_not_process_liveness_or_inference_time"
                 if historical_chat_recovery_event else "transition_stage_time_not_cognition_event_time"
@@ -585,6 +596,7 @@ class ResidentEpistemicDevelopmentRuntime:
         # healthy source may be represented as current.
         source_staleness = str(fact.source.staleness or "unknown").lower()
         if (not historical_resource_fact and not historical_resource_introspection
+                and not historical_parent_lifecycle
                 and not historical_undated_consequence and not historical_unverified_owner_record
                 and not historical_transition_event and not historical_chat_recovery_event
                 and not historical_chat_runtime_observation
