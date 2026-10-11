@@ -1266,3 +1266,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py`. No memory files or prompts were read and no runtime/tests were performed.
 
 **Next implementation dependency:** inspect selection and context-budget behavior after identity filtering. Ensure an omitted or malformed record cannot silently make the selected-memory list look complete, and then continue to the next causal owner boundary.
+
+
+## New checkpoint — bind bounded memory-selection omissions
+
+- Fresh remote source before this increment: `07513a1564f1a88e975de18425712b1407d5a7b4` (tree `28aacd4a29f0f6fc6a0009e095d0b341514fba21`).
+- Retrieval can complete its bounded directory scan while still omitting matching items due to the item limit or text budget. Previously the response had a successful scan posture and selected IDs, but did not distinguish a complete scan from a complete selection, nor bind omitted candidate identities.
+- The memory snapshot now records separate selection posture/count and binds each omitted ID plus text digest and omission reason into its digest, without storing omitted text in chat linkage. Assistant linkage and normal/recovered response context preserve the same posture/count; older adapters report `unknown_legacy`.
+- Python compilation passed for `canonical_memory.py` and `chat_service.py`. No retrieval, prompt assembly, chat, tests, or production validation was performed.
+
+**Next implementation dependency:** inspect the bounded prompt assembler to verify that its consumed memory set matches the canonical store's selected IDs and digest, and that text-budget clipping cannot silently alter retained memory provenance.

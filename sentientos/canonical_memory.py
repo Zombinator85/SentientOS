@@ -193,16 +193,26 @@ class CanonicalMemoryStore:
         for record in records:
             score=len(terms & set(re.findall(r"[a-z0-9]+",record["text"].lower())))
             if score: ranked.append((score,str(record.get("id","")),record))
-        selected: list[dict[str, Any]]=[]; used=0
+        selected: list[dict[str, Any]]=[]; used=0; omitted=[]
         for _,_,record in sorted(ranked,key=lambda x:(-x[0],x[1])):
-            if len(selected)>=max(0,limit): break
-            if used+len(record["text"])<=budget_chars: selected.append(record); used+=len(record["text"])
+            identity=(record.get("id"),record.get("text_digest") or digest({"text":record["text"]}))
+            if len(selected)>=max(0,limit):
+                omitted.append((identity,"selection_limit"))
+                continue
+            if used+len(record["text"])<=budget_chars:
+                selected.append(record); used+=len(record["text"])
+            else:
+                omitted.append((identity,"character_budget"))
         identities=[(r.get("id"),r.get("text_digest") or digest({"text":r["text"]})) for r in selected]
+        selection_posture = "matching_records_omitted" if omitted else "all_matching_records_selected"
         return {"memories":selected,"selected_memory_ids":[x[0] for x in identities],"read_only":True,
                 "legacy_sidecar_present":legacy_sidecar_present,
                 "legacy_sidecar_posture":legacy_sidecar_posture,
                 "retrieval_posture":retrieval_posture,
+                "selection_posture":selection_posture,
+                "omitted_memory_count":len(omitted),
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
+                    "omitted":omitted,"selection_posture":selection_posture,
                     "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
                     "legacy_sidecar_posture":legacy_sidecar_posture})}
 class AdmittedRetentionWriter:
