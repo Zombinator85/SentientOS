@@ -184,6 +184,11 @@ class CanonicalMemoryStore:
                 posture = "partial_malformed_records"
                 continue
             if isinstance(value, dict) and isinstance(value.get("text"), str):
+                record_id = value.get("id")
+                if (not isinstance(record_id, str) or not record_id
+                        or name != record_id + ".json"):
+                    posture = "partial_record_filename_identity_mismatch"
+                    continue
                 stored_text_digest = value.get("text_digest")
                 if (stored_text_digest is not None
                         and (not isinstance(stored_text_digest, str)
@@ -202,14 +207,14 @@ class CanonicalMemoryStore:
             if not isinstance(record_id, str) or not record_id:
                 unique.append(record)
                 continue
-            text_identity = digest({"text": record["text"]})
+            record_identity = digest(record)
             previous = first_identity.get(record_id)
             if previous is None:
-                first_identity[record_id] = text_identity
+                first_identity[record_id] = record_identity
                 unique.append(record)
             else:
                 duplicate_seen = True
-                if previous != text_identity:
+                if previous != record_identity:
                     conflicting_ids.add(record_id)
         if conflicting_ids:
             unique = [record for record in unique
@@ -755,5 +760,6 @@ class AdmittedRetentionWriter:
         if verification.get("artifact_status") != "verified":
             raise PermissionError("canonical_memory_artifact_reconciliation_failed")
         return receipt
+
 
 
