@@ -572,9 +572,37 @@ class PersistentConversationService:
                 retention_result = self.retention_writer.execute(candidate, admission, user_turn)
                 self.sessions.update_turn_retention(session["session_id"], user_turn["turn_id"], state="retained", receipt=retention_result)
             except Exception as exc:
-                retention_result = {"status": "retention_failed", "reason": str(exc),
-                                    "admission_receipt_digest": admission.receipt_digest}
-                self.sessions.update_turn_retention(session["session_id"], user_turn["turn_id"], state="retention_failed", receipt=retention_result)
+                try:
+                    recovery = self.retention_writer.recover_existing_artifact(
+                        user_turn, session["session_id"])
+                except Exception:
+                    recovery = {
+                        "artifact_status": "unavailable",
+                        "reason_code": "post_error_recovery_unavailable",
+                        "admission_status": "not_independently_recoverable",
+                        "write_replayed": False,
+                    }
+                if (recovery.get("artifact_status") == "verified"
+                        and isinstance(recovery.get("receipt"), Mapping)):
+                    recovered_receipt = dict(recovery.pop("receipt"))
+                    self.sessions.update_turn_retention(
+                        session["session_id"], user_turn["turn_id"],
+                        state="retained", receipt=recovered_receipt)
+                    retention_result = {
+                        "status": ("retained_artifact_completed_from_verified_stage"
+                            if recovery.get("staged_artifact_published") is True
+                            else "retained_artifact_reconciled_after_write_error"),
+                        "recovery_verification": recovery,
+                    }
+                else:
+                    retention_result = {
+                        "status": "retention_failed", "reason": str(exc),
+                        "admission_receipt_digest": admission.receipt_digest,
+                        "recovery_verification": recovery,
+                    }
+                    self.sessions.update_turn_retention(
+                        session["session_id"], user_turn["turn_id"],
+                        state="retention_failed", receipt=retention_result)
         return ChatResponse(response=receipt.output_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
                             context={"conversation_snapshot_digest": history.snapshot_digest,
                                      "memory_snapshot_digest": memory["snapshot_digest"],
@@ -973,5 +1001,6 @@ def run(host: str = "0.0.0.0", port: int = 5000) -> None:
     import uvicorn
 
     uvicorn.run(APP, host=host, port=port)
+
 
 
