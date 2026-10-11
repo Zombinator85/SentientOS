@@ -1375,3 +1375,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `memory_manager.py`. No environment roots or local files were accessed.
 
 **Next implementation dependency:** continue checking path-custody semantics at the shared memory root boundary; preserve explicit user-memory custody without sharing mutable owner assumptions with installation-scoped transcripts or resident development state.
+
+
+## New checkpoint — enforce private canonical user-memory custody
+
+- Fresh remote source before this increment: `2f1dc79cabeb8311cf109db7a83507da4f148431` (tree `818ba762152f83d3bf299220e5e468d85ea36638`).
+- POSIX canonical-memory retrieval accepted group/world-readable raw directories and files. The shared raw-directory opener also changed directory permissions while verifying/recovering retained artifacts, making a nominal read alter custody metadata.
+- POSIX retrieval now rejects raw directories and files with any group/world permissions. Read/recovery no longer chmods the directory; permission repair is restricted to the explicit retention write path, which verifies the held owner directory after tightening it to 0700. Existing legacy artifacts with broader file modes remain unavailable to canonical retrieval until their authorized owner rewrites them safely.
+- Python compilation passed for `sentientos/canonical_memory.py`. No memory directory was opened or changed; no behavioral tests or production verification were performed. The Windows reader still has no native ACL inspection in this owner and is not represented as permission-verified.
+- **Next implementation dependency:** make the legacy `memory_manager.py` raw-fragment writer preserve the same owner-only directory and 0600 file posture, without changing its separate Administrator/Lumos authorization or allowing it to rewrite canonical retained artifacts. Then review its readers against that shared raw-root boundary.
+

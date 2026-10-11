@@ -66,7 +66,9 @@ class CanonicalMemoryStore:
                 | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
             before = os.fstat(descriptor)
             if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
-                    or before.st_uid != os.geteuid() or before.st_size > max_bytes):
+                    or before.st_uid != os.geteuid()
+                    or stat.S_IMODE(before.st_mode) & 0o077
+                    or before.st_size > max_bytes):
                 raise WindowsHandleCustodyError("memory_record_custody_invalid")
             chunks: list[bytes] = []
             remaining = max_bytes + 1
@@ -116,7 +118,7 @@ class CanonicalMemoryStore:
                 metadata = os.fstat(directory_fd)
                 if (not stat.S_ISDIR(metadata.st_mode)
                         or metadata.st_uid != os.geteuid()
-                        or stat.S_IMODE(metadata.st_mode) & 0o022):
+                        or stat.S_IMODE(metadata.st_mode) & 0o077):
                     return [], "directory_custody_invalid"
                 names: list[str] = []
                 with os.scandir(directory_fd) as entries:
@@ -455,7 +457,7 @@ class AdmittedRetentionWriter:
             and verification.get("admission_status")
                 == "policy_recomputed_not_execution_attested") else verification
 
-    def _open_raw_directory(self) -> int:
+    def _open_raw_directory(self, *, prepare_for_write: bool = False) -> int:
         if os.name != "posix":
             raise PermissionError("canonical_memory_atomic_publication_unsupported_platform")
         nofollow = getattr(os, "O_NOFOLLOW", None)
@@ -483,7 +485,15 @@ class AdmittedRetentionWriter:
             if (not stat.S_ISDIR(metadata.st_mode)
                     or metadata.st_uid != os.geteuid()):
                 raise PermissionError("canonical_memory_raw_root_owner_invalid")
-            os.fchmod(descriptor, 0o700)
+            # Retrieval and recovery only inspect existing custody. Tightening
+            # permissions is allowed only on the already authorized write path.
+            if stat.S_IMODE(metadata.st_mode) & 0o077:
+                if not prepare_for_write:
+                    raise PermissionError("canonical_memory_raw_root_permissions_invalid")
+                os.fchmod(descriptor, 0o700)
+                metadata = os.fstat(descriptor)
+                if stat.S_IMODE(metadata.st_mode) & 0o077:
+                    raise PermissionError("canonical_memory_raw_root_permissions_invalid")
             return descriptor
         except Exception:
             os.close(descriptor)
@@ -592,7 +602,7 @@ class AdmittedRetentionWriter:
                 "admission_receipt_digest": admission.receipt_digest},
         }
         encoded = (json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n").encode("utf-8")
-        directory_fd = self._open_raw_directory()
+        directory_fd = self._open_raw_directory(prepare_for_write=True)
         temporary_name = ".memory-" + memory_id + ".tmp"
         temporary_fd: int | None = None
         temporary_created = False
