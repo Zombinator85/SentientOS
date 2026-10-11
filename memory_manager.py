@@ -36,8 +36,8 @@ USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "0") == "1"
 # Root folder for persistent memory fragments. The ``MEMORY_DIR`` environment
 # variable is described in ``docs/ENVIRONMENT.md``.
 _MEMORY_DIR_OVERRIDE = os.getenv("MEMORY_DIR")
-_DATA_ROOT = Path(os.getenv("SENTIENTOS_DATA_DIR") or os.getenv("SENTIENTOS_DATA_ROOT") or (Path.cwd() / "sentientos_data"))
-MEMORY_DIR = Path(_MEMORY_DIR_OVERRIDE) if _MEMORY_DIR_OVERRIDE else _DATA_ROOT / "memory"
+_DATA_ROOT = Path(os.getenv("SENTIENTOS_DATA_DIR") or os.getenv("SENTIENTOS_DATA_ROOT") or (Path.cwd() / "sentientos_data")).expanduser().resolve()
+MEMORY_DIR = Path(_MEMORY_DIR_OVERRIDE).expanduser().resolve() if _MEMORY_DIR_OVERRIDE else _DATA_ROOT / "memory"
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
 TOPIC_PATH = MEMORY_DIR / "topics"

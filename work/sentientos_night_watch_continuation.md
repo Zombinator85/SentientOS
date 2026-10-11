@@ -1365,3 +1365,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `canonical_memory.py`, `memory_manager.py`, and `chat_service.py`. No environment configuration or memory files were accessed at runtime.
 
 **Next implementation dependency:** inspect the configured data-root behavior for conversation transcripts and resource custody separately; do not merge installation-scoped evidence or resident developmental history into the user-memory directory.
+
+
+## New checkpoint — normalize legacy memory roots consistently
+
+- Fresh remote source before this increment: `8f18803dfc7d1f80821848bbdffba71cc567b0d3` (tree `2df18f59c913a3698347a0bf8caaf711e2a7ec91`).
+- The shared root selection was aligned, but the legacy manager still left `MEMORY_DIR` relative and did not expand `~` in either override or data-root variables, while the canonical resolver expands and resolves paths. Those valid configurations could still make the two memory owners diverge.
+- The legacy manager now expands and resolves both selected roots before deriving `RAW_PATH`, matching the canonical resolver's filesystem path semantics.
+- Python compilation passed for `memory_manager.py`. No environment roots or local files were accessed.
+
+**Next implementation dependency:** continue checking path-custody semantics at the shared memory root boundary; preserve explicit user-memory custody without sharing mutable owner assumptions with installation-scoped transcripts or resident development state.
