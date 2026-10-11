@@ -1,6 +1,7 @@
 """Canonical explicit runtime startup and deterministic shutdown loop."""
 from __future__ import annotations
 
+import os
 import signal
 import threading
 from pathlib import Path
@@ -37,6 +38,30 @@ def _configured_serving_receipt_observation(adapter: LocalModelChatServiceAdapte
             else "configured_operation_receipt_invalid")
         return posture, None, operation_id
     return "selected_receipt_for_configured_operation", receipt, operation_id
+
+
+def _require_prior_chat_child_absent(observation: Mapping[str, Any] | None) -> None:
+    """Deny a new child while the prior recorded chat PID may still be alive.
+
+    PID probing is used only to avoid duplicate launch. A present or unobservable
+    PID is never adopted, signalled, or treated as the same software generation.
+    """
+    if observation is None:
+        return
+    process_id = observation.get("process_id")
+    if type(process_id) is not int or process_id < 1:
+        raise RuntimeError("chat_runtime_prior_child_identity_invalid")
+    if os.name != "posix":
+        raise RuntimeError("chat_runtime_prior_child_presence_unavailable")
+    try:
+        os.kill(process_id, 0)
+    except ProcessLookupError:
+        return
+    except PermissionError as exc:
+        raise RuntimeError("chat_runtime_prior_child_presence_unknown") from exc
+    except OSError as exc:
+        raise RuntimeError("chat_runtime_prior_child_presence_unknown") from exc
+    raise RuntimeError("chat_runtime_prior_child_may_be_running")
 
 
 def run_canonical_runtime(
@@ -89,28 +114,15 @@ def _run_canonical_runtime_owned(
     supervisor_factory: Callable[..., RuntimeSupervisor],
 ) -> int:
     registry = build_runtime_service_registry(config, installation_handle=handle)
-    supervisor = supervisor_factory(registry, state_root=state_root)
     if handle is not None:
         try:
             previous_runtime_observation = read_stored_chat_process_runtime_observation(handle)
-        except ChatProcessGenerationError:
-            previous_runtime_observation = None
-        if (isinstance(previous_runtime_observation, Mapping)
-                and previous_runtime_observation.get("runtime_status") == "running_observed"):
-            try:
-                predecessor_handoff = verify_stored_chat_process_handoff(
-                    handle=handle,
-                    handoff_id=str(previous_runtime_observation.get("handoff_id", "")),
-                    expected_digest=str(previous_runtime_observation.get("handoff_digest", "")))
-                publish_chat_process_runtime_observation(
-                    handle=handle, supervisor_generation=supervisor.generation,
-                    handoff=predecessor_handoff, status="not_verified",
-                    reason_code="new_supervisor_has_not_verified_child",
-                    configured_serving_receipt_posture="runtime_not_verified")
-            except ChatProcessGenerationError:
-                # Invalid old custody remains visible as invalid to the
-                # read-only observer; startup does not repair or rewrite it.
-                pass
+        except ChatProcessGenerationError as exc:
+            # Invalid custody is not equivalent to an absent predecessor. Do not
+            # overwrite it with a new process observation or risk duplicate launch.
+            raise RuntimeError("chat_runtime_prior_observation_untrusted") from exc
+        _require_prior_chat_child_absent(previous_runtime_observation)
+    supervisor = supervisor_factory(registry, state_root=state_root)
     previous_snapshot: dict[str, Any] | None = None
     if config.enabled:
         try:

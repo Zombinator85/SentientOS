@@ -2182,3 +2182,14 @@ Next inspect the remaining model/software succession evidence owners for a sourc
 The epistemic mutation controller created both receipt-stage directories unconditionally during construction, despite its Windows recovery path being explicitly read-only and its publication path unsupported there. Construction now uses only lstat-style inspection on Windows, rejects existing non-directory/symlink stages, and treats an absent stage directory as an empty collection. POSIX keeps the existing stage-directory creation behavior. Added an authored, unexecuted platform-simulation regression asserting Windows controller construction leaves a missing receipt/operation root absent. Changed module and test compile; whitespace inspection is clean. No Windows runtime or production verification ran.
 
 Next continue checking the remaining model/software succession owners and distinguish repository/process observations from runtime loaded-code attribution where no issuer exists.
+
+
+## 2026-10-11 checkpoint — block canonical chat restart while a prior child may survive
+
+The canonical runtime read the prior installation-scoped chat observation but treated malformed custody as absence, and a prior `running_observed` point was downgraded then followed by an unconditional child launch. After supervisor death, the chat child can outlive its parent; this allowed a new generation to attempt a competing child without reconciling the recorded process.
+
+Canonical startup now validates the prior observation before constructing the lifecycle supervisor. Invalid custody fails closed. Any prior observation requires POSIX OS confirmation that its exact recorded PID is absent; present, permission-denied, unknown, and unsupported-platform results block startup. The probe is used only to avoid duplicate launch: no process is adopted, signalled, killed, or identified as the same software generation. A fresh installation with no observation retains its normal startup path. This does not prove that the old source bytes were loaded or that descendants outside the recorded child PID are absent.
+
+Added focused behavioral cases for absent observation, PID absent, PID present, unsupported platform, and malformed PID. They are authored but unexecuted. Changed source and test compile only; no child process or production behavior was exercised.
+
+Next dependency: inspect the separately operating chat process-generation evidence boundary. The source bundle and process handoff bind launcher observations, but there is no independent issuer for loaded Python code bytes; preserve that limit while finding any remaining source-supported continuity work.
