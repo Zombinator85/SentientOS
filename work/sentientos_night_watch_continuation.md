@@ -1837,3 +1837,8 @@ ConversationSessionStore now records the POSIX transcript-root device/inode at c
 ## 2026-10-11 checkpoint — pin user-memory root identity across store instances
 
 CanonicalMemoryStore now binds each explicit normalized user-memory root to its POSIX device/inode on first successful open and rejects later opens of a different directory at that path. A bounded process-local registry lets short-lived memory_manager store instances share the same pin without ambient root discovery. This is process-lifetime continuity only; restart identity still has no independent durable root issuer. The installation-scoped transcript root remains independently pinned by its own store, and resident developmental history is untouched. Python compilation passed; no root was opened in this process. Next dependency: continue shared memory sidecar recovery/identity work and review process-start path reconfiguration boundaries.
+
+
+## 2026-10-11 checkpoint — rebuild derived daily summaries idempotently
+
+Daily memory summary files now replace their prior derived projection rather than append the full history on every run. The scan and all daily/topic/session/turn projection writes execute under the shared process-local and cross-process index transaction, so raw fragment writes and forgetting cannot interleave with the snapshot. Canonical raw user-memory records remain authoritative; summaries add no new evidence. Python compilation passed; no memory files were accessed. Next dependency: inspect stale derived-summary cleanup and the remaining memory-root process-start/lifecycle seams while preserving transcript and developmental-history separation.

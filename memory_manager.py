@@ -2023,9 +2023,8 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
 
 
 @_legacy_mutation_operation
-def summarize_memory() -> None:
-    """Concatenate daily fragments into summary files and topic capsules."""
-
+def _summarize_memory_unlocked() -> None:
+    """Rebuild daily and topic summaries from one locked raw-memory snapshot."""
     summaries: Dict[str, List[str]] = {}
     entries: List[dict] = []
     for fp in _legacy_fragment_paths():
@@ -2042,13 +2041,21 @@ def summarize_memory() -> None:
 
     for day, lines in summaries.items():
         out = DAY_PATH / f"{day}.txt"
-        with _open_legacy_memory_text(out, "a") as f:
+        with _open_legacy_memory_text(out, "w") as f:
             for line in lines:
                 f.write(line + "\n")
         print(f"[SUMMARY] Updated {out}")
 
     _write_topic_summaries(entries)
     _write_turn_summaries(entries)
+
+
+@_legacy_mutation_operation
+def summarize_memory() -> None:
+    """Rebuild derived summaries under the shared raw/index transaction."""
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        _summarize_memory_unlocked()
 
 
 def _apply_forgetting_curve_unlocked(
