@@ -1924,6 +1924,7 @@ def purge_memory(
             max_age_days=max_age_days, max_files=max_files,
             requestor=requestor, reason=reason,
         )
+        _summarize_memory_unlocked()
 
 
 
@@ -1942,6 +1943,72 @@ def _derived_summary_filename(kind: str, label: str, suffix: str) -> str:
     identity = kind.encode("ascii") + b":" + encoded
     return hashlib.sha256(identity).hexdigest() + suffix
 
+def _prune_legacy_summary_files(
+    directory: Path, *, suffix: str, keep_names: set[str]
+) -> None:
+    """Remove stale generated projections beneath one dedicated summary directory."""
+    if os.name != "posix":
+        raise PermissionError("legacy_memory_summary_pruning_unsupported_platform")
+    if (suffix not in {".txt", ".md", ".json"}
+            or directory.parent != MEMORY_DIR
+            or directory.name not in {"distilled", "topics", "turns", "sessions"}
+            or len(keep_names) > 4096
+            or any(not isinstance(name, str) or "/" in name or "\\" in name
+                   for name in keep_names)):
+        raise PermissionError("legacy_memory_summary_pruning_scope_invalid")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    directory_fd: int | None = None
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    try:
+        try:
+            directory_fd = os.open(directory.name, directory_flags, dir_fd=root_fd)
+        except FileNotFoundError:
+            return
+        metadata = os.fstat(directory_fd)
+        if (not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("legacy_memory_summary_directory_custody_invalid")
+        count = [0]
+
+        def prune(current_fd: int, prefix: str, depth: int) -> None:
+            if depth > 16:
+                raise PermissionError("legacy_memory_summary_depth_bound_exceeded")
+            with os.scandir(current_fd) as iterator:
+                names = [entry.name for entry in iterator]
+            for name in names:
+                count[0] += 1
+                if count[0] > 4096:
+                    raise PermissionError("legacy_memory_summary_entry_bound_exceeded")
+                item = os.stat(name, dir_fd=current_fd, follow_symlinks=False)
+                if stat.S_ISDIR(item.st_mode):
+                    child_fd = os.open(name, directory_flags, dir_fd=current_fd)
+                    try:
+                        child = os.fstat(child_fd)
+                        if (not stat.S_ISDIR(child.st_mode)
+                                or child.st_uid != os.geteuid()
+                                or stat.S_IMODE(child.st_mode) & 0o077):
+                            raise PermissionError("legacy_memory_summary_child_custody_invalid")
+                        prune(child_fd, f"{prefix}{name}/", depth + 1)
+                    finally:
+                        os.close(child_fd)
+                    continue
+                relative_name = prefix + name
+                if not name.endswith(suffix) or relative_name in keep_names:
+                    continue
+                if (not stat.S_ISREG(item.st_mode) or item.st_nlink != 1
+                        or item.st_uid != os.geteuid()
+                        or stat.S_IMODE(item.st_mode) & 0o077):
+                    raise PermissionError("legacy_memory_summary_file_custody_invalid")
+                os.unlink(name, dir_fd=current_fd)
+            os.fsync(current_fd)
+
+        prune(directory_fd, "", 0)
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+        os.close(root_fd)
+
+
 
 def _write_topic_summaries(entries: Sequence[dict]) -> None:
     topics: Dict[str, List[str]] = {}
@@ -1954,15 +2021,19 @@ def _write_topic_summaries(entries: Sequence[dict]) -> None:
         for tag in tags:
             topics.setdefault(tag, []).append(f"[{ts}] {snippet}")
 
+    keep_names: set[str] = set()
     for tag, lines in topics.items():
         if not tag:
             continue
-        out = TOPIC_PATH / _derived_summary_filename("topic", tag, ".md")
+        name = _derived_summary_filename("topic", tag, ".md")
+        out = TOPIC_PATH / name
         with _open_legacy_memory_text(out, "w") as f:
             f.write(f"# {tag} memory capsule\n\n")
             for line in lines[-200:]:  # keep recent history manageable
                 f.write(f"- {line}\n")
+        keep_names.add(name)
         print(f"[SUMMARY] Topic capsule updated → {out}")
+    _prune_legacy_summary_files(TOPIC_PATH, suffix=".md", keep_names=keep_names)
 
 
 def _extract_session_id(entry: dict) -> str | None:
@@ -2018,6 +2089,8 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
             continue
         sessions.setdefault(session_id, []).append(entry)
 
+    keep_turn_names: set[str] = set()
+    keep_session_names: set[str] = set()
     for session_id, session_entries in sessions.items():
         session_entries.sort(key=lambda item: item.get("timestamp", ""))
         turns: list[dict] = []
@@ -2031,11 +2104,17 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
                     "tags": item.get("tags", []),
                 }
             )
-        out = TURN_PATH / _derived_summary_filename("turn", session_id, ".json")
+        turn_name = _derived_summary_filename("turn", session_id, ".json")
+        out = TURN_PATH / turn_name
         with _open_legacy_memory_text(out, "w") as handle:
             handle.write(json.dumps(turns, ensure_ascii=False, indent=2))
+        session_name = _derived_summary_filename("session", session_id, ".md")
+        keep_turn_names.add(turn_name)
+        keep_session_names.add(session_name)
         _write_session_digest(session_id, session_entries)
         print(f"[SUMMARY] Turn capsule updated → {out}")
+    _prune_legacy_summary_files(TURN_PATH, suffix=".json", keep_names=keep_turn_names)
+    _prune_legacy_summary_files(SESSION_PATH, suffix=".md", keep_names=keep_session_names)
 
 
 @_legacy_mutation_operation
@@ -2055,12 +2134,16 @@ def _summarize_memory_unlocked() -> None:
         snippet = data.get("text", "").strip().replace("\n", " ")
         summaries.setdefault(day, []).append(f"[{ts}] {snippet}")
 
+    keep_days: set[str] = set()
     for day, lines in summaries.items():
-        out = DAY_PATH / _derived_summary_filename("day", day, ".txt")
+        name = _derived_summary_filename("day", day, ".txt")
+        out = DAY_PATH / name
         with _open_legacy_memory_text(out, "w") as f:
             for line in lines:
                 f.write(line + "\n")
+        keep_days.add(name)
         print(f"[SUMMARY] Updated {out}")
+    _prune_legacy_summary_files(DAY_PATH, suffix=".txt", keep_names=keep_days)
 
     _write_topic_summaries(entries)
     _write_turn_summaries(entries)
@@ -2149,14 +2232,15 @@ def apply_forgetting_curve(*, requestor: str = "curator",
                            reason: str = "forgetting_curve") -> int:
     _authorize_legacy_mutation()
     with _INDEX_LOCK, _vector_index_transaction():
-        return _apply_forgetting_curve_unlocked(requestor=requestor, reason=reason)
+        removed = _apply_forgetting_curve_unlocked(requestor=requestor, reason=reason)
+        _summarize_memory_unlocked()
+        return removed
 
 @_legacy_mutation_operation
 def curate_memory() -> dict[str, Any]:
     """Run summarisation and forgetting maintenance cycle."""
 
     removed = apply_forgetting_curve()
-    summarize_memory()
     return {"removed": removed}
 
 
@@ -2511,3 +2595,4 @@ def get_goals(*, open_only: bool = False) -> list[dict]:
         )
     )
     return goals
+
