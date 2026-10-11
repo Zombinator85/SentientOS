@@ -8,6 +8,7 @@ import logging
 import math
 import os
 import stat
+import secrets
 from contextvars import ContextVar
 from datetime import timezone
 from functools import wraps
@@ -429,23 +430,18 @@ def _write_fragment(fragment_id: str, data: dict) -> None:
             or "/" in path.name or "\\" in path.name):
         raise PermissionError("legacy_raw_memory_fragment_path_invalid")
     _authorize_legacy_mutation()
+    payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    if len(payload) > 262144:
+        raise ValueError("legacy_raw_memory_fragment_size_limit")
     directory_fd = _open_legacy_raw_directory(prepare_for_write=True)
+    temporary_name = f".legacy-fragment-{secrets.token_hex(16)}.tmp"
     descriptor: int | None = None
+    temporary_exists = False
     try:
-        flags = (os.O_WRONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
-            | getattr(os, "O_CLOEXEC", 0))
-        try:
-            descriptor = os.open(path.name, flags, dir_fd=directory_fd)
-        except FileNotFoundError:
-            descriptor = os.open(path.name, flags | os.O_CREAT | os.O_EXCL,
-                0o600, dir_fd=directory_fd)
-        metadata = os.fstat(descriptor)
-        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
-                or metadata.st_uid != os.geteuid()):
-            raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
-        os.fchmod(descriptor, 0o600)
-        os.ftruncate(descriptor, 0)
-        payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+            | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+        descriptor = os.open(temporary_name, flags, 0o600, dir_fd=directory_fd)
+        temporary_exists = True
         view = memoryview(payload)
         while view:
             written = os.write(descriptor, view)
@@ -453,10 +449,32 @@ def _write_fragment(fragment_id: str, data: dict) -> None:
                 raise OSError("short_legacy_raw_memory_write")
             view = view[written:]
         os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        try:
+            # Create-only publication preserves a concurrently created record.
+            os.link(temporary_name, path.name, src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd, follow_symlinks=False)
+        except FileExistsError:
+            # Updates replace only a regular, singly-linked owner file.  Rename
+            # is atomic within this held directory and never follows the target.
+            current = os.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
+            if (not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+                    or current.st_uid != os.geteuid()):
+                raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+            os.replace(temporary_name, path.name,
+                src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+            temporary_exists = False
         os.fsync(directory_fd)
     finally:
         if descriptor is not None:
             os.close(descriptor)
+        if temporary_exists:
+            try:
+                os.unlink(temporary_name, dir_fd=directory_fd)
+                os.fsync(directory_fd)
+            except FileNotFoundError:
+                pass
         os.close(directory_fd)
 
 

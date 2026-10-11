@@ -1574,3 +1574,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Timeline, playback, and list views now enumerate and read through the existing bounded legacy fragment custody functions. Canonical explicitly retained artifacts remain excluded from legacy display/mutation semantics; malformed JSON remains omitted as before, while custody failures are no longer silently downgraded to empty data.
 - Python syntax compilation passed for `memory_cli.py`. No CLI or memory store was run or opened; behavior remains unverified.
 - **Next implementation dependency:** inspect remaining read/write entrypoints outside `memory_manager` that address the shared raw root directly, then trace explicit retention receipt/tomb recovery for identity and no-replay under the unified root.
+
+
+
+## New checkpoint — publish legacy raw memory updates atomically
+
+- Fresh remote source before this increment: `6fbbdf8cb05c974d122acac79490759f1c358d13` (tree `834e514c9ec3974b2367d1f9d5c525954234c5ea`).
+- The authorized legacy writer opened existing fragment files with `O_TRUNC` and wrote JSON in place. A process interruption could leave a partial record that retrieval then omitted or rejected.
+- `memory_manager._write_fragment()` now enforces the same 256 KiB bound used by its reader, writes a 0600 temporary file within the held raw-directory descriptor, fsyncs it, and publishes create-only or by same-directory atomic replacement after validating an existing target. Administrator/Lumos authorization and canonical-retention path exclusion remain in force. This does not replay memory operations or expand mutation authority.
+- Python syntax compilation passed for `memory_manager.py`. No memory was opened or written; behavior remains unverified.
+- **Next implementation dependency:** review atomic publication and duplicate/conflict semantics for auxiliary legacy sidecars and the vector index. Keep explicitly retained artifacts outside the legacy mutation/forget path and preserve truthful partial state after interrupted sidecar updates.
