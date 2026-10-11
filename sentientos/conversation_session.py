@@ -40,7 +40,7 @@ def _digest(value: object) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def _open_session_lock_file(root: Path, name: str, *, unavailable_code: str) -> IO[str]:
+def _open_session_lock_file(root: Path, name: str, *, unavailable_code: str, expected_root_identity: tuple[int, int] | None = None) -> IO[str]:
     try:
         require_flock()
     except OSError as exc:
@@ -51,7 +51,7 @@ def _open_session_lock_file(root: Path, name: str, *, unavailable_code: str) -> 
              | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
     root_fd: int | None = None
     try:
-        root_fd = _open_conversation_root(root)
+        root_fd = _open_conversation_root(root, expected_identity=expected_root_identity)
         descriptor = os.open(name, flags, 0o600, dir_fd=root_fd)
     except OSError as exc:
         if root_fd is not None:
@@ -99,7 +99,7 @@ def _validate_turn_source_lineage(turns: Sequence[Mapping[str, Any]]) -> None:
         linked_sources.add(source_id)
 
 
-def _atomic_json(path: Path, payload: Mapping[str, Any], *, replace_existing: bool = True) -> None:
+def _atomic_json(path: Path, payload: Mapping[str, Any], *, replace_existing: bool = True, expected_root_identity: tuple[int, int] | None = None) -> None:
     if os.name != "posix":
         raise ValueError("conversation_publication_unsupported_platform")
     if (not path.name or path.name in {".", ".."} or "/" in path.name or "\\" in path.name
@@ -111,7 +111,7 @@ def _atomic_json(path: Path, payload: Mapping[str, Any], *, replace_existing: bo
     raw = (json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     if len(raw) > MAX_SESSION_BYTES:
         raise ValueError("session_size_limit")
-    root_fd = _open_conversation_root(path.parent)
+    root_fd = _open_conversation_root(path.parent, expected_identity=expected_root_identity)
     temporary = f".conversation-{uuid.uuid4().hex}.tmp"
     descriptor: int | None = None
     created = False
@@ -229,7 +229,7 @@ def _safe_root(root: Path) -> Path:
 
 
 
-def _open_conversation_root(root: Path) -> int:
+def _open_conversation_root(root: Path, *, expected_identity: tuple[int, int] | None = None) -> int:
     """Open the already-established private transcript root without path following."""
     if os.name != "posix":
         raise ValueError("conversation_root_descriptor_custody_unsupported_platform")
@@ -259,6 +259,10 @@ def _open_conversation_root(root: Path) -> int:
                 if stat.S_IMODE(metadata.st_mode) & 0o077:
                     os.close(child)
                     raise ValueError("conversation_root_permissions_invalid")
+                identity = (metadata.st_dev, metadata.st_ino)
+                if expected_identity is not None and identity != expected_identity:
+                    os.close(child)
+                    raise ValueError("conversation_root_identity_changed")
             os.close(descriptor)
             descriptor = child
         result = descriptor
@@ -269,10 +273,10 @@ def _open_conversation_root(root: Path) -> int:
             os.close(descriptor)
 
 
-def _read_session_file(root: Path, name: str, *, max_bytes: int) -> bytes:
+def _read_session_file(root: Path, name: str, *, max_bytes: int, expected_identity: tuple[int, int] | None = None) -> bytes:
     if (not name or name in {".", ".."} or "/" in name or "\\" in name):
         raise ValueError("session_file_name_invalid")
-    root_fd = _open_conversation_root(root)
+    root_fd = _open_conversation_root(root, expected_identity=expected_identity)
     descriptor: int | None = None
     try:
         flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
@@ -328,13 +332,22 @@ class ConversationChatLockTimeout(TimeoutError):
 class ConversationSessionStore:
     def __init__(self, root: Path, *, lock_timeout_seconds: float = 5.0) -> None:
         self.root = _safe_root(root)
+        self._root_identity: tuple[int, int] | None = None
+        if os.name == "posix":
+            descriptor = _open_conversation_root(self.root)
+            try:
+                metadata = os.fstat(descriptor)
+                self._root_identity = (metadata.st_dev, metadata.st_ino)
+            finally:
+                os.close(descriptor)
         self.lock_timeout_seconds = lock_timeout_seconds
 
     def _locked(self, session_id: str) -> IO[str]:
         if not _ID.fullmatch(session_id):
             raise ValueError("invalid_session_id")
         handle = _open_session_lock_file(self.root, f".{session_id}.lock",
-            unavailable_code="conversation_lock_unavailable")
+            unavailable_code="conversation_lock_unavailable",
+            expected_root_identity=self._root_identity)
         deadline = time.monotonic() + self.lock_timeout_seconds
         while True:
             try:
@@ -352,7 +365,8 @@ class ConversationSessionStore:
         if not _ID.fullmatch(session_id):
             raise ValueError("invalid_session_id")
         handle = _open_session_lock_file(self.root, f".{session_id}.chat.lock",
-            unavailable_code="conversation_chat_lock_unavailable")
+            unavailable_code="conversation_chat_lock_unavailable",
+            expected_root_identity=self._root_identity)
         deadline = time.monotonic() + self.lock_timeout_seconds
         acquired = False
         try:
@@ -386,13 +400,15 @@ class ConversationSessionStore:
                    "latest_activity_at": timestamp, "title": title, "model_identity": dict(model_identity),
                    "model_identity_digest": _digest(model_identity), "revision": 0, "lifecycle_state": "active", "turns": []}
         path = self._path(session_id)
-        _atomic_json(path, payload, replace_existing=False)
+        _atomic_json(path, payload, replace_existing=False,
+            expected_root_identity=self._root_identity)
         return payload
 
     def load(self, session_id: str) -> dict[str, Any]:
         path = self._path(session_id)
         try:
-            raw = (_read_session_file(self.root, path.name, max_bytes=MAX_SESSION_BYTES)
+            raw = (_read_session_file(self.root, path.name, max_bytes=MAX_SESSION_BYTES,
+                    expected_identity=self._root_identity)
                 if os.name == "posix"
                 else read_explicit_file(path, max_bytes=MAX_SESSION_BYTES))
         except FileNotFoundError as exc:
@@ -545,7 +561,8 @@ class ConversationSessionStore:
                     "retention_state": "requested" if retain else "not_requested"}
             session["turns"].append(turn); session["revision"] = sequence
             session["latest_activity_at"] = turn["timestamp"]
-            _atomic_json(self._path(session_id), session)
+            _atomic_json(self._path(session_id), session,
+                expected_root_identity=self._root_identity)
             return turn, True
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
@@ -569,7 +586,8 @@ class ConversationSessionStore:
             session["turns"].append(turn)
             _validate_turn_source_lineage(session["turns"])
             session["revision"] = sequence; session["latest_activity_at"] = turn["timestamp"]
-            _atomic_json(self._path(session_id), session)
+            _atomic_json(self._path(session_id), session,
+                expected_root_identity=self._root_identity)
             return turn
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
@@ -596,7 +614,8 @@ class ConversationSessionStore:
             turn["retention_state"] = state
             turn["retention_receipt"] = dict(receipt)
             session["latest_activity_at"] = _now()
-            _atomic_json(self._path(session_id), session)
+            _atomic_json(self._path(session_id), session,
+                expected_root_identity=self._root_identity)
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN); lock.close()
 
@@ -618,7 +637,9 @@ class ConversationSessionStore:
     def list_recent(self, *, limit: int = 20) -> list[dict[str, Any]]:
         result = []
         total_bytes = 0
-        root_fd = _open_conversation_root(self.root) if os.name == "posix" else None
+        root_fd = (_open_conversation_root(
+            self.root, expected_identity=self._root_identity)
+            if os.name == "posix" else None)
         scan_root = root_fd if root_fd is not None else self.root
         try:
             with os.scandir(scan_root) as entries:

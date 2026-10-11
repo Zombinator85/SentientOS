@@ -1827,3 +1827,8 @@ Session lock creation, bounded reads, recent-session directory scans, and atomic
 ## 2026-10-11 checkpoint — refuse appends after incomplete JSONL tails
 
 The shared memory JSONL append owner now validates bounded existing lines and requires a terminal record delimiter before appending. Observation records and curiosity reflections use the same check, so an interrupted final write is surfaced as incomplete custody rather than concatenated into a later event. Existing valid legacy object records remain accepted; no sidecar is rewritten during recovery. Python compilation passed; no log file was read or appended. Next dependency: review process-start root identity continuity and remaining capture sidecars while preserving separate install transcript and resident-history custody.
+
+
+## 2026-10-11 checkpoint — pin transcript root identity during process lifetime
+
+ConversationSessionStore now records the POSIX transcript-root device/inode at construction and rejects later operations if the configured path resolves to a different directory identity. The pin is checked by lock creation, bounded reads, listings, and atomic publication while each operation remains descriptor-relative. This prevents silent in-process root substitution; it is explicitly not a durable restart identity because no independent root issuer/anchor exists. Python compilation passed; no filesystem state was inspected. Next dependency: check the shared user-memory root for equivalent process-local identity pinning and continue the sidecar crash-recovery audit.
