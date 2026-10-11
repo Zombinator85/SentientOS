@@ -385,3 +385,51 @@ def test_receipt_events_bind_their_parent_process_instance(tmp_path: Path) -> No
     assert rows[-1]["detail"]["parent_process_instance_id"] == second_instance
     assert all(row["detail"]["parent_process_instance_id"] == first_instance
         for row in rows[:-1])
+
+
+def test_legacy_parent_receipts_without_process_identity_remain_readable(tmp_path: Path) -> None:
+    controller, _, _ = _parent(tmp_path)
+    path = tmp_path / "parent" / "parent-receipts.jsonl"
+    row = json.loads(path.read_text().splitlines()[0])
+    row["detail"].pop("parent_process_instance_id")
+    row["detail"].pop("parent_process_observation")
+    row["detail"].pop("parent_process_identity_schema")
+    module = __import__(
+        "sentientos.maintenance_resident_parent_supervision",
+        fromlist=["_canonical", "_digest"])
+    row.pop("receipt_digest", None)
+    row["receipt_digest"] = module._digest(row)
+    path.write_bytes(module._canonical(row) + b"\n")
+    recovered = controller._read_receipt_journal()
+    assert len(recovered) == 1
+    assert "parent_process_instance_id" not in recovered[0]["detail"]
+
+
+def test_receipt_recovery_rejects_process_id_not_bound_to_startup_observation(tmp_path: Path) -> None:
+    controller, _, _ = _parent(tmp_path)
+    path = tmp_path / "parent" / "parent-receipts.jsonl"
+    row = json.loads(path.read_text().splitlines()[0])
+    row["detail"]["parent_process_instance_id"] = "sha256:" + "0" * 64
+    module = __import__(
+        "sentientos.maintenance_resident_parent_supervision",
+        fromlist=["_canonical", "_digest"])
+    row.pop("receipt_digest", None)
+    row["receipt_digest"] = module._digest(row)
+    path.write_bytes(module._canonical(row) + b"\n")
+    with pytest.raises(ValueError, match="parent_process_startup_observation_invalid"):
+        controller._read_receipt_journal()
+
+
+def test_current_receipt_cannot_drop_its_process_identity_field(tmp_path: Path) -> None:
+    controller, _, _ = _parent(tmp_path)
+    path = tmp_path / "parent" / "parent-receipts.jsonl"
+    row = json.loads(path.read_text().splitlines()[0])
+    row["detail"].pop("parent_process_instance_id")
+    module = __import__(
+        "sentientos.maintenance_resident_parent_supervision",
+        fromlist=["_canonical", "_digest"])
+    row.pop("receipt_digest", None)
+    row["receipt_digest"] = module._digest(row)
+    path.write_bytes(module._canonical(row) + b"\n")
+    with pytest.raises(ValueError, match="parent_process_attribution_schema_invalid"):
+        controller._read_receipt_journal()

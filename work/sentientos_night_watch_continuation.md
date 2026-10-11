@@ -2048,3 +2048,12 @@ The durable parent receipt chain previously identified one child spec and a glob
 An authored unexecuted acceptance case reconstructs the controller from existing custody and checks that events remain attributable to the prior and new parent process instances. Changed Python compiles. No tests or child launches were performed.
 
 Next dependency: continue source-level succession attribution around parent software generation only if an existing runtime issuer can attest the loaded controller code. A Git commit alone is insufficient. Windows singleton locking and durable shared-memory-root identity remain separately blocked by missing native/independent custody owners.
+
+
+## 2026-10-11 checkpoint — validate parent process-instance recovery lineage
+
+Recovery now validates the process-attribution extension instead of merely retaining an opaque detail field. New receipts carry an attribution schema marker. A new `parent_startup` receipt must include a bounded-shape observation whose digest equals its process-instance ID; later new-format rows must point to an instance previously opened by a startup event. Reuse, malformed IDs, missing schema-marked IDs, unbound events, and startup digest substitution fail closed. Historical journal rows that predate this field remain accepted without rewriting their bytes or identities, including the immediately preceding unversioned process-ID extension.
+
+Three focused cases are authored but unexecuted: valid legacy receipts without process IDs still read, an internally re-digested startup row with a substituted process ID is rejected because its observation no longer binds, and a current schema-marked row cannot drop its process ID. Python compilation only; no behavioral tests or child process launches were performed.
+
+Next dependency: continue source-level succession attribution around parent software generation only if an existing runtime issuer can attest the loaded controller code. A Git commit alone is insufficient. Windows singleton locking and durable shared-memory-root identity remain separately blocked by missing native/independent custody owners.

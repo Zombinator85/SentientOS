@@ -48,6 +48,26 @@ def _digest(value: object) -> str:
     return "sha256:" + hashlib.sha256(_canonical(value)).hexdigest()
 
 
+def _valid_parent_process_observation(value: object) -> bool:
+    if not isinstance(value, dict) or set(value) != {
+        "process_id", "parent_process_id", "started_at",
+        "monotonic_started_ns", "instance_nonce",
+    }:
+        return False
+    if (type(value.get("process_id")) is not int or value["process_id"] < 1
+            or type(value.get("parent_process_id")) is not int or value["parent_process_id"] < 0
+            or type(value.get("monotonic_started_ns")) is not int
+            or value["monotonic_started_ns"] < 0
+            or not isinstance(value.get("instance_nonce"), str)
+            or re.fullmatch(r"[0-9a-f]{32}", value["instance_nonce"]) is None):
+        return False
+    try:
+        started = datetime.fromisoformat(str(value["started_at"]).replace("Z", "+00:00"))
+    except (OverflowError, OSError, TypeError, ValueError):
+        return False
+    return started.tzinfo is not None and started.utcoffset() is not None
+
+
 class MaintenanceResidentParentSupervisor:
     """Own exactly one ``sentientosd`` child and no generation-selection policy."""
 
@@ -202,6 +222,7 @@ class MaintenanceResidentParentSupervisor:
         if len(lines) > MAX_PARENT_RECEIPT_ROWS:
             raise ValueError("parent_receipt_journal_retention_limit_exceeded")
         rows: list[dict[str, Any]] = []
+        known_process_instances: set[str] = set()
         for index, line in enumerate(lines, start=1):
             if not line or len(line) > MAX_PARENT_RECEIPT_LINE_BYTES:
                 raise ValueError("parent_receipt_journal_record_invalid")
@@ -219,6 +240,27 @@ class MaintenanceResidentParentSupervisor:
                     or not isinstance(row["detail"], dict)
                     or _digest(row) != claimed):
                 raise ValueError("parent_receipt_journal_binding_invalid")
+            detail = row["detail"]
+            attribution_schema = detail.get("parent_process_identity_schema")
+            if ("parent_process_identity_schema" in detail
+                    and (attribution_schema != "sentientos.parent_process_attribution:v1"
+                        or "parent_process_instance_id" not in detail)):
+                raise ValueError("parent_process_attribution_schema_invalid")
+            if "parent_process_instance_id" in detail:
+                process_instance_id = detail["parent_process_instance_id"]
+                if (not isinstance(process_instance_id, str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", process_instance_id) is None):
+                    raise ValueError("parent_process_instance_identity_invalid")
+                observation = detail.get("parent_process_observation")
+                if row["event"] == "parent_startup":
+                    if (not _valid_parent_process_observation(observation)
+                            or _digest(observation) != process_instance_id
+                            or process_instance_id in known_process_instances):
+                        raise ValueError("parent_process_startup_observation_invalid")
+                    known_process_instances.add(process_instance_id)
+                elif (process_instance_id not in known_process_instances
+                        or observation is not None):
+                    raise ValueError("parent_process_event_lineage_invalid")
             row["receipt_digest"] = claimed
             if _canonical(row) != line:
                 raise ValueError("parent_receipt_journal_noncanonical")
@@ -313,6 +355,7 @@ class MaintenanceResidentParentSupervisor:
         if ("parent_process_instance_id" in receipt_detail
                 and receipt_detail["parent_process_instance_id"] != self._parent_process_instance_id):
             raise ValueError("parent_process_instance_binding_conflict")
+        receipt_detail["parent_process_identity_schema"] = "sentientos.parent_process_attribution:v1"
         receipt_detail["parent_process_instance_id"] = self._parent_process_instance_id
         row = {"schema_version": RECEIPT_SCHEMA, "sequence": self._sequence + 1,
             "timestamp": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
