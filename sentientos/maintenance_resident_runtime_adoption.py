@@ -248,18 +248,21 @@ def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
             limit_reason="resident_transition_journal_retention_limit_exceeded")
     except FileNotFoundError:
         return rows
-    try:
-        lines = journal_bytes.decode("utf-8").splitlines()
-    except UnicodeError as exc:
-        raise ValueError("resident_transition_journal_corrupt") from exc
-    for line in lines:
-        if len(line.encode("utf-8")) > MAX_RESIDENT_TRANSITION_ROW_BYTES:
+    if journal_bytes and not journal_bytes.endswith(b"\n"):
+        raise ValueError("resident_transition_journal_corrupt")
+    lines = journal_bytes.split(b"\n")[:-1] if journal_bytes else []
+    for line_bytes in lines:
+        if len(line_bytes) > MAX_RESIDENT_TRANSITION_ROW_BYTES:
             raise ValueError("resident_transition_row_retention_limit_exceeded")
+        try:
+            line = line_bytes.decode("utf-8")
+        except UnicodeError as exc:
+            raise ValueError("resident_transition_journal_corrupt") from exc
         row = json.loads(line)
         if (not isinstance(row, dict) or row.get("schema_version") != EVENT_SCHEMA or row.get("config_digest") != cfg["config_digest"] or
                 row.get("prior_event_digest") != prior or row.get("event_digest") != digest(row, "event_digest")):
             raise ValueError("resident_transition_journal_corrupt")
-        if canonical_bytes(row) + b"\n" != line.encode("utf-8"):
+        if canonical_bytes(row) != line_bytes:
             raise ValueError("resident_transition_journal_noncanonical")
         index = len(rows); expected = PHASES[index % len(PHASES)]
         if row.get("phase") != expected: raise ValueError("resident_transition_phase_invalid")

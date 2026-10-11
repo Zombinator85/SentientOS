@@ -126,7 +126,9 @@ def _journal(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
             return rows
         raise ValueError("successor_handoff_journal_corrupt") from exc
     try:
-        lines = raw.splitlines()
+        if raw and not raw.endswith(b"\n"):
+            raise ValueError
+        lines = raw.split(b"\n")[:-1] if raw else []
         if len(lines) > MAX_HANDOFF_JOURNAL_ROWS or any(not line or len(line) > MAX_HANDOFF_JOURNAL_LINE_BYTES for line in lines):
             raise ValueError
         for line in lines:
@@ -134,7 +136,7 @@ def _journal(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
             if row.get("schema_version") != HANDOFF_SCHEMA or row.get("config_digest") != cfg["config_digest"] or row.get("prior_event_digest") != prior or digest(row) != claimed:
                 raise ValueError
             row["event_digest"] = claimed
-            if canonical_bytes(row) + b"\n" != line:
+            if canonical_bytes(row) != line:
                 raise ValueError
             rows.append(row); prior = claimed
     except (UnicodeError, ValueError, KeyError, json.JSONDecodeError) as exc:

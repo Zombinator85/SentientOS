@@ -355,3 +355,28 @@ def test_no_marker_fresh_restart_with_incomplete_transition_is_blocked(
         cfg, process_observer=lambda: _observer(cfg, 2), execve=lambda *_: None)
     with pytest.raises(ValueError, match="foreign_predecessor_process_provenance"):
         sentientosd._prepare_resident_runtime_startup(restarted)
+
+
+def test_resident_transition_journal_reader_accepts_writer_lf_frames(tmp_path: Path) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    disabled = _disabled(cfg)
+    _journal_prefix(disabled, 1)
+    journal = Path(str(disabled["transition_journal_path"])).read_bytes()
+
+    assert journal.endswith(b"\n")
+    assert resident._rows(disabled) == [json.loads(journal[:-1].decode("utf-8"))]
+
+
+@pytest.mark.parametrize("framing", ("missing-final-lf", "crlf"))
+def test_resident_transition_journal_reader_rejects_invalid_lf_framing(
+    tmp_path: Path, framing: str,
+) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    disabled = _disabled(cfg)
+    _journal_prefix(disabled, 1)
+    path = Path(str(disabled["transition_journal_path"]))
+    journal = path.read_bytes()
+    path.write_bytes(journal[:-1] if framing == "missing-final-lf" else journal.replace(b"\n", b"\r\n"))
+
+    with pytest.raises(ValueError):
+        resident._rows(disabled)
