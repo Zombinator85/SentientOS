@@ -25,12 +25,21 @@ def digest(value: Any) -> str:
 
 
 def identity(name: str) -> CognitiveModelIdentity:
-    active = {"model_id": name, "artifact": f"artifact-{name}", "configuration": f"cfg-{name}"}
+    model_artifact = f"artifact-{name}"
+    model_digest = digest({"model": name})
+    sidecar_digest = digest({"sidecar": name})
+    configuration_digest = digest({"configuration": name})
+    active = {"semantic_artifact_identity": model_artifact,
+        "model_content_sha256": model_digest, "artifact_size_bytes": 10,
+        "sidecar_metadata_digest": sidecar_digest,
+        "configuration_digest": configuration_digest,
+        "engine": "deterministic-test-runtime", "candidate_index": 0,
+        "posture": "production", "fallback": False}
     return CognitiveModelIdentity.create(
-        model_id=name, semantic_artifact_identity=f"artifact-{name}",
-        model_content_sha256=digest({"model": name}), artifact_size_bytes=10,
-        sidecar_metadata_digest=digest({"sidecar": name}),
-        configuration_digest=digest({"configuration": name}),
+        model_id=name, semantic_artifact_identity=model_artifact,
+        model_content_sha256=model_digest, artifact_size_bytes=10,
+        sidecar_metadata_digest=sidecar_digest,
+        configuration_digest=configuration_digest,
         engine_runtime_family="deterministic-test-runtime", candidate_index=0,
         active_production=True, fallback=False, authority_record_id=f"authority-{name}",
         authority_record_digest=digest({"authority": name}), active_model_identity=active,
@@ -106,6 +115,10 @@ def test_preregistered_five_condition_model_replacement_experiment(tmp_path: Pat
     protocol_path = exp.store.protocols / f"{exp.protocol.protocol_id}.json"
     assert protocol_path.exists() and protocol_path.stat().st_mtime_ns <= exp.store.runs.joinpath(result["run_id"] + ".json").stat().st_mtime_ns
     assert result["validity"] == "valid_controlled_observation"
+    call_counts = (len(a.calls), len(b.calls))
+    reconstructed = exp.run()
+    assert reconstructed["run_id"] == result["run_id"]
+    assert (len(a.calls), len(b.calls)) == call_counts
 
 
 def test_exact_shared_current_and_history_state_across_models(tmp_path: Path) -> None:
@@ -220,11 +233,22 @@ def test_crossed_or_tampered_provenance_is_rejected(tmp_path: Path) -> None:
 
 def test_model_identity_drift_and_a_restoration_mismatch_fail_closed(tmp_path: Path) -> None:
     exp, a, _ = experiment(tmp_path); a.drift_after = 1
-    with pytest.raises(DevelopmentalModelReplacementError, match="model_identity_drift"):
-        exp.run()
+    first = exp.run()
+    assert first["validity"] == "execution_incomplete"
+    assert first["classification"] == "experiment_contradictory"
+    assert first["failure_posture"] == "contradictory_execution_evidence"
+    assert len(first["condition_statuses"]) == 1
+    # A reconstructed run reads the terminal contradictory condition and never
+    # calls the endpoint again.
+    call_count = len(a.calls)
+    replayed = exp.run()
+    assert replayed["run_id"] == first["run_id"]
+    assert len(a.calls) == call_count
     exp2, a2, _ = experiment(tmp_path / "second"); a2.drift_after = 2
-    with pytest.raises(DevelopmentalModelReplacementError, match="model_identity_drift"):
-        exp2.run()
+    second = exp2.run()
+    assert second["validity"] == "execution_incomplete"
+    assert second["classification"] == "experiment_contradictory"
+    assert len(second["condition_statuses"]) == 2
 
 
 def test_nonproduction_fallback_and_identity_tampering_are_rejected(tmp_path: Path) -> None:

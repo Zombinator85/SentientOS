@@ -1552,10 +1552,18 @@ class DevelopmentalModelReplacementExperiment:
                 row = {"condition": condition, "condition_id": condition_id,
                     "condition_input_digest": terminal["input_digest"],
                     "status": status, "condition_start_digest": terminal["condition_start_digest"],
-                    "condition_result_digest": terminal["condition_result_digest"],
-                    "failure_evidence": terminal.get("failure_evidence")}
-                condition_statuses.append(row)
+                    "condition_result_digest": terminal["condition_result_digest"]}
                 if status != "completed":
+                    observation = terminal.get("observation")
+                    row.update({
+                        "failure_evidence": terminal.get("failure_evidence"),
+                        "contradictory_observation_digest": (
+                            observation.get("observation_digest")
+                            if status == "contradictory" and isinstance(observation, Mapping)
+                            else None),
+                        "failure_posture": str(terminal.get("failure_posture") or status),
+                    })
+                    condition_statuses.append(row)
                     return self._persist_partial_run(trial_id=trial_id, observations=observations,
                         condition_statuses=condition_statuses,
                         failure_posture=str(terminal.get("failure_posture") or status))
@@ -1563,6 +1571,7 @@ class DevelopmentalModelReplacementExperiment:
                     condition=condition, provenance_digest=provenance_digest,
                     with_history=with_history, trial_id=trial_id)
                 observations.append(observation)
+                condition_statuses.append(row)
                 continue
             if start is not None:
                 condition_statuses.append({"condition": condition, "condition_id": condition_id,
