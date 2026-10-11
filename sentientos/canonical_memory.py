@@ -33,7 +33,27 @@ class CanonicalMemoryStore:
     """Canonical raw-fragment domain compatible with memory_manager.RAW_PATH."""
     def __init__(self,memory_root:Path)->None:
         self.root=memory_root.resolve(); self.raw=self.root/"raw"; self.raw.mkdir(parents=True,exist_ok=True,mode=0o700)
-        self.legacy_sidecar_present=(self.root/"conversation_memories.json").is_file()
+        self.legacy_sidecar_posture = self._legacy_sidecar_posture()
+        self.legacy_sidecar_present = self.legacy_sidecar_posture == "present_unverified"
+
+    def _legacy_sidecar_posture(self) -> str:
+        """Report bounded path metadata only; the legacy sidecar is never ingested here."""
+        path = self.root / "conversation_memories.json"
+        try:
+            metadata = os.lstat(path)
+        except FileNotFoundError:
+            return "missing"
+        except OSError:
+            return "custody_unavailable"
+        if not stat.S_ISREG(metadata.st_mode):
+            return "not_regular_file"
+        if metadata.st_nlink != 1:
+            return "link_count_invalid"
+        if os.name == "posix" and metadata.st_uid != os.geteuid():
+            return "owner_mismatch"
+        if metadata.st_size > MAX_RETENTION_RECORD_BYTES:
+            return "size_exceeded"
+        return "present_unverified"
     @staticmethod
     def _read_at(directory_fd: int, name: str, *, max_bytes: int) -> bytes:
         descriptor: int | None = None
@@ -150,9 +170,11 @@ class CanonicalMemoryStore:
         identities=[(r.get("id"),r.get("text_digest") or digest({"text":r["text"]})) for r in selected]
         return {"memories":selected,"selected_memory_ids":[x[0] for x in identities],"read_only":True,
                 "legacy_sidecar_present":self.legacy_sidecar_present,
+                "legacy_sidecar_posture":self.legacy_sidecar_posture,
                 "retrieval_posture":retrieval_posture,
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
-                    "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture})}
+                    "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
+                    "legacy_sidecar_posture":self.legacy_sidecar_posture})}
 class AdmittedRetentionWriter:
     """Terminal executor validates admission evidence but never decides admission."""
     def __init__(self, store: CanonicalMemoryStore,

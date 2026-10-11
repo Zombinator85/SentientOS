@@ -1196,3 +1196,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `memory_manager.py`. No pytest, runtime memory operation, file deletion, filesystem race, or production verification was performed. This remains untested for production.
 
 **Next implementation dependency:** inspect bounded runtime consumers of canonical memory and its optional legacy sidecar compatibility path. Ensure startup diagnostics do not follow or overstate unverified sidecar custody, and keep malformed or inaccessible legacy state distinct from admitted canonical records.
+
+
+## New checkpoint — make legacy-sidecar posture non-following and explicit
+
+- Fresh remote source before this increment: `54995f49a3c8ac3c55fbcf4fb6400db7011f34e0` (tree `45a0e7dace1d763df3470e22500359cf4369554d`).
+- The canonical-memory retrieval API exposed `legacy_sidecar_present` based on `Path.is_file()`, which follows symlinks, and omitted this posture from its snapshot digest. The sidecar is not ingested; it is diagnostic compatibility metadata only.
+- The store now uses `lstat` metadata to distinguish missing, inaccessible, non-regular, multi-link, wrong-owner, oversized, and present-but-unverified sidecars without opening or following the path. The legacy boolean remains for compatibility and is true only for the bounded metadata-qualified posture. The returned retrieval snapshot and digest bind the explicit posture, avoiding any claim that a present sidecar was validated or admitted.
+- Python compilation passed for `canonical_memory.py`. No sidecar file was opened, runtime retrieval executed, tests run, or production behavior verified.
+
+**Next implementation dependency:** inspect whether conversation/session recovery should carry the sidecar posture into assistant linkage. It is currently a retrieval snapshot attribute but only selected memory identities and the snapshot digest are persisted; determine whether that is sufficient for interruption replay to preserve the same retrieval provenance.
