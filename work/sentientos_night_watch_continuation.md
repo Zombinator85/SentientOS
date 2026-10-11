@@ -2492,3 +2492,11 @@ Next inspect succession source records for any projection that still presents a 
 - The mutation entrypoint now validates a non-boolean, nonnegative integer tick and a bounded timezone-aware ISO timestamp before recovery or publication. Invalid requests cannot create transaction/state/update files.
 - Added authored, unexecuted checks for negative/boolean ticks and naive timestamps. Changed Python modules compile only; no mutation or tests ran.
 - Next inspect the epistemic mutation controller's admission/intent recovery composition for equivalent validation-before-publication gaps and ensure state changes still require independently verified admission lineage.
+
+
+## 2026-10-11 checkpoint — validate mutation chronology before authenticated intent publication
+
+- The mutation controller wrote its authenticated state intent before calling the persistent owner, whose newly enforced timestamp contract could reject an invalid tick afterward. That left an intent that recovery would truthfully report as incomplete despite no state transition.
+- The owner now exposes the shared update-time validator used by both direct commit and the mutation controller. The controller checks it before owner verification, admission-dependent state work, or durable intent publication, preserving the existing independent admission and receipt flow.
+- Added an authored, unexecuted controller case confirming invalid chronology leaves no intent, transaction, or state. Changed Python files compile only; tests and mutations were not run.
+- Next inspect evidence-binding append for source-time validation parity and cross-process identity limits; retain owner custody and require an exact proof before any durable intent.

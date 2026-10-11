@@ -578,6 +578,10 @@ class ResidentEpistemicStateMutationController:
                                 admission: AdmissionEvidence, operation_id: str,
                                 correlation_id: str, tick: int,
                                 recorded_at: str) -> EpistemicStateMutationReceipt:
+        try:
+            self.owner.validate_update_timestamp(tick=tick, recorded_at=recorded_at)
+        except EpistemicStateError as exc:
+            raise EpistemicMutationError(f"epistemic_update_context_invalid:{exc}") from exc
         self.owner.verify(); self.owner.proposition(candidate.proposition_id)
         try:
             expected = make_epistemic_update_candidate(**{k:v for k,v in asdict(candidate).items()

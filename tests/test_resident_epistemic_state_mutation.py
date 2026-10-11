@@ -261,3 +261,24 @@ def test_evidence_admission_must_bind_exact_source_proof_provenance(tmp_path) ->
 
     assert owner.verify() == before
     assert owner.bindings(proposition.proposition_id) == ()
+
+
+def test_invalid_update_tick_is_rejected_before_state_intent(tmp_path) -> None:
+    owner, proposition, authority, controller, _binding, _proof = setup(tmp_path)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=proposition.proposition_id, predecessor_state_digest=None,
+        proposed_stance="unknown", evidence_binding_ids=(), reason="initialization",
+        rationale="valid candidate with invalid chronology", uncertainty="unknown",
+        model_id="caller")
+    operation_id = "invalid-tick-operation"
+    admission = issue(authority, admission_id="invalid-tick-admission",
+        effects=STATE_UPDATE_EFFECTS, subject=candidate.candidate_id,
+        config=controller.state_configuration_digest(candidate=candidate, operation_id=operation_id),
+        sequence=1)
+    with pytest.raises(EpistemicMutationError, match="epistemic_update_tick_invalid"):
+        controller.commit_update_candidate(candidate=candidate, admission=admission,
+            operation_id=operation_id, correlation_id="invalid-tick", tick=-1,
+            recorded_at="2026-01-01T00:00:00Z")
+    assert list(controller.intent_root.glob("*.json")) == []
+    assert list((owner.root / "transactions").glob("*.json")) == []
+    assert owner.current_state(proposition.proposition_id) is None

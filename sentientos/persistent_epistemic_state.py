@@ -715,6 +715,20 @@ class PersistentEpistemicStateOwner:
         projection_tick = current_tick if current_tick is not None else source_tick + 1
         return make_cognitive_projection(selected, source_tick=source_tick, current_tick=projection_tick)
 
+    @staticmethod
+    def validate_update_timestamp(*, tick: int, recorded_at: str) -> None:
+        """Validate persisted chronology inputs before any mutation intent is written."""
+        if not isinstance(tick, int) or isinstance(tick, bool) or tick < 0:
+            raise EpistemicStateError("epistemic_update_tick_invalid")
+        if not isinstance(recorded_at, str) or not recorded_at or len(recorded_at) > 128:
+            raise EpistemicStateError("epistemic_recorded_at_invalid")
+        try:
+            recorded_instant = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise EpistemicStateError("epistemic_recorded_at_invalid") from exc
+        if recorded_instant.tzinfo is None or recorded_instant.utcoffset() is None:
+            raise EpistemicStateError("epistemic_recorded_at_invalid")
+
     def commit_update(self, *, proposition_id: str, expected_predecessor_digest: str | None, stance: str,
                       reason: str, active_binding_ids: Sequence[str], added_binding_ids: Sequence[str] = (),
                       removed_binding_ids: Sequence[str] = (), dependency_changes: Mapping[str,str] = {},
@@ -739,16 +753,7 @@ class PersistentEpistemicStateOwner:
                       update_rule_revision: str | None = None, candidate: EpistemicUpdateCandidate | None = None,
                       correlation_id: str, tick: int, recorded_at: str, confidence: Mapping[str,Any] | None = None,
                       mutation_binding: Mapping[str, Any] | None = None) -> tuple[EpistemicState, EpistemicUpdateEvent]:
-        if not isinstance(tick, int) or isinstance(tick, bool) or tick < 0:
-            raise EpistemicStateError("epistemic_update_tick_invalid")
-        if not isinstance(recorded_at, str) or not recorded_at or len(recorded_at) > 128:
-            raise EpistemicStateError("epistemic_recorded_at_invalid")
-        try:
-            recorded_instant = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
-        except ValueError as exc:
-            raise EpistemicStateError("epistemic_recorded_at_invalid") from exc
-        if recorded_instant.tzinfo is None or recorded_instant.utcoffset() is None:
-            raise EpistemicStateError("epistemic_recorded_at_invalid")
+        self.validate_update_timestamp(tick=tick, recorded_at=recorded_at)
         self.verify(); self.proposition(proposition_id); prior=self.current_state(proposition_id)
         actual=prior.state_digest if prior else None
         if actual != expected_predecessor_digest: raise EpistemicStateError("epistemic_state_compare_and_swap_failed")
