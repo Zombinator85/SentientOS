@@ -1554,3 +1554,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - The canonical memory owner now freezes data/memory-root configuration on first import, and `memory_manager.py` derives its shared legacy paths through that same resolver. The explicit data-root argument remains available for isolated compositions when no process-wide `MEMORY_DIR` override is set. No root migration or write occurs.
 - Python syntax compilation passed for both changed modules. No memory root was opened and no behavior or production verification was performed.
 - **Next implementation dependency:** audit explicit development data-root overrides against the shared legacy manager root contract. Ensure an override cannot silently create a second user-memory domain while the legacy manager still addresses the process-wide root; then inspect restart and lifecycle handling for that resolved identity.
+
+
+
+## New checkpoint — keep development transcripts from forking shared user memory
+
+- Fresh remote source before this increment: `6a952dfab575d84f6f5396e4d6f7d05ab4e50db4` (tree `9d6b7241694bb7ff03e25ffaf59f98f765e40dbd`).
+- After unifying the process-start resolver, development chat still passed its optional transcript `data_root` into memory-root resolution. A custom development transcript root could therefore create a second memory domain that the legacy manager did not address.
+- Development composition now uses the same process-wide canonical memory root as the legacy manager; its optional data-root argument selects only transcript storage. The existing overlap check continues to reject transcript/user-memory containment. Production continues to use the same shared root and installation-scoped transcript directory.
+- Python syntax compilation passed for `chat_service.py`. No memory or transcript files were opened; behavior and production remain unverified.
+- **Next implementation dependency:** follow retrieval, explicit retention, deletion, and recovery through every user-memory writer to verify they all use this same captured root and preserve admission/tomb semantics. Then continue through the next independent custody or causal-continuity gap.

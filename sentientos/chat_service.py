@@ -677,7 +677,9 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
     """Explicitly install isolated echo/null/test inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
     root = data_root or sentientos_data_dir()
-    memory_root = sentientos_memory_dir(root)
+    # data_root selects development transcript custody only; user memory stays
+    # on the one process-wide root shared with the authorized legacy manager.
+    memory_root = sentientos_memory_dir()
     conversation_root = root / "conversations"
     if _storage_roots_overlap(memory_root, conversation_root):
         raise ValueError("user_memory_root_overlaps_transcript_custody")
