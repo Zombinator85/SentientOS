@@ -102,8 +102,9 @@ def test_observer_separation_predating_and_synthetic_production_fail_closed():
 
 
 class CognitiveFixture:
-    def __init__(self,consequence_id): self.consequence_id=consequence_id
+    def __init__(self,consequence_id): self.consequence_id=consequence_id; self.calls=[]
     def propose(self,*,condition,history,situation):
+        self.calls.append(condition)
         has=bool(history)
         return make_strategy_proposal(situation_binding=situation["situation_binding"],body_generation=2,
             relevant_consequence_ids=(self.consequence_id,) if has else (),proposed_next_action_class="observe_then_retry" if has else "retry",
@@ -112,7 +113,7 @@ class CognitiveFixture:
             uncertainty="high",factual_assertions=({"source_id":self.consequence_id,"claim":"contradiction_recorded"},) if has else ())
 
 
-def test_present_withheld_restored_strategy_experiment_and_external_score():
+def test_present_withheld_restored_strategy_experiment_and_external_score(tmp_path):
     *_,attribution,_=chain()
     fact={"fact_id":"fact:causal","source":{"source_id":attribution["attribution_id"],
         "digest":attribution["attribution_digest"],"schema_version":attribution["schema_version"],
@@ -127,12 +128,20 @@ def test_present_withheld_restored_strategy_experiment_and_external_score():
     protocol={"protocol_id":"protocol-1","snapshot_digest":"sha256:snapshot","body_generation":2,"model_id":"deterministic-test-cognition",
         "model_artifact_digest":"sha256:model","inference_budget_digest":"sha256:budget","prompt_schema_digest":"sha256:prompt",
         "renderer_situation_digest":digest(situation),"software_generation":"test","environment_fixture_digest":"sha256:fixture"}
+    store=ConsequenceStore(tmp_path)
+    backend=CognitiveFixture(attribution["attribution_id"])
     result=run_strategy_experiment(protocol=protocol,history_record=record,situation=situation,
-        backend=CognitiveFixture(attribution["attribution_id"]),consequence=attribution)
+        backend=backend,consequence=attribution,store=store)
     proposals=result["proposals"]
     assert proposals[0]==proposals[2] and proposals[0]!=proposals[1]
     assert result["scoring"]["outcome"]=="changed" and not result["scoring"]["improvement_claimed"]
     assert result["no_retries"] and not any(result["authority"].values())
+    assert backend.calls==["history_present","history_withheld","history_restored"]
+    recovered_backend=CognitiveFixture(attribution["attribution_id"])
+    recovered=run_strategy_experiment(protocol=protocol,history_record=record,situation=situation,
+        backend=recovered_backend,consequence=attribution,store=ConsequenceStore(tmp_path))
+    assert recovered["experiment_result_id"]==result["experiment_result_id"]
+    assert recovered_backend.calls==[]
 
 
 def test_restart_reconstruction_and_tamper_detection(tmp_path):

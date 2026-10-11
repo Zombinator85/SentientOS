@@ -2584,9 +2584,13 @@ class ConsequenceStore:
             digest_field="condition_result_digest")
         stored = self._checkpoint("strategy-experiment-conditions", condition_id,
             digest_field="condition_result_digest", expected_schema=STRATEGY_CONDITION_RESULT_SCHEMA)
-        if stored != record:
+        # Canonical JSON custody reloads tuples as arrays. Compare their
+        # canonical representation so an exact publication is not mistaken
+        # for conflicting evidence merely because Python used tuple/list
+        # containers on opposite sides of the durable boundary.
+        if stored is None or canonical_bytes(stored) != canonical_bytes(record):
             raise EmbodiedConsequenceError("strategy_condition_terminal_conflict")
-        return record
+        return stored
 
     def read_strategy_condition(self, *, protocol_id: str, protocol_digest: str,
                                 condition: str, input_digest: str,
