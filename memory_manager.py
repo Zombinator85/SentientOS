@@ -455,13 +455,16 @@ def _load_fragment(fragment_id: str) -> dict | None:
     path = _fragment_path(fragment_id)
     if _is_canonical_retention_path(path) or path.parent != RAW_PATH:
         return None
-    try:
-        payload = _read_legacy_raw_fragment(path.name)
-        return json.loads(payload) if payload is not None else None
-    except PermissionError:
-        raise
-    except Exception:
+    payload = _read_legacy_raw_fragment(path.name)
+    if payload is None:
         return None
+    try:
+        data = json.loads(payload.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise MemorySidecarIncompleteError("legacy_raw_fragment", 0) from exc
+    if not isinstance(data, dict) or data.get("id") != fragment_id:
+        raise MemorySidecarIncompleteError("legacy_raw_fragment_identity", 0)
+    return data
 
 
 def _unlink_legacy_raw_fragment(fragment_id: str) -> bool:
@@ -558,11 +561,8 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
     files = sorted(_legacy_fragment_paths(), reverse=reverse)
     count = 0
     for fp in files:
-        try:
-            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
-        except PermissionError:
-            raise
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         yield data
         count += 1
@@ -1558,14 +1558,11 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
     files = list(_legacy_fragment_paths())
     entries = []
     for fp in files:
-        try:
-            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
-            ts = data.get("timestamp")
-            entries.append((ts, data))
-        except PermissionError:
-            raise
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
+        ts = data.get("timestamp")
+        entries.append((ts, data))
     entries.sort(key=lambda x: x[0] or "", reverse=True)
     results: list[dict] = []
     wanted = set(tags)
@@ -1606,14 +1603,11 @@ def purge_memory(
     files = list(_legacy_fragment_paths())
     entries: List[tuple[datetime.datetime, Path, dict]] = []
     for f in files:
-        try:
-            data = json.loads(_read_legacy_raw_fragment(f.name).decode("utf-8"))
-            ts = _parse_ts(data.get("timestamp")).astimezone(timezone.utc)
-            entries.append((ts, f, data))
-        except PermissionError:
-            raise
-        except Exception:
+        data = _load_fragment(f.stem)
+        if data is None:
             continue
+        ts = _parse_ts(data.get("timestamp")).astimezone(timezone.utc)
+        entries.append((ts, f, data))
     entries.sort(key=lambda x: x[0])
 
     now = datetime.datetime.utcnow()
@@ -1759,11 +1753,8 @@ def summarize_memory() -> None:
     summaries: Dict[str, List[str]] = {}
     entries: List[dict] = []
     for fp in _legacy_fragment_paths():
-        try:
-            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
-        except PermissionError:
-            raise
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         ts = data.get("timestamp")
         if not ts:
@@ -1998,11 +1989,8 @@ def recent_reflections(
     files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[dict] = []
     for fp in files:
-        try:
-            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
-        except PermissionError:
-            raise
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         if "reflection" not in data.get("tags", []):
             continue
@@ -2028,11 +2016,8 @@ def recent_patches(limit: int = 5) -> list[str]:
     files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[str] = []
     for fp in files:
-        try:
-            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
-        except PermissionError:
-            raise
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         if "self_patch" not in data.get("tags", []):
             continue
@@ -2047,11 +2032,8 @@ def recent_escalations(limit: int = 5) -> list[str]:
     files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[str] = []
     for fp in files:
-        try:
-            data = json.loads(_read_legacy_raw_fragment(fp.name).decode("utf-8"))
-        except PermissionError:
-            raise
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         if "escalation" not in data.get("tags", []):
             continue

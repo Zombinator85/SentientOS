@@ -1752,3 +1752,8 @@ Published source now serializes cross-process tomb journal appends with a bounde
 ## 2026-10-11 checkpoint — unify forgetting-curve deletion recovery
 
 The separate forgetting-curve path bypassed the purge journal: it wrote a legacy tomb claim before unlinking and could replay an interrupted delete on a later pass. It now uses the same intent/result event contract, excludes unresolved IDs from subsequent decay operations, and always publishes the derived index through the held-root atomic writer instead of ambient path existence/unlink calls. Exact user-memory fragment custody remains separate from transcript and developmental-history stores. The changed module compiles; no forgetting or deletion operation was executed. Next dependency: inspect raw-fragment access/update and index reconciliation for races or stale derived records after interrupted writes.
+
+
+## 2026-10-11 checkpoint — validate raw fragment identities on reads
+
+Central legacy-fragment reads now distinguish absent files from malformed JSON, non-object payloads, and filename/payload ID conflicts. Search, iteration, purge, summary, reflection, and related recent-record scans route through that validator, so corrupt custody raises an explicit incomplete-history error instead of silently disappearing from search or being removed from the derived index. Canonical retained chat artifacts remain excluded from this legacy path. The module compiles; no memory files or searches were exercised. Next dependency: review raw-fragment mutations against simultaneous access/forgetting and keep index/raw identity reconciliation explicit across interruption.
