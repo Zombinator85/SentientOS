@@ -308,3 +308,27 @@ def test_naive_evidence_source_time_is_rejected_before_intent(tmp_path) -> None:
 
 def test_explicit_undated_evidence_time_remains_unknown_without_failure() -> None:
     ResidentEpistemicStateMutationController._validate_source_event_time("undated")
+
+
+def test_orphan_mutation_receipt_is_not_reported_verified(tmp_path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("receipt publication fixture requires POSIX semantics")
+    owner, proposition, authority, controller, binding, proof = setup(tmp_path)
+    operation_id = "receipt-orphan-operation"
+    admission = issue(authority, admission_id="receipt-orphan-admission",
+        effects=EVIDENCE_BINDING_EFFECTS, subject=binding.binding_id,
+        config=controller.evidence_configuration_digest(
+            binding=binding, proposition_digest=proposition.proposition_digest,
+            operation_id=operation_id), sequence=1, provenance=proof.provenance_id)
+    controller.append_evidence_binding(
+        binding=binding, source_proof=proof, admission=admission,
+        operation_id=operation_id, correlation_id="receipt-orphan")
+    for intent in controller.intent_root.glob("*.json"):
+        intent.unlink()
+
+    with pytest.raises(EpistemicMutationError, match="mutation_receipt_without_verified_intent"):
+        ResidentEpistemicStateMutationController(
+            owner=owner, admission_verifier=controller.admission_verifier,
+            current_sequence=controller.current_sequence, receipt_root=tmp_path / "controller")

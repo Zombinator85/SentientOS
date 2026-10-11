@@ -2508,3 +2508,12 @@ Next inspect succession source records for any projection that still presents a 
 - The evidence mutation path now requires a bounded timezone-aware ISO timestamp before owner recovery, admission, or intent publication, while preserving the adapter's explicit `undated` sentinel as unknown. It still binds the exact source proof to the evidence binding and does not rewrite historical source records.
 - Added authored, unexecuted rejection and unknown-time positive-control cases; rejected evidence produces no intent or binding. Changed Python files compile only; no mutation or tests ran.
 - Next trace the configured epistemic-development adapter's timestamps into these mutation calls and ensure it passes source event time rather than snapshot/recovery time, then continue other independently grounded recovery defects.
+
+
+## 2026-10-11 checkpoint — reconcile mutation receipt inventory with verified intent custody
+
+- The epistemic-development adapter preserves semantic source event time from canonical resource consumption receipts; invocation custody time remains excluded unless its semantic binding posture qualifies it. Missing time is represented as explicit `undated` with unknown freshness, which the mutation boundary preserves without calling it a timestamp.
+- Mutation recovery previously validated each stored receipt's canonical digest and stage but did not require that every receipt be derivable from a verified durable intent. An orphan valid-shaped receipt could therefore coexist with `recovery_status=verified`.
+- Recovery now derives the expected evidence/state receipt inventory from validated intents and exact owner records before repairing missing receipts. Existing receipt files must match the stage, path, and canonical bytes exactly; orphaned or substituted receipts fail closed. Windows remains read-only and still rejects repair when expected custody is absent.
+- Added an authored, unexecuted orphan-receipt case; production and test modules compile only. No mutation or tests ran.
+- Next inspect explicit developmental, mutation, and user-memory roots for overlap, unsafe shared directory custody, or permission drift; preserve the separation between canonical user memory and resident developmental history.

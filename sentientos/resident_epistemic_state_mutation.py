@@ -460,6 +460,57 @@ class ResidentEpistemicStateMutationController:
             receipt_id, receipt_digest = _identity("epistemic-mutation-receipt", raw_receipt.payload())
             recovered_receipts.append(replace(raw_receipt, receipt_id=receipt_id,
                                                receipt_digest=receipt_digest))
+        expected_receipts: dict[str, dict[str, bytes]] = {"evidence": {}, "state": {}}
+        for receipt in recovered_receipts:
+            if type(receipt) is EvidenceBindingMutationReceipt:
+                receipt_stage = "evidence"
+            elif type(receipt) is EpistemicStateMutationReceipt:
+                receipt_stage = "state"
+            else:
+                raise EpistemicMutationError("mutation_receipt_recovery_type_invalid")
+            name = f"{receipt.receipt_id}.json"
+            raw = canonical_bytes(asdict(receipt)) + b"\n"
+            previous = expected_receipts[receipt_stage].get(name)
+            if previous is not None and previous != raw:
+                raise EpistemicMutationError("mutation_receipt_recovery_identity_conflict")
+            expected_receipts[receipt_stage][name] = raw
+
+        # A receipt is recoverable custody only when a verified durable intent
+        # independently derives its exact bytes. Reject orphaned or substituted
+        # receipt files before repairing any missing receipt.
+        for receipt_stage in ("evidence", "state"):
+            directory = self.receipt_root / "receipts" / receipt_stage
+            if os.name == "nt":
+                try:
+                    directory_stat = directory.lstat()
+                except FileNotFoundError:
+                    entries = ()
+                except OSError as exc:
+                    raise EpistemicMutationError("receipt_path_unavailable") from exc
+                else:
+                    if (stat.S_ISLNK(directory_stat.st_mode)
+                            or not stat.S_ISDIR(directory_stat.st_mode)):
+                        raise EpistemicMutationError("receipt_path_invalid")
+                    try:
+                        entries = read_regular_files(directory,
+                            max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
+                            max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                            max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
+                    except WindowsHandleCustodyError as exc:
+                        raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
+            else:
+                if directory.is_symlink() or not directory.is_dir():
+                    raise EpistemicMutationError("receipt_path_symlink_forbidden")
+                paths = sorted(directory.glob("*.json"))
+                if len(paths) > MAX_MUTATION_CUSTODY_ENTRIES:
+                    raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+                entries = tuple((path.name, self._read_bounded(path)) for path in paths)
+                if sum(len(raw or b"") for _, raw in entries) > MAX_MUTATION_CUSTODY_TOTAL_BYTES:
+                    raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+            for name, raw in entries:
+                if raw is None or expected_receipts[receipt_stage].get(name) != raw:
+                    raise EpistemicMutationError("mutation_receipt_without_verified_intent")
+
         for receipt in recovered_receipts:
             if type(receipt) is EvidenceBindingMutationReceipt:
                 receipt_stage = "evidence"
