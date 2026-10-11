@@ -1724,3 +1724,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Vector-index parsing now fails explicitly on malformed/non-object records. Recent-observation projections report fragment linkage, index linkage, and evidence-custody status independently; missing, malformed, unavailable, or contradictory links are labeled incomplete while preserving the historical event timestamp and record. The index remains derived metadata and does not independently qualify the observation.
 - Python syntax compilation passed for memory_manager.py. No observation, raw fragment, or index was read at runtime; behavior remains unverified.
 - **Next implementation dependency:** inspect the index writer's concurrent rebuild semantics and the remaining user-memory retirement/reconstruction consumers; preserve explicit incompleteness without letting index absence rewrite observation truth.
+
+
+
+## New checkpoint — serialize derived vector-index updates
+
+- Fresh remote source before this increment: 9a5cbccda9029f01edd5dc32ad60df002c72b9ae (tree 35dbbbfc15f63ed44bb3dd934ae4efa74496f5cc).
+- Vector-index files were atomically replaced, but update/remove operations read the current file before entering the process-local RLock. Separate processes could therefore publish valid files that lost each other's entries.
+- Update, remove, context-access accounting, and forgetting now hold a bounded root-relative flock across index read/modify/write, retaining atomic publication and the in-process lock. The mutating context/forgetting paths enter through the existing Administrator/Lumos authorization before opening the lock. Index parsing and writes are capped at 4096 entries. Malformed/oversized index state remains explicitly incomplete; observation records and event timestamps are not rewritten to fit derived index state.
+- Python syntax compilation passed for memory_manager.py. No index rebuild/write or interprocess operation was run.
+- **Next implementation dependency:** follow memory-observation restoration after missing raw fragments and index entries, then inspect user-memory tomb purge recovery for bounded retention and exact predecessor evidence.

@@ -579,6 +579,8 @@ def _load_index_records() -> list[dict]:
     for i, line in enumerate(lines):
         if not line.strip():
             continue
+        if i >= 4096:
+            raise MemorySidecarIncompleteError("vector_index_entry_bound_exceeded", i + 1)
         try:
             value = json.loads(line)
         except json.JSONDecodeError as exc:
@@ -590,15 +592,54 @@ def _load_index_records() -> list[dict]:
 
 
 def _save_index_records(records: Sequence[dict]) -> None:
+    if len(records) > 4096:
+        raise MemorySidecarIncompleteError("vector_index_entry_bound_exceeded", 0)
     with _INDEX_LOCK:
         with _open_legacy_memory_text(VECTOR_INDEX_PATH, "w") as f:
             for record in records:
                 f.write(json.dumps(record) + "\n")
 
 
+@contextmanager
+def _vector_index_transaction():
+    from sentientos.platform_fcntl import fcntl, require_flock
+    require_flock()
+    if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        raise PermissionError("vector_index_lock_custody_unsupported")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    descriptor: int | None = None
+    acquired = False
+    try:
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(".vector-index.lock", flags, 0o600, dir_fd=root_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("vector_index_lock_custody_invalid")
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("vector_index_lock_timeout")
+                time.sleep(0.01)
+        yield
+    finally:
+        if descriptor is not None:
+            if acquired:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        os.close(root_fd)
+
+
 def _remove_from_index(fragment_id: str) -> None:
-    records = [rec for rec in _load_index_records() if rec.get("id") != fragment_id]
-    _save_index_records(records)
+    with _INDEX_LOCK, _vector_index_transaction():
+        records = [rec for rec in _load_index_records() if rec.get("id") != fragment_id]
+        _save_index_records(records)
 
 
 def _append_tomb(entry: Dict) -> None:
@@ -817,20 +858,21 @@ def append_memory(
 
 def _update_vector_index(entry: Dict):
     vec = _vectorize(entry["text"])
-    records = [rec for rec in _load_index_records() if rec.get("id") != entry["id"]]
-    record = {
-        "id": entry["id"],
-        "vector": vec,
-        "snippet": entry["text"][:400],
-        "importance": entry.get("importance", 0.3),
-        "tags": entry.get("tags", []),
-        "last_accessed": entry.get("last_accessed"),
-        "access_count": entry.get("access_count", 0),
-        "category": entry.get("category"),
-        "summary": entry.get("summary"),
-    }
-    records.append(record)
-    _save_index_records(records)
+    with _INDEX_LOCK, _vector_index_transaction():
+        records = [rec for rec in _load_index_records() if rec.get("id") != entry["id"]]
+        record = {
+            "id": entry["id"],
+            "vector": vec,
+            "snippet": entry["text"][:400],
+            "importance": entry.get("importance", 0.3),
+            "tags": entry.get("tags", []),
+            "last_accessed": entry.get("last_accessed"),
+            "access_count": entry.get("access_count", 0),
+            "category": entry.get("category"),
+            "summary": entry.get("summary"),
+        }
+        records.append(record)
+        _save_index_records(records)
     print(f"[VECTOR] Index updated for {entry['id']}")
 
 
@@ -1401,7 +1443,7 @@ def is_reflection_loop(snippet: str) -> bool:
     return any(p in lowered for p in REFLECTION_PHRASES)
 
 
-def get_context(query: str, k: int = 6) -> List[str]:
+def _get_context_unlocked(query: str, k: int = 6) -> List[str]:
     index = _load_index_records()
     q_vec = _vectorize(query)
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -1443,6 +1485,12 @@ def get_context(query: str, k: int = 6) -> List[str]:
 
     return [s for s in snippets if s][:k]
 
+
+
+def get_context(query: str, k: int = 6) -> List[str]:
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        return _get_context_unlocked(query, k)
 
 def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
     """Return recent memory fragments matching all ``tags``.
@@ -1678,8 +1726,7 @@ def summarize_memory() -> None:
     _write_turn_summaries(entries)
 
 
-@_legacy_mutation_operation
-def apply_forgetting_curve(
+def _apply_forgetting_curve_unlocked(
     *, requestor: str = "curator", reason: str = "forgetting_curve"
 ) -> int:
     """Apply an Ebbinghaus-inspired decay to prune low-importance fragments.
@@ -1737,6 +1784,14 @@ def apply_forgetting_curve(
         print(f"[FORGET] Archived {removed} stale fragments")
     return removed
 
+
+
+@_legacy_mutation_operation
+def apply_forgetting_curve(*, requestor: str = "curator",
+                           reason: str = "forgetting_curve") -> int:
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        return _apply_forgetting_curve_unlocked(requestor=requestor, reason=reason)
 
 @_legacy_mutation_operation
 def curate_memory() -> dict[str, Any]:
