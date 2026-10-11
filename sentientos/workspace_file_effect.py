@@ -970,9 +970,17 @@ def build_workspace_file_production_audit_receipt(
     return replace(record, digest=deterministic_digest("workspace-file-production-audit-", record.to_dict()))
 
 
-def _validate_common(record: Any, *, allowed_true_fields: frozenset[str]) -> WorkspaceFileEffectValidationResult:
+def _validate_common(
+    record: Any,
+    *,
+    allowed_true_fields: frozenset[str],
+    digest_prefix: str,
+) -> WorkspaceFileEffectValidationResult:
     findings: list[str] = []
     data = record.to_dict() if hasattr(record, "to_dict") else dict(record)
+    expected_digest = deterministic_digest(digest_prefix, data)
+    if not isinstance(data.get("digest"), str) or data["digest"] != expected_digest:
+        findings.append("record_digest_mismatch")
     for field in FORBIDDEN_TRUE_FIELDS:
         if data.get(field) is True:
             findings.append(f"forbidden_true_field:{field}")
@@ -987,7 +995,8 @@ def _validate_common(record: Any, *, allowed_true_fields: frozenset[str]) -> Wor
 
 
 def validate_workspace_file_effect_request(request: WorkspaceFileEffectRequest) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(request, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS).findings)
+    findings = list(_validate_common(request, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS,
+        digest_prefix="workspace-file-effect-request-").findings)
     if request.request_status not in EFFECT_STATUSES:
         findings.append("unknown_request_status")
     _root, _target, path_findings = _resolve_target(request.workspace_root, request.relative_target_path)
@@ -996,14 +1005,16 @@ def validate_workspace_file_effect_request(request: WorkspaceFileEffectRequest) 
 
 
 def validate_workspace_file_preimage_record(record: WorkspaceFilePreimageRecord) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=frozenset()).findings)
+    findings = list(_validate_common(record, allowed_true_fields=frozenset(),
+        digest_prefix="workspace-file-preimage-").findings)
     if record.preimage_status not in PREIMAGE_STATUSES:
         findings.append("unknown_preimage_status")
     return WorkspaceFileEffectValidationResult(ok=not findings, findings=tuple(findings))
 
 
 def validate_workspace_file_effect_result(record: WorkspaceFileEffectResult) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS).findings)
+    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS,
+        digest_prefix="workspace-file-effect-result-").findings)
     if record.effect_status not in EFFECT_STATUSES:
         findings.append("unknown_effect_status")
     if record.created_new_file and record.replaced_existing_file:
@@ -1012,7 +1023,8 @@ def validate_workspace_file_effect_result(record: WorkspaceFileEffectResult) -> 
 
 
 def validate_workspace_file_effect_receipt(record: WorkspaceFileEffectReceipt) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS).findings)
+    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS,
+        digest_prefix="workspace-file-effect-receipt-").findings)
     if record.effect_domain not in EFFECT_DOMAINS:
         findings.append("unknown_effect_domain")
     if not record.workspace_scoped or not record.single_target_only:
@@ -1021,28 +1033,32 @@ def validate_workspace_file_effect_receipt(record: WorkspaceFileEffectReceipt) -
 
 
 def validate_workspace_file_postcondition_check(record: WorkspaceFilePostconditionCheck) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS).findings)
+    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS,
+        digest_prefix="workspace-file-postcondition-").findings)
     if record.postcondition_status not in POSTCONDITION_STATUSES:
         findings.append("unknown_postcondition_status")
     return WorkspaceFileEffectValidationResult(ok=not findings, findings=tuple(findings))
 
 
 def validate_workspace_file_rollback_plan(record: WorkspaceFileRollbackPlan) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_ROLLBACK_TRUE_FIELDS).findings)
+    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_ROLLBACK_TRUE_FIELDS,
+        digest_prefix="workspace-file-rollback-plan-").findings)
     if record.rollback_status not in ROLLBACK_STATUSES:
         findings.append("unknown_rollback_status")
     return WorkspaceFileEffectValidationResult(ok=not findings, findings=tuple(findings))
 
 
 def validate_workspace_file_rollback_result(record: WorkspaceFileRollbackResult) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_ROLLBACK_TRUE_FIELDS).findings)
+    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_ROLLBACK_TRUE_FIELDS,
+        digest_prefix="workspace-file-rollback-result-").findings)
     if record.rollback_status not in ROLLBACK_STATUSES:
         findings.append("unknown_rollback_status")
     return WorkspaceFileEffectValidationResult(ok=not findings, findings=tuple(findings))
 
 
 def validate_workspace_file_rollback_receipt(record: WorkspaceFileRollbackReceipt) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_ROLLBACK_TRUE_FIELDS).findings)
+    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_ROLLBACK_TRUE_FIELDS,
+        digest_prefix="workspace-file-rollback-receipt-").findings)
     if record.rollback_status not in ROLLBACK_STATUSES:
         findings.append("unknown_rollback_status")
     if not record.exact_target_only or not record.workspace_scoped:
@@ -1051,14 +1067,16 @@ def validate_workspace_file_rollback_receipt(record: WorkspaceFileRollbackReceip
 
 
 def validate_workspace_file_rollback_postcondition_check(record: WorkspaceFileRollbackPostconditionCheck) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_ROLLBACK_TRUE_FIELDS).findings)
+    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_ROLLBACK_TRUE_FIELDS,
+        digest_prefix="workspace-file-rollback-postcondition-").findings)
     if record.postcondition_status not in POSTCONDITION_STATUSES:
         findings.append("unknown_postcondition_status")
     return WorkspaceFileEffectValidationResult(ok=not findings, findings=tuple(findings))
 
 
 def validate_workspace_file_production_audit_receipt(record: WorkspaceFileProductionAuditReceipt) -> WorkspaceFileEffectValidationResult:
-    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS).findings)
+    findings = list(_validate_common(record, allowed_true_fields=_ALLOWED_EFFECT_TRUE_FIELDS,
+        digest_prefix="workspace-file-production-audit-").findings)
     if record.audit_status not in AUDIT_STATUSES:
         findings.append("unknown_audit_status")
     if not record.audit_for_workspace_file_effect_only:

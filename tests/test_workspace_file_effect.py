@@ -18,6 +18,11 @@ from sentientos.workspace_file_effect import (
     perform_workspace_file_rollback_postcondition_check,
     summarize_workspace_file_effect_receipt,
     summarize_workspace_file_rollback_result,
+    validate_workspace_file_preimage_record,
+    validate_workspace_file_postcondition_check,
+    validate_workspace_file_rollback_plan,
+    validate_workspace_file_rollback_result,
+    validate_workspace_file_rollback_postcondition_check,
     validate_workspace_file_effect_receipt,
     validate_workspace_file_effect_request,
     validate_workspace_file_effect_result,
@@ -170,6 +175,37 @@ def test_digests_deterministic_and_change_on_meaningful_metadata(tmp_path: Path)
     changed = _request(tmp_path, payload="b")
     assert first.digest == second.digest
     assert first.digest != changed.digest
+
+
+def test_every_owner_record_verifier_rejects_semantic_field_substitution(
+    tmp_path: Path,
+) -> None:
+    request, preimage, result, receipt, postcondition, plan, audit = _run(
+        tmp_path, "digest-check.txt", "bounded payload",
+    )
+    rollback = perform_workspace_file_rollback(plan)
+    rollback_receipt = build_workspace_file_rollback_receipt(plan, rollback)
+    rollback_postcondition = perform_workspace_file_rollback_postcondition_check(
+        plan, rollback_receipt,
+    )
+    records_and_verifiers = (
+        (request, validate_workspace_file_effect_request),
+        (preimage, validate_workspace_file_preimage_record),
+        (result, validate_workspace_file_effect_result),
+        (receipt, validate_workspace_file_effect_receipt),
+        (postcondition, validate_workspace_file_postcondition_check),
+        (plan, validate_workspace_file_rollback_plan),
+        (rollback, validate_workspace_file_rollback_result),
+        (rollback_receipt, validate_workspace_file_rollback_receipt),
+        (rollback_postcondition, validate_workspace_file_rollback_postcondition_check),
+        (audit, validate_workspace_file_production_audit_receipt),
+    )
+    for record, verifier in records_and_verifiers:
+        assert verifier(record).ok
+        substituted = replace(record, created_at=record.created_at + "-substituted")
+        result_validation = verifier(substituted)
+        assert result_validation.ok is False
+        assert "record_digest_mismatch" in result_validation.findings
 
 
 def test_summaries_state_single_file_workspace_effect_only(tmp_path: Path) -> None:
