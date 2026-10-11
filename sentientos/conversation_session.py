@@ -11,7 +11,6 @@ from contextlib import contextmanager
 import os
 import re
 import stat
-import tempfile
 import uuid
 import time
 from dataclasses import dataclass
@@ -50,10 +49,20 @@ def _open_session_lock_file(root: Path, name: str, *, unavailable_code: str) -> 
         raise ValueError("conversation_lock_nofollow_unsupported")
     flags = (os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW
              | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+    root_fd: int | None = None
     try:
-        descriptor = os.open(root / name, flags, 0o600)
+        root_fd = _open_conversation_root(root)
+        descriptor = os.open(name, flags, 0o600, dir_fd=root_fd)
     except OSError as exc:
+        if root_fd is not None:
+            os.close(root_fd)
         raise ValueError(unavailable_code) from exc
+    except Exception:
+        if root_fd is not None:
+            os.close(root_fd)
+        raise
+    else:
+        os.close(root_fd)
     try:
         opened = os.fstat(descriptor)
         if (not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1
@@ -93,26 +102,61 @@ def _validate_turn_source_lineage(turns: Sequence[Mapping[str, Any]]) -> None:
 def _atomic_json(path: Path, payload: Mapping[str, Any], *, replace_existing: bool = True) -> None:
     if os.name != "posix":
         raise ValueError("conversation_publication_unsupported_platform")
+    if (not path.name or path.name in {".", ".."} or "/" in path.name or "\\" in path.name
+            or os.open not in os.supports_dir_fd
+            or os.rename not in os.supports_dir_fd
+            or os.link not in os.supports_dir_fd
+            or os.unlink not in os.supports_dir_fd):
+        raise ValueError("conversation_publication_descriptor_custody_unavailable")
     raw = (json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     if len(raw) > MAX_SESSION_BYTES:
         raise ValueError("session_size_limit")
-    fd, temporary = tempfile.mkstemp(prefix=".conversation-", dir=path.parent)
+    root_fd = _open_conversation_root(path.parent)
+    temporary = f".conversation-{uuid.uuid4().hex}.tmp"
+    descriptor: int | None = None
+    created = False
     try:
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(raw); handle.flush(); os.fsync(handle.fileno())
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+        descriptor = os.open(temporary, flags, 0o600, dir_fd=root_fd)
+        created = True
+        os.fchmod(descriptor, 0o600)
+        view = memoryview(raw)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("short_conversation_write")
+            view = view[written:]
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
         if replace_existing:
-            os.replace(temporary, path)
+            try:
+                current = os.stat(path.name, dir_fd=root_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                current = None
+            if current is not None and (
+                    not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+                    or current.st_uid != os.geteuid()
+                    or stat.S_IMODE(current.st_mode) & 0o077):
+                raise ValueError("session_replace_target_custody_invalid")
+            os.rename(temporary, path.name,
+                src_dir_fd=root_fd, dst_dir_fd=root_fd)
+            created = False
         else:
-            # A new session identity is create-only: an improbable UUID
-            # collision must never replace an existing durable transcript.
-            os.link(temporary, path, follow_symlinks=False)
-            os.unlink(temporary)
-        directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        try: os.fsync(directory)
-        finally: os.close(directory)
+            os.link(temporary, path.name, src_dir_fd=root_fd,
+                dst_dir_fd=root_fd, follow_symlinks=False)
+            os.unlink(temporary, dir_fd=root_fd)
+            created = False
+        os.fsync(root_fd)
     finally:
-        if os.path.exists(temporary): os.unlink(temporary)
+        if descriptor is not None:
+            os.close(descriptor)
+        if created:
+            try:
+                os.unlink(temporary, dir_fd=root_fd)
+            except FileNotFoundError:
+                pass
+        os.close(root_fd)
 
 
 def _safe_root(root: Path) -> Path:
@@ -183,6 +227,82 @@ def _safe_root(root: Path) -> Path:
         return root.resolve()
     raise ValueError("conversation_root_custody_unsupported_platform")
 
+
+
+def _open_conversation_root(root: Path) -> int:
+    """Open the already-established private transcript root without path following."""
+    if os.name != "posix":
+        raise ValueError("conversation_root_descriptor_custody_unsupported_platform")
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    directory = getattr(os, "O_DIRECTORY", None)
+    if (nofollow is None or directory is None or os.open not in os.supports_dir_fd):
+        raise ValueError("conversation_root_descriptor_custody_unavailable")
+    absolute = Path(os.path.abspath(Path(root).expanduser()))
+    descriptor = os.open(os.sep, os.O_RDONLY | directory)
+    try:
+        components = absolute.parts[1:]
+        if not components:
+            raise ValueError("conversation_root_not_private_directory")
+        for index, component in enumerate(components):
+            if component in {"", ".", ".."}:
+                raise ValueError("conversation_root_path_component_invalid")
+            child = os.open(component, os.O_RDONLY | directory | nofollow,
+                dir_fd=descriptor)
+            metadata = os.fstat(child)
+            if not stat.S_ISDIR(metadata.st_mode):
+                os.close(child)
+                raise ValueError("conversation_root_not_private_directory")
+            if index == len(components) - 1:
+                if metadata.st_uid != os.geteuid():
+                    os.close(child)
+                    raise ValueError("conversation_root_owner_mismatch")
+                if stat.S_IMODE(metadata.st_mode) & 0o077:
+                    os.close(child)
+                    raise ValueError("conversation_root_permissions_invalid")
+            os.close(descriptor)
+            descriptor = child
+        result = descriptor
+        descriptor = -1
+        return result
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+def _read_session_file(root: Path, name: str, *, max_bytes: int) -> bytes:
+    if (not name or name in {".", ".."} or "/" in name or "\\" in name):
+        raise ValueError("session_file_name_invalid")
+    root_fd = _open_conversation_root(root)
+    descriptor: int | None = None
+    try:
+        flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+        descriptor = os.open(name, flags, dir_fd=root_fd)
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_uid != os.geteuid()
+                or stat.S_IMODE(before.st_mode) & 0o077
+                or before.st_size > max_bytes):
+            raise ValueError("session_file_custody_invalid")
+        chunks: list[bytes] = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if (len(raw) > max_bytes or len(raw) != before.st_size
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns):
+            raise ValueError("session_file_changed_during_read")
+        return raw
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(root_fd)
 
 
 @dataclass(frozen=True)
@@ -272,7 +392,11 @@ class ConversationSessionStore:
     def load(self, session_id: str) -> dict[str, Any]:
         path = self._path(session_id)
         try:
-            raw = read_explicit_file(path, max_bytes=MAX_SESSION_BYTES)
+            raw = (_read_session_file(self.root, path.name, max_bytes=MAX_SESSION_BYTES)
+                if os.name == "posix"
+                else read_explicit_file(path, max_bytes=MAX_SESSION_BYTES))
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(session_id) from exc
         except OSError as exc:
             raise ValueError("session_read_unavailable") from exc
         except ValueError as exc:
@@ -494,8 +618,10 @@ class ConversationSessionStore:
     def list_recent(self, *, limit: int = 20) -> list[dict[str, Any]]:
         result = []
         total_bytes = 0
+        root_fd = _open_conversation_root(self.root) if os.name == "posix" else None
+        scan_root = root_fd if root_fd is not None else self.root
         try:
-            with os.scandir(self.root) as entries:
+            with os.scandir(scan_root) as entries:
                 for index, entry in enumerate(entries):
                     if index >= MAX_SESSION_LIST_ENTRIES:
                         raise ValueError("session_listing_entry_bound_exceeded")
@@ -520,6 +646,9 @@ class ConversationSessionStore:
                         "model_identity_scope": "session_creation_snapshot_only"})
         except OSError as exc:
             raise ValueError("session_listing_unavailable") from exc
+        finally:
+            if root_fd is not None:
+                os.close(root_fd)
         return sorted(result, key=lambda item: (
             datetime.fromisoformat(str(item["latest_activity_at"]).replace("Z", "+00:00"))
                 .astimezone(timezone.utc),

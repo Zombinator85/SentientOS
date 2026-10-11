@@ -1817,3 +1817,8 @@ CanonicalMemoryStore no longer calls recursive Path.mkdir on the configured user
 ## 2026-10-11 checkpoint — descriptor-safe conversation root creation
 
 The installation-scoped conversation store now creates missing POSIX root components relative to held no-follow directory descriptors, fsyncs each new parent entry, and verifies the final root's owner and private mode before returning its absolute path. It no longer uses a symlink-check-then-recursive-mkdir sequence. Windows continues to require its existing explicit private-ACL directory verifier; unsupported platforms fail closed. This root remains separate from configured user memory and resident developmental history. Python compilation passed; no transcript path was created or inspected. Next dependency: inspect session root lifecycle and sidecar replacement/recovery after the root is safely established.
+
+
+## 2026-10-11 checkpoint — descriptor-bind session lock and publication paths
+
+Session lock creation, bounded reads, recent-session directory scans, and atomic JSON replacement now operate relative to a freshly verified no-follow transcript-root descriptor on POSIX. Writers reject non-private or linked replacement targets and fsync the held directory after publication. This closes the path-based parent-swap gap in the separately installation-scoped transcript store; Windows retains its explicit ACL reader posture and unsupported writes remain fail-closed. Python syntax compilation passed; no session or transcript was opened. Next dependency: review root identity continuity across service lifetime and interrupted multi-file session/receipt composition.
