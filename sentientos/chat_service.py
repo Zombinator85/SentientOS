@@ -33,7 +33,7 @@ from .production_chat_resource_context import (
     ResourceBackedProductionChatInference,
 )
 from .conversation_session import (
-    ConversationSessionStore, assemble_local_chat_context,
+    ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
@@ -209,6 +209,18 @@ class PersistentConversationService:
 
     def chat(self, message: str, *, session_id: str | None = None, retain: bool = False,
              request_id: str | None = None) -> ChatResponse:
+        if session_id is None:
+            return self._chat_unlocked(message, session_id=None, retain=retain,
+                request_id=request_id)
+        try:
+            with self.sessions.serialize_chat_requests(session_id):
+                return self._chat_unlocked(message, session_id=session_id,
+                    retain=retain, request_id=request_id)
+        except ConversationChatLockTimeout as exc:
+            raise ChatRequestStateError("chat_session_request_lock_timeout") from exc
+
+    def _chat_unlocked(self, message: str, *, session_id: str | None = None,
+                       retain: bool = False, request_id: str | None = None) -> ChatResponse:
         if request_id is not None:
             if session_id is None:
                 raise ChatRequestStateError("idempotent_request_requires_existing_session")

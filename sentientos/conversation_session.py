@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import contextmanager
 import os
 import re
 import tempfile
@@ -15,7 +16,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import IO, Any, Mapping, Sequence
+from typing import IO, Any, Iterator, Mapping, Sequence
 
 from .platform_fcntl import fcntl, require_flock
 from .windows_handle_custody import read_explicit_file
@@ -84,6 +85,10 @@ class ContextSnapshot:
                 "truncated": self.truncated, "snapshot_digest": self.snapshot_digest}
 
 
+class ConversationChatLockTimeout(TimeoutError):
+    """A session is currently processing another chat request."""
+
+
 class ConversationSessionStore:
     def __init__(self, root: Path, *, lock_timeout_seconds: float = 5.0) -> None:
         self.root = _safe_root(root)
@@ -105,6 +110,42 @@ class ConversationSessionStore:
                     handle.close()
                     raise TimeoutError("session_lock_timeout")
                 time.sleep(0.01)
+
+    @contextmanager
+    def serialize_chat_requests(self, session_id: str) -> Iterator[None]:
+        """Serialize one session's read-context/infer/append transaction across processes."""
+        if not _ID.fullmatch(session_id):
+            raise ValueError("invalid_session_id")
+        try:
+            require_flock()
+        except OSError as exc:
+            raise ValueError("conversation_lock_custody_unsupported_platform") from exc
+        lock_path = self.root / f".{session_id}.chat.lock"
+        flags = os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            fd = os.open(lock_path, flags, 0o600)
+        except OSError as exc:
+            raise ValueError("conversation_chat_lock_unavailable") from exc
+        handle = os.fdopen(fd, "a+")
+        deadline = time.monotonic() + self.lock_timeout_seconds
+        acquired = False
+        try:
+            while True:
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    acquired = True
+                    break
+                except BlockingIOError:
+                    if time.monotonic() >= deadline:
+                        raise ConversationChatLockTimeout("chat_session_request_lock_timeout")
+                    time.sleep(0.01)
+            yield
+        finally:
+            try:
+                if acquired:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            finally:
+                handle.close()
 
     def _path(self, session_id: str) -> Path:
         if not _ID.fullmatch(session_id): raise ValueError("invalid_session_id")

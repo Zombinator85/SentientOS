@@ -924,3 +924,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the changed observer, projector, and daemon source snapshots. No tests, fixture, inference, runtime, or production behavior was run. Construction remains unverified for production.
 
 **Next implementation dependency:** inspect the chat's durable user-turn and completed-invocation publication boundary. Preserve interrupted requests as incomplete and no-replay; do not reconstruct private response content from a digest.
+
+## New checkpoint — serialize per-session chat inference and transcript publication
+
+- The chat service previously took a session snapshot, appended a user turn, performed inference, and appended an assistant turn without a session-wide request lock. Two concurrent requests to one session could overlap inference and publish assistant turns in an order that did not match the predecessor/context snapshots.
+- Existing per-file locks protect each atomic transcript write but not the full read-context/infer/append sequence. Added a separate held-handle process lock for the complete request on an existing session. It is released on normal return, exceptions, or process death; existing per-write locks remain independent, so no nested-lock deadlock is introduced.
+- A lock wait timeout is reported as a chat request-state conflict rather than misattributed to inference failure. New sessions are created privately before their first request and need no contention lock.
+- This preserves same-session predecessor verification and no-replay recovery while preventing concurrent requests from consuming or claiming a later request's history. It does not make invocation-receipt and transcript publication atomic across their separate owners.
+- `python -m py_compile` passed for the session and chat source snapshots. No concurrency fixture or runtime execution was performed; construction remains unverified.
+
+**Next implementation dependency:** make the bundled browser client use the existing request-idempotency contract so transport retries carry the same request identity across a lost response and cannot silently invoke inference again.
