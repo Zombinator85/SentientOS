@@ -5,9 +5,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
-from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
+from .windows_handle_custody import (
+    WindowsHandleCustodyError, read_explicit_file, read_regular_files,
+)
 CANDIDATE_TYPE = "explicit_conversation_user_retention"
 MAX_RETENTION_RECORD_BYTES = 256 * 1024
+MAX_MEMORY_SCAN_ENTRIES = 4096
+MAX_MEMORY_RECORDS = 1024
+MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
 def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 def sentientos_data_dir() -> Path:
@@ -29,17 +34,113 @@ class CanonicalMemoryStore:
     def __init__(self,memory_root:Path)->None:
         self.root=memory_root.resolve(); self.raw=self.root/"raw"; self.raw.mkdir(parents=True,exist_ok=True,mode=0o700)
         self.legacy_sidecar_present=(self.root/"conversation_memories.json").is_file()
-    def _records(self)->list[dict[str,Any]]:
-        out=[]
-        for path in sorted(self.raw.glob("*.json")):
+    @staticmethod
+    def _read_at(directory_fd: int, name: str, *, max_bytes: int) -> bytes:
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
+            before = os.fstat(descriptor)
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                    or before.st_uid != os.geteuid() or before.st_size > max_bytes):
+                raise WindowsHandleCustodyError("memory_record_custody_invalid")
+            chunks: list[bytes] = []
+            remaining = max_bytes + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+            after = os.fstat(descriptor)
+            if (len(raw) > max_bytes or len(raw) != before.st_size
+                    or after.st_size != before.st_size
+                    or after.st_mtime_ns != before.st_mtime_ns
+                    or after.st_ctime_ns != before.st_ctime_ns
+                    or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+                raise WindowsHandleCustodyError("memory_record_changed_during_read")
+            return raw
+        except WindowsHandleCustodyError:
+            raise
+        except OSError as exc:
+            raise WindowsHandleCustodyError("memory_record_custody_unavailable") from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+
+    def _records(self) -> tuple[list[dict[str, Any]], str]:
+        if os.name == "nt":
             try:
-                value=json.loads(path.read_text(encoding="utf-8"))
-                if isinstance(value,dict) and isinstance(value.get("text"),str): out.append(value)
-            except (OSError,json.JSONDecodeError): pass
-        return out
+                entries = read_regular_files(self.raw, max_entries=MAX_MEMORY_RECORDS,
+                    max_file_bytes=MAX_RETENTION_RECORD_BYTES,
+                    max_total_bytes=MAX_MEMORY_TOTAL_BYTES, suffix=".json")
+            except WindowsHandleCustodyError as exc:
+                posture = ("directory_missing" if "missing" in str(exc)
+                    else "custody_or_bound_unavailable")
+                return [], posture
+            raw_entries = entries
+        else:
+            directory_fd: int | None = None
+            try:
+                if (not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY")
+                        or os.open not in os.supports_dir_fd
+                        or os.scandir not in os.supports_fd):
+                    return [], "safe_directory_read_unsupported"
+                directory_fd = os.open(self.raw,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                metadata = os.fstat(directory_fd)
+                if (not stat.S_ISDIR(metadata.st_mode)
+                        or metadata.st_uid != os.geteuid()
+                        or stat.S_IMODE(metadata.st_mode) & 0o022):
+                    return [], "directory_custody_invalid"
+                names: list[str] = []
+                with os.scandir(directory_fd) as entries:
+                    for index, entry in enumerate(entries):
+                        if index >= MAX_MEMORY_SCAN_ENTRIES:
+                            return [], "directory_entry_bound_exceeded"
+                        if entry.name.endswith(".json"):
+                            names.append(entry.name)
+                            if len(names) > MAX_MEMORY_RECORDS:
+                                return [], "memory_record_bound_exceeded"
+                raw_entries = []
+                total = 0
+                for name in sorted(names):
+                    raw = self._read_at(directory_fd, name,
+                        max_bytes=MAX_RETENTION_RECORD_BYTES)
+                    total += len(raw)
+                    if total > MAX_MEMORY_TOTAL_BYTES:
+                        return [], "memory_total_byte_bound_exceeded"
+                    raw_entries.append((name, raw))
+            except FileNotFoundError:
+                return [], "directory_missing"
+            except (OSError, WindowsHandleCustodyError):
+                return [], "custody_unavailable"
+            finally:
+                if directory_fd is not None:
+                    os.close(directory_fd)
+        out: list[dict[str, Any]] = []
+        posture = "complete"
+        total = 0
+        for name, raw in raw_entries:
+            total += len(raw)
+            if total > MAX_MEMORY_TOTAL_BYTES:
+                return [], "memory_total_byte_bound_exceeded"
+            try:
+                value = json.loads(raw.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError):
+                posture = "partial_malformed_records"
+                continue
+            if isinstance(value, dict) and isinstance(value.get("text"), str):
+                out.append(value)
+            else:
+                posture = "partial_invalid_records"
+        return out, posture
+
     def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000)->dict[str,Any]:
+        records, retrieval_posture = self._records()
         terms=set(re.findall(r"[a-z0-9]+",query.lower())); ranked=[]
-        for record in self._records():
+        for record in records:
             score=len(terms & set(re.findall(r"[a-z0-9]+",record["text"].lower())))
             if score: ranked.append((score,str(record.get("id","")),record))
         selected: list[dict[str, Any]]=[]; used=0
@@ -47,8 +148,11 @@ class CanonicalMemoryStore:
             if len(selected)>=max(0,limit): break
             if used+len(record["text"])<=budget_chars: selected.append(record); used+=len(record["text"])
         identities=[(r.get("id"),r.get("text_digest") or digest({"text":r["text"]})) for r in selected]
-        return {"memories":selected,"selected_memory_ids":[x[0] for x in identities],"read_only":True,"legacy_sidecar_present":self.legacy_sidecar_present,
-                "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,"limit":limit,"budget_chars":budget_chars})}
+        return {"memories":selected,"selected_memory_ids":[x[0] for x in identities],"read_only":True,
+                "legacy_sidecar_present":self.legacy_sidecar_present,
+                "retrieval_posture":retrieval_posture,
+                "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
+                    "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture})}
 class AdmittedRetentionWriter:
     """Terminal executor validates admission evidence but never decides admission."""
     def __init__(self, store: CanonicalMemoryStore,

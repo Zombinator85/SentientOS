@@ -275,6 +275,7 @@ class PersistentConversationService:
             context={
                 "conversation_snapshot_digest": linkage.get("context_snapshot_digest"),
                 "memory_snapshot_digest": linkage.get("memory_snapshot_digest"),
+                "memory_retrieval_posture": linkage.get("memory_retrieval_posture", "unknown_legacy"),
                 "active_model_identity_digest": linkage.get("active_model_identity_digest"),
                 "loaded_model_identity_digest": linkage.get("loaded_model_identity_digest"),
                 "recovered_without_inference": True,
@@ -546,7 +547,8 @@ class PersistentConversationService:
                          if predecessor_invocation_reference is not None else None),
                      "model_identity_continuity_posture": continuity_posture,
                      "context_snapshot_digest": history.snapshot_digest,
-                     "memory_snapshot_digest": memory["snapshot_digest"]})
+                     "memory_snapshot_digest": memory["snapshot_digest"],
+                     "memory_retrieval_posture": memory["retrieval_posture"]})
         retention_result: dict[str, object] = {"status": "not_requested"}
         if retain:
             request_id = "retain-request-" + uuid.uuid4().hex[:24]
@@ -566,6 +568,7 @@ class PersistentConversationService:
         return ChatResponse(response=receipt.output_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
                             context={"conversation_snapshot_digest": history.snapshot_digest,
                                      "memory_snapshot_digest": memory["snapshot_digest"],
+                                     "memory_retrieval_posture": memory["retrieval_posture"],
                                      "active_model_identity_digest": serving_identity_digest,
                                      "loaded_model_identity_digest": loaded_identity_digest,
                                      "model_identity_continuity_posture": continuity_posture,

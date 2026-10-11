@@ -4,7 +4,7 @@ Non-authorizing progress record. Construction changes are **untested and unverif
 
 ## Latest remotely verified checkpoint
 
-The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch later reached `441b962c190444b7f0f63b39fcae7c40f6abf06a` (tree `305ba4aab0eb4ea510a9b640077806f4bafa0ce3`), which is the source base for the checkpoint appended below. Local Git `HEAD` is not authoritative.
+The fresh remote checkpoint at the start of the recent construction continuation was `96ca1cf4134e3f28ce21c54cb20ca6fc1aade920` (tree `4d45c3df6fd3cef4692f505a03a4a65b3632333d`). The branch later reached `eb5cc2113066cfca92993f8f669308d8724bf4d6` (tree `1de1da537cc8132d7b7ff9121c46094a4f68551a`), which is the source base for the checkpoint appended below. Local Git `HEAD` is not authoritative.
 
 ## Current constructed connections
 
@@ -1156,3 +1156,14 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation and whitespace inspection passed for `canonical_memory.py`. No tests, runtime memory writes, crash injection, concurrency test, or Windows execution was performed.
 
 **Next implementation dependency:** make bounded canonical-memory retrieval use the explicit-file custody reader while preserving legacy raw-fragment compatibility; the current `_records()` path still enumerates and reads with unbounded `glob`/`read_text` operations.
+
+
+## New checkpoint — bound canonical memory retrieval
+
+- Fresh remote source before this increment: `eb5cc2113066cfca92993f8f669308d8724bf4d6` (tree `1de1da537cc8132d7b7ff9121c46094a4f68551a`).
+- Explicit user memory was the retrieval source for later chat context, but `CanonicalMemoryStore._records()` used unbounded `glob()` and `read_text()`; symlinked, oversized, or changing files could enter prompt memory without a bounded custody posture.
+- POSIX retrieval now enumerates a held no-follow directory descriptor with entry and record caps, then reads each selected record relative to that descriptor with regular-file, single-link, same-owner, size, and stable-identity checks. Windows uses the existing reparse-safe bounded directory reader. Aggregate bytes and per-record bytes are bounded. Legacy JSON record shapes remain readable; malformed records are omitted with a partial posture, while custody/bound failures return no memory records rather than using a partial untrusted set.
+- The retrieval snapshot digest now binds the scan posture. Chat responses expose that posture and retain it in assistant linkage for idempotent recovery. Memory remains explicit canonical user memory, outside resident developmental history.
+- Python compilation and whitespace inspection passed for `canonical_memory.py` and `chat_service.py`. No tests, runtime retrieval, Windows execution, filesystem race, or production behavior was exercised.
+
+**Next implementation dependency:** inspect how the shared legacy raw-memory writer publishes fragments into this reader's directory, then either compose it through the same bounded custody contract or keep its records explicitly segregated. Do not claim the broader legacy memory manager is covered by this chat-path hardening.
