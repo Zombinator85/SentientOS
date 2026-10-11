@@ -5,16 +5,18 @@ import json
 import math
 import os
 import stat
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 from .canonical_memory import sentientos_memory_dir
 from .private_file_custody import (
     PrivateFileCustodyError, open_private_directory, read_private_file_at, publish_immutable_bytes,
 )
+from .platform_fcntl import fcntl, require_flock
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
@@ -1072,6 +1074,46 @@ class LongitudinalSelfModelOwner:
                 raise LongitudinalSelfModelError("reconciliation_chain_invalid")
         return tuple(loaded)
 
+    @contextmanager
+    def _reconciliation_lock(self) -> Iterator[None]:
+        """Serialize generation/predecessor selection across local processes."""
+        if os.name != "posix":
+            raise LongitudinalSelfModelError("reconciliation_lock_unsupported_platform")
+        directory_fd: int | None = None
+        descriptor: int | None = None
+        try:
+            require_flock()
+            directory_fd = open_private_directory(self.entries, create=True)
+            descriptor = os.open(".self-model-reconciliation.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=directory_fd)
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.geteuid()
+                    or opened.st_nlink != 1 or opened.st_mode & 0o077):
+                raise LongitudinalSelfModelError("reconciliation_lock_invalid")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except LongitudinalSelfModelError:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise
+        except (OSError, PrivateFileCustodyError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise LongitudinalSelfModelError("reconciliation_lock_unavailable") from exc
+        assert directory_fd is not None and descriptor is not None
+        try:
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+                os.close(directory_fd)
+
     def history(self) -> tuple[SelfModelReconciliation, ...]:
         return self._load()
 
@@ -1135,6 +1177,12 @@ class LongitudinalSelfModelOwner:
         return replace(raw, projection_id="cognitive-self-model-" + digest[7:31], projection_digest=digest)
 
     def reconcile(self, snapshot: WorldStateSnapshot, *, tick_id: str) -> SelfModelReconciliation:
+        if os.name != "posix":
+            return self._reconcile_locked(snapshot, tick_id=tick_id)
+        with self._reconciliation_lock():
+            return self._reconcile_locked(snapshot, tick_id=tick_id)
+
+    def _reconcile_locked(self, snapshot: WorldStateSnapshot, *, tick_id: str) -> SelfModelReconciliation:
         validation = validate_snapshot(snapshot)
         if not validation.valid or snapshot.validation_posture != "valid":
             raise LongitudinalSelfModelError("invalid_world_state_snapshot:" + ",".join(validation.findings))

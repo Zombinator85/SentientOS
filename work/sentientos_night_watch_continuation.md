@@ -2597,3 +2597,10 @@ Next inspect succession source records for any projection that still presents a 
 - Review then found the longitudinal self-model owner could be directly rooted under canonical user memory despite the resident cognition config checking only its composed roots. Its constructor now rejects overlap using the actual reconciliation directory. POSIX reconciliation reads and immutable writes now use the shared descriptor-bound custody utility, including owner, permission, size, and no-follow checks.
 - Added authored, unexecuted direct-owner separation cases. Changed Python sources and test modules compile only. No behavior, recovery, or production verification ran.
 - Next serialize concurrent self-model reconciliation so generation and predecessor selection cannot be computed from the same stale history by two local writers; retain its existing one-snapshot idempotency and no-authority posture.
+
+
+## 2026-10-11 checkpoint — serialize longitudinal self-model generation commits
+
+- Reconciliation derived generation and predecessor from a snapshot read before publication, so concurrent local owners could both select the same generation. POSIX reconciliation now holds a stable private lock file for the full read/reconcile/immutable-publish transaction. Exact repeated snapshots remain idempotent; distinct concurrent snapshots receive an ordered predecessor chain. Windows remains read-only: it can return an already persisted snapshot match, while any new publication still fails closed.
+- Added an authored, unexecuted concurrent two-owner predecessor-chain case. Python compilation only; no concurrency behavior or production runtime was exercised.
+- Next inspect adjacent state-owner append sequencing for the same stale-predecessor race, then assess whether the resident daemon's singleton is still being relied upon where the owner itself can enforce lineage.

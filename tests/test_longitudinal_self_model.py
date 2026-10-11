@@ -427,3 +427,28 @@ def test_longitudinal_self_model_rejects_storage_inside_canonical_memory() -> No
     with pytest.raises(LongitudinalSelfModelError,
                        match="self_model_root_overlaps_canonical_memory"):
         LongitudinalSelfModelOwner(sentientos_memory_dir() / "retained-user-content")
+
+
+def test_concurrent_self_model_writers_preserve_generation_predecessors(tmp_path: Path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    barrier = Barrier(2)
+    first_owner = LongitudinalSelfModelOwner(tmp_path / "self-model")
+    second_owner = LongitudinalSelfModelOwner(tmp_path / "self-model")
+
+    def reconcile(owner: LongitudinalSelfModelOwner, source_id: str):
+        barrier.wait()
+        return owner.reconcile(snapshot(record(source=source_id)), tick_id=f"tick-{source_id}")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(reconcile, first_owner, "runtime:parallel-a")
+        second = pool.submit(reconcile, second_owner, "runtime:parallel-b")
+        first.result()
+        second.result()
+
+    history = first_owner.history()
+    assert len(history) == 2
+    assert [item.generation for item in history] == [1, 2]
+    assert history[1].previous_reconciliation_id == history[0].reconciliation_id
+    assert len({item.snapshot_id for item in history}) == 2
