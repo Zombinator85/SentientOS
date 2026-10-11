@@ -1520,7 +1520,8 @@ class RuntimeMaintenanceSurfaces:
                             "transition_id": transition_id,
                             "event_time_posture": "serving_session_time_not_retained",
                             "model_development_provenance": (running_provenance or
-                                {"posture": "unavailable_no_exact_running_identity_binding"})},
+                                {"posture": "unavailable_no_exact_running_identity_binding"}),
+                            "authority": False, "effect_proven": False},
                         "observed_at": None, "effect_claimed": False, "effect_proven": False})
                 head = health.get("journal_head")
                 if head:

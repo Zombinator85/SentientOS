@@ -2269,3 +2269,11 @@ Next inspect succession source records for any projection that still presents a 
 - Startup provenance retains its exact startup event time, but the epistemic adapter now treats it as historical launch context regardless of how recently startup occurred. Its evidence binding remains contextual, has unknown freshness, and cannot supply independent-observation dependency semantics. The separate point-revalidated runtime record remains eligible under its stronger source contract.
 - Added authored unexecuted adapter coverage for a launch observed within the current freshness window. Changed Python/tests compile only; no test or production verification was performed.
 - Next inspect the activation/model-generation evidence boundary for the same launch-versus-live distinction, then advance to another independent causal integration.
+
+
+### New checkpoint — require serving-owner evidence before prioritizing running model identity
+
+- Resident cognition now gives highest model-identity priority only to a runtime-supervisor observation carrying an actual serving-session identity, serving-session ID, explicit event-time limitation, non-authority/effect posture, and the recognized owner evidence strength. A fact name alone is insufficient.
+- Activation lineage remains a separate priority class; the runtime World-State payload now explicitly carries false authority/effect flags alongside its existing not-loaded-by-activation semantics.
+- Added authored unexecuted selection cases for qualified serving identity, forged source/phase lookalikes, and activation-only identity. Changed Python/tests compile only; no tests or production behavior ran.
+- Next inspect the serving observation's event-time and activation-predecessor bindings for contradictions, then advance to a separate causal integration.

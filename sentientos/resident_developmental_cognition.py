@@ -795,7 +795,22 @@ class ResidentDevelopmentalCognitionOwner:
             and isinstance(payload.get("process_instance_id"), str)
             and isinstance(payload.get("provenance_digest"), str)
         )
-        if subject_kind == "observed_running_model" or current_software_generation_verified:
+        observed_running_model_verified = (
+            source_kind == "runtime_supervisor"
+            and subject_kind == "observed_running_model"
+            and fact.stage == "observation" and fact.disposition == "observed"
+            and fact.evidence_strength in {
+                "serving_session_observation", "current_serving_owner_session"}
+            and isinstance(payload.get("running_model_identity_observed"), Mapping)
+            and bool(payload.get("running_model_identity_observed"))
+            and isinstance(payload.get("serving_session_id"), str)
+            and bool(payload.get("serving_session_id"))
+            and payload.get("event_time_posture") == "serving_session_time_not_retained"
+            and payload.get("authority") is False
+            and payload.get("effect_proven") is False
+            and fact.effect_claimed is False and fact.effect_proven is False
+        )
+        if observed_running_model_verified or current_software_generation_verified:
             priority = 0
         elif payload.get("activated_model_identity") is not None or payload.get("serving_binding_digest"):
             priority = 1

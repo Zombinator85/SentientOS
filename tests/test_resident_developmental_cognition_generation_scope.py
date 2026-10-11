@@ -103,3 +103,38 @@ def test_launch_time_software_observation_is_not_current_running_priority() -> N
         effect_claimed=False, effect_proven=False)
     assert ResidentDevelopmentalCognitionOwner._fact_selection_key(
         fact, "runtime_supervisor")[0] == 6
+
+
+
+def test_running_model_priority_requires_observed_serving_session_lineage() -> None:
+    payload = {
+        "running_model_identity_observed": {"model_id": "model-a", "artifact_id": "artifact-a"},
+        "serving_session_id": "session-a",
+        "event_time_posture": "serving_session_time_not_retained",
+        "authority": False,
+        "effect_proven": False,
+    }
+    fact = SimpleNamespace(
+        subject=SimpleNamespace(subject_kind="observed_running_model"),
+        disposition="observed", payload=payload,
+        source=SimpleNamespace(source_id="model-session"), fact_id="fact-model",
+        stage="observation", evidence_strength="serving_session_observation",
+        effect_claimed=False, effect_proven=False)
+    owner = ResidentDevelopmentalCognitionOwner
+    assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 0
+    assert owner._fact_selection_key(fact, "local_model_authority")[0] == 6
+    fact.payload = {**payload, "event_time_posture": "activation_receipt_only"}
+    assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 6
+
+
+def test_activation_identity_remains_distinct_from_running_model() -> None:
+    fact = SimpleNamespace(
+        subject=SimpleNamespace(subject_kind="resident_model_transition"),
+        disposition="completed",
+        payload={"activated_model_identity": {"model_id": "successor"},
+            "model_load_posture": "not_loaded_by_activation"},
+        source=SimpleNamespace(source_id="transition-record"), fact_id="fact-activation",
+        stage="observation", evidence_strength="digest_valid_transition_journal_entry",
+        effect_claimed=False, effect_proven=False)
+    assert ResidentDevelopmentalCognitionOwner._fact_selection_key(
+        fact, "runtime_supervisor")[0] == 1
