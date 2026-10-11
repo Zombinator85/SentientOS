@@ -227,7 +227,55 @@ def validate_snapshot(snapshot:WorldStateSnapshot)->WorldStateValidationResult:
                 or fact.fact_id != expected_fact_id or fact.source not in snapshot.sources):
             findings.append("fact_identity_mismatch")
             break
-    if any(snapshot.authority.values()): findings.append("authority_field_true")
+    count_categories = ("subject_kind", "source_kind", "lifecycle_stage",
+        "disposition", "evidence_strength", "staleness_posture")
+    expected_counts: dict[str, dict[str, int]] = {category: {} for category in count_categories}
+    def increment(category: str, value: Any) -> None:
+        key = str(value)
+        expected_counts[category][key] = expected_counts[category].get(key, 0) + 1
+    for source in snapshot.sources:
+        increment("source_kind", source.kind)
+        increment("staleness_posture", source.staleness)
+    for fact in snapshot.facts:
+        increment("subject_kind", fact.subject.subject_kind)
+        increment("lifecycle_stage", fact.stage)
+        increment("disposition", fact.disposition)
+        increment("evidence_strength", fact.evidence_strength)
+    expected_summary = WorldStateBoardSummary(
+        counts=expected_counts,
+        conflicts=len(snapshot.conflicts),
+        pending_review=sum(fact.disposition in {"pending", "ready_for_review"}
+                           for fact in snapshot.facts),
+        denied=sum(fact.disposition == "deny" for fact in snapshot.facts),
+        deferred=sum(fact.disposition == "deferred" for fact in snapshot.facts),
+        blocked=sum(fact.disposition == "blocked" for fact in snapshot.facts),
+        degraded=sum(source.finding != "ok" for source in snapshot.sources),
+        contradicted=len(snapshot.conflicts),
+        execution_attempts=sum(fact.stage == "execution" for fact in snapshot.facts),
+        proven_completions=sum(fact.stage == "execution" and fact.effect_proven
+                               for fact in snapshot.facts),
+        rollbacks=sum(fact.stage == "rollback" for fact in snapshot.facts),
+        adoptions=sum(fact.stage == "adoption" for fact in snapshot.facts),
+        repository_handoffs=sum(fact.stage == "repository_handoff" for fact in snapshot.facts),
+        repository_landings=sum(fact.stage == "repository_landing" for fact in snapshot.facts),
+        unproven_effect_claims=sum(fact.effect_claimed and not fact.effect_proven
+                                   for fact in snapshot.facts),
+    )
+    if snapshot.summary != expected_summary:
+        findings.append("summary_identity_mismatch")
+    if (not isinstance(snapshot.authority, Mapping)
+            or dict(snapshot.authority) != FALSE_AUTHORITY
+            or any(type(value) is not bool for value in snapshot.authority.values())):
+        findings.append("authority_contract_invalid")
+    if (snapshot.validation_posture != "valid"
+            or type(snapshot.degraded) is not bool
+            or snapshot.degraded != (snapshot.summary.degraded > 0)
+            or type(snapshot.stale) is not bool
+            or snapshot.stale != any(source.staleness in {"stale", "expired", "undated"}
+                                     for source in snapshot.sources)
+            or type(snapshot.contradicted) is not bool
+            or snapshot.contradicted != bool(snapshot.conflicts)):
+        findings.append("snapshot_posture_mismatch")
     return WorldStateValidationResult(not findings,tuple(findings))
 
 def diff_snapshots(before:WorldStateSnapshot, after:WorldStateSnapshot)->WorldStateDelta:

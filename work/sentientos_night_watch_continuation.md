@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 117578)
-Total output lines: 2983
+Warning: truncated output (original token count: 117895)
+Total output lines: 2990
 
 # SentientOS long construction continuation
 
@@ -310,16 +310,7 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The verified digest list is bounded to the newest 128 journal entries, matching the daemon's bounded transition projection. Older valid history remains in durable journal custody but is not individually emitted by this bounded World-State view.
 - The changed transition-controller and daemon sources passed `py_compile`. No runtime, crash/restart, cognition, World-State builder execution, tests, model activation, or production verification was performed. Work remains unverified for production.
 
-**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…87578 tokens truncated…fy and publish while issue/revoke operations are serialized against that interval.
-- This does not create or widen any admission. It only defines ordering between existing authorization and existing local mutation. Recovery remains read-only with respect to authority and still does not replay effects.
-- Added an authored, unexecuted lock-order case. Changed source and test syntax compilation only; concurrency and recovery behavior remain unverified.
-- Next continue the source inventory review through World-State and resource-observation custody, then address any remaining bounded owner handoff that lacks this durable identity boundary.
-
-
-## 2026-10-11 checkpoint — bind the resource ledger to descriptor-safe custody
-
-- The governed resource ledger remains a single-process mutable owner; the observer still receives only its verified snapshot. POSIX ledger reads now traverse a no-follow private parent descriptor and validate a bounded owner-private file. Candidate publication uses descriptor-relative atomic replacement without introducing a second process owner.
-- Directory-fsync uncertainty is reported separately after atomic replacement, and the in-memory candidate is retained before the owner raises, avoiding rollback of already visible consumed entitlement. The existing Windows writer path remains unchanged.
+**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…87895 tokens truncated…ed entitlement. The existing Windows writer path remains unchanged.
 - Added authored, unexecuted symlink rejection and visible-but-uncertain replacement cases. Changed source/test syntax compilation only; no ledger operation, crash recovery, or production behavior was exercised.
 - Next continue the read-only source inventory review through runtime World-State composition and identify any remaining cross-owner handoff that reads persistent evidence without exact descriptor or owner identity.
 
@@ -624,3 +615,10 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - That verifier then exposed a producer mismatch: manifest digests were computed over insertion-ordered sources while the stored source tuple was sorted. The producer now hashes the same sorted canonical source list the verifier checks; shuffled identical source records produce the same manifest and snapshot identities.
 - Added rebuilt-digest fact-tampering and source-order regressions. `tests/test_world_state_board.py` (legacy lane): 7 passed; `tests/test_embodied_consequence.py`: 15 passed. Compilation and `git diff --check` pass.
 - The verifier remains an integrity check, not a signature or independent effect issuer. Future investigation should follow the now-consistent canonical snapshot into configured durable history consumers without treating self-digests as external authentication.
+
+## 2026-10-11 checkpoint — snapshot validation covers derived authority and summary
+
+- Continued from `c04751062fc5d9297c10f6070817fd2796e9996e`. A source-level reconstruction showed that `validate_snapshot()` still accepted self-consistent outer digests with an empty authority map or altered derived stale/status metadata. It also trusted summary counters if the caller recomputed the outer digest.
+- Validation now requires the exact all-false authority map, checks degraded/stale/contradicted and valid-posture derivations, and recomputes the bounded summary counts from canonical sources and facts. This complements the previous source manifest and fact identity checks; it remains an integrity contract, not a signature.
+- Regression coverage now rebuilds outer identities around an altered effect fact, missing authority, stale flag, and proven-completion counter. Legacy World-State tests: 8 passed; direct consequence/World-State composition tests: 15 passed. Changed Python compilation and diff checks pass.
+- Next: continue through the downstream configured durable history/epistemic handoff, especially whether source-integrity and unknown observer posture remain intact through later cognition. External model/observer evidence remains unavailable.

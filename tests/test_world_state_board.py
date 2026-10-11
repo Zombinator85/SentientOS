@@ -86,3 +86,33 @@ def test_manifest_identity_is_order_independent_like_its_canonical_source_list()
     reverse=b.build(list(reversed(records)))
     assert forward.manifest.digest==reverse.manifest.digest
     assert forward.digest==reverse.digest
+
+
+def test_snapshot_verifier_requires_exact_authority_and_derived_posture():
+    b=WorldStateBoardBuilder(clock=lambda: datetime(2026,1,1,tzinfo=timezone.utc))
+    snapshot=b.build([{"source_kind":"capability_registry","source_id":"source"}])
+    authority={}
+    base={"schema_version":"world_state_board.v1","manifest_digest":snapshot.manifest.digest,
+        "sources":[to_dict(source) for source in snapshot.sources],
+        "facts":[to_dict(fact) for fact in snapshot.facts],
+        "conflicts":[to_dict(item) for item in snapshot.conflicts],
+        "summary":to_dict(snapshot.summary),"authority":authority}
+    rebuilt_digest=digest(base)
+    forged_authority=replace(snapshot,authority=authority,digest=rebuilt_digest,
+        snapshot_id="world-state-"+rebuilt_digest[:16])
+    assert "authority_contract_invalid" in validate_snapshot(forged_authority).findings
+
+    forged_staleness=replace(snapshot,stale=not snapshot.stale)
+    assert "snapshot_posture_mismatch" in validate_snapshot(forged_staleness).findings
+
+    forged_summary=replace(snapshot.summary,proven_completions=1)
+    summary_base={"schema_version":"world_state_board.v1",
+        "manifest_digest":snapshot.manifest.digest,
+        "sources":[to_dict(source) for source in snapshot.sources],
+        "facts":[to_dict(fact) for fact in snapshot.facts],
+        "conflicts":[to_dict(item) for item in snapshot.conflicts],
+        "summary":to_dict(forged_summary),"authority":snapshot.authority}
+    summary_digest=digest(summary_base)
+    forged_counts=replace(snapshot,summary=forged_summary,digest=summary_digest,
+        snapshot_id="world-state-"+summary_digest[:16])
+    assert "summary_identity_mismatch" in validate_snapshot(forged_counts).findings
