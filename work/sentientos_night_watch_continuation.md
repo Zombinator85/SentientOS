@@ -2438,3 +2438,10 @@ Next inspect succession source records for any projection that still presents a 
 - The evidence controller now requires the authenticated admission provenance to equal the exact source-proof provenance ID before writing an intent or binding. The durable admission already carries that value, and restart recovery verifies the admission/receipt chain without replay.
 - Existing authored mutation cases now issue matching provenance for valid evidence; a mismatch rejection case was added. Python compilation only; tests remain unexecuted.
 - Next inspect the remaining proof trust boundary for adapter identity and canonical provenance semantics, without coupling model interpretation to mutation authority.
+
+
+## 2026-10-11 checkpoint — preserve final-generation idempotent replay
+
+- The generation-cap preflight ran immediately after reconstruction, before the existing same-tick equality check. At the configured maximum generation, retrying a byte-identical already committed capture failed despite requiring no append.
+- Moved generation-cap rejection after provider comparison and the same-tick idempotent return. New generations remain rejected at the hard bound; identical committed replay remains readable. The existing authored same-tick control covers the return path, and the capacity boundary cases remain authored but unexecuted.
+- Python compilation only; no tests or capture ran. Next continue beyond introspection custody into the next source-supported runtime-to-developmental handoff.

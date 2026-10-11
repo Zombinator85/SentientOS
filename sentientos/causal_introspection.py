@@ -636,11 +636,6 @@ class CausalIntrospectionRuntime:
             raise IntrospectionError("introspection_disabled")
         history, custody_bytes = self._reconstruct_with_size()
         prior = history[-1] if history else None
-        capacity_error = _snapshot_capacity_error(
-            prior.generation if prior else 0, custody_bytes, 0
-        )
-        if capacity_error is not None:
-            raise IntrospectionError(capacity_error)
         # A crash before the atomic hard-link publication can leave a private
         # staging file. It is not a committed generation and must never be
         # silently carried alongside later captures or treated as evidence.
@@ -670,6 +665,11 @@ class CausalIntrospectionRuntime:
                     and prior.repository_tree == context.repository_tree):
                 return prior
             raise IntrospectionError("same_tick_content_conflict")
+        capacity_error = _snapshot_capacity_error(
+            prior.generation if prior else 0, custody_bytes, 0
+        )
+        if capacity_error is not None:
+            raise IntrospectionError(capacity_error)
         provisional = CausalIntrospectionSnapshot("", "", (prior.generation + 1 if prior else 1),
             prior.snapshot_digest if prior else None, context.tick_id, context.repository_revision,
             context.repository_tree, tuple(item.projection_id for item in projections),
