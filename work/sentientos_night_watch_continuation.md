@@ -1295,3 +1295,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `conversation_session.py`. No directory listing or runtime session read was performed.
 
 **Next implementation dependency:** inspect consumers of `list_recent()` and determine whether they can surface its explicit degraded error without falsely reporting an empty or complete session list.
+
+
+## New checkpoint — surface bounded session-list failures as degraded service
+
+- Fresh remote source before this increment: `e64e12de3827684256d26626745cbd740c834eda` (tree `9203141594d5d85f8ddeec566df4f7cb9e38b1f2`).
+- The `GET /sessions` route directly returned the store list; new custody/bound errors would become generic server failures, while callers could not distinguish an unavailable/degraded listing from a complete empty list.
+- The route now maps bounded/custody list failures to HTTP 503 with a non-sensitive degraded detail. It returns the normal session list only on a completed scan.
+- Python compilation passed for `chat_service.py`. No API/runtime request or tests were performed.
+
+**Next implementation dependency:** inspect the related single-session inspection endpoint and runtime-generation evidence shown there. Keep it bounded and ensure read failures remain distinguishable from a genuinely missing session.

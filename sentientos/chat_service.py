@@ -757,7 +757,11 @@ async def create_session() -> dict[str, str]:
 
 @APP.get("/sessions")
 async def list_sessions() -> list[dict[str, Any]]:
-    return cast(list[dict[str, Any]], _get_conversation_service().sessions.list_recent())
+    try:
+        return cast(list[dict[str, Any]], _get_conversation_service().sessions.list_recent())
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=503,
+            detail="conversation_session_listing_unavailable_or_degraded") from exc
 
 
 @APP.get("/sessions/{session_id}")
