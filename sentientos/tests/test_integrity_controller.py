@@ -22,6 +22,30 @@ def test_integrity_status_deterministic_hash(tmp_path: Path) -> None:
     assert first.canonical_hash() == second.canonical_hash()
 
 
+def test_integrity_controller_fails_closed_on_corrupt_enabled_snapshot_index(
+    monkeypatch, tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    from sentientos.attestation_snapshot import SIGNATURE_INDEX_PATH
+
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_ENFORCE", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_SIGNING", "hmac-test")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_HMAC_SECRET", "secret")
+    index = tmp_path / SIGNATURE_INDEX_PATH
+    index.parent.mkdir(parents=True)
+    index.write_text('{"sig_hash":"broken"}\nnot-json\n', encoding="utf-8")
+
+    status = evaluate_integrity(tmp_path, policy_hash="test-policy")
+
+    gate = next(item for item in status.gate_results
+        if item.name == "attestation_snapshot_signatures")
+    assert gate.status == "fail"
+    assert gate.reason == "signature_custody_invalid"
+    assert status.mutation_allowed is False
+    assert status.publish_allowed is False
+    assert status.automerge_allowed is False
+
+
 def test_orchestrator_writes_integrity_artifacts(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
     _seed_repo(tmp_path)
     monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_SIGNING", "hmac-test")

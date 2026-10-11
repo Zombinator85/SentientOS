@@ -1,0 +1,36 @@
+{
+  "schema_version": "sentientos.attestation_snapshot_verifier_acceptance:v1",
+  "verified_parent_commit": "ab7814790df2b7bf1782a9c60719bac771d9c6ef",
+  "status": "focused_hermetic_owner_tests_passed_unverified_for_production",
+  "changes": [
+    "bounded signature-index bytes and rows and bounded recent verification count",
+    "strict UTF-8 JSONL parsing with duplicate-key rejection",
+    "descriptor-safe no-follow reads for signature index, envelopes, and signed snapshots",
+    "canonical snapshot path and timestamp identity binding in signer and verifier",
+    "Windows handle-based read-only file custody path"
+  ],
+  "failure_semantics": {
+    "corrupt_index": "warning_or_enforced_failure_by_existing_policy",
+    "snapshot_symlink_or_invalid_custody": "warning_or_enforced_failure_by_existing_policy",
+    "first_use_missing_signature_directory": "skipped_signature_missing",
+    "missing_signer": "skipped_signer_disabled"
+  },
+  "tests": {
+    "focused_attestation_and_integrity_controller": {
+      "passed": 11,
+      "failed": 0
+    },
+    "quarantine_cognition_regression": {
+      "passed": 93,
+      "failed": 0,
+      "deselected": 29
+    },
+    "python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "HMAC test signer and disposable files are hermetic fixtures, not production signing evidence.",
+    "Windows handle-custody branch was not executed on Windows.",
+    "No attack attribution, defensive effect, or production operation is established."
+  ]
+}
