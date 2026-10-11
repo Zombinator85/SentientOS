@@ -1534,3 +1534,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `windows_handle_custody.py`, `canonical_memory.py`, and `memory_manager.py`. Windows ACL/runtime behavior was not executed; no production verification was performed.
 - **Next implementation dependency:** continue reviewing the cross-platform conversation/recovery boundary and the no-replay consequences of missing or degraded user-memory custody. Preserve installation-scoped transcript custody and resident-history separation; do not broaden user memory into developmental evidence.
 
+
+
+
+## New checkpoint — enforce separation of user memory and transcript custody
+
+- Fresh remote source before this increment: `86ccdb8e224c7daf5612ea2ff3be5123fae426c5` (tree `b2f177b6b899202ae22ac2d71fb3cfd605228a5d`).
+- Production chat selected canonical user memory from its data-root configuration and installation transcripts from `chat/conversations`, but there was no source-level guard against those roots overlapping (or user memory resolving inside the installation root). Development composition had the same missing transcript separation check.
+- `chat_service.py` now resolves and compares roots before establishing production serving, and rejects overlap between user memory and installation/transcript custody. Development composition applies the corresponding memory-versus-conversation-root check before replacing the active composition. The canonical store and transcript store keep their existing owners and paths; no content is migrated or merged.
+- Python syntax compilation passed for the changed chat service. No service, transcript, or memory store was opened; no behavior or production verification was performed.
+- **Next implementation dependency:** inspect the lifecycle of explicit user-memory-root configuration across independently launched chat instances and restart/recovery. Ensure the resolved root identity cannot drift during a serving lifetime and that missing/degraded user-memory custody remains distinct from transcript recovery and resident developmental history. Then continue to the next consequential causal boundary.

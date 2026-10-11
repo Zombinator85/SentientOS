@@ -591,6 +591,21 @@ def _get_conversation_service() -> PersistentConversationService:
     return _CONVERSATION_SERVICE
 
 
+def _storage_roots_overlap(left: Path, right: Path) -> bool:
+    """Keep user-retained memory outside transcript and installation custody."""
+    first = Path(left).expanduser().resolve()
+    second = Path(right).expanduser().resolve()
+    try:
+        first.relative_to(second)
+        return True
+    except ValueError:
+        try:
+            second.relative_to(first)
+            return True
+        except ValueError:
+            return False
+
+
 def configure_production_chat(*, installation_identity: str, serving_operation_id: str,
                               expected_activation_state_digest: str | None = None,
                               control_plane_kernel: ControlPlaneKernel | None = None,
@@ -622,6 +637,12 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
         resource_context_owner = load_production_chat_resource_context_owner(handle, resource_provisioning_id)
     serving: ProductionServingController | None = None
     try:
+        data_root = sentientos_data_dir()
+        memory_root = sentientos_memory_dir(data_root)
+        conversation_root = handle.fixed_object("chat/conversations")
+        if (_storage_roots_overlap(memory_root, handle.root)
+                or _storage_roots_overlap(memory_root, conversation_root.path)):
+            raise ValueError("user_memory_root_overlaps_installation_transcript_custody")
         serving = ProductionServingController(handle, control_plane_kernel or ControlPlaneKernel())
         establish_arguments = {"operation_id": serving_operation_id}
         if expected_activation_state_digest is not None:
@@ -633,16 +654,12 @@ def configure_production_chat(*, installation_identity: str, serving_operation_i
             inference_bridge if resource_context_owner is None
             else ResourceBackedProductionChatInference(inference_bridge, resource_context_owner)
         )
-        data_root = sentientos_data_dir()
-        # Conversation transcripts are bound to the installation whose exact
-        # serving lifetime produced them.  The canonical memory store remains
-        # at its established user-data root because explicit retention is a
-        # separate, user-scoped contract.
-        conversation_root = handle.fixed_object("chat/conversations")
+        # The roots were checked before serving was established.  Transcript
+        # custody remains installation-scoped; canonical memory remains user-scoped.
         handle.ensure_directory(conversation_root)
         service = PersistentConversationService(inference=inference,
             session_store=ConversationSessionStore(conversation_root.path),
-            memory_store=CanonicalMemoryStore(sentientos_memory_dir(data_root)))
+            memory_store=CanonicalMemoryStore(memory_root))
     except Exception:
         if serving is not None:
             serving.close()
@@ -659,12 +676,16 @@ def configure_development_chat(*, invoker: GovernedLocalModelInvoker,
                                data_root: Path | None = None) -> None:
     """Explicitly install isolated echo/null/test inference."""
     global _CONVERSATION_SERVICE, _PRODUCTION_COMPOSITION
-    close_production_chat()
     root = data_root or sentientos_data_dir()
+    memory_root = sentientos_memory_dir(root)
+    conversation_root = root / "conversations"
+    if _storage_roots_overlap(memory_root, conversation_root):
+        raise ValueError("user_memory_root_overlaps_transcript_custody")
+    close_production_chat()
     _CONVERSATION_SERVICE = PersistentConversationService(
         inference=DevelopmentSimulationInference(invoker),
-        session_store=ConversationSessionStore(root / "conversations"),
-        memory_store=CanonicalMemoryStore(sentientos_memory_dir(root)))
+        session_store=ConversationSessionStore(conversation_root),
+        memory_store=CanonicalMemoryStore(memory_root))
     _PRODUCTION_COMPOSITION = None
 
 
