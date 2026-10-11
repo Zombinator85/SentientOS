@@ -4,6 +4,7 @@ import hashlib, json, os, re, stat
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import RLock
 from typing import Any, Mapping
 from .windows_handle_custody import (
     WindowsHandleCustodyError, read_explicit_file, read_regular_files,
@@ -13,6 +14,9 @@ MAX_RETENTION_RECORD_BYTES = 256 * 1024
 MAX_MEMORY_SCAN_ENTRIES = 4096
 MAX_MEMORY_RECORDS = 1024
 MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
+_PROCESS_MEMORY_ROOT_IDENTITIES: dict[str, tuple[int, int]] = {}
+_PROCESS_MEMORY_ROOT_IDENTITIES_LOCK = RLock()
+_PROCESS_MEMORY_ROOT_IDENTITY_LIMIT = 32
 def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 # Freeze shared root configuration at first import.  The legacy manager keeps
@@ -281,6 +285,16 @@ class CanonicalMemoryStore:
                 metadata = os.fstat(descriptor)
                 if stat.S_IMODE(metadata.st_mode) & 0o077:
                     raise PermissionError("canonical_memory_root_permissions_invalid")
+            identity = (metadata.st_dev, metadata.st_ino)
+            root_key = str(absolute)
+            with _PROCESS_MEMORY_ROOT_IDENTITIES_LOCK:
+                expected_identity = _PROCESS_MEMORY_ROOT_IDENTITIES.get(root_key)
+                if expected_identity is None:
+                    if len(_PROCESS_MEMORY_ROOT_IDENTITIES) >= _PROCESS_MEMORY_ROOT_IDENTITY_LIMIT:
+                        raise PermissionError("canonical_memory_root_identity_bound_exceeded")
+                    _PROCESS_MEMORY_ROOT_IDENTITIES[root_key] = identity
+                elif expected_identity != identity:
+                    raise PermissionError("canonical_memory_root_identity_changed")
             return descriptor
         except Exception:
             os.close(descriptor)
