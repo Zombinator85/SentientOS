@@ -1113,7 +1113,30 @@ def _observation_index_link_status(record: Mapping[str, Any],
     return "identity_and_excerpt_match"
 
 
+def _validate_jsonl_append_target(path: Path, sidecar: str) -> None:
+    """Refuse to append after malformed or unterminated owner history."""
+    payload = _read_legacy_memory_file(path)
+    if payload is None or not payload:
+        return
+    if not payload.endswith(b"\n"):
+        raise MemorySidecarIncompleteError(f"{sidecar}_unterminated", 0)
+    try:
+        lines = payload.decode("utf-8").splitlines()
+    except UnicodeError as exc:
+        raise MemorySidecarIncompleteError(f"{sidecar}_encoding", 0) from exc
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise MemorySidecarIncompleteError(sidecar, line_number) from exc
+        if not isinstance(value, dict):
+            raise MemorySidecarIncompleteError(sidecar, line_number)
+
+
 def _write_observation_record(record: Mapping[str, Any]) -> None:
+    _validate_jsonl_append_target(OBSERVATION_LOG_PATH, "perception_observations")
     with _open_legacy_memory_text(OBSERVATION_LOG_PATH, "a") as handle:
         handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
@@ -1128,6 +1151,7 @@ def _append_jsonl(path: Path, record: Mapping[str, Any]) -> None:
     """Append one bounded owner record under shared cross-process sidecar custody."""
     _authorize_legacy_mutation()
     with _observation_log_lock():
+        _validate_jsonl_append_target(path, path.name)
         with _open_legacy_memory_text(path, "a") as handle:
             handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
@@ -1484,6 +1508,8 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
             else:
                 _write_fragment(fragment_id, fragment)
             _update_vector_index_locked(fragment, vector)
+            _validate_jsonl_append_target(
+                CURIOSITY_REFLECTIONS_PATH, "curiosity_reflections")
             with _open_legacy_memory_text(CURIOSITY_REFLECTIONS_PATH, "a") as handle:
                 handle.write(json.dumps(record, ensure_ascii=False) + "\n")
             persisted = record

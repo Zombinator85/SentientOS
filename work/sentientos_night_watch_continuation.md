@@ -1822,3 +1822,8 @@ The installation-scoped conversation store now creates missing POSIX root compon
 ## 2026-10-11 checkpoint — descriptor-bind session lock and publication paths
 
 Session lock creation, bounded reads, recent-session directory scans, and atomic JSON replacement now operate relative to a freshly verified no-follow transcript-root descriptor on POSIX. Writers reject non-private or linked replacement targets and fsync the held directory after publication. This closes the path-based parent-swap gap in the separately installation-scoped transcript store; Windows retains its explicit ACL reader posture and unsupported writes remain fail-closed. Python syntax compilation passed; no session or transcript was opened. Next dependency: review root identity continuity across service lifetime and interrupted multi-file session/receipt composition.
+
+
+## 2026-10-11 checkpoint — refuse appends after incomplete JSONL tails
+
+The shared memory JSONL append owner now validates bounded existing lines and requires a terminal record delimiter before appending. Observation records and curiosity reflections use the same check, so an interrupted final write is surfaced as incomplete custody rather than concatenated into a later event. Existing valid legacy object records remain accepted; no sidecar is rewritten during recovery. Python compilation passed; no log file was read or appended. Next dependency: review process-start root identity continuity and remaining capture sidecars while preserving separate install transcript and resident-history custody.
