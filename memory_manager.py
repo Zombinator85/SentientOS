@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import os
+import stat
 from contextvars import ContextVar
 from datetime import timezone
 from functools import wraps
@@ -101,6 +102,15 @@ def _prepare_write(path: Path) -> None:
     _authorize_legacy_mutation()
     path.parent.mkdir(parents=True, exist_ok=True)
 
+
+def _open_legacy_raw_directory(*, prepare_for_write: bool = False) -> int:
+    """Open the shared raw user-memory root through canonical held custody."""
+    if os.name != "posix":
+        raise PermissionError("legacy_raw_memory_private_custody_unsupported_platform")
+    from sentientos.canonical_memory import CanonicalMemoryStore
+    return CanonicalMemoryStore(MEMORY_DIR).open_raw_directory(
+        prepare_for_write=prepare_for_write)
+
 # Registered callbacks invoked whenever a new reflection is stored.
 ReflectionListener = Callable[[dict], None]
 _REFLECTION_LISTENERS: list[ReflectionListener] = []
@@ -169,8 +179,39 @@ def _write_fragment(fragment_id: str, data: dict) -> None:
     path = _fragment_path(fragment_id)
     if _is_canonical_retention_path(path):
         raise PermissionError("canonical_retention_artifact_is_not_a_legacy_fragment")
-    _prepare_write(path)
-    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    if (path.parent != RAW_PATH or not path.name or path.name in {".", ".."}
+            or "/" in path.name or "\\" in path.name):
+        raise PermissionError("legacy_raw_memory_fragment_path_invalid")
+    _authorize_legacy_mutation()
+    directory_fd = _open_legacy_raw_directory(prepare_for_write=True)
+    descriptor: int | None = None
+    try:
+        flags = (os.O_WRONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+            | getattr(os, "O_CLOEXEC", 0))
+        try:
+            descriptor = os.open(path.name, flags, dir_fd=directory_fd)
+        except FileNotFoundError:
+            descriptor = os.open(path.name, flags | os.O_CREAT | os.O_EXCL,
+                0o600, dir_fd=directory_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()):
+            raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+        os.fchmod(descriptor, 0o600)
+        os.ftruncate(descriptor, 0)
+        payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        view = memoryview(payload)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("short_legacy_raw_memory_write")
+            view = view[written:]
+        os.fsync(descriptor)
+        os.fsync(directory_fd)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(directory_fd)
 
 
 def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterable[dict]:

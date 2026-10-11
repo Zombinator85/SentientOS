@@ -223,6 +223,48 @@ class CanonicalMemoryStore:
                     "omitted":omitted,"selection_posture":selection_posture,
                     "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
                     "legacy_sidecar_posture":legacy_sidecar_posture})}
+    def open_raw_directory(self, *, prepare_for_write: bool = False) -> int:
+        if os.name != "posix":
+            raise PermissionError("canonical_memory_atomic_publication_unsupported_platform")
+        nofollow = getattr(os, "O_NOFOLLOW", None)
+        directory = getattr(os, "O_DIRECTORY", None)
+        if (nofollow is None or directory is None
+                or os.open not in os.supports_dir_fd
+                or os.link not in os.supports_dir_fd
+                or os.unlink not in os.supports_dir_fd):
+            raise PermissionError("canonical_memory_safe_publication_unavailable")
+        absolute = Path(os.path.abspath(self.raw))
+        descriptor = os.open(os.sep, os.O_RDONLY | directory)
+        try:
+            for component in absolute.parts[1:]:
+                if component in {"", ".", ".."}:
+                    raise PermissionError("canonical_memory_path_component_invalid")
+                child = os.open(component, os.O_RDONLY | directory | nofollow,
+                    dir_fd=descriptor)
+                metadata = os.fstat(child)
+                if not stat.S_ISDIR(metadata.st_mode):
+                    os.close(child)
+                    raise PermissionError("canonical_memory_raw_root_invalid")
+                os.close(descriptor)
+                descriptor = child
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISDIR(metadata.st_mode)
+                    or metadata.st_uid != os.geteuid()):
+                raise PermissionError("canonical_memory_raw_root_owner_invalid")
+            # Retrieval and recovery only inspect existing custody. Tightening
+            # permissions is allowed only on the already authorized write path.
+            if stat.S_IMODE(metadata.st_mode) & 0o077:
+                if not prepare_for_write:
+                    raise PermissionError("canonical_memory_raw_root_permissions_invalid")
+                os.fchmod(descriptor, 0o700)
+                metadata = os.fstat(descriptor)
+                if stat.S_IMODE(metadata.st_mode) & 0o077:
+                    raise PermissionError("canonical_memory_raw_root_permissions_invalid")
+            return descriptor
+        except Exception:
+            os.close(descriptor)
+            raise
+
 class AdmittedRetentionWriter:
     """Terminal executor validates admission evidence but never decides admission."""
     def __init__(self, store: CanonicalMemoryStore,
@@ -458,46 +500,7 @@ class AdmittedRetentionWriter:
                 == "policy_recomputed_not_execution_attested") else verification
 
     def _open_raw_directory(self, *, prepare_for_write: bool = False) -> int:
-        if os.name != "posix":
-            raise PermissionError("canonical_memory_atomic_publication_unsupported_platform")
-        nofollow = getattr(os, "O_NOFOLLOW", None)
-        directory = getattr(os, "O_DIRECTORY", None)
-        if (nofollow is None or directory is None
-                or os.open not in os.supports_dir_fd
-                or os.link not in os.supports_dir_fd
-                or os.unlink not in os.supports_dir_fd):
-            raise PermissionError("canonical_memory_safe_publication_unavailable")
-        absolute = Path(os.path.abspath(self.store.raw))
-        descriptor = os.open(os.sep, os.O_RDONLY | directory)
-        try:
-            for component in absolute.parts[1:]:
-                if component in {"", ".", ".."}:
-                    raise PermissionError("canonical_memory_path_component_invalid")
-                child = os.open(component, os.O_RDONLY | directory | nofollow,
-                    dir_fd=descriptor)
-                metadata = os.fstat(child)
-                if not stat.S_ISDIR(metadata.st_mode):
-                    os.close(child)
-                    raise PermissionError("canonical_memory_raw_root_invalid")
-                os.close(descriptor)
-                descriptor = child
-            metadata = os.fstat(descriptor)
-            if (not stat.S_ISDIR(metadata.st_mode)
-                    or metadata.st_uid != os.geteuid()):
-                raise PermissionError("canonical_memory_raw_root_owner_invalid")
-            # Retrieval and recovery only inspect existing custody. Tightening
-            # permissions is allowed only on the already authorized write path.
-            if stat.S_IMODE(metadata.st_mode) & 0o077:
-                if not prepare_for_write:
-                    raise PermissionError("canonical_memory_raw_root_permissions_invalid")
-                os.fchmod(descriptor, 0o700)
-                metadata = os.fstat(descriptor)
-                if stat.S_IMODE(metadata.st_mode) & 0o077:
-                    raise PermissionError("canonical_memory_raw_root_permissions_invalid")
-            return descriptor
-        except Exception:
-            os.close(descriptor)
-            raise
+        return self.store.open_raw_directory(prepare_for_write=prepare_for_write)
 
     def _read_raw_record(self, directory_fd: int, name: str, *,
                          max_links: int = 1) -> dict[str, Any] | None:

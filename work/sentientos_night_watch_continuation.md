@@ -1385,3 +1385,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Python compilation passed for `sentientos/canonical_memory.py`. No memory directory was opened or changed; no behavioral tests or production verification were performed. The Windows reader still has no native ACL inspection in this owner and is not represented as permission-verified.
 - **Next implementation dependency:** make the legacy `memory_manager.py` raw-fragment writer preserve the same owner-only directory and 0600 file posture, without changing its separate Administrator/Lumos authorization or allowing it to rewrite canonical retained artifacts. Then review its readers against that shared raw-root boundary.
 
+
+
+## New checkpoint — align legacy raw-memory writes with private custody
+
+- Fresh remote source before this increment: `877015f421f6d1a11a7cc0ca5702ea4b6a6826db` (tree `574dd2b26af1081e246b4d2ea3074e3d94f60301`).
+- The root-level legacy memory manager shared the canonical user-memory raw directory but wrote fragments with ordinary `Path.write_text` permissions and path-following semantics. It could create group/world-readable records that canonical retrieval now correctly rejects.
+- The canonical store now exposes its held raw-directory opener as the shared custody owner. Legacy raw-fragment writes preserve the existing Administrator/Lumos authorization, use that descriptor-bound directory, reject path traversal, symlinks, hardlinks and wrong-owner files before truncation, and create or rewrite records with owner-only 0600 permissions. Canonical retained `memory-*.json` artifacts remain excluded from legacy mutation. Legacy raw writes fail closed on platforms without the POSIX custody operations used here.
+- Python compilation passed for `canonical_memory.py` and `memory_manager.py`. No memory files were opened, changed, or created; no behavior tests or production verification were performed.
+- **Next implementation dependency:** harden legacy raw-fragment enumeration and reads against symlinks and permission-incompatible files, preserving bounded behavior and leaving canonical retained artifacts, installation-scoped transcripts, and resident developmental history separate. Then inspect the other memory-root write paths for any direct raw writes that bypass `_write_fragment`.
+
