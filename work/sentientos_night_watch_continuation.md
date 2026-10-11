@@ -1907,3 +1907,14 @@ Updated the canonical retention recovery contract to state that it may finish li
 ## 2026-10-11 checkpoint — make cross-platform recovery state explicit
 
 The retention recovery method now initializes its staged-publication flag before platform-specific handling and returns that state directly. Windows read-only recovery therefore reports the same explicit false value without introspecting local variables; POSIX verified stage completion remains true. This is a source clarity correction only. Python compilation passed; no runtime recovery was run. Next dependency: record the current restart identity limit and inspect any remaining interfaces that can alter the frozen user-memory root after startup.
+
+
+## 2026-10-11 checkpoint — restore LF-framed succession journal readability
+
+Fresh source base was `70e49a6534ad5ed2c4cb7e7107739701d0a0e247`. The resident runtime adoption journal and successor-generation handoff journal both used their own canonical LF-writing format but split records with APIs that discard LF before comparing each record against canonical bytes including LF. This made valid writer-produced evidence unreadable and blocked recovery.
+
+The readers now require LF termination for every nonempty journal, split only on LF, preserve existing byte/row/record bounds, and compare the canonical JSON payload against the exact bytes before the delimiter. Digest chains, configuration identity, phase ordering, generation protections, and incomplete-transition denial are unchanged. Focused positive writer-to-reader and negative torn-record/CRLF regression nodes were added in both existing test owners, plus a prospective exact-node acceptance manifest. The tests are authored but **not executed**.
+
+Published code checkpoint: `53ac94548a59e990fa108f29025b380265c8c1ec`, tree `0767f117dfdef0b24d624acc16e9ead29409acc6`, independently refetched from the branch. Changed Python sources and regression-node files compiled from the exact published blobs; the manifest parsed as JSON. No behavior, transition, or recovery path was executed; production remains unverified.
+
+Next dependency: inspect the resident parent supervisor's actual custody, restart-budget, and child-reconciliation implementation; select a bounded source repair only after verifying its present owner and recovery path. Continue the unresolved user-memory physical-root continuity review where existing custody can support it, without creating an independent identity issuer.
