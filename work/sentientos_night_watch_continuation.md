@@ -973,3 +973,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the session-store source snapshot. No session fixtures or restart behavior were run.
 
 **Next implementation dependency:** inspect whether World-State's invocation evidence consumer uses the new direct-parent receipt posture, then continue through adjacent transcript/model-history attribution only where an authenticated owner provides evidence.
+
+## New checkpoint — keep unreconciled chat predecessors contextual in epistemic adaptation
+
+- The World-State projector now includes predecessor receipt references and their reconciliation posture, but the resident epistemic adapter did not distinguish a missing/substituted predecessor from a reconciled reference for `chat_process_software_generation_invocation`.
+- The adapter now marks a chat invocation's lineage incomplete whenever a predecessor reference is present without the exact `exact_predecessor_receipt_and_source_turn_reconciled` posture, and when that exact posture conflicts with a missing/non-mapping reference. Existing rules therefore receive it as contextual/unknown-dependency evidence rather than qualified support.
+- First invocations with no predecessor reference remain compatible. Exact reconciled parent references remain eligible for configured rules, but the source remains historical and cannot become a current observation.
+- `python -m py_compile` passed for the epistemic adapter source snapshot. No configured rule execution or evidence-state mutation was run.
+
+**Next implementation dependency:** trace the World-State source digest and event-time identity for the extended invocation payload through configured epistemic rules and persisted evidence binding; verify that historical re-projection remains identity-stable and does not gain freshness.

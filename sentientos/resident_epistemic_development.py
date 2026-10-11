@@ -163,11 +163,24 @@ class ResidentEpistemicDevelopmentRuntime:
         resource_invocation_lineage = (historical_resource_fact and fact.subject.subject_kind in {
             "strategy_invocation_resource_lineage", "model_replacement_invocation_resource_lineage"})
         resource_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        predecessor_reference = resource_payload.get("predecessor_invocation_reference")
+        predecessor_posture = resource_payload.get("predecessor_invocation_reference_posture")
+        chat_invocation_lineage_incomplete = (
+            historical_resource_fact
+            and fact.subject.subject_kind == "chat_process_software_generation_invocation"
+            and ((predecessor_reference is not None
+                    and predecessor_posture
+                        != "exact_predecessor_receipt_and_source_turn_reconciled")
+                or (predecessor_posture
+                    == "exact_predecessor_receipt_and_source_turn_reconciled"
+                    and not isinstance(predecessor_reference, Mapping))))
         resource_findings = resource_payload.get("lineage_findings")
         resource_findings_empty = (
             isinstance(resource_findings, (list, tuple)) and not resource_findings)
-        incomplete_resource_lineage = (resource_invocation_lineage
-            and (fact.disposition != "verified" or not resource_findings_empty))
+        incomplete_resource_lineage = (
+            (resource_invocation_lineage
+                and (fact.disposition != "verified" or not resource_findings_empty))
+            or chat_invocation_lineage_incomplete)
         if (historical_resource_fact
                 and fact.subject.subject_kind == "causal_resource_consumption"):
             incomplete_resource_lineage = incomplete_resource_lineage or (
