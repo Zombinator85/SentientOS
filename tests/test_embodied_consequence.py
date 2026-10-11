@@ -105,6 +105,20 @@ def test_digest_recomputed_comparison_cannot_assert_effect_completion():
             observation=observation,attribution=rebound_attribution,comparison=forged_comparison)
 
 
+def test_consequence_verifier_rejects_digest_recomputed_effect_proof():
+    *_,attribution,_=chain("wave")
+    from sentientos.embodied_consequence import _identity, _verify_consequence_attribution
+
+    semantic={k:v for k,v in attribution.items()
+        if k not in {"attribution_id","attribution_digest"}}
+    semantic["effect_proven"]=True
+    attribution_id,attribution_digest=_identity("consequence",semantic)
+    forged={**semantic,"attribution_id":attribution_id,
+        "attribution_digest":attribution_digest}
+    with pytest.raises(EmbodiedConsequenceError,match="consequence_attribution_binding_invalid"):
+        _verify_consequence_attribution(forged)
+
+
 @pytest.mark.parametrize("mutation,classification",[
     (lambda h,e,r,o: h.update(correlation_id="wrong"),"correlation_mismatch"),
     (lambda h,e,r,o: h.update(body_generation=3),"body_generation_mismatch"),

@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 43594)
-Total output lines: 2632
+Warning: truncated output (original token count: 43699)
+Total output lines: 2639
 
 """Deterministic embodied consequence evidence and developmental experiments.
 
@@ -949,7 +949,7 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], 
     elif structural[0]: outcome="unchanged"
     else: outcome="changed"
     payload={"proposal_structural_equalities":{"present_equals_withheld":structural[0],"present_equals_restored":structural[1]},
-        "proposal_scores":rows,"outcome":outcome,"improvement_claimed":False,"authority":dict(FAL…13594 tokens truncated…"mixed_selected_history"
+        "proposal_scores":rows,"outcome":outcome,"improvement_claimed":False,"authority":dict(FAL…13699 tokens truncated…"mixed_selected_history"
     elif any(item.get("lineage_subject_kind") for item in resource_facts):
         posture=("resource_invocation_lineage_history_context_bounded"
             if any(item.get("history_context_posture")!="complete" for item in resource_facts)

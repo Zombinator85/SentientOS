@@ -1,5 +1,5 @@
-Warning: truncated output (original token count: 116638)
-Total output lines: 2962
+Warning: truncated output (original token count: 116993)
+Total output lines: 2969
 
 # SentientOS long construction continuation
 
@@ -310,18 +310,7 @@ Continue with the next source-backed lifecycle gap while preserving these limits
 - The verified digest list is bounded to the newest 128 journal entries, matching the daemon's bounded transition projection. Older valid history remains in durable journal custody but is not individually emitted by this bounded World-State view.
 - The changed transition-controller and daemon sources passed `py_compile`. No runtime, crash/restart, cognition, World-State builder execution, tests, model activation, or production verification was performed. Work remains unverified for production.
 
-**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…86638 tokens truncated…explicitly supplied creation time agree. It can reconstruct the deterministic receipt after record-only crash recovery; a reused operation with conflicting evidence is rejected. No cognition or external effect is replayed.
-- Added a concurrent-owner test case, authored and unexecuted. Changed source and test files passed Python syntax compilation only; record concurrency and crash recovery remain unverified.
-- Next inspect the epistemic-state mutation journal's multi-stage admission/intent/receipt transaction for the same operation-level duplication window, without weakening its state-generation compare-and-swap or admission separation.
-
-### 2026-10-11 — bind epistemic state locks to private roots (checkpoint restored)
-
-- Persistent epistemic state already serialized generation compare-and-swap, but opened its lock through a path-based parent lookup and checked only that the result was a regular file. The lock now uses the shared no-follow directory descriptor, requires an owner-owned single-link file with private mode, and holds both descriptors for the full transaction.
-- Added an authored, unexecuted symlink and shared-mode lock-custody case. Changed source and test syntax compilation only; lock behavior is unverified.
-- Next inspect the longitudinal self-model's root-bound lock and persistent collection transactions for remaining path-based handoffs; preserve Windows read-only recovery.
-
-
-## 2026-10-11 checkpoint — pin epistemic inventory reads to one directory handle
+**Next implementation dependency:** inspect the longitudinal self-model and resident epistemic consumers for preservation of the new transition-observation qualifiers. Ensure later cognition can distinguish an authenticated owner handoff from an interpretation of the handoff while retai…86993 tokens truncated…# 2026-10-11 checkpoint — pin epistemic inventory reads to one directory handle
 
 - After individual record reads and writes moved to descriptor custody, collection inventory still enumerated JSON paths and reopened the directory for each file. A replacement or mutation between enumeration and reads could cross the inventory boundary. POSIX recovery now opens and pins one verified collection directory, enumerates and reads bounded records relative to that descriptor, then checks directory identity and timestamps for concurrent mutation. Windows continues using its held-handle, read-only collection reader.
 - The prior symlink rejection case remains authored and unexecuted. Changed source syntax compilation only; collection race behavior is unverified.
@@ -630,3 +619,10 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Added a regression that attempts to inject a digest-shaped principal claim. The 14-node focused consequence module passes, including positive controls and recomputed-digest effect-claim rejection. Python compilation and `git diff --check` pass.
 - This is a claim-admission guard, not a principal authentication implementation. An attributable non-synthetic effect still requires an actual authenticated observer and principal binding owner. No such evidence is available in this environment.
 - Next: inspect the actual resident cognition-to-developmental-history application and causal-outcome composition for another implementable source defect; do not infer functional improvement from the hermetic strategy proposal difference.
+
+## 2026-10-11 checkpoint — central consequence verifier rejects unsupported outcomes
+
+- Continued from remotely verified `eb11a20cd4a81ff8259324912f9462918d9283af`. Review showed that `_verify_consequence_attribution()` authenticated only a self-recomputed digest and the all-false authority map. Since this owner has no effect issuer, a caller could recompute a valid attribution digest around `effect_proven: true`, and consumers such as strategy scoring would accept it even though the World-State projector separately rejected it.
+- The central verifier now also requires the producer's non-effect posture (`effect_proven is False`, no proven consequence value), a known classification and causal posture, and the explicit verified/unverified observation posture. This protects every consumer using this verifier, not only World-State projection.
+- Added a digest-recomputed false-to-true attribution attack regression. The focused `tests/test_embodied_consequence.py` module passes: 15 passed; Python compilation and `git diff --check` pass. Existing valid synthetic positive controls still pass and remain explicitly non-independent/non-effect evidence.
+- No actual observation, effect, learning, performance gain, or production event is demonstrated. The next useful source review is another direct consumer of developmental consequence evidence; synthetic integration tests do not settle that empirical gap.
