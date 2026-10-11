@@ -907,31 +907,41 @@ def append_memory(
         entry["importance"] = _estimate_importance(entry)
     entry["access_count"] = 0
     entry["last_accessed"] = entry["timestamp"]
+    vector = _vectorize(entry["text"])
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        if _load_fragment(fragment_id) is not None:
+            raise MemorySidecarIncompleteError("legacy_raw_fragment_id_collision", 0)
+        _write_fragment(fragment_id, entry)
+        _update_vector_index_locked(entry, vector)
     em.add_emotion(entry["emotions"])
-    _write_fragment(fragment_id, entry)
-    _update_vector_index(entry)
     print(f"[MEMORY] Appended fragment → {fragment_id} | tags={tags} | source={source}")
     return fragment_id
 
 
-def _update_vector_index(entry: Dict):
-    vec = _vectorize(entry["text"])
-    with _INDEX_LOCK, _vector_index_transaction():
-        records = [rec for rec in _load_index_records() if rec.get("id") != entry["id"]]
-        record = {
-            "id": entry["id"],
-            "vector": vec,
-            "snippet": entry["text"][:400],
-            "importance": entry.get("importance", 0.3),
-            "tags": entry.get("tags", []),
-            "last_accessed": entry.get("last_accessed"),
-            "access_count": entry.get("access_count", 0),
-            "category": entry.get("category"),
-            "summary": entry.get("summary"),
-        }
-        records.append(record)
-        _save_index_records(records)
+def _update_vector_index_locked(entry: Dict, vector: Vector) -> None:
+    """Update derived metadata while the caller holds the cross-process lock."""
+    records = [rec for rec in _load_index_records() if rec.get("id") != entry["id"]]
+    record = {
+        "id": entry["id"],
+        "vector": vector,
+        "snippet": entry["text"][:400],
+        "importance": entry.get("importance", 0.3),
+        "tags": entry.get("tags", []),
+        "last_accessed": entry.get("last_accessed"),
+        "access_count": entry.get("access_count", 0),
+        "category": entry.get("category"),
+        "summary": entry.get("summary"),
+    }
+    records.append(record)
+    _save_index_records(records)
     print(f"[VECTOR] Index updated for {entry['id']}")
+
+
+def _update_vector_index(entry: Dict) -> None:
+    vector = _vectorize(entry["text"])
+    with _INDEX_LOCK, _vector_index_transaction():
+        _update_vector_index_locked(entry, vector)
 
 
 def _bag_of_words(text: str) -> Dict[str, int]:
@@ -1245,9 +1255,10 @@ def _store_observation_summary_unlocked(summary: Mapping[str, Any]) -> Dict[str,
         fragment["importance"] = _estimate_importance(fragment)
         fragment["access_count"] = 0
         fragment["last_accessed"] = timestamp
-        _write_fragment(fragment_id, fragment)
-
-    _update_vector_index(fragment)
+        
+    vector = _vectorize(fragment["text"])
+    _write_fragment(fragment_id, fragment)
+    _update_vector_index_locked(fragment, vector)
     _write_observation_record(record)
     emotions_to_add = record.get("emotions")
     if isinstance(emotions_to_add, dict):
@@ -1261,7 +1272,8 @@ def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
         return _store_observation_summary_unlocked(summary)
     _authorize_legacy_mutation()
     with _observation_summary_lock():
-        return _store_observation_summary_unlocked(summary)
+        with _INDEX_LOCK, _vector_index_transaction():
+            return _store_observation_summary_unlocked(summary)
 
 @_legacy_mutation_operation
 def store_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
