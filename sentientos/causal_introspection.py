@@ -489,6 +489,17 @@ def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: Causal
         raise IntrospectionError("snapshot_bytes_exceeded")
 
 
+def _snapshot_capacity_error(generation: int, custody_bytes: int, next_snapshot_bytes: int) -> str | None:
+    """Return the recovery limit that a prospective append would violate."""
+    if generation < 0 or custody_bytes < 0 or next_snapshot_bytes < 0:
+        return "snapshot_capacity_measurement_invalid"
+    if generation >= MAX_SNAPSHOT_GENERATIONS:
+        return "snapshot_generation_limit_exceeded"
+    if custody_bytes + next_snapshot_bytes > MAX_SNAPSHOT_CUSTODY_BYTES:
+        return "snapshot_custody_limit_exceeded"
+    return None
+
+
 class CausalIntrospectionRuntime:
     def __init__(self, config: IntrospectionConfig, registrations: Sequence[ProviderRegistration]):
         self.config = config
@@ -569,7 +580,7 @@ class CausalIntrospectionRuntime:
             except FileNotFoundError:
                 pass
 
-    def reconstruct(self) -> tuple[CausalIntrospectionSnapshot, ...]:
+    def _reconstruct_with_size(self) -> tuple[tuple[CausalIntrospectionSnapshot, ...], int]:
         snapshots: list[CausalIntrospectionSnapshot] = []
         paths = self._paths()
         total_bytes = 0
@@ -583,18 +594,27 @@ class CausalIntrospectionRuntime:
             snapshot = _decode_snapshot(json.loads(data.decode("utf-8")))
             validate_snapshot(snapshot, snapshots[-1] if snapshots else None)
             snapshots.append(snapshot)
-        return tuple(snapshots)
+        return tuple(snapshots), total_bytes
+
+    def reconstruct(self) -> tuple[CausalIntrospectionSnapshot, ...]:
+        snapshots, _total_bytes = self._reconstruct_with_size()
+        return snapshots
 
     def capture(self, context: CaptureContext) -> CausalIntrospectionSnapshot:
         if not self.config.enabled:
             raise IntrospectionError("introspection_disabled")
-        history = self.reconstruct()
+        history, custody_bytes = self._reconstruct_with_size()
+        prior = history[-1] if history else None
+        capacity_error = _snapshot_capacity_error(
+            prior.generation if prior else 0, custody_bytes, 0
+        )
+        if capacity_error is not None:
+            raise IntrospectionError(capacity_error)
         # A crash before the atomic hard-link publication can leave a private
         # staging file. It is not a committed generation and must never be
         # silently carried alongside later captures or treated as evidence.
         if next(self.config.custody_root.glob(".causal-introspection-*.tmp"), None) is not None:
             raise IntrospectionError("snapshot_staging_recovery_required")
-        prior = history[-1] if history else None
         projections: list[OwnerIntrospectionProjection] = []
         findings: list[CaptureFinding] = []
         for registration in self.registrations:
@@ -630,6 +650,9 @@ class CausalIntrospectionRuntime:
         self.config.custody_root.mkdir(parents=True, exist_ok=True)
         target = self.config.custody_root / f"generation-{snapshot.generation:020d}.json"
         data = _canonical(_plain(snapshot))
+        capacity_error = _snapshot_capacity_error(snapshot.generation - 1, custody_bytes, len(data))
+        if capacity_error is not None:
+            raise IntrospectionError(capacity_error)
         try:
             self._publish_snapshot(target, data)
         except FileExistsError:

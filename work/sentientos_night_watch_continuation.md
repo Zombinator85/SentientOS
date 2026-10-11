@@ -2368,3 +2368,11 @@ Next inspect succession source records for any projection that still presents a 
 - Committed causal-introspection generations remain atomically linked, digest-checked, predecessor-validated, and readable after restart; missing generation numbers and conflicts fail closed. Review found a crash before publication can leave a private staging file that reconstruction ignored and the next capture silently carried forward.
 - New captures now stop with an explicit incomplete-staging error when that unpublished artifact exists; reconstruction of previously committed generations remains available. No staging data is promoted or deleted. Added an authored unexecuted restart regression. Python compilation and source inspection only; no crash injection or production execution was performed.
 - Next continue through causal-introspection provider boundaries and the connected World-State/epistemic path, then advance to another independent owner handoff.
+
+
+## 2026-10-11 checkpoint — preflight causal introspection custody limits
+
+- Recovery rejects more than 4,096 generations and more than 256 MiB of committed snapshot bytes. Capture previously validated the existing history, then could publish one more generation or a snapshot that pushed total custody past those limits; the next reconstruction would fail and make the committed chain unavailable.
+- Reconstruction now returns its verified on-disk byte total to capture without rereading or estimating serialized historical size. Capture rejects generation exhaustion before provider projection and checks the canonical new snapshot's exact byte length before atomic publication. A single capacity helper uses the same bounds for preflight and authored boundary cases.
+- Existing committed history remains readable at the limit; no pruning, rewriting, provider invocation, or authority behavior was introduced. Python syntax compilation passed for changed module and authored test; tests remain unexecuted and all construction remains unverified for production.
+- Next inspect causal-introspection input reference resolution and cross-owner evidence freshness/identity boundaries, then advance to another independently useful owner connection.

@@ -20,6 +20,9 @@ from sentientos.causal_introspection import (
     SemanticTraceDimension,
     build_projection,
     validate_projection,
+    MAX_SNAPSHOT_GENERATIONS,
+    MAX_SNAPSHOT_CUSTODY_BYTES,
+    _snapshot_capacity_error,
 )
 from sentientos.world_state_board import WorldStateBoardBuilder
 
@@ -227,3 +230,13 @@ def test_orphaned_stage_blocks_new_capture_without_hiding_committed_history(tmp_
     assert runtime.reconstruct() == (committed,)
     with pytest.raises(IntrospectionError, match="snapshot_staging_recovery_required"):
         runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))
+
+
+def test_append_capacity_preflight_matches_reconstruction_limits():
+    assert _snapshot_capacity_error(MAX_SNAPSHOT_GENERATIONS - 1,
+        MAX_SNAPSHOT_CUSTODY_BYTES - 8, 8) is None
+    assert _snapshot_capacity_error(MAX_SNAPSHOT_GENERATIONS,
+        MAX_SNAPSHOT_CUSTODY_BYTES - 8, 1) == "snapshot_generation_limit_exceeded"
+    assert _snapshot_capacity_error(MAX_SNAPSHOT_GENERATIONS - 1,
+        MAX_SNAPSHOT_CUSTODY_BYTES - 8, 9) == "snapshot_custody_limit_exceeded"
+    assert _snapshot_capacity_error(0, 0, 0) is None
