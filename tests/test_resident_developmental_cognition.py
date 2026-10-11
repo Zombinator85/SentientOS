@@ -6,6 +6,9 @@ from pathlib import Path
 import pytest
 
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
+from sentientos.developmental_history_intervention_experiment import (
+    DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
+)
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.governed_local_model_invocation import (
@@ -130,6 +133,67 @@ class FakeInvoker:
             purpose=request.purpose, latency_ms=1, output_truncated=truncated, fallback_occurred=False,
             effects={"local_model_inference":True}, observed_at="2026-01-01T00:00:00+00:00",
             generation_config={"actual_generation_parameters":{"temperature":0}} if request.purpose == "resident_developmental_history_intervention_experiment" else {})
+
+
+class SessionBoundFakeInvoker(FakeInvoker):
+    def __init__(self) -> None:
+        super().__init__()
+        self.session_id = "fixture-serving-session"
+        self.session_binding = {
+            "model_serving_admission_ref": "fixture-model-serving-admission",
+            "activation_state_semantic_digest": "sha256:" + "a" * 64,
+        }
+        self.receipts = {}
+        self.verified_receipts = []
+
+    def build_request(self, **kwargs):
+        linkage = dict(kwargs.get("linkage") or {})
+        linkage["resident_cognitive_serving"] = {
+            "session_id": self.session_id, **self.session_binding}
+        kwargs["linkage"] = linkage
+        return super().build_request(**kwargs)
+
+    def invoke(self, request, **kwargs):
+        receipt = super().invoke(request, **kwargs)
+        self.receipts[receipt.receipt_id] = receipt
+        return receipt
+
+    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+        self.verified_receipts.append((receipt_id, receipt_digest, dict(expected)))
+        receipt = self.receipts[receipt_id]
+        assert receipt.receipt_digest == receipt_digest
+        assert receipt.request["request_id"] == expected["expected_request_id"]
+        assert receipt.request["request_digest"] == expected["expected_request_digest"]
+        assert receipt.request["linkage"]["resident_cognitive_serving"] == {
+            "session_id": expected["expected_session_id"],
+            **dict(expected["expected_session_binding"])}
+        assert receipt.request["active_model_identity"] == expected["expected_active_model_identity"]
+        return {"receipt_id": receipt.receipt_id, "receipt_digest": receipt.receipt_digest,
+            "request": receipt.request, "status": receipt.status,
+            "output_digest": receipt.output_digest}
+
+
+def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(tmp_path: Path) -> None:
+    invoker = SessionBoundFakeInvoker()
+    first, _ = owner(tmp_path, comparison=True, invoker=invoker)
+    first.run_tick(snapshot=snapshot(), tick_id="session-tick-1")
+    experiment_result = first.run_tick(snapshot=snapshot(), tick_id="session-tick-2")
+    observations = first._recover_observation_ticks(include_records=True)
+    assert observations
+    assert all(row["serving_session_id"] == invoker.session_id for row in observations.values())
+    assert all(row["serving_session_binding"] == invoker.session_binding for row in observations.values())
+
+    loaded = first.experiments.load_run(experiment_result.changed_cognition_measurement_id)
+    assert loaded["validity"] == "valid_controlled_observation"
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+                       match="run_artifact_invocation_verifier_unavailable"):
+        DevelopmentalExperimentStore(tmp_path / "state").load_run(
+            experiment_result.changed_cognition_measurement_id)
+    restarted, _ = owner(tmp_path, invoker=invoker)
+    restarted.run_tick(snapshot=snapshot(), tick_id="session-tick-3")
+    assert invoker.verified_receipts
+    assert all(item[2]["expected_session_id"] == invoker.session_id
+        for item in invoker.verified_receipts)
 
 
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None):

@@ -5,7 +5,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 from .canonical_memory import sentientos_memory_dir
@@ -101,8 +101,10 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
 
 
 class DevelopmentalExperimentStore:
-    def __init__(self, root: Path) -> None:
+    def __init__(self, root: Path, *,
+                 invocation_verifier: Callable[[Mapping[str, Any]], Any] | None = None) -> None:
         self.root = Path(root) / "developmental_experiments"
+        self._invocation_verifier = invocation_verifier
         self.protocols = self.root / "protocols"; self.runs = self.root / "runs"
         try:
             memory_root = Path(sentientos_memory_dir()).expanduser().resolve(strict=False)
@@ -264,6 +266,17 @@ class DevelopmentalExperimentStore:
             recomputed = summarize(protocol, observations)
         except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalHistoryInterventionError("run_artifact_control_invalid") from exc
+        for observation in observations:
+            if observation.serving_session_id is None:
+                continue
+            if not callable(self._invocation_verifier):
+                raise DevelopmentalHistoryInterventionError(
+                    "run_artifact_invocation_verifier_unavailable")
+            try:
+                self._invocation_verifier(asdict(observation))
+            except Exception as exc:
+                raise DevelopmentalHistoryInterventionError(
+                    "run_artifact_invocation_receipt_invalid") from exc
         canonical = lambda item: json.dumps(item, sort_keys=True, separators=(",", ":"),
             ensure_ascii=False)
         if canonical(recomputed) != canonical(value["summary"]):
@@ -288,14 +301,15 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
         "prior_tick_proven", "epistemic_projection_present", "epistemic_projection_id",
         "epistemic_projection_digest", "epistemic_proposition_ids", "epistemic_state_ids",
         "epistemic_state_digests", "epistemic_generations", "epistemic_evidence_set_digests",
+        "serving_session_id", "serving_session_binding",
     )
     full_controls = all(hasattr(item, "current_snapshot_digest")
                         and hasattr(item, "retrieved_record_digests") for item in observations)
     if protocol.schema_version == SCHEMA:
-        # V2 results are only controlled comparisons when each condition is a
+        # Versioned results are only controlled comparisons when each condition is a
         # canonical, digest-bound resident cognition observation.  Do not let a
         # lightweight caller object silently disable the invariant-context
-        # checks below while still receiving the v2 controlled classification.
+        # checks below while still receiving a controlled classification.
         for item in observations:
             if not hasattr(item, "__dataclass_fields__"):
                 raise DevelopmentalHistoryInterventionError("observation_identity_unbound")
@@ -306,8 +320,13 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
             observation_id = semantic_observation.pop("observation_id", None)
             observation_digest = semantic_observation.pop("observation_digest", None)
             calculated = _digest(semantic_observation)
-            if (semantic_observation.get("schema_version") !=
-                    "sentientos.resident_cognition_observation:v2"
+            schema_version = semantic_observation.get("schema_version")
+            if schema_version == "sentientos.resident_cognition_observation:v2":
+                semantic_observation.pop("serving_session_id", None)
+                semantic_observation.pop("serving_session_binding", None)
+                calculated = _digest(semantic_observation)
+            if (schema_version not in {"sentientos.resident_cognition_observation:v2",
+                        "sentientos.resident_cognition_observation:v3"}
                     or observation_digest != calculated
                     or observation_id != "devcog-" + calculated[7:31]):
                 raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")

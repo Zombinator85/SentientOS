@@ -116,6 +116,7 @@ SCHEMA = "sentientos.resident_developmental_cognition:v1"
 CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
 CONFIG_SCHEMA_V2 = "sentientos.resident_developmental_cognition_config:v2"
 COGNITION_OBSERVATION_SCHEMA_V2 = "sentientos.resident_cognition_observation:v2"
+COGNITION_OBSERVATION_SCHEMA_V3 = "sentientos.resident_cognition_observation:v3"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
@@ -540,7 +541,7 @@ class ResidentCognitionObservation:
     authority: bool = False
     policy: bool = False
     canonical_explicit_user_retention: bool = False
-    schema_version: str = COGNITION_OBSERVATION_SCHEMA_V2
+    schema_version: str = COGNITION_OBSERVATION_SCHEMA_V3
     epistemic_projection_schema: str | None = None
     epistemic_semantic_status: str = "not_present"
     epistemic_owner_packet_count: int = 0
@@ -552,6 +553,8 @@ class ResidentCognitionObservation:
     epistemic_projection_context_digest: str | None = None
     epistemic_prompt_digest: str | None = None
     epistemic_consumed_content_digest: str | None = None
+    serving_session_id: str | None = None
+    serving_session_binding: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -643,7 +646,8 @@ class ResidentDevelopmentalCognitionOwner:
         self.state_path = config.state_root / "composition_state.json"
         self.observations_root = config.state_root / "cognition_observations"
         self.measurements_root = config.state_root / "changed_cognition_measurements"
-        self.experiments = DevelopmentalExperimentStore(config.state_root)
+        self.experiments = DevelopmentalExperimentStore(config.state_root,
+            invocation_verifier=self._verify_observation_invocation)
         # Exact output text is held only until its separately admitted candidate
         # is committed in the same tick. It is never written as a cognition receipt.
         self._pending_cognition_candidates: dict[str, tuple[Any, str, Mapping[str, Any]]] = {}
@@ -896,6 +900,44 @@ class ResidentDevelopmentalCognitionOwner:
             self._save_state(state)
         return state
 
+    def _verify_observation_invocation(self, observation: Mapping[str, Any]) -> None:
+        """Reconcile a session-bound cognition row to its exact governed receipt."""
+        session_id = observation.get("serving_session_id")
+        session_binding = observation.get("serving_session_binding")
+        if session_id is None and session_binding is None:
+            return  # Historical v2 and non-session invocations remain explicitly unbound.
+        verifier = getattr(self.invoker, "verify_persisted_invocation_receipt", None)
+        if not callable(verifier) or not isinstance(session_binding, Mapping):
+            raise ResidentDevelopmentalCognitionError("cognition_invocation_receipt_verifier_unavailable")
+        try:
+            receipt = verifier(
+                str(observation.get("inference_receipt_id", "")),
+                str(observation.get("inference_receipt_digest", "")),
+                expected_request_id=str(observation.get("request_id", "")),
+                expected_request_digest=str(observation.get("request_digest", "")),
+                expected_session_id=str(session_id),
+                expected_session_binding=dict(session_binding),
+                expected_active_model_identity=dict(observation.get("active_model_identity", {})))
+        except Exception as exc:
+            raise ResidentDevelopmentalCognitionError("cognition_invocation_receipt_reconciliation_failed") from exc
+        request = receipt.get("request") if isinstance(receipt, Mapping) else None
+        request_linkage = request.get("linkage") if isinstance(request, Mapping) else None
+        serving = (request_linkage.get("resident_cognitive_serving")
+            if isinstance(request_linkage, Mapping) else None)
+        expected_serving = {"session_id": session_id, **dict(session_binding)}
+        if (not isinstance(request, Mapping)
+                or receipt.get("receipt_id") != observation.get("inference_receipt_id")
+                or receipt.get("receipt_digest") != observation.get("inference_receipt_digest")
+                or receipt.get("status") not in {"admitted_completed", "admitted_simulation"}
+                or request.get("request_id") != observation.get("request_id")
+                or request.get("request_digest") != observation.get("request_digest")
+                or request.get("model_id") != observation.get("model_id")
+                or request.get("model_artifact_digest") != observation.get("model_artifact_digest")
+                or request.get("active_model_identity") != observation.get("active_model_identity")
+                or receipt.get("output_digest") != observation.get("output_digest")
+                or not isinstance(serving, Mapping) or dict(serving) != expected_serving):
+            raise ResidentDevelopmentalCognitionError("cognition_invocation_receipt_binding_mismatch")
+
     def _recover_observation_ticks(self, *, include_records: bool = False) -> Any:
         try:
             self.observations_root.lstat()
@@ -991,10 +1033,15 @@ class ResidentDevelopmentalCognitionOwner:
                 "epistemic_omitted_packets_digest",
                 "epistemic_consumed_packets_digest", "epistemic_projection_context_digest",
                 "epistemic_prompt_digest", "epistemic_consumed_content_digest", "schema_version"}
-            legacy_fields = expected_fields - semantic_fields
+            session_fields = {"serving_session_id", "serving_session_binding"}
+            legacy_fields = expected_fields - semantic_fields - session_fields
+            v2_fields = expected_fields - session_fields
             legacy_observation = isinstance(value, dict) and set(value) == legacy_fields
-            versioned_observation = (isinstance(value, dict) and set(value) == expected_fields
+            versioned_v2_observation = (isinstance(value, dict) and set(value) == v2_fields
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V2)
+            versioned_v3_observation = (isinstance(value, dict) and set(value) == expected_fields
+                and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V3)
+            versioned_observation = versioned_v2_observation or versioned_v3_observation
             if (not (legacy_observation or versioned_observation)
                     or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
                     or observation_digest != _digest(value)
@@ -1003,6 +1050,21 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
             if versioned_observation:
                 _validate_epistemic_observation_binding(value)
+            if versioned_v3_observation:
+                session_id, session_binding = value.get("serving_session_id"), value.get("serving_session_binding")
+                absent = session_id is None and session_binding is None
+                present = (isinstance(session_id, str) and 0 < len(session_id) <= 256
+                    and isinstance(session_binding, Mapping)
+                    and set(session_binding) == {"model_serving_admission_ref", "activation_state_semantic_digest"}
+                    and isinstance(session_binding.get("model_serving_admission_ref"), str)
+                    and bool(session_binding["model_serving_admission_ref"])
+                    and isinstance(session_binding.get("activation_state_semantic_digest"), str)
+                    and len(session_binding["activation_state_semantic_digest"]) == 71
+                    and session_binding["activation_state_semantic_digest"].startswith("sha256:")
+                    and all(ch in "0123456789abcdef"
+                        for ch in session_binding["activation_state_semantic_digest"][7:]))
+                if not (absent or present):
+                    raise ResidentDevelopmentalCognitionError("cognition_observation_serving_session_binding_invalid")
             tick = value["tick_id"]
             condition = value.get("condition_id")
             snapshot_binding = (value.get("current_snapshot_id"), value.get("current_snapshot_digest"))
@@ -1030,9 +1092,12 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError("cognition_observation_tick_conflict")
                 conditions.add(str(condition))
             by_tick.setdefault(value["tick_id"], []).append(observation_id)
-            verified_records[observation_id] = {
+            verified_observation = {
                 **value, "observation_id": observation_id,
                 "observation_digest": observation_digest}
+            if versioned_v3_observation:
+                self._verify_observation_invocation(verified_observation)
+            verified_records[observation_id] = verified_observation
         if include_records:
             return verified_records
         return {tick: tuple(sorted(ids)) for tick, ids in by_tick.items()}
@@ -1077,7 +1142,10 @@ class ResidentDevelopmentalCognitionOwner:
         observation = self.verified_cognition_observation(str(observation_id or ""), str(observation_digest or ""))
         tick_id = evidence.get("b_tick_id") if stage == "b_epoch_observed" else evidence.get("restored_a_tick_id")
         if (not isinstance(tick_id, str) or not tick_id or observation.get("tick_id") != tick_id
-                or observation.get("active_model_identity") != dict(expected_model_identity)):
+                or observation.get("active_model_identity") != dict(expected_model_identity)
+                or (observation.get("serving_session_id") is not None
+                    and (observation.get("serving_session_id") != session_id
+                        or observation.get("serving_session_binding") != dict(session_binding)))):
             raise ResidentDevelopmentalCognitionError("transition_observation_model_or_tick_mismatch")
         verify_invocation = getattr(self.invoker, "verify_persisted_invocation_receipt", None)
         if not callable(verify_invocation):
@@ -1491,6 +1559,23 @@ class ResidentDevelopmentalCognitionOwner:
                 # optional, scoped lesson packet is malformed or unavailable.
                 lesson_payload = None
         req = dict(receipt.request)
+        request_linkage = req.get("linkage")
+        serving_session = (request_linkage.get("resident_cognitive_serving")
+            if isinstance(request_linkage, Mapping) else None)
+        serving_session_id = None
+        serving_session_binding = None
+        if serving_session is not None:
+            if (not isinstance(serving_session, Mapping)
+                    or set(serving_session) != {"session_id", "model_serving_admission_ref",
+                        "activation_state_semantic_digest"}
+                    or not all(isinstance(serving_session.get(key), str) and serving_session.get(key)
+                        for key in ("session_id", "model_serving_admission_ref",
+                            "activation_state_semantic_digest"))):
+                raise ResidentDevelopmentalCognitionError("cognition_invocation_session_binding_invalid")
+            serving_session_id = str(serving_session["session_id"])
+            serving_session_binding = {
+                "model_serving_admission_ref": str(serving_session["model_serving_admission_ref"]),
+                "activation_state_semantic_digest": str(serving_session["activation_state_semantic_digest"])}
         semantic = {
             "condition_id": condition_id, "tick_id": tick_id, "correlation_id": correlation,
             "model_id": str(req["model_id"]), "model_artifact_digest": req.get("model_artifact_digest"),
@@ -1523,7 +1608,9 @@ class ResidentDevelopmentalCognitionOwner:
             "epistemic_generations": prior_epistemic_state.generations if prior_epistemic_state else (),
             "epistemic_evidence_set_digests": prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
             **epistemic_metadata,
-            "schema_version": COGNITION_OBSERVATION_SCHEMA_V2,
+            "schema_version": COGNITION_OBSERVATION_SCHEMA_V3,
+            "serving_session_id": serving_session_id,
+            "serving_session_binding": serving_session_binding,
             "historical_context_only": True, "current_truth": False, "authority": False,
             "policy": False, "canonical_explicit_user_retention": False,
         }
@@ -1554,6 +1641,9 @@ class ResidentDevelopmentalCognitionOwner:
             prior_epistemic_state.state_digests if prior_epistemic_state else (),
             prior_epistemic_state.generations if prior_epistemic_state else (),
             prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
+            schema_version=COGNITION_OBSERVATION_SCHEMA_V3,
+            serving_session_id=serving_session_id,
+            serving_session_binding=serving_session_binding,
             **epistemic_metadata,
         )
         try:
