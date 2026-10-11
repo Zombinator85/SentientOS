@@ -1797,3 +1797,8 @@ Novelty updates and reflection backlinks now run under the same cross-process ob
 ## 2026-10-11 checkpoint — make reflection persistence idempotent
 
 Curiosity reflection storage now has stable reflection and fragment identities, verifies canonical record digests, and publishes raw fragment, derived index, and sidecar record under one existing cross-process memory transaction. A retry adopts only an exact orphan fragment or exact recorded identity; conflicting or incomplete historical linkage is surfaced, not duplicated. Incognito mode now returns a nonpersistent result without writing either sidecar or raw memory. Observation backlinks remain idempotent and digest-bound. The module compiles; no reflection or memory operation ran. Next dependency: audit observation-log RMW writers and other shared user-memory sidecars for equivalent retry, digest, and process-lock behavior.
+
+
+## 2026-10-11 checkpoint — serialize shared JSONL appends
+
+All legacy user-memory JSONL append operations now authorize before opening the shared sidecar lock and serialize through the existing observation-log interprocess lock. This covers audio, screen, and generic observation event logs as well as digest-sensitive observation writers, without creating another lock namespace. The generic observation caller no longer double-acquires the lock. Python compilation passed; no sidecar was read or written. Next dependency: inspect the remaining structured mutable sidecars (goals, transcript/capture summaries, and observation annotations) for equivalent source/digest and restart semantics, preserving installation transcript custody as a separate root.

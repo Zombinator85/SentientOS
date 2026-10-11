@@ -1125,8 +1125,11 @@ def _rewrite_observation_records(records: Sequence[Mapping[str, Any]]) -> None:
 
 
 def _append_jsonl(path: Path, record: Mapping[str, Any]) -> None:
-    with _open_legacy_memory_text(path, "a") as handle:
-        handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
+    """Append one bounded owner record under shared cross-process sidecar custody."""
+    _authorize_legacy_mutation()
+    with _observation_log_lock():
+        with _open_legacy_memory_text(path, "a") as handle:
+            handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def _parse_observation_timestamp(value: str | None) -> datetime.datetime:
@@ -1301,8 +1304,7 @@ def store_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
             _authorize_legacy_mutation()
             stash_highlight(policy, name, bytes(snapshot))
     else:
-        with _observation_log_lock():
-            _append_jsonl(OBSERVATION_LOG_PATH, payload)
+        _append_jsonl(OBSERVATION_LOG_PATH, payload)
     return payload
 
 
