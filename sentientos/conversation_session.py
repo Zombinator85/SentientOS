@@ -116,27 +116,73 @@ def _atomic_json(path: Path, payload: Mapping[str, Any], *, replace_existing: bo
 
 
 def _safe_root(root: Path) -> Path:
-    root = root.expanduser()
-    if any(parent.is_symlink() for parent in [root, *root.parents] if parent.exists()):
-        raise ValueError("conversation_root_symlink")
-    try:
-        metadata = os.lstat(root)
-    except FileNotFoundError:
-        root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        metadata = os.lstat(root)
-    if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
-        raise ValueError("conversation_root_not_private_directory")
+    """Resolve one private transcript root without following path components."""
+    root = Path(root).expanduser()
     if os.name == "posix":
-        if metadata.st_uid != os.geteuid():
-            raise ValueError("conversation_root_owner_mismatch")
-        if stat.S_IMODE(metadata.st_mode) & 0o077:
-            raise ValueError("conversation_root_permissions_invalid")
-    elif os.name == "nt":
+        nofollow = getattr(os, "O_NOFOLLOW", None)
+        directory = getattr(os, "O_DIRECTORY", None)
+        if (nofollow is None or directory is None or os.open not in os.supports_dir_fd
+                or os.mkdir not in os.supports_dir_fd):
+            raise ValueError("conversation_root_descriptor_custody_unavailable")
+        absolute = Path(os.path.abspath(root))
+        descriptor = os.open(os.sep, os.O_RDONLY | directory)
+        try:
+            components = absolute.parts[1:]
+            if not components:
+                raise ValueError("conversation_root_not_private_directory")
+            for index, component in enumerate(components):
+                if component in {"", ".", ".."}:
+                    raise ValueError("conversation_root_path_component_invalid")
+                created = False
+                try:
+                    child = os.open(component, os.O_RDONLY | directory | nofollow,
+                        dir_fd=descriptor)
+                except FileNotFoundError:
+                    try:
+                        os.mkdir(component, mode=0o700, dir_fd=descriptor)
+                    except FileExistsError:
+                        pass
+                    else:
+                        created = True
+                        os.fsync(descriptor)
+                    child = os.open(component, os.O_RDONLY | directory | nofollow,
+                        dir_fd=descriptor)
+                metadata = os.fstat(child)
+                if not stat.S_ISDIR(metadata.st_mode):
+                    os.close(child)
+                    raise ValueError("conversation_root_not_private_directory")
+                if index == len(components) - 1:
+                    if metadata.st_uid != os.geteuid():
+                        os.close(child)
+                        raise ValueError("conversation_root_owner_mismatch")
+                    if stat.S_IMODE(metadata.st_mode) & 0o077:
+                        os.close(child)
+                        raise ValueError("conversation_root_permissions_invalid")
+                elif created and metadata.st_uid != os.geteuid():
+                    os.close(child)
+                    raise ValueError("conversation_root_owner_mismatch")
+                os.close(descriptor)
+                descriptor = child
+            return absolute
+        finally:
+            os.close(descriptor)
+    if os.name == "nt":
+        if any(parent.is_symlink() for parent in [root, *root.parents]
+                if parent.exists()):
+            raise ValueError("conversation_root_symlink")
+        try:
+            metadata = os.lstat(root)
+        except FileNotFoundError:
+            root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if root.is_symlink():
+            raise ValueError("conversation_root_symlink")
         try:
             verify_explicit_directory(root, require_private_acl=True)
         except Exception as exc:
             raise ValueError("conversation_root_acl_invalid") from exc
-    return root.resolve()
+        return root.resolve()
+    raise ValueError("conversation_root_custody_unsupported_platform")
+
 
 
 @dataclass(frozen=True)

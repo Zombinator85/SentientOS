@@ -1812,3 +1812,8 @@ Goal loading now distinguishes a missing file from malformed, non-list, malforme
 ## 2026-10-11 checkpoint — create memory-root components through held descriptors
 
 CanonicalMemoryStore no longer calls recursive Path.mkdir on the configured user-memory path before validation. It now opens each component without following symlinks and creates a missing component relative to the already-held parent descriptor, fsyncing that parent before continuing. The final root still receives the existing owner/private-mode checks, and unsupported platforms remain fail-closed for mutation. Python syntax compilation passed; no filesystem path was created or inspected at runtime. Next dependency: review fixed-root configuration and install-transcript overlap checks for symlink changes between composition and first use.
+
+
+## 2026-10-11 checkpoint — descriptor-safe conversation root creation
+
+The installation-scoped conversation store now creates missing POSIX root components relative to held no-follow directory descriptors, fsyncs each new parent entry, and verifies the final root's owner and private mode before returning its absolute path. It no longer uses a symlink-check-then-recursive-mkdir sequence. Windows continues to require its existing explicit private-ACL directory verifier; unsupported platforms fail closed. This root remains separate from configured user memory and resident developmental history. Python compilation passed; no transcript path was created or inspected. Next dependency: inspect session root lifecycle and sidecar replacement/recovery after the root is safely established.
