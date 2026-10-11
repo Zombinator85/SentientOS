@@ -215,9 +215,9 @@ def _safe_root(root: Path) -> Path:
                 if parent.exists()):
             raise ValueError("conversation_root_symlink")
         try:
-            metadata = os.lstat(root)
-        except FileNotFoundError:
-            root.mkdir(parents=True, exist_ok=True, mode=0o700)
+            os.lstat(root)
+        except FileNotFoundError as exc:
+            raise ValueError("conversation_root_missing_windows_read_only") from exc
         if root.is_symlink():
             raise ValueError("conversation_root_symlink")
         try:

@@ -1842,3 +1842,8 @@ CanonicalMemoryStore now binds each explicit normalized user-memory root to its 
 ## 2026-10-11 checkpoint — rebuild derived daily summaries idempotently
 
 Daily memory summary files now replace their prior derived projection rather than append the full history on every run. The scan and all daily/topic/session/turn projection writes execute under the shared process-local and cross-process index transaction, so raw fragment writes and forgetting cannot interleave with the snapshot. Canonical raw user-memory records remain authoritative; summaries add no new evidence. Python compilation passed; no memory files were accessed. Next dependency: inspect stale derived-summary cleanup and the remaining memory-root process-start/lifecycle seams while preserving transcript and developmental-history separation.
+
+
+## 2026-10-11 checkpoint — keep Windows transcript composition read-only
+
+Conversation root initialization on Windows no longer recursively creates a missing directory. Since the conversation store's publication path is intentionally unsupported there, the constructor now fails clearly on a missing root and uses only the existing explicit private-ACL verifier when one exists. Production installation custody may provision its own root before composition; user memory and resident history are not involved. Python compilation passed; no Windows or filesystem action was run. Next dependency: continue examining the remaining root/source identity lifecycle and summary-retention presentation boundaries.
