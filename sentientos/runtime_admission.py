@@ -10,6 +10,9 @@ from typing import Any, Mapping
 
 from sentientos.codex_task_authority_admission import TaskAuthorityDefinition, authority_definition_digest
 from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError, open_private_directory, read_private_file_at, replace_private_bytes,
+)
 
 SCHEMA = "sentientos.runtime_admission_ledger:v1"
 ISSUER_ID = "sentientos.control_plane.runtime_admission_authority:v1"
@@ -54,11 +57,30 @@ class AdmissionLedger:
     def __init__(self, path: Path) -> None: self.path = path
 
     def load(self) -> tuple[tuple[AdmissionEvidence, ...], tuple[RevocationEvidence, ...]]:
-        try:
-            raw = read_explicit_file(self.path, max_bytes=MAX_LEDGER_BYTES)
-        except WindowsHandleCustodyError as exc:
-            if str(exc) == "explicit_file_missing": return (), ()
-            raise AdmissionError("corrupt_admission_ledger") from exc
+        if os.name == "nt":
+            try:
+                raw = read_explicit_file(self.path, max_bytes=MAX_LEDGER_BYTES)
+            except WindowsHandleCustodyError as exc:
+                if str(exc) == "explicit_file_missing":
+                    return (), ()
+                raise AdmissionError("corrupt_admission_ledger") from exc
+        else:
+            try:
+                directory_fd = open_private_directory(self.path.parent, create=False)
+            except PrivateFileCustodyError as exc:
+                if exc.code == "directory_root_missing":
+                    return (), ()
+                raise AdmissionError("corrupt_admission_ledger") from exc
+            try:
+                try:
+                    raw = read_private_file_at(directory_fd, self.path.name,
+                        max_bytes=MAX_LEDGER_BYTES, require_private_mode=False)
+                except PrivateFileCustodyError as exc:
+                    if exc.code == "file_missing":
+                        return (), ()
+                    raise AdmissionError("corrupt_admission_ledger") from exc
+            finally:
+                os.close(directory_fd)
         try:
             payload = json.loads(raw.decode("utf-8"))
             if (not isinstance(payload, dict)
@@ -102,12 +124,10 @@ class AdmissionLedger:
         raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
         if len(raw) > MAX_LEDGER_BYTES:
             raise AdmissionError("admission_ledger_size_limit_exceeded")
-        self.path.parent.mkdir(parents=True, exist_ok=True); temporary = self.path.with_name(f".{self.path.name}.{os.getpid()}.tmp")
         try:
-            with temporary.open("xb") as stream: stream.write(raw); stream.flush(); os.fsync(stream.fileno())
-            temporary.replace(self.path)
-        finally:
-            if temporary.exists(): temporary.unlink()
+            replace_private_bytes(self.path, raw, max_bytes=MAX_LEDGER_BYTES)
+        except PrivateFileCustodyError as exc:
+            raise AdmissionError("admission_ledger_publication_failed") from exc
 
 
 class RuntimeAdmissionAuthority:

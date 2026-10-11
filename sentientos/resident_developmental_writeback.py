@@ -23,6 +23,9 @@ from .governed_local_model_invocation import (
     LocalModelInvocationReceipt,
 )
 from .local_model_authority import digest_payload
+from .private_file_custody import (
+    PrivateFileCustodyError, open_private_directory, read_private_file_at, publish_immutable_bytes,
+)
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
 from .world_state_board import WorldStateSnapshot, digest, to_dict, validate_snapshot
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
@@ -532,146 +535,51 @@ class ChangedCognitionMeasurement:
     interpretation: str = "difference_only_not_improvement_learning_or_correctness"
 
 
+def _map_custody_error(exc: PrivateFileCustodyError) -> DevelopmentalWritebackError:
+    codes = {
+        "directory_root_missing": "durable_store_root_missing",
+        "directory_root_invalid": "durable_store_root_invalid",
+        "directory_root_unavailable": "durable_store_root_unavailable",
+        "directory_permissions_invalid": "durable_store_root_permissions_invalid",
+        "directory_path_permissions_invalid": "durable_store_path_permissions_invalid",
+        "directory_custody_unsupported": "durable_store_directory_custody_unsupported",
+        "file_missing": "stored_payload_missing",
+        "file_path_invalid": "stored_payload_path_invalid",
+        "file_unbounded_or_not_private": "stored_payload_unbounded_or_not_regular",
+        "file_changed_during_read": "stored_payload_changed_during_read",
+        "file_unavailable": "stored_payload_unavailable",
+        "payload_size_limit_exceeded": "durable_payload_size_limit_exceeded",
+        "publication_short_write": "durable_publication_short_write",
+        "publication_unavailable": "durable_publication_unavailable",
+    }
+    return DevelopmentalWritebackError(codes.get(exc.code, exc.code))
+
+
 def _open_store_directory(path: Path, *, create: bool) -> int:
-    """Open a store directory through no-follow directory descriptors."""
-    if os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
-        raise DevelopmentalWritebackError("durable_store_directory_custody_unsupported")
-    absolute = Path(os.path.abspath(os.fspath(path)))
-    components = absolute.parts[1:]
-    if not components:
-        raise DevelopmentalWritebackError("durable_store_root_invalid")
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
     try:
-        descriptor = os.open(os.sep, flags)
-    except OSError as exc:
-        raise DevelopmentalWritebackError("durable_store_root_unavailable") from exc
-    try:
-        for index, component in enumerate(components):
-            if component in {"", ".", ".."}:
-                raise DevelopmentalWritebackError("durable_store_root_invalid")
-            try:
-                child = os.open(component, flags, dir_fd=descriptor)
-            except FileNotFoundError:
-                if not create:
-                    raise
-                try:
-                    os.mkdir(component, 0o700, dir_fd=descriptor)
-                except FileExistsError:
-                    pass
-                child = os.open(component, flags, dir_fd=descriptor)
-            metadata = os.fstat(child)
-            final = index == len(components) - 1
-            if not stat.S_ISDIR(metadata.st_mode):
-                os.close(child)
-                raise DevelopmentalWritebackError("durable_store_root_invalid")
-            if final:
-                if metadata.st_uid != os.geteuid() or metadata.st_mode & 0o022:
-                    os.close(child)
-                    raise DevelopmentalWritebackError("durable_store_root_permissions_invalid")
-            elif metadata.st_mode & 0o022 and not metadata.st_mode & stat.S_ISVTX:
-                os.close(child)
-                raise DevelopmentalWritebackError("durable_store_path_permissions_invalid")
-            os.close(descriptor)
-            descriptor = child
-        result = descriptor
-        descriptor = -1
-        return result
-    except DevelopmentalWritebackError:
-        raise
-    except FileNotFoundError as exc:
-        raise DevelopmentalWritebackError("durable_store_root_missing") from exc
-    except OSError as exc:
-        raise DevelopmentalWritebackError("durable_store_root_unavailable") from exc
-    finally:
-        if descriptor >= 0:
-            os.close(descriptor)
+        return open_private_directory(path, create=create)
+    except PrivateFileCustodyError as exc:
+        raise _map_custody_error(exc) from exc
 
 
-def _read_store_file(directory_fd: int, name: str, *, max_bytes: int = MAX_DURABLE_RECORD_BYTES) -> bytes:
-    if not name or name in {".", ".."} or "/" in name or "\\" in name:
-        raise DevelopmentalWritebackError("stored_payload_path_invalid")
-    flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
-    descriptor: int | None = None
+def _read_store_file(directory_fd: int, name: str, *,
+                     max_bytes: int = MAX_DURABLE_RECORD_BYTES) -> bytes:
     try:
-        descriptor = os.open(name, flags, dir_fd=directory_fd)
-        before = os.fstat(descriptor)
-        if (not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes
-                or before.st_nlink != 1 or before.st_uid != os.geteuid()
-                or before.st_mode & 0o077):
-            raise DevelopmentalWritebackError("stored_payload_unbounded_or_not_regular")
-        chunks: list[bytes] = []
-        remaining = max_bytes + 1
-        while remaining:
-            chunk = os.read(descriptor, min(65_536, remaining))
-            if not chunk:
-                break
-            chunks.append(chunk)
-            remaining -= len(chunk)
-        data = b"".join(chunks)
-        after = os.fstat(descriptor)
-        if (len(data) != before.st_size or after.st_size != before.st_size
-                or after.st_mtime_ns != before.st_mtime_ns
-                or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
-            raise DevelopmentalWritebackError("stored_payload_changed_during_read")
-        return data
-    except DevelopmentalWritebackError:
-        raise
-    except FileNotFoundError as exc:
-        raise DevelopmentalWritebackError("stored_payload_missing") from exc
-    except OSError as exc:
-        raise DevelopmentalWritebackError("stored_payload_unavailable") from exc
-    finally:
-        if descriptor is not None:
-            os.close(descriptor)
+        return read_private_file_at(directory_fd, name, max_bytes=max_bytes)
+    except PrivateFileCustodyError as exc:
+        raise _map_custody_error(exc) from exc
 
 
 def _publish_store_json(path: Path, payload: Mapping[str, Any], *, collision_error: str,
-                       max_bytes: int = MAX_DURABLE_RECORD_BYTES) -> None:
-    """Publish canonical immutable JSON without following mutable path components."""
-    directory_fd = _open_store_directory(path.parent, create=True)
-    temporary_name = ".pending-" + os.urandom(16).hex()
-    descriptor: int | None = None
-    temporary_created = False
+                        max_bytes: int = MAX_DURABLE_RECORD_BYTES) -> None:
+    """Publish canonical immutable JSON through shared descriptor custody."""
+    data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
     try:
-        data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
-        if len(data) > max_bytes:
-            raise DevelopmentalWritebackError("durable_payload_size_limit_exceeded")
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
-        descriptor = os.open(temporary_name, flags, 0o600, dir_fd=directory_fd)
-        temporary_created = True
-        view = memoryview(data)
-        while view:
-            written = os.write(descriptor, view)
-            if written <= 0:
-                raise DevelopmentalWritebackError("durable_publication_short_write")
-            view = view[written:]
-        os.fsync(descriptor)
-        os.close(descriptor)
-        descriptor = None
-        try:
-            os.link(temporary_name, path.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd,
-                    follow_symlinks=False)
-            os.unlink(temporary_name, dir_fd=directory_fd)
-            os.fsync(directory_fd)
-        except FileExistsError:
-            existing = _read_store_file(directory_fd, path.name)
-            if existing != data:
-                raise DevelopmentalWritebackError(collision_error)
-            os.unlink(temporary_name, dir_fd=directory_fd)
-            os.fsync(directory_fd)
-    except DevelopmentalWritebackError:
-        raise
-    except OSError as exc:
-        raise DevelopmentalWritebackError("durable_publication_unavailable") from exc
-    finally:
-        if descriptor is not None:
-            os.close(descriptor)
-        if temporary_created:
-            try:
-                os.unlink(temporary_name, dir_fd=directory_fd)
-            except OSError:
-                pass
-        os.close(directory_fd)
+        publish_immutable_bytes(path, data, max_bytes=max_bytes, collision_code=collision_error)
+    except PrivateFileCustodyError as exc:
+        if exc.code == collision_error:
+            raise DevelopmentalWritebackError(collision_error) from exc
+        raise _map_custody_error(exc) from exc
 
 
 class DevelopmentalHistoryStore:

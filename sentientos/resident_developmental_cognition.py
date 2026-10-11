@@ -25,6 +25,7 @@ from .developmental_history_intervention_experiment import (
     PURPOSE as EXPERIMENT_PURPOSE,
 )
 from .local_model_authority import digest_payload
+from .private_file_custody import PrivateFileCustodyError, replace_private_bytes
 from .longitudinal_self_model import CognitiveSelfModelProjection
 from .persistent_epistemic_state import EpistemicCognitiveProjection
 from .resident_developmental_writeback import (
@@ -114,46 +115,13 @@ def _validate_root_separation(history_root: Path, state_root: Path,
 
 
 def _replace_cognition_state(path: Path, payload: Mapping[str, Any]) -> None:
-    """Atomically replace mutable cognition state through a held private directory."""
+    """Atomically replace mutable cognition state through shared private custody."""
+    data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
     try:
-        directory_fd = _open_store_directory(path.parent, create=True)
-    except DevelopmentalWritebackError as exc:
-        raise ResidentDevelopmentalCognitionError("composition_state_root_invalid") from exc
-    temporary_name = ".pending-" + os.urandom(16).hex()
-    descriptor: int | None = None
-    created = False
-    try:
-        data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
-        if len(data) > MAX_COMPOSITION_STATE_BYTES:
-            raise ResidentDevelopmentalCognitionError("composition_state_unbounded")
-        descriptor = os.open(temporary_name,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
-            0o600, dir_fd=directory_fd)
-        created = True
-        view = memoryview(data)
-        while view:
-            written = os.write(descriptor, view)
-            if written <= 0:
-                raise ResidentDevelopmentalCognitionError("composition_state_short_write")
-            view = view[written:]
-        os.fsync(descriptor)
-        os.close(descriptor)
-        descriptor = None
-        os.replace(temporary_name, path.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
-        os.fsync(directory_fd)
-    except ResidentDevelopmentalCognitionError:
-        raise
-    except OSError as exc:
-        raise ResidentDevelopmentalCognitionError("composition_state_publication_failed") from exc
-    finally:
-        if descriptor is not None:
-            os.close(descriptor)
-        if created:
-            try:
-                os.unlink(temporary_name, dir_fd=directory_fd)
-            except OSError:
-                pass
-        os.close(directory_fd)
+        replace_private_bytes(path, data, max_bytes=MAX_COMPOSITION_STATE_BYTES)
+    except PrivateFileCustodyError as exc:
+        raise ResidentDevelopmentalCognitionError(
+            "composition_state_publication_failed") from exc
 
 
 def _digest(value: Any) -> str:

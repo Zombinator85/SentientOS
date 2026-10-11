@@ -74,3 +74,33 @@ def test_external_consumer_uses_generic_verifier_but_cannot_mint(tmp_path):
     with pytest.raises(ValueError, match="revoked"): controller.execute(request, credential_handle=handle, admission=admission, current_sequence=4)
     assert isinstance(controller.transport, NullExternalModelTransport)
 
+
+
+def test_admission_ledger_uses_private_bounded_file_custody(tmp_path):
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("descriptor-relative admission publication requires POSIX")
+    ledger = AdmissionLedger(tmp_path / "custody" / "admissions.json")
+    ledger.save((), ())
+    metadata = ledger.path.stat()
+    assert stat.S_ISREG(metadata.st_mode)
+    assert metadata.st_uid == os.geteuid()
+    assert metadata.st_mode & 0o077 == 0
+    assert ledger.load() == ((), ())
+
+
+def test_admission_ledger_refuses_symlinked_parent_custody(tmp_path):
+    import os
+
+    if os.name != "posix":
+        pytest.skip("no-follow admission publication requires POSIX")
+    external = tmp_path / "external"
+    external.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(external, target_is_directory=True)
+    ledger = AdmissionLedger(alias / "admissions.json")
+    with pytest.raises(AdmissionError, match="publication_failed"):
+        ledger.save((), ())
+    assert list(external.iterdir()) == []

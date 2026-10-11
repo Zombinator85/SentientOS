@@ -2550,3 +2550,11 @@ Next inspect succession source records for any projection that still presents a 
 - The experiment store keeps its declared 4 MiB artifact bound; shared history publication retains its 1 MiB default. Windows continues to use the existing held-handle read path and refuses new publication.
 - Added authored, unexecuted private-mode, retry/collision, and symlink-root cases. Changed Python source and test modules passed compilation only. No behavioral tests, platform execution, or production verification ran.
 - Next inspect the mutable runtime-admission ledger's atomicity, permissions, and lock ownership independently. Its data governs admission; preserve the issuer/verifier boundary and do not couple it to developmental-history policy.
+
+
+## 2026-10-11 checkpoint — centralize private file custody and protect admission ledger paths
+
+- Descriptor-based path traversal, bounded owner-checked reads, immutable create-once publication, and mutable atomic replacement have moved into one low-level file-custody utility. Owner modules still define canonical bytes, size ceilings, semantic identities, collision meanings, and recovery policy.
+- The developmental-history, resident-cognition, and controlled-experiment stores now use those shared primitives without changing their separate roots or admission rules. Runtime admission ledger reads and writes also use explicit no-follow parent traversal, owner-owned non-writable directory custody, bounded descriptor reads, and atomic 0600 replacement. Previously readable non-writable ledger files remain readable to preserve installed custody; new writes are private. Windows ledger reads remain handle-bound and writes remain disabled.
+- Added unexecuted admission-ledger permission and symlink-root cases. Python compilation passed for the shared utility, all affected owners, and authored tests; no behavior suite, concurrency experiment, platform execution, or production verification ran.
+- The admission authority still performs read/check/write across separate calls without an owner lock or compare-and-swap. Next inspect all issuer call paths and give admission sequence updates one serialized durable transaction before claiming concurrent issuance/revocation is safe.
