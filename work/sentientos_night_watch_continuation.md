@@ -982,3 +982,12 @@ Source review confirms this process handoff and recurring observation path alrea
 - `python -m py_compile` passed for the epistemic adapter source snapshot. No configured rule execution or evidence-state mutation was run.
 
 **Next implementation dependency:** trace the World-State source digest and event-time identity for the extended invocation payload through configured epistemic rules and persisted evidence binding; verify that historical re-projection remains identity-stable and does not gain freshness.
+
+## New checkpoint — preserve semantic source identity across re-projection
+
+- Traced the new predecessor field from the invocation receipt through the read-only installation scan, `record_digest`, World-State fact identity, and the configured epistemic adapter. The parent reference is part of the record payload and therefore changes its digest/fact identity; retrieval clocks are excluded. The invocation event time is taken only from a v2 receipt whose digest binds `observed_at`. Resource evidence remains historical with unknown/stale freshness, not current merely because it is reprojected.
+- Tightened the adapter's “exact predecessor reconciled” acceptance from a mapping check to the precise four-field reference schema and the receipt/request/turn identity formats. A malformed mapping, inconsistent exact posture, or non-recorded chat invocation remains contextual/incomplete.
+- First invocations without a parent link remain compatible. The exact request/receipt evidence remains in the digest-bound World-State payload; persisted evidence binds the resulting fact ID and source digest; no automatic evidence rule or state transition was added.
+- `python -m py_compile` passed for the epistemic adapter. No runtime projection, configuration, or epistemic mutation was exercised.
+
+**Next implementation dependency:** continue from the bounded recovery source and inspect the existing model/software succession evidence owners for any same-tick or restart path that treats a candidate, activation receipt, or history record as proof of an observed running successor.

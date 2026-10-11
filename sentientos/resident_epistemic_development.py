@@ -165,15 +165,42 @@ class ResidentEpistemicDevelopmentRuntime:
         resource_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
         predecessor_reference = resource_payload.get("predecessor_invocation_reference")
         predecessor_posture = resource_payload.get("predecessor_invocation_reference_posture")
+        parent_reference_fields = {
+            "receipt_id", "receipt_digest", "request_id", "source_user_turn_id"}
+        parent_reference_shape_valid = (
+            isinstance(predecessor_reference, Mapping)
+            and set(predecessor_reference) == parent_reference_fields
+            and isinstance(predecessor_reference.get("receipt_id"), str)
+            and len(predecessor_reference["receipt_id"]) == 30
+            and predecessor_reference["receipt_id"].startswith("lmrec-")
+            and all(character in "0123456789abcdef"
+                for character in predecessor_reference["receipt_id"][6:])
+            and isinstance(predecessor_reference.get("receipt_digest"), str)
+            and len(predecessor_reference["receipt_digest"]) == 64
+            and all(character in "0123456789abcdef"
+                for character in predecessor_reference["receipt_digest"])
+            and isinstance(predecessor_reference.get("request_id"), str)
+            and len(predecessor_reference["request_id"]) == 30
+            and predecessor_reference["request_id"].startswith("lmreq-")
+            and all(character in "0123456789abcdef"
+                for character in predecessor_reference["request_id"][6:])
+            and isinstance(predecessor_reference.get("source_user_turn_id"), str)
+            and len(predecessor_reference["source_user_turn_id"]) == 29
+            and predecessor_reference["source_user_turn_id"].startswith("turn-")
+            and all(character in "0123456789abcdef"
+                for character in predecessor_reference["source_user_turn_id"][5:]))
+        exact_parent_reference_claim_valid = (
+            predecessor_posture == "exact_predecessor_receipt_and_source_turn_reconciled"
+            and parent_reference_shape_valid)
         chat_invocation_lineage_incomplete = (
             historical_resource_fact
             and fact.subject.subject_kind == "chat_process_software_generation_invocation"
-            and ((predecessor_reference is not None
-                    and predecessor_posture
-                        != "exact_predecessor_receipt_and_source_turn_reconciled")
+            and (fact.disposition != "recorded"
+                or (predecessor_reference is not None
+                    and not exact_parent_reference_claim_valid)
                 or (predecessor_posture
                     == "exact_predecessor_receipt_and_source_turn_reconciled"
-                    and not isinstance(predecessor_reference, Mapping))))
+                    and not exact_parent_reference_claim_valid)))
         resource_findings = resource_payload.get("lineage_findings")
         resource_findings_empty = (
             isinstance(resource_findings, (list, tuple)) and not resource_findings)
