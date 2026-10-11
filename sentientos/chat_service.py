@@ -557,11 +557,13 @@ class PersistentConversationService:
                      "omitted_memory_count": memory.get("omitted_memory_count")})
         retention_result: dict[str, object] = {"status": "not_requested"}
         if retain:
-            request_id = "retain-request-" + uuid.uuid4().hex[:24]
+            operation_id = "retain:" + session["session_id"] + ":" + user_turn["turn_id"]
+            request_id = "retain-request-" + hashlib.sha256(
+                operation_id.encode("utf-8")).hexdigest()[:24]
             candidate = {"candidate_type": CANDIDATE_TYPE, "session_id": session["session_id"],
                          "source_turn_id": user_turn["turn_id"], "source_role": "user",
                          "source_text_digest": user_turn["text_digest"], "explicitly_requested": True,
-                         "request_id": request_id, "operation_id": "retain:" + session["session_id"] + ":" + user_turn["turn_id"]}
+                         "request_id": request_id, "operation_id": operation_id}
             admission = self.admission_gate.decide(candidate)
             try:
                 if admission.decision != "retention_admitted": raise PermissionError(admission.reason or "retention_denied")
@@ -969,3 +971,4 @@ def run(host: str = "0.0.0.0", port: int = 5000) -> None:
     import uvicorn
 
     uvicorn.run(APP, host=host, port=port)
+
