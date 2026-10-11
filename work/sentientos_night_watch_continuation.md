@@ -2621,8 +2621,8 @@ Next inspect succession source records for any projection that still presents a 
 - Next inspect bounded evidence expiration and source-freshness ownership after mutation recovery, ensuring recovered proof timestamps remain event evidence and do not acquire currentness from reconstruction.
 
 
-## 2026-10-11 checkpoint — bind epistemic state locks to private roots
+## 2026-10-11 checkpoint — route epistemic records through shared descriptor custody
 
-- Persistent epistemic state already serialized generation compare-and-swap, but opened its lock through a path-based parent lookup and checked only that the result was a regular file. The lock now uses the shared no-follow directory descriptor, requires an owner-owned single-link file with private mode, and holds both descriptors for the full transaction.
-- Added an authored, unexecuted symlink and shared-mode lock-custody case. Changed source and test syntax compilation only; lock behavior is unverified.
-- Next inspect the longitudinal self-model's root-bound lock and persistent collection transactions for remaining path-based handoffs; preserve Windows read-only recovery.
+- Persistent epistemic state still used a custom path-based reader and publisher after its lock was hardened. Record reads and immutable writes now use the existing private descriptor custody helpers, so collection directory traversal, file owner/link/mode checks, stable bounded reads, and no-follow publication share the repository's established contract. Windows retains the held-handle reader and refuses writes.
+- Added an authored, unexecuted collection-symlink read/write rejection case. Changed source and test syntax compilation only; no storage behavior was exercised.
+- Next inspect whether World-State/recovered source inventory is equally protected by descriptor-bound reads before choosing the following durable evidence boundary.

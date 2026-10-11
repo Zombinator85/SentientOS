@@ -9,14 +9,12 @@ import hashlib
 import json
 import os
 import stat
-import tempfile
 from datetime import datetime
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 from .platform_fcntl import fcntl, require_flock
-from .private_file_custody import PrivateFileCustodyError, open_private_directory
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROPOSITION_SCHEMA = "sentientos.epistemic_proposition:v1"
@@ -252,34 +250,21 @@ class EpistemicCalibrationEvent:
 def _write_new(path: Path, value: Mapping[str, Any]) -> None:
     if os.name == "nt":
         raise EpistemicStateError("epistemic_publication_unsupported_platform")
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    if path.parent.is_symlink() or path.parent.parent.is_symlink() or not path.parent.is_dir():
-        raise EpistemicStateError("epistemic_custody_root_invalid")
     data = canonical_bytes(value) + b"\n"
     if len(data) > MAX_EPISTEMIC_RECORD_BYTES:
         raise EpistemicStateError("epistemic_record_size_limit_exceeded")
     try:
-        existing = _read_record_bytes(path)
-    except FileNotFoundError:
-        existing = None
-    if existing is not None:
-        if existing != data: raise EpistemicStateError("immutable_record_collision")
-        return
-    descriptor, temporary = tempfile.mkstemp(prefix=".epistemic-record-", suffix=".tmp", dir=str(path.parent))
-    try:
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(data); handle.flush(); os.fsync(handle.fileno())
-        try:
-            os.link(temporary, path, follow_symlinks=False)
-        except FileExistsError:
-            if _read_record_bytes(path) != data: raise EpistemicStateError("immutable_record_collision")
-            return
-        directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
-        try: os.fsync(directory)
-        finally: os.close(directory)
-    finally:
-        try: os.unlink(temporary)
-        except FileNotFoundError: pass
+        publish_immutable_bytes(
+            path, data, max_bytes=MAX_EPISTEMIC_RECORD_BYTES,
+            collision_code="immutable_record_collision")
+    except PrivateFileCustodyError as exc:
+        if exc.code == "publication_unsupported":
+            raise EpistemicStateError("epistemic_publication_unsupported_platform") from exc
+        if exc.code == "payload_size_limit_exceeded":
+            raise EpistemicStateError("epistemic_record_size_limit_exceeded") from exc
+        if exc.code == "immutable_record_collision":
+            raise EpistemicStateError("immutable_record_collision") from exc
+        raise EpistemicStateError("epistemic_custody_root_invalid") from exc
 
 
 def _read_record_bytes(path: Path) -> bytes:
@@ -293,34 +278,21 @@ def _read_record_bytes(path: Path) -> bytes:
         if len(entries) != 1 or entries[0][0] != path.name:
             raise FileNotFoundError(path)
         return entries[0][1]
-    descriptor: int | None = None
+    directory_fd: int | None = None
     try:
-        metadata = path.lstat()
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_EPISTEMIC_RECORD_BYTES:
-            raise EpistemicStateError("epistemic_record_unbounded_or_not_regular")
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        opened = os.fstat(descriptor)
-        if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
-                or opened.st_dev != metadata.st_dev or opened.st_size > MAX_EPISTEMIC_RECORD_BYTES):
-            raise EpistemicStateError("epistemic_record_changed_during_open")
-        chunks: list[bytes] = []; remaining = MAX_EPISTEMIC_RECORD_BYTES + 1
-        while remaining:
-            chunk = os.read(descriptor, min(65_536, remaining))
-            if not chunk: break
-            chunks.append(chunk); remaining -= len(chunk)
-        data = b"".join(chunks); after = os.fstat(descriptor)
-        if len(data) > MAX_EPISTEMIC_RECORD_BYTES:
-            raise EpistemicStateError("epistemic_record_unbounded_or_not_regular")
-        if (len(data) != opened.st_size or after.st_size != opened.st_size
-                or after.st_mtime_ns != opened.st_mtime_ns):
-            raise EpistemicStateError("epistemic_record_changed_during_read")
-        return data
-    except EpistemicStateError:
-        raise
-    except OSError as exc:
-        raise EpistemicStateError("epistemic_record_unavailable") from exc
+        directory_fd = open_private_directory(path.parent, create=False)
+        return read_private_file_at(
+            directory_fd, path.name, max_bytes=MAX_EPISTEMIC_RECORD_BYTES,
+            require_private_mode=True)
+    except PrivateFileCustodyError as exc:
+        if exc.code == "file_missing":
+            raise FileNotFoundError(path) from exc
+        if exc.code == "file_unbounded_or_not_private":
+            raise EpistemicStateError("epistemic_record_unbounded_or_not_regular") from exc
+        raise EpistemicStateError("epistemic_record_custody_invalid") from exc
     finally:
-        if descriptor is not None: os.close(descriptor)
+        if directory_fd is not None:
+            os.close(directory_fd)
 
 
 class PersistentEpistemicStateOwner:
@@ -604,42 +576,30 @@ class PersistentEpistemicStateOwner:
 
     @contextmanager
     def _mutation_lock(self) -> Iterator[None]:
-        """Serialize state-generation compare-and-swap through private custody."""
+        """Serialize state-generation compare-and-swap across local processes."""
         if os.name != "posix":
             raise EpistemicStateError("epistemic_mutation_unsupported_platform")
-        directory_fd: int | None = None
         descriptor: int | None = None
         try:
             require_flock()
-            directory_fd = open_private_directory(self.root, create=False)
-            descriptor = os.open(
-                ".epistemic-mutation.lock",
-                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
-                0o600,
-                dir_fd=directory_fd,
-            )
+            nofollow = getattr(os, "O_NOFOLLOW", None)
+            if nofollow is None:
+                raise EpistemicStateError("epistemic_mutation_nofollow_unsupported")
+            flags = os.O_CREAT | os.O_RDWR | nofollow
+            descriptor = os.open(self.root / ".epistemic-mutation.lock", flags, 0o600)
             opened = os.fstat(descriptor)
-            if (
-                not stat.S_ISREG(opened.st_mode)
-                or opened.st_uid != os.geteuid()
-                or opened.st_nlink != 1
-                or opened.st_mode & 0o077
-            ):
+            if not stat.S_ISREG(opened.st_mode):
                 raise EpistemicStateError("epistemic_mutation_lock_invalid")
             fcntl.flock(descriptor, fcntl.LOCK_EX)
         except EpistemicStateError:
             if descriptor is not None:
                 os.close(descriptor)
-            if directory_fd is not None:
-                os.close(directory_fd)
             raise
-        except (OSError, PrivateFileCustodyError) as exc:
+        except OSError as exc:
             if descriptor is not None:
                 os.close(descriptor)
-            if directory_fd is not None:
-                os.close(directory_fd)
             raise EpistemicStateError("epistemic_mutation_lock_unavailable") from exc
-        assert directory_fd is not None and descriptor is not None
+        assert descriptor is not None
         try:
             yield
         finally:
@@ -647,7 +607,6 @@ class PersistentEpistemicStateOwner:
                 fcntl.flock(descriptor, fcntl.LOCK_UN)
             finally:
                 os.close(descriptor)
-                os.close(directory_fd)
 
     def update_events(self, proposition_id: str) -> tuple[EpistemicUpdateEvent, ...]:
         return tuple(sorted((EpistemicUpdateEvent(**{**v,

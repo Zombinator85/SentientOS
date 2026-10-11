@@ -6,7 +6,7 @@ import pytest
 from sentientos.persistent_epistemic_state import (
     FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
     PropositionRelation, evidence_posture, make_cognitive_projection,
-    make_evidence_binding, make_proposition, make_epistemic_update_candidate,
+    make_evidence_binding, make_proposition, make_epistemic_update_candidate, _write_new,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -193,25 +193,21 @@ def test_update_recorded_at_requires_bounded_aware_timestamp(tmp_path):
     assert list((tmp_path / "transactions").glob("*.json")) == []
 
 
-def test_epistemic_mutation_lock_rejects_symlink_and_shared_permissions(tmp_path) -> None:
+def test_epistemic_collection_read_and_write_reject_symlinked_directory(tmp_path) -> None:
     import os
 
     if os.name != "posix":
-        pytest.skip("POSIX no-follow lock custody is required")
+        pytest.skip("POSIX descriptor-bound publication is required")
     root = tmp_path / "owner"
     owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("test",))
-    external = tmp_path / "external"
-    external.write_text("untouched", encoding="utf-8")
-    (root / ".epistemic-mutation.lock").symlink_to(external)
-    with pytest.raises(EpistemicStateError, match="epistemic_mutation_lock_unavailable"):
-        with owner._mutation_lock():
-            pass
-    assert external.read_text(encoding="utf-8") == "untouched"
+    target = tmp_path / "external"
+    target.mkdir()
+    original = root / "bindings"
+    original.rename(root / "bindings-original")
+    original.symlink_to(target, target_is_directory=True)
 
-    (root / ".epistemic-mutation.lock").unlink()
-    lock = root / ".epistemic-mutation.lock"
-    lock.write_bytes(b"")
-    lock.chmod(0o644)
-    with pytest.raises(EpistemicStateError, match="epistemic_mutation_lock_invalid"):
-        with owner._mutation_lock():
-            pass
+    with pytest.raises(EpistemicStateError, match="epistemic_collection_invalid"):
+        owner._read("bindings")
+    with pytest.raises(EpistemicStateError, match="epistemic_custody_root_invalid"):
+        _write_new(original / "attacker.json", {"untrusted": True})
+    assert list(target.iterdir()) == []
