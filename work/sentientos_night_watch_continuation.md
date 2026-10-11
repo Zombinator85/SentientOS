@@ -2077,3 +2077,10 @@ The standalone parent CLI now verifies that its actual interpreter, working dire
 ## 2026-10-11 checkpoint — canonicalize commissioned parent invocation paths
 
 The parent-origin check now resolves both configured interpreter and working-directory paths through the filesystem before comparison, matching the resident config validator and child adapter path semantics. The authored substituted-interpreter case now uses an existing fixture path so it reaches the intended mismatch decision rather than failing during strict path resolution. Python compilation and source whitespace inspection passed; no behavioral test ran.
+
+
+## 2026-10-11 checkpoint — keep generic embodiment inputs contextual
+
+Source review found that the generic explicitly injected `EmbodimentEvidenceOwner` accepted caller-supplied provenance labels and could emit caller-provided `fulfillment_observation` as `source_kind=fulfillment` with `effect_proven=True`. The daemon already has a distinct fulfillment-receipt loader/verifier. The generic wrapper now emits only `embodiment` observation records, labels all fields as unverified caller assertions, preserves the declared provenance/freshness and claimed effect metadata, and never promotes an input effect claim to proof. The separate receipt-backed fulfillment path is unchanged. An acceptance case is authored but unexecuted. Changed Python files compile and whitespace checks pass; no behavior or production runtime was exercised.
+
+Next inspect the downstream epistemic/self-model consumers to confirm generic embodiment assertions remain historical/contextual and verified fulfillment remains receipt-backed. Keep external physical observation dependent on a real observer issuer; do not promote caller claims.

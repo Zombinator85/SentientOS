@@ -142,23 +142,25 @@ class EmbodimentEvidenceOwner:
             if item.source_id in seen and seen[item.source_id] != item.source_digest:
                 raise EmbodimentEvidenceError("source_identity_digest_changed")
             seen[item.source_id] = item.source_digest
-            is_fulfillment = item.evidence_class == "fulfillment_observation"
-            caller_asserted_observation = item.evidence_class == "avatar_independently_observed_state"
+            # This wrapper validates shape and bounds only. It has no issuer or
+            # receipt verifier, so caller labels cannot establish production
+            # provenance, independent observation, fulfillment, or effect proof.
             records.append({
-                "source_kind": "fulfillment" if is_fulfillment else "embodiment",
+                "source_kind": "embodiment",
                 "source_id": item.source_id, "schema_version": item.source_schema,
                 "subject_id": item.subject_id,
                 "subject_kind": item.subject_kind,
-                "stage": "execution" if is_fulfillment else "observation",
-                "disposition": "recorded", "evidence_strength": (
-                    "unverified_caller_assertion" if caller_asserted_observation else item.provenance_class),
+                "stage": "observation",
+                "disposition": "recorded", "evidence_strength": "unverified_caller_assertion",
                 "staleness": item.freshness, "observed_at": item.observed_at,
-                "effect_claimed": item.effect_claimed, "effect_proven": item.effect_proven,
+                "effect_claimed": item.effect_claimed or item.effect_proven,
+                "effect_proven": False,
                 "payload": {**dict(item.payload), "embodiment_evidence_class": item.evidence_class,
                             "evidence_posture": item.posture,
+                            "declared_provenance_class": item.provenance_class,
                             "declared_source_freshness": item.freshness,
-                            "observer_issuer_posture": ("unverified_caller_assertion"
-                                if caller_asserted_observation else "not_applicable"),
+                            "observer_issuer_posture": "unverified_caller_assertion",
+                            "caller_claimed_effect_proven": item.effect_proven,
                             "source_semantic_digest": item.source_digest},
             })
         return records

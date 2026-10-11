@@ -121,3 +121,21 @@ def test_same_class_conflict_staleness_and_external_scoring(tmp_path):
                                          supported_sources=("observer:b",))
     assert result["supported_correct"] == 2 and result["supported_incorrect"] == 0
     assert result["source_provenance_correct"] is True
+
+
+def test_caller_embodiment_wrapper_cannot_mint_fulfillment_or_effect_proof():
+    claimed = EmbodimentObservation(
+        "caller:fulfillment", "fixture:v1", "sha256:" + "d" * 64, NOW,
+        "production", "fresh", "production", "fulfillment_observation",
+        "avatar", "avatar", {"reported_pose": "wave"},
+        effect_claimed=True, effect_proven=True,
+    )
+    record = EmbodimentEvidenceOwner((claimed,)).world_state_records()[0]
+    assert record["source_kind"] == "embodiment"
+    assert record["stage"] == "observation"
+    assert record["evidence_strength"] == "unverified_caller_assertion"
+    assert record["effect_claimed"] is True
+    assert record["effect_proven"] is False
+    assert record["payload"]["caller_claimed_effect_proven"] is True
+    assert record["payload"]["declared_provenance_class"] == "production"
+    assert record["payload"]["observer_issuer_posture"] == "unverified_caller_assertion"
