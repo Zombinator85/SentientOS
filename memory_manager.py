@@ -628,6 +628,17 @@ def list_tomb(
             raise MemorySidecarIncompleteError("memory_tomb", line_number) from exc
         if not isinstance(entry, dict):
             raise MemorySidecarIncompleteError("memory_tomb", line_number)
+        stored_hash = entry.get("hash")
+        if stored_hash is not None:
+            if (not isinstance(stored_hash, str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", stored_hash)):
+                raise MemorySidecarIncompleteError("memory_tomb_digest_invalid", line_number)
+            unhashed = dict(entry)
+            unhashed.pop("hash", None)
+            expected_hash = hashlib.sha256(json.dumps(unhashed, sort_keys=True,
+                ensure_ascii=False).encode("utf-8")).hexdigest()
+            if stored_hash != expected_hash:
+                raise MemorySidecarIncompleteError("memory_tomb_digest_mismatch", line_number)
         frag = entry.get("fragment", {})
         if tag and tag not in frag.get("tags", []):
             continue

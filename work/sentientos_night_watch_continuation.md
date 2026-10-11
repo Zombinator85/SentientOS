@@ -1664,3 +1664,13 @@ Source review confirms this process handoff and recurring observation path alrea
 - Export now requires a configured matching token and a requester identity registered with trusted status. The synchronizer sends its existing node-id header, while client-side selection also remains trusted-only. This adds no grants and starts no federation. The peer response is still not cryptographically signed; its identity label remains a registry-target claim only.
 - Python syntax compilation passed for relay_app.py and distributed_memory.py. No web server or peer network was started; no endpoint behavior was exercised.
 - **Next implementation dependency:** verify the exact owner path that updates peer trust and whether shared token transport is protected in transit. If no signed/TLS peer identity exists, keep that as an explicit deployment dependency and do not overstate imported memory provenance.
+
+
+
+## New checkpoint — verify user-memory tomb digests on recovery
+
+- Fresh remote source before this increment: `dae31204880f727cad0a783664b047c53fc0b1d9` (tree `3a52f9a58c7b401d9004b2e5a6c1f457003895b2`).
+- The authorized tomb writer added a SHA-256 digest to records when enabled, but the read path accepted changed or substituted records without checking it.
+- Tomb recovery now validates any present 64-character lowercase digest against the exact canonical unhashed record. Historical records without a digest remain readable for compatibility; malformed or mismatched digest evidence raises the explicit incomplete-history status consumed by both tomb CLIs.
+- Python syntax compilation passed for memory_manager.py. No tomb was read or altered; behavior remains unverified.
+- **Next implementation dependency:** continue through remaining user-memory observation/deletion receipts and confirm retained chat artifacts stay excluded from legacy tomb/forget operations. Federation remains dependent on a cryptographically authenticated peer response and protected transport before imported content can be called independently verified.
