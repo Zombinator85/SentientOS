@@ -1,6 +1,7 @@
 # Active construction checkpoint
 
-- Fresh remote source before seq68: `f4370b6b68eacdd734c9542b126b042d53495b09`, tree `1890ce38df73fc5b4d554804851b3831b7ec3db0`; `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
-- Latest continuation segment: sequence 68, `work/construction/segments/0068-process-restart-cognition.md`.
-- Seq68 extends the model-resource cognition path across a real Python process boundary for durable epistemic state, self-model, developmental history, and later cognition. Source-record custody is handed over as bounded JSON, not reconstructed from a durable World-State source publisher.
-- Next dependency: determine and implement, if supported by existing owners, canonical durable World-State source reconstruction in the child after process death; preserve exact ledger and invocation lineage and keep resource observation read-only.
+- Fresh remote base before seq72: `e1677cade049a428cc28f3fd90e0643f9718843f`, tree `f866a35fcea9ff1bfd24d0c63506217241d84a90`; published `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Latest continuation segment: sequence 72, `work/construction/segments/0072-resource-generation-developmental-continuity.md`.
+- Seq72 carries receipt-bound chat software-generation attribution through resource World-State, developmental-history writeback, restart, and later cognition. Historical event times stay separate from observation/reconstruction; loaded-code identity remains unattested.
+- Focused results: 124 adjacent tests and the actual child-process continuity test passed; changed Python compiled; `git diff --check` passed. Work is unverified for production.
+- Next dependency: inspect whether an existing owner can independently attest the chat process's loaded code identity; if no such owner exists, retain unknown and advance to the next implemented developmental-continuity bridge.

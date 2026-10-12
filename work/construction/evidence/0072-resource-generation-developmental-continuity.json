@@ -1,0 +1,75 @@
+{
+  "active_checkpoint_sha256": "8f445080cd6f27517af8ff1046d78f6fc852ef02319763a5c276914868b8757a",
+  "change": {
+    "authority_boundary": "Observation and developmental-history context remain non-authorizing; resource allocation, effect admission, and model/software activation are unchanged.",
+    "behavior": "Bound actual invocation local-model occurrence to verified historical chat-process handoff identities in the resource World-State projection; preserve that software-generation lineage through authorized developmental-history writeback and later cognition. The handoff remains historical and does not attest loaded code.",
+    "bounded_prompt_behavior": "Cognition first prefers complete source-evidence context; if the prompt bound requires it, the largest complete history suffix is retained with digest-bound context omission metadata. It does not silently discard history to preserve richer detail.",
+    "temporal_boundary": "Consumption receipt event time is preserved separately from retrieval/reconstruction time; historical process currentness remains not reobserved."
+  },
+  "files": [
+    {
+      "path": "sentientos/host_resource_runtime.py",
+      "sha256": "5d607b310c5d25e1533ff0683aa8f3a752e80be19ad1281cd3e05689572aa4c2"
+    },
+    {
+      "path": "sentientos/resident_developmental_writeback.py",
+      "sha256": "f60740577ae6b0252d0e1eba38796a6a3bbf200dc1011d4117248d138e09a69b"
+    },
+    {
+      "path": "sentientos/resident_developmental_cognition.py",
+      "sha256": "ef20b0a1e5c08433abc95ab259821706971e13f2df6f0f82f462804686ae290e"
+    },
+    {
+      "path": "tests/test_resource_invocation_process_generation_integration.py",
+      "sha256": "4d6e064686f17e7296ee2cf669eb4c7a8579d92d7683f53ed80e262939ae92e3"
+    }
+  ],
+  "observed_in_fixture": [
+    "A separately launched chat child used an installation-bound launcher handoff; its admitted invocation receipt was reconciled to that handoff.",
+    "The read-only resource owner projected the exact invocation, software-generation digest, process instance, and handoff identities into World-State.",
+    "Developmental writeback retained the same bound identities and historical posture; reconstructed later cognition received a bounded source-evidence context with the exact software-generation and handoff digests.",
+    "Actual consumption event time remained historical; shared host CPU/GPU and loaded-code identity remained unknown/not independently attested.",
+    "When all full history packets exceed the prompt bound, the largest complete history suffix is preferred and compacted source context is explicitly digest-bound as omitted."
+  ],
+  "prior_source_integrity_correction": {
+    "current_remote_blob_at_source_base": "1e1e28c94a6cf697a7ded82a3b65a176656aab75",
+    "hosted_source_validation_at_source_base": "success",
+    "readable_predecessor_blob": "66d36d259965695391a6f8871a98c899c117e042",
+    "repair_commit": "db45c915209dcfc0af23acf8787fcd268786dc3b",
+    "repair_disposition": "already_present_in_remote_history; no duplicate overwrite published",
+    "reported_corrupt_blob": "333d08582eb91ba3725c8a77abb8882ba2dd19ce",
+    "reported_corrupt_commit": "f983c53e"
+  },
+  "remaining_unknowns": [
+    "Launcher handoff binds process and source-generation identity but does not independently attest which code bytes were loaded into the running process.",
+    "No task-scoring oracle or ground-truth outcome is provided; fixture behavior does not demonstrate actual model learning, acquisition, transfer, or performance improvement.",
+    "No production runtime, provider, host resource measurement, or effect was exercised."
+  ],
+  "schema": "sentientos.construction.acceptance_evidence:v1",
+  "segment_sha256": "c58753565e6bca44aef60d650762ac60d4c83b3b5188e695363ea55ea919ab53",
+  "source_base": {
+    "branch": "codex/construct-sentientos",
+    "commit": "e1677cade049a428cc28f3fd90e0643f9718843f",
+    "repository": "Zombinator85/SentientOS",
+    "tree": "f866a35fcea9ff1bfd24d0c63506217241d84a90"
+  },
+  "static_checks": {
+    "git_diff_check": "passed",
+    "python_compile": "passed for four changed Python files"
+  },
+  "status": "focused_tests_passed_unverified_for_production",
+  "tests": [
+    {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-suite/governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-gr4-suite/runtime SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-gr4-suite/federation SENTIENTOS_REPO_ROOT=/tmp/sentientos-gr4-suite/repo PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-gr4-suite/trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-gr4-suite/trust/state.json /tmp/sentientos-exact-venv/bin/python -m pytest -q -m 'not legacy' tests/test_resident_developmental_cognition.py tests/test_resident_developmental_cognition_generation_scope.py tests/test_resident_developmental_writeback.py tests/test_resident_developmental_writeback_capability_admission.py tests/test_host_resource_runtime.py tests/test_resource_invocation_process_generation_integration.py",
+      "junit": "work/construction/evidence/0072-resource-generation-history-adjacent-junit.xml",
+      "junit_sha256": "d36e2eb9c28b3fb5ea0f376ff9d71bbb09e1250797f70ec13c1a1e49bdec72b5",
+      "result": "124 passed, 0 failed, 0 skipped; legacy process fixture deselected by marker"
+    },
+    {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-suite/governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-gr4-suite/runtime SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-gr4-suite/federation SENTIENTOS_REPO_ROOT=/tmp/sentientos-gr4-suite/repo PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-gr4-suite/trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-gr4-suite/trust/state.json /tmp/sentientos-exact-venv/bin/python -m pytest -q -m legacy tests/test_resource_invocation_process_generation_integration.py",
+      "junit": "work/construction/evidence/0072-resource-generation-history-process-junit.xml",
+      "junit_sha256": "800feb00cbdf56dc1ea9dc3a6b7028af74349a4813e3933078553da5a60187a4",
+      "result": "1 passed, 0 failed, 0 skipped"
+    }
+  ]
+}

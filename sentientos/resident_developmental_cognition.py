@@ -48,7 +48,7 @@ from .resident_developmental_writeback import (
     _publish_store_json,
 )
 from .runtime_admission import RuntimeAdmissionAuthority
-from .world_state_board import WorldStateSnapshot, validate_snapshot
+from .world_state_board import WorldStateSnapshot, digest as _world_state_digest, validate_snapshot
 
 
 def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping[str, Any]:
@@ -197,6 +197,11 @@ def _valid_optional_lower_sha256(value: Any) -> bool:
         and all(character in "0123456789abcdef" for character in value)))
 
 
+def _valid_lower_sha256(value: Any) -> bool:
+    return (type(value) is str and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value))
+
+
 def _valid_integrity_controller_gates(payload: Mapping[str, Any]) -> bool:
     gates = payload.get("gate_results")
     count = payload.get("gate_count")
@@ -240,6 +245,168 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
         subject_kind = subject.get("subject_kind")
         schema = payload.get("observation_schema")
         event_meaning = payload.get("event_meaning")
+        if (source_kind == "resource_governor"
+                and source_id == "governed_local_model_resource_consumption"
+                and subject_kind == "causal_resource_consumption"):
+            # Resource evidence has receipt event times and an observation
+            # retrieval time, but is intentionally not a point-current host
+            # observation. Preserve the exact historical process handoff only
+            # after validating the writeback projection and its receipt joins.
+            binding = payload.get("interpretation_projection")
+            if not isinstance(binding, Mapping):
+                continue
+            binding_core = {key: binding.get(key) for key in (
+                "schema_version", "source_fact_id", "source_payload_digest",
+                "source_record_digest", "projected_payload_digest")}
+            summary_payload = {key: value for key, value in payload.items()
+                if key != "interpretation_projection"}
+            binding_digest = binding.get("projection_digest")
+            if (binding.get("schema_version") != "sentientos.resource_interpretation_projection:v1"
+                    or binding.get("source_fact_id") != fact.get("fact_id")
+                    or binding.get("source_record_digest") != source.get("digest")
+                    or not _valid_lower_sha256(binding.get("source_payload_digest"))
+                    or not _valid_lower_sha256(binding.get("projected_payload_digest"))
+                    or binding.get("projected_payload_digest") != _world_state_digest(summary_payload)
+                    or not _valid_lower_sha256(binding_digest)
+                    or binding_digest != _world_state_digest(binding_core)
+                    or fact.get("stage") != "observation"
+                    or fact.get("disposition") not in {"recorded", "degraded"}
+                    or payload.get("authority") is not False
+                    or payload.get("current_truth") is not False
+                    or payload.get("effect_proven") is not False
+                    or payload.get("event_time_posture")
+                        != "receipt_event_time_retained_as_historical"
+                    or payload.get("event_meaning") != (
+                        "governed resource consumption and historically bound chat process generation")
+                    or payload.get("loaded_code_identity_posture")
+                        != "not_independently_attested"
+                    or payload.get("process_identity_scope")
+                        != "installation_bound_launcher_handoff_process_identity"
+                    or payload.get("lineage_posture") not in {"verified", "degraded"}
+                    or payload.get("chat_process_generation_posture") not in {
+                        "verified", "partial_legacy_or_unavailable",
+                        "unknown_legacy_or_unavailable", "unknown_no_completed_invocations",
+                        "invalid_or_unbound"}):
+                continue
+            invocations = payload.get("invocation_receipts")
+            attributions = payload.get("verified_chat_process_generation_attributions")
+            allocations = payload.get("allocations")
+            attempts = payload.get("attempts")
+            receipts = payload.get("consumption_receipts")
+            if (not isinstance(invocations, (list, tuple)) or len(invocations) > 4
+                    or any(not isinstance(item, Mapping) for item in invocations)
+                    or not isinstance(attributions, (list, tuple)) or len(attributions) > 4
+                    or any(not isinstance(item, Mapping) for item in attributions)
+                    or not isinstance(allocations, (list, tuple)) or len(allocations) > 4
+                    or any(not isinstance(item, Mapping) for item in allocations)
+                    or not isinstance(attempts, (list, tuple)) or len(attempts) > 8
+                    or any(not isinstance(item, Mapping) for item in attempts)
+                    or not isinstance(receipts, (list, tuple)) or len(receipts) > 2
+                    or any(not isinstance(item, Mapping) for item in receipts)):
+                continue
+            invocation_by_id: dict[str, Mapping[str, Any]] = {}
+            invalid = False
+            for invocation in invocations:
+                receipt_id = invocation.get("receipt_id")
+                if (not isinstance(receipt_id, str) or not receipt_id
+                        or receipt_id in invocation_by_id
+                        or not _valid_lower_sha256(invocation.get("receipt_digest"))
+                        or not isinstance(invocation.get("request_id"), str)
+                        or not _valid_lower_sha256(invocation.get("request_digest"))):
+                    invalid = True
+                    break
+                invocation_by_id[receipt_id] = invocation
+            projected_attributions: list[dict[str, Any]] = []
+            seen_receipts: set[str] = set()
+            for attribution in attributions:
+                receipt_id = attribution.get("invocation_receipt_id")
+                invocation = invocation_by_id.get(receipt_id) if isinstance(receipt_id, str) else None
+                handoff = attribution.get("chat_process_handoff")
+                if (set(attribution) != {"invocation_receipt_id", "invocation_receipt_digest",
+                        "invocation_request_id", "invocation_request_digest", "chat_process_handoff",
+                        "attribution_posture", "currentness_posture"}
+                        or not isinstance(receipt_id, str) or receipt_id in seen_receipts
+                        or not isinstance(invocation, Mapping)
+                        or attribution.get("invocation_receipt_digest") != invocation.get("receipt_digest")
+                        or attribution.get("invocation_request_id") != invocation.get("request_id")
+                        or attribution.get("invocation_request_digest") != invocation.get("request_digest")
+                        or attribution.get("attribution_posture")
+                            != "invocation_receipt_and_historical_chat_handoff_verified"
+                        or attribution.get("currentness_posture")
+                            != "historical_process_identity_not_reobserved_during_recovery"
+                        or not isinstance(handoff, Mapping)
+                        or handoff.get("status") != "runtime_launcher_process_and_source_bound"
+                        or any(not isinstance(handoff.get(key), str) or not handoff.get(key)
+                            for key in ("software_generation_digest", "process_instance_id",
+                                "handoff_id", "handoff_digest", "source_generation_scope"))):
+                    invalid = True
+                    break
+                projected_attributions.append(dict(attribution))
+                seen_receipts.add(receipt_id)
+            if invalid:
+                continue
+            if payload.get("chat_process_generation_posture") == "verified":
+                selected_completed = {receipt_id for receipt_id, invocation in invocation_by_id.items()
+                    if invocation.get("status") == "admitted_completed"
+                    and invocation.get("local_model_inference") is True}
+                if selected_completed != seen_receipts:
+                    continue
+            lineage_context = {
+                "schema": "sentientos.resource_generation_history_context:v1",
+                "ledger_digest": payload.get("ledger_digest"),
+                "lineage_posture": payload.get("lineage_posture"),
+                "recovery_posture": payload.get("recovery_posture"),
+                "resource_record_binding": [source.get("digest"),
+                    binding.get("source_payload_digest"), binding_digest],
+                "historical_consumption_times": [[item.get("receipt_id"),
+                    item.get("observed_at")] for item in receipts],
+                "chat_process_generation_posture": payload.get("chat_process_generation_posture"),
+                "verified_chat_process_generation_attributions": [{
+                    "invocation_id": item.get("invocation_receipt_id"),
+                    "invocation_digest": item.get("invocation_receipt_digest"),
+                    "request_id": item.get("invocation_request_id"),
+                    "request_digest": item.get("invocation_request_digest"),
+                    "handoff_status": item["chat_process_handoff"].get("status"),
+                    "software_generation_digest": item["chat_process_handoff"].get(
+                        "software_generation_digest"),
+                    "process_instance_id": item["chat_process_handoff"].get("process_instance_id"),
+                    "handoff_id": item["chat_process_handoff"].get("handoff_id"),
+                    "handoff_digest": item["chat_process_handoff"].get("handoff_digest"),
+                    "source_generation_scope": item["chat_process_handoff"].get(
+                        "source_generation_scope"),
+                    "currentness_posture": item.get("currentness_posture")}
+                    for item in projected_attributions],
+                "loaded_code_identity_posture": payload.get("loaded_code_identity_posture"),
+                "process_identity_scope": payload.get("process_identity_scope"),
+                "event_time_posture": payload.get("event_time_posture"),
+                "shared_host_cpu_gpu_attribution": payload.get("shared_host_cpu_gpu_attribution"),
+                "interpretation_projection_digest": binding_digest,
+                "historical_only": True,
+                "current_truth": False,
+                "authority": False,
+                "effect_proven": False,
+            }
+            context_bytes = json.dumps(lineage_context, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False).encode("utf-8")
+            if len(context_bytes) > 6_000:
+                continue
+            summaries.append({
+                "fact_id": fact["fact_id"],
+                "source_binding": {"source_id": source_id, "kind": source_kind,
+                    "digest": source["digest"]},
+                "subject_kind": subject_kind,
+                "disposition": fact.get("disposition"),
+                "evidence_strength": fact.get("evidence_strength"),
+                "observed_at": None,
+                "event_time_posture": payload.get("event_time_posture"),
+                "context": lineage_context,
+                "historical_only": True,
+                "current_truth": False,
+                "authority": False,
+                "policy": False,
+                "effect_proven": False,
+            })
+            continue
         if not (isinstance(fact.get("fact_id"), str)
                 and len(fact["fact_id"]) <= 128
                 and isinstance(source_id, str) and 0 < len(source_id) <= 128
@@ -436,7 +603,9 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
     return sorted(summaries, key=lambda item: str(item["fact_id"]))
 
 
-def _history_context_packet(record: Mapping[str, Any]) -> dict[str, Any]:
+def _history_context_packet(record: Mapping[str, Any], *,
+        include_source_evidence_context: bool = True,
+        compact_for_input_budget: bool = False) -> dict[str, Any]:
     """Project a verified durable record to the bounded semantics cognition needs.
 
     Durable writeback retains the full source request/output for recovery and
@@ -464,27 +633,43 @@ def _history_context_packet(record: Mapping[str, Any]) -> dict[str, Any]:
         "epistemic_posture": record.get("epistemic_posture"),
         "current_truth": False, "authority": False, "policy": False,
     }
+    if compact_for_input_budget:
+        interpretation = candidate.get("interpretation")
+        if isinstance(interpretation, str) and len(interpretation) > 1200:
+            packet["interpretation"] = interpretation[:1200]
+            packet["interpretation_full_digest"] = _digest(interpretation)
+            packet["interpretation_omitted_characters"] = len(interpretation) - 1200
     security_contexts = _historical_security_evidence_context(candidate)
     if security_contexts:
-        selected_contexts = security_contexts[:MAX_HISTORY_SECURITY_EVIDENCE_FACTS]
-        packet["source_evidence_context"] = selected_contexts
-        omitted_contexts = security_contexts[len(selected_contexts):]
-        packet["source_evidence_context_digest"] = _digest(security_contexts)
-        packet["source_evidence_context_omitted_count"] = len(omitted_contexts)
-        packet["source_evidence_context_omitted_digest"] = _digest(omitted_contexts)
-        packet["source_evidence_context_posture"] = (
-            "complete" if not omitted_contexts else "bounded_incomplete")
+        if include_source_evidence_context:
+            selected_contexts = security_contexts[:MAX_HISTORY_SECURITY_EVIDENCE_FACTS]
+            packet["source_evidence_context"] = selected_contexts
+            omitted_contexts = security_contexts[len(selected_contexts):]
+            packet["source_evidence_context_digest"] = _digest(security_contexts)
+            packet["source_evidence_context_omitted_count"] = len(omitted_contexts)
+            packet["source_evidence_context_omitted_digest"] = _digest(omitted_contexts)
+            packet["source_evidence_context_posture"] = (
+                "complete" if not omitted_contexts else "bounded_incomplete")
+        else:
+            packet["source_evidence_context_digest"] = _digest(security_contexts)
+            packet["source_evidence_context_omitted_count"] = len(security_contexts)
+            packet["source_evidence_context_omitted_digest"] = _digest(security_contexts)
+            packet["source_evidence_context_posture"] = "omitted_for_cognition_input_budget"
     sources = candidate.get("selected_sources", ())
     if isinstance(sources, (list, tuple)):
-        packet["source_bindings"] = [
-            {key: source.get(key) for key in ("source_id", "kind", "digest")}
-            for source in sources[:MAX_FACTS] if isinstance(source, Mapping)
-        ]
+        if compact_for_input_budget:
+            packet["source_bindings_digest"] = _digest(list(sources))
+            packet["source_binding_count"] = len(sources)
+        else:
+            packet["source_bindings"] = [
+                {key: source.get(key) for key in ("source_id", "kind", "digest")}
+                for source in sources[:MAX_FACTS] if isinstance(source, Mapping)
+            ]
     provenance = candidate.get("transformation_provenance")
     if isinstance(provenance, Mapping):
         packet["provenance_kind"] = provenance.get("kind")
         lesson = provenance.get("lesson_candidate")
-        if isinstance(lesson, Mapping):
+        if isinstance(lesson, Mapping) and not compact_for_input_budget:
             packet["scope"] = lesson.get("scope")
             packet["applicability"] = lesson.get("applicability")
             packet["uncertainty_rationale"] = lesson.get("uncertainty_rationale")
@@ -502,34 +687,43 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         projection: EpistemicCognitiveProjection | None
         ) -> tuple[dict[str, Any], dict[str, Any], str, tuple[str, ...], tuple[str, ...]]:
     """Fit whole recent history packets and epistemic packets to one input bound."""
-    packets = tuple(_history_context_packet(record) for record in records)
+    packet_modes = ((True, False), (False, False), (False, True))
+    packets_by_mode = {mode: tuple(_history_context_packet(record,
+        include_source_evidence_context=mode[0], compact_for_input_budget=mode[1])
+        for record in records) for mode in packet_modes}
+    full_packets = packets_by_mode[packet_modes[0]]
     available = tuple({"record_id": packet["record_id"],
-        "record_digest": packet["record_digest"]} for packet in packets)
-    for count in range(len(packets), -1, -1):
-        selected = packets[len(packets) - count:] if count else ()
-        omitted = packets[:len(packets) - count] if count else packets
-        selected_refs = tuple({"record_id": packet["record_id"],
-            "record_digest": packet["record_digest"]} for packet in selected)
-        omitted_refs = tuple({"record_id": packet["record_id"],
-            "record_digest": packet["record_digest"]} for packet in omitted)
-        selection = {"schema_version": "sentientos.developmental_history_prompt_selection:v1",
-            "policy": "most_recent_complete_record_suffix:v1",
-            "available_records": list(available), "selected_records": list(selected_refs),
-            "omitted_records": list(omitted_refs),
-            "omitted_records_digest": _digest(list(omitted_refs)),
-            "omission_reason": "inference_input_budget" if omitted else None}
-        candidate = {**dict(context), "developmental_history": list(selected),
-            "developmental_history_selection": selection}
-        try:
-            bound, metadata, prompt = _bind_epistemic_context(
-                context=candidate, projection=projection)
-        except ResidentDevelopmentalCognitionError as exc:
-            if str(exc) != "cognition_input_budget_exceeded":
-                raise
-            continue
-        ids = tuple(str(item["record_id"]) for item in selected_refs)
-        digests = tuple(str(item["record_digest"]) for item in selected_refs)
-        return bound, metadata, prompt, ids, digests
+        "record_digest": packet["record_digest"]} for packet in full_packets)
+    # Keep the largest recent complete suffix first. For a fixed suffix size,
+    # prefer its richest evidence packet and degrade context only when needed
+    # to keep that history available under the cognition input bound.
+    for count in range(len(records), -1, -1):
+        for mode in packet_modes:
+            packets = packets_by_mode[mode]
+            selected = packets[len(packets) - count:] if count else ()
+            omitted = packets[:len(packets) - count] if count else packets
+            selected_refs = tuple({"record_id": packet["record_id"],
+                "record_digest": packet["record_digest"]} for packet in selected)
+            omitted_refs = tuple({"record_id": packet["record_id"],
+                "record_digest": packet["record_digest"]} for packet in omitted)
+            selection = {"schema_version": "sentientos.developmental_history_prompt_selection:v1",
+                "policy": "most_recent_complete_record_suffix:v1",
+                "available_records": list(available), "selected_records": list(selected_refs),
+                "omitted_records": list(omitted_refs),
+                "omitted_records_digest": _digest(list(omitted_refs)),
+                "omission_reason": "inference_input_budget" if omitted else None}
+            candidate = {**dict(context), "developmental_history": list(selected),
+                "developmental_history_selection": selection}
+            try:
+                bound, metadata, prompt = _bind_epistemic_context(
+                    context=candidate, projection=projection)
+            except ResidentDevelopmentalCognitionError as exc:
+                if str(exc) != "cognition_input_budget_exceeded":
+                    raise
+                continue
+            ids = tuple(str(item["record_id"]) for item in selected_refs)
+            digests = tuple(str(item["record_digest"]) for item in selected_refs)
+            return bound, metadata, prompt, ids, digests
     raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
 
 

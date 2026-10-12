@@ -328,6 +328,20 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         assert projected_payload["allocations"][0]["principal_id"]
         assert all(receipt["allocation_index"] == 0
             for receipt in projected_payload["consumption_receipts"])
+        retained_generation = projected_payload["verified_chat_process_generation_attributions"]
+        assert projected_payload["chat_process_generation_posture"] == "verified"
+        assert len(retained_generation) == 1
+        retained_attribution = retained_generation[0]
+        assert retained_attribution["invocation_receipt_id"] == child_result["receipt_id"]
+        assert retained_attribution["invocation_receipt_digest"] == child_result["receipt_digest"]
+        assert retained_attribution["chat_process_handoff"]["handoff_digest"] == (
+            attribution["chat_process_handoff"]["handoff_digest"])
+        assert retained_attribution["chat_process_handoff"]["software_generation_digest"] == (
+            child_result["software_generation_digest"])
+        assert retained_attribution["currentness_posture"] == (
+            "historical_process_identity_not_reobserved_during_recovery")
+        assert projected_payload["loaded_code_identity_posture"] == "not_independently_attested"
+        assert projected_payload["invocation_receipts"][0]["local_model_inference"] is True
 
         recovered_cognition, recovered_fixture = developmental_owner(
             developmental_root, allowed_source_kinds=("resource_governor",))
@@ -340,6 +354,28 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             if request.purpose == "resident_developmental_retrieval_cognition")
         assert first_cognition.written_record_id in retrieval.upstream_evidence["record_ids"]
         assert retrieval.upstream_evidence["epistemic_projection_id"] == later_projection.projection_id
+        history_context = json.loads(retrieval.prompt)
+        retained_packet = next(packet for packet in history_context["developmental_history"]
+            if packet["record_id"] == first_cognition.written_record_id)
+        retained_source_context = next(item for item in retained_packet["source_evidence_context"]
+            if item["fact_id"] == original_resource_fact.fact_id)
+        generation_context = retained_source_context["context"]
+        assert retained_source_context["observed_at"] is None
+        assert retained_source_context["historical_only"] is True
+        assert generation_context["chat_process_generation_posture"] == "verified"
+        generation_row = generation_context["verified_chat_process_generation_attributions"][0]
+        assert generation_row["invocation_id"] == child_result["receipt_id"]
+        assert generation_row["software_generation_digest"] == child_result[
+            "software_generation_digest"]
+        assert generation_row["handoff_digest"] == child_result["handoff_digest"]
+        assert generation_context["event_time_posture"] == (
+            "receipt_event_time_retained_as_historical")
+        assert any(row[1] == "2026-09-21T08:30:00Z"
+            for row in generation_context["historical_consumption_times"])
+        assert generation_context["resource_record_binding"][0] == (
+            projected_resource_fact["source"]["digest"])
+        assert generation_context["loaded_code_identity_posture"] == "not_independently_attested"
+        assert generation_context["current_truth"] is False and generation_context["authority"] is False
 
         # On the following tick, use the exact recovered history records in the
         # existing present/withheld/restored protocol under the same model and

@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "5ec84b2d764409815dfdb6f19bd65b5af8e2e73e538afdba582b5d6f7d68eede",
-    "latest_segment_sequence": 68,
-    "latest_segment_sha256": "cb10becb51ad6fc1b3d69af9567333de49de00c1c7f33bf538f26e769e9a0448",
-    "source_commit": "f4370b6b68eacdd734c9542b126b042d53495b09",
-    "source_tree": "1890ce38df73fc5b4d554804851b3831b7ec3db0"
+    "checkpoint_sha256": "8f445080cd6f27517af8ff1046d78f6fc852ef02319763a5c276914868b8757a",
+    "latest_segment_sequence": 72,
+    "latest_segment_sha256": "c58753565e6bca44aef60d650762ac60d4c83b3b5188e695363ea55ea919ab53",
+    "source_commit": "e1677cade049a428cc28f3fd90e0643f9718843f",
+    "source_tree": "f866a35fcea9ff1bfd24d0c63506217241d84a90"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -611,6 +611,38 @@
       "sequence": 68,
       "sha256": "cb10becb51ad6fc1b3d69af9567333de49de00c1c7f33bf538f26e769e9a0448",
       "source_commit": "f4370b6b68eacdd734c9542b126b042d53495b09"
+    },
+    {
+      "bytes": 2671,
+      "path": "work/construction/segments/0069-installation-observation-restart-cognition.md",
+      "predecessor": "segment-sha256:cb10becb51ad6fc1b3d69af9567333de49de00c1c7f33bf538f26e769e9a0448",
+      "sequence": 69,
+      "sha256": "7743a162dba4b3b86da02751089b98d02e8fe7b73c9a58ba33f0a0ad8c75f55c",
+      "source_commit": "067fbbf5b199caff3f9dca65aed76f3c8d92b756"
+    },
+    {
+      "bytes": 1776,
+      "path": "work/construction/segments/0070-controlled-history-succession-review.md",
+      "predecessor": "segment-sha256:7743a162dba4b3b86da02751089b98d02e8fe7b73c9a58ba33f0a0ad8c75f55c",
+      "sequence": 70,
+      "sha256": "e7c5718231cb5dc908b6c7c6db67b91f944a42a743a5364b351d0cd5a455214e",
+      "source_commit": "1203784583e1be47cc983841da37adc012614828"
+    },
+    {
+      "bytes": 1586,
+      "path": "work/construction/segments/0071-resource-history-task-attribution.md",
+      "predecessor": "segment-sha256:e7c5718231cb5dc908b6c7c6db67b91f944a42a743a5364b351d0cd5a455214e",
+      "sequence": 71,
+      "sha256": "d4270beaf16fb43dded4bd10dcb69b409d984146f96567253b4ea41296a6f9d0",
+      "source_commit": "e1677cade049a428cc28f3fd90e0643f9718843f"
+    },
+    {
+      "bytes": 2515,
+      "path": "work/construction/segments/0072-resource-generation-developmental-continuity.md",
+      "predecessor": "segment-sha256:d4270beaf16fb43dded4bd10dcb69b409d984146f96567253b4ea41296a6f9d0",
+      "sequence": 72,
+      "sha256": "c58753565e6bca44aef60d650762ac60d4c83b3b5188e695363ea55ea919ab53",
+      "source_commit": "e1677cade049a428cc28f3fd90e0643f9718843f"
     }
   ],
   "source_acquisition": {

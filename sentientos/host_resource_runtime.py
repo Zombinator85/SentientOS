@@ -522,6 +522,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "request_digest": (invocation.get("request", {}).get("request_digest")
             if isinstance(invocation.get("request"), Mapping) else None),
         "status": invocation.get("status"), "purpose": invocation.get("purpose"),
+        "local_model_inference": (
+            invocation.get("effects", {}).get("local_model_inference")
+            if isinstance(invocation.get("effects"), Mapping) else None),
         "authority_map_digest": (invocation.get("request", {}).get("authority_map_digest")
             if isinstance(invocation.get("request"), Mapping) else None),
         "model_id": (invocation.get("request", {}).get("model_id")

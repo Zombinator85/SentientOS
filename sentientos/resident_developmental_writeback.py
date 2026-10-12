@@ -42,6 +42,7 @@ PURPOSE = "resident_developmental_interpretation"
 COGNITION_LESSON_PROVENANCE_KIND = "history_conditioned_cognition_conclusion:v1"
 MAX_SELECTED_FACTS = 16
 MAX_SELECTED_EVIDENCE_BYTES = 6000
+MAX_RESOURCE_LINEAGE_SELECTED_EVIDENCE_BYTES = 8192
 # A verified five-condition replacement run has a larger but still tightly
 # bounded lineage vector. This allowance is limited to one v2 embodiment fact;
 # all general and mixed-source selections retain the 6 KB cap.
@@ -406,6 +407,18 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 and _valid_model_replacement_continuity_assessment(
                     payload.get("continuity_assessment"), disposition=fact.get("disposition"))):
             return MAX_MODEL_REPLACEMENT_SELECTED_EVIDENCE_BYTES
+        projection = (payload.get("interpretation_projection")
+            if isinstance(payload, Mapping) else None)
+        if (isinstance(source, Mapping) and source.get("kind") == "resource_governor"
+                and isinstance(subject, Mapping)
+                and subject.get("subject_kind") == "causal_resource_consumption"
+                and isinstance(payload, Mapping)
+                and payload.get("current_truth") is False and payload.get("authority") is False
+                and payload.get("effect_proven") is False
+                and isinstance(projection, Mapping)
+                and projection.get("schema_version")
+                    == "sentientos.resource_interpretation_projection:v1"):
+            return MAX_RESOURCE_LINEAGE_SELECTED_EVIDENCE_BYTES
     return MAX_SELECTED_EVIDENCE_BYTES
 
 
@@ -793,7 +806,113 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
         ("receipt_id", "receipt_digest", "request_id", "request_digest", "status", "purpose",
          "model_id", "model_artifact_digest", "observed_at", "resource_allocation_digest",
          "resource_attempt_id", "resource_consumption_receipt_digests") if key in item}
+        | {"local_model_inference": (item.get("local_model_inference")
+            if type(item.get("local_model_inference")) is bool else
+            item.get("effects", {}).get("local_model_inference")
+                if isinstance(item.get("effects"), Mapping) else None)}
         for item in selected_invocations)
+    invocation_bindings = {str(item.get("receipt_id")): item for item in compact_invocations
+        if isinstance(item.get("receipt_id"), str)}
+    legacy_generation_unavailable = (
+        "verified_chat_process_generation_attributions" not in original
+        and "chat_process_generation_posture" not in original)
+    raw_generation_attributions = original.get("verified_chat_process_generation_attributions", ())
+    source_generation_posture = original.get("chat_process_generation_posture")
+    if legacy_generation_unavailable:
+        source_generation_posture = "unknown_legacy_or_unavailable"
+    generation_rows_bounded = (isinstance(raw_generation_attributions, (list, tuple))
+        and len(raw_generation_attributions) <= 256)
+    all_generation_attributions = (tuple(raw_generation_attributions)
+        if generation_rows_bounded else ())
+    selected_generation_receipt_ids = set(invocation_bindings)
+    selected_generation_rows: list[Mapping[str, Any]] = []
+    omitted_generation_rows: list[Mapping[str, Any]] = []
+    generation_attributions_valid = (legacy_generation_unavailable or (
+        generation_rows_bounded
+        and source_generation_posture in {
+            "verified", "partial_legacy_or_unavailable",
+            "unknown_legacy_or_unavailable", "unknown_no_completed_invocations"}))
+    if generation_attributions_valid:
+        for attribution in all_generation_attributions:
+            if not isinstance(attribution, Mapping):
+                generation_attributions_valid = False
+                break
+            receipt_id = attribution.get("invocation_receipt_id")
+            if not isinstance(receipt_id, str):
+                generation_attributions_valid = False
+                break
+            if receipt_id not in selected_generation_receipt_ids:
+                omitted_generation_rows.append(attribution)
+            else:
+                selected_generation_rows.append(attribution)
+    generation_attributions: list[dict[str, Any]] = []
+    if generation_attributions_valid:
+        seen_generation_receipts: set[str] = set()
+        for attribution in selected_generation_rows:
+            if not isinstance(attribution, Mapping):
+                generation_attributions_valid = False
+                break
+            receipt_id = attribution.get("invocation_receipt_id")
+            invocation = invocation_bindings.get(str(receipt_id))
+            handoff = attribution.get("chat_process_handoff")
+            if (set(attribution) != {"invocation_receipt_id", "invocation_receipt_digest",
+                    "invocation_request_id", "invocation_request_digest", "chat_process_handoff",
+                    "attribution_posture", "currentness_posture"}
+                    or not isinstance(receipt_id, str) or receipt_id in seen_generation_receipts
+                    or not isinstance(invocation, Mapping)
+                    or attribution.get("invocation_receipt_digest") != invocation.get("receipt_digest")
+                    or attribution.get("invocation_request_id") != invocation.get("request_id")
+                    or attribution.get("invocation_request_digest") != invocation.get("request_digest")
+                    or attribution.get("attribution_posture")
+                        != "invocation_receipt_and_historical_chat_handoff_verified"
+                    or attribution.get("currentness_posture")
+                        != "historical_process_identity_not_reobserved_during_recovery"
+                    or not isinstance(handoff, Mapping)
+                    or handoff.get("status") != "runtime_launcher_process_and_source_bound"
+                    or any(not isinstance(handoff.get(key), str) or not handoff.get(key)
+                        for key in ("software_generation_digest", "process_instance_id",
+                            "handoff_id", "handoff_digest", "source_generation_scope"))):
+                generation_attributions_valid = False
+                break
+            compact_handoff = {key: handoff[key] for key in (
+                "status", "reason_code", "software_generation_digest", "process_instance_id",
+                "handoff_id", "handoff_digest", "startup_timestamp", "source_generation_scope",
+                "configured_serving_operation_id", "prior_snapshot_generation") if key in handoff}
+            if len(json.dumps(compact_handoff, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")) > 8192:
+                generation_attributions_valid = False
+                break
+            generation_attributions.append({
+                "invocation_receipt_id": receipt_id,
+                "invocation_receipt_digest": attribution["invocation_receipt_digest"],
+                "invocation_request_id": attribution["invocation_request_id"],
+                "invocation_request_digest": attribution["invocation_request_digest"],
+                "chat_process_handoff": compact_handoff,
+                "attribution_posture": attribution["attribution_posture"],
+                "currentness_posture": attribution["currentness_posture"],
+            })
+            seen_generation_receipts.add(receipt_id)
+    if not generation_attributions_valid:
+        generation_attributions = []
+    elif source_generation_posture == "verified":
+        selected_completed = {str(item.get("receipt_id")) for item in compact_invocations
+            if item.get("status") == "admitted_completed"
+            and item.get("local_model_inference") is True}
+        selected_attributed = {str(item.get("invocation_receipt_id"))
+            for item in generation_attributions}
+        if selected_completed - selected_attributed:
+            generation_attributions_valid = False
+            generation_attributions = []
+    generation_posture = (source_generation_posture if generation_attributions_valid
+        else "invalid_or_unbound")
+    generation_omitted_count = (len(omitted_generation_rows)
+        if generation_rows_bounded else (len(raw_generation_attributions)
+            if isinstance(raw_generation_attributions, (list, tuple)) else 0))
+    generation_omitted_digest = None
+    if generation_omitted_count:
+        omitted_value = ([dict(item) for item in omitted_generation_rows]
+            if generation_rows_bounded else list(raw_generation_attributions))
+        generation_omitted_digest = digest(omitted_value)
     summary = {"ledger_schema": original.get("ledger_schema"),
         "ledger_digest": original.get("ledger_digest"),
         "source_identity": original.get("source_identity", {}),
@@ -803,6 +922,18 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
         "omitted_consumption_receipt_count": len(omitted_receipts),
         "measurement_posture_summary": measurement_posture_summary,
         "invocation_receipts": compact_invocations, "invocation_receipt_count": len(invocations),
+        "chat_process_generation_posture": generation_posture,
+        "chat_process_generation_attribution_count": len(all_generation_attributions),
+        "chat_process_generation_attributions_omitted_count": generation_omitted_count,
+        "chat_process_generation_attributions_omitted_digest": generation_omitted_digest,
+        "verified_chat_process_generation_attributions": tuple(generation_attributions),
+        "loaded_code_identity_posture": "not_independently_attested",
+        "process_identity_scope": "installation_bound_launcher_handoff_process_identity",
+        "event_time_posture": "receipt_event_time_retained_as_historical",
+        "event_meaning": "governed resource consumption and historically bound chat process generation",
+        "current_truth": False,
+        "authority": False,
+        "effect_proven": False,
         "attribution_posture": original.get("attribution_posture"),
         "shared_host_usage_attribution": original.get("shared_host_usage_attribution"),
         "lineage_posture": original.get("lineage_posture"),
@@ -823,6 +954,7 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
             and len(receipts) <= 2 and len(selected_receipts) == len(receipts)
             and receipt_allocation_links_complete and receipt_attempt_links_complete
             and len(invocations) <= 4
+            and generation_attributions_valid and not omitted_generation_rows
             and int(original.get("lineage_finding_count", len(original.get("lineage_findings", ())))) <= 16
             and int(original.get("incomplete_attempt_count", len(original.get("incomplete_attempt_ids", ())))) <= 16
         else "bounded_tail_incomplete")
