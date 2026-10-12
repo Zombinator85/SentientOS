@@ -488,7 +488,29 @@ def test_integrity_controller_gate_results_reach_configured_cognition_as_context
     monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
     reset_runtime_governor()
     monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
-    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_SIGNING", "hmac-test")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_HMAC_SECRET", "fixture-only-secret")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_ENFORCE", "1")
+    import hashlib
+    from sentientos.attestation import canonical_json_bytes
+    from sentientos.attestation_snapshot import (
+        AttestationSnapshot, SIGNATURE_INDEX_PATH, emit_snapshot, maybe_sign_snapshot,
+    )
+    attestation = AttestationSnapshot(
+        schema_version=1, ts="2099-01-01T00:00:00Z", policy_hash="fixture-policy",
+        integrity_status_hash="fixture-integrity", latest_rollup_sig_hash=None,
+        latest_strategic_sig_hash=None, latest_goal_graph_hash=None,
+        latest_catalog_checkpoint_hash=None, doctrine_bundle_sha256=None,
+        witness_summary={},
+    )
+    rel = emit_snapshot(tmp_path, attestation)
+    maybe_sign_snapshot(tmp_path, snapshot_rel_path=rel, snapshot_payload=attestation.to_dict())
+    index = tmp_path / SIGNATURE_INDEX_PATH
+    row = json.loads(index.read_text(encoding="utf-8").splitlines()[0])
+    row["signature"] = "invalid-controller-context-fixture"
+    expected_failed_row_digest = hashlib.sha256(canonical_json_bytes(row)).hexdigest()
+    index.write_text(json.dumps(row, sort_keys=True) + "\n", encoding="utf-8")
     cognition, fake = owner(
         tmp_path / "cognition", allowed_source_kinds=("audit_trust",))
     surfaces = RuntimeMaintenanceSurfaces(
@@ -504,13 +526,19 @@ def test_integrity_controller_gate_results_reach_configured_cognition_as_context
     assert fact.source.kind == "audit_trust"
     assert fact.payload["observation_schema"] == "sentientos.integrity_controller_observation:v2"
     assert fact.payload["gate_results"]
+    gate = next(item for item in fact.payload["gate_results"]
+        if item["name"] == "attestation_snapshot_signatures")
+    assert gate["status"] == "fail"
+    assert gate["failed_record_sha256"] == expected_failed_row_digest
     result = surfaces.run_resident_developmental_cognition(tick_id=tick)
     assert result["written_record_id"]
     interpretation = next(request for request in fake.requests
         if request.purpose == "resident_developmental_interpretation")
     interpretation_input = json.loads(interpretation.prompt)
-    assert any(item.get("subject", {}).get("subject_kind") == "integrity_controller_observation"
-        for item in interpretation_input["selection"]["facts"])
+    controller_fact = next(item for item in interpretation_input["selection"]["facts"]
+        if item.get("subject", {}).get("subject_kind") == "integrity_controller_observation")
+    assert controller_fact["payload"]["gate_results"]
+    assert expected_failed_row_digest in json.dumps(controller_fact["payload"]["gate_results"])
     instruction = interpretation_input["instruction"]
     assert "does not establish attack, cause, hostile intent, compromise, or a successful defense" in instruction
     assert "Skipped gates are gaps in coverage" in instruction

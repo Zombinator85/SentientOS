@@ -3284,3 +3284,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Both cognition qualification paths and writeback now accept v1/v2. Gate summaries must remain bounded to 32 known statuses; an optional `failed_record_sha256` must be a lowercase 64-character SHA-256 value. Historical v1 rows without the field remain valid. The new test accepts a v1 omission and a valid v2 digest, while rejecting uppercase and short digests.
 - Focused controller-to-cognition, attestation-v2 cognition, malformed-digest writeback predicate, and later-tick scoped-history tests pass (**4 selected tests**). Changed Python compiles and `git diff --check` passes. This is a bounded adapter/cognition test, not proof that the digest authenticates the publisher, any attack occurred, or a defensive action succeeded.
 - Next: continue with an existing source-backed defensive/developmental integration. Keep the unsigned mutable pressure feed and absent independent event issuer as explicit boundaries; do not broaden their authority or treat gate-row identity as issuer authentication.
+
+
+## 2026-10-12 follow-up — verify controller gate digest reaches later cognition
+
+- Continued from remote `ea256fac468e2fdbc4413315f92196e42ddb13ef`, tree `c8d2e2312898c3f5a37314fd32de20843ec61606`.
+- Extended the configured cognition test with a fixture-only HMAC attestation row whose signature is deliberately invalid. The real integrity controller reports the failure and the canonical row digest; the actual resident daemon projects it into controller-v2 World-State, and the selected evidence carried into the cognition request retains that digest while the scoped instruction still says a verifier failure does not establish attack, cause, intent, compromise, or defense.
+- Together with the v1/v2 adapter changes, the selected direct-verifier cognition, aggregate-controller cognition, malformed digest qualification, and later-tick history tests pass (**4 tests**). Changed Python compiles and `git diff --check` passes. The HMAC fixture is not independent issuer evidence, and no attack or defensive consequence is established.
+- Next: continue through another concrete integrity/developmental handoff; retain the unsigned pressure-feed issuer/retention limitation without treating this row digest as authentication.
