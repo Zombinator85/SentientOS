@@ -275,7 +275,7 @@ def test_incident_feed_exact_retry_is_idempotent_and_conflict_preserves_bytes(tm
         evidence_paths=[], suggested_actions=[],
     )
     path = tmp_path / "glow/forge/incidents/incident.json"
-    append_incident_feed(tmp_path, first, path)
+    path = write_incident(tmp_path, first)
     feed = tmp_path / "pulse/integrity_incidents.jsonl"
     original = feed.read_bytes()
     append_incident_feed(tmp_path, first, path)
@@ -291,6 +291,33 @@ def test_incident_feed_exact_retry_is_idempotent_and_conflict_preserves_bytes(tm
     assert raised.value.code == "incident_feed_identity_conflict"
     assert feed.read_bytes() == original
     assert len(parse_bounded_incident_feed(original)) == 1
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_feed_rejects_missing_or_substituted_artifact(tmp_path: Path) -> None:
+    incident = Incident(
+        schema_version=1, incident_id="artifact-reference-id",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["receipt_chain_warning"], enforcement_mode="warn", context={"source": "original"},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentFeedRecordError) as missing:
+        append_incident_feed(tmp_path, incident, tmp_path / "missing.json")
+    assert missing.value.code == "incident_feed_artifact_path_mismatch"
+    assert not (tmp_path / "pulse/integrity_incidents.jsonl").exists()
+
+    path = write_incident(tmp_path, incident)
+    (tmp_path / "pulse/integrity_incidents.jsonl").unlink()
+    substituted = Incident(
+        schema_version=1, incident_id=incident.incident_id,
+        created_at=incident.created_at, severity=incident.severity,
+        triggers=incident.triggers, enforcement_mode=incident.enforcement_mode,
+        context={"source": "substituted"}, evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentArtifactError) as mismatch:
+        append_incident_feed(tmp_path, substituted, path)
+    assert mismatch.value.code == "incident_artifact_identity_conflict"
+    assert not (tmp_path / "pulse/integrity_incidents.jsonl").exists()
 
 
 @pytest.mark.no_legacy_skip
@@ -367,14 +394,14 @@ def test_incident_feed_symlink_and_lock_symlink_are_rejected(tmp_path: Path) -> 
         evidence_paths=[], suggested_actions=[],
     )
     with pytest.raises(IntegrityIncidentFeedRecordError):
-        append_incident_feed(tmp_path, incident, tmp_path / "incident.json")
+        write_incident(tmp_path, incident)
     assert outside.read_bytes() == b""
 
     (pulse / "integrity_incidents.jsonl").unlink()
     (pulse / ".integrity-incidents.lock").unlink()
     (pulse / ".integrity-incidents.lock").symlink_to(outside)
     with pytest.raises(IntegrityIncidentFeedRecordError) as raised:
-        append_incident_feed(tmp_path, incident, tmp_path / "incident.json")
+        write_incident(tmp_path, incident)
     assert raised.value.code == "incident_feed_lock_unavailable"
     assert outside.read_bytes() == b""
 
@@ -390,7 +417,7 @@ def test_concurrent_incident_feed_publishers_preserve_both_rows(tmp_path: Path) 
             triggers=[f"trigger-{index}"], enforcement_mode="warn", context={},
             evidence_paths=[], suggested_actions=[],
         )
-        append_incident_feed(tmp_path, incident, tmp_path / f"incident-{index}.json")
+        write_incident(tmp_path, incident)
     with ThreadPoolExecutor(max_workers=2) as executor:
         list(executor.map(publish, (1, 2)))
     rows = parse_bounded_incident_feed((tmp_path / "pulse/integrity_incidents.jsonl").read_bytes())

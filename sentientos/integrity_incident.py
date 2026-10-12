@@ -28,6 +28,7 @@ from sentientos.integrity_pressure import (
     IntegrityPressureInputError,
     parse_bounded_incident_feed,
 )
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 INCIDENTS_DIR = Path("glow/forge/incidents")
 INCIDENTS_FEED_PATH = Path("pulse/integrity_incidents.jsonl")
@@ -123,7 +124,7 @@ def build_incident(
 
 def write_incident(repo_root: Path, incident: Incident, *, quarantine_activated: bool = False) -> Path:
     root = repo_root.resolve()
-    incident_path = root / INCIDENTS_DIR / f"incident_{_safe_timestamp(incident.created_at)}_{_incident_identity_hash(incident.incident_id)}.json"
+    incident_path = _incident_artifact_path(root, incident)
     # Validate the observation row before publishing the full incident artifact
     # so a record that the bounded reader cannot consume never poisons its feed.
     feed_row = _incident_feed_row(root, incident, incident_path, quarantine_activated=quarantine_activated)
@@ -155,16 +156,20 @@ def write_incident(repo_root: Path, incident: Incident, *, quarantine_activated:
 def append_incident_feed(repo_root: Path, incident: Incident, incident_path: Path, *, quarantine_activated: bool = False) -> None:
     root = repo_root.resolve()
     row = _incident_feed_row(root, incident, incident_path, quarantine_activated=quarantine_activated)
-    _append_incident_feed_bytes(root, _serialize_incident_feed_row(row))
+    _append_incident_feed_bytes(
+        root,
+        _serialize_incident_feed_row(row),
+        before_publish=lambda: _verify_incident_artifact_reference(root, incident_path, incident),
+    )
 
 
 def _incident_feed_row(
     root: Path, incident: Incident, incident_path: Path, *, quarantine_activated: bool,
 ) -> dict[str, object]:
-    try:
-        relative_path = str(incident_path.relative_to(root))
-    except ValueError as exc:
-        raise IntegrityIncidentFeedRecordError("incident_feed_path_outside_root") from exc
+    expected_path = _incident_artifact_path(root, incident)
+    if Path(os.path.abspath(os.fspath(incident_path))) != expected_path:
+        raise IntegrityIncidentFeedRecordError("incident_feed_artifact_path_mismatch")
+    relative_path = str(expected_path.relative_to(root))
     return {
         "schema_version": 1,
         "incident_id": incident.incident_id,
@@ -177,6 +182,52 @@ def _incident_feed_row(
         "governance_trace_id": incident.governance_trace_id,
         "remediation_pack_id": incident.remediation_pack_id,
     }
+
+
+def _incident_artifact_path(root: Path, incident: Incident) -> Path:
+    return root / INCIDENTS_DIR / (
+        f"incident_{_safe_timestamp(incident.created_at)}_"
+        f"{_incident_identity_hash(incident.incident_id)}.json"
+    )
+
+
+def _verify_incident_artifact_reference(root: Path, path: Path, incident: Incident) -> None:
+    expected = _incident_artifact_path(root, incident)
+    if Path(os.path.abspath(os.fspath(path))) != expected:
+        raise IntegrityIncidentArtifactError("incident_artifact_reference_path_mismatch")
+    path = expected
+    expected_bytes = _serialize_incident_artifact(incident)
+    if os.name == "posix":
+        try:
+            directory_fd = open_private_directory(path.parent, create=False)
+        except PrivateFileCustodyError as exc:
+            raise IntegrityIncidentArtifactError(
+                "incident_artifact_reference_" + exc.code) from exc
+        try:
+            try:
+                actual_bytes = read_private_file_at(
+                    directory_fd, path.name,
+                    max_bytes=MAX_INCIDENT_ARTIFACT_BYTES,
+                    require_private_mode=False,
+                    require_owner_read=True,
+                )
+            except PrivateFileCustodyError as exc:
+                raise IntegrityIncidentArtifactError(
+                    "incident_artifact_reference_" + exc.code) from exc
+        finally:
+            os.close(directory_fd)
+    elif os.name == "nt":
+        try:
+            actual_bytes = read_explicit_file(
+                path, max_bytes=MAX_INCIDENT_ARTIFACT_BYTES, require_private_acl=True,
+            )
+        except WindowsHandleCustodyError as exc:
+            raise IntegrityIncidentArtifactError(
+                "incident_artifact_reference_" + exc.code) from exc
+    else:
+        raise IntegrityIncidentArtifactError("incident_artifact_reference_custody_unsupported")
+    if actual_bytes != expected_bytes:
+        raise IntegrityIncidentArtifactError("incident_artifact_identity_conflict")
 
 
 def _serialize_incident_feed_row(row: dict[str, object]) -> bytes:
