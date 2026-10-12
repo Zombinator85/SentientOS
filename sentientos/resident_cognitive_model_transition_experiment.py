@@ -46,6 +46,27 @@ class TransitionError(RuntimeError):
         super().__init__(code)
 
 
+def recovered_quiescence_token(evidence: Any) -> Mapping[str, Any] | None:
+    """Extract only a gate capability from a completed journal evidence row.
+
+    Operator linkage is journal provenance. Validate its narrow shape, but do
+    not include it in the process-local capability compared by the gate.
+    """
+    token_fields = {"schema_version", "generation", "no_inflight", "observation", "token",
+                    "observation_digest"}
+    if (not isinstance(evidence, Mapping) or not token_fields.issubset(evidence)
+            or set(evidence) - token_fields - {"operator_request"}):
+        return None
+    if "operator_request" in evidence:
+        request_link = evidence.get("operator_request")
+        if (not isinstance(request_link, Mapping)
+                or set(request_link) != {"request_id", "request_digest"}
+                or any(not isinstance(request_link.get(key), str) or not request_link.get(key)
+                    for key in ("request_id", "request_digest"))):
+            return None
+    return MappingProxyType({key: evidence[key] for key in token_fields})
+
+
 def _plain(value: Any) -> Any:
     if is_dataclass(value):
         return asdict(cast(Any, value))
@@ -633,24 +654,15 @@ class ResidentCognitiveModelTransitionController:
                             tuple(semantically_verified[-128:]))
                 phase, outstanding = entry_phase, None
                 if entry_phase in {"a_quiesced", "b_quiesced"}:
-                    token_fields = {"schema_version", "generation", "no_inflight", "observation", "token",
-                                    "observation_digest"}
-                    request_link = evidence.get("operator_request")
-                    if (not token_fields.issubset(evidence)
-                            or set(evidence) - token_fields - {"operator_request"}
-                            or ("operator_request" in evidence
-                                and (not isinstance(request_link, Mapping)
-                                    or set(request_link) != {"request_id", "request_digest"}
-                                    or any(not isinstance(request_link.get(key), str)
-                                        or not request_link.get(key)
-                                        for key in ("request_id", "request_digest"))))):
+                    recovered_token = recovered_quiescence_token(evidence)
+                    if recovered_token is None:
                         return _Reconstructed(entry_phase, True, "quiescence_token_evidence_invalid",
                                               entry_phase, token,
                                               tuple(semantically_verified[-128:]))
                     # Operator ingress metadata is journal provenance, not part
                     # of the process-local quiescence capability. Reconstruct
                     # only the exact token originally issued by the gate.
-                    token = MappingProxyType({key: evidence[key] for key in token_fields})
+                    token = recovered_token
                 elif entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"}:
                     token = None
             elif status == "effected":

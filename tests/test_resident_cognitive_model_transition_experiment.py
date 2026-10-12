@@ -13,6 +13,7 @@ from sentientos.resident_cognitive_model_serving import (
 from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.resident_cognitive_model_transition_experiment import *
 from sentientos.resident_cognitive_model_transition_rehearsal import run
+from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
 
 pytestmark = pytest.mark.no_legacy_skip
 NOW = datetime(2026, 9, 24, 12, tzinfo=timezone.utc)
@@ -198,6 +199,20 @@ def test_malformed_operator_linkage_cannot_be_ignored_as_quiescence_metadata(tmp
         allow_synthetic_approval_for_tests=True, clock=lambda: NOW)
     assert rebuilt.health()["status"] == "interrupted"
     assert rebuilt.health()["reason"] == "quiescence_token_evidence_invalid"
+
+
+def test_serving_stage_rejects_malformed_quiescence_request_linkage():
+    gate = ResidentCognitionQuiescenceGate()
+    token = gate.quiesce(timeout_seconds=1, observation={})
+    operations = object.__new__(ResidentCognitiveTransitionStageOperations)
+    operations.gate = gate
+    operations.journal = type("Journal", (), {"entries": lambda self: [{
+        "status": "completed", "phase": "a_quiesced",
+        "evidence": {**dict(token), "operator_request": []},
+    }]})()
+
+    with pytest.raises(TransitionError, match="live_quiescence_evidence_invalid"):
+        operations._quiescence()
 
 
 def test_failed_effectful_stage_is_not_replayable_after_reconstruction(tmp_path):

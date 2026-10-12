@@ -16,7 +16,8 @@ from .resident_cognitive_model_serving import (
 )
 from .resident_cognitive_model_transition_experiment import (
     ResidentCognitionQuiescenceGate, TransitionError, TransitionJournal,
-    TransitionProtocol, TransitionStageExecutionContext, stage_serving_binding,
+    TransitionProtocol, TransitionStageExecutionContext, recovered_quiescence_token,
+    stage_serving_binding,
 )
 
 
@@ -156,14 +157,11 @@ class ResidentCognitiveTransitionStageOperations:
         for entry in reversed(self.journal.entries()):
             if entry["status"] == "completed" and entry["phase"] in {"a_quiesced", "b_quiesced"}:
                 evidence = entry["evidence"]
-                token_fields = {"schema_version", "generation", "no_inflight", "observation", "token",
-                                "observation_digest"}
-                if (not isinstance(evidence, Mapping) or not token_fields.issubset(evidence)
-                        or set(evidence) - token_fields - {"operator_request"}):
+                token = recovered_quiescence_token(evidence)
+                if token is None:
                     raise TransitionError("live_quiescence_evidence_invalid")
                 # Request linkage is journal metadata, not part of the
                 # process-local quiescence capability issued by the gate.
-                token = {key: evidence[key] for key in token_fields}
                 if self.gate.verifies(token):
                     return cast(Mapping[str, Any], token)
         raise TransitionError("live_quiescence_custody_mismatch")

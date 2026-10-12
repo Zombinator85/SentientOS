@@ -1,0 +1,25 @@
+{
+  "authority": false,
+  "change": {
+    "behavior": "Moved the canonical extraction/shape check for a recovered quiescence capability into one shared helper used by both controller reconstruction and the production serving-stage adapter. Malformed optional operator_request provenance is now rejected before the serving adapter can verify the gate capability, matching the controller recovery contract. The helper extracts only the six capability fields after validating metadata shape.",
+    "owner": "sentientos/resident_cognitive_model_transition_experiment.py:recovered_quiescence_token; sentientos/resident_cognitive_transition_runtime.py:ResidentCognitiveTransitionStageOperations._quiescence"
+  },
+  "effects_performed": [],
+  "limitations": [
+    "Fixture transition checks do not establish production execution or real-model improvement.",
+    "Broader strict mypy previously reported 204 diagnostics and was not rerun."
+  ],
+  "production_verified": false,
+  "source": {
+    "parent_commit": "e32ae881ada418faf880bce7b27e3a3566148d75",
+    "parent_tree": "053c71904b8077d58514abce7e74bfc5e8e33d31",
+    "tested_source_tree": "d7846e698b8de6976174ed43e3a0a422de8fa6c1"
+  },
+  "tests": {
+    "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q tests/test_resident_cognitive_model_transition_experiment.py tests/test_resident_cognitive_transition_operator.py tests/test_sentientosd_resident_cognitive_transition_composition.py",
+    "diff_check": "passed",
+    "failed": 0,
+    "passed": 34,
+    "python_compilation": "passed for changed production and test modules"
+  }
+}
