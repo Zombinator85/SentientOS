@@ -156,6 +156,12 @@ class CathedralForge:
         return plan
 
     def run(self, goal: str, *, initiator: str = "manual", request_id: str | None = None, metadata: dict[str, object] | None = None) -> ForgeReport:
+        # Validate the bounded integrity inputs before planning, creating a
+        # session, or bootstrapping its environment.  An unreadable feed must
+        # not be converted to a clean snapshot, and it should stop preparation
+        # before those ordinary writes or setup work begin.
+        quarantine_state = load_quarantine_state(self.repo_root)
+        pressure_snapshot = compute_integrity_pressure(self.repo_root)
         if goal.startswith("campaign:"):
             return self._run_campaign(goal, initiator=initiator, request_id=request_id, metadata=metadata)
         generated_at = _iso_now()
@@ -192,9 +198,7 @@ class CathedralForge:
         rollback_performed = False
         transaction_improvement_summary: str | None = None
         transaction_policy = TransactionPolicy()
-        pressure_snapshot = compute_integrity_pressure(self.repo_root)
         pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
-        quarantine_state = load_quarantine_state(self.repo_root)
         throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine_state)
         posture = resolve_posture()
         run_budget = compute_risk_budget(
