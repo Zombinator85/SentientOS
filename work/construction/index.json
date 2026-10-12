@@ -162,6 +162,14 @@
       "sequence": 19,
       "sha256": "0216eb665910a7b9439c2233f20dc1d413abc59a1494e4906adc99c4c9b7d266",
       "source_commit": "8338bee9b666e203b72c04b558948f3251e0bf09"
+    },
+    {
+      "bytes": 2194,
+      "path": "work/construction/segments/0020-exact-source-reconstruction.md",
+      "predecessor": "segment-sha256:0216eb665910a7b9439c2233f20dc1d413abc59a1494e4906adc99c4c9b7d266",
+      "sequence": 20,
+      "sha256": "4fb9955d37c8c649e7d70c411fa46dcfae71b4036d696fb2412063f56f2defdf",
+      "source_commit": "208f861c4af940b8cf722b6d9ca4224004250a19"
     }
   ],
   "workspace_reconciliation": {
