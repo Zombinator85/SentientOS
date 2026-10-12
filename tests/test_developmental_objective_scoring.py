@@ -19,11 +19,6 @@ pytestmark = pytest.mark.no_legacy_skip
 def task_context(task):
     values = asdict(context())
     values.pop('context_id'); values.pop('context_digest')
-    current = dict(values['current_projection_payload'])
-    current['objective_task'] = task.public_descriptor()
-    values.update(current_projection_payload=current,
-                  projected_content_digest=digest(current),
-                  current_projection_digest=digest({'projection': current}))
     # Historical deterministic examples, not current truth or an authority grant.
     history = [{'record_id': 'record-1', 'input': 1, 'output': 5},
                {'record_id': 'record-2', 'input': 2, 'output': 8}]
@@ -52,6 +47,8 @@ class TaskEndpoint(FakeEndpoint):
         prompt = json.loads(kwargs['prompt'])
         history = prompt['developmental_history']
         assert 'multiplier' not in json.dumps(prompt['current_evidence'])
+        assert 'objective_task' not in prompt['current_evidence']
+        assert prompt['objective_task'] == plan['task_descriptor']
         answer = 0
         if history:
             a, b = history
@@ -130,11 +127,14 @@ def test_oracle_cannot_be_changed_after_calls(tmp_path):
         owner.run()
 
 
-def test_public_task_requires_matching_oracle_before_execution(tmp_path):
+def test_persisted_objective_run_requires_oracle_on_recovery(tmp_path):
     task = ObjectivePredictionTask(3, 2, 7)
+    owner, _, _ = experiment(tmp_path)
+    owner.run()
     with pytest.raises(DevelopmentalModelReplacementError, match='objective_task_oracle_missing'):
         DevelopmentalModelReplacementExperiment(context=task_context(task),
-            model_a=FakeEndpoint(identity('a')), model_b=FakeEndpoint(identity('b')), artifact_root=tmp_path)
+            model_a=FakeEndpoint(identity('a')), model_b=FakeEndpoint(identity('b')),
+            artifact_root=tmp_path)
 
 
 def test_rehashed_wrong_assessment_rejected_and_projection_is_bounded(tmp_path):
@@ -164,10 +164,45 @@ def test_interrupted_scoring_recovery_never_replays_inference(tmp_path):
 
 
 def test_oracle_identity_mismatch_fails_before_inference(tmp_path):
-    declared = ObjectivePredictionTask(3, 2, 7)
+    original, _, _ = experiment(tmp_path)
+    original.run()
     supplied = ObjectivePredictionTask(3, 9, 7)
     a, b = TaskEndpoint('a', tmp_path), TaskEndpoint('b', tmp_path)
-    with pytest.raises(DevelopmentalModelReplacementError, match='objective_task_context_binding_invalid'):
-        DevelopmentalModelReplacementExperiment(context=task_context(declared),
-            model_a=a, model_b=b, artifact_root=tmp_path, objective_task=supplied)
+    changed = DevelopmentalModelReplacementExperiment(context=task_context(supplied),
+        model_a=a, model_b=b, artifact_root=tmp_path, objective_task=supplied)
+    with pytest.raises(DevelopmentalModelReplacementError, match='artifact_identity_collision'):
+        changed.run()
     assert a.calls == b.calls == []
+
+
+def test_score_evidence_reaches_durable_history_and_later_cognition(tmp_path):
+    from sentientos.world_state_board import WorldStateBoardBuilder
+    from tests.test_resident_developmental_cognition import owner as developmental_owner
+
+    experiment_owner, _, _ = experiment(tmp_path / 'experiment')
+    run = experiment_owner.run()
+    records = experiment_owner.store.world_state_records(
+        run_refs=((run['run_id'], run['run_digest']),))
+    snapshot = WorldStateBoardBuilder().build(records)
+    cognition_root = tmp_path / 'cognition'
+    cognition, _ = developmental_owner(cognition_root,
+        allowed_source_kinds=('embodiment',), max_selected_facts=1)
+    first = cognition.run_tick(snapshot=snapshot, tick_id='tick-score-1')
+    assert first.status == 'completed' and first.written_record_id
+    record = cognition.writeback.store.get(first.written_record_id)
+    selected = record.candidate['selected_facts'][0]
+    projected_score = dict(run['objective_evaluation'])
+    projected_score['condition_score_digests'] = [value.removeprefix('sha256:')
+        for value in projected_score['condition_score_digests']]
+    assert selected['payload']['objective_evaluation'] == projected_score
+    assert selected['source']['digest'] == snapshot.facts[0].source.digest
+    assert record.authority is False and record.current_truth is False
+
+    recovered, invoker = developmental_owner(cognition_root,
+        allowed_source_kinds=('embodiment',), max_selected_facts=1)
+    later = recovered.run_tick(snapshot=snapshot, tick_id='tick-score-2')
+    assert later.status == 'completed'
+    assert first.written_record_id in later.prior_record_ids
+    retrieval = next(request for request in invoker.requests
+        if request.purpose == 'resident_developmental_retrieval_cognition')
+    assert first.written_record_id in retrieval.upstream_evidence['record_ids']

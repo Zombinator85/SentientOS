@@ -1563,15 +1563,20 @@ class DevelopmentalModelReplacementExperiment:
         descriptor = context.current_projection_payload.get("objective_task")
         if descriptor is not None and objective_task is None:
             raise DevelopmentalModelReplacementError("objective_task_oracle_missing")
-        if objective_task is not None and descriptor != objective_task.public_descriptor():
+        if objective_task is not None and descriptor is not None and descriptor != objective_task.public_descriptor():
             raise DevelopmentalModelReplacementError("objective_task_context_binding_invalid")
         self.objective_plan = _objective_plan(objective_task, self.protocol) if objective_task else None
+        if self.objective_plan is None and (self.store.protocols /
+                f"objective-task-plan-{self.protocol.protocol_id}.json").exists():
+            raise DevelopmentalModelReplacementError("objective_task_oracle_missing")
 
     def _prompt(self, with_history: bool) -> str:
         body = {"instruction": self.context.instruction_template,
                 "current_evidence": self.context.current_projection_payload,
                 "developmental_history": list(self.context.history_projection_payload) if with_history else [],
                 "developmental_history_posture": "historical_interpretation_not_current_truth"}
+        if self.objective_plan is not None:
+            body["objective_task"] = self.objective_plan["task_descriptor"]
         return json.dumps(body, sort_keys=True, separators=(",", ":"))
 
     def _condition_plan(self) -> tuple[tuple[str, GovernedCognitiveEndpoint,

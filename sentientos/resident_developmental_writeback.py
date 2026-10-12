@@ -611,6 +611,43 @@ def _model_replacement_interpretation_projection(
         summary["serving_receipts"] = serving_receipts
     if statuses:
         summary["condition_statuses"] = statuses
+    objective = original.get("objective_evaluation")
+    if objective is not None:
+        valid_deltas = {-1, 0, 1}
+        score_digests = objective.get("condition_score_digests") if isinstance(objective, Mapping) else None
+        digests_valid = (isinstance(score_digests, (list, tuple)) and len(score_digests) <= 5
+            and all(isinstance(item, str) and len(item) == 71 and item.startswith("sha256:")
+                and all(character in "0123456789abcdef" for character in item[7:])
+                for item in score_digests))
+        def delta_valid(item: Any) -> bool:
+            return item is None or (type(item) is int and item in valid_deltas)
+
+        if (isinstance(objective, Mapping)
+                and isinstance(objective.get("plan_digest"), str)
+                and len(objective["plan_digest"]) == 71
+                and objective["plan_digest"].startswith("sha256:")
+                and all(character in "0123456789abcdef" for character in objective["plan_digest"][7:])
+                and digests_valid and isinstance(score_digests, (list, tuple))
+                and delta_valid(objective.get("model_a_history_accuracy_delta"))
+                and delta_valid(objective.get("model_b_history_accuracy_delta"))
+                and type(objective.get("restoration_correctness_stable")) in {bool, type(None)}
+                and objective.get("assessment") in {"single_preregistered_task_scored",
+                    "unscoreable_missing_output"}
+                and objective.get("scope") == "task_correctness_not_general_learning_or_weight_change"
+                and objective.get("model_behavior_posture") ==
+                    "endpoint_execution_receipts_not_independent_model_attestation"):
+            summary["objective_evaluation"] = {
+                "plan_digest": objective["plan_digest"],
+                "condition_score_digests": [compact_sha256(item) for item in score_digests],
+                "model_a_history_accuracy_delta": objective.get("model_a_history_accuracy_delta"),
+                "model_b_history_accuracy_delta": objective.get("model_b_history_accuracy_delta"),
+                "restoration_correctness_stable": objective.get("restoration_correctness_stable"),
+                "assessment": objective["assessment"], "scope": objective["scope"],
+                "model_behavior_posture": objective["model_behavior_posture"],
+            }
+        else:
+            omitted = True
+            summary["objective_evaluation_posture"] = "invalid_bounded_score_source"
     projection_binding = {
         "schema_version": "sentientos.model_replacement_interpretation_projection:v2",
         "source_fact_id": str(fact.get("fact_id", "")),
