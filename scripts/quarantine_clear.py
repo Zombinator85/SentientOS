@@ -14,7 +14,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.integrity_incident import (
     build_base_context, build_incident, inspect_quarantine_incident_custody,
 )
-from sentientos.integrity_quarantine import clear, load_state
+from sentientos.integrity_quarantine import QuarantineStateError, clear, load_state
 from sentientos.receipt_anchors import verify_receipt_anchors
 from sentientos.receipt_chain import verify_receipt_chain
 from sentientos.remediation_pack import find_pack_for_incident_or_trace, remediation_status_for_pack
@@ -78,7 +78,19 @@ def main(argv: list[str] | None = None) -> int:
     if bool(federation.get("blocked")) and not allow_divergence:
         failures.append("federation_integrity_diverged")
 
-    quarantine = load_state(root)
+    try:
+        quarantine = load_state(root)
+    except QuarantineStateError as exc:
+        checks["quarantine"] = {
+            "active": None,
+            "custody_status": "invalid:" + exc.code,
+        }
+        print(json.dumps({
+            "status": "blocked",
+            "failures": ["quarantine_custody_invalid"],
+            "checks": checks,
+        }, indent=2, sort_keys=True))
+        return 1
     require_remediation = os.getenv("SENTIENTOS_QUARANTINE_REQUIRE_REMEDIATION", "0") == "1"
     override = os.getenv("SENTIENTOS_QUARANTINE_REMEDIATION_OVERRIDE", "0") == "1"
     quarantine_trace_id = _quarantine_trace_id_from_incident(

@@ -3452,3 +3452,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Replaced that reader with the existing exact quarantine-referenced incident custody inspector. Valid state output carries only state and bounded custody/status metadata; incident narrative and suggested commands are omitted. Invalid quarantine custody prints a structured unknown (`quarantine_active: null`) state and exits 2 without repair/defaulting.
 - Focused status and restart-custody cases: **4 passed with `-m legacy`**; one separately marked controller case was deselected by that marker and was already covered in the previous quarantine-custody suite. Changed Python compiled and `git diff --check` passed. Acceptance: `work/quarantine_status_custody_projection_acceptance.json`.
 - Next: inspect command-line remediation/acknowledgment diagnostic behavior for typed invalid-state handling and ensure failures do not print default inactive state or overwrite damaged custody.
+
+
+## 2026-10-12 checkpoint — make invalid-custody clear refusal explicit
+
+- Continued from verified remote `da4c6f8910293f3904d9f8b0b7c147584e24437d`, tree `f10a7ee89af65ced994489a32a6bcbc13facb0fe`. The privileged clear script relied on an unhandled typed exception for malformed quarantine state. It stopped safely but emitted a traceback rather than a structured gate outcome.
+- The clear CLI now catches only `QuarantineStateError`, prints `blocked` with `quarantine_custody_invalid`, exposes active state as null with exact custody error, and returns before remediation lookup/admission/clear. It leaves the damaged bytes untouched.
+- The remediation trace-binding plus status modules: **6 passed** with the actual integrity gates and isolated custody; changed Python compiled and `git diff --check` passed. Acceptance: `work/quarantine_clear_invalid_custody_acceptance.json`. No privileged clear of the malformed state is attempted.
+- Next: inspect acknowledgment and recovery reporting for consistent unknown-state semantics, then verify remaining quarantine publication recovery boundaries against actual tests and source.

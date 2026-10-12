@@ -91,3 +91,32 @@ def test_trace_fallback_comes_from_exact_canonical_incident_artifact(tmp_path: P
     assert quarantine_clear._quarantine_trace_id_from_incident(
         tmp_path, incident_id="different-incident", activated_at=activated_at,
     ) is None
+
+
+def test_clear_reports_invalid_custody_without_replacing_damaged_bytes(
+    monkeypatch, tmp_path: Path, capsys,
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "glow/forge/quarantine.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    damaged = b"{truncated protective record"
+    path.write_bytes(damaged)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "trust/state.json"))
+    from sentientos.runtime_governor import reset_runtime_governor
+    reset_runtime_governor()
+
+    assert quarantine_clear.main([]) == 1
+    output = capsys.readouterr().out
+    report = json.loads(output)
+    assert report["status"] == "blocked"
+    assert report["failures"] == ["quarantine_custody_invalid"]
+    assert report["checks"]["quarantine"]["active"] is None
+    assert report["checks"]["quarantine"]["custody_status"] == "invalid:quarantine_json_invalid"
+    assert path.read_bytes() == damaged
+    assert '"active": false' not in output.lower()
+    reset_runtime_governor()
