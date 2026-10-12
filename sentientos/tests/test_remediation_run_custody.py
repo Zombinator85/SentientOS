@@ -60,8 +60,16 @@ def _isolate_control_plane(monkeypatch, root: Path) -> None:  # type: ignore[no-
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(root))
     monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(root / "trust"))
     monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(root / "trust/state.json"))
+    from sentientos.control_plane_kernel import reset_control_plane_kernel
+    from sentientos.federated_governance import reset_controller as reset_federated_governance
     from sentientos.runtime_governor import reset_runtime_governor
+    from sentientos.trust_ledger import reset_trust_ledger
+    from sentientos.pulse_trust_epoch import reset_manager as reset_trust_epoch_manager
+    reset_federated_governance()
     reset_runtime_governor()
+    reset_trust_ledger()
+    reset_trust_epoch_manager()
+    reset_control_plane_kernel()
 
 
 def test_bare_completed_file_is_not_a_remediation_run(tmp_path: Path) -> None:
@@ -205,8 +213,16 @@ def test_real_clear_blocks_bare_remediation_claim(monkeypatch, tmp_path: Path, c
     assert "remediation_incomplete" in output["failures"]
     assert output["checks"]["quarantine_remediation"]["status"] == "invalid"
     assert json.loads((tmp_path / "glow/forge/quarantine.json").read_text())["active"] is True
+    from sentientos.control_plane_kernel import reset_control_plane_kernel
+    from sentientos.federated_governance import reset_controller as reset_federated_governance
     from sentientos.runtime_governor import reset_runtime_governor
+    from sentientos.trust_ledger import reset_trust_ledger
+    from sentientos.pulse_trust_epoch import reset_manager as reset_trust_epoch_manager
+    reset_federated_governance()
     reset_runtime_governor()
+    reset_trust_ledger()
+    reset_trust_epoch_manager()
+    reset_control_plane_kernel()
 
 
 def test_real_clear_accepts_runner_report_with_exact_step_lineage(
@@ -233,5 +249,13 @@ def test_real_clear_accepts_runner_report_with_exact_step_lineage(
     assert report["checks"]["quarantine_remediation"]["status"] == "completed"
     assert report["checks"]["quarantine_remediation"]["remediation_run_id"] == runner_report["run_id"]
     assert json.loads((tmp_path / "glow/forge/quarantine.json").read_text())["active"] is False
+    from sentientos.control_plane_kernel import reset_control_plane_kernel
+    from sentientos.federated_governance import reset_controller as reset_federated_governance
     from sentientos.runtime_governor import reset_runtime_governor
+    from sentientos.trust_ledger import reset_trust_ledger
+    from sentientos.pulse_trust_epoch import reset_manager as reset_trust_epoch_manager
+    reset_federated_governance()
     reset_runtime_governor()
+    reset_trust_ledger()
+    reset_trust_epoch_manager()
+    reset_control_plane_kernel()

@@ -98,6 +98,14 @@
       "sequence": 11,
       "sha256": "517f401368bae34648c48179205f2ae3d11b05a3523099306bc3ef6aeb0845ef",
       "source_commit": "5648051fcdc5d4b01e64da61c4c236af4f796062"
+    },
+    {
+      "bytes": 1627,
+      "path": "work/construction/segments/0012-remediation-interruption-replay.md",
+      "predecessor": "segment-sha256:517f401368bae34648c48179205f2ae3d11b05a3523099306bc3ef6aeb0845ef",
+      "sequence": 12,
+      "sha256": "f8a51d8cd3ccb98d7affa78755fc81de2bea04e8db97eb9b2788e9ffd5122052",
+      "source_commit": "6d5aaee90b8a283eb4adff704efdfd0114ec6661"
     }
   ],
   "workspace_reconciliation": {

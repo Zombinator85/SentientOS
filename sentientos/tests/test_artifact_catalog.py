@@ -111,6 +111,21 @@ def test_quarantine_clear_prefers_catalog(tmp_path: Path, monkeypatch) -> None: 
         ts="2026-01-01T00:01:00Z",
     )
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "trust/state.json"))
+    from sentientos.control_plane_kernel import reset_control_plane_kernel
+    from sentientos.federated_governance import reset_controller as reset_federated_governance
+    from sentientos.runtime_governor import reset_runtime_governor
+    from sentientos.trust_ledger import reset_trust_ledger
+    from sentientos.pulse_trust_epoch import reset_manager as reset_trust_epoch_manager
+    reset_federated_governance()
+    reset_runtime_governor()
+    reset_trust_ledger()
+    reset_trust_epoch_manager()
+    reset_control_plane_kernel()
     monkeypatch.setattr("scripts.quarantine_clear.verify_receipt_chain", lambda root: type("R", (), {"ok": True, "to_dict": lambda self: {"status": "ok"}})())
     monkeypatch.setattr("scripts.quarantine_clear.verify_receipt_anchors", lambda root: type("A", (), {"ok": True, "to_dict": lambda self: {"status": "ok"}})())
     monkeypatch.setattr("scripts.quarantine_clear.verify_doctrine_identity", lambda root: (True, {"ok": True}))
