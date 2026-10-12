@@ -1,0 +1,629 @@
+{
+  "schema_version": 1,
+  "kind": "source_bound_isolated_workspace_reconciliation",
+  "verified_remote": {
+    "branch": "codex/construct-sentientos",
+    "commit": "c7f77156c1f4172be0b92336a4655beec23514ac",
+    "tree": "0c0a671543c88e484ec250bc9735d2ce10bf9cae"
+  },
+  "published_main": {
+    "commit": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+    "ahead_by": 664,
+    "behind_by": 0,
+    "merge_base": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d"
+  },
+  "workspaces": [
+    {
+      "path": "/tmp/sentientos-current-d6",
+      "head": "6e304b87dc01337d01bb39f036ab911b62dac733",
+      "tree": "452455763c16a583dcce9cfb9f8f1722080af539",
+      "branch": "detached HEAD",
+      "parent": "d6cf835e0c7861789f089f7012a15d5850796c01",
+      "github_commit_lookup": "404_not_present_as_GitHub_commit_object",
+      "staged_paths": 32,
+      "unstaged_paths": 6,
+      "untracked_paths": 9,
+      "unique_status_entries": 44,
+      "entries": [
+        {
+          "bytes": 55800,
+          "index_git_blob_sha": "e34fc5aeaa20a47137a6d985cd192e1c4dc8894a",
+          "path": "sentientos/chat_process_generation.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "e34fc5aeaa20a47137a6d985cd192e1c4dc8894a",
+          "worktree_sha256": "547fdc8428d9f321315ccbdd9eb3090ad9e593974c18d0e938eb2fd45dbdb4ff",
+          "remote_git_blob_sha": "e34fc5aeaa20a47137a6d985cd192e1c4dc8894a",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 7395,
+          "index_git_blob_sha": "f8ab0af4bfd5e4e57370af7d4b4cdb30b4992126",
+          "path": "sentientos/fastapi_stub.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "f8ab0af4bfd5e4e57370af7d4b4cdb30b4992126",
+          "worktree_sha256": "c91243052da5b3191ef1ef27be449ef64f8d05dd7a914b54a418a1f6327bd26e",
+          "remote_git_blob_sha": "f8ab0af4bfd5e4e57370af7d4b4cdb30b4992126",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 60431,
+          "index_git_blob_sha": "b88ae2503a909b6a00da059d0ac3e24ac5b8ae82",
+          "path": "sentientos/forge_index.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "b88ae2503a909b6a00da059d0ac3e24ac5b8ae82",
+          "worktree_sha256": "53ddc4512fb77e22cf669e3e84911f7b6469611e490f849c6a882163797529eb",
+          "remote_git_blob_sha": "b88ae2503a909b6a00da059d0ac3e24ac5b8ae82",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 39875,
+          "index_git_blob_sha": "022e1ef288fe9c0ddb6587ff10ef3b849e337d26",
+          "path": "sentientos/local_model_production_serving.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "022e1ef288fe9c0ddb6587ff10ef3b849e337d26",
+          "worktree_sha256": "d40f3e1b0781c9f23d1d2a87bf2cd79accd31cfaf5011b1f3227ef21eca65807",
+          "remote_git_blob_sha": "022e1ef288fe9c0ddb6587ff10ef3b849e337d26",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 28725,
+          "index_git_blob_sha": "3fa116fffea0c52534e093e32d5897f3a2405348",
+          "path": "sentientos/local_model_serving_inference.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "3fa116fffea0c52534e093e32d5897f3a2405348",
+          "worktree_sha256": "84b74f3506ef6035ea9b17ba6ea5122bfbc8771ef14863e740e9b4003b6cbda9",
+          "remote_git_blob_sha": "3fa116fffea0c52534e093e32d5897f3a2405348",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 21462,
+          "index_git_blob_sha": "ff0dacb3997d3d4e15ef2dc86bc5562a27086238",
+          "path": "sentientos/production_chat_resource_observation.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "ff0dacb3997d3d4e15ef2dc86bc5562a27086238",
+          "worktree_sha256": "63bddf35bd8680e6a321f9288a0730b40320a157328e0d91bd9ccfe8e40c9ce1",
+          "remote_git_blob_sha": "ff0dacb3997d3d4e15ef2dc86bc5562a27086238",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 160347,
+          "index_git_blob_sha": "585d5fbde3dfa915635686913815969e6da665f5",
+          "path": "sentientos/resident_developmental_cognition.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "585d5fbde3dfa915635686913815969e6da665f5",
+          "worktree_sha256": "2568162fe86f80fd9ad1fd3a2b572c1a1c65eb4a1270e5ae9d1190babd883047",
+          "remote_git_blob_sha": "fdd41c79264b6db2b331ba4ac0a7df35dcc5e2e9",
+          "classification": "E candidate_differs_from_current_remote",
+          "remote_error": "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xaa in position 1: invalid start byte"
+        },
+        {
+          "bytes": 98421,
+          "index_git_blob_sha": "7a1afda19c4e8666b6bec3138d75066c6a4202e2",
+          "path": "sentientos/resident_developmental_writeback.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "7a1afda19c4e8666b6bec3138d75066c6a4202e2",
+          "worktree_sha256": "1a13ee94678778c9c25b632e55044fd669fba81b9ca5b2684a37794a6bb3087a",
+          "remote_git_blob_sha": "7a1afda19c4e8666b6bec3138d75066c6a4202e2",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 7080,
+          "index_git_blob_sha": "e6967d8632171ced18815688950939cf0b7386a4",
+          "path": "sentientos/tests/test_artifact_catalog.py",
+          "status": " M",
+          "tracked": true,
+          "worktree_git_blob_sha": "ef0ab85bc8b9cf7e2c1aeb67081e864833079bea",
+          "worktree_sha256": "8ddead09174535f9a7c90c784134a60da5d0532a51b5b4fe3b7f730a6288b168",
+          "remote_git_blob_sha": "ef0ab85bc8b9cf7e2c1aeb67081e864833079bea",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 6906,
+          "index_git_blob_sha": "cda745bb80f0bce2b962b1f262165fe8c9d21c02",
+          "path": "sentientos/tests/test_construction_source_preflight.py",
+          "status": " M",
+          "tracked": true,
+          "worktree_git_blob_sha": "fda5f22ac693f42cc087c1593dcb8087c69cee10",
+          "worktree_sha256": "6ea1aa26b8c7e04929151f8c41f4dedf30c4d658e8782ad14919b44eda47863c",
+          "remote_git_blob_sha": "fda5f22ac693f42cc087c1593dcb8087c69cee10",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 3847,
+          "index_git_blob_sha": "e2c8b86485291fd37f2dc38cf359b7c2c0a3d298",
+          "path": "sentientos/tests/test_forge_index_remediation_custody.py",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "e2c8b86485291fd37f2dc38cf359b7c2c0a3d298",
+          "worktree_sha256": "d4b1a28048c6e55ec19e53dfb9ecd847d78de7ddf592b5e56b8e220b829d36b0",
+          "remote_git_blob_sha": "e2c8b86485291fd37f2dc38cf359b7c2c0a3d298",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 25944,
+          "index_git_blob_sha": "0b8895da7f8c4db56fea265469183135a16c371e",
+          "path": "sentientos/tests/test_forge_observatory.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "0b8895da7f8c4db56fea265469183135a16c371e",
+          "worktree_sha256": "bf3305a0035622aa37865e7a2ad97dcb221be8a4bc00c194b786d2bbd1504030",
+          "remote_git_blob_sha": "0b8895da7f8c4db56fea265469183135a16c371e",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 12929,
+          "index_git_blob_sha": "d4aaebe7982c9db50df807644135add4f01bc1c1",
+          "path": "sentientos/tests/test_remediation_run_custody.py",
+          "status": " M",
+          "tracked": true,
+          "worktree_git_blob_sha": "dfaf4322fc177f72b693f6ea8ff22384dd50ba05",
+          "worktree_sha256": "1e67c30835869b02748a867d816b016d17272683121c2abc002a864c11fae5d1",
+          "remote_git_blob_sha": "dfaf4322fc177f72b693f6ea8ff22384dd50ba05",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 8945,
+          "index_git_blob_sha": "cc8b1d76275c18222a1a317c9762936e57dbe184",
+          "path": "sentientos/tests/test_resource_observation_world_state_integration.py",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "cc8b1d76275c18222a1a317c9762936e57dbe184",
+          "worktree_sha256": "0b5cd980d06a48240a4af4c3d0c689af70a3c5ebdc50d446ab1661680c760222",
+          "remote_git_blob_sha": "cc8b1d76275c18222a1a317c9762936e57dbe184",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 22544,
+          "index_git_blob_sha": "63dbf213dad3a8f2047f4a9abdad6e13728b29fc",
+          "path": "sentientos/world_state_board.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "63dbf213dad3a8f2047f4a9abdad6e13728b29fc",
+          "worktree_sha256": "583de6f4d0069ed101e1716f36afb0807599dbd097667f070dc5299652816b0b",
+          "remote_git_blob_sha": "63dbf213dad3a8f2047f4a9abdad6e13728b29fc",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 13832,
+          "index_git_blob_sha": "9cb762921951fb23605bb0ba4aeff24791142eb6",
+          "path": "tests/test_local_model_chat_runtime_startup.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "9cb762921951fb23605bb0ba4aeff24791142eb6",
+          "worktree_sha256": "f6865acf08419b6341a558b35e5d9a84a172072b78013fcfe5d7c7d58fe063f9",
+          "remote_git_blob_sha": "9cb762921951fb23605bb0ba4aeff24791142eb6",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 10032,
+          "index_git_blob_sha": "ef1b999934029e870e49a1e65dabd144ed3f36da",
+          "path": "tests/test_local_model_serving_inference.py",
+          "status": "MM",
+          "tracked": true,
+          "worktree_git_blob_sha": "40df7006d9d3a961db9fd7d735b88bae68c428bf",
+          "worktree_sha256": "a20ca9a9199869a93302b8a2a1e21907e576ea1afe6127826f37cbe5c9b6a586",
+          "remote_git_blob_sha": "40df7006d9d3a961db9fd7d735b88bae68c428bf",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 9393,
+          "index_git_blob_sha": "136bf7cb5b86664cbded472927eced6b36fab665",
+          "path": "tests/test_production_chat_resource_context.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "136bf7cb5b86664cbded472927eced6b36fab665",
+          "worktree_sha256": "480b6f9b76448a86b7377295294f8cafaaaaf376126df53b28e0a08874a05b82",
+          "remote_git_blob_sha": "136bf7cb5b86664cbded472927eced6b36fab665",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 12184,
+          "index_git_blob_sha": "050b058468dad3f76402ba903e2caed614c8ad2a",
+          "path": "tests/test_production_chat_resource_provisioning_bundle_producer.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "050b058468dad3f76402ba903e2caed614c8ad2a",
+          "worktree_sha256": "12a721fb4df82c96f41b62a24b775362313a198a3fbfa2ddd2c9cd854733a8d0",
+          "remote_git_blob_sha": "050b058468dad3f76402ba903e2caed614c8ad2a",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 7208,
+          "index_git_blob_sha": "06a42ab63b2c351c014977370a1a2f6cba0210b3",
+          "path": "tests/test_resident_developmental_cognition_generation_scope.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "06a42ab63b2c351c014977370a1a2f6cba0210b3",
+          "worktree_sha256": "7af768a100eeafd069017288c9be81c44da923ac3afc2a23e390f66fb9875b1c",
+          "remote_git_blob_sha": "06a42ab63b2c351c014977370a1a2f6cba0210b3",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 21311,
+          "index_git_blob_sha": "f0c6157d66cdf5cec91e3369c39ee087163b6821",
+          "path": "tests/test_resident_developmental_writeback.py",
+          "status": "M ",
+          "tracked": true,
+          "worktree_git_blob_sha": "f0c6157d66cdf5cec91e3369c39ee087163b6821",
+          "worktree_sha256": "42b1a95a9ca1a05ce44831651a84f2c74383a4a241ed7b6e25cb576edbf714e8",
+          "remote_git_blob_sha": "f0c6157d66cdf5cec91e3369c39ee087163b6821",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 2268,
+          "index_git_blob_sha": "4b43217b276cf269fbc18a12474baf09233a64e9",
+          "path": "work/chat_process_handoff_acceptance.json",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "4b43217b276cf269fbc18a12474baf09233a64e9",
+          "worktree_sha256": "9247396a7df11edf4ec7dfb6e4cd02af5264bf9ceb83202c45901169995e01a0",
+          "remote_git_blob_sha": "4b43217b276cf269fbc18a12474baf09233a64e9",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1730,
+          "index_git_blob_sha": "656a67c46a04cde7de4a466f156ecc3763965068",
+          "path": "work/construction/active_checkpoint.md",
+          "status": "MM",
+          "tracked": true,
+          "worktree_git_blob_sha": "b909267f72d25439414a64d97cdb84ea9313e782",
+          "worktree_sha256": "fe89be3432c88ebb7023c5e900731c2db2bf4249fe4bc03e3ce869efa1f9f547",
+          "remote_git_blob_sha": "2673d58d21d522acedd0ef8f93a9bda3bb9ce219",
+          "classification": "E candidate_differs_from_current_remote",
+          "remote_error": null
+        },
+        {
+          "bytes": 5892,
+          "index_git_blob_sha": "28a149193f0a9760d153883dcb0eb270b939f06a",
+          "path": "work/construction/index.json",
+          "status": "MM",
+          "tracked": true,
+          "worktree_git_blob_sha": "783caf6dc9ed588449b6fdf18868d480ab7128ea",
+          "worktree_sha256": "22f338eabf8498d0c337833157273ca420d31296430756498bc38e0c6d08409c",
+          "remote_git_blob_sha": "82b76a466c2e7dc514e476156dec8af223e16319",
+          "classification": "E candidate_differs_from_current_remote",
+          "remote_error": null
+        },
+        {
+          "bytes": 1054,
+          "index_git_blob_sha": "be615dd02b0bad21b418dd38ebb6f5764e2b8f69",
+          "path": "work/construction/segments/0004-forge-remediation-projection.md",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "be615dd02b0bad21b418dd38ebb6f5764e2b8f69",
+          "worktree_sha256": "a3f77865fc059c4ccd77b0b0651c55ca93d1c17a263873e2b5e0450af83277ea",
+          "remote_git_blob_sha": "be615dd02b0bad21b418dd38ebb6f5764e2b8f69",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 964,
+          "index_git_blob_sha": "ff0c9726dcf63d2271affc2336e43f9f3817b313",
+          "path": "work/construction/segments/0005-hosted-lifecycle-reconciliation.md",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "ff0c9726dcf63d2271affc2336e43f9f3817b313",
+          "worktree_sha256": "fd888999c5c7bebf66c9440becbabd1a14b6ddfefd5d9679d30d59e95decd5ef",
+          "remote_git_blob_sha": "ff0c9726dcf63d2271affc2336e43f9f3817b313",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1459,
+          "index_git_blob_sha": "687efe49fc6f643aebcb02ac110715a76fbcd0dc",
+          "path": "work/construction/segments/0006-resource-observation-world-state.md",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "687efe49fc6f643aebcb02ac110715a76fbcd0dc",
+          "worktree_sha256": "120f5e4c8aab27a9f8ff3ed16e3a73f1f45581dc1e69752a3a781ace27600d4e",
+          "remote_git_blob_sha": "687efe49fc6f643aebcb02ac110715a76fbcd0dc",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 2278,
+          "index_git_blob_sha": "e47bedd0db69447a3d37746717cba8bae367eeb3",
+          "path": "work/construction/segments/0007-resource-invocation-world-state.md",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "e47bedd0db69447a3d37746717cba8bae367eeb3",
+          "worktree_sha256": "0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
+          "remote_git_blob_sha": "e47bedd0db69447a3d37746717cba8bae367eeb3",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1824,
+          "index_git_blob_sha": "866813c2d4d1c34d152b0b8e1da539e9223839f4",
+          "path": "work/construction/segments/0008-chat-process-handoff.md",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "866813c2d4d1c34d152b0b8e1da539e9223839f4",
+          "worktree_sha256": "4f8ef3deaa65ea482396ba7ebd935154f2dd9f4afdf4433d1ad6c26b5613a2fc",
+          "remote_git_blob_sha": "866813c2d4d1c34d152b0b8e1da539e9223839f4",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1753,
+          "index_git_blob_sha": "164f75bb9f3bfdcc5de0bf6356677341b258587d",
+          "path": "work/construction/segments/0009-developmental-recovery-qualification.md",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "164f75bb9f3bfdcc5de0bf6356677341b258587d",
+          "worktree_sha256": "527085a34d7a1021c61ba1f76c12fdf238272b8a7ab1dda608f460c029e8cfd0",
+          "remote_git_blob_sha": "164f75bb9f3bfdcc5de0bf6356677341b258587d",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 2858,
+          "index_git_blob_sha": "7775b8dada749291dc40c923937c089c8d6471b4",
+          "path": "work/developmental_continuity_acceptance.json",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "7775b8dada749291dc40c923937c089c8d6471b4",
+          "worktree_sha256": "e32810ca109d39156036422a6a284989fee16a0fb4a023afb30fd5aa1fa57b70",
+          "remote_git_blob_sha": "7775b8dada749291dc40c923937c089c8d6471b4",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 2167,
+          "index_git_blob_sha": "bae9a6677524a5207a6b784ed230e4b08e0999fe",
+          "path": "work/forge_remediation_projection_acceptance.json",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "bae9a6677524a5207a6b784ed230e4b08e0999fe",
+          "worktree_sha256": "3f2b1fa935a548d2a6fec61e7fe04decd50fcb91abca94a624e0fc040662af02",
+          "remote_git_blob_sha": "bae9a6677524a5207a6b784ed230e4b08e0999fe",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 7656,
+          "index_git_blob_sha": "066950f367ba797882965c92c58385219801ad0a",
+          "path": "work/hosted_lifecycle_reconciliation_20261012.json",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "066950f367ba797882965c92c58385219801ad0a",
+          "worktree_sha256": "18831938fa009d0bbcfd28642c4f439c3759859a9731197e8bd8113c9092610f",
+          "remote_git_blob_sha": "066950f367ba797882965c92c58385219801ad0a",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 6200,
+          "index_git_blob_sha": "a17f9ead1d42e58a62a866df105a24ddec2c367d",
+          "path": "work/resource_invocation_world_state_acceptance.json",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "a17f9ead1d42e58a62a866df105a24ddec2c367d",
+          "worktree_sha256": "5fbb196aa9d5e5c0e7b4e7a143d16114c63fb52240ddb4b676c71edf4d414115",
+          "remote_git_blob_sha": "a17f9ead1d42e58a62a866df105a24ddec2c367d",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 3412,
+          "index_git_blob_sha": "c1738ec9efa8bf506019ca0a615a38c90062b2f7",
+          "path": "work/resource_observation_world_state_acceptance.json",
+          "status": "A ",
+          "tracked": true,
+          "worktree_git_blob_sha": "c1738ec9efa8bf506019ca0a615a38c90062b2f7",
+          "worktree_sha256": "bea88bd9d7d1a32e0569c15ec26b8767bf9bda9f707f1f22948a5a4257b2e6ac",
+          "remote_git_blob_sha": "c1738ec9efa8bf506019ca0a615a38c90062b2f7",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1293,
+          "index_git_blob_sha": null,
+          "path": "pulse/forge_events.jsonl",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "c4ea0f67e99935280d431e5d853ef42f33f68113",
+          "worktree_sha256": "b55506bf9ec8358825d76aa2136887d4a57086c63a1192d1721af67a86980459",
+          "remote_git_blob_sha": null,
+          "classification": "D generated_or_local_event_artifact",
+          "remote_error": "GitHub API error 404: {\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest/repos/contents#get-repository-content\",\"status\":\"404\"}"
+        },
+        {
+          "bytes": 13589,
+          "index_git_blob_sha": null,
+          "path": "tests/test_resource_invocation_process_generation_integration.py",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "24d40fa7c07fca68be48f27adbf7b5c08b244e33",
+          "worktree_sha256": "f5bf253ced6cfd6d1619ddd8edf2319de455d6ce635c6f4c3ec0701a99743114",
+          "remote_git_blob_sha": "24d40fa7c07fca68be48f27adbf7b5c08b244e33",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 2008,
+          "index_git_blob_sha": null,
+          "path": "work/construction/segments/0010-resource-process-world-state.md",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "85d870e3f1b727d0ba0a91db4460f090362ef49a",
+          "worktree_sha256": "1a2d5458dfdacfbaede406497f26bfa892b4971164ffb2a6808d7c9a9bf0b301",
+          "remote_git_blob_sha": "85d870e3f1b727d0ba0a91db4460f090362ef49a",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1584,
+          "index_git_blob_sha": null,
+          "path": "work/construction/segments/0011-resource-epistemic-later-tick.md",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "8bbc0a675d7effa0e0c4241280dbe3aef4da462c",
+          "worktree_sha256": "517f401368bae34648c48179205f2ae3d11b05a3523099306bc3ef6aeb0845ef",
+          "remote_git_blob_sha": "8bbc0a675d7effa0e0c4241280dbe3aef4da462c",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1627,
+          "index_git_blob_sha": null,
+          "path": "work/construction/segments/0012-remediation-interruption-replay.md",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "0c0db3951c80c0483e427d04098e801298ea5328",
+          "worktree_sha256": "f8a51d8cd3ccb98d7affa78755fc81de2bea04e8db97eb9b2788e9ffd5122052",
+          "remote_git_blob_sha": "0c0db3951c80c0483e427d04098e801298ea5328",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1485,
+          "index_git_blob_sha": null,
+          "path": "work/construction/segments/0013-unfetched-remote-preflight.md",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "fa9ae9ce6337f44a2551b287e4262923ec344df5",
+          "worktree_sha256": "a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
+          "remote_git_blob_sha": "fa9ae9ce6337f44a2551b287e4262923ec344df5",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 1821,
+          "index_git_blob_sha": null,
+          "path": "work/construction_source_preflight_acceptance.json",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "1cffcb6b864c6c627126c8d4ab39e53257fc6ba0",
+          "worktree_sha256": "46a2f0c0d21766b134808bfdc87e2a6fc507bd4eca464c68868b0d8beabbee46",
+          "remote_git_blob_sha": "1cffcb6b864c6c627126c8d4ab39e53257fc6ba0",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 2322,
+          "index_git_blob_sha": null,
+          "path": "work/remediation_crash_recovery_revalidation.json",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "b060affff7380af3ccf3f629ff29a6986b3bcf8c",
+          "worktree_sha256": "d8c1077f69199bfe41db29ad70132160c359ade0859ddc856aaed0cb1709999c",
+          "remote_git_blob_sha": "b060affff7380af3ccf3f629ff29a6986b3bcf8c",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        },
+        {
+          "bytes": 2467,
+          "index_git_blob_sha": null,
+          "path": "work/resource_invocation_process_generation_acceptance.json",
+          "status": "??",
+          "tracked": false,
+          "worktree_git_blob_sha": "0338de238ae300a58288fb739c4ebec2f07d6e35",
+          "worktree_sha256": "ef96b8fd2fa687d4000db7427ada367cc0c8fb01b31827c890b6ba8feb2a1e7e",
+          "remote_git_blob_sha": "0338de238ae300a58288fb739c4ebec2f07d6e35",
+          "classification": "A identical_remote_blob_in_index_or_worktree",
+          "remote_error": null
+        }
+      ],
+      "classification_counts": {
+        "A identical_remote_blob_in_index_or_worktree": 40,
+        "E candidate_differs_from_current_remote": 3,
+        "D generated_or_local_event_artifact": 1
+      },
+      "disposition": "preserved reference; never used as current source"
+    },
+    {
+      "path": "/workspace/SentientOS",
+      "head": "2e3208a9024f7162b877373824c8bab31f25bd12",
+      "tree": "cd4734cb8ba2979732c188686064bc377dffd69a",
+      "branch": "codex/construct-sentientos",
+      "staged_paths": 0,
+      "tracked_changes": 48,
+      "untracked_paths": 6,
+      "disposition": "original dirty checkout remains untouched; see predecessor reconciliation manifest work/workspace_reconciliation_20261012-6ba0d6d.json"
+    },
+    {
+      "path": "/tmp/sentientos-original-candidate-2e320",
+      "head": null,
+      "tree": null,
+      "branch": null,
+      "tracked_patch": {
+        "path": "tracked-changes-excluding-conflicted-journal.patch",
+        "bytes": 399831,
+        "sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307"
+      },
+      "untracked_source": {
+        "path": "remote_embodied_consequence.py",
+        "bytes": 120028,
+        "sha256": "52e3cfdbaea9fac65225c738b446714abff41e397c940c50d617500e212cebf6"
+      },
+      "disposition": "separate preserved candidates; not applied"
+    }
+  ],
+  "source_acquisition": {
+    "clean_checkout_attempts": 1,
+    "result": "proxy port 8080 unreachable",
+    "fallback": "exact-ref source reads for named files",
+    "remote_source_not_substituted_by_local_head": true
+  },
+  "semantic_review": {
+    "exact_current_matches": "40 isolated-workspace entries have index or worktree Git blob SHA equal to the exact current GitHub blob; these are already published and require no recovery.",
+    "unresolved": [
+      {
+        "path": "sentientos/resident_developmental_cognition.py",
+        "local_git_blob_sha": "585d5fbde3dfa915635686913815969e6da665f5",
+        "remote_git_blob_sha": "fdd41c79264b6db2b331ba4ac0a7df35dcc5e2e9",
+        "disposition": "E; content differs; UTF-8 fetch fails at byte 1 and full base64 output is truncated by the connector, so semantic review is blocked. Do not copy."
+      },
+      {
+        "path": "work/construction/active_checkpoint.md",
+        "local_index_blob_sha": "656a67c46a04cde7de4a466f156ecc3763965068",
+        "local_worktree_blob_sha": "b909267f72d25439414a64d97cdb84ea9313e782",
+        "remote_blob_sha": "2673d58d21d522acedd0ef8f93a9bda3bb9ce219",
+        "disposition": "E; stale navigation metadata superseded by current remote; do not restore."
+      },
+      {
+        "path": "work/construction/index.json",
+        "local_index_blob_sha": "28a149193f0a9760d153883dcb0eb270b939f06a",
+        "local_worktree_blob_sha": "783caf6dc9ed588449b6fdf18868d480ab7128ea",
+        "remote_blob_sha": "82b76a466c2e7dc514e476156dec8af223e16319",
+        "disposition": "E; stale navigation metadata superseded by current remote; do not restore."
+      }
+    ],
+    "generated_local_artifact": {
+      "path": "pulse/forge_events.jsonl",
+      "classification": "D",
+      "remote_path_absent": true
+    },
+    "prior_source_review": "Stage-specific epistemic mutation receipt recovery is already corrected in exact remote source; see segment 0016."
+  }
+}
