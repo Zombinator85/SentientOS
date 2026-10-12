@@ -31,6 +31,7 @@ from sentientosd import (
     RuntimeMaintenanceSurfaces,
     _attestation_snapshot_verification_world_state_record,
     _integrity_controller_world_state_record,
+    _quarantine_incident_custody_world_state_record,
     _run_maintenance_tick,
 )
 
@@ -67,6 +68,8 @@ def test_integrity_controller_observation_is_bounded_context_only_and_opt_in(
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
     reset_runtime_governor()
+
+
     monkeypatch.delenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", raising=False)
     assert _integrity_controller_world_state_record(
         tmp_path, observed_at="2026-10-12T00:00:00+00:00") is None
@@ -104,6 +107,27 @@ def test_integrity_controller_observation_is_bounded_context_only_and_opt_in(
              if gate["name"] == "attestation_snapshot_signatures"))
     reset_runtime_governor()
 
+
+def test_quarantine_incident_reconciliation_preserves_second_read_failure(
+    monkeypatch, tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    def unavailable(_root):
+        raise sentientosd.QuarantineStateError("fixture_read_unavailable")
+
+    monkeypatch.setattr(sentientosd, "load_quarantine_state_with_status", unavailable)
+    record = _quarantine_incident_custody_world_state_record(
+        tmp_path, observed_at="2026-10-12T00:00:00+00:00",
+        expected_incident_id="incident-expected",
+        expected_activated_at="2026-10-11T23:59:00+00:00",
+    )
+    assert record is not None
+    assert record["payload"]["reconciliation_status"] == "observer_unavailable"
+    assert record["payload"]["incident_id"] == "incident-expected"
+    assert record["payload"]["artifact_status"] == "not_checked"
+    assert record["payload"]["feed_status"] == "not_checked"
+    assert record["payload"]["attack_established"] is False
+    assert record["payload"]["defensive_consequence_established"] is False
+    assert record["payload"]["authority"] is False
 
 class _GovernorStub:
     def __init__(self, *, allow: bool) -> None:

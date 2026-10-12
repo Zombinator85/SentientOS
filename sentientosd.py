@@ -255,26 +255,27 @@ def _quarantine_incident_custody_world_state_record(
     try:
         loaded = load_quarantine_state_with_status(repo_root)
     except Exception:
-        # The primary quarantine-custody observation carries this failed read.
-        return None
-    state = loaded.state
-    identity_changed = (not state.active or state.last_incident_id != expected_incident_id
-        or state.activated_at != expected_activated_at)
-    if identity_changed:
         inspection = {}
-        status = "conflict"
+        status = "observer_unavailable"
     else:
-        try:
-            inspection = inspect_quarantine_incident_custody(
-                repo_root, incident_id=expected_incident_id,
-                activated_at=expected_activated_at,
-            )
-            status = inspection.get("status")
-            if status not in {"complete_local_custody", "incomplete", "conflict", "incomplete_identity"}:
-                status = "observer_unavailable"
-        except Exception:
+        state = loaded.state
+        identity_changed = (not state.active or state.last_incident_id != expected_incident_id
+            or state.activated_at != expected_activated_at)
+        if identity_changed:
             inspection = {}
-            status = "observer_unavailable"
+            status = "conflict"
+        else:
+            try:
+                inspection = inspect_quarantine_incident_custody(
+                    repo_root, incident_id=expected_incident_id,
+                    activated_at=expected_activated_at,
+                )
+                status = inspection.get("status")
+                if status not in {"complete_local_custody", "incomplete", "conflict", "incomplete_identity"}:
+                    status = "observer_unavailable"
+            except Exception:
+                inspection = {}
+                status = "observer_unavailable"
     incident_id = expected_incident_id
     if not isinstance(incident_id, str) or len(incident_id) > 128:
         incident_id = None

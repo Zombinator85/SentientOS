@@ -1,0 +1,19 @@
+{
+  "status": "construction_fixture_verified_not_production_acceptance",
+  "scope": "quarantine restart reconciliation read-race failure semantics",
+  "behavior": {
+    "state_reference_change_between_reads": "conflict status bound to the first validated reference",
+    "second_state_read_unavailable": "observer_unavailable status preserves expected historical identity and performs no artifact/feed read",
+    "claims": "no attack, hostile activity, defensive consequence, or authority"
+  },
+  "focused_results": {
+    "sentientosd_cognition_epistemic_world_state_modules": "98 passed, 8 skipped",
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "The inspector does not reconcile the artifact catalog.",
+    "Local custody consistency does not authenticate its publisher.",
+    "Hermetic tests are not production acceptance or model-performance evidence."
+  ]
+}
