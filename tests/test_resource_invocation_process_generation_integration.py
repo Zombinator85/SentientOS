@@ -8,6 +8,8 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.production_chat_resource_observation import ProductionChatResourceObservationOwner
 from sentientos.production_chat_resource_provisioning_bundle_producer import (
@@ -401,6 +403,40 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         assert (len(replacement_a.calls), len(replacement_b.calls)) == replacement_call_counts
         assert all(comparison_cognition.writeback.store.get(record_id).record_digest == record_digest
             for record_id, record_digest in replacement_history_before.items())
+
+        class InterruptedEndpoint(FixtureReplacementEndpoint):
+            def infer(self, **kwargs):
+                self.calls.append(dict(kwargs))
+                raise KeyboardInterrupt("fixture_interrupted_after_durable_condition_start")
+
+        interrupted_root = tmp_path / "resource-history-interrupted-replacement"
+        interrupted_a = InterruptedEndpoint(fixture_model_identity("resource-model-a"))
+        interrupted_b = FixtureReplacementEndpoint(fixture_model_identity("resource-model-b"))
+        interrupted_experiment = DevelopmentalModelReplacementExperiment(
+            context=replacement_context, model_a=interrupted_a, model_b=interrupted_b,
+            artifact_root=interrupted_root)
+        interrupted_trial_id = "resource-interrupted"
+        with pytest.raises(KeyboardInterrupt,
+                match="fixture_interrupted_after_durable_condition_start"):
+            interrupted_experiment.run(trial_id=interrupted_trial_id)
+        interrupted_custody = interrupted_experiment.inspect_trial_custody(
+            trial_id=interrupted_trial_id)
+        assert interrupted_custody["status"] == "interrupted_or_incomplete"
+        assert interrupted_custody["inference_invocations"] == 0
+        assert interrupted_custody["conditions"][0]["status"] == (
+            "started_without_terminal_no_replay")
+
+        recovered_a = FixtureReplacementEndpoint(fixture_model_identity("resource-model-a"))
+        recovered_b = FixtureReplacementEndpoint(fixture_model_identity("resource-model-b"))
+        recovered_experiment = DevelopmentalModelReplacementExperiment(
+            context=replacement_context, model_a=recovered_a, model_b=recovered_b,
+            artifact_root=interrupted_root)
+        incomplete = recovered_experiment.run(trial_id=interrupted_trial_id)
+        assert incomplete["validity"] == "execution_incomplete"
+        assert incomplete["failure_posture"] == "started_without_terminal_no_replay"
+        assert recovered_a.calls == [] and recovered_b.calls == []
+        assert recovered_experiment.inspect_trial_custody(
+            trial_id=interrupted_trial_id)["status"] == "interrupted_or_incomplete"
     finally:
         release_path.write_text("release\n", encoding="utf-8")
         adapter.stop()
