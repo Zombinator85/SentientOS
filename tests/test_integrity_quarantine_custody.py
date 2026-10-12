@@ -337,6 +337,10 @@ def test_enabled_forge_is_stopped_before_effector_on_invalid_custody(
     assert receipt.status == "rejected_quarantine_custody"
     assert receipt.error == "quarantine_json_invalid"
     assert queue.pending_requests() == []
+    index = json.loads((tmp_path / "glow/forge/index.json").read_text(encoding="utf-8"))
+    assert index["quarantine_active"] is None
+    assert index["quarantine_custody_status"] == "invalid:quarantine_json_invalid"
+    assert index["quarantine_incident_custody"]["status"] == "custody_invalid"
 
 
 def test_first_use_does_not_block_independently_allowed_forge_work(

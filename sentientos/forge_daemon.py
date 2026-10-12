@@ -97,18 +97,14 @@ class ForgeDaemon:
                 report_path=None,
                 error=exc.code,
             )
-            record_forge_event({
-                "event": "forge_daemon",
-                "status": "rejected_quarantine_custody",
-                "request_id": request.request_id,
-                "goal_id": request.goal_id,
-                "error": exc.code,
-                "message": "rejected_quarantine_custody",
-                "level": "error",
-            })
             self._emit(
                 f"ForgeDaemon rejected request {request.request_id}: invalid quarantine custody",
                 level="error",
+            )
+            # Use the normal event/index composition after the durable terminal
+            # receipt. The index has an explicit unknown-custody projection.
+            self._emit_forge_event(
+                status="rejected_quarantine_custody", request=request, error=exc.code,
             )
             return
         try:
@@ -418,7 +414,11 @@ class ForgeDaemon:
             "message": message or status,
             "provenance_run_id": provenance_run_id,
             "provenance_path": provenance_path,
-            "level": "warning" if status in {"rejected_policy", "skipped_budget", "lock_skip"} else "info",
+            "level": (
+                "error" if status == "rejected_quarantine_custody"
+                else "warning" if status in {"rejected_policy", "skipped_budget", "lock_skip"}
+                else "info"
+            ),
             "operating_mode": os.getenv("SENTIENTOS_MODE_FORCE") or None,
         }
         record_forge_event(payload)
