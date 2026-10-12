@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from dataclasses import asdict
 from pathlib import Path
 
@@ -98,6 +100,25 @@ def test_objective_treatments_and_no_replay(tmp_path, mode, delta, stable, asses
     loaded = readonly.load_verified_run(run['run_id'], run['run_digest'])
     assert loaded['objective_evaluation'] == evaluation
     assert loaded['run_digest'] == run['run_digest']
+    child = r"""
+import json, sys
+from pathlib import Path
+from sentientos.developmental_model_replacement_experiment import ModelReplacementArtifactStore
+value=json.load(sys.stdin)
+store=ModelReplacementArtifactStore(Path(value["root"]), read_only=True)
+run=store.load_verified_run(value["run_id"], value["run_digest"])
+print(json.dumps({"run_digest":run["run_digest"],
+    "objective_evaluation":run["objective_evaluation"],
+    "condition_count":len(run["observations"])}, sort_keys=True))
+"""
+    recovered_child = subprocess.run([sys.executable, '-c', child],
+        input=json.dumps({'root': str(tmp_path), 'run_id': run['run_id'],
+            'run_digest': run['run_digest']}), text=True, capture_output=True,
+        check=True, cwd=Path(__file__).resolve().parents[1])
+    child_result = json.loads(recovered_child.stdout.strip().splitlines()[-1])
+    assert child_result['run_digest'] == run['run_digest']
+    assert child_result['objective_evaluation'] == evaluation
+    assert child_result['condition_count'] == 5
 
 
 def test_output_substitution_is_incomplete_not_replayed(tmp_path):

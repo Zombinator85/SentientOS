@@ -1,0 +1,444 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_resident_developmental_cognition.py::test_actual_history_conditioned_conclusion_is_the_retained_candidate": 0,
+    "tests/test_resident_developmental_cognition.py::test_all_four_substrates_reach_ordinary_cognition_when_comparison_disabled": 0,
+    "tests/test_resident_developmental_cognition.py::test_candidate_record_committed_before_checkpoint_recovers_once": 0,
+    "tests/test_resident_developmental_cognition.py::test_cognition_checkpoint_rejects_replaced_symlink_root": 0,
+    "tests/test_resident_developmental_cognition.py::test_cognition_checkpoint_round_trips_through_private_descriptor_custody": 0,
+    "tests/test_resident_developmental_cognition.py::test_cognition_lesson_writeback_is_later_tick_only_and_recovery_is_idempotent": 0,
+    "tests/test_resident_developmental_cognition.py::test_compounded_integrity_failure_retains_unknown_pressure_through_later_cognition": 0,
+    "tests/test_resident_developmental_cognition.py::test_concurrent_developmental_ticks_cannot_replay_one_tick": 0,
+    "tests/test_resident_developmental_cognition.py::test_configuration_is_exact_and_malformed_configuration_fails_closed": 0,
+    "tests/test_resident_developmental_cognition.py::test_configured_snapshot_verifier_failure_reaches_scoped_cognition": 0,
+    "tests/test_resident_developmental_cognition.py::test_controlled_with_record_and_withheld_comparison_is_opt_in_and_difference_only": 0,
+    "tests/test_resident_developmental_cognition.py::test_developmental_roots_resolve_aliases_and_exclude_canonical_memory": 0,
+    "tests/test_resident_developmental_cognition.py::test_distinct_actual_conclusions_produce_distinct_bound_candidates": 0,
+    "tests/test_resident_developmental_cognition.py::test_epistemic_only_prior_context_causes_real_owner_cognition": 0,
+    "tests/test_resident_developmental_cognition.py::test_epistemic_runtime_configuration_is_explicit_exact_and_independently_disabled": 0,
+    "tests/test_resident_developmental_cognition.py::test_experimental_history_arms_do_not_retain_cognition_lessons": 0,
+    "tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant": 0,
+    "tests/test_resident_developmental_cognition.py::test_host_resource_owner_reaches_restart_safe_later_tick_cognition": 0,
+    "tests/test_resident_developmental_cognition.py::test_integrity_controller_gate_context_becomes_scoped_later_tick_history": 0,
+    "tests/test_resident_developmental_cognition.py::test_integrity_controller_gate_results_reach_configured_cognition_as_context": 0,
+    "tests/test_resident_developmental_cognition.py::test_interruption_after_cognition_observation_does_not_reinfer_or_fabricate_candidate": 0,
+    "tests/test_resident_developmental_cognition.py::test_later_valid_custody_evidence_can_narrow_an_earlier_failure_interpretation": 0,
+    "tests/test_resident_developmental_cognition.py::test_legacy_identifier_projection_is_valid_but_not_delivered_as_meaning": 0,
+    "tests/test_resident_developmental_cognition.py::test_meaning_bearing_epistemic_packets_reach_actual_inference_request": 0,
+    "tests/test_resident_developmental_cognition.py::test_missing_or_crossed_admission_prevents_history_mutation": 0,
+    "tests/test_resident_developmental_cognition.py::test_missing_output_text_and_substituted_scope_never_create_a_candidate": 0,
+    "tests/test_resident_developmental_cognition.py::test_modified_output_and_crossed_request_identity_are_rejected": 0,
+    "tests/test_resident_developmental_cognition.py::test_null_lesson_packet_is_not_automatically_retained": 0,
+    "tests/test_resident_developmental_cognition.py::test_out_of_scope_length_and_substituted_evidence_are_not_retained": 0,
+    "tests/test_resident_developmental_cognition.py::test_quarantine_custody_context_can_yield_scoped_later_tick_lesson": 0,
+    "tests/test_resident_developmental_cognition.py::test_quarantine_custody_failure_reaches_configured_cognition_and_next_tick_history": 0,
+    "tests/test_resident_developmental_cognition.py::test_quarantine_incident_restart_custody_reaches_later_cognition_as_context": 0,
+    "tests/test_resident_developmental_cognition.py::test_real_governed_invocation_output_is_retained_without_a_lesson_only_call": 0,
+    "tests/test_resident_developmental_cognition.py::test_real_invoker_null_candidate_does_not_turn_the_conclusion_into_a_lesson": 0,
+    "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them": 0,
+    "tests/test_resident_developmental_cognition.py::test_recovered_candidate_requires_its_exact_durable_cognition_observation": 0,
+    "tests/test_resident_developmental_cognition.py::test_recovered_history_order_uses_intent_not_wall_clock": 0,
+    "tests/test_resident_developmental_cognition.py::test_repeated_current_evidence_does_not_reinterpret_after_history_changes": 0,
+    "tests/test_resident_developmental_cognition.py::test_restart_recovers_writeback_committed_before_composition_checkpoint": 0,
+    "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition": 0,
+    "tests/test_resident_developmental_cognition.py::test_retained_cognition_lesson_reaches_later_tick_after_restart": 0,
+    "tests/test_resident_developmental_cognition.py::test_same_tick_record_is_prohibited_from_retrieval": 0,
+    "tests/test_resident_developmental_cognition.py::test_self_model_and_epistemic_context_run_one_ordinary_condition": 0,
+    "tests/test_resident_developmental_cognition.py::test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget": 0,
+    "tests/test_resident_developmental_cognition.py::test_sentientosd_composes_explicit_prior_epistemic_projection": 0,
+    "tests/test_resident_developmental_cognition.py::test_sentientosd_preserves_exact_snapshot_and_absent_config_is_inert": 0,
+    "tests/test_resident_developmental_cognition.py::test_session_bound_observation_recovery_reconciles_exact_invocation_receipt": 0,
+    "tests/test_resident_developmental_cognition.py::test_tick_n_admitted_developmental_writeback_is_durable_and_bounded": 0,
+    "tests/test_resident_developmental_cognition.py::test_truncated_cognition_output_never_manufactures_retained_lesson": 0,
+    "tests/test_resident_developmental_cognition.py::test_unconsumed_evidence_citation_does_not_become_a_cognition_candidate": 0,
+    "tests/test_resident_developmental_cognition.py::test_unsigned_incident_narrative_is_not_attack_evidence_in_resident_cognition": 0,
+    "tests/test_resident_developmental_cognition.py::test_valid_quarantine_state_projection_preserves_actual_posture[False-False]": 0,
+    "tests/test_resident_developmental_cognition.py::test_valid_quarantine_state_projection_preserves_actual_posture[True-True]": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 53,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "048165ac821d72134e304e3dfa889927d0a6b80a",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_session_bound_observation_recovery_reconciles_exact_invocation_receipt",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_host_resource_owner_reaches_restart_safe_later_tick_cognition",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_quarantine_custody_failure_reaches_configured_cognition_and_next_tick_history",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_quarantine_custody_context_can_yield_scoped_later_tick_lesson",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_configured_snapshot_verifier_failure_reaches_scoped_cognition",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_integrity_controller_gate_results_reach_configured_cognition_as_context",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_unsigned_incident_narrative_is_not_attack_evidence_in_resident_cognition",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_later_valid_custody_evidence_can_narrow_an_earlier_failure_interpretation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_integrity_controller_gate_context_becomes_scoped_later_tick_history",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_quarantine_incident_restart_custody_reaches_later_cognition_as_context",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_valid_quarantine_state_projection_preserves_actual_posture[False-False]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_valid_quarantine_state_projection_preserves_actual_posture[True-True]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_meaning_bearing_epistemic_packets_reach_actual_inference_request",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_legacy_identifier_projection_is_valid_but_not_delivered_as_meaning",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_epistemic_only_prior_context_causes_real_owner_cognition",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_self_model_and_epistemic_context_run_one_ordinary_condition",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_all_four_substrates_reach_ordinary_cognition_when_comparison_disabled",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_tick_n_admitted_developmental_writeback_is_durable_and_bounded",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_restart_recovers_writeback_committed_before_composition_checkpoint",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_same_tick_record_is_prohibited_from_retrieval",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_controlled_with_record_and_withheld_comparison_is_opt_in_and_difference_only",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_repeated_current_evidence_does_not_reinterpret_after_history_changes",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_missing_or_crossed_admission_prevents_history_mutation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_configuration_is_exact_and_malformed_configuration_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_sentientosd_preserves_exact_snapshot_and_absent_config_is_inert",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_sentientosd_composes_explicit_prior_epistemic_projection",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_epistemic_runtime_configuration_is_explicit_exact_and_independently_disabled",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_recovered_history_order_uses_intent_not_wall_clock",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_developmental_roots_resolve_aliases_and_exclude_canonical_memory",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_cognition_checkpoint_round_trips_through_private_descriptor_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_cognition_checkpoint_rejects_replaced_symlink_root",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_concurrent_developmental_ticks_cannot_replay_one_tick",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_actual_history_conditioned_conclusion_is_the_retained_candidate",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_distinct_actual_conclusions_produce_distinct_bound_candidates",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_retained_cognition_lesson_reaches_later_tick_after_restart",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_unconsumed_evidence_citation_does_not_become_a_cognition_candidate",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_truncated_cognition_output_never_manufactures_retained_lesson",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_recovered_candidate_requires_its_exact_durable_cognition_observation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_experimental_history_arms_do_not_retain_cognition_lessons",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_cognition_lesson_writeback_is_later_tick_only_and_recovery_is_idempotent",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_modified_output_and_crossed_request_identity_are_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_out_of_scope_length_and_substituted_evidence_are_not_retained",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_interruption_after_cognition_observation_does_not_reinfer_or_fabricate_candidate",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_candidate_record_committed_before_checkpoint_recovers_once",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_null_lesson_packet_is_not_automatically_retained",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_real_governed_invocation_output_is_retained_without_a_lesson_only_call",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_real_invoker_null_candidate_does_not_turn_the_conclusion_into_a_lesson",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_missing_output_text_and_substituted_scope_never_create_a_candidate",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_compounded_integrity_failure_retains_unknown_pressure_through_later_cognition",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "ee5e06e3fdaecea5fd7e360dce801198451e8c5b0072dd0d7904dde3abcf8d3e",
+  "provenance_hash": "5bd2b51538ab4957cda78c82b77669d054e896bee8a8d4961467f2d8b5c8d061",
+  "pytest_args": [
+    "tests/test_resident_developmental_cognition.py",
+    "-q",
+    "--junitxml=/tmp/gr5-resident-cognition-junit.xml"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-gr5-venv/bin/python",
+  "repo_root": "/workspace/work/sentientos-gr5",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "2850b68d7e174aee9eecbea29e59b3d7",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_resident_developmental_cognition.py::test_session_bound_observation_recovery_reconciles_exact_invocation_receipt",
+    "tests/test_resident_developmental_cognition.py::test_host_resource_owner_reaches_restart_safe_later_tick_cognition",
+    "tests/test_resident_developmental_cognition.py::test_quarantine_custody_failure_reaches_configured_cognition_and_next_tick_history",
+    "tests/test_resident_developmental_cognition.py::test_quarantine_custody_context_can_yield_scoped_later_tick_lesson",
+    "tests/test_resident_developmental_cognition.py::test_configured_snapshot_verifier_failure_reaches_scoped_cognition",
+    "tests/test_resident_developmental_cognition.py::test_integrity_controller_gate_results_reach_configured_cognition_as_context",
+    "tests/test_resident_developmental_cognition.py::test_unsigned_incident_narrative_is_not_attack_evidence_in_resident_cognition",
+    "tests/test_resident_developmental_cognition.py::test_later_valid_custody_evidence_can_narrow_an_earlier_failure_interpretation",
+    "tests/test_resident_developmental_cognition.py::test_integrity_controller_gate_context_becomes_scoped_later_tick_history",
+    "tests/test_resident_developmental_cognition.py::test_quarantine_incident_restart_custody_reaches_later_cognition_as_context",
+    "tests/test_resident_developmental_cognition.py::test_valid_quarantine_state_projection_preserves_actual_posture[False-False]",
+    "tests/test_resident_developmental_cognition.py::test_valid_quarantine_state_projection_preserves_actual_posture[True-True]",
+    "tests/test_resident_developmental_cognition.py::test_meaning_bearing_epistemic_packets_reach_actual_inference_request",
+    "tests/test_resident_developmental_cognition.py::test_legacy_identifier_projection_is_valid_but_not_delivered_as_meaning",
+    "tests/test_resident_developmental_cognition.py::test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget",
+    "tests/test_resident_developmental_cognition.py::test_epistemic_only_prior_context_causes_real_owner_cognition",
+    "tests/test_resident_developmental_cognition.py::test_self_model_and_epistemic_context_run_one_ordinary_condition",
+    "tests/test_resident_developmental_cognition.py::test_all_four_substrates_reach_ordinary_cognition_when_comparison_disabled",
+    "tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant",
+    "tests/test_resident_developmental_cognition.py::test_tick_n_admitted_developmental_writeback_is_durable_and_bounded",
+    "tests/test_resident_developmental_cognition.py::test_restart_recovers_writeback_committed_before_composition_checkpoint",
+    "tests/test_resident_developmental_cognition.py::test_same_tick_record_is_prohibited_from_retrieval",
+    "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
+    "tests/test_resident_developmental_cognition.py::test_controlled_with_record_and_withheld_comparison_is_opt_in_and_difference_only",
+    "tests/test_resident_developmental_cognition.py::test_repeated_current_evidence_does_not_reinterpret_after_history_changes",
+    "tests/test_resident_developmental_cognition.py::test_missing_or_crossed_admission_prevents_history_mutation",
+    "tests/test_resident_developmental_cognition.py::test_configuration_is_exact_and_malformed_configuration_fails_closed",
+    "tests/test_resident_developmental_cognition.py::test_sentientosd_preserves_exact_snapshot_and_absent_config_is_inert",
+    "tests/test_resident_developmental_cognition.py::test_sentientosd_composes_explicit_prior_epistemic_projection",
+    "tests/test_resident_developmental_cognition.py::test_epistemic_runtime_configuration_is_explicit_exact_and_independently_disabled",
+    "tests/test_resident_developmental_cognition.py::test_recovered_history_order_uses_intent_not_wall_clock",
+    "tests/test_resident_developmental_cognition.py::test_developmental_roots_resolve_aliases_and_exclude_canonical_memory",
+    "tests/test_resident_developmental_cognition.py::test_cognition_checkpoint_round_trips_through_private_descriptor_custody",
+    "tests/test_resident_developmental_cognition.py::test_cognition_checkpoint_rejects_replaced_symlink_root",
+    "tests/test_resident_developmental_cognition.py::test_concurrent_developmental_ticks_cannot_replay_one_tick",
+    "tests/test_resident_developmental_cognition.py::test_actual_history_conditioned_conclusion_is_the_retained_candidate",
+    "tests/test_resident_developmental_cognition.py::test_distinct_actual_conclusions_produce_distinct_bound_candidates",
+    "tests/test_resident_developmental_cognition.py::test_retained_cognition_lesson_reaches_later_tick_after_restart",
+    "tests/test_resident_developmental_cognition.py::test_unconsumed_evidence_citation_does_not_become_a_cognition_candidate",
+    "tests/test_resident_developmental_cognition.py::test_truncated_cognition_output_never_manufactures_retained_lesson",
+    "tests/test_resident_developmental_cognition.py::test_recovered_candidate_requires_its_exact_durable_cognition_observation",
+    "tests/test_resident_developmental_cognition.py::test_experimental_history_arms_do_not_retain_cognition_lessons",
+    "tests/test_resident_developmental_cognition.py::test_cognition_lesson_writeback_is_later_tick_only_and_recovery_is_idempotent",
+    "tests/test_resident_developmental_cognition.py::test_modified_output_and_crossed_request_identity_are_rejected",
+    "tests/test_resident_developmental_cognition.py::test_out_of_scope_length_and_substituted_evidence_are_not_retained",
+    "tests/test_resident_developmental_cognition.py::test_interruption_after_cognition_observation_does_not_reinfer_or_fabricate_candidate",
+    "tests/test_resident_developmental_cognition.py::test_candidate_record_committed_before_checkpoint_recovers_once",
+    "tests/test_resident_developmental_cognition.py::test_null_lesson_packet_is_not_automatically_retained",
+    "tests/test_resident_developmental_cognition.py::test_real_governed_invocation_output_is_retained_without_a_lesson_only_call",
+    "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them",
+    "tests/test_resident_developmental_cognition.py::test_real_invoker_null_candidate_does_not_turn_the_conclusion_into_a_lesson",
+    "tests/test_resident_developmental_cognition.py::test_missing_output_text_and_substituted_scope_never_create_a_candidate",
+    "tests/test_resident_developmental_cognition.py::test_compounded_integrity_failure_retains_unknown_pressure_through_later_cognition"
+  ],
+  "selection_flags": [
+    "tests/test_resident_developmental_cognition.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 53,
+  "tests_executed": 53,
+  "tests_failed": 0,
+  "tests_passed": 53,
+  "tests_selected": 53,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T23:14:03.436836+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
