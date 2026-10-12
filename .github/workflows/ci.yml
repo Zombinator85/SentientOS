@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SENTIENTOS_HEADLESS: "1"
-      SENTIENTOS_GOVERNOR_ROOT: ${{ github.workspace }}/.ci-runtime/governor
-      SENTIENTOS_REPO_ROOT: ${{ github.workspace }}
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/governor
       SENTIENTOS_CI_MIN_PASSED: "1"
       SENTIENTOS_CI_MAX_SKIP_RATE: "0.20"
       SENTIENTOS_CI_MAX_XFAIL_RATE: "0.10"
@@ -468,8 +467,7 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     env:
-      SENTIENTOS_GOVERNOR_ROOT: ${{ github.workspace }}/.ci-runtime/docs-governor
-      SENTIENTOS_REPO_ROOT: ${{ github.workspace }}
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/docs-governor
     steps:
       - uses: actions/checkout@v4
 
@@ -485,8 +483,7 @@ jobs:
   helm-k8s-test:
     runs-on: ubuntu-latest
     env:
-      SENTIENTOS_GOVERNOR_ROOT: ${{ github.workspace }}/.ci-runtime/helm-governor
-      SENTIENTOS_REPO_ROOT: ${{ github.workspace }}
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/helm-governor
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

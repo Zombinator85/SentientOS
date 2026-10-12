@@ -9,8 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SENTIENTOS_HEADLESS: "1"
-      SENTIENTOS_GOVERNOR_ROOT: ${{ runner.temp }}/sentientos-invariant-governor
-      SENTIENTOS_REPO_ROOT: ${{ github.workspace }}
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/invariant-governor
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
