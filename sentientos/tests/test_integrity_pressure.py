@@ -8,6 +8,12 @@ from pathlib import Path
 import pytest
 
 from sentientos.forge_merge_train import ForgeMergeTrain
+from sentientos.integrity_incident import (
+    INCIDENTS_DIR,
+    IntegrityIncidentFeedRecordError,
+    Incident,
+    write_incident,
+)
 from sentientos.integrity_pressure import (
     MAX_INCIDENT_FEED_BYTES, MAX_INCIDENT_ROWS, MAX_INCIDENT_ROW_BYTES,
     IntegrityPressureInputError, apply_escalation, compute_integrity_pressure,
@@ -56,6 +62,51 @@ def test_compute_pressure_from_synthetic_incidents(tmp_path: Path, monkeypatch) 
     assert snapshot.metrics.unique_trigger_types_last_24h == 2
     assert snapshot.metrics.quarantine_activations_last_24h == 1
     assert snapshot.level == 2
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_owner_publishes_rows_accepted_by_bounded_pressure_reader(
+    tmp_path: Path,
+) -> None:
+    incident = Incident(
+        schema_version=1,
+        incident_id="incident-bounded-1",
+        created_at="2026-10-12T00:00:00Z",
+        severity="warning",
+        triggers=["receipt_chain_warning"],
+        enforcement_mode="warn",
+        context={},
+        evidence_paths=[],
+        suggested_actions=[],
+    )
+    write_incident(tmp_path, incident)
+
+    snapshot = compute_integrity_pressure(tmp_path)
+    assert snapshot.metrics.incidents_last_24h == 1
+    assert snapshot.metrics.unique_trigger_types_last_24h == 1
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_owner_rejects_row_outside_reader_trigger_bound_before_writing(
+    tmp_path: Path,
+) -> None:
+    incident = Incident(
+        schema_version=1,
+        incident_id="incident-oversized-trigger",
+        created_at="2026-10-12T00:00:00Z",
+        severity="warning",
+        triggers=["x" * 513],
+        enforcement_mode="warn",
+        context={},
+        evidence_paths=[],
+        suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentFeedRecordError) as raised:
+        write_incident(tmp_path, incident)
+    assert raised.value.code == "incident_feed_trigger_limit_exceeded"
+    assert not list((tmp_path / INCIDENTS_DIR).glob("incident_*.json"))
+    assert not (tmp_path / "pulse/integrity_incidents.jsonl").exists()
+    assert compute_integrity_pressure(tmp_path).metrics.incidents_last_24h == 0
 
 
 def test_escalation_and_disable_flag(monkeypatch) -> None:  # type: ignore[no-untyped-def]

@@ -9,9 +9,22 @@ import subprocess
 from typing import Any
 
 from sentientos.artifact_catalog import append_catalog_entry
+from sentientos.integrity_pressure import (
+    MAX_INCIDENT_ROW_BYTES,
+    MAX_TRIGGERS_PER_INCIDENT,
+    MAX_TRIGGER_CHARS,
+)
 
 INCIDENTS_DIR = Path("glow/forge/incidents")
 INCIDENTS_FEED_PATH = Path("pulse/integrity_incidents.jsonl")
+
+
+class IntegrityIncidentFeedRecordError(ValueError):
+    """An incident cannot be represented by the bounded pressure-feed schema."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
 
 
 @dataclass(slots=True)
@@ -88,9 +101,13 @@ def build_incident(
 def write_incident(repo_root: Path, incident: Incident, *, quarantine_activated: bool = False) -> Path:
     root = repo_root.resolve()
     incident_path = root / INCIDENTS_DIR / f"incident_{_safe_timestamp(incident.created_at)}_{_incident_short_hash(incident.incident_id)}.json"
+    # Validate the observation row before publishing the full incident artifact
+    # so a record that the bounded reader cannot consume never poisons its feed.
+    feed_row = _incident_feed_row(root, incident, incident_path, quarantine_activated=quarantine_activated)
+    feed_bytes = _serialize_incident_feed_row(feed_row)
     incident_path.parent.mkdir(parents=True, exist_ok=True)
     incident_path.write_text(json.dumps(incident.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    append_incident_feed(root, incident, incident_path, quarantine_activated=quarantine_activated)
+    _append_incident_feed_bytes(root, feed_bytes)
     append_catalog_entry(
         root,
         kind="incident",
@@ -111,7 +128,19 @@ def write_incident(repo_root: Path, incident: Incident, *, quarantine_activated:
 
 
 def append_incident_feed(repo_root: Path, incident: Incident, incident_path: Path, *, quarantine_activated: bool = False) -> None:
-    row = {
+    root = repo_root.resolve()
+    row = _incident_feed_row(root, incident, incident_path, quarantine_activated=quarantine_activated)
+    _append_incident_feed_bytes(root, _serialize_incident_feed_row(row))
+
+
+def _incident_feed_row(
+    root: Path, incident: Incident, incident_path: Path, *, quarantine_activated: bool,
+) -> dict[str, object]:
+    try:
+        relative_path = str(incident_path.relative_to(root))
+    except ValueError as exc:
+        raise IntegrityIncidentFeedRecordError("incident_feed_path_outside_root") from exc
+    return {
         "schema_version": 1,
         "incident_id": incident.incident_id,
         "created_at": incident.created_at,
@@ -119,14 +148,50 @@ def append_incident_feed(repo_root: Path, incident: Incident, incident_path: Pat
         "enforcement_mode": incident.enforcement_mode,
         "quarantine_activated": quarantine_activated,
         "triggers": incident.triggers,
-        "path": str(incident_path.relative_to(repo_root.resolve())),
+        "path": relative_path,
         "governance_trace_id": incident.governance_trace_id,
         "remediation_pack_id": incident.remediation_pack_id,
     }
-    target = repo_root.resolve() / INCIDENTS_FEED_PATH
+
+
+def _serialize_incident_feed_row(row: dict[str, object]) -> bytes:
+    timestamp = row.get("created_at")
+    if not isinstance(timestamp, str) or not timestamp:
+        raise IntegrityIncidentFeedRecordError("incident_feed_event_time_invalid")
+    try:
+        parsed_at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise IntegrityIncidentFeedRecordError("incident_feed_event_time_invalid") from exc
+    if parsed_at.tzinfo is None:
+        raise IntegrityIncidentFeedRecordError("incident_feed_event_time_invalid")
+    if type(row.get("quarantine_activated")) is not bool:
+        raise IntegrityIncidentFeedRecordError("incident_feed_quarantine_flag_invalid")
+    if not isinstance(row.get("enforcement_mode"), str):
+        raise IntegrityIncidentFeedRecordError("incident_feed_enforcement_mode_invalid")
+    triggers = row.get("triggers")
+    if not isinstance(triggers, list) or any(not isinstance(item, str) for item in triggers):
+        raise IntegrityIncidentFeedRecordError("incident_feed_triggers_invalid")
+    if len(triggers) > MAX_TRIGGERS_PER_INCIDENT or any(
+        len(item) > MAX_TRIGGER_CHARS for item in triggers
+    ):
+        raise IntegrityIncidentFeedRecordError("incident_feed_trigger_limit_exceeded")
+    try:
+        encoded = (json.dumps(row, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError) as exc:
+        raise IntegrityIncidentFeedRecordError("incident_feed_row_not_serializable") from exc
+    if len(encoded) - 1 > MAX_INCIDENT_ROW_BYTES:
+        raise IntegrityIncidentFeedRecordError("incident_feed_row_size_limit_exceeded")
+    return encoded
+
+
+def _append_incident_feed_bytes(root: Path, encoded: bytes) -> None:
+    target = root / INCIDENTS_FEED_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(row, sort_keys=True) + "\n")
+    with target.open("ab") as handle:
+        written = handle.write(encoded)
+        if written != len(encoded):
+            raise OSError("incident_feed_append_incomplete")
+        handle.flush()
 
 
 def build_base_context(repo_root: Path) -> dict[str, object]:
