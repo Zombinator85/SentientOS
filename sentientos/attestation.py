@@ -28,6 +28,7 @@ class VerifyResult:
     reason: str | None
     checked_n: int
     last_ok_hash: str | None
+    failed_record_sha256: str | None = None
 
 
 @dataclass(frozen=True)

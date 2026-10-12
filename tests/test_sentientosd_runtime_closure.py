@@ -77,7 +77,7 @@ def test_integrity_controller_observation_is_bounded_context_only_and_opt_in(
         tmp_path, observed_at="2026-10-12T00:00:00+00:00")
     assert record is not None
     assert record["source_kind"] == "audit_trust"
-    assert record["schema_version"] == "sentientos.integrity_controller_observation:v1"
+    assert record["schema_version"] == "sentientos.integrity_controller_observation:v2"
     payload = record["payload"]
     assert payload["observation_schema"] == record["schema_version"]
     assert payload["source_owner"] == "sentientos.integrity_controller.evaluate_integrity"

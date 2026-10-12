@@ -1358,8 +1358,10 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.stage == "observation"
             and fact.disposition == "degraded"
             and fact.evidence_strength == "owner_observed_signature_chain_verification_failure"
-            and payload.get("observation_schema")
-                == "sentientos.attestation_snapshot_verification_observation:v1"
+            and payload.get("observation_schema") in {
+                "sentientos.attestation_snapshot_verification_observation:v1",
+                "sentientos.attestation_snapshot_verification_observation:v2",
+            }
             and payload.get("source_owner")
                 == "sentientos.attestation_snapshot.verify_recent_snapshots"
             and payload.get("event_time_posture")
@@ -1611,8 +1613,10 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.get("evidence_strength")
                 == "owner_observed_signature_chain_verification_failure"
             and isinstance(fact.get("payload"), Mapping)
-            and fact["payload"].get("observation_schema")
-                == "sentientos.attestation_snapshot_verification_observation:v1"
+            and fact["payload"].get("observation_schema") in {
+                "sentientos.attestation_snapshot_verification_observation:v1",
+                "sentientos.attestation_snapshot_verification_observation:v2",
+            }
             and fact["payload"].get("source_owner")
                 == "sentientos.attestation_snapshot.verify_recent_snapshots"
             and fact["payload"].get("event_time_posture")

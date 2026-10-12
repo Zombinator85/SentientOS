@@ -189,6 +189,7 @@ def verify_recent_snapshots(repo_root: Path, *, last: int = 10) -> VerifyResult:
     checked_n = 0
     last_ok_hash: str | None = None
     for row in rows:
+        failure_digest = _signature_row_digest(row)
         version = row.get("schema_version")
         created_at = row.get("created_at")
         object_id = row.get("object_id")
@@ -212,7 +213,7 @@ def verify_recent_snapshots(repo_root: Path, *, last: int = 10) -> VerifyResult:
                 or not isinstance(algorithm, str) or algorithm != signer["algorithm"]
                 or (previous is not None and (not isinstance(previous, str) or len(previous) != 64
                     or any(ch not in "0123456789abcdef" for ch in previous)))):
-            return _verify_fail(policy, checked_n, last_ok_hash, "signature_envelope_invalid")
+            return _verify_fail(policy, checked_n, last_ok_hash, "signature_envelope_invalid", failure_digest)
         payload = {
             "schema_version": version,
             "kind": row["kind"],
@@ -226,24 +227,24 @@ def verify_recent_snapshots(repo_root: Path, *, last: int = 10) -> VerifyResult:
         }
         payload_sha = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
         if as_str(row.get("sig_payload_sha256")) != payload_sha:
-            return _verify_fail(policy, checked_n, last_ok_hash, "sig_payload_sha_mismatch")
+            return _verify_fail(policy, checked_n, last_ok_hash, "sig_payload_sha_mismatch", failure_digest)
         if not _verify_signature(signer, payload_sha, as_str(row.get("signature")) or ""):
-            return _verify_fail(policy, checked_n, last_ok_hash, "signature_invalid")
+            return _verify_fail(policy, checked_n, last_ok_hash, "signature_invalid", failure_digest)
         sig_hash = as_str(row.get("sig_hash"))
         if sig_hash != compute_envelope_hash(row, hash_field="sig_hash"):
-            return _verify_fail(policy, checked_n, last_ok_hash, "sig_hash_mismatch")
+            return _verify_fail(policy, checked_n, last_ok_hash, "sig_hash_mismatch", failure_digest)
         if prev_hash and as_str(row.get("prev_sig_hash")) != prev_hash:
-            return _verify_fail(policy, checked_n, last_ok_hash, "prev_sig_hash_mismatch")
+            return _verify_fail(policy, checked_n, last_ok_hash, "prev_sig_hash_mismatch", failure_digest)
         try:
             snapshot_payload = _read_snapshot_payload(root, path_text)
         except (PrivateFileCustodyError, WindowsHandleCustodyError, OSError,
                 UnicodeError, ValueError, json.JSONDecodeError):
-            return _verify_fail(policy, checked_n, last_ok_hash, "snapshot_custody_invalid")
+            return _verify_fail(policy, checked_n, last_ok_hash, "snapshot_custody_invalid", failure_digest)
         if snapshot_payload.get("ts") != created_at:
-            return _verify_fail(policy, checked_n, last_ok_hash, "snapshot_identity_mismatch")
+            return _verify_fail(policy, checked_n, last_ok_hash, "snapshot_identity_mismatch", failure_digest)
         obj_sha = hashlib.sha256(canonical_json_bytes(snapshot_payload)).hexdigest()
         if object_sha != obj_sha:
-            return _verify_fail(policy, checked_n, last_ok_hash, "object_sha_mismatch")
+            return _verify_fail(policy, checked_n, last_ok_hash, "object_sha_mismatch", failure_digest)
         prev_hash = sig_hash
         checked_n += 1
         last_ok_hash = sig_hash
@@ -422,10 +423,23 @@ def latest_snapshot_hashes(repo_root: Path) -> tuple[str | None, str | None]:
     return snapshot_hash, sig_hash
 
 
-def _verify_fail(policy: object, checked_n: int, last_ok_hash: str | None, reason: str) -> VerifyResult:
+def _signature_row_digest(row: dict[str, object]) -> str | None:
+    try:
+        return hashlib.sha256(canonical_json_bytes(row)).hexdigest()
+    except (TypeError, ValueError, UnicodeError):
+        return None
+
+
+def _verify_fail(
+    policy: object, checked_n: int, last_ok_hash: str | None, reason: str,
+    failed_record_sha256: str | None = None,
+) -> VerifyResult:
     enforce = getattr(policy, "enforce")
     status = "fail" if enforce else "warn"
-    return VerifyResult(ok=False, status=status, reason=reason, checked_n=checked_n, last_ok_hash=last_ok_hash)
+    return VerifyResult(
+        ok=False, status=status, reason=reason, checked_n=checked_n,
+        last_ok_hash=last_ok_hash, failed_record_sha256=failed_record_sha256,
+    )
 
 
 def _resolve_signer(*, require_configured: bool) -> dict[str, str] | None:

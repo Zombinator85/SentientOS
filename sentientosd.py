@@ -253,9 +253,14 @@ def _attestation_snapshot_verification_world_state_record(
         checked = result.checked_n if type(result.checked_n) is int and 0 <= result.checked_n <= MAX_SNAPSHOT_VERIFY_ITEMS else None
         reason = result.reason if isinstance(result.reason, str) and len(result.reason) <= 128 else None
         last_hash = result.last_ok_hash
+        failed_record_sha256 = result.failed_record_sha256
         if (checked is None or status == "invalid"
                 or (last_hash is not None and (not isinstance(last_hash, str)
-                    or len(last_hash) != 64 or any(ch not in "0123456789abcdef" for ch in last_hash)))):
+                    or len(last_hash) != 64 or any(ch not in "0123456789abcdef" for ch in last_hash)))
+                or (failed_record_sha256 is not None and (
+                    not isinstance(failed_record_sha256, str)
+                    or len(failed_record_sha256) != 64
+                    or any(ch not in "0123456789abcdef" for ch in failed_record_sha256)))):
             raise ValueError("verifier_result_contract_invalid")
         if status == "ok" and okay is not True:
             raise ValueError("verifier_result_contract_invalid")
@@ -275,12 +280,13 @@ def _attestation_snapshot_verification_world_state_record(
         reason_code = reason
     except Exception as exc:
         status, okay, checked, last_hash = "unavailable", None, None, None
+        failed_record_sha256 = None
         reason_code = "verifier_observation_unavailable:" + type(exc).__name__[:64]
         event_meaning = "The configured attestation snapshot verifier did not return a usable result; cause is unknown."
         evidence_strength = "owner_verification_observation_unavailable"
         disposition = "unavailable"
     payload = {
-        "observation_schema": "sentientos.attestation_snapshot_verification_observation:v1",
+        "observation_schema": "sentientos.attestation_snapshot_verification_observation:v2",
         "source_owner": "sentientos.attestation_snapshot.verify_recent_snapshots",
         "event_time_posture": "daemon_tick_point_observation_of_bounded_verifier",
         "verification_result": status,
@@ -288,6 +294,7 @@ def _attestation_snapshot_verification_world_state_record(
         "verification_reason": reason_code,
         "checked_signature_count": checked,
         "last_verified_signature_hash": last_hash,
+        "failed_signature_record_sha256": failed_record_sha256,
         "event_meaning": event_meaning,
         "cause_unknown": True,
         "attack_established": False,
@@ -303,7 +310,7 @@ def _attestation_snapshot_verification_world_state_record(
     return {
         "source_kind": WorldStateSourceKind.AUDIT_TRUST.value,
         "source_id": "attestation-snapshot-verification:resident-daemon",
-        "schema_version": "sentientos.attestation_snapshot_verification_observation:v1",
+        "schema_version": "sentientos.attestation_snapshot_verification_observation:v2",
         "subject_id": "configured-attestation-snapshot-signature-chain",
         "subject_kind": "attestation_snapshot_verification_observation",
         "stage": "observation",
@@ -330,7 +337,7 @@ def _integrity_controller_world_state_record(
         status = evaluate_integrity(
             repo_root, policy_hash=compute_policy_hash(build_policy_dict()))
         posture = status.status
-        if (type(status.schema_version) is not int or status.schema_version != 2
+        if (type(status.schema_version) is not int or status.schema_version != 3
                 or posture not in {"ok", "warn", "fail"}
                 or not isinstance(status.ts, str) or len(status.ts) > 64
                 or not isinstance(status.policy_hash, str)
@@ -350,6 +357,11 @@ def _integrity_controller_world_state_record(
                     or not isinstance(gate.checked_at, str) or len(gate.checked_at) > 64
                     or not isinstance(gate.evidence_paths, list)
                     or len(gate.evidence_paths) > 8
+                    or (gate.failed_record_sha256 is not None
+                        and (not isinstance(gate.failed_record_sha256, str)
+                            or len(gate.failed_record_sha256) != 64
+                            or any(char not in "0123456789abcdef"
+                                for char in gate.failed_record_sha256)))
                     or any(not isinstance(path, str) or len(path) > 256
                            for path in gate.evidence_paths)):
                 raise ValueError("integrity_status_gate_contract_invalid")
@@ -357,6 +369,7 @@ def _integrity_controller_world_state_record(
                 "name": gate.name, "status": gate.status, "reason": gate.reason,
                 "checked_at": gate.checked_at,
                 "evidence_paths": list(gate.evidence_paths),
+                "failed_record_sha256": gate.failed_record_sha256,
             })
         if len({gate["name"] for gate in gates}) != len(gates):
             raise ValueError("integrity_status_gate_identity_conflict")
@@ -393,7 +406,7 @@ def _integrity_controller_world_state_record(
         integrity_digest = None
         unavailable_reason = "controller_observation_unavailable:" + type(exc).__name__[:64]
     payload = {
-        "observation_schema": "sentientos.integrity_controller_observation:v1",
+        "observation_schema": "sentientos.integrity_controller_observation:v2",
         "source_owner": "sentientos.integrity_controller.evaluate_integrity",
         "event_time_posture": "daemon_tick_point_observation_of_integrity_controller",
         "controller_posture": result_posture,
@@ -419,7 +432,7 @@ def _integrity_controller_world_state_record(
     return {
         "source_kind": WorldStateSourceKind.AUDIT_TRUST.value,
         "source_id": "integrity-controller:resident-daemon",
-        "schema_version": "sentientos.integrity_controller_observation:v1",
+        "schema_version": "sentientos.integrity_controller_observation:v2",
         "subject_id": "configured-integrity-controller-verification",
         "subject_kind": "integrity_controller_observation",
         "stage": "observation",

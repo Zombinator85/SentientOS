@@ -34,6 +34,7 @@ class IntegrityGateResult:
     reason: str
     evidence_paths: list[str]
     checked_at: str
+    failed_record_sha256: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -42,6 +43,7 @@ class IntegrityGateResult:
             "reason": self.reason,
             "evidence_paths": list(self.evidence_paths),
             "checked_at": self.checked_at,
+            "failed_record_sha256": self.failed_record_sha256,
         }
 
 
@@ -188,7 +190,7 @@ def evaluate_integrity(repo_root: Path, *, policy_hash: str, replay_mode: bool =
         "witness_attempts_per_window": integrity_budget.max_witness_attempts_per_window,
     }
     return IntegrityStatus(
-        schema_version=2,
+        schema_version=3,
         ts=checked_at,
         strategic_posture=posture.posture,
         operating_mode=throughput.mode,
@@ -289,7 +291,11 @@ def _gate_snapshot_signatures(root: Path, checked_at: str, budget: IntegrityBudg
     result = verify_recent_snapshots(root, last=budget.max_verify_items_per_stream)
     if result.status == "ok":
         return IntegrityGateResult("attestation_snapshot_signatures", "ok", "ok", [], checked_at)
-    return IntegrityGateResult("attestation_snapshot_signatures", result.status, result.reason or "snapshot_signature_verify_failed", [], checked_at)
+    return IntegrityGateResult(
+        "attestation_snapshot_signatures", result.status,
+        result.reason or "snapshot_signature_verify_failed", [], checked_at,
+        result.failed_record_sha256,
+    )
 
 
 def _gate_rollup_signatures(root: Path, checked_at: str, budget: IntegrityBudget, *, dry_run: bool = False) -> IntegrityGateResult | None:

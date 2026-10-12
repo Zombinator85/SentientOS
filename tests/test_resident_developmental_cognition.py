@@ -392,6 +392,8 @@ def test_quarantine_custody_context_can_yield_scoped_later_tick_lesson(tmp_path:
 
 
 def test_configured_snapshot_verifier_failure_reaches_scoped_cognition(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import hashlib
+    from sentientos.attestation import canonical_json_bytes
     from sentientos.attestation_snapshot import (
         AttestationSnapshot, SIGNATURE_INDEX_PATH, emit_snapshot, maybe_sign_snapshot,
     )
@@ -419,6 +421,7 @@ def test_configured_snapshot_verifier_failure_reaches_scoped_cognition(tmp_path:
     index = tmp_path / SIGNATURE_INDEX_PATH
     row = json.loads(index.read_text(encoding="utf-8").splitlines()[0])
     row["signature"] = "deliberately-invalid-test-signature"
+    failed_record_digest = hashlib.sha256(canonical_json_bytes(row)).hexdigest()
     index.write_text(json.dumps(row, sort_keys=True) + "\n", encoding="utf-8")
 
     first_owner, _first_fake = owner(
@@ -437,6 +440,7 @@ def test_configured_snapshot_verifier_failure_reaches_scoped_cognition(tmp_path:
     assert failure_fact.disposition == "degraded"
     assert failure_fact.payload["verification_result"] == "fail"
     assert failure_fact.payload["verification_reason"] == "signature_invalid"
+    assert failure_fact.payload["failed_signature_record_sha256"] == failed_record_digest
     assert failure_fact.payload["attack_established"] is False
     assert failure_fact.payload["compromise_established"] is False
     first = first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)

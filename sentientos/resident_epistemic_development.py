@@ -389,8 +389,15 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.stage == "observation"
             and fact.disposition == "degraded"
             and fact.evidence_strength == "owner_observed_signature_chain_verification_failure"
-            and attestation_payload.get("observation_schema")
-                == "sentientos.attestation_snapshot_verification_observation:v1"
+            and attestation_payload.get("observation_schema") in {
+                "sentientos.attestation_snapshot_verification_observation:v1",
+                "sentientos.attestation_snapshot_verification_observation:v2",
+            }
+            and (attestation_payload.get("failed_signature_record_sha256") is None
+                or (isinstance(attestation_payload.get("failed_signature_record_sha256"), str)
+                    and len(attestation_payload["failed_signature_record_sha256"]) == 64
+                    and all(ch in "0123456789abcdef"
+                        for ch in attestation_payload["failed_signature_record_sha256"])))
             and attestation_payload.get("source_owner")
                 == "sentientos.attestation_snapshot.verify_recent_snapshots"
             and attestation_payload.get("event_time_posture")
@@ -419,8 +426,10 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.disposition in {"recorded", "degraded", "unavailable"}
             and fact.evidence_strength in {
                 "source_integrity_status", "integrity_controller_observation_unavailable"}
-            and integrity_payload.get("observation_schema")
-                == "sentientos.integrity_controller_observation:v1"
+            and integrity_payload.get("observation_schema") in {
+                "sentientos.integrity_controller_observation:v1",
+                "sentientos.integrity_controller_observation:v2",
+            }
             and integrity_payload.get("source_owner")
                 == "sentientos.integrity_controller.evaluate_integrity"
             and integrity_payload.get("event_time_posture")
@@ -430,6 +439,13 @@ class ResidentEpistemicDevelopmentRuntime:
             and 0 <= integrity_payload["gate_count"] <= 32
             and isinstance(integrity_payload.get("gate_results"), list)
             and len(integrity_payload["gate_results"]) == integrity_payload["gate_count"]
+            and all(isinstance(gate, Mapping)
+                and (gate.get("failed_record_sha256") is None
+                    or (isinstance(gate.get("failed_record_sha256"), str)
+                        and len(gate["failed_record_sha256"]) == 64
+                        and all(ch in "0123456789abcdef"
+                            for ch in gate["failed_record_sha256"])))
+                for gate in integrity_payload["gate_results"])
             and integrity_payload.get("cause_unknown") is True
             and integrity_payload.get("attack_established") is False
             and integrity_payload.get("hostile_activity_established") is False
