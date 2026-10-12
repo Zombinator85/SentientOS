@@ -878,7 +878,18 @@ def test_quarantine_incident_restart_custody_reaches_later_cognition_as_context(
     assert fact.payload["incident_activated_at"] == event_at
     assert fact.observed_at == first_tick
     assert fact.payload["feed_is_authenticated"] is False
-    first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    first_result = first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    first_record = first_owner.writeback.store.get(first_result["written_record_id"])
+    assert fact.fact_id in first_record.candidate["selected_fact_ids"]
+    retained_context = first_record.candidate["selected_facts"]
+    retained_incident = next(item for item in retained_context
+        if item["fact_id"] == fact.fact_id)
+    assert retained_incident["payload"]["reconciliation_status"] == "complete_local_custody"
+    assert "ATTACKER_NARRATIVE_FIXTURE" not in first_fake.requests[0].prompt
+    # A later source read may disagree or become incomplete. It cannot rewrite
+    # the exact earlier observation retained with the developmental record.
+    (tmp_path / "pulse/integrity_incidents.jsonl").write_text(
+        '{"schema_version":1,"incident_id":"substituted"}\n', encoding="utf-8")
     current_request = next(request for request in first_fake.requests
         if request.purpose == "resident_developmental_interpretation")
     assert "local artifact and feed custody" in current_request.prompt
@@ -896,6 +907,11 @@ def test_quarantine_incident_restart_custody_reaches_later_cognition_as_context(
     )
     second_tick = "2026-10-12T00:00:01+00:00"
     second_surfaces.build_world_state_board(tick_id=second_tick)
+    second_snapshot = second_surfaces.current_world_state_snapshot
+    assert second_snapshot is not None
+    current_incident = next(item for item in second_snapshot.facts
+        if item.subject.subject_kind == "quarantine_incident_custody_observation")
+    assert current_incident.payload["reconciliation_status"] == "conflict"
     second_result = second_surfaces.run_resident_developmental_cognition(tick_id=second_tick)
     history_request = next(request for request in second_fake.requests
         if request.purpose == "resident_developmental_retrieval_cognition")
@@ -905,6 +921,16 @@ def test_quarantine_incident_restart_custody_reaches_later_cognition_as_context(
     assert "does not establish attack" in history_request.prompt
     assert "ATTACKER_NARRATIVE_FIXTURE" not in history_request.prompt
     assert "UNTRUSTED_ACTION_FIXTURE" not in history_request.prompt
+    history_packet = json.loads(history_request.prompt)
+    prior_packets = history_packet["developmental_history"]
+    source_contexts = [context for packet in prior_packets
+        for context in packet.get("source_evidence_context", [])]
+    historical_incident = next(context for context in source_contexts
+        if context.get("fact_id") == fact.fact_id)
+    assert historical_incident["context"]["reconciliation_status"] == "complete_local_custody"
+    assert historical_incident["context"]["incident_activated_at"] == event_at
+    assert history_request.upstream_evidence["record_ids"]
+    assert first_result["written_record_id"] in history_request.upstream_evidence["record_ids"]
     assert second_result["written_record_id"]
     assert second_owner.writeback.store.get(second_result["written_record_id"])
     reset_runtime_governor()
@@ -1868,3 +1894,83 @@ def test_missing_output_text_and_substituted_scope_never_create_a_candidate(tmp_
     scoped.writeback.candidate_from_history_conditioned_cognition = substitute_scope
     with pytest.raises(DevelopmentalWritebackError, match="cognition_lesson_output_invalid"):
         scoped.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+
+
+def test_compounded_integrity_failure_retains_unknown_pressure_through_later_cognition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "trust/state.json"))
+    monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0")
+    reset_runtime_governor()
+
+    from sentientos.integrity_quarantine import QUARANTINE_PATH
+    quarantine = tmp_path / QUARANTINE_PATH
+    quarantine.parent.mkdir(parents=True, exist_ok=True)
+    quarantine.write_text("{malformed protective state", encoding="utf-8")
+    feed = tmp_path / "pulse/integrity_incidents.jsonl"
+    feed.parent.mkdir(parents=True, exist_ok=True)
+    feed.write_text("{malformed pressure feed", encoding="utf-8")
+
+    cognition, fake = owner(
+        tmp_path / "cognition", allowed_source_kinds=("audit_trust",),
+    )
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=cognition,  # type: ignore[arg-type]
+    )
+    tick = "2026-10-12T00:00:00+00:00"
+    surfaces.build_world_state_board(tick_id=tick)
+    snapshot_value = surfaces.current_world_state_snapshot
+    assert snapshot_value is not None
+    fact = next(item for item in snapshot_value.facts
+        if item.subject.subject_kind == "integrity_controller_observation")
+    assert fact.payload["controller_posture"] == "fail"
+    assert fact.payload["failed_gate_count"] >= 2
+    assert "pressure_summary" not in fact.payload
+    current_gates = {row["name"]: row for row in fact.payload["gate_results"]}
+    assert current_gates["quarantine_custody"]["status"] == "fail"
+    assert current_gates["integrity_pressure_input"]["status"] == "fail"
+
+    first = surfaces.run_resident_developmental_cognition(tick_id=tick)
+    assert first["written_record_id"]
+    interpretation = next(request for request in fake.requests
+        if request.purpose == "resident_developmental_interpretation")
+    selected = json.loads(interpretation.prompt)["selection"]["facts"]
+    current_fact = next(item for item in selected
+        if item.get("subject", {}).get("subject_kind") == "integrity_controller_observation")
+    assert {row["name"] for row in current_fact["payload"]["gate_results"]} >= {
+        "quarantine_custody", "integrity_pressure_input",
+    }
+    assert "pressure_summary" not in json.dumps(current_fact["payload"])
+
+    later_owner, later_fake = owner(
+        tmp_path / "cognition", allowed_source_kinds=("audit_trust",),
+    )
+    later_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=later_owner,  # type: ignore[arg-type]
+    )
+    later_tick = "2026-10-12T00:00:01+00:00"
+    later_surfaces.build_world_state_board(tick_id=later_tick)
+    second = later_surfaces.run_resident_developmental_cognition(tick_id=later_tick)
+    assert second["written_record_id"]
+    retrieval = next(request for request in later_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    packets = json.loads(retrieval.prompt)["developmental_history"]
+    prior = next(packet for packet in packets if packet["record_id"] == first["written_record_id"])
+    historical = next(item for item in prior["source_evidence_context"]
+        if item["subject_kind"] == "integrity_controller_observation")
+    history_gates = {row["name"]: row for row in historical["context"]["gates"]}
+    assert history_gates["quarantine_custody"]["status"] == "fail"
+    assert history_gates["integrity_pressure_input"]["status"] == "fail"
+    assert historical["historical_only"] is True
+    assert historical["current_truth"] is False
+    assert historical["authority"] is False
+    assert historical["attack_established"] is False
+    reset_runtime_governor()

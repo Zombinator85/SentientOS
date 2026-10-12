@@ -1,0 +1,20 @@
+{
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "full_resident_developmental_cognition_module": "52 passed",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "The resident invoker is deterministic test machinery and does not demonstrate real-model learning or defensive improvement.",
+    "Local malformed files do not establish external attack attribution.",
+    "No production execution or validation is established."
+  ],
+  "observations": {
+    "authority": "historical_only=true, current_truth=false, authority=false, attack_established=false",
+    "tick_n_cognition": "selected evidence retains both gate failures; numeric pressure and pressure_summary are absent",
+    "tick_n_plus_1_history": "both gate failures are retained in the prior record's historical source context",
+    "tick_n_world_state": "both failed gate identities and reasons survive in the real resident controller observation source"
+  },
+  "scope": "carry simultaneous quarantine and integrity-pressure custody failures through configured World-State, cognition, developmental writeback, and N+1 retrieval",
+  "status": "focused_hermetic_later_tick_developmental_continuity_verified_not_production_acceptance"
+}

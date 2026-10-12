@@ -3484,3 +3484,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Added an actual adapter regression with malformed quarantine state and independently malformed pressure feed. World-State source receives both separate failed gate identities/reasons, controller fail posture, and the canonical integrity digest. No numeric pressure or pressure summary is presented as an observation; attack, compromise, effect, and authority remain false.
 - Focused adapter case: **1 passed with `-m legacy`**. Changed Python compiled and `git diff --check` passed. Acceptance: `work/integrity_controller_cognition_compounded_failure_acceptance.json`.
 - Next: inspect later-cognition historical projection for preserving the pair of gate failures and unknown-pressure posture across ticks/restart; if that path remains accurate, move to another existing defensive evidence producer rather than expanding this schema.
+
+
+## 2026-10-12 checkpoint — preserve compound integrity failure into N+1 cognition
+
+- Continued from verified remote `083808fdbf607839e3176dfd090b7784d54fed7a`, tree `f228a5cdc487043f4fb139af198effde76b25916`. Source review confirmed the existing historical security projection copies bounded controller gate rows, including status/reason/checked time, with omitted-row digest and explicit historical/no-authority qualifiers.
+- Added an actual owner-composition case with malformed quarantine and malformed pressure feed: the real controller's distinct failures enter World-State, are selected into tick-N cognition, are admitted into the existing developmental-history store, and are retrieved at tick N+1. Both failures remain distinguishable; unknown pressure is never serialized as a numeric observation. The retained packet remains historical, non-authoritative, and does not establish attack.
+- Full resident developmental cognition module: **52 passed**. Changed Python compiled and `git diff --check` passed. Acceptance: `work/integrity_controller_compounded_failure_later_cognition_acceptance.json`. The configured test invoker is deterministic and does not demonstrate real-model learning or defensive improvement.
+- Next: continue with a separate owner-backed defensive observation or recovery dependency; do not treat this custody anomaly as an attack or infer an independently observed defense.
