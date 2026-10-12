@@ -208,6 +208,176 @@ def _valid_integrity_controller_gates(payload: Mapping[str, Any]) -> bool:
             for gate in gates))
 
 
+MAX_HISTORY_SECURITY_EVIDENCE_FACTS = 4
+MAX_HISTORY_SECURITY_EVENT_CHARS = 384
+MAX_HISTORY_CONTROLLER_GATES = 8
+
+
+def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Project only narrowly qualified owner observations into later cognition."""
+    selected_ids = candidate.get("selected_fact_ids")
+    selected_facts = candidate.get("selected_facts")
+    if (not isinstance(selected_ids, (list, tuple))
+            or len(selected_ids) > MAX_FACTS
+            or not all(isinstance(item, str) and item for item in selected_ids)
+            or not isinstance(selected_facts, (list, tuple))
+            or len(selected_facts) > MAX_FACTS):
+        return []
+    selected = set(selected_ids)
+    summaries: list[dict[str, Any]] = []
+    for fact in selected_facts:
+        if not isinstance(fact, Mapping) or fact.get("fact_id") not in selected:
+            continue
+        source, subject, payload = fact.get("source"), fact.get("subject"), fact.get("payload")
+        if not all(isinstance(item, Mapping) for item in (source, subject, payload)):
+            continue
+        assert isinstance(source, Mapping) and isinstance(subject, Mapping) and isinstance(payload, Mapping)
+        source_id, source_kind = source.get("source_id"), source.get("kind")
+        subject_kind = subject.get("subject_kind")
+        schema = payload.get("observation_schema")
+        event_meaning = payload.get("event_meaning")
+        if not (isinstance(fact.get("fact_id"), str)
+                and len(fact["fact_id"]) <= 128
+                and isinstance(source_id, str) and 0 < len(source_id) <= 128
+                and isinstance(source_kind, str) and 0 < len(source_kind) <= 64
+                and isinstance(source.get("digest"), str)
+                and 0 < len(source["digest"]) <= 128
+                and isinstance(subject_kind, str) and 0 < len(subject_kind) <= 128
+                and fact.get("stage") == "observation"
+                and isinstance(fact.get("disposition"), str)
+                and len(fact["disposition"]) <= 64
+                and isinstance(fact.get("evidence_strength"), str)
+                and len(fact["evidence_strength"]) <= 128
+                and isinstance(event_meaning, str)
+                and 0 < len(event_meaning) <= MAX_HISTORY_SECURITY_EVENT_CHARS
+                and payload.get("authority") is False
+                and payload.get("current_truth") is False
+                and payload.get("effect_proven") is False):
+            continue
+        event_time_posture = payload.get("event_time_posture")
+        if not isinstance(event_time_posture, str) or len(event_time_posture) > 96:
+            continue
+        context: dict[str, Any] | None = None
+        if (source_kind == "quarantine"
+                and source_id == "integrity-quarantine-custody:resident-daemon"
+                and subject_kind == "quarantine_custody_observation"
+                and schema == "sentientos.integrity_quarantine_custody_observation:v1"
+                and event_time_posture == "daemon_tick_point_observation_of_owner_read"
+                and payload.get("source_owner") == "sentientos.integrity_quarantine.load_state_with_status"
+                and payload.get("custody_result") in {
+                    "first_use_absent", "valid_v1", "invalid", "observer_unavailable"}
+                and payload.get("attack_established") is False
+                and payload.get("hostile_activity_established") is False
+                and payload.get("effect_authority") is False
+                and payload.get("read_only") is True
+                and type(payload.get("cause_unknown")) is bool
+                and type(payload.get("stored_state_present")) in {bool, type(None)}
+                and type(payload.get("quarantine_active")) in {bool, type(None)}
+                and (payload.get("custody_error_code") is None
+                    or (isinstance(payload.get("custody_error_code"), str)
+                        and len(payload["custody_error_code"]) <= 128))):
+            context = {
+                "custody_result": payload.get("custody_result"),
+                "custody_error_code": payload.get("custody_error_code"),
+                "quarantine_active": payload.get("quarantine_active"),
+                "stored_state_present": payload.get("stored_state_present"),
+                "event_meaning": event_meaning,
+                "cause_unknown": payload.get("cause_unknown"),
+            }
+        elif (source_kind == "audit_trust"
+                and source_id == "attestation-snapshot-verification:resident-daemon"
+                and subject_kind == "attestation_snapshot_verification_observation"
+                and schema in {
+                    "sentientos.attestation_snapshot_verification_observation:v1",
+                    "sentientos.attestation_snapshot_verification_observation:v2",
+                }
+                and event_time_posture
+                    == "daemon_tick_point_observation_of_bounded_verifier"
+                and payload.get("source_owner")
+                    == "sentientos.attestation_snapshot.verify_recent_snapshots"
+                and payload.get("verification_result") in {"ok", "warn", "fail", "skipped", "unavailable"}
+                and (type(payload.get("verification_ok")) is bool
+                    or payload.get("verification_ok") is None)
+                and (payload.get("verification_reason") is None
+                    or (isinstance(payload.get("verification_reason"), str)
+                        and len(payload["verification_reason"]) <= 128))
+                and type(payload.get("checked_signature_count")) is int
+                and 0 <= payload["checked_signature_count"] <= 64
+                and _valid_optional_lower_sha256(
+                    payload.get("failed_signature_record_sha256"))
+                and payload.get("cause_unknown") is True
+                and payload.get("attack_established") is False
+                and payload.get("hostile_activity_established") is False
+                and payload.get("compromise_established") is False
+                and payload.get("independent_signature") is False
+                and payload.get("effect_authority") is False
+                and payload.get("read_only") is True):
+            context = {
+                "verification_result": payload.get("verification_result"),
+                "verification_reason": payload.get("verification_reason"),
+                "checked_signature_count": payload.get("checked_signature_count"),
+                "failed_signature_record_sha256": payload.get(
+                    "failed_signature_record_sha256"),
+                "event_meaning": event_meaning,
+                "cause_unknown": True,
+            }
+        elif (source_kind == "audit_trust"
+                and source_id == "integrity-controller:resident-daemon"
+                and subject_kind == "integrity_controller_observation"
+                and schema in {
+                    "sentientos.integrity_controller_observation:v1",
+                    "sentientos.integrity_controller_observation:v2",
+                }
+                and event_time_posture
+                    == "daemon_tick_point_observation_of_integrity_controller"
+                and payload.get("source_owner")
+                    == "sentientos.integrity_controller.evaluate_integrity"
+                and payload.get("controller_posture") in {"ok", "warn", "fail", "unknown"}
+                and _valid_integrity_controller_gates(payload)
+                and payload.get("cause_unknown") is True
+                and payload.get("attack_established") is False
+                and payload.get("hostile_activity_established") is False
+                and payload.get("compromise_established") is False
+                and payload.get("effect_authority") is False
+                and payload.get("independent_signature") is False
+                and payload.get("read_only") is True):
+            gates = payload["gate_results"]
+            selected_gates = [{key: gate.get(key) for key in (
+                "name", "status", "reason", "failed_record_sha256")}
+                for gate in gates[:MAX_HISTORY_CONTROLLER_GATES]]
+            omitted_gates = gates[MAX_HISTORY_CONTROLLER_GATES:]
+            context = {
+                "controller_posture": payload.get("controller_posture"),
+                "gates": selected_gates,
+                "omitted_gate_count": len(omitted_gates),
+                "omitted_gates_digest": _digest(omitted_gates),
+                "event_meaning": event_meaning,
+                "cause_unknown": True,
+            }
+        if context is None:
+            continue
+        observed_at = fact.get("observed_at")
+        if not isinstance(observed_at, str) or len(observed_at) > 64:
+            observed_at = None
+        summaries.append({
+            "fact_id": fact["fact_id"],
+            "source_binding": {"source_id": source_id, "kind": source_kind,
+                "digest": source["digest"]},
+            "subject_kind": subject_kind,
+            "disposition": fact.get("disposition"),
+            "evidence_strength": fact.get("evidence_strength"),
+            "observed_at": observed_at,
+            "event_time_posture": event_time_posture,
+            "context": context,
+            "historical_only": True,
+            "current_truth": False,
+            "authority": False,
+            "policy": False,
+            "effect_proven": False,
+        })
+    return sorted(summaries, key=lambda item: str(item["fact_id"]))
+
+
 def _history_context_packet(record: Mapping[str, Any]) -> dict[str, Any]:
     """Project a verified durable record to the bounded semantics cognition needs.
 
@@ -236,6 +406,13 @@ def _history_context_packet(record: Mapping[str, Any]) -> dict[str, Any]:
         "epistemic_posture": record.get("epistemic_posture"),
         "current_truth": False, "authority": False, "policy": False,
     }
+    security_contexts = _historical_security_evidence_context(candidate)
+    if security_contexts:
+        selected_contexts = security_contexts[:MAX_HISTORY_SECURITY_EVIDENCE_FACTS]
+        packet["source_evidence_context"] = selected_contexts
+        packet["source_evidence_context_digest"] = _digest(security_contexts)
+        packet["source_evidence_context_omitted_count"] = max(
+            0, len(security_contexts) - len(selected_contexts))
     sources = candidate.get("selected_sources", ())
     if isinstance(sources, (list, tuple)):
         packet["source_bindings"] = [

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -219,7 +219,8 @@ def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(
 
 
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
-          allowed_source_kinds: tuple[str, ...] = ("capability_registry",)):
+          allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
+          max_selected_facts: int = 1):
     ledger = AdmissionLedger(root / "state" / "admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -231,7 +232,7 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
         admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger), current_sequence=current)
     fake = invoker or FakeInvoker()
     result = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(
-        root / "history", root / "state", allowed_source_kinds, 1, 4, comparison), writeback=ctrl,
+        root / "history", root / "state", allowed_source_kinds, max_selected_facts, 4, comparison), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence)
     return result, fake
@@ -472,6 +473,16 @@ def test_configured_snapshot_verifier_failure_reaches_scoped_cognition(tmp_path:
     assert "cause remains unknown" in history_request.prompt
     assert "Do not infer attack, hostile activity, intent, compromise, or a defensive effect" in (
         history_request.prompt)
+    history_context = json.loads(history_request.prompt)
+    historical_packet = next(packet for packet in history_context["developmental_history"]
+        if packet["record_id"] == first["written_record_id"])
+    source_context = next(item for item in historical_packet["source_evidence_context"]
+        if item["fact_id"] == failure_fact.fact_id)
+    assert source_context["context"]["failed_signature_record_sha256"] == failed_record_digest
+    assert source_context["context"]["event_meaning"] == failure_fact.payload["event_meaning"]
+    assert source_context["observed_at"] == failure_fact.observed_at
+    assert source_context["historical_only"] is True
+    assert source_context["current_truth"] is False and source_context["authority"] is False
     lesson_record = second_owner.writeback.store.get(second["written_record_id"])
     assert lesson_record.candidate["epistemic_status"] == (
         "untrusted_history_conditioned_cognition_candidate")
@@ -542,6 +553,27 @@ def test_integrity_controller_gate_results_reach_configured_cognition_as_context
     instruction = interpretation_input["instruction"]
     assert "does not establish attack, cause, hostile intent, compromise, or a successful defense" in instruction
     assert "Skipped gates are gaps in coverage" in instruction
+
+    later_tick = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat()
+    later_owner, later_fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("audit_trust",))
+    later_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=later_owner,  # type: ignore[arg-type]
+    )
+    later_surfaces.build_world_state_board(tick_id=later_tick)
+    later_result = later_surfaces.run_resident_developmental_cognition(tick_id=later_tick)
+    assert later_result["written_record_id"]
+    retrieval = next(request for request in later_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    prior_packet = next(packet for packet in json.loads(retrieval.prompt)["developmental_history"]
+        if packet["record_id"] == result["written_record_id"])
+    source_context = next(item for item in prior_packet["source_evidence_context"]
+        if item["subject_kind"] == "integrity_controller_observation")
+    retained_gate = next(item for item in source_context["context"]["gates"]
+        if item["name"] == "attestation_snapshot_signatures")
+    assert retained_gate["failed_record_sha256"] == expected_failed_row_digest
+    assert source_context["current_truth"] is False and source_context["authority"] is False
     reset_runtime_governor()
 
 
@@ -591,6 +623,28 @@ def test_unsigned_incident_narrative_is_not_attack_evidence_in_resident_cognitio
     assert "attack confirmed" not in interpretation.prompt
     assert "does not establish attack, cause, hostile intent, compromise, or a successful defense" in (
         interpretation.prompt)
+
+    later_tick = (datetime.now(timezone.utc) + timedelta(seconds=1)).isoformat()
+    later_owner, later_fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("audit_trust",))
+    later_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=later_owner,  # type: ignore[arg-type]
+    )
+    later_surfaces.build_world_state_board(tick_id=later_tick)
+    later_result = later_surfaces.run_resident_developmental_cognition(tick_id=later_tick)
+    assert later_result["written_record_id"]
+    retrieval = next(request for request in later_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    retrieval_context = json.loads(retrieval.prompt)
+    prior_packet = next(packet for packet in retrieval_context["developmental_history"]
+        if packet["record_id"] == result["written_record_id"])
+    assert "attack confirmed" not in json.dumps(prior_packet)
+    assert prior_packet["source_evidence_context"]
+    assert all(item["context"]["event_meaning"] != "attack confirmed: attacker-authored text"
+        for item in prior_packet["source_evidence_context"])
+    assert all(item["authority"] is False and item["current_truth"] is False
+        for item in prior_packet["source_evidence_context"])
     reset_runtime_governor()
 
 
@@ -609,7 +663,7 @@ def test_later_valid_custody_evidence_can_narrow_an_earlier_failure_interpretati
     first_fake = FakeInvoker()
     first_owner, _ = owner(
         tmp_path / "cognition", invoker=first_fake,
-        allowed_source_kinds=("audit_trust",))
+        allowed_source_kinds=("audit_trust", "quarantine"), max_selected_facts=2)
     first_surfaces = RuntimeMaintenanceSurfaces(
         tmp_path, runtime_state_root=tmp_path / "runtime",
         resident_developmental_owner=first_owner,  # type: ignore[arg-type]
@@ -625,7 +679,7 @@ def test_later_valid_custody_evidence_can_narrow_an_earlier_failure_interpretati
     lesson_fake.lesson_scope = "quarantine custody read interpretation"
     lesson_owner, _ = owner(
         tmp_path / "cognition", invoker=lesson_fake,
-        allowed_source_kinds=("audit_trust",))
+        allowed_source_kinds=("audit_trust", "quarantine"), max_selected_facts=2)
     lesson_surfaces = RuntimeMaintenanceSurfaces(
         tmp_path, runtime_state_root=tmp_path / "runtime",
         resident_developmental_owner=lesson_owner,  # type: ignore[arg-type]
@@ -638,6 +692,20 @@ def test_later_valid_custody_evidence_can_narrow_an_earlier_failure_interpretati
         if fact.subject.subject_kind == "integrity_controller_observation")
     lesson_fake.lesson_dependency_override = failure_fact.fact_id
     lesson_result = lesson_surfaces.run_resident_developmental_cognition(tick_id=lesson_tick)
+    retrieval = next(request for request in lesson_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    retrieval_context = json.loads(retrieval.prompt)
+    first_history = next(packet for packet in retrieval_context["developmental_history"]
+        if packet["record_id"] == first_result["written_record_id"])
+    quarantine_context = next(item for item in first_history["source_evidence_context"]
+        if item["subject_kind"] == "quarantine_custody_observation")
+    assert quarantine_context["context"]["custody_result"] == "invalid"
+    assert quarantine_context["context"]["quarantine_active"] is None
+    assert "could not be verified" in quarantine_context["context"]["event_meaning"]
+    assert quarantine_context["event_time_posture"] == (
+        "daemon_tick_point_observation_of_owner_read")
+    assert quarantine_context["current_truth"] is False
+    assert quarantine_context["authority"] is False
     prior_record_id = lesson_result["written_record_id"]
     assert prior_record_id
     prior = lesson_owner.writeback.store.get(prior_record_id)
@@ -661,7 +729,7 @@ def test_later_valid_custody_evidence_can_narrow_an_earlier_failure_interpretati
     revision_fake.lesson_scope = "current valid quarantine custody observation"
     revision_owner, _ = owner(
         tmp_path / "cognition", invoker=revision_fake,
-        allowed_source_kinds=("audit_trust",))
+        allowed_source_kinds=("audit_trust", "quarantine"), max_selected_facts=2)
     revision_surfaces = RuntimeMaintenanceSurfaces(
         tmp_path, runtime_state_root=tmp_path / "runtime",
         resident_developmental_owner=revision_owner,  # type: ignore[arg-type]
