@@ -512,6 +512,76 @@ def test_integrity_controller_gate_results_reach_configured_cognition_as_context
     reset_runtime_governor()
 
 
+def test_integrity_controller_gate_context_becomes_scoped_later_tick_history(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    reset_runtime_governor()
+    monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0")
+    quarantine_path = tmp_path / "glow/forge/quarantine.json"
+    quarantine_path.parent.mkdir(parents=True)
+    quarantine_path.write_bytes(b'{"schema_version":1')
+
+    first_owner, first_fake = owner(
+        tmp_path / "cognition", allowed_source_kinds=("audit_trust",))
+    first_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=first_owner,  # type: ignore[arg-type]
+    )
+    first_tick = "2026-10-12T00:01:00+00:00"
+    first_surfaces.build_world_state_board(tick_id=first_tick)
+    first_snapshot = first_surfaces.current_world_state_snapshot
+    assert first_snapshot is not None
+    first_fact = next(item for item in first_snapshot.facts
+        if item.subject.subject_kind == "integrity_controller_observation")
+    first_custody_gate = next(gate for gate in first_fact.payload["gate_results"]
+        if gate["name"] == "quarantine_custody")
+    assert first_custody_gate["status"] == "fail"
+    assert first_fact.payload["attack_established"] is False
+    first_result = first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    assert first_result["written_record_id"]
+    first_interpretation = next(request for request in first_fake.requests
+        if request.purpose == "resident_developmental_interpretation")
+    assert "a warning or failure does not establish attack, cause, hostile intent, compromise" in (
+        first_interpretation.prompt)
+
+    second_fake = FakeInvoker()
+    second_fake.lesson_statement = (
+        "A quarantine-custody gate failure is a bounded verifier result; its cause remains unknown.")
+    second_fake.lesson_scope = "integrity controller quarantine-custody verifier result"
+    second_owner, _ = owner(tmp_path / "cognition", invoker=second_fake,
+        allowed_source_kinds=("audit_trust",))
+    second_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=second_owner,  # type: ignore[arg-type]
+    )
+    second_tick = "2026-10-12T00:01:01+00:00"
+    second_surfaces.build_world_state_board(tick_id=second_tick)
+    second_snapshot = second_surfaces.current_world_state_snapshot
+    assert second_snapshot is not None
+    current_fact = next(item for item in second_snapshot.facts
+        if item.subject.subject_kind == "integrity_controller_observation")
+    second_fake.lesson_dependency_override = current_fact.fact_id
+    second_result = second_surfaces.run_resident_developmental_cognition(tick_id=second_tick)
+    history_request = next(request for request in second_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert "does not establish attack, cause, hostile intent, compromise, or a successful defense" in (
+        history_request.prompt)
+    assert "Skipped gates are gaps in coverage" in history_request.prompt
+    lesson = second_owner.writeback.store.get(second_result["written_record_id"])
+    assert lesson.candidate["epistemic_status"] == (
+        "untrusted_history_conditioned_cognition_candidate")
+    assert lesson.candidate["transformation_provenance"]["candidate_posture"] == (
+        "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure")
+    assert lesson.candidate["transformation_provenance"]["lesson_candidate"][
+        "evidence_dependencies"] == [current_fact.fact_id]
+    assert lesson.candidate["transformation_provenance"]["authority"] is False
+    assert lesson.candidate["transformation_provenance"]["policy"] is False
+    reset_runtime_governor()
+
+
 @pytest.mark.parametrize(("active", "expected"), [(False, False), (True, True)])
 def test_valid_quarantine_state_projection_preserves_actual_posture(
     tmp_path: Path, active: bool, expected: bool,
