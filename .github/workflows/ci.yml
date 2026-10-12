@@ -45,8 +45,38 @@ jobs:
             tests/test_pytest_collection_reporter.py \
             tests/test_run_tests_failure_digest.py \
             tests/test_run_tests_bootstrap_airlock.py \
+            tests/test_github_hosted_acceptance_workflows.py \
             tests/test_import_inertness_verifier.py \
             tests/integrity/test_import_purity.py
+      - name: Verify exact provenance-integrity acceptance nodes
+        run: |
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_skip_without_claiming_a_call",
+              "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_xfail_as_xfailed_not_skipped",
+              "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
+              "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+              "required_nodes": [{"node_id": node, "rationale": "source-validation provenance must be exact and phase-aware"} for node in nodes],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/source_validation_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/source_validation_acceptance.json \
+            --provenance glow/test_runs/test_run_provenance.json \
+            --output glow/test_runs/source_validation_acceptance_result.json
       - name: Upload canonical test evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -57,6 +87,8 @@ jobs:
             glow/test_runs/provenance/*.json
             glow/test_runs/test_failure_digest.json
             glow/test_runs/pytest_junitxml*.xml
+            glow/test_runs/source_validation_acceptance.json
+            glow/test_runs/source_validation_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:

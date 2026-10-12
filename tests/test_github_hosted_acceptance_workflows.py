@@ -164,3 +164,20 @@ def test_smoke_job_conditions_use_supported_explicit_opt_in_contexts() -> None:
     forge_job = forge.split("  forge-smoke:", 1)[1].split("    steps:", 1)[0]
     assert "if: ${{ vars.SENTIENTOS_CI_RUN_FORGE_SMOKE == '1' }}" in forge_job
     assert "secrets." not in forge_job and "env." not in forge_job
+
+
+def test_source_validation_verifies_exact_provenance_acceptance_nodes() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_job = workflow.split("  source-validation:", 1)[1].split("\n  self-check:", 1)[0]
+    assert "Verify exact provenance-integrity acceptance nodes" in source_job
+    assert "python -m scripts.verify_task_acceptance" in source_job
+    assert '"repository_sha": os.environ["GITHUB_SHA"]' in source_job
+    assert "glow/test_runs/source_validation_acceptance.json" in source_job
+    assert "glow/test_runs/source_validation_acceptance_result.json" in source_job
+    for node in (
+        "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_skip_without_claiming_a_call",
+        "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_xfail_as_xfailed_not_skipped",
+        "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
+        "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
+    ):
+        assert node in source_job
