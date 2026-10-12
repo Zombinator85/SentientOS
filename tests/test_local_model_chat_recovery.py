@@ -14,10 +14,13 @@ from sentientos import local_model_production_serving as serving
 from sentientos.control_plane_kernel import (AdmissionOutcome, AuthorityClass,
                                               ControlActionRequest, ControlPlaneKernel,
                                               LifecyclePhase)
+from sentientos.federated_governance import reset_controller as reset_federated_governance_controller
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.local_model import ActiveModelIdentity
 from sentientos.local_model_production_serving import ProductionServingController
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.runtime_governor import reset_runtime_governor
+from sentientos.trust_ledger import reset_trust_ledger
 from sentientos.runtime.local_model_chat_recovery import (
     LocalModelChatRecoveryError,
     ProductionLocalModelChatRecoveryController,
@@ -236,7 +239,22 @@ def test_recovery_surface_has_no_generic_process_or_model_escape() -> None:
     assert not parameters & forbidden
 
 
-def test_daemon_restart_independent_admission_uses_real_control_plane_kernel(tmp_path: Path) -> None:
+def test_daemon_restart_independent_admission_uses_real_control_plane_kernel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The real governor bootstraps trust-epoch custody as part of admission.
+    # Keep that test-owned persistence local rather than depending on host
+    # /glow permissions or ambient state.
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "control-kernel"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "pulse-trust"))
+    monkeypatch.setenv(
+        "PULSE_TRUST_EPOCH_STATE", str(tmp_path / "pulse-trust" / "epoch_state.json")
+    )
+    reset_federated_governance_controller()
+    reset_trust_ledger()
+    reset_runtime_governor()
     correlation = "local-model-chat-recovery:integration-1"
     decision = ControlPlaneKernel(decisions_path=tmp_path / "decisions.jsonl").admit(ControlActionRequest(
         action_kind="restart_daemon", authority_class=AuthorityClass.DAEMON_RESTART,

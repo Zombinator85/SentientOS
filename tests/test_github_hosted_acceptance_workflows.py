@@ -80,6 +80,8 @@ def test_invariant_and_helm_jobs_install_the_canonical_test_airlock() -> None:
     assert "python -m pip install --no-deps -e ." in helm
     assert "python -m pip install --only-binary=:all: -r requirements-codex.txt" in helm
     assert "pip install -e .[dev]" not in helm
+    requirements = (ROOT / "requirements-codex.txt").read_text()
+    assert "cryptography>=42,<43" in requirements
 
 
 def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
@@ -118,3 +120,5 @@ def test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in() -> 
     assert "if .Values.serviceMonitor.enabled" in template
     assert "--set\", \"serviceMonitor.enabled=true" in test
     assert "ServiceMonitor\" not in default_render.stdout" in test
+    assert '"deployment/relay"' in test
+    assert '"http://localhost:3928/"' in test

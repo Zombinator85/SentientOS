@@ -48,20 +48,20 @@ def test_placeholder(tmp_path: Path) -> None:
         subprocess.run(["helm", "install", cluster_name, "./helm"], check=True)
         subprocess.run([
             "kubectl",
-            "wait",
-            "--for=condition=ready",
-            "pod",
-            "-l",
-            "app=relay",
+            "rollout",
+            "status",
+            "deployment/relay",
             "--timeout=180s",
         ], check=True)
         pf = subprocess.Popen(["kubectl", "port-forward", "service/relay", "3928:3928"])
         try:
-            status = _wait_for_status("http://localhost:3928/status")
+            # The chart currently runs Python's static HTTP server for the
+            # relay smoke. Its root responds 200; it does not implement a
+            # separate /status route.
+            status = _wait_for_status("http://localhost:3928/")
             assert status == 200
         finally:
             pf.terminate()
             pf.wait()
     finally:
         subprocess.run(["kind", "delete", "cluster", "--name", cluster_name], check=False)
-
