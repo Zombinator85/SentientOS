@@ -433,7 +433,11 @@ class ExperimentalCognitiveEndpoint:
                     "experimental_serving_receipt_digest": self._receipt["receipt_digest"]}.items())):
             self._invalidate("inference_serving_receipt_linkage_mismatch")
             raise ExperimentalModelServingError("inference_serving_receipt_linkage_mismatch")
-        return {"status": result.status, "fallback_occurred": result.fallback_occurred,
+        # Only an explicitly preregistered task requests transient answer delivery.
+        # Invocation receipt custody still follows its existing privacy policy.
+        answer = ({"output_text": result.output_text}
+            if upstream_evidence.get("objective_task_plan_digest") else {})
+        return {**answer, "status": result.status, "fallback_occurred": result.fallback_occurred,
                 "request_id": request.request_id, "request_digest": request.request_digest,
                 "inference_receipt_id": result.receipt_id, "inference_receipt_digest": result.receipt_digest,
                 "model_serving_receipt_id": self._receipt["receipt_id"],

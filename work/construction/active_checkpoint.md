@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Source base `00023a269a2f3a0ebb08334a53465a57e2849702`, tree `6b71895e08991788ee78fe19acd726b69226e668`.
+Source base `048165ac821d72134e304e3dfa889927d0a6b80a`, tree `fa45c5a092c1632da9320b484d2a14975c03821d`.
 
-Latest segment: work/construction/segments/0074-frozen-custody-publication-guard.md
-SHA-256: 4debe782bfc7ddbd4bc8ed508ee5c2cf116d80f157b3ed791305b514b43cc606
-Sequence: 74
+Latest segment: work/construction/segments/0075-objective-scoring-and-restart.md
+SHA-256: bc1d3f2138781c613294187741f1e633bad03704a67acbe38c550554371a7b91
+Sequence: 75
 
-Frozen journal restored losslessly; full appended suffix retained as segment 0073. Historical segment bytes remain unchanged. Candidate publication must pass exact tree/source, continuation and observed remote-blob validation before CAS.
+Existing five-condition developmental experiment now supports an opt-in preregistered, digest-bound, independently scored exact-answer task. Fresh-process source-custody-to-later-cognition path and no-replay interruption were exercised with canonical fixtures. Results and limitations are in evidence 0075; no real-model learning or loaded-code attestation is claimed.
 
-Next: loaded-code evidence boundary, independent durable-source restart reconstruction, and preregistered objective task scoring in existing developmental experiments. Construction remains unverified for production.
+Next: determine whether locally commissioned model artifacts and approvals support an actual approved trial; otherwise prepare no new authority and continue the next historical integration discrepancy. Construction remains unverified for production.

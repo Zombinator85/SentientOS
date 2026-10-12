@@ -259,6 +259,17 @@ while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() <
             assert child_observation[field] == parent_observation[field]
         assert child_observation["process_id"] == adapter._process.pid
         assert child_observation["software_generation_digest"] == source_generation(root)[0]
+        # Disk identity is independently reread; it is not loaded-module attestation.
+        from sentientos.chat_process_generation import verify_stored_chat_process_handoff
+        (root / "sentientos" / "marker.py").write_text("VALUE = 2\n", encoding="utf-8")
+        assert adapter._process.poll() is None
+        with pytest.raises(RuntimeError, match="chat_process_runtime_handoff_invalid"):
+            adapter.current_runtime_handoff()
+        historical = verify_stored_chat_process_handoff(handle=handle,
+            handoff_id=child_observation["handoff_id"],
+            expected_digest=child_observation["handoff_digest"])
+        assert historical["software_generation_digest"] == child_observation["software_generation_digest"]
+        assert historical["software_generation_digest"] != source_generation(root)[0]
     finally:
         release_path.write_text("release\n", encoding="utf-8")
         adapter.stop()

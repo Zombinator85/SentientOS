@@ -1089,6 +1089,23 @@ class ModelReplacementArtifactStore:
         self._write(self.runs / f"{run_id}.json", {**payload, "run_id": run_id, "run_digest": digest})
         return run_id, digest
 
+    def verify_objective_plan(self, protocol: ModelReplacementProtocol,
+                              expected: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        value = self._read_artifact_json(
+            self.protocols / f"objective-task-plan-{protocol.protocol_id}.json",
+            maximum_bytes=16_384, missing_code="objective_plan_missing",
+            invalid_code="objective_plan_invalid")
+        try:
+            specification = value["task"]
+            task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                specification["probe_input"])
+            canonical = _objective_plan(task, protocol)
+        except (KeyError, TypeError) as exc:
+            raise DevelopmentalModelReplacementError("objective_plan_invalid") from exc
+        if value != canonical or (expected is not None and value != expected):
+            raise DevelopmentalModelReplacementError("objective_plan_binding_invalid")
+        return value
+
     def load_verified_run(self, run_id: str, run_digest: str) -> dict[str, Any]:
         run_prefix = "model-replacement-run-"
         if (not isinstance(run_id, str) or len(run_id) != len(run_prefix) + 24
@@ -1209,6 +1226,19 @@ class ModelReplacementArtifactStore:
                         and (not saw_terminal_status
                             or condition_statuses[-1].get("status") != completion))):
                 raise DevelopmentalModelReplacementError("trial_condition_completion_posture_conflict")
+        evaluation = value.get("objective_evaluation")
+        scored = any("objective_task_score" in item for item in value.get("observations", []))
+        if evaluation is not None or scored:
+            protocol = self.load_verified_protocol(value["protocol"]["protocol_id"],
+                value["protocol"]["protocol_digest"])
+            plan = self.verify_objective_plan(protocol)
+            for observation in value["observations"]:
+                score = observation.get("objective_task_score")
+                if (not isinstance(score, Mapping) or score != _objective_score(plan,
+                        score.get("output_text"), observation.get("output_digest"))):
+                    raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+            if evaluation != _objective_evaluation(plan, value["observations"]):
+                raise DevelopmentalModelReplacementError("objective_evaluation_binding_invalid")
         return value
 
     def world_state_records(self, *, run_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
@@ -1404,6 +1434,8 @@ class ModelReplacementArtifactStore:
                 "non_claims": run.get("non_claims"), "current_truth": False,
                 "authority": False,
             }
+            if "objective_evaluation" in run:
+                payload["objective_evaluation"] = run["objective_evaluation"]
             if (run.get("claims_posture") != "bounded_digest_level_observed_association_only"
                     or run.get("non_claims") != list(NON_CLAIMS)
                     or len(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()) > 32_768):
@@ -1421,13 +1453,102 @@ class ModelReplacementArtifactStore:
         return records
 
 
+@dataclass(frozen=True)
+class ObjectivePredictionTask:
+    """Small deterministic fixture oracle, not a model or production evaluator.
+
+    Parameters stay in scoring custody; only the probe and task binding enter
+    current evidence. Historical examples must be supplied by the caller.
+    """
+
+    multiplier: int
+    offset: int
+    probe_input: int
+
+    def specification(self) -> dict[str, Any]:
+        if any(type(value) is not int or abs(value) > 1_000_000
+               for value in (self.multiplier, self.offset, self.probe_input)):
+            raise DevelopmentalModelReplacementError("objective_task_parameters_invalid")
+        return {"schema_version": "sentientos.affine_prediction_task:v1",
+            "multiplier": self.multiplier, "offset": self.offset,
+            "probe_input": self.probe_input,
+            "oracle_scope": "deterministic_fixture_not_physical_measurement"}
+
+    def public_descriptor(self) -> dict[str, Any]:
+        task_digest = _digest(self.specification())
+        return {"task_digest": task_digest,
+            "question": f"Predict the output for input {self.probe_input} from the historical examples.",
+            "answer_format": 'Exactly one JSON object: {"answer": <integer>}'}
+
+
+def _objective_plan(task: ObjectivePredictionTask, protocol: ModelReplacementProtocol) -> dict[str, Any]:
+    semantic = {"schema_version": "sentientos.objective_task_plan:v1",
+        "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
+        "causal_context_digest": protocol.causal_context_digest,
+        "task": task.specification(), "task_descriptor": task.public_descriptor(),
+        "condition_order": list(CONDITION_ORDER),
+        "rubric": "exact_integer_answer_v1", "authority": False}
+    return {**semantic, "plan_digest": _digest(semantic)}
+
+
+def _objective_score(plan: Mapping[str, Any], output: object, output_digest: object) -> dict[str, Any]:
+    task = plan["task"]
+    expected = task["multiplier"] * task["probe_input"] + task["offset"]
+    status, answer, correct = "output_unavailable", None, None
+    if output is not None:
+        if not isinstance(output, str) or len(output.encode("utf-8")) > 256:
+            raise DevelopmentalModelReplacementError("objective_output_size_or_type_invalid")
+        digest = _digest({"output": output})
+        if output_digest not in {digest, digest[7:]}:
+            raise DevelopmentalModelReplacementError("objective_output_digest_mismatch")
+        def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            result: dict[str, Any] = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("duplicate_answer_key")
+                result[key] = value
+            return result
+        try:
+            parsed = json.loads(output, object_pairs_hook=unique_object)
+            if not isinstance(parsed, dict) or set(parsed) != {"answer"} or type(parsed["answer"]) is not int:
+                raise ValueError("answer_shape_invalid")
+            answer = parsed["answer"]
+            if output != json.dumps({"answer": answer}, sort_keys=True, separators=(",", ":")):
+                raise ValueError("answer_encoding_not_canonical")
+            correct = answer == expected
+            status = "correct" if correct else "incorrect"
+        except (ValueError, TypeError):
+            status, correct = "invalid_answer", False
+    semantic = {"plan_digest": plan["plan_digest"],
+        "task_digest": plan["task_descriptor"]["task_digest"],
+        "output_text": output, "output_digest": output_digest,
+        "status": status, "answer": answer, "correct": correct,
+        "evaluator": "deterministic_exact_integer_oracle_v1"}
+    return {**semantic, "score_digest": _digest(semantic)}
+
+
+def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    scores = [item["objective_task_score"] for item in observations]
+    correctness = [score["correct"] for score in scores]
+    complete = len(scores) == 5 and all(type(value) is bool for value in correctness)
+    return {"plan_digest": plan["plan_digest"],
+        "condition_score_digests": [score["score_digest"] for score in scores],
+        "model_a_history_accuracy_delta": int(correctness[0]) - int(correctness[1]) if complete else None,
+        "model_b_history_accuracy_delta": int(correctness[2]) - int(correctness[3]) if complete else None,
+        "restoration_correctness_stable": correctness[0] == correctness[4] if complete else None,
+        "assessment": "single_preregistered_task_scored" if complete else "unscoreable_missing_output",
+        "scope": "task_correctness_not_general_learning_or_weight_change",
+        "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation"}
+
+
 class DevelopmentalModelReplacementExperiment:
     """Explicit five-condition experiment over two pre-governed endpoints."""
 
     def __init__(self, *, context: FrozenCausalContext, model_a: GovernedCognitiveEndpoint,
                  model_b: GovernedCognitiveEndpoint, artifact_root: Path,
                  model_a_provenance: ModelDevelopmentProvenance | None = None,
-                 model_b_provenance: ModelDevelopmentProvenance | None = None) -> None:
+                 model_b_provenance: ModelDevelopmentProvenance | None = None,
+                 objective_task: ObjectivePredictionTask | None = None) -> None:
         context.verify()
         self.context, self.model_a, self.model_b = context, model_a, model_b
         identity_a, identity_b = model_a.current_identity(), model_b.current_identity()
@@ -1439,6 +1560,12 @@ class DevelopmentalModelReplacementExperiment:
                                                         self.provenance_a, self.provenance_b)
         self.protocol.verify()
         self.store = ModelReplacementArtifactStore(artifact_root)
+        descriptor = context.current_projection_payload.get("objective_task")
+        if descriptor is not None and objective_task is None:
+            raise DevelopmentalModelReplacementError("objective_task_oracle_missing")
+        if objective_task is not None and descriptor != objective_task.public_descriptor():
+            raise DevelopmentalModelReplacementError("objective_task_context_binding_invalid")
+        self.objective_plan = _objective_plan(objective_task, self.protocol) if objective_task else None
 
     def _prompt(self, with_history: bool) -> str:
         body = {"instruction": self.context.instruction_template,
@@ -1559,6 +1686,9 @@ class DevelopmentalModelReplacementExperiment:
                     "current_projection_digest": self.context.current_projection_digest,
                     "record_ids": list(self.context.history_record_ids) if with_history else [],
                     "record_digests": list(self.context.history_record_digests) if with_history else []}
+        if self.objective_plan is not None:
+            self.store.verify_objective_plan(self.protocol, self.objective_plan)
+            evidence["objective_task_plan_digest"] = self.objective_plan["plan_digest"]
         receipt = dict(endpoint.infer(purpose=PURPOSE, prompt=prompt, correlation_id=correlation,
                                      budget=self.context.inference_budget,
                                      generation_posture=self.context.generation_posture,
@@ -1604,6 +1734,9 @@ class DevelopmentalModelReplacementExperiment:
                     "actual_generation_parameters": dict(actual),
                     "authority_record_digest": expected.authority_record_digest,
                     "correlation_id": correlation}
+        if self.objective_plan is not None:
+            semantic["objective_task_score"] = _objective_score(self.objective_plan,
+                receipt.get("output_text"), receipt["output_digest"])
         semantic.update(_resource_receipt_binding(receipt))
         semantic.update(_model_serving_receipt_reference(receipt))
         semantic.update(_prior_cognition_bindings(self.context.current_projection_payload))
@@ -1671,6 +1804,14 @@ class DevelopmentalModelReplacementExperiment:
                     "inference_receipt_digest", "output_digest"))
                 or not isinstance(generation, Mapping) or generation.get("temperature") != 0):
             raise DevelopmentalModelReplacementError("condition_observation_binding_invalid")
+        score = value.get("objective_task_score")
+        if self.objective_plan is not None:
+            self.store.verify_objective_plan(self.protocol, self.objective_plan)
+            if (not isinstance(score, Mapping) or score != _objective_score(self.objective_plan,
+                    score.get("output_text"), value.get("output_digest"))):
+                raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+        elif score is not None:
+            raise DevelopmentalModelReplacementError("objective_task_oracle_missing")
         if serving_binding:
             serving_verifier = getattr(endpoint, "verify_persisted_observation_receipts", None)
             if callable(serving_verifier):
@@ -1696,6 +1837,8 @@ class DevelopmentalModelReplacementExperiment:
             "claims_posture": "bounded_digest_level_observed_association_only",
             "non_claims": list(NON_CLAIMS), "validity": "execution_incomplete",
             "failure_posture": failure_posture, "authority": False}
+        if self.objective_plan is not None:
+            semantic["objective_evaluation"] = _objective_evaluation(self.objective_plan, observations)
         run_id, run_digest = self.store.persist_run(semantic)
         return {**semantic, "run_id": run_id, "run_digest": run_digest}
 
@@ -1708,6 +1851,9 @@ class DevelopmentalModelReplacementExperiment:
         self.store.persist_provenance(self.provenance_b)
         self.store.persist_context(self.context)
         self.store.persist_protocol(self.protocol)
+        if self.objective_plan is not None:
+            self.store._write(self.store.protocols / f"objective-task-plan-{self.protocol.protocol_id}.json",
+                self.objective_plan)
         plan = self._condition_plan()
         observations: list[dict[str, Any]] = []
         condition_statuses: list[dict[str, Any]] = []
@@ -1842,5 +1988,7 @@ class DevelopmentalModelReplacementExperiment:
                     "differences": differences, "classification": classification,
                     "claims_posture": "bounded_digest_level_observed_association_only",
                     "non_claims": list(NON_CLAIMS), "validity": "valid_controlled_observation"}
+        if self.objective_plan is not None:
+            semantic["objective_evaluation"] = _objective_evaluation(self.objective_plan, observations)
         run_id, run_digest = self.store.persist_run(semantic)
         return {**semantic, "run_id": run_id, "run_digest": run_digest}
