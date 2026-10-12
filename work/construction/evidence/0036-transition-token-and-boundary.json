@@ -1,0 +1,30 @@
+{
+  "authority": false,
+  "effects_performed": [],
+  "execution": "Hermetic fixture rehearsal through the canonical daemon composition helper, plus controlled transition/journal and operator-mailbox owner tests.",
+  "source": {
+    "parent_commit": "b612ac0b598d1b14edecc5acd06bbbd7ffdc1f54",
+    "parent_tree": "93d575b25a157d06ba261ffc5a92d0705a87e02c",
+    "tested_source_tree": "b870932f4c378473e9de676d2039c16a338e2824"
+  },
+  "tests": {
+    "focused_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q --tb=short tests/test_resident_cognitive_model_transition_experiment.py tests/test_sentientosd_resident_cognitive_transition_composition.py tests/test_sentientosd_causal_introspection_composition.py tests/test_resident_cognitive_transition_operator.py tests/test_resident_cognitive_model_transition_experiment_capability_admission.py tests/test_developmental_model_replacement_campaign.py tests/test_developmental_model_replacement_experiment.py",
+    "focused_collected": 169,
+    "focused_passed": 169,
+    "focused_failed": 0,
+    "legacy_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -m legacy -q --tb=short tests/test_sentientosd_software_succession_projection.py",
+    "legacy_collected": 6,
+    "legacy_passed": 6,
+    "legacy_failed": 0,
+    "python_compilation": "passed",
+    "targeted_mypy": "not clean: 204 diagnostics across the selected transition and daemon owner modules; no source-wide typing repair was attempted in this bounded increment"
+  },
+  "observations": {
+    "daemon_boundary": "now includes the verified activation-history digest and commissioning active-model identity required to match the protocol's frozen initial history boundary",
+    "quiescence_recovery": "request linkage is retained in the journal but removed before comparing a recovered capability with the in-process gate token",
+    "live_daemon_rehearsal": "passed through the actual composition helper, operator request custody, activation and serving owners, quiescence gate, journal, and cognition owner using deterministic fixture models",
+    "malformed_packet": "identity-free malformed request custody remains a hard failure and produces no fabricated rejection receipt",
+    "model_improvement": "not measured; fixture execution only"
+  },
+  "production_verified": false
+}

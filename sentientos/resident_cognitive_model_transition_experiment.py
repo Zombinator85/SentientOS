@@ -262,7 +262,10 @@ class TransitionJournal:
             raise TransitionError("journal_not_regular") from exc
         out: list[dict[str, Any]] = []
         prior = "GENESIS"
-        lines = raw.splitlines()
+        # The canonical writer terminates every immutable journal entry with
+        # exactly one LF. Keep that byte during verification so the reader can
+        # distinguish canonical records from truncated or CRLF-rewritten tails.
+        lines = raw.splitlines(keepends=True)
         if len(lines) > MAX_TRANSITION_JOURNAL_ENTRIES or any(
                 not line or len(line) > MAX_TRANSITION_JOURNAL_ENTRY_BYTES for line in lines):
             raise TransitionError("journal_retention_limit_exceeded")
@@ -503,7 +506,7 @@ class ResidentCognitiveModelTransitionController:
                     or not isinstance(activation.get("receipt_id"), str)
                     or not isinstance(activation.get("receipt_semantic_digest"), str)
                     or not isinstance(activation.get("activation_history_digest"), str)
-                    or activation.get("commissioning_active_model_identity") != expected.get("active_model_identity")):
+                    or activation.get("commissioning_active_model_identity") != expected):
                 return "activation_stage_identity_mismatch"
             verifier = getattr(self.operations, "verify_historical_activation", None)
             if not callable(verifier):
@@ -512,7 +515,7 @@ class ResidentCognitiveModelTransitionController:
                 verified_identity = verifier(activation)
             except Exception:
                 return "activation_history_lineage_unverified"
-            if not isinstance(verified_identity, Mapping) or dict(verified_identity) != expected.get("active_model_identity"):
+            if not isinstance(verified_identity, Mapping) or dict(verified_identity) != dict(expected):
                 return "activation_commissioning_identity_mismatch"
             return None
         if stage in serving_stages:
@@ -580,7 +583,7 @@ class ResidentCognitiveModelTransitionController:
                              or session_binding.get("activation_predecessor_posture")
                              != prior_activation.get("activation_predecessor_posture")))
                     or session_binding.get("activation_state") != activation_state
-                    or session_binding.get("observed_loaded_model_identity") != expected.get("active_model_identity")
+                    or session_binding.get("observed_loaded_model_identity") != expected
                     or session_binding.get("model_serving_admission_ref") != evidence.get("serving_admission")):
                 return "serving_stage_session_mismatch"
             return None
@@ -629,7 +632,20 @@ class ResidentCognitiveModelTransitionController:
                         return _Reconstructed(entry_phase, True, "resumed_session_binding_mismatch", entry_phase, token,
                             tuple(semantically_verified[-128:]))
                 phase, outstanding = entry_phase, None
-                token = evidence if entry_phase in {"a_quiesced", "b_quiesced"} else None if entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"} else token
+                if entry_phase in {"a_quiesced", "b_quiesced"}:
+                    token_fields = {"schema_version", "generation", "no_inflight", "observation", "token",
+                                    "observation_digest"}
+                    if (not token_fields.issubset(evidence)
+                            or set(evidence) - token_fields - {"operator_request"}):
+                        return _Reconstructed(entry_phase, True, "quiescence_token_evidence_invalid",
+                                              entry_phase, token,
+                                              tuple(semantically_verified[-128:]))
+                    # Operator ingress metadata is journal provenance, not part
+                    # of the process-local quiescence capability. Reconstruct
+                    # only the exact token originally issued by the gate.
+                    token = MappingProxyType({key: evidence[key] for key in token_fields})
+                elif entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"}:
+                    token = None
             elif status == "effected":
                 if outstanding != entry_phase or entry_phase not in EFFECTFUL or not evidence.get("subordinate_custody_verified"):
                     raise TransitionError("journal_effect_custody_invalid")

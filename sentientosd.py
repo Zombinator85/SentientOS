@@ -42,6 +42,7 @@ from sentientos.resident_cognitive_model_transition_experiment import (QuiescedD
 from sentientos.resident_cognitive_transition_operator import (JOURNAL_CUSTODY as RESIDENT_TRANSITION_JOURNAL_CUSTODY, LiveTransitionConfig, LiveTransitionOperatorRuntime, journal_identity as resident_transition_journal_identity, load_verified_protocol)
 from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
 from sentientos.local_model_production_activation import verify_current_activation
+from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.codex_task_authority_admission import (RESIDENT_DEVELOPMENTAL_WRITEBACK,
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION, RESIDENT_EPISTEMIC_STATE_MUTATION,
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION)
@@ -2111,6 +2112,7 @@ class RuntimeMaintenanceSurfaces:
                 provenance_bindings = self._resident_model_provenance_bindings(protocol_value)
                 health: dict[str, Any] = {}
                 status: dict[str, Any] = {}
+                transition_retention: dict[str, Any] | None = None
                 try:
                     entries = journal.entries()
                     if controller is not None:
@@ -2254,7 +2256,7 @@ class RuntimeMaintenanceSurfaces:
                     running_provenance_identity = ((running_provenance or {}).get("provenance_manifest_digest")
                         or (running_provenance or {}).get("posture", "unknown"))
                     records.append({"source_kind": "runtime_supervisor",
-                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}:{status.get('activation_history_digest') or 'activation_lineage_unavailable'}:{running_provenance_identity}:{tick_id}",
+                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}:{status.get('activation_history_digest') or 'activation_lineage_unavailable'}:{running_provenance_identity}:{observed_at}",
                         "subject_id": str(status.get("resident_serving_session_id") or "resident-serving-session"),
                         "subject_kind": "observed_running_model", "stage": "observation",
                         "disposition": "observed", "evidence_strength": "serving_session_observation",
@@ -2273,7 +2275,7 @@ class RuntimeMaintenanceSurfaces:
                             "model_development_provenance": (running_provenance or
                                 {"posture": "unavailable_no_exact_running_identity_binding"}),
                             "authority": False, "effect_proven": False},
-                        "observed_at": tick_id, "effect_claimed": False, "effect_proven": False})
+                        "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
                 head = health.get("journal_head")
                 if head:
                     records.append({"source_kind": "runtime_supervisor",
@@ -2859,9 +2861,14 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
         verified = verify_current_activation(installation_handle,
             allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
         current_session = slot.current_controller.current_session()
+        activation_history = verified.get("activation_history")
+        if not isinstance(activation_history, (tuple, list)) or not activation_history:
+            raise TransitionError("transition_activation_history_unavailable")
         activation = {**dict(verified["active_state"]),
             "receipt_id": verified["activation_receipt"]["receipt_id"],
-            "receipt_semantic_digest": verified["activation_receipt"]["receipt_semantic_digest"]}
+            "receipt_semantic_digest": verified["activation_receipt"]["receipt_semantic_digest"],
+            "activation_history_digest": semantic_digest({"activation_history": list(activation_history)}),
+            "commissioning_active_model_identity": dict(verified["commissioning_active_model_identity"])}
         return cast(Mapping[str, Any], developmental_history_boundary(store=developmental_owner.writeback.store,
             composition_state_path=developmental_owner.state_path,
             activation=activation, session=current_session.to_dict() if current_session is not None else None))

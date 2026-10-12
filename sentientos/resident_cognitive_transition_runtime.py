@@ -70,7 +70,7 @@ class ResidentCognitiveTransitionStageOperations:
         commissioned_identity = verify_commissioning_model_identity(
             self.installation_handle, commissioning_receipt_id,
             allow_synthetic_evidence_for_tests=self.allow_synthetic_evidence_for_tests)
-        if commissioned_identity != expected_model.get("active_model_identity"):
+        if commissioned_identity != expected_model:
             raise TransitionError("transition_commissioning_identity_mismatch")
         result = activate_production(
             installation_handle=self.installation_handle,
@@ -93,7 +93,7 @@ class ResidentCognitiveTransitionStageOperations:
             raise TransitionError("activation_history_unavailable")
         history_digest = semantic_digest({"activation_history": list(history)})
         commissioned_identity = verified.get("commissioning_active_model_identity")
-        if not isinstance(commissioned_identity, Mapping) or dict(commissioned_identity) != expected_model.get("active_model_identity"):
+        if not isinstance(commissioned_identity, Mapping) or dict(commissioned_identity) != dict(expected_model):
             raise TransitionError("transition_commissioning_identity_mismatch")
         predecessor_digest = (history[-2].get("activation_state_digest") if len(history) > 1 else None)
         return {"activation": _activation(cast(Mapping[str, Any], result),
@@ -133,7 +133,7 @@ class ResidentCognitiveTransitionStageOperations:
         session = session_rows[0].get("evidence", {}).get("session")
         if not isinstance(session, Mapping):
             raise TransitionError("transition_observation_serving_predecessor_missing")
-        self.verify_historical_serving_session(session)
+        session_receipt = self.verify_historical_serving_session(session)
         b_evidence = None
         if stage == "post_restoration_observed":
             b_rows = [row for row in entries
@@ -147,13 +147,23 @@ class ResidentCognitiveTransitionStageOperations:
         if not callable(verifier):
             raise TransitionError("transition_developmental_observation_verifier_unavailable")
         verifier(stage=stage, evidence=evidence,
-            expected_model_identity=self.protocol.value[model_role]["active_model_identity"],
-            expected_serving_session=session, b_epoch_evidence=b_evidence)
+            expected_model_identity=self.protocol.value[model_role],
+            expected_serving_session=session,
+            expected_serving_session_receipt=session_receipt,
+            b_epoch_evidence=b_evidence)
 
     def _quiescence(self) -> Mapping[str, Any]:
         for entry in reversed(self.journal.entries()):
             if entry["status"] == "completed" and entry["phase"] in {"a_quiesced", "b_quiesced"}:
-                token = entry["evidence"]
+                evidence = entry["evidence"]
+                token_fields = {"schema_version", "generation", "no_inflight", "observation", "token",
+                                "observation_digest"}
+                if (not isinstance(evidence, Mapping) or not token_fields.issubset(evidence)
+                        or set(evidence) - token_fields - {"operator_request"}):
+                    raise TransitionError("live_quiescence_evidence_invalid")
+                # Request linkage is journal metadata, not part of the
+                # process-local quiescence capability issued by the gate.
+                token = {key: evidence[key] for key in token_fields}
                 if self.gate.verifies(token):
                     return cast(Mapping[str, Any], token)
         raise TransitionError("live_quiescence_custody_mismatch")
@@ -167,7 +177,7 @@ class ResidentCognitiveTransitionStageOperations:
                 or selected["activation_receipt"].get("receipt_id") != activation.get("receipt_id")
                 or selected["activation_receipt"].get("receipt_semantic_digest") != activation.get("receipt_semantic_digest")
                 or selected.get("activation_history_digest") != activation.get("activation_history_digest")
-                or selected.get("commissioning_active_model_identity") != identity.get("active_model_identity")):
+                or selected.get("commissioning_active_model_identity") != identity):
             raise TransitionError("transition_selection_lineage_mismatch")
         controller = self.serving_controller_factory(
             self.installation_handle, self.control_plane_kernel)

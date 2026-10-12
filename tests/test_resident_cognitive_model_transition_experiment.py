@@ -10,6 +10,7 @@ import pytest
 from sentientos.resident_cognitive_model_serving import (
     ResidentCognitiveModelServingError, ResidentCognitiveServingSlot,
 )
+from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.resident_cognitive_model_transition_experiment import *
 from sentientos.resident_cognitive_model_transition_rehearsal import run
 
@@ -47,6 +48,8 @@ def activation_value(letter: str, generation: int):
     predecessor = ("a" * 64) if generation > 1 else None
     return {"state_semantic_digest": letter * 64, "generation": generation,
             "receipt_id": f"receipt-{letter}", "receipt_semantic_digest": letter * 64,
+            "model_loaded": False, "serving_started": False, "inference_performed": False,
+            "commissioning_active_model_identity": {"identity_digest": "a" if generation != 2 else "b"},
             "activation_history_digest": "h" * 64,
             "activation_predecessor_state_digest": predecessor,
             "activation_predecessor_posture": ("verified_predecessor_state" if predecessor
@@ -56,21 +59,44 @@ def activation_value(letter: str, generation: int):
 class Operations:
     def __init__(self, slot, *, fail=None, mismatch=False):
         self.slot, self.fail, self.mismatch = slot, fail, mismatch
+        self.protocol = protocol()
     def activate_successor(self, context=None):
         if self.fail == "b_activation": raise RuntimeError("denied")
-        return {"activation": activation_value("b", 2)}
+        return {"activation": activation_value("b", 2), "activation_transition_stage": "A->B"}
     def serve_successor(self, activation):
         if self.fail == "b_serving": raise RuntimeError("serving")
-        identity = {"identity_digest": "wrong" if self.mismatch else "b"}
-        self.slot.current_controller = Serving(Session("session-b", identity, activation, "b-op"))
-        return {"session": self.slot.current_controller.session.to_dict()}
+        return self._serve(activation, "b_serving_bound", {"identity_digest": "wrong" if self.mismatch else "b"}, "b-op")
     def activate_restored_predecessor(self, context=None):
         if self.fail == "a_activation": raise RuntimeError("denied")
-        return {"activation": activation_value("c", 3)}
+        return {"activation": activation_value("c", 3), "activation_transition_stage": "B->A"}
+    def verify_historical_activation(self, activation):
+        return activation["commissioning_active_model_identity"]
+    def verify_historical_serving_session(self, session):
+        return {"receipt_id": "serving-receipt", "receipt_semantic_digest": "c" * 64}
+    def verify_transition_observation(self, stage, evidence):
+        return None
     def serve_restored_predecessor(self, activation):
         if self.fail == "a_serving": raise RuntimeError("serving")
-        self.slot.current_controller = Serving(Session("session-restored-a", {"identity_digest": "a"}, activation, "a-op"))
-        return {"session": self.slot.current_controller.session.to_dict()}
+        return self._serve(activation, "restored_a_serving_bound", {"identity_digest": "a"}, "a-op")
+
+    def _serve(self, activation, stage, identity, operation):
+        from sentientos.resident_cognitive_model_transition_experiment import stage_serving_binding
+        serving_admission = "serving-admission-" + stage
+        stage_binding = dict(stage_serving_binding(protocol=self.protocol, stage=stage,
+            activation=activation, expected_identity=identity, operation_id=operation))
+        activation_state = {key: value for key, value in activation.items()
+            if key not in {"receipt_id", "receipt_semantic_digest", "activation_history_digest",
+                           "activation_predecessor_state_digest", "activation_predecessor_posture",
+                           "commissioning_active_model_identity", "activation_transition_stage"}}
+        session = Session("pending", identity, activation, operation)
+        session.binding.update({"activation_state": activation_state,
+                                "model_serving_admission_ref": serving_admission,
+                                "installation_identity": self.protocol.value["installation_identity"]})
+        session.session_id = "resident-serving-session-" + semantic_digest(dict(session.binding))[:24]
+        self.slot.current_controller = Serving(session)
+        return {"stage_binding": stage_binding, "session": session.to_dict(),
+                "serving_admission": serving_admission, "serving_receipt_id": "serving-receipt",
+                "serving_receipt_semantic_digest": "c" * 64}
 
 
 def protocol():
@@ -132,6 +158,18 @@ def test_completed_stage_reconstructs(tmp_path):
         slot=slot, history_snapshot=lambda: boundary(slot), operations=ops,
         allow_synthetic_approval_for_tests=True, clock=lambda: NOW)
     assert rebuilt.phase == "a_to_b_transition_requested" and not rebuilt.health()["replay_forbidden"]
+
+
+def test_transition_journal_round_trips_canonical_appends_and_rejects_truncated_tail(tmp_path):
+    journal = TransitionJournal(tmp_path / "journal.jsonl")
+    appended = journal.append("a_to_b_transition_requested", {"request": "bounded"})
+
+    recovered = journal.entries()
+    assert recovered == [dict(appended)]
+
+    journal.path.write_bytes(journal.path.read_bytes().rstrip(b"\n"))
+    with pytest.raises(TransitionError, match="journal_noncanonical"):
+        journal.entries()
 
 
 def test_failed_effectful_stage_is_not_replayable_after_reconstruction(tmp_path):

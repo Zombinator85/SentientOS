@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "41edcb423679a864eec00db88fc55b141d75b095972a5391798504b35002b59c",
-    "latest_segment_sequence": 35,
-    "latest_segment_sha256": "d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
-    "source_commit": "5c1f807ff5457cb29b3c54cb2f2e451796651584",
-    "source_tree": "b82860e2583b2ccb604ee5d8d3cd32504dd672b2"
+    "checkpoint_sha256": "de4418288efb33b63564789f415d48106ca43a48d628707f1fef93d1ea23f142",
+    "latest_segment_sequence": 36,
+    "latest_segment_sha256": "5d60f844074c163a437b1265c2e3bf4485b4302ccb4152b5be1728b37623098b",
+    "source_commit": "b612ac0b598d1b14edecc5acd06bbbd7ffdc1f54",
+    "source_tree": "93d575b25a157d06ba261ffc5a92d0705a87e02c"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -311,6 +311,15 @@
       "sha256": "d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
       "source_commit": "5c1f807ff5457cb29b3c54cb2f2e451796651584",
       "source_tree": "b82860e2583b2ccb604ee5d8d3cd32504dd672b2"
+    },
+    {
+      "bytes": 3128,
+      "path": "work/construction/segments/0036-transition-token-and-boundary-recovery.md",
+      "predecessor": "segment-sha256:d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
+      "sequence": 36,
+      "sha256": "5d60f844074c163a437b1265c2e3bf4485b4302ccb4152b5be1728b37623098b",
+      "source_commit": "b612ac0b598d1b14edecc5acd06bbbd7ffdc1f54",
+      "source_tree": "93d575b25a157d06ba261ffc5a92d0705a87e02c"
     }
   ],
   "source_acquisition": {

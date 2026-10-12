@@ -19,10 +19,15 @@ NOW = datetime(2026, 9, 25, 12, tzinfo=timezone.utc)
 class _Session:
     session_id = "session-a"
     binding = {"observed_loaded_model_identity": {"model_id": "A"}}
+    def to_dict(self):
+        return {"session_id": self.session_id, "binding": self.binding}
 
 
 class _Slot:
-    current_controller = type("Controller", (), {"current_session": lambda self: _Session()})()
+    current_controller = type("Controller", (), {
+        "current_session": lambda self: _Session(),
+        "observed_current_session": lambda self: _Session(),
+    })()
 
 
 class _Gate:
@@ -34,12 +39,14 @@ class _Controller:
         self.phase = PHASES[0]
         self.calls = 0
         self.protocol = type("Protocol", (), {"value": {"transition_id": "transition-1"}})()
+        self.journal = type("Journal", (), {"entries": lambda self: []})()
 
     def health(self):
         return {"phase": self.phase, "journal_head": "GENESIS" if not self.calls else f"head-{self.calls}",
                 "status": "in_progress"}
 
-    def advance(self, *, approval, evidence=None, stage_execution_context=None):
+    def advance(self, *, approval, evidence=None, stage_execution_context=None,
+                operation_context=None):
         self.calls += 1
         prior = self.phase
         self.phase = PHASES[PHASES.index(self.phase) + 1]
@@ -115,7 +122,11 @@ def test_malformed_and_wrong_stage_approval_are_rejected(tmp_path: Path) -> None
     runtime = _runtime(tmp_path)
     runtime.request_root.mkdir(parents=True)
     (runtime.request_root / "bad.json").write_text("[]", encoding="utf-8")
-    assert runtime.process_one()["status"] == "rejected"
+    # A packet with no verifiable request identity cannot receive an identity-bound
+    # rejection receipt. Custody inspection must fail closed before processing.
+    with pytest.raises(TransitionError, match="operator_request_custody_noncanonical_or_mismatched"):
+        runtime.process_one()
+    assert not runtime.receipt_path.exists()
     with pytest.raises(TransitionError, match="operator_request_stage_approval_invalid"):
         _request(stage_approval={"approval_digest": "bad"})
 
