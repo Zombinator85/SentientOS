@@ -3509,3 +3509,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - Focused history-intervention, model-replacement, and replicated-campaign suites: **48 passed, 0 failed, 0 skipped**. Experiment modules compiled and `git diff --check` passed. Acceptance: `work/construction/evidence/0070-controlled-history-succession.json`.
 - Source review found no independently bound task rubric or answer oracle in these owners. Their digest comparison does not establish correctness, learning, acquisition, transfer, or capability improvement. No production or provider invocation was performed and no ground truth was invented.
 - Next: continue resource-linked succession attribution review; preserve separate principal, sponsorship/task, model identity/provenance, and software-generation lineages, and never treat model artifact or source commit as proof of a running successor. Actual acquisition/transfer performance remains dependent on an independently specified task-scoring source and authorized live model execution.
+
+
+## 2026-10-12 checkpoint — keep allocation and task context distinct in history
+
+- Extended resource-lineage history summaries to preserve exact allocation ID/digest and principal/policy/epoch/resource-kind bindings, plus digest-bound experiment condition, protocol, and history-set identity. Task context is labeled recorded experiment context, not sponsorship. Existing software-generation posture remains source-bound and unknown where no attestation exists.
+- Focused embodied-consequence and restart/resource-lineage integration suites: **25 passed, 0 failed, 0 skipped**; changed Python compiled; `git diff --check` passed. Acceptance: `work/construction/evidence/0071-resource-history-task-attribution.json`.
+- No independently authenticated task sponsor or software-generation evidence is present in this fixture. No model-learning or production claim is established.
+- Next: inspect whether existing chat-process generation attestations can be bound to each resource-backed model-replacement invocation by receipt identity and preserved through the same history scope. Do not infer running software from the repository commit, model artifact, or activation proposal; if no issuer/custody owner applies to this experimental invocation path, retain the unknown posture and continue elsewhere.

@@ -333,8 +333,10 @@ def test_model_replacement_resource_history_keeps_invocation_and_cognitive_model
             separators=(",",":"),ensure_ascii=False,allow_nan=False).encode()).hexdigest()},
         "resource_record":{"source_id":"ledger-record","record_digest":"record-digest",
             "ledger_digest":"ledger-digest"},
-        "allocation_identity":{"allocation_digest":"allocation-digest","principal_id":"principal",
-            "principal_binding_digest":"principal-binding"},
+        "allocation_identity":{"allocation_id":"allocation-1",
+            "allocation_digest":"allocation-digest","principal_id":"principal",
+            "principal_binding_digest":"principal-binding","principal_epoch":1,
+            "resource_kind":"local_model_inference","epoch":1,"policy_digest":"policy-digest"},
         "invocation_receipt_id":"lmrec-invocation","invocation_receipt_digest":"invocation-digest",
         "principal_id":"principal","principal_binding_digest":"principal-binding",
         "model_attribution":{"model_id":"cognitive-catalog-model",
@@ -348,7 +350,11 @@ def test_model_replacement_resource_history_keeps_invocation_and_cognitive_model
         "model_replacement_condition":"model_a_history_present",
         "model_identity_digest":"cognitive-identity-digest",
         "model_provenance_manifest_digest":"provenance-digest",
-        "causal_context_id":"context-1","causal_context_digest":"context-digest"}
+        "causal_context_id":"context-1","causal_context_digest":"context-digest",
+        "task_context":{"experiment_condition":"model_a_history_present",
+            "experiment_protocol_id":"protocol-1",
+            "history_record_ids":["history-1"],
+            "history_record_digests":["sha256:history-1"]}}
     fact={"fact_id":"fact:model-replacement-resource",
         "source":{"kind":"resource_governor","source_id":"source-resource",
             "digest":"source-digest"},
@@ -361,6 +367,16 @@ def test_model_replacement_resource_history_keeps_invocation_and_cognitive_model
     binding=accepted["resource_bindings"][0]
     assert binding["cognitive_model_id"]=="cognitive-catalog-model"
     assert binding["invocation_model_id"]=="authority-map-model"
+    assert binding["allocation_identity"]=={
+        "allocation_id":"allocation-1","allocation_digest":"allocation-digest",
+        "principal_id":"principal","principal_binding_digest":"principal-binding",
+        "principal_epoch":1,"resource_kind":"local_model_inference","epoch":1,
+        "policy_digest":"policy-digest"}
+    assert binding["task_context"]["posture"]=="recorded_experiment_context_not_sponsorship"
+    assert binding["task_context"]["experiment_condition"]=="model_a_history_present"
+    assert binding["task_context"]["experiment_protocol_id"]=="protocol-1"
+    assert binding["task_context"]["history_record_count"]==1
+    assert binding["task_context"]["history_record_digest_count"]==1
 
     legacy_fact=json.loads(json.dumps(fact))
     legacy_fact["subject"]["subject_kind"]="strategy_invocation_resource_lineage"

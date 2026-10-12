@@ -241,6 +241,16 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
                 == "model_replacement_invocation_resource_lineage")
         assert retained_binding["invocation_model_id"].startswith("lma-")
         assert retained_binding["cognitive_model_id"]
+        assert retained_binding["allocation_identity"]["allocation_id"]
+        assert retained_binding["allocation_identity"]["allocation_digest"] == allocation.allocation_digest
+        assert retained_binding["principal_id"]
+        task_context = retained_binding["task_context"]
+        assert task_context["posture"] == "recorded_experiment_context_not_sponsorship"
+        assert task_context["experiment_condition"] == retained_binding["succession_lineage"]["condition"]
+        assert task_context["experiment_protocol_id"]
+        assert isinstance(task_context["history_record_count"], int)
+        assert isinstance(task_context["history_record_digest_count"], int)
+        assert task_context["context_digest"].startswith("sha256:")
 
         # Cross a real interpreter/process boundary after all three owners have
         # durably published. The child reconstructs their canonical stores and

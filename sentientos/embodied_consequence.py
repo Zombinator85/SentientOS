@@ -1642,6 +1642,38 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
                 "attempt_id":linkage.get("attempt_id"),
                 "consumption_receipt_digests":tuple(receipts) if isinstance(receipts,(list,tuple)) else ()}
             linkage_digest=hashlib.sha256(canonical_bytes(linkage_body)).hexdigest()
+            allocation_binding={key:allocation.get(key) for key in (
+                "allocation_id", "allocation_digest", "principal_id",
+                "principal_binding_digest", "principal_epoch", "resource_kind",
+                "epoch", "policy_digest")}
+            request_context=payload.get("task_context")
+            if isinstance(request_context,Mapping):
+                context_value=dict(request_context)
+                context_digest=digest(context_value)
+                if len(canonical_bytes(context_value))<=8192:
+                    context_binding={
+                        "posture":"recorded_experiment_context_not_sponsorship",
+                        "context_digest":context_digest,
+                        "experiment_condition":context_value.get("experiment_condition"),
+                        "experiment_protocol_id":context_value.get("experiment_protocol_id"),
+                        "history_record_ids_digest":digest(list(context_value.get(
+                            "history_record_ids",()))) if isinstance(context_value.get(
+                                "history_record_ids"), (list,tuple)) else None,
+                        "history_record_count":len(context_value.get("history_record_ids",()))
+                            if isinstance(context_value.get("history_record_ids"), (list,tuple)) else None,
+                        "history_record_digests_digest":digest(list(context_value.get(
+                            "history_record_digests",()))) if isinstance(context_value.get(
+                                "history_record_digests"), (list,tuple)) else None,
+                        "history_record_digest_count":len(context_value.get(
+                            "history_record_digests",())) if isinstance(context_value.get(
+                                "history_record_digests"), (list,tuple)) else None,
+                    }
+                else:
+                    context_binding={"posture":"recorded_context_digest_only_not_sponsorship",
+                        "context_digest":context_digest}
+            else:
+                context_binding={"posture":"task_context_not_bound_by_source",
+                    "context_digest":None}
             binding={"fact_id":fact.get("fact_id"),"source_id":source.get("source_id"),
                 "source_digest":source.get("digest"),"lineage_subject_kind":subject_kind,
                 "resource_record_source_id":resource_record.get("source_id"),
@@ -1649,6 +1681,8 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
                 "ledger_digest":resource_record.get("ledger_digest"),
                 "principal_id":payload.get("principal_id"),
                 "principal_binding_digest":payload.get("principal_binding_digest"),
+                "allocation_identity":allocation_binding,
+                "task_context":context_binding,
                 "allocation_digest":allocation.get("allocation_digest"),
                 "attempt_id":linkage.get("attempt_id"),
                 "invocation_receipt_id":payload.get("invocation_receipt_id"),
@@ -1676,6 +1710,8 @@ def _history_evidence_scope(record: Mapping[str, Any]) -> dict[str, Any]:
                     or not source.get("digest") or not resource_record.get("source_id")
                     or not resource_record.get("record_digest") or not resource_record.get("ledger_digest")
                     or not payload.get("principal_id") or not payload.get("principal_binding_digest")
+                    or not isinstance(allocation_binding.get("allocation_id"),str)
+                    or not allocation_binding.get("allocation_id")
                     or not binding["invocation_receipt_binding_consistent"]
                     or not linkage.get("allocation_digest") or not linkage.get("attempt_id")
                     or not linkage.get("effect_receipt_id") or not linkage.get("effect_receipt_digest")
