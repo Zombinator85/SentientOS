@@ -1,0 +1,21 @@
+{
+  "behavior": {
+    "failure_semantics": "missing or invalid artifact provides no trace fallback; no pack is attributed through an unrelated global trace",
+    "generic_last_trace_projection": "preserved as a separate latest-trace observation",
+    "incident_id_lookup": "preserved",
+    "quarantine_trace_source": "only canonical active-incident artifact when exact custody inspection reports artifact_status=valid"
+  },
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "forge_index_quarantine_linkage_and_observatory": "23 passed",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "Test composes rebuild_index using disposable local files and actual source owners.",
+    "Incident/feed/catalog do not independently authenticate a trace issuer.",
+    "This reporting projection does not prove remediation efficacy or grant authority.",
+    "Construction remains unverified for production."
+  ],
+  "scope": "prevent forge_index from assigning remediation evidence from the unrelated latest governance trace to the active quarantine",
+  "status": "focused_hermetic_projection_verified_not_production_acceptance"
+}

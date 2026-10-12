@@ -194,16 +194,21 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
 
     quarantine_requires_remediation = os.getenv("SENTIENTOS_QUARANTINE_REQUIRE_REMEDIATION", "0") == "1"
     quarantine_incident_id = quarantine.last_incident_id
+    quarantine_trace_id = (
+        _optional_str(quarantine_incident_custody.get("incident_governance_trace_id"))
+        if quarantine.active and quarantine_incident_custody.get("artifact_status") == "valid"
+        else None
+    )
     related_pack = None
     if quarantine_incident_id:
         related_pack = catalog_latest_for_incident(root, quarantine_incident_id, kind="remediation_pack")
-    if related_pack is None and _optional_str(last_trace.get("trace_id")):
-        related_pack = catalog_latest_for_trace(root, _optional_str(last_trace.get("trace_id")) or "", kind="remediation_pack")
+    if related_pack is None and quarantine_trace_id:
+        related_pack = catalog_latest_for_trace(root, quarantine_trace_id, kind="remediation_pack")
     if related_pack is None:
         related_pack = _latest_pack_for_incident_or_trace(
             remediation_rows,
             incident_id=quarantine_incident_id,
-            governance_trace_id=_optional_str(last_trace.get("trace_id")),
+            governance_trace_id=quarantine_trace_id,
         )
     related_pack_id = _optional_str((related_pack.get("id") if "id" in related_pack else related_pack.get("pack_id"))) if related_pack else None
     related_run = None
