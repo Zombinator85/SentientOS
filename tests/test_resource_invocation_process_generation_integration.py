@@ -63,8 +63,7 @@ from sentientos.chat_process_generation import ChatProcessGenerationError, verif
 from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.production_chat_resource_provisioning import load_production_chat_resource_context_owner
-from tests.test_local_model_serving_inference import setup
-from _pytest.monkeypatch import MonkeyPatch
+from tests.local_model_serving_fixture import FixturePatch, setup
 
 args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
 resource_root = Path(os.environ['TEST_RESOURCE_ROOT'])
@@ -81,7 +80,7 @@ while True:
         time.sleep(.01)
 if handoff['software_generation_digest'] != args['--expected-software-generation-digest']:
     raise RuntimeError('expected_source_generation_mismatch')
-patch = MonkeyPatch()
+patch = FixturePatch()
 context = serving = None
 try:
     bridge, serving, _session, model, _kernel, _current = setup(

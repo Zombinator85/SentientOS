@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="10.996" timestamp="2026-10-12T18:47:26.874660+00:00" hostname="26f42f715b9f"><testcase classname="tests.test_resource_invocation_process_generation_integration" name="test_parent_child_resource_invocation_generation_reaches_world_state" time="10.166"><failure message="AssertionError: Traceback (most recent call last):&#10;    File &quot;/tmp/pytest-of-agent/pytest-631/test_parent_child_resource_inv0/resource-chat-child.py&quot;, line 7, in &lt;module&gt;&#10;      from tests.test_local_model_serving_inference import setup&#10;    File &quot;/tmp/sentientos-gr4-exact/tests/test_local_model_serving_inference.py&quot;, line 5, in &lt;module&gt;&#10;      import pytest&#10;  ModuleNotFoundError: No module named 'pytest'&#10;  &#10;assert False&#10; +  where False = exists()&#10; +    where exists = PosixPath('/tmp/pytest-of-agent/pytest-631/test_parent_child_resource_inv0/joined-result.json').exists">tests/test_resource_invocation_process_generation_integration.py:145: in test_parent_child_resource_invocation_generation_reaches_world_state
+    assert result_path.exists(), bytes(adapter._diagnostics).decode("utf-8", "replace")
+E   AssertionError: Traceback (most recent call last):
+E       File "/tmp/pytest-of-agent/pytest-631/test_parent_child_resource_inv0/resource-chat-child.py", line 7, in &lt;module&gt;
+E         from tests.test_local_model_serving_inference import setup
+E       File "/tmp/sentientos-gr4-exact/tests/test_local_model_serving_inference.py", line 5, in &lt;module&gt;
+E         import pytest
+E     ModuleNotFoundError: No module named 'pytest'
+E     
+E   assert False
+E    +  where False = exists()
+E    +    where exists = PosixPath('/tmp/pytest-of-agent/pytest-631/test_parent_child_resource_inv0/joined-result.json').exists</failure></testcase></testsuite></testsuites>
