@@ -26,9 +26,11 @@ from sentientos.control_plane_kernel import (
     LifecyclePhase,
 )
 from sentientos.runtime_governor import PostureRuleEvaluation, RuntimeGovernor
+from sentientos.runtime_governor import reset_runtime_governor
 from sentientosd import (
     RuntimeMaintenanceSurfaces,
     _attestation_snapshot_verification_world_state_record,
+    _integrity_controller_world_state_record,
     _run_maintenance_tick,
 )
 
@@ -57,6 +59,50 @@ def test_attestation_snapshot_world_state_source_requires_existing_opt_in(
     monkeypatch.delenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", raising=False)
     assert _attestation_snapshot_verification_world_state_record(
         tmp_path, observed_at="2026-10-11T00:00:00+00:00") is None
+
+
+def test_integrity_controller_observation_is_bounded_context_only_and_opt_in(
+    monkeypatch, tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    reset_runtime_governor()
+    monkeypatch.delenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", raising=False)
+    assert _integrity_controller_world_state_record(
+        tmp_path, observed_at="2026-10-12T00:00:00+00:00") is None
+
+    monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "1")
+    record = _integrity_controller_world_state_record(
+        tmp_path, observed_at="2026-10-12T00:00:00+00:00")
+    assert record is not None
+    assert record["source_kind"] == "audit_trust"
+    assert record["schema_version"] == "sentientos.integrity_controller_observation:v1"
+    payload = record["payload"]
+    assert payload["observation_schema"] == record["schema_version"]
+    assert payload["source_owner"] == "sentientos.integrity_controller.evaluate_integrity"
+    assert payload["integrity_status_digest"] is not None
+    assert 0 < payload["gate_count"] <= 32
+    assert len(payload["gate_results"]) == payload["gate_count"]
+    assert payload["attack_established"] is False
+    assert payload["compromise_established"] is False
+    assert payload["effect_proven"] is False
+    assert payload["authority"] is False
+    assert "mutation_allowed" not in payload and "publish_allowed" not in payload
+
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime")
+    surfaces.build_world_state_board(tick_id="2026-10-12T00:00:01+00:00")
+    snapshot_value = surfaces.current_world_state_snapshot
+    assert snapshot_value is not None
+    fact = next(item for item in snapshot_value.facts
+        if item.subject.subject_kind == "integrity_controller_observation")
+    assert fact.source.kind == "audit_trust"
+    assert fact.payload["controller_posture"] in {"ok", "warn", "fail"}
+    assert surfaces._feedback["surfaces"]["attestation_snapshot_verification"]["status"] == (
+        next(gate["status"] for gate in fact.payload["gate_results"]
+             if gate["name"] == "attestation_snapshot_signatures"))
+    reset_runtime_governor()
 
 
 class _GovernorStub:

@@ -53,6 +53,46 @@ class DevelopmentalWritebackError(ValueError):
     """Fail-closed runtime boundary violation."""
 
 
+def _has_bounded_integrity_controller_observation(selection: SelectedEvidence) -> bool:
+    for fact in selection.facts:
+        source = fact.get("source")
+        subject = fact.get("subject")
+        payload = fact.get("payload")
+        if (not isinstance(source, Mapping)
+                or source.get("kind") != "audit_trust"
+                or source.get("source_id") != "integrity-controller:resident-daemon"
+                or not isinstance(subject, Mapping)
+                or subject.get("subject_kind") != "integrity_controller_observation"
+                or fact.get("stage") != "observation"
+                or fact.get("evidence_strength") not in {
+                    "source_integrity_status", "integrity_controller_observation_unavailable"}
+                or not isinstance(payload, Mapping)
+                or payload.get("observation_schema")
+                    != "sentientos.integrity_controller_observation:v1"
+                or payload.get("source_owner")
+                    != "sentientos.integrity_controller.evaluate_integrity"
+                or payload.get("controller_posture") not in {"ok", "warn", "fail", "unknown"}
+                or payload.get("cause_unknown") is not True
+                or payload.get("attack_established") is not False
+                or payload.get("hostile_activity_established") is not False
+                or payload.get("compromise_established") is not False
+                or payload.get("effect_proven") is not False
+                or payload.get("effect_authority") is not False
+                or payload.get("authority") is not False
+                or payload.get("current_truth") is not False
+                or payload.get("read_only") is not True):
+            continue
+        gates = payload.get("gate_results")
+        if (isinstance(gates, list) and len(gates) <= 32
+                and type(payload.get("gate_count")) is int
+                and payload["gate_count"] == len(gates)
+                and all(isinstance(gate, Mapping)
+                    and gate.get("status") in {"ok", "warn", "fail", "skipped"}
+                    for gate in gates)):
+            return True
+    return False
+
+
 def _valid_store_identity(value: Any, prefix: str) -> bool:
     marker = prefix + "-"
     return (isinstance(value, str) and len(value) == len(marker) + 24
@@ -1068,13 +1108,16 @@ class ResidentDevelopmentalWritebackController:
         schema = {"type":"object", "required":["interpretation","uncertainty"], "additionalProperties":False,
                   "properties":{"interpretation":{"type":"string","maxLength":MAX_INTERPRETATION_CHARS},
                                 "uncertainty":{"type":"string","enum":["low","medium","high","unknown"]}}}
-        request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":("Interpret selected World-State evidence only as bounded context, without asserting truth, authority, policy, goals, or storage. "
+        instruction = ("Interpret selected World-State evidence only as bounded context, without asserting truth, authority, policy, goals, or storage. "
             "Preserve whether each source time is current, historical, or unknown; the World-State observation clock is not an event time unless the owner says so. "
             "Do not infer hostile activity, attack, intent, or cause from a protective-state custody failure; unreadable custody leaves the stored protective state unknown. "
             "A configured attestation snapshot signature-verification failure establishes only that verifier's bounded result, not attack, hostile activity, intent, compromise, or cause. "
-            "Keep provenance and uncertainty attached to each interpretation. For resource evidence, distinguish measured, "
-            "estimated, predicted, and unknown values by their source posture; shared host usage is not invocation attribution. "
-            "Resource expenditure is not inherently good or bad and must not become a reward, penalty, or objective."),
+            + ("An integrity-controller gate is only its bounded verifier result; a warning or failure does not establish attack, cause, hostile intent, compromise, or a successful defense. Skipped gates are gaps in coverage. Do not derive authority, policy, or a defensive procedure. "
+               if _has_bounded_integrity_controller_observation(selection) else "")
+            + "Keep provenance and uncertainty attached to each interpretation. For resource evidence, distinguish measured, "
+            + "estimated, predicted, and unknown values by their source posture; shared host usage is not invocation attribution. "
+            + "Resource expenditure is not inherently good or bad and must not become a reward, penalty, or objective.")
+        request = invoker.build_request(purpose=PURPOSE, prompt=json.dumps({"instruction":instruction,
             "selection":selection.semantic_payload()}, sort_keys=True), caller=PRINCIPAL, correlation_id=correlation_id, expected_output_format="json", budget=bounded, upstream_evidence={"selection_id":selection.selection_id,"selection_digest":selection.selection_digest,"snapshot_id":selection.snapshot_id,"snapshot_digest":selection.snapshot_digest}, linkage={"transformation":"selected_world_state_to_historical_interpretation"}, structured_output_schema=schema)
         receipt = invoker.invoke(request, persist=True, include_output_in_receipt=False)
         return ResidentDevelopmentalWritebackController.candidate_from_receipt(selection, receipt)

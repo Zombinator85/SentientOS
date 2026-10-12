@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -25,6 +26,7 @@ from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
+from sentientos.runtime_governor import reset_runtime_governor
 from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientosd import (
@@ -473,6 +475,41 @@ def test_configured_snapshot_verifier_failure_reaches_scoped_cognition(tmp_path:
         "untrusted_candidate_not_truth_policy_authority_or_adopted_procedure")
     assert lesson_record.candidate["transformation_provenance"]["lesson_candidate"][
         "evidence_dependencies"] == [current_failure.fact_id]
+
+
+def test_integrity_controller_gate_results_reach_configured_cognition_as_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    reset_runtime_governor()
+    monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0")
+    cognition, fake = owner(
+        tmp_path / "cognition", allowed_source_kinds=("audit_trust",))
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=cognition,  # type: ignore[arg-type]
+    )
+    tick = datetime.now(timezone.utc).isoformat()
+    surfaces.build_world_state_board(tick_id=tick)
+    current = surfaces.current_world_state_snapshot
+    assert current is not None
+    fact = next(item for item in current.facts
+        if item.subject.subject_kind == "integrity_controller_observation")
+    assert fact.source.kind == "audit_trust"
+    assert fact.payload["gate_results"]
+    result = surfaces.run_resident_developmental_cognition(tick_id=tick)
+    assert result["written_record_id"]
+    interpretation = next(request for request in fake.requests
+        if request.purpose == "resident_developmental_interpretation")
+    interpretation_input = json.loads(interpretation.prompt)
+    assert any(item.get("subject", {}).get("subject_kind") == "integrity_controller_observation"
+        for item in interpretation_input["selection"]["facts"])
+    instruction = interpretation_input["instruction"]
+    assert "does not establish attack, cause, hostile intent, compromise, or a successful defense" in instruction
+    assert "Skipped gates are gaps in coverage" in instruction
+    reset_runtime_governor()
 
 
 @pytest.mark.parametrize(("active", "expected"), [(False, False), (True, True)])

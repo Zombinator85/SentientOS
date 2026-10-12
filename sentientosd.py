@@ -132,6 +132,7 @@ LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
 RESOURCE_OBSERVATION_INSTALLATION_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_INSTALLATION_IDENTITY"
 RESOURCE_OBSERVATION_PROVISIONING_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_PROVISIONING_ID"
+INTEGRITY_CONTROLLER_OBSERVATION_ENV = "SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION"
 
 
 def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str) -> dict[str, Any]:
@@ -309,6 +310,122 @@ def _attestation_snapshot_verification_world_state_record(
         "disposition": disposition,
         "evidence_strength": evidence_strength,
         "observed_at": observed_at,
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": payload,
+    }
+
+
+def _integrity_controller_world_state_record(
+    repo_root: Path, *, observed_at: str,
+) -> dict[str, Any] | None:
+    """Expose a bounded read-only controller result only under explicit opt-in."""
+    if os.getenv(INTEGRITY_CONTROLLER_OBSERVATION_ENV, "0") != "1":
+        return None
+    status = None
+    try:
+        from sentientos.integrity_controller import evaluate_integrity
+        from sentientos.policy_fingerprint import build_policy_dict, compute_policy_hash
+
+        status = evaluate_integrity(
+            repo_root, policy_hash=compute_policy_hash(build_policy_dict()))
+        posture = status.status
+        if (type(status.schema_version) is not int or status.schema_version != 2
+                or posture not in {"ok", "warn", "fail"}
+                or not isinstance(status.ts, str) or len(status.ts) > 64
+                or not isinstance(status.policy_hash, str)
+                or len(status.policy_hash) != 64
+                or any(char not in "0123456789abcdef" for char in status.policy_hash)):
+            raise ValueError("integrity_status_contract_invalid")
+        checked = datetime.fromisoformat(status.ts.replace("Z", "+00:00"))
+        if checked.tzinfo is None:
+            raise ValueError("integrity_status_time_invalid")
+        if not isinstance(status.gate_results, list) or len(status.gate_results) > 32:
+            raise ValueError("integrity_status_gate_bound_invalid")
+        gates: list[dict[str, Any]] = []
+        for gate in status.gate_results:
+            if (not isinstance(gate.name, str) or not 0 < len(gate.name) <= 64
+                    or gate.status not in {"ok", "warn", "fail", "skipped"}
+                    or not isinstance(gate.reason, str) or len(gate.reason) > 160
+                    or not isinstance(gate.checked_at, str) or len(gate.checked_at) > 64
+                    or not isinstance(gate.evidence_paths, list)
+                    or len(gate.evidence_paths) > 8
+                    or any(not isinstance(path, str) or len(path) > 256
+                           for path in gate.evidence_paths)):
+                raise ValueError("integrity_status_gate_contract_invalid")
+            gates.append({
+                "name": gate.name, "status": gate.status, "reason": gate.reason,
+                "checked_at": gate.checked_at,
+                "evidence_paths": list(gate.evidence_paths),
+            })
+        if len({gate["name"] for gate in gates}) != len(gates):
+            raise ValueError("integrity_status_gate_identity_conflict")
+        digest_value = status.canonical_hash()
+        if (not isinstance(digest_value, str) or len(digest_value) != 64
+                or any(char not in "0123456789abcdef" for char in digest_value)):
+            raise ValueError("integrity_status_digest_invalid")
+        failed = sum(gate["status"] == "fail" for gate in gates)
+        warned = sum(gate["status"] == "warn" for gate in gates)
+        event_meaning = (
+            "The existing integrity controller returned bounded verifier gate results. "
+            "These results do not identify an attacker, cause, compromise, or successful defense."
+        )
+        disposition = "degraded" if posture in {"warn", "fail"} else "recorded"
+        evidence_strength = "source_integrity_status"
+        source_observed_at = status.ts
+        result_posture = posture
+        policy_hash = status.policy_hash
+        integrity_digest = digest_value
+        unavailable_reason = None
+    except Exception as exc:
+        gates = []
+        failed = 0
+        warned = 0
+        event_meaning = (
+            "The configured integrity controller did not return a usable bounded result; "
+            "the verification outcome and cause are unknown."
+        )
+        disposition = "unavailable"
+        evidence_strength = "integrity_controller_observation_unavailable"
+        source_observed_at = observed_at
+        result_posture = "unknown"
+        policy_hash = None
+        integrity_digest = None
+        unavailable_reason = "controller_observation_unavailable:" + type(exc).__name__[:64]
+    payload = {
+        "observation_schema": "sentientos.integrity_controller_observation:v1",
+        "source_owner": "sentientos.integrity_controller.evaluate_integrity",
+        "event_time_posture": "daemon_tick_point_observation_of_integrity_controller",
+        "controller_posture": result_posture,
+        "integrity_status_digest": integrity_digest,
+        "policy_hash": policy_hash,
+        "gate_results": gates,
+        "gate_count": len(gates),
+        "failed_gate_count": failed,
+        "warning_gate_count": warned,
+        "observation_error_code": unavailable_reason,
+        "event_meaning": event_meaning,
+        "cause_unknown": True,
+        "attack_established": False,
+        "hostile_activity_established": False,
+        "compromise_established": False,
+        "effect_proven": False,
+        "effect_authority": False,
+        "authority": False,
+        "current_truth": False,
+        "independent_signature": False,
+        "read_only": True,
+    }
+    return {
+        "source_kind": WorldStateSourceKind.AUDIT_TRUST.value,
+        "source_id": "integrity-controller:resident-daemon",
+        "schema_version": "sentientos.integrity_controller_observation:v1",
+        "subject_id": "configured-integrity-controller-verification",
+        "subject_kind": "integrity_controller_observation",
+        "stage": "observation",
+        "disposition": disposition,
+        "evidence_strength": evidence_strength,
+        "observed_at": source_observed_at,
         "effect_claimed": False,
         "effect_proven": False,
         "payload": payload,
@@ -1190,8 +1307,46 @@ class RuntimeMaintenanceSurfaces:
         quarantine_record = _quarantine_custody_world_state_record(
             self._repo_root, observed_at=tick_key)
         records.append(quarantine_record)
-        attestation_record = _attestation_snapshot_verification_world_state_record(
+        integrity_record = _integrity_controller_world_state_record(
             self._repo_root, observed_at=tick_key)
+        if integrity_record is not None:
+            records.append(integrity_record)
+            self._feedback.setdefault("surfaces", {})["integrity_controller_observation"] = {
+                "status": integrity_record["payload"]["controller_posture"],
+                "gate_count": integrity_record["payload"]["gate_count"],
+                "source_id": integrity_record["source_id"],
+                "read_only": True,
+                "attack_established": False,
+                "effect_authority": False,
+            }
+        else:
+            self._feedback.setdefault("surfaces", {})["integrity_controller_observation"] = {
+                "status": "disabled", "read_only": True, "effect_authority": False,
+            }
+        # The full controller evaluates configured snapshot signatures once
+        # when enabled; reuse that gate instead of running the same verifier a
+        # second time. Otherwise preserve the narrow existing verifier owner.
+        attestation_record = (
+            None if integrity_record is not None else
+            _attestation_snapshot_verification_world_state_record(
+                self._repo_root, observed_at=tick_key)
+        )
+        if integrity_record is not None:
+            attestation_gate = next((gate for gate in integrity_record["payload"]["gate_results"]
+                if gate["name"] == "attestation_snapshot_signatures"), None)
+            if attestation_gate is not None:
+                self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
+                    "status": attestation_gate["status"],
+                    "reason_code": attestation_gate["reason"],
+                    "source_id": integrity_record["source_id"],
+                    "read_only": True, "attack_established": False,
+                    "effect_authority": False,
+                }
+            else:
+                self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
+                    "status": "not_in_controller_result", "read_only": True,
+                    "effect_authority": False,
+                }
         if attestation_record is not None:
             records.append(attestation_record)
             self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
@@ -1202,7 +1357,7 @@ class RuntimeMaintenanceSurfaces:
                 "attack_established": False,
                 "effect_authority": False,
             }
-        else:
+        elif integrity_record is None:
             self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
                 "status": "disabled", "read_only": True, "effect_authority": False,
             }

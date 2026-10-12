@@ -1,0 +1,50 @@
+{
+  "schema_version": "sentientos.integrity_controller_context_acceptance:v1",
+  "verified_parent_commit": "975ae4de34488f101a91a1d6fa0d37640244538e",
+  "verified_parent_tree": "81b0cf8b46c38069b2893e6f67dd3ad3ef1dd45c",
+  "status": "hermetic_owner_path_passed_unverified_for_production",
+  "composition": {
+    "opt_in": "SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION=1",
+    "owner": "sentientos.integrity_controller.evaluate_integrity",
+    "source_kind": "audit_trust",
+    "subject_kind": "integrity_controller_observation",
+    "world_state": "RuntimeMaintenanceSurfaces.build_world_state_board",
+    "epistemic_rule": "exact owner/schema record forced to contextualizes/unknown_dependency without independence",
+    "interpretation": "ordinary configured developmental writeback caveat plus selected bounded gate evidence",
+    "incident_jsonl_consumed": false,
+    "effect_authority": false
+  },
+  "controls": [
+    "observation disabled by default",
+    "the actual integrity controller is invoked without substituting a verifier",
+    "controller result is projected with bounded gate count and bounded strings/lists",
+    "mutation_allowed and publish_allowed fields are not exposed",
+    "attestation signature gate is reused for feedback when present; existing direct verifier remains active otherwise",
+    "warning/failure are constrained to verifier context and skipped gates remain coverage gaps",
+    "no attack, hostile activity, cause, compromise, successful defense, current truth, or authority is established",
+    "historical interpretation remains separately admitted and non-authoritative"
+  ],
+  "focused_checks": {
+    "command": "pytest tests/test_sentientosd_runtime_closure.py::test_integrity_controller_observation_is_bounded_context_only_and_opt_in tests/test_resident_epistemic_development.py::test_integrity_controller_observation_cannot_become_epistemic_support tests/test_resident_developmental_cognition.py::test_integrity_controller_gate_results_reach_configured_cognition_as_context -q",
+    "result": "3 passed",
+    "attestation_compatibility_command": "pytest tests/test_resident_developmental_cognition.py::test_configured_snapshot_verifier_failure_reaches_scoped_cognition -q",
+    "attestation_compatibility_result": "1 passed",
+    "python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "broader_source_adjacent_check": {
+    "command": "pytest tests/test_sentientosd_runtime_closure.py tests/test_resident_epistemic_development.py tests/test_resident_developmental_cognition.py -m 'legacy or no_legacy_skip' -q",
+    "result": "4 failures; remaining selected tests passed",
+    "observed_blockers": [
+      "three real governed-invocation cases received runtime_governor_error wrapping OSError(EROFS) in this read-only environment",
+      "one existing maintenance-gating fixture did not reach its mocked maintenance actions (identify_improvement_signals was not admitted)"
+    ],
+    "not_claimed": "The broad module set is not green; these failures are not represented as passing or independently proven baseline failures."
+  },
+  "limitations": [
+    "The controller/status object is an in-process, unsigned owner result, not independent evidence of an attack or defense.",
+    "Integrity gate paths and reasons are bounded source fields, not verified hostile-activity records.",
+    "No provider, production system, actual local model, external effect, or defensive consequence was activated or demonstrated.",
+    "Construction and hermetic tests are not production acceptance."
+  ]
+}

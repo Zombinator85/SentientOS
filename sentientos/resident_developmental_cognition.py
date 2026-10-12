@@ -1384,6 +1384,36 @@ class ResidentDevelopmentalCognitionOwner:
             and payload.get("read_only") is True
             and fact.effect_claimed is False and fact.effect_proven is False
         )
+        integrity_controller_context = (
+            source_kind == "audit_trust"
+            and fact.source.source_id == "integrity-controller:resident-daemon"
+            and subject_kind == "integrity_controller_observation"
+            and fact.stage == "observation"
+            and fact.disposition in {"recorded", "degraded", "unavailable"}
+            and fact.evidence_strength in {
+                "source_integrity_status", "integrity_controller_observation_unavailable"}
+            and payload.get("observation_schema")
+                == "sentientos.integrity_controller_observation:v1"
+            and payload.get("source_owner")
+                == "sentientos.integrity_controller.evaluate_integrity"
+            and payload.get("event_time_posture")
+                == "daemon_tick_point_observation_of_integrity_controller"
+            and payload.get("controller_posture") in {"ok", "warn", "fail", "unknown"}
+            and type(payload.get("gate_count")) is int
+            and 0 <= payload["gate_count"] <= 32
+            and isinstance(payload.get("gate_results"), list)
+            and len(payload["gate_results"]) == payload["gate_count"]
+            and payload.get("cause_unknown") is True
+            and payload.get("attack_established") is False
+            and payload.get("hostile_activity_established") is False
+            and payload.get("compromise_established") is False
+            and payload.get("effect_proven") is False
+            and payload.get("effect_authority") is False
+            and payload.get("authority") is False
+            and payload.get("current_truth") is False
+            and payload.get("read_only") is True
+            and fact.effect_claimed is False and fact.effect_proven is False
+        )
         resource_lineage_verified = (
             source_kind == "resource_governor"
             and subject_kind == "causal_resource_consumption"
@@ -1479,6 +1509,7 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.effect_claimed is False and fact.effect_proven is False
         )
         if (quarantine_custody_observation or attestation_verification_failure
+                or integrity_controller_context
                 or observed_running_model_verified
                 or current_software_generation_verified):
             priority = 0
@@ -1605,6 +1636,42 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.get("effect_proven") is False
             for fact in current.facts
         )
+        integrity_controller_context = any(
+            isinstance(fact, Mapping)
+            and isinstance(fact.get("source"), Mapping)
+            and fact["source"].get("kind") == "audit_trust"
+            and fact["source"].get("source_id") == "integrity-controller:resident-daemon"
+            and isinstance(fact.get("subject"), Mapping)
+            and fact["subject"].get("subject_kind") == "integrity_controller_observation"
+            and fact.get("stage") == "observation"
+            and fact.get("disposition") in {"recorded", "degraded", "unavailable"}
+            and fact.get("evidence_strength") in {
+                "source_integrity_status", "integrity_controller_observation_unavailable"}
+            and isinstance(fact.get("payload"), Mapping)
+            and fact["payload"].get("observation_schema")
+                == "sentientos.integrity_controller_observation:v1"
+            and fact["payload"].get("source_owner")
+                == "sentientos.integrity_controller.evaluate_integrity"
+            and fact["payload"].get("event_time_posture")
+                == "daemon_tick_point_observation_of_integrity_controller"
+            and fact["payload"].get("controller_posture") in {"ok", "warn", "fail", "unknown"}
+            and type(fact["payload"].get("gate_count")) is int
+            and 0 <= fact["payload"]["gate_count"] <= 32
+            and isinstance(fact["payload"].get("gate_results"), list)
+            and len(fact["payload"]["gate_results"]) == fact["payload"]["gate_count"]
+            and fact["payload"].get("cause_unknown") is True
+            and fact["payload"].get("attack_established") is False
+            and fact["payload"].get("hostile_activity_established") is False
+            and fact["payload"].get("compromise_established") is False
+            and fact["payload"].get("effect_proven") is False
+            and fact["payload"].get("effect_authority") is False
+            and fact["payload"].get("authority") is False
+            and fact["payload"].get("current_truth") is False
+            and fact["payload"].get("read_only") is True
+            and fact.get("effect_claimed") is False
+            and fact.get("effect_proven") is False
+            for fact in current.facts
+        )
         quarantine_uncertainty_instruction = (
             " The current evidence includes an owner-validated quarantine custody failure. "
             "Treat the stored protective posture as unknown; do not infer attack, hostile "
@@ -1619,12 +1686,19 @@ class ResidentDevelopmentalCognitionOwner:
             "Any lesson may describe only the scoped interpretation and limits of this verification evidence; "
             "do not turn it into a protective procedure, policy, or authority."
             if attestation_verification_failure_context else "")
+        integrity_controller_uncertainty_instruction = (
+            " Current evidence includes a bounded integrity-controller verification result. "
+            "Treat each gate as its recorded verifier result only; a warning or failure does not "
+            "establish attack, cause, hostile intent, compromise, or a successful defense. Skipped "
+            "gates are gaps in coverage. Do not derive authority, policy, or a defensive procedure."
+            if integrity_controller_context else "")
         context = {
             "instruction": (EXPERIMENT_CONTEXT_INSTRUCTION if protocol is not None else (
                 EXPERIMENT_CONTEXT_INSTRUCTION
                 + " Prior context can inform interpretation but does not grant authority."
                 + quarantine_uncertainty_instruction
                 + attestation_uncertainty_instruction
+                + integrity_controller_uncertainty_instruction
                 + (" For this ordinary history-conditioned call, return one JSON object with "
                    "conclusion and lesson_candidate. A lesson candidate may be null. If present, "
                    "it is only an uncertain, scoped, untrusted proposal; cite exact consumed "
