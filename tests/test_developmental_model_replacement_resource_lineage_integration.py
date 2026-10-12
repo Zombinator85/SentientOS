@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime
@@ -240,42 +242,77 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         assert retained_binding["invocation_model_id"].startswith("lma-")
         assert retained_binding["cognitive_model_id"]
 
-        recovered_cognition, later_fixture = developmental_owner(
-            cognition_root, allowed_source_kinds=("resource_governor",),
-            max_selected_facts=1)
-        recovered_epistemic = PersistentEpistemicStateOwner(
-            epistemic_root / "epistemics", allowed_namespaces=("operator",))
-        ResidentEpistemicStateMutationController(
-            owner=recovered_epistemic,
-            admission_verifier=RuntimeAdmissionVerifier(
-                definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
-                    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION},
-                ledger=admission_ledger),
-            current_sequence=admission_ledger.current_sequence,
-            receipt_root=epistemic_root / "receipts")
-        recovered_projection = recovered_epistemic.cognitive_projection(
-            max_states=8, current_tick=tick_n_value + 2)
-        assert recovered_projection is not None
-        assert recovered_projection.source_tick == later_epistemic.source_tick == tick_n_value
-        assert recovered_projection.state_ids == later_epistemic.state_ids
-        assert recovered_projection.state_digests == later_epistemic.state_digests
-        recovered_self_model = LongitudinalSelfModelOwner(
-            tmp_path / "composed-self-model").cognitive_projection(
-                before_tick="model-resource-history-tick-n-plus-two", max_claims=1,
-                allowed_predicates=("developmental.model_replacement_interpretation",))
-        assert recovered_self_model is not None
-        assert recovered_self_model.source_reconciliation_id == later_self_model.source_reconciliation_id
-        assert recovered_self_model.source_reconciliation_digest == later_self_model.source_reconciliation_digest
-        later = recovered_cognition.run_tick(
-            snapshot=cognition_snapshot, tick_id="model-resource-history-tick-n-plus-two",
-            prior_epistemic_state=recovered_projection,
-            prior_self_model=recovered_self_model)
-        assert later.prior_record_ids == (first.written_record_id,)
-        retrieval = next(request for request in later_fixture.requests
-            if request.purpose == "resident_developmental_retrieval_cognition")
-        assert first.written_record_id in retrieval.upstream_evidence["record_ids"]
-        assert retrieval.upstream_evidence["epistemic_projection_id"] == recovered_projection.projection_id
-        assert retrieval.upstream_evidence["self_model_projection_id"] == recovered_self_model.projection_id
+        # Cross a real interpreter/process boundary after all three owners have
+        # durably published. The child reconstructs their canonical stores and
+        # runs later cognition; only the serialized source record and custody
+        # roots cross the boundary, never an owner object or cached projection.
+        child = r"""
+import json, sys
+from datetime import datetime
+from pathlib import Path
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_EPISTEMIC_STATE_MUTATION,
+    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION)
+from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
+from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
+from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
+from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionVerifier
+from sentientos.world_state_board import WorldStateBoardBuilder
+from tests.test_resident_developmental_cognition import owner as developmental_owner
+
+data = json.load(sys.stdin)
+ep_root = Path(data["epistemic_root"])
+state = PersistentEpistemicStateOwner(ep_root / "epistemics", allowed_namespaces=("operator",))
+ledger = AdmissionLedger(ep_root / "admissions.json")
+definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION: RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+def current():
+    admissions, revocations = ledger.load()
+    return max([item.issued_sequence for item in admissions] +
+               [item.sequence for item in revocations], default=1)
+ResidentEpistemicStateMutationController(owner=state,
+    admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+    current_sequence=current, receipt_root=ep_root / "receipts")
+projection = state.cognitive_projection(max_states=8, current_tick=data["epistemic_tick"])
+self_model = LongitudinalSelfModelOwner(Path(data["self_model_root"])).cognitive_projection(
+    before_tick=data["tick_id"], max_claims=1,
+    allowed_predicates=("developmental.model_replacement_interpretation",))
+board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(data["tick_n"])).build(
+    [data["record"]])
+cognition, invoker = developmental_owner(Path(data["cognition_root"]),
+    allowed_source_kinds=("resource_governor",), max_selected_facts=1)
+result = cognition.run_tick(snapshot=board, tick_id=data["tick_id"],
+    prior_epistemic_state=projection, prior_self_model=self_model)
+request = next(item for item in invoker.requests
+    if item.purpose == "resident_developmental_retrieval_cognition")
+print(json.dumps({"status": result.status, "prior_record_ids": list(result.prior_record_ids),
+    "projection_id": projection.projection_id if projection else None,
+    "projection_source_tick": projection.source_tick if projection else None,
+    "projection_state_ids": list(projection.state_ids) if projection else [],
+    "projection_state_digests": list(projection.state_digests) if projection else [],
+    "self_model_projection_id": self_model.projection_id if self_model else None,
+    "self_model_reconciliation_id": self_model.source_reconciliation_id if self_model else None,
+    "self_model_reconciliation_digest": self_model.source_reconciliation_digest if self_model else None,
+    "upstream_evidence": request.upstream_evidence}, sort_keys=True))
+"""
+        process = subprocess.run([sys.executable, "-c", child], cwd=Path(__file__).parents[1],
+            input=json.dumps({"epistemic_root": str(epistemic_root),
+                "self_model_root": str(tmp_path / "composed-self-model"),
+                "cognition_root": str(cognition_root),
+                "epistemic_tick": tick_n_value + 2, "tick_n": tick_n,
+                "tick_id": "model-resource-history-tick-n-plus-two",
+                "record": lineage_record}), text=True, capture_output=True, timeout=60)
+        assert process.returncode == 0, process.stderr
+        recovered = json.loads(process.stdout.strip().splitlines()[-1])
+        assert recovered["status"] == "completed"
+        assert recovered["prior_record_ids"] == [first.written_record_id]
+        assert recovered["projection_source_tick"] == later_epistemic.source_tick == tick_n_value
+        assert tuple(recovered["projection_state_ids"]) == later_epistemic.state_ids
+        assert tuple(recovered["projection_state_digests"]) == later_epistemic.state_digests
+        assert recovered["self_model_reconciliation_id"] == later_self_model.source_reconciliation_id
+        assert recovered["self_model_reconciliation_digest"] == later_self_model.source_reconciliation_digest
+        assert first.written_record_id in recovered["upstream_evidence"]["record_ids"]
+        assert recovered["upstream_evidence"]["epistemic_projection_id"] == recovered["projection_id"]
+        assert recovered["upstream_evidence"]["self_model_projection_id"] == recovered["self_model_projection_id"]
         assert first_fixture.requests
 
         # A fully re-digested but ledger-substituted attempt remains degraded.
