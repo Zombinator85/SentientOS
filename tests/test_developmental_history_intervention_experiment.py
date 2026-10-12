@@ -12,7 +12,9 @@ from sentientos.developmental_history_intervention_experiment import (
     make_protocol, summarize, verify_protocol,
 )
 from sentientos.local_model_authority import digest_payload
-from sentientos.resident_developmental_cognition import ResidentCognitionObservation
+from sentientos.resident_developmental_cognition import (
+    ResidentCognitionObservation, ResidentDevelopmentalCognitionError,
+)
 from tests.test_resident_developmental_cognition import FakeInvoker, owner, snapshot
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -149,6 +151,67 @@ def test_formal_run_preregisters_then_withholds_without_mutating_and_restores_ex
     assert recovered_run == run
     assert run["protocol"]["record_digests"] == calls[2].upstream_evidence["record_digests"]
     assert not list((tmp_path / "history" / "records").glob("*withheld*"))
+
+
+def test_interrupted_history_intervention_recovers_incomplete_without_replaying(tmp_path: Path) -> None:
+    first, _ = owner(tmp_path)
+    retained_record_id = first.run_tick(snapshot=snapshot(), tick_id="tick-n").written_record_id
+    assert retained_record_id
+
+    class InterruptOnWithheldCondition(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt):
+            if (request.purpose == "resident_developmental_history_intervention_experiment"
+                    and request.linkage.get("condition_id") == "history_withheld"):
+                raise KeyboardInterrupt("fixture_interrupted_between_history_conditions")
+            return super().invoke(request, persist=persist,
+                                  include_output_in_receipt=include_output_in_receipt)
+
+    interrupted, _ = owner(tmp_path, comparison=True,
+                           invoker=InterruptOnWithheldCondition())
+    with pytest.raises(KeyboardInterrupt,
+                       match="fixture_interrupted_between_history_conditions"):
+        interrupted.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
+
+    protocols = list(interrupted.experiments.protocols.glob("*.json"))
+    assert len(protocols) == 1
+    protocol_id = protocols[0].stem
+    recovered_protocol = interrupted.experiments.load_protocol(protocol_id)
+    assert recovered_protocol.record_ids == (retained_record_id,)
+    assert len(list(interrupted.experiments.runs.glob("*.json"))) == 0
+
+    interrupted_rows = [row for row in interrupted._recover_observation_ticks(
+        include_records=True).values() if row.get("tick_id") == "tick-n-plus-one"]
+    assert [row["condition_id"] for row in interrupted_rows] == ["history_present"]
+    assert interrupted_rows[0]["retrieved_record_ids"] == [retained_record_id]
+    assert interrupted._state()["incomplete_ticks"] == [{
+        "tick_id": "tick-n-plus-one", "snapshot_id": snapshot(2).snapshot_id,
+        "snapshot_digest": snapshot(2).digest, "status": "interrupted_recovered"}]
+
+    restarted, replay_invoker = owner(tmp_path, comparison=True)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+                       match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
+    assert replay_invoker.requests == []
+    assert [row["condition_id"] for row in restarted._recover_observation_ticks(
+        include_records=True).values() if row.get("tick_id") == "tick-n-plus-one"] == [
+            "history_present"]
+    assert len(list(restarted.experiments.runs.glob("*.json"))) == 0
+
+    # The failed tick remains incomplete without preventing new later-tick
+    # cognition over the retained history. This is a new protocol identity,
+    # not a replay or completion claim for the interrupted experiment.
+    later = restarted.run_tick(snapshot=snapshot(3), tick_id="tick-n-plus-two")
+    assert later.status == "completed"
+    assert later.prior_record_ids == (retained_record_id,)
+    assert [request.linkage.get("condition_id") for request in replay_invoker.requests
+            if request.purpose == "resident_developmental_history_intervention_experiment"
+            and request.linkage.get("condition_id")] == [
+                "history_present", "history_withheld", "history_restored"]
+    assert later.changed_cognition_measurement_id is not None
+    recovered_run = restarted.experiments.load_run(later.changed_cognition_measurement_id)
+    assert recovered_run["validity"] == "valid_controlled_observation"
+    assert any(row.get("tick_id") == "tick-n-plus-one"
+               for row in restarted._state()["incomplete_ticks"])
 
 
 def test_missing_record_is_not_deliberate_withholding(tmp_path: Path) -> None:

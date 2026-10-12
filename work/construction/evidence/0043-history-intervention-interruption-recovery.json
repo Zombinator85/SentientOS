@@ -1,0 +1,42 @@
+{
+  "authority": false,
+  "effects_performed": [],
+  "historical_reconciliation": {
+    "artifact_sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307",
+    "classification": "B_superseded",
+    "path": "sentientos/developmental_history_intervention_experiment.py",
+    "reason": "Current store uses canonical bounded JSON, no-follow descriptor-relative custody, atomic private immutable publication, canonical-memory-root separation, protocol recovery, full observation rebinding, recomputed summary verification, and optional serving-receipt verification. Historical shorter store is weaker."
+  },
+  "interruption": {
+    "fixture_boundary": "history_present observation durably published; KeyboardInterrupt raised before history_withheld invocation returns",
+    "recovery_status": "interrupted_recovered",
+    "same_tick_retry": "rejected_before_invocation",
+    "completed_run_published": false,
+    "later_distinct_tick": "present_withheld_restored completed and canonical run reloaded",
+    "retained_record_identity_preserved": true
+  },
+  "production_verified": false,
+  "source": {
+    "remote_parent_commit": "e73e024ddd1b4c44586863e21a8ff767465dcc6d",
+    "remote_parent_tree": "275cb26fee68a386e6b58ff1429d12c1f767274c",
+    "tested_source_test_tree": "a222a31ef175a5aeb1e73bdb652d91e7f6e81fbd",
+    "local_test_harness_commit": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc"
+  },
+  "tests": {
+    "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m scripts.run_tests -q tests/test_developmental_history_intervention_experiment.py",
+    "selected": 13,
+    "call_phase_passed": 13,
+    "failed": 0,
+    "skipped": 0,
+    "provenance_hash": "2651c582e6857ee5d181d30b5635eeeb67e19d61ec02220f3c056e8c184d09f7",
+    "provenance_artifact_sha256": "7ff24c9b559e024a10335a9a9ba273722f754773161ca0fcf6060afe66a86512",
+    "junit_artifact_sha256": "401fb0f56d58b4aa23c10552dfd55c763663bb5ec0034a45c6711e5580504414",
+    "python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "The test uses the existing deterministic fake invoker; it proves owner custody/recovery semantics, not model behavior or improvement.",
+    "The test runner provenance records a synthetic local harness commit; the tested source/test content is bound separately by its exact tree SHA.",
+    "No protected production acceptance or hosted workflow was run."
+  ]
+}
