@@ -1,0 +1,89 @@
+{
+  "compare_to_main": {
+    "ahead_by": 720,
+    "base": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+    "behind_by": 0
+  },
+  "compile": {
+    "command": "python -m py_compile sentientos/developmental_history_intervention_experiment.py sentientos/developmental_model_replacement_campaign.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_campaign.py",
+    "status": "passed"
+  },
+  "dispositions": [
+    {
+      "items": [
+        {
+          "basis": "Current POSIX path uses descriptor-relative safe reads and immutable publication; Windows uses bounded handle custody. run recovery recomputes protocol, observation identities, and comparison semantics rather than trusting an outer digest.",
+          "behavior": "Bound, canonical, immutable experiment protocol/run custody with digest verification.",
+          "disposition": "B"
+        },
+        {
+          "basis": "Current v2 protocol retains these bindings and explicit non-claims; test asserts same record set present/restored and absence withheld without mutating retained bytes.",
+          "behavior": "Controlled present/withheld/restored protocol binds stable model, frozen snapshot, record set, epistemic/self-model projections and condition order.",
+          "disposition": "A"
+        }
+      ],
+      "patch_lines": "300-410",
+      "path": "sentientos/developmental_history_intervention_experiment.py"
+    },
+    {
+      "items": [
+        {
+          "basis": "Current campaign store adds descriptor-safe canonical readers, durable per-condition start/terminal journals, and reconstructs a started trial as interrupted without invoking either model; full fixed condition inventory remains incomplete.",
+          "behavior": "Bound artifact custody, cross-restart state reconstruction, and no replay of a started condition.",
+          "disposition": "B"
+        },
+        {
+          "basis": "Existing campaign classifies no observable effect and model-conditional history association separately; tests explicitly reject p-value/confidence claims.",
+          "behavior": "Negative and unchanged observations remain first-class outcomes; avoid statistical or improvement overclaim.",
+          "disposition": "A"
+        }
+      ],
+      "patch_lines": "410-586",
+      "path": "sentientos/developmental_model_replacement_campaign.py"
+    }
+  ],
+  "exact_remote_source_blobs": {
+    "sentientos/developmental_history_intervention_experiment.py": "30ddbb41fb88939465629d7485849e330926ae71",
+    "sentientos/developmental_model_replacement_campaign.py": "278b01d58a8445f6fd46aa0ed0a8607e24b4d48b",
+    "sentientos/developmental_model_replacement_experiment.py": "6251dc516d96a2f8dbb601e544a64d86297c7cec",
+    "tests/test_developmental_history_intervention_experiment.py": "7cdb18ed033ef51a9f12e990b2b4d13d410dca3a",
+    "tests/test_developmental_model_replacement_campaign.py": "f7e16e0c843c09e209e48b6195b49d81e40f13c2"
+  },
+  "focused_executions": [
+    {
+      "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 with isolated temp roots: pytest tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_resource_lineage_integration.py",
+      "failed": 0,
+      "junit_path": "glow/test_runs/0067-history-experiment-junit.xml",
+      "junit_sha256": "e725d6273cd0acfe82c6ed05778c1fe5c35a57b416c0df1f476e815599073f26",
+      "passed": 35,
+      "skipped": 0
+    },
+    {
+      "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 with isolated temp roots: pytest tests/test_developmental_model_replacement_campaign.py tests/test_developmental_history_intervention_experiment.py",
+      "failed": 0,
+      "junit_path": "glow/test_runs/0067-replacement-recovery-junit.xml",
+      "junit_sha256": "70d6f35d64f4000a18b4a7b6e4d8f88d8fdc8188f02f609fc5ef644205fa25c9",
+      "passed": 27,
+      "skipped": 0
+    }
+  ],
+  "historical_patch_sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307",
+  "hosted_checks_exact_repair_sha": {
+    "commit": "db45c915209dcfc0af23acf8787fcd268786dc3b",
+    "docs": "failure",
+    "helm_k8s_test": "in_progress_at_readback",
+    "invariants": "failure",
+    "self_check": "failure",
+    "source_validation": "success"
+  },
+  "mypy": "not run",
+  "observations": [
+    "History present/withheld/restored changes only the retained-history selection; same snapshot/model/request protocol is bound and original history bytes remain unchanged. Stable differences and no difference are descriptive, not improvement claims.",
+    "Interrupted history treatment and model-replacement conditions remain incomplete after reconstruction and are not replayed; later fresh tick/protocol remains possible. All cognition backends used here are deterministic test fixtures."
+  ],
+  "production_status": "unverified",
+  "real_model_execution": "not performed",
+  "schema_version": 1,
+  "source_commit": "db45c915209dcfc0af23acf8787fcd268786dc3b",
+  "source_tree": "3ee25ee16ac05772942a89f4e20bfbc4c6241f24"
+}
