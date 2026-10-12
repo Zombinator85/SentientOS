@@ -42,12 +42,6 @@ from sentientos.audit_sink import resolve_audit_paths, safe_write_event
 # ── privilege_lint_cli.py ─────────────────────────────────────────
 
 
-# auto-approve when `CI` or `GIT_HOOKS` is set (see docs/ENVIRONMENT.md)
-if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
-    os.getenv("CI") or os.getenv("GIT_HOOKS")
-):
-    os.environ["LUMOS_AUTO_APPROVE"] = "1"
-
 DEFAULT_BANNER_ASCII = [
     "#  _____  _             _",
     "# |  __ \\| |           (_)",
