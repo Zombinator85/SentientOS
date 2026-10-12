@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -10,6 +12,7 @@ from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRI
 from sentientos.developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
 )
+from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
 from sentientos.host_collectors import HostCollectorResult
@@ -66,6 +69,9 @@ class FakeInvoker:
         self.cross_cognition_request_identity = False
         self.no_cognition_lesson = False
         self.unavailable_cognition_output = False
+        self.objective_mode = "derive_from_history"
+        self.objective_plan_root: Path | None = None
+        self.history_interpretation = "bounded history"
 
     def build_request(self, **kwargs):
         request = type("Request", (), {})()
@@ -105,7 +111,53 @@ class FakeInvoker:
         truncated = False
         original_output = None
         if request.purpose == "resident_developmental_interpretation":
-            text = json.dumps({"interpretation":"bounded history", "uncertainty":"medium"})
+            text = json.dumps({"interpretation":self.history_interpretation, "uncertainty":"medium"})
+        elif (request.purpose == "resident_developmental_history_intervention_experiment"
+                and "objective_task_plan_digest" in request.upstream_evidence):
+            assert self.objective_plan_root is not None
+            plans = list(self.objective_plan_root.glob("objective-task-plan-*.json"))
+            assert len(plans) == 1
+            plan = json.loads(plans[0].read_text(encoding="utf-8"))
+            assert plan["plan_digest"] == request.upstream_evidence["objective_task_plan_digest"]
+            prompt = json.loads(request.prompt)
+            assert prompt["objective_task"] == plan["task_descriptor"]
+            assert "objective_task" not in prompt["current_evidence"]
+            history = prompt["developmental_history"]
+            if self.objective_mode == "derive_from_history":
+                examples = []
+                for packet in history:
+                    text_value = packet.get("interpretation")
+                    if isinstance(text_value, str):
+                        import re
+                        examples.extend((int(x), int(y)) for x, y in re.findall(
+                            r"input (\d+) produced (\d+)", text_value))
+                if len(examples) >= 2:
+                    (x1, y1), (x2, y2) = examples[:2]
+                    multiplier = (y2 - y1) // (x2 - x1)
+                    answer = multiplier * 7 + (y1 - multiplier * x1)
+                else:
+                    answer = 0
+            elif self.objective_mode == "no_difference":
+                answer = 23
+            elif self.objective_mode == "degrade":
+                answer = 0 if history else 23
+            elif self.objective_mode == "unstable":
+                answer = 0 if request.linkage["condition_id"] == "history_restored" else (
+                    23 if history else 0)
+            elif self.objective_mode == "malformed":
+                answer = None
+            elif self.objective_mode == "substitute":
+                answer = 23 if history else 0
+            else:
+                answer = 23 if history else 0
+            output = ("{\"answer\":23,\"answer\":0}" if self.objective_mode == "malformed"
+                else json.dumps({"answer": answer}, sort_keys=True, separators=(",", ":")))
+            if self.objective_mode == "unavailable":
+                receipt_text = None
+            else:
+                receipt_text = output
+            text = output
+            original_output = output
         elif request.expected_output_format == "json" and request.structured_output_schema:
             upstream = request.upstream_evidence
             consumed = (upstream.get("record_ids") or upstream.get("current_fact_ids")
@@ -138,10 +190,17 @@ class FakeInvoker:
         receipt_request = request.to_receipt_request_dict()
         if self.cross_cognition_request_identity and request.expected_output_format == "json":
             receipt_request["request_id"] = "lmreq-crossed"
-        receipt_text = None if (self.unavailable_cognition_output
-            and request.purpose == "resident_developmental_retrieval_cognition") else text
+        if not (request.purpose == "resident_developmental_history_intervention_experiment"
+                and "objective_task_plan_digest" in request.upstream_evidence):
+            receipt_text = None if (self.unavailable_cognition_output
+                and request.purpose == "resident_developmental_retrieval_cognition") else text
+        receipt_digest = digest_payload({"output":original_output})
+        if (request.purpose == "resident_developmental_history_intervention_experiment"
+                and "objective_task_plan_digest" in request.upstream_evidence
+                and self.objective_mode == "substitute"):
+            receipt_digest = digest_payload({"output": "different output"})
         return LocalModelInvocationReceipt(request=receipt_request, status="admitted_completed",
-            reason_codes=("completed",), output_text=receipt_text, output_digest=digest_payload({"output":original_output}),
+            reason_codes=("completed",), output_text=receipt_text, output_digest=receipt_digest,
             output_size_bytes=len(original_output.encode()), admission_decision_ref="local",
             purpose=request.purpose, latency_ms=1, output_truncated=truncated, fallback_occurred=False,
             effects={"local_model_inference":True}, observed_at="2026-01-01T00:00:00+00:00",
@@ -224,9 +283,90 @@ def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(
         for item in invoker.verified_receipts)
 
 
+@pytest.mark.parametrize("mode,delta,stable,assessment", [
+    ("derive_from_history", 1, True, "single_preregistered_task_scored"),
+    ("no_difference", 0, True, "single_preregistered_task_scored"),
+    ("degrade", -1, True, "single_preregistered_task_scored"),
+    ("unstable", 1, False, "single_preregistered_task_scored"),
+    ("malformed", 0, True, "single_preregistered_task_scored"),
+    ("unavailable", None, None, "unscoreable_missing_output"),
+])
+def test_same_model_history_intervention_uses_preregistered_objective_oracle(
+        tmp_path: Path, mode: str, delta: int | None, stable: bool | None,
+        assessment: str) -> None:
+    fake = FakeInvoker()
+    fake.objective_mode = mode
+    fake.history_interpretation = (
+        "Historical examples: input 1 produced 5; input 2 produced 8.")
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    first = cognition.run_tick(snapshot=snapshot(), tick_id="objective-history-seed")
+    assert first.status == "completed" and first.written_record_id
+    second = cognition.run_tick(snapshot=snapshot(), tick_id="objective-history-comparison")
+    assert second.changed_cognition_measurement_id is not None
+    run = cognition.experiments.load_run(second.changed_cognition_measurement_id)
+    evaluation = run["objective_evaluation"]
+    assert evaluation["history_accuracy_delta"] == delta
+    assert evaluation["restoration_correctness_stable"] is stable
+    assert evaluation["assessment"] == assessment
+    assert [row["condition_id"] for row in run["objective_scores"]] == [
+        "history_present", "history_withheld", "history_restored"]
+    reopened_store = DevelopmentalExperimentStore(tmp_path / "state")
+    assert reopened_store.load_run(run["run_id"])["objective_evaluation"] == evaluation
+    if mode == "derive_from_history":
+        assert [row["score"]["answer"] for row in run["objective_scores"]] == [23, 0, 23]
+        requests = [request for request in fake.requests
+            if request.purpose == "resident_developmental_history_intervention_experiment"
+            and "objective_task_plan_digest" in request.upstream_evidence]
+        assert len(requests) == 3
+        assert len({request.request_digest for request in requests}) == 3
+        assert [json.loads(request.prompt)["developmental_history"] != []
+            for request in requests] == [True, False, True]
+        child = subprocess.run([sys.executable, "-c", """
+import json, sys
+from pathlib import Path
+from sentientos.developmental_history_intervention_experiment import DevelopmentalExperimentStore
+store=DevelopmentalExperimentStore(Path(sys.argv[1]))
+run=store.load_run(sys.argv[2])
+print(json.dumps(run["objective_evaluation"], sort_keys=True))
+""", str(tmp_path / "state"), run["run_id"]], cwd=Path(__file__).resolve().parents[1],
+            capture_output=True, text=True, check=True)
+        assert json.loads(child.stdout.strip().splitlines()[-1]) == evaluation
+    # A completed trial is never replayed, and independently re-opened custody
+    # recomputes the oracle scores from the original receipt-bound outputs.
+    replay_requests = len(fake.requests)
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(), tick_id="objective-history-comparison")
+    assert len(fake.requests) == replay_requests
+
+
+def test_same_model_objective_score_recovery_rejects_rehashed_substitution(tmp_path: Path) -> None:
+    fake = FakeInvoker()
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    cognition.run_tick(snapshot=snapshot(), tick_id="score-recovery-seed")
+    result = cognition.run_tick(snapshot=snapshot(), tick_id="score-recovery-run")
+    assert result.changed_cognition_measurement_id
+    valid = cognition.experiments.load_run(result.changed_cognition_measurement_id)
+    altered = dict(valid)
+    altered.pop("run_id"); altered.pop("run_digest")
+    altered["objective_scores"] = [dict(row) for row in valid["objective_scores"]]
+    altered["objective_scores"][0] = dict(altered["objective_scores"][0])
+    score = dict(altered["objective_scores"][0]["score"])
+    score["answer"] = 22
+    altered["objective_scores"][0]["score"] = score
+    forged_id = cognition.experiments.persist_run(altered)
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+                       match="objective_score_binding_invalid"):
+        cognition.experiments.load_run(forged_id)
+
+
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
           allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
-          max_selected_facts: int = 1):
+          max_selected_facts: int = 1, objective_task=None):
     ledger = AdmissionLedger(root / "state" / "admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -240,7 +380,7 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
     result = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(
         root / "history", root / "state", allowed_source_kinds, max_selected_facts, 4, comparison), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-        invoker=fake, current_sequence=next_sequence)
+        invoker=fake, current_sequence=next_sequence, objective_task=objective_task)
     return result, fake
 
 

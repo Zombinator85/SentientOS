@@ -1,0 +1,11 @@
+# 0079 — Preregistered objective scoring in same-model history intervention
+
+Source baseline: `180b15e4f3bcf39d8813e54337509880c99817d5`, tree `3780cf0446ddc58d431596d959da69da25577e5c`. Before running the experiment suite, the staged source tree was independently checked to equal that exact remote tree; only the three fingerprinted test/implementation paths in the result artifact differed during the run.
+
+Extended the existing history-intervention protocol with an opt-in v3 objective task. The protocol digest binds the task descriptor; the canonical immutable task plan is written before any condition inference. The same task is presented separately from current evidence to history-present, history-withheld, and exact-history-restored conditions. Scores use the bounded exact JSON answer from the governed invocation receipt and verify its output digest. Recovery revalidates the task plan, score, receipt identifiers, and evaluation; a rehashed substituted score is rejected. Older protocol schemas retain their former semantic hash scope.
+
+Focused canonical suite: **108 passed, 0 failed, 0 skipped** across history intervention, model replacement, objective scoring, and resident cognition. Cases cover fixture-improvement, no difference, degradation, unstable restoration, malformed duplicate-key output, unavailable output, receipt substitution, and a fresh Python-process reopen of the completed run without replay. Results: `work/construction/evidence/0079-objective-history-results.json` (SHA-256 `8ef6357b4e341167dfdfe705e5f2d809e9c33b15e95c4c1cecb7e5a77efc3ec5`); JUnit: `work/construction/evidence/0079-same-model-history-junit.xml`. `py_compile` and `git diff --check` passed. The mypy executable was unavailable, so no typing result is claimed.
+
+These outcomes are deterministic fake-invoker fixtures, not local-model behavior or evidence of generalized learning. Mid-trial crash reconstruction of all three objective scores remains a separate gap. Work remains unverified for production.
+
+Next: establish whether a partially completed history-intervention can be reconstructed from durable authenticated condition observations and invocation receipts without reinvoking a model; otherwise retain it as incomplete. Then advance the commissioned local-model experiment readiness only as far as existing artifact and authorization custody permits.

@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Last independently verified source commit `323a8f1d5d7873ac6b51daf1f93f42ab494f4996`, tree `ebfd55c65686cd88a26aa0abdb953c9293c2b35e`.
+Last independently verified source baseline `180b15e4f3bcf39d8813e54337509880c99817d5`, tree `3780cf0446ddc58d431596d959da69da25577e5c`. The current sequence 79 candidate adds same-model history objective scoring on that baseline; it is not yet published or production-verified.
 
-Latest segment: work/construction/segments/0078-resource-observer-restart-custody.md
-SHA-256: f74bf66471a2c06add3f75a67c1fc6d6079923ebacda4a6baa4ec766a9f1d070
-Sequence: 78
+Latest segment: work/construction/segments/0079-same-model-objective-history.md
+SHA-256: 30a21da55b067bcb1a101712764147e8f2284824246864173b50fd83ce7dfee9
+Sequence: 79
 
-Read-only resource observation now has focused restart/stability and missing/corrupt-ledger controls (2/2 passed) against the exact published source plus this test-only candidate. Production source did not change. Fixture results establish local custody semantics only.
+The existing canonical history-intervention path now supports a preregistered, receipt-bound objective oracle across history-present, withheld, and restored conditions. Focused suite: 108 passed; fixture-only outcomes and exact file fingerprints are in evidence/0079-objective-history-results.json. Compilation and diff checks passed. Mypy was unavailable. No real model was invoked, and interrupted mid-trial score reconstruction remains unresolved.
 
-Sequence-77 hosted checks: Source validation and helm-k8s-test succeeded; docs, invariants, and self-check failed. Exact statuses are preserved in evidence/0078-hosted-checks-seq77.json.
+Next dependency: test/implement truthful recovery of a partially completed objective comparison from already durable observations and exact authenticated receipts, without replay; keep unrecoverable conditions incomplete. Then inspect legitimate local-model readiness and distinguish external prerequisites from source gaps.
 
-Next: continue source-backed acquisition/transfer experiment readiness and adjacent developmental closure. Real-model effect measurements require an operator-commissioned artifact and exact valid approval. Construction remains unverified for production.
+Construction is unverified for production.

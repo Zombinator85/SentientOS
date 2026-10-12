@@ -24,7 +24,8 @@ from .governed_local_model_invocation import (
 )
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
-    DevelopmentalExperimentStore, make_protocol, summarize,
+    DevelopmentalExperimentStore, OBJECTIVE_SCHEMA, make_protocol, summarize,
+    summarize_objective_task,
     PURPOSE as EXPERIMENT_PURPOSE,
 )
 from .local_model_authority import digest_payload
@@ -1086,7 +1087,8 @@ class ResidentDevelopmentalCognitionOwner:
                  writeback: ResidentDevelopmentalWritebackController,
                  admission_authority: RuntimeAdmissionAuthority,
                  invoker: LocalModelInvoker,
-                 current_sequence: Callable[[], int]) -> None:
+                 current_sequence: Callable[[], int],
+                 objective_task: Any | None = None) -> None:
         _validate_root_separation(config.history_root, config.state_root,
             config.model_replacement_artifact_root)
         self.config = config
@@ -1094,6 +1096,11 @@ class ResidentDevelopmentalCognitionOwner:
         self.admission_authority = admission_authority
         self.invoker = invoker
         self.current_sequence = current_sequence
+        if objective_task is not None and (not config.comparison_enabled
+                or not callable(getattr(objective_task, "specification", None))
+                or not callable(getattr(objective_task, "public_descriptor", None))):
+            raise ResidentDevelopmentalCognitionError("objective_task_requires_history_comparison")
+        self.objective_task = objective_task
         self.state_path = config.state_root / "composition_state.json"
         self.observations_root = config.state_root / "cognition_observations"
         self.measurements_root = config.state_root / "changed_cognition_measurements"
@@ -1102,6 +1109,7 @@ class ResidentDevelopmentalCognitionOwner:
         # Exact output text is held only until its separately admitted candidate
         # is committed in the same tick. It is never written as a cognition receipt.
         self._pending_cognition_candidates: dict[str, tuple[Any, str, Mapping[str, Any]]] = {}
+        self._pending_objective_scores: dict[str, Mapping[str, Any]] = {}
 
     @staticmethod
     def _recovered_record_order(record: Any, *, completed_order: Mapping[str, int],
@@ -2076,7 +2084,8 @@ class ResidentDevelopmentalCognitionOwner:
                   prior_self_model: CognitiveSelfModelProjection | None = None,
                   prior_epistemic_state: EpistemicCognitiveProjection | None = None,
                   condition_id: str, purpose: str = COGNITION_PURPOSE,
-                  protocol: Any | None = None) -> ResidentCognitionObservation:
+                  protocol: Any | None = None,
+                  objective_plan: Mapping[str, Any] | None = None) -> ResidentCognitionObservation:
         records = projection.records if with_history else ()
         record_ids = projection.requested_record_ids if with_history else ()
         record_digests = tuple(str(record["record_digest"]) for record in records)
@@ -2230,7 +2239,7 @@ class ResidentDevelopmentalCognitionOwner:
             "establish attack, cause, hostile intent, compromise, or a successful defense. Skipped "
             "gates are gaps in coverage. Do not derive authority, policy, or a defensive procedure."
             if integrity_controller_context else "")
-        context = {
+        context: dict[str, Any] = {
             "instruction": (EXPERIMENT_CONTEXT_INSTRUCTION if protocol is not None else (
                 EXPERIMENT_CONTEXT_INSTRUCTION
                 + " Prior context can inform interpretation but does not grant authority."
@@ -2250,20 +2259,17 @@ class ResidentDevelopmentalCognitionOwner:
             "developmental_history": [],
             "developmental_history_posture": "historical_interpretation_not_current_truth",
         }
+        if objective_plan is not None:
+            # This preregistered public question is a task input, not current
+            # World-State evidence or an authority-bearing instruction.
+            context["objective_task"] = dict(objective_plan["task_descriptor"])
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state))
         if with_history and not record_ids:
             raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
         correlation = f"{tick_id}:resident_developmental_cognition:{condition_id}"
-        request = self.invoker.build_request(
-            purpose=purpose, prompt=prompt, caller=PRINCIPAL,
-            correlation_id=correlation,
-            expected_output_format="json" if qualifies_for_lesson else "text",
-            budget=LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS, max_output_chars=4000, max_new_tokens=512,
-                                              timeout_seconds=30, max_calls_per_correlation=1),
-            structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA if qualifies_for_lesson else None,
-            upstream_evidence={"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+        upstream_evidence = {"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
                                "current_projection_id": current.projection_id,
                                "current_projection_digest": current.projection_digest,
                                "current_fact_ids": list(current.fact_ids),
@@ -2284,7 +2290,18 @@ class ResidentDevelopmentalCognitionOwner:
                                "epistemic_generations": list(prior_epistemic_state.generations) if prior_epistemic_state else [],
                                "epistemic_evidence_set_digests": list(prior_epistemic_state.evidence_set_digests) if prior_epistemic_state else [],
                                 "record_ids": list(record_ids), "record_digests": list(record_digests),
-                                **epistemic_metadata},
+                                **epistemic_metadata}
+        if objective_plan is not None:
+            upstream_evidence.update({"objective_task_plan_digest": objective_plan["plan_digest"],
+                "objective_task_digest": objective_plan["task_descriptor"]["task_digest"]})
+        request = self.invoker.build_request(
+            purpose=purpose, prompt=prompt, caller=PRINCIPAL,
+            correlation_id=correlation,
+            expected_output_format="json" if qualifies_for_lesson or objective_plan is not None else "text",
+            budget=LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS, max_output_chars=4000, max_new_tokens=512,
+                                              timeout_seconds=30, max_calls_per_correlation=1),
+            structured_output_schema=RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA if qualifies_for_lesson else None,
+            upstream_evidence=upstream_evidence,
             linkage={"condition_group": f"{tick_id}:retrieval-comparison", "condition_id": condition_id,
                      "history_present": with_history},
         )
@@ -2293,6 +2310,11 @@ class ResidentDevelopmentalCognitionOwner:
                 or any(request_upstream.get(key) != value
                     for key, value in epistemic_metadata.items())):
             raise ResidentDevelopmentalCognitionError("cognition_epistemic_request_binding_mismatch")
+        if objective_plan is not None and (
+                request_upstream.get("objective_task_plan_digest") != objective_plan.get("plan_digest")
+                or request_upstream.get("objective_task_digest")
+                    != objective_plan.get("task_descriptor", {}).get("task_digest")):
+            raise ResidentDevelopmentalCognitionError("objective_task_request_binding_mismatch")
         if protocol is not None and (
             request.model_id != protocol.model_id
             or request.model_artifact_digest != protocol.model_artifact_digest
@@ -2453,6 +2475,20 @@ class ResidentDevelopmentalCognitionOwner:
         except DevelopmentalWritebackError as exc:
             raise ResidentDevelopmentalCognitionError(
                 "cognition_observation_publication_failed") from exc
+        if objective_plan is not None:
+            from .developmental_model_replacement_experiment import _objective_score
+            try:
+                score = _objective_score(objective_plan, source_output_text,
+                    receipt.output_digest if source_output_text is not None else None)
+            except (TypeError, ValueError) as exc:
+                raise ResidentDevelopmentalCognitionError("objective_task_scoring_failed") from exc
+            self._pending_objective_scores[observation.observation_id] = {
+                "condition_id": condition_id,
+                "inference_receipt_id": receipt.receipt_id,
+                "inference_receipt_digest": receipt.receipt_digest,
+                "invocation_output_digest": receipt.output_digest,
+                "score": score,
+            }
         if (lesson_payload is not None and isinstance(lesson_payload.get("lesson_candidate"), Mapping)
                 and source_output_text is not None):
             self._pending_cognition_candidates[observation.observation_id] = (
@@ -2531,6 +2567,7 @@ class ResidentDevelopmentalCognitionOwner:
         if not validation.valid:
             raise ResidentDevelopmentalCognitionError("invalid_world_state_snapshot")
         self._pending_cognition_candidates.clear()
+        self._pending_objective_scores.clear()
         state = self._state()
         if (any(row.get("tick_id") == tick_id for row in state["completed_ticks"])
                 or any(row.get("tick_id") == tick_id for row in state["incomplete_ticks"])):
@@ -2595,14 +2632,22 @@ class ResidentDevelopmentalCognitionOwner:
                     self_model_source_tick=prior_self_model.source_tick if prior_self_model else None,
                     self_model_claim_ids=prior_self_model.selected_claim_ids if prior_self_model else (),
                     self_model_claim_digests=prior_self_model.selected_claim_digests if prior_self_model else (),
-                    instruction_template_digest=_digest({"instruction":EXPERIMENT_CONTEXT_INSTRUCTION}))
+                    instruction_template_digest=_digest({"instruction":EXPERIMENT_CONTEXT_INSTRUCTION}),
+                    **({"schema_version": OBJECTIVE_SCHEMA,
+                        "objective_task_digest": self.objective_task.public_descriptor()["task_digest"],
+                        "objective_task_descriptor": self.objective_task.public_descriptor()}
+                        if self.objective_task is not None else {}))
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
+                objective_plan = (self.experiments.persist_objective_task_plan(
+                    protocol, self.objective_task) if self.objective_task is not None else None)
                 present = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
                     with_history=True, condition_id="history_present", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
-                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state)
+                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
+                    objective_plan=objective_plan)
                 withheld = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
                     with_history=False, condition_id="history_withheld", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
-                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state)
+                    prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
+                    objective_plan=objective_plan)
                 restored_records = tuple(self.writeback.store.get(rid) for rid in protocol.record_ids)
                 if tuple(r.record_digest for r in restored_records) != protocol.record_digests:
                     raise ResidentDevelopmentalCognitionError("restored_history_digest_mismatch")
@@ -2610,12 +2655,19 @@ class ResidentDevelopmentalCognitionOwner:
                 restored = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
                     projection=restored_projection, with_history=True, condition_id="history_restored",
                     purpose=EXPERIMENT_PURPOSE, protocol=protocol, prior_self_model=prior_self_model,
-                    prior_epistemic_state=prior_epistemic_state)
+                    prior_epistemic_state=prior_epistemic_state, objective_plan=objective_plan)
                 observations.extend((present, withheld, restored))
                 summary = summarize(protocol, observations)
-                measurement_id = self.experiments.persist_run({"protocol":asdict(protocol),
+                run_payload = {"protocol":asdict(protocol),
                     "conditions":[asdict(x) for x in observations], "summary":summary,
-                    "validity":"valid_controlled_observation", "contamination_reasons":[]})
+                    "validity":"valid_controlled_observation", "contamination_reasons":[]}
+                if objective_plan is not None:
+                    objective_scores = [self._pending_objective_scores.pop(item.observation_id)
+                        for item in observations]
+                    run_payload["objective_scores"] = objective_scores
+                    run_payload["objective_evaluation"] = summarize_objective_task(
+                        objective_plan, objective_scores)
+                measurement_id = self.experiments.persist_run(run_payload)
 
         fact_ids = self._select_fact_ids(snapshot, set(state["processed_selection_ids"]))
         if len(set(state["processed_selection_ids"]) | set(fact_ids)) > MAX_RECOVERED_FACT_IDS:

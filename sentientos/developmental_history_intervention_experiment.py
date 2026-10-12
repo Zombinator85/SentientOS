@@ -17,6 +17,7 @@ from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_fil
 
 LEGACY_SCHEMA = "sentientos.developmental_history_intervention_protocol:v1"
 SCHEMA = "sentientos.developmental_history_intervention_protocol:v2"
+OBJECTIVE_SCHEMA = "sentientos.developmental_history_intervention_protocol:v3"
 RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v1"
 PURPOSE = "resident_developmental_history_intervention_experiment"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
@@ -68,6 +69,8 @@ class DevelopmentalHistoryInterventionProtocol:
     self_model_source_tick: str | None = None
     self_model_claim_ids: tuple[str, ...] = ()
     self_model_claim_digests: tuple[str, ...] = ()
+    objective_task_digest: str | None = None
+    objective_task_descriptor: Mapping[str, Any] | None = None
     grants_authority: bool = False
     schema_version: str = SCHEMA
 
@@ -79,6 +82,9 @@ class DevelopmentalHistoryInterventionProtocol:
                         "self_model_reconciliation_generation", "self_model_source_tick",
                         "self_model_claim_ids", "self_model_claim_digests"):
                 value.pop(key, None)
+        if self.schema_version != OBJECTIVE_SCHEMA:
+            value.pop("objective_task_digest", None)
+            value.pop("objective_task_descriptor", None)
         return value
 
 
@@ -94,10 +100,17 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
     digest = _digest(protocol.semantic_payload())
     if protocol.protocol_digest != digest or protocol.protocol_id != "devexp-protocol-" + digest[7:31]:
         raise DevelopmentalHistoryInterventionError("protocol_digest_mismatch")
-    if (protocol.schema_version not in {LEGACY_SCHEMA, SCHEMA}
+    if (protocol.schema_version not in {LEGACY_SCHEMA, SCHEMA, OBJECTIVE_SCHEMA}
             or protocol.condition_order != CONDITION_ORDER or protocol.inference_purpose != PURPOSE
             or protocol.grants_authority):
         raise DevelopmentalHistoryInterventionError("protocol_control_invalid")
+    if protocol.schema_version == OBJECTIVE_SCHEMA:
+        if (not isinstance(protocol.objective_task_digest, str)
+                or not isinstance(protocol.objective_task_descriptor, Mapping)
+                or protocol.objective_task_descriptor.get("task_digest") != protocol.objective_task_digest):
+            raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
+    elif protocol.objective_task_digest is not None or protocol.objective_task_descriptor is not None:
+        raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
 
 
 class DevelopmentalExperimentStore:
@@ -185,6 +198,77 @@ class DevelopmentalExperimentStore:
         loaded = DevelopmentalHistoryInterventionProtocol(**payload)
         verify_protocol(loaded)
 
+    def persist_objective_task_plan(self, protocol: DevelopmentalHistoryInterventionProtocol,
+                                    task: Any) -> dict[str, Any]:
+        """Durably freeze the independent oracle before the first condition runs."""
+        verify_protocol(protocol)
+        if protocol.schema_version != OBJECTIVE_SCHEMA:
+            raise DevelopmentalHistoryInterventionError("objective_task_protocol_required")
+        protocol_descriptor = protocol.objective_task_descriptor
+        if not isinstance(protocol_descriptor, Mapping):
+            raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
+        try:
+            specification = task.specification()
+            descriptor = task.public_descriptor()
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise DevelopmentalHistoryInterventionError("objective_task_invalid") from exc
+        if (not isinstance(specification, Mapping) or not isinstance(descriptor, Mapping)
+                or descriptor != dict(protocol_descriptor)
+                or descriptor.get("task_digest") != protocol.objective_task_digest
+                or _digest(specification) != protocol.objective_task_digest):
+            raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
+        semantic = {"schema_version": "sentientos.objective_task_plan:v1",
+            "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
+            "task": dict(specification), "task_descriptor": dict(descriptor),
+            "condition_order": list(CONDITION_ORDER), "rubric": "exact_integer_answer_v1",
+            "authority": False}
+        plan = {**semantic, "plan_digest": _digest(semantic)}
+        path = self.protocols / f"objective-task-plan-{protocol.protocol_id}.json"
+        self._write_immutable(path, plan)
+        return self.verify_objective_task_plan(protocol)
+
+    def verify_objective_task_plan(self,
+            protocol: DevelopmentalHistoryInterventionProtocol) -> dict[str, Any]:
+        verify_protocol(protocol)
+        if protocol.schema_version != OBJECTIVE_SCHEMA:
+            raise DevelopmentalHistoryInterventionError("objective_task_protocol_required")
+        protocol_descriptor = protocol.objective_task_descriptor
+        if not isinstance(protocol_descriptor, Mapping):
+            raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
+        try:
+            value = self._read_json(self.protocols / f"objective-task-plan-{protocol.protocol_id}.json")
+        except FileNotFoundError as exc:
+            raise DevelopmentalHistoryInterventionError("objective_task_plan_missing") from exc
+        expected = {"schema_version", "protocol_id", "protocol_digest", "task",
+            "task_descriptor", "condition_order", "rubric", "authority", "plan_digest"}
+        if set(value) != expected:
+            raise DevelopmentalHistoryInterventionError("objective_task_plan_invalid")
+        semantic = dict(value); claimed = semantic.pop("plan_digest")
+        if (value.get("schema_version") != "sentientos.objective_task_plan:v1"
+                or value.get("protocol_id") != protocol.protocol_id
+                or value.get("protocol_digest") != protocol.protocol_digest
+                or value.get("condition_order") != list(CONDITION_ORDER)
+                or value.get("rubric") != "exact_integer_answer_v1"
+                or value.get("authority") is not False
+                or claimed != _digest(semantic)):
+            raise DevelopmentalHistoryInterventionError("objective_task_plan_binding_invalid")
+        task = value.get("task")
+        if not isinstance(task, Mapping) or set(task) != {
+                "schema_version", "multiplier", "offset", "probe_input", "oracle_scope"}:
+            raise DevelopmentalHistoryInterventionError("objective_task_plan_invalid")
+        from .developmental_model_replacement_experiment import ObjectivePredictionTask
+        try:
+            reconstructed = ObjectivePredictionTask(task["multiplier"], task["offset"], task["probe_input"])
+            if (reconstructed.specification() != dict(task)
+                    or reconstructed.public_descriptor() != value.get("task_descriptor")
+                    or value.get("task_descriptor") != dict(protocol_descriptor)
+                    or task.get("schema_version") != "sentientos.affine_prediction_task:v1"
+                    or _digest(task) != protocol.objective_task_digest):
+                raise ValueError("objective_task_binding_invalid")
+        except (TypeError, ValueError) as exc:
+            raise DevelopmentalHistoryInterventionError("objective_task_plan_binding_invalid") from exc
+        return value
+
     def load_protocol(self, protocol_id: str) -> DevelopmentalHistoryInterventionProtocol:
         if (not isinstance(protocol_id, str) or not protocol_id.startswith("devexp-protocol-")
                 or len(protocol_id) != len("devexp-protocol-") + 24
@@ -233,7 +317,8 @@ class DevelopmentalExperimentStore:
         expected_fields = {"schema_version", "protocol", "conditions", "summary",
             "validity", "contamination_reasons", "run_id", "run_digest"}
         protocol_raw, conditions = value.get("protocol"), value.get("conditions")
-        if (set(value) != expected_fields or not isinstance(protocol_raw, Mapping)
+        if (not set(value).issubset(expected_fields | {"objective_scores", "objective_evaluation"})
+                or not expected_fields.issubset(value) or not isinstance(protocol_raw, Mapping)
                 or not isinstance(conditions, list) or not isinstance(value.get("summary"), Mapping)
                 or value.get("validity") != "valid_controlled_observation"
                 or value.get("contamination_reasons") != []):
@@ -258,11 +343,11 @@ class DevelopmentalExperimentStore:
             for raw_observation in conditions:
                 if not isinstance(raw_observation, Mapping):
                     raise TypeError("condition_observation_invalid")
-                observation_payload = dict(raw_observation)
+                raw_condition_payload = dict(raw_observation)
                 for key in observation_tuple_fields:
-                    if key in observation_payload:
-                        observation_payload[key] = tuple(observation_payload[key])
-                observations.append(ResidentCognitionObservation(**observation_payload))
+                    if key in raw_condition_payload:
+                        raw_condition_payload[key] = tuple(raw_condition_payload[key])
+                observations.append(ResidentCognitionObservation(**raw_condition_payload))
             recomputed = summarize(protocol, observations)
         except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalHistoryInterventionError("run_artifact_control_invalid") from exc
@@ -277,10 +362,47 @@ class DevelopmentalExperimentStore:
             except Exception as exc:
                 raise DevelopmentalHistoryInterventionError(
                     "run_artifact_invocation_receipt_invalid") from exc
-        canonical = lambda item: json.dumps(item, sort_keys=True, separators=(",", ":"),
-            ensure_ascii=False)
+        def canonical(item: object) -> str:
+            return json.dumps(item, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False)
         if canonical(recomputed) != canonical(value["summary"]):
             raise DevelopmentalHistoryInterventionError("run_artifact_summary_mismatch")
+        if protocol.schema_version == OBJECTIVE_SCHEMA:
+            if not {"objective_scores", "objective_evaluation"}.issubset(value):
+                raise DevelopmentalHistoryInterventionError("objective_scores_missing")
+            plan = self.verify_objective_task_plan(protocol)
+            scores = value.get("objective_scores")
+            if not isinstance(scores, list) or len(scores) != len(CONDITION_ORDER):
+                raise DevelopmentalHistoryInterventionError("objective_scores_incomplete")
+            from .developmental_model_replacement_experiment import _objective_score
+            verified_scores: list[dict[str, Any]] = []
+            by_condition = {str(item.get("condition_id")): item for item in conditions
+                if isinstance(item, Mapping)}
+            for condition_id, wrapper in zip(CONDITION_ORDER, scores):
+                observation_payload = by_condition.get(condition_id)
+                if (not isinstance(wrapper, Mapping)
+                        or set(wrapper) != {"condition_id", "inference_receipt_id",
+                            "inference_receipt_digest", "invocation_output_digest", "score"}
+                        or wrapper.get("condition_id") != condition_id
+                        or not isinstance(observation_payload, Mapping)
+                        or wrapper.get("inference_receipt_id") != observation_payload.get("inference_receipt_id")
+                        or wrapper.get("inference_receipt_digest") != observation_payload.get("inference_receipt_digest")
+                        or wrapper.get("invocation_output_digest") != observation_payload.get("output_digest")
+                        or not isinstance(wrapper.get("score"), Mapping)):
+                    raise DevelopmentalHistoryInterventionError("objective_score_receipt_binding_invalid")
+                try:
+                    expected_score = _objective_score(plan, wrapper["score"].get("output_text"),
+                        wrapper["invocation_output_digest"] if wrapper["score"].get("output_text") is not None else None)
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise DevelopmentalHistoryInterventionError("objective_score_invalid") from exc
+                if canonical(expected_score) != canonical(wrapper["score"]):
+                    raise DevelopmentalHistoryInterventionError("objective_score_binding_invalid")
+                verified_scores.append(dict(wrapper))
+            evaluation = summarize_objective_task(plan, verified_scores)
+            if canonical(evaluation) != canonical(value.get("objective_evaluation")):
+                raise DevelopmentalHistoryInterventionError("objective_evaluation_binding_invalid")
+        elif "objective_scores" in value or "objective_evaluation" in value:
+            raise DevelopmentalHistoryInterventionError("objective_scores_unplanned")
         return value
 
 
@@ -306,7 +428,7 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
     )
     full_controls = all(hasattr(item, "current_snapshot_digest")
                         and hasattr(item, "retrieved_record_digests") for item in observations)
-    if protocol.schema_version == SCHEMA:
+    if protocol.schema_version in {SCHEMA, OBJECTIVE_SCHEMA}:
         # Versioned results are only controlled comparisons when each condition is a
         # canonical, digest-bound resident cognition observation.  Do not let a
         # lightweight caller object silently disable the invariant-context
@@ -370,3 +492,24 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
         "observation_ids":[x.observation_id for x in observations],
         "observation_digests":[x.observation_digest for x in observations],
         "measurements":[asdict(first), asdict(second)], "claims_posture":"bounded_observed_association_only"}
+
+
+def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Measure correctness separately from output-digest differences."""
+    if (len(scores) != len(CONDITION_ORDER)
+            or tuple(row.get("condition_id") for row in scores) != CONDITION_ORDER):
+        raise DevelopmentalHistoryInterventionError("objective_scores_incomplete")
+    correctness = [row["score"].get("correct") if isinstance(row.get("score"), Mapping) else None
+        for row in scores]
+    complete = all(type(value) is bool for value in correctness)
+    delta = ((1 if correctness[0] is True else 0) - (1 if correctness[1] is True else 0)
+        if complete else None)
+    restored_stable = correctness[0] == correctness[2] if complete else None
+    return {"plan_digest": plan.get("plan_digest"),
+        "condition_score_digests": [row["score"].get("score_digest")
+            for row in scores if isinstance(row.get("score"), Mapping)],
+        "history_accuracy_delta": delta,
+        "restoration_correctness_stable": restored_stable,
+        "assessment": "single_preregistered_task_scored" if complete else "unscoreable_missing_output",
+        "scope": "same_model_task_correctness_not_general_learning_or_weight_change",
+        "model_behavior_posture": "resident_endpoint_receipts_not_independent_model_attestation"}
