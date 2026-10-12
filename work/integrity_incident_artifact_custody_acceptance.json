@@ -1,0 +1,31 @@
+{
+  "changes": {
+    "artifact_size_limit_bytes": 1048576,
+    "identity_collision": "conflicting existing bytes rejected without overwrite or feed append",
+    "incident_filename_identity": "full_sha256_of_incident_id",
+    "posix_publication": "descriptor-relative no-follow immutable private-file publisher",
+    "windows_publication": "exclusive-create compatibility path; does not claim POSIX held-directory guarantees"
+  },
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "full_sentientos/tests/test_integrity_quarantine.py": {
+      "failure": "test_quarantine_clear_requires_then_passes",
+      "observed_reason": "runtime_governor_error during the fixture's separately admitted clear operation",
+      "result": "6 passed, 1 failed"
+    },
+    "git_diff_check": "passed",
+    "quarantine_activation_and_incident_docket_subset": "3 passed",
+    "sentientos/tests/test_integrity_pressure.py": "17 passed"
+  },
+  "owner": "sentientos.integrity_incident.write_incident",
+  "schema_version": 1,
+  "security_limits": [
+    "The mutable unsigned pressure feed remains outside authenticated incident evidence.",
+    "The writer still appends to the feed through its existing non-transactional path; feed-wide bounds and concurrent-writer coordination are unresolved.",
+    "Windows retains exclusive-create compatibility but has no equivalent held-directory immutable writer in the current custody module.",
+    "A collision-free immutable artifact does not authenticate the incident producer or establish an attack or defensive consequence."
+  ],
+  "source_parent_commit": "e2e59df1a957a6ad9ee2295470fbbdd2702698bc",
+  "source_parent_tree": "b4503f0e6ffe203659f11ec45b98a47e0876d57a",
+  "status": "construction_fixture_verified_not_production_acceptance"
+}

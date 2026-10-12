@@ -4,11 +4,13 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 from typing import Any
 
 from sentientos.artifact_catalog import append_catalog_entry
+from sentientos.private_file_custody import PrivateFileCustodyError, publish_immutable_bytes
 from sentientos.integrity_pressure import (
     MAX_INCIDENT_ROW_BYTES,
     MAX_TRIGGERS_PER_INCIDENT,
@@ -17,10 +19,19 @@ from sentientos.integrity_pressure import (
 
 INCIDENTS_DIR = Path("glow/forge/incidents")
 INCIDENTS_FEED_PATH = Path("pulse/integrity_incidents.jsonl")
+MAX_INCIDENT_ARTIFACT_BYTES = 1_048_576
 
 
 class IntegrityIncidentFeedRecordError(ValueError):
     """An incident cannot be represented by the bounded pressure-feed schema."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+class IntegrityIncidentArtifactError(ValueError):
+    """An immutable incident artifact could not be safely represented or published."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -100,13 +111,13 @@ def build_incident(
 
 def write_incident(repo_root: Path, incident: Incident, *, quarantine_activated: bool = False) -> Path:
     root = repo_root.resolve()
-    incident_path = root / INCIDENTS_DIR / f"incident_{_safe_timestamp(incident.created_at)}_{_incident_short_hash(incident.incident_id)}.json"
+    incident_path = root / INCIDENTS_DIR / f"incident_{_safe_timestamp(incident.created_at)}_{_incident_identity_hash(incident.incident_id)}.json"
     # Validate the observation row before publishing the full incident artifact
     # so a record that the bounded reader cannot consume never poisons its feed.
     feed_row = _incident_feed_row(root, incident, incident_path, quarantine_activated=quarantine_activated)
     feed_bytes = _serialize_incident_feed_row(feed_row)
-    incident_path.parent.mkdir(parents=True, exist_ok=True)
-    incident_path.write_text(json.dumps(incident.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    artifact_bytes = _serialize_incident_artifact(incident)
+    _publish_incident_artifact(root, incident_path, artifact_bytes)
     _append_incident_feed_bytes(root, feed_bytes)
     append_catalog_entry(
         root,
@@ -182,6 +193,60 @@ def _serialize_incident_feed_row(row: dict[str, object]) -> bytes:
     if len(encoded) - 1 > MAX_INCIDENT_ROW_BYTES:
         raise IntegrityIncidentFeedRecordError("incident_feed_row_size_limit_exceeded")
     return encoded
+
+
+def _serialize_incident_artifact(incident: Incident) -> bytes:
+    try:
+        encoded = (json.dumps(incident.to_dict(), indent=2, sort_keys=True,
+            ensure_ascii=False) + "\n").encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError) as exc:
+        raise IntegrityIncidentArtifactError("incident_artifact_not_serializable") from exc
+    if len(encoded) > MAX_INCIDENT_ARTIFACT_BYTES:
+        raise IntegrityIncidentArtifactError("incident_artifact_size_limit_exceeded")
+    return encoded
+
+
+def _publish_incident_artifact(root: Path, path: Path, encoded: bytes) -> None:
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise IntegrityIncidentArtifactError("incident_artifact_path_outside_root") from exc
+    if len(encoded) > MAX_INCIDENT_ARTIFACT_BYTES:
+        raise IntegrityIncidentArtifactError("incident_artifact_size_limit_exceeded")
+    if os.name == "posix":
+        try:
+            publish_immutable_bytes(path, encoded,
+                max_bytes=MAX_INCIDENT_ARTIFACT_BYTES,
+                collision_code="incident_artifact_identity_conflict")
+            return
+        except PrivateFileCustodyError as exc:
+            raise IntegrityIncidentArtifactError(
+                "incident_artifact_publication_" + exc.code) from exc
+    if os.name == "nt":
+        # The Windows custody module currently provides reparse-safe reads but
+        # no equivalent held-directory immutable publisher. Keep existing
+        # Windows write behavior while refusing to overwrite an existing
+        # artifact identity; the POSIX branch carries the stronger custody.
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with path.open("xb") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except FileExistsError as exc:
+            try:
+                existing = path.read_bytes()
+            except OSError as read_exc:
+                raise IntegrityIncidentArtifactError(
+                    "incident_artifact_existing_read_unavailable") from read_exc
+            if existing != encoded:
+                raise IntegrityIncidentArtifactError(
+                    "incident_artifact_identity_conflict") from exc
+        except OSError as exc:
+            raise IntegrityIncidentArtifactError(
+                "incident_artifact_publication_unavailable") from exc
+        return
+    raise IntegrityIncidentArtifactError("incident_artifact_publication_unsupported")
 
 
 def _append_incident_feed_bytes(root: Path, encoded: bytes) -> None:
@@ -269,8 +334,10 @@ def _safe_timestamp(value: str) -> str:
     return value.replace(":", "-")
 
 
-def _incident_short_hash(incident_id: str) -> str:
-    return hashlib.sha256(incident_id.encode("utf-8")).hexdigest()[:8]
+def _incident_identity_hash(incident_id: str) -> str:
+    # Keep the full identity digest in the artifact name so distinct incident
+    # identities cannot silently collide on a truncated filename suffix.
+    return hashlib.sha256(incident_id.encode("utf-8")).hexdigest()
 
 
 def _iso_now() -> str:

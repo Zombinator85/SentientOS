@@ -10,8 +10,10 @@ import pytest
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.integrity_incident import (
     INCIDENTS_DIR,
+    IntegrityIncidentArtifactError,
     IntegrityIncidentFeedRecordError,
     Incident,
+    MAX_INCIDENT_ARTIFACT_BYTES,
     write_incident,
 )
 from sentientos.integrity_pressure import (
@@ -194,3 +196,66 @@ def test_incident_feed_symlink_is_not_followed(tmp_path: Path) -> None:
 
     with pytest.raises(IntegrityPressureInputError, match="incident_feed_custody_unavailable"):
         compute_integrity_pressure(tmp_path)
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_artifact_identity_collision_preserves_prior_bytes(tmp_path: Path) -> None:
+    first = Incident(
+        schema_version=1, incident_id="stable-incident-id",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["first-trigger"], enforcement_mode="warn", context={"source": "first"},
+        evidence_paths=[], suggested_actions=[],
+    )
+    path = write_incident(tmp_path, first)
+    original = path.read_bytes()
+    second = Incident(
+        schema_version=1, incident_id="stable-incident-id",
+        created_at="2026-10-12T00:00:00Z", severity="critical",
+        triggers=["second-trigger"], enforcement_mode="enforce", context={"source": "second"},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentArtifactError) as raised:
+        write_incident(tmp_path, second)
+    assert raised.value.code == "incident_artifact_publication_incident_artifact_identity_conflict"
+    assert path.read_bytes() == original
+    feed = tmp_path / "pulse/integrity_incidents.jsonl"
+    assert len(feed.read_text(encoding="utf-8").splitlines()) == 1
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_artifact_size_limit_fails_before_any_publication(tmp_path: Path) -> None:
+    incident = Incident(
+        schema_version=1, incident_id="oversized-artifact",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["bounded-trigger"], enforcement_mode="warn",
+        context={"large": "x" * MAX_INCIDENT_ARTIFACT_BYTES},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentArtifactError) as raised:
+        write_incident(tmp_path, incident)
+    assert raised.value.code == "incident_artifact_size_limit_exceeded"
+    assert not list((tmp_path / INCIDENTS_DIR).glob("incident_*.json"))
+    assert not (tmp_path / "pulse/integrity_incidents.jsonl").exists()
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_artifact_directory_symlink_is_rejected_before_feed_publication(
+    tmp_path: Path,
+) -> None:
+    if os.name != "posix":
+        pytest.skip("descriptor-relative artifact publisher is POSIX-only")
+    (tmp_path / "glow/forge").mkdir(parents=True)
+    outside = tmp_path / "outside-incidents"
+    outside.mkdir()
+    (tmp_path / INCIDENTS_DIR).symlink_to(outside, target_is_directory=True)
+    incident = Incident(
+        schema_version=1, incident_id="symlinked-artifact-directory",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["bounded-trigger"], enforcement_mode="warn", context={},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentArtifactError) as raised:
+        write_incident(tmp_path, incident)
+    assert raised.value.code.startswith("incident_artifact_publication_directory_")
+    assert not list(outside.glob("incident_*.json"))
+    assert not (tmp_path / "pulse/integrity_incidents.jsonl").exists()
