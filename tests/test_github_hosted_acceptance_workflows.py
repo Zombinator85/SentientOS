@@ -69,3 +69,39 @@ def test_required_quality_gate_proves_pytest_bootstrap_before_exact_nodes() -> N
 def test_required_quality_gate_uploads_pytest_bootstrap_evidence() -> None:
     text = Path(".github/workflows/required-quality-gate.yml").read_text(encoding="utf-8")
     assert text.count("quality_gate_pytest_bootstrap.json") == 2
+
+
+def test_invariant_and_helm_jobs_install_the_canonical_test_airlock() -> None:
+    invariant = (ROOT / ".github/workflows/invariant-tests.yml").read_text()
+    ci = (ROOT / ".github/workflows/ci.yml").read_text()
+    assert "python -m pip install --no-deps -e ." in invariant
+    assert "python -m pip install --only-binary=:all: -r requirements-codex.txt" in invariant
+    helm = ci.split("  helm-k8s-test:", 1)[1]
+    assert "python -m pip install --no-deps -e ." in helm
+    assert "python -m pip install --only-binary=:all: -r requirements-codex.txt" in helm
+    assert "pip install -e .[dev]" not in helm
+
+
+def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text()
+    source = ci.split("  source-validation:", 1)[1].split("  self-check:", 1)[0]
+    assert "python -m scripts.run_tests -q" in source
+    assert "tests/test_local_model_chat_recovery.py" in source
+    assert "tests/test_resident_developmental_cognition.py" in source
+    assert "--noconftest" not in source
+    assert "continue-on-error" not in source
+    assert "|| true" not in source
+    assert "${{ runner.temp }}/sentientos-governor" in source
+    assert "${{ github.workspace }}" in source
+    # The existing privileged self-check remains present with its approval gate.
+    self_check = ci.split("  self-check:", 1)[1].split("  docs:", 1)[0]
+    assert "python -m scripts.lock install" in self_check
+    assert "LUMOS_AUTO_APPROVE" in self_check
+
+
+def test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text()
+    docs = ci.split("  docs:", 1)[1].split("  helm-k8s-test:", 1)[0]
+    assert 'python -m pip install -e ".[docs]"' in docs
+    assert "make docs" in docs
+    assert "continue-on-error" not in docs

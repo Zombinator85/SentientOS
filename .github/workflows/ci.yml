@@ -5,6 +5,55 @@ on:
   pull_request:
 
 jobs:
+  source-validation:
+    name: Source validation (unprivileged)
+    runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_HEADLESS: "1"
+      SENTIENTOS_GOVERNOR_ROOT: ${{ runner.temp }}/sentientos-governor
+      SENTIENTOS_REPO_ROOT: ${{ github.workspace }}
+      SENTIENTOS_CI_MIN_PASSED: "1"
+      SENTIENTOS_CI_MAX_SKIP_RATE: "0.20"
+      SENTIENTOS_CI_MAX_XFAIL_RATE: "0.10"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install canonical test airlock
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-deps -e .
+          python -m pip install --only-binary=:all: -r requirements-codex.txt
+      - name: Run integrated resource-to-cognition lifecycle
+        run: |
+          python -m scripts.run_tests -q \
+            tests/test_world_state_board.py \
+            tests/test_world_state_sources.py \
+            tests/test_resource_invocation_process_generation_integration.py \
+            tests/test_local_model_chat_recovery.py \
+            tests/test_local_model_chat_runtime_startup.py \
+            tests/test_resident_epistemic_development.py \
+            tests/test_persistent_epistemic_state.py \
+            tests/test_resident_developmental_writeback.py \
+            tests/test_resident_developmental_cognition_generation_scope.py \
+            tests/test_developmental_history_intervention_experiment.py \
+            tests/test_resident_developmental_cognition.py \
+            tests/test_developmental_model_replacement_experiment.py \
+            tests/test_local_model_production_serving.py \
+            tests/test_resident_epistemic_state_mutation.py
+      - name: Upload canonical test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-validation-${{ github.sha }}
+          path: |
+            glow/test_runs/test_run_provenance.json
+            glow/test_runs/provenance/*.json
+            glow/test_runs/test_failure_digest.json
+            glow/test_runs/pytest_junitxml*.xml
+          if-no-files-found: ignore
+
   self-check:
     runs-on: ubuntu-latest
     services:
@@ -418,6 +467,9 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_GOVERNOR_ROOT: ${{ runner.temp }}/sentientos-docs-governor
+      SENTIENTOS_REPO_ROOT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
 
@@ -425,12 +477,16 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install -e .[dev]
+      - name: Install documentation toolchain
+        run: python -m pip install -e ".[docs]"
 
       - run: make docs
       - run: sphinx-build -b linkcheck -W docs docs/_build/linkcheck
   helm-k8s-test:
     runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_GOVERNOR_ROOT: ${{ runner.temp }}/sentientos-helm-governor
+      SENTIENTOS_REPO_ROOT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -449,7 +505,10 @@ jobs:
         run: |
           curl -L https://get.helm.sh/helm-v3.14.4-linux-amd64.tar.gz | tar -xz
           sudo mv linux-amd64/helm /usr/local/bin/helm
-      - run: pip install -e .[dev]
+      - name: Install canonical test airlock
+        run: |
+          python -m pip install --no-deps -e .
+          python -m pip install --only-binary=:all: -r requirements-codex.txt
       - name: Run helm integration test
         run: python -m scripts.run_tests tests/integration/helm_k8s_test.py
 
