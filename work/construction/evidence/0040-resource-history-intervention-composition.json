@@ -1,0 +1,55 @@
+{
+  "authority": false,
+  "effects_performed": [],
+  "integration": {
+    "entrypoint": "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "experiment": {
+      "claim_posture": "bounded_observed_association_only",
+      "condition_order": [
+        "history_present",
+        "history_withheld",
+        "history_restored"
+      ],
+      "history_present_record_ids": "exact protocol-bound prior_record_ids from recovered developmental history",
+      "history_restored_record_ids": "same exact IDs and digests as history_present",
+      "history_withheld_record_ids": [],
+      "output_difference": "reported descriptively by canonical experiment summary; not interpreted as improvement",
+      "same_active_model_identity": true,
+      "same_world_state_snapshot": true,
+      "validity": "valid_controlled_observation"
+    },
+    "path": [
+      "real adapter Popen and installation-scoped process handoff",
+      "governed local-model invocation and resource debit",
+      "independent read-only resource observer",
+      "resident World-State projection",
+      "configured epistemic development and authorized state update",
+      "epistemic restart reconstruction and N-to-N+1 cutoff",
+      "developmental history writeback and owner restart",
+      "later cognition retrieval of exact retained record and prior epistemic projection",
+      "canonical history-intervention protocol using present/withheld/restored conditions",
+      "canonical run artifact reload and prior-record digest preservation"
+    ]
+  },
+  "limits": [
+    "The child uses the deterministic fixture local-model backend and resident cognition uses the test fake invoker. No actual model quality or learning effect was measured.",
+    "The integration module is explicitly legacy-quarantined and was selected with -m legacy.",
+    "No production model transition, external provider, host actuation, or production acceptance was run."
+  ],
+  "production_verified": false,
+  "source": {
+    "parent_commit": "a88ecbc8df8a67e0deb72aafaa647b93c622c69f",
+    "parent_tree": "e391c7142f1417bd7c6d3a7292853e0a4917632e",
+    "tested_source_tree": "51126da2ecd55a1336a767a328322a0947e59c57"
+  },
+  "tests": {
+    "diff_check": "passed",
+    "integration_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q -m legacy --tb=short tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "integration_failed": 0,
+    "integration_passed": 1,
+    "python_compilation": "passed for modified integration test",
+    "service_unit_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q --tb=short tests/test_chat_service_hardened_serving.py",
+    "service_unit_failed": 0,
+    "service_unit_passed": 10
+  }
+}

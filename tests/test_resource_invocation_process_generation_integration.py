@@ -291,6 +291,44 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             if request.purpose == "resident_developmental_retrieval_cognition")
         assert first_cognition.written_record_id in retrieval.upstream_evidence["record_ids"]
         assert retrieval.upstream_evidence["epistemic_projection_id"] == later_projection.projection_id
+
+        # On the following tick, use the exact recovered history records in the
+        # existing present/withheld/restored protocol under the same model and
+        # frozen World-State snapshot.
+        comparison_cognition, _comparison_fixture = developmental_owner(
+            developmental_root, comparison=True,
+            allowed_source_kinds=("resource_governor",))
+        history_before_experiment = {
+            record.record_id: record.record_digest
+            for record in comparison_cognition.writeback.store.records()}
+        experiment_tick = "2026-09-21T08:43:00+00:00"
+        comparison = comparison_cognition.run_tick(
+            snapshot=epistemic_snapshot, tick_id=experiment_tick,
+            prior_epistemic_state=later_projection)
+        assert comparison.changed_cognition_measurement_id is not None
+        experiment = comparison_cognition.experiments.load_run(
+            comparison.changed_cognition_measurement_id)
+        assert experiment["validity"] == "valid_controlled_observation"
+        assert experiment["protocol"]["record_ids"] == list(comparison.prior_record_ids)
+        assert first_cognition.written_record_id in comparison.prior_record_ids
+        if later_cognition.written_record_id is not None:
+            assert later_cognition.written_record_id in comparison.prior_record_ids
+        conditions = {row["condition_id"]: row for row in experiment["conditions"]}
+        assert set(conditions) == {"history_present", "history_withheld", "history_restored"}
+        assert conditions["history_present"]["retrieved_record_ids"] == list(
+            comparison.prior_record_ids)
+        assert conditions["history_withheld"]["retrieved_record_ids"] == []
+        assert conditions["history_restored"]["retrieved_record_ids"] == list(
+            comparison.prior_record_ids)
+        assert len({row["current_snapshot_digest"] for row in conditions.values()}) == 1
+        assert len({json.dumps(row["active_model_identity"], sort_keys=True)
+            for row in conditions.values()}) == 1
+        assert experiment["summary"]["claims_posture"] == "bounded_observed_association_only"
+        history_after_experiment = {
+            record.record_id: record.record_digest
+            for record in comparison_cognition.writeback.store.records()}
+        assert all(history_after_experiment.get(record_id) == record_digest
+            for record_id, record_digest in history_before_experiment.items())
     finally:
         release_path.write_text("release\n", encoding="utf-8")
         adapter.stop()
