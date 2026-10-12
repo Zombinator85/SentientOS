@@ -292,6 +292,32 @@ def test_controller_reports_unknown_custody_and_denies_all_mutation(tmp_path: Pa
     assert status.automerge_allowed is False
 
 
+def test_controller_retains_quarantine_denial_when_pressure_input_is_invalid(
+    tmp_path: Path,
+) -> None:
+    target = _path(tmp_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("{truncated", encoding="utf-8")
+    feed = tmp_path / "pulse/integrity_incidents.jsonl"
+    feed.parent.mkdir(parents=True, exist_ok=True)
+    feed.write_text("{malformed feed", encoding="utf-8")
+
+    status = evaluate_integrity(tmp_path, policy_hash="test-policy")
+
+    quarantine_gate = next(gate for gate in status.gate_results if gate.name == "quarantine_custody")
+    pressure_gate = next(gate for gate in status.gate_results if gate.name == "integrity_pressure_input")
+    assert quarantine_gate.status == "fail"
+    assert quarantine_gate.reason == "quarantine_custody_invalid:quarantine_json_invalid"
+    assert pressure_gate.status == "fail"
+    assert pressure_gate.reason.startswith("integrity_pressure_input_invalid:")
+    assert status.quarantine_active is None
+    assert status.pressure_summary["level"] is None
+    assert status.pressure_summary["metrics"] is None
+    assert status.mutation_allowed is False
+    assert status.publish_allowed is False
+    assert status.automerge_allowed is False
+
+
 def test_controller_does_not_resolve_away_a_substituted_repository_root(
     tmp_path: Path,
 ) -> None:

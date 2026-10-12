@@ -3468,3 +3468,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - The CLI now emits a structured blocked result with `quarantine_active: null` and exact custody status, and returns before acknowledgment event publication. The damaged record is byte-identical after refusal. The genuine first-use positive control still initializes and acknowledges through the existing owner and supported publisher.
 - Acknowledgment, status, and remediation trace modules: **8 passed**. Changed Python compiled; `git diff --check` passed. Acceptance: `work/quarantine_ack_custody_acceptance.json`.
 - Next: audit remaining quarantine publication/recovery and activated-state lifecycle tests for uncertain replacement behavior and stale markers; preserve no-retry/no-clear semantics.
+
+
+## 2026-10-12 checkpoint — preserve protective custody denial with invalid pressure input
+
+- Continued from verified remote `155f4b5b45c5a0c6add1128473e1602a7d21a046`, tree `2a3c3d33065b59c1d195dcfce5795554560a1fec`. `evaluate_integrity()` reported quarantine custody truthfully when pressure input was valid, but an independently malformed incident feed raised out of `compute_integrity_pressure()` before an `IntegrityStatus` could be returned.
+- The controller now emits a distinct failed `integrity_pressure_input` gate while retaining the quarantine failure. Pressure measurement/metrics are explicitly null; an explicitly labeled lockdown-threshold fallback is used only for internal policy calculation. The combined status denies mutation, publish, and automerge.
+- Focused quarantine-pressure and controller cases: **5 passed, 2 deselected by marker**. Changed Python compiled and `git diff --check` passed. Acceptance: `work/integrity_controller_compounded_custody_failure_acceptance.json`.
+- Next: inspect whether downstream integrity-status persistence and World-State preserve both independent failures without replacing unknown pressure with a numeric zero or stale previous status.
