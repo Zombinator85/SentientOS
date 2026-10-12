@@ -203,7 +203,11 @@ def _valid_integrity_controller_gates(payload: Mapping[str, Any]) -> bool:
     return (type(count) is int and 0 <= count <= 32
         and isinstance(gates, list) and len(gates) == count
         and all(isinstance(gate, Mapping)
+            and isinstance(gate.get("name"), str)
+            and 0 < len(gate["name"]) <= 64
             and gate.get("status") in {"ok", "warn", "fail", "skipped"}
+            and isinstance(gate.get("reason"), str) and len(gate["reason"]) <= 160
+            and isinstance(gate.get("checked_at"), str) and len(gate["checked_at"]) <= 64
             and _valid_optional_lower_sha256(gate.get("failed_record_sha256"))
             for gate in gates))
 
@@ -343,7 +347,7 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
                 and payload.get("read_only") is True):
             gates = payload["gate_results"]
             selected_gates = [{key: gate.get(key) for key in (
-                "name", "status", "reason", "failed_record_sha256")}
+                "name", "status", "reason", "checked_at", "failed_record_sha256")}
                 for gate in gates[:MAX_HISTORY_CONTROLLER_GATES]]
             omitted_gates = gates[MAX_HISTORY_CONTROLLER_GATES:]
             context = {
@@ -373,6 +377,10 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
             "current_truth": False,
             "authority": False,
             "policy": False,
+            "attack_established": False,
+            "hostile_activity_established": False,
+            "compromise_established": False,
+            "independent_signature": False,
             "effect_proven": False,
         })
     return sorted(summaries, key=lambda item: str(item["fact_id"]))

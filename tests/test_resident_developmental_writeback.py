@@ -78,6 +78,7 @@ def test_integrity_controller_v2_digest_is_bounded_before_cognition_qualificatio
                 "source_owner": "sentientos.integrity_controller.evaluate_integrity",
                 "controller_posture": "fail", "gate_count": 1,
                 "gate_results": [{"name": "snapshot-signature", "status": "fail",
+                    "reason": "signature_invalid", "checked_at": "2026-10-12T00:00:00Z",
                     "failed_record_sha256": failed_digest}],
                 "cause_unknown": True, "attack_established": False,
                 "hostile_activity_established": False, "compromise_established": False,

@@ -94,7 +94,12 @@ def _has_bounded_integrity_controller_observation(selection: SelectedEvidence) -
                 and type(payload.get("gate_count")) is int
                 and payload["gate_count"] == len(gates)
                 and all(isinstance(gate, Mapping)
+                    and isinstance(gate.get("name"), str)
+                    and 0 < len(gate["name"]) <= 64
                     and gate.get("status") in {"ok", "warn", "fail", "skipped"}
+                    and isinstance(gate.get("reason"), str) and len(gate["reason"]) <= 160
+                    and isinstance(gate.get("checked_at"), str)
+                    and len(gate["checked_at"]) <= 64
                     and _valid_optional_lower_sha256(gate.get("failed_record_sha256"))
                     for gate in gates)):
             return True

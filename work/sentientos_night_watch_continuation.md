@@ -3310,3 +3310,12 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - The two-tick custody-revision scenario now selects the real owner quarantine fact as well as the controller summary. Later retrieval receives the original `custody_result=invalid`, unknown active state, owner event meaning, exact fact/source identity, and observation posture, while a subsequent valid read remains separate current evidence. A deliberately unsigned attacker-authored incident string remains absent from both current and later cognition.
 - Six focused tests pass; changed Python compiles and the delta passes `git diff --check`. These tests use disposable roots, a fixture HMAC signer, and deterministic fake invocation. They verify source-to-history continuity and rejection of narrative promotion, not independent incident authentication, real model learning, or production operation.
 - Next: examine one adjacent independently owned integrity boundary with a concrete reader/writer mismatch; preserve the absence of an authenticated incident publisher and do not manufacture a defensive consequence.
+
+
+## 2026-10-12 follow-up — retain gate-specific observation times in history
+
+- Continued from remote `f8254d73ffb61b7daf1650abe07be3560e57f387`, tree `344fcbaafa2e53d4d4239f1612fa3888e3d06f4f`.
+- Historical controller evidence now carries each selected gate's own bounded `checked_at` alongside its name, outcome, reason, and optional failed-row digest. This remains distinct from the enclosing World-State `observed_at` and the cognition record's creation time. Cognition/writeback qualifiers reject malformed gate metadata rather than presenting it as qualified history.
+- Historical source-context packets now repeat the explicit non-claims for attack, hostile activity, compromise, independent signature, authority, policy, effect, and current truth.
+- The same six focused tests pass; all changed Python compiles and the delta passes `git diff --check`. No external publisher authenticity or runtime defense claim follows from these timestamps or summaries.
+- Next: continue the source review at the incident producer's durable artifact publication boundary, checking boundedness, collision behavior, and symlink-safe custody without promoting its mutable unsigned feed to authenticated evidence.

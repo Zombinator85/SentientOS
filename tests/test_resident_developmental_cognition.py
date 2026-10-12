@@ -573,7 +573,10 @@ def test_integrity_controller_gate_results_reach_configured_cognition_as_context
     retained_gate = next(item for item in source_context["context"]["gates"]
         if item["name"] == "attestation_snapshot_signatures")
     assert retained_gate["failed_record_sha256"] == expected_failed_row_digest
+    assert retained_gate["checked_at"] == gate["checked_at"]
     assert source_context["current_truth"] is False and source_context["authority"] is False
+    assert source_context["attack_established"] is False
+    assert source_context["hostile_activity_established"] is False
     reset_runtime_governor()
 
 
@@ -644,6 +647,7 @@ def test_unsigned_incident_narrative_is_not_attack_evidence_in_resident_cognitio
     assert all(item["context"]["event_meaning"] != "attack confirmed: attacker-authored text"
         for item in prior_packet["source_evidence_context"])
     assert all(item["authority"] is False and item["current_truth"] is False
+        and item["attack_established"] is False
         for item in prior_packet["source_evidence_context"])
     reset_runtime_governor()
 
