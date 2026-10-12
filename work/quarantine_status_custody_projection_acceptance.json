@@ -1,0 +1,20 @@
+{
+  "behavior": {
+    "incident_source": "exact incident identity referenced by quarantine state through inspect_quarantine_incident_custody",
+    "invalid_protective_state": "quarantine_active=null, typed invalid custody status, exit code 2, no default state",
+    "raw_incident_narrative": "never printed by status command",
+    "substituted_incident_directory": "descriptor-safe inspector reports invalid custody without following symlink"
+  },
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed",
+    "quarantine_status_and_exact_restart_custody": "4 passed with -m legacy; 1 separately marked controller case deselected"
+  },
+  "limits": [
+    "The inspector provides local consistency, not independent incident publisher authentication.",
+    "No narrative is promoted into cognition or authority.",
+    "No production use has been verified."
+  ],
+  "scope": "make quarantine_status use bounded exact custody and truthful unknown-state output",
+  "status": "focused_hermetic_operator_status_projection_verified_not_production_acceptance"
+}

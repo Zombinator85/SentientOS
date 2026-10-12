@@ -3444,3 +3444,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - The index now counts `rejected_quarantine_custody` as terminal. The real enabled daemon invalid-custody test asserts the same request appears in latest receipts, is absent from latest pending requests, has unknown protective state, and never reaches the fixture effector.
 - Focused daemon/queue/index tests: **24 passed** with `-m legacy`; changed Python compiled and `git diff --check` passed. Acceptance: `work/forge_index_terminal_quarantine_receipt_acceptance.json`.
 - Next: audit the bounded `ForgeQueue` terminal-status vocabulary against every writer and recovery reader for any additional mismatched transitions, then continue the next consequential custody boundary.
+
+
+## 2026-10-12 checkpoint — make quarantine status use bounded incident custody
+
+- Continued from verified remote `0abe757d2a94fe1c9befc93ab9ba18f261700cdb`, tree `aba300746940af0a4a3c7738ef8329f568b4b78c`. The operator status command independently selected and `read_text()`-printed the newest incident JSON with no bounds or no-follow custody. This could expose arbitrary substituted-file content and display attacker-authored suggested actions as the latest incident.
+- Replaced that reader with the existing exact quarantine-referenced incident custody inspector. Valid state output carries only state and bounded custody/status metadata; incident narrative and suggested commands are omitted. Invalid quarantine custody prints a structured unknown (`quarantine_active: null`) state and exits 2 without repair/defaulting.
+- Focused status and restart-custody cases: **4 passed with `-m legacy`**; one separately marked controller case was deselected by that marker and was already covered in the previous quarantine-custody suite. Changed Python compiled and `git diff --check` passed. Acceptance: `work/quarantine_status_custody_projection_acceptance.json`.
+- Next: inspect command-line remediation/acknowledgment diagnostic behavior for typed invalid-state handling and ensure failures do not print default inactive state or overwrite damaged custody.

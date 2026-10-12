@@ -3,25 +3,44 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sentientos.integrity_quarantine import load_state
-
-
-def _latest_incident(repo_root: Path) -> dict[str, object]:
-    paths = sorted((repo_root / "glow/forge/incidents").glob("incident_*.json"), key=lambda item: item.name)
-    if not paths:
-        return {}
-    try:
-        payload = json.loads(paths[-1].read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
+from sentientos.integrity_incident import inspect_quarantine_incident_custody
+from sentientos.integrity_quarantine import (
+    QuarantineStateError,
+    load_state_with_status,
+)
 
 
 def main() -> int:
     root = Path.cwd().resolve()
-    state = load_state(root).to_dict()
-    latest = _latest_incident(root)
-    print(json.dumps({"quarantine": state, "latest_incident": latest}, indent=2, sort_keys=True))
+    try:
+        loaded = load_state_with_status(root)
+    except QuarantineStateError as exc:
+        # Unknown protective state stays unknown. Never print a default inactive
+        # object or attempt to repair custody from this status-only command.
+        print(json.dumps({
+            "quarantine": None,
+            "quarantine_active": None,
+            "quarantine_custody_status": "invalid:" + exc.code,
+            "incident_custody": {
+                "status": "not_checked",
+                "attack_established": False,
+                "defensive_consequence_established": False,
+            },
+        }, indent=2, sort_keys=True))
+        return 2
+
+    state = loaded.state
+    incident_custody = inspect_quarantine_incident_custody(
+        root,
+        incident_id=state.last_incident_id,
+        activated_at=state.activated_at,
+    )
+    print(json.dumps({
+        "quarantine": state.to_dict(),
+        "quarantine_active": state.active,
+        "quarantine_custody_status": loaded.custody_status.value,
+        "incident_custody": incident_custody,
+    }, indent=2, sort_keys=True))
     return 0
 
 
