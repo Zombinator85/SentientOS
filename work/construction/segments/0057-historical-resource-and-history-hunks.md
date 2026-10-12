@@ -1,0 +1,8 @@
+## 2026-10-12 — reconcile two historical behavior hunks against exact source
+
+- Exact remote source: `ead58cbf7ee81974fc33954d0ab09c43fd33d8b3`, tree `d941548b51a5ee2568ee511f372707d4ca8ec6e4`; `main` is an ancestor (709 ahead, 0 behind at this point).
+- Verified historical patch SHA-256 `6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307` and examined two high-value owner sections.
+- `host_resource_runtime.py`: the historical resource invocation proposal join is present in current source; `sentientosd.py` calls it while composing World-State. Classified A (incorporated), strengthened by seq55's exact receipt-set completeness. A direct test of this join is still absent, so source composition must not be reported as independently exercised behavior.
+- `developmental_history_intervention_experiment.py`: the historical immutable store/restart readers remain present with bounded canonical parsing and platform-safe custody. Classified B (superseded by stronger implementation). The exact current test suite passed 13/13, including interrupted recovery without replay.
+- Source blobs for both owners and their test were independently matched at this remote commit. JUnit/provenance and the machine-readable dispositions are in `evidence/0057-*`; runner provenance is synthetic SHA `c440c10187467b128f4b04ee6ee7a9e5bd1a5afc`.
+- This resolves two historical behavior sections only; the wider 48-path inventory remains in progress. Next: add a direct, genuine-owner test for the resource proposal lineage join without fabricating an admitted downstream record, then proceed to the next unresolved historical owner.

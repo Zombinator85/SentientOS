@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "historical_patch": {
+    "path": "/tmp/sentientos-original-candidate-2e320/tracked-changes-excluding-conflicted-journal.patch",
+    "sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307"
+  },
+  "source": {
+    "commit": "ead58cbf7ee81974fc33954d0ab09c43fd33d8b3",
+    "tree": "d941548b51a5ee2568ee511f372707d4ca8ec6e4",
+    "main": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+    "main_ancestry": "ahead 709, behind 0; merge base is main"
+  },
+  "dispositions": [
+    {
+      "path": "sentientos/host_resource_runtime.py",
+      "historical_context": "resource_consumption_world_state_records compact invocation evidence and added resource_invocation_proposal_lineage_records",
+      "historical_patch_section": "lines 1749-2252; additions begin at the hunk around old line 436",
+      "current_blob": "2b69190bd464751a87f7311f37d4b031be1720dd",
+      "current_context": [
+        "resource_consumption_world_state_records at line 282",
+        "resource_invocation_proposal_lineage_records at line 1281",
+        "exact attempt/allocation/consumption/effect receipt join and digest-bound output through line 1590"
+      ],
+      "runtime_composition": "sentientosd.py calls resource_invocation_proposal_lineage_records(records) at line 1805 before World-State source prioritization",
+      "classification": "A — incorporated, with strengthened receipt-set completeness in seq55",
+      "evidence_limit": "The composed resource-to-cognition test exercises resource projection, but repository search found no direct test of resource_invocation_proposal_lineage_records. Runtime call composition is source-confirmed; this join's behavior remains unverified by a direct acceptance node."
+    },
+    {
+      "path": "sentientos/developmental_history_intervention_experiment.py",
+      "historical_context": "bounded immutable experiment storage and protocol/run restart readers",
+      "historical_patch_section": "lines 300-457; DevelopmentalExperimentStore _read_json, _write_immutable, load_protocol, load_run",
+      "current_blob": "30ddbb41fb88939465629d7485849e330926ae71",
+      "current_context": [
+        "DevelopmentalExperimentStore at line 103",
+        "descriptor/platform-safe _read_json and immutable publication at lines 124-187",
+        "load_protocol at line 188",
+        "load_run at line 213"
+      ],
+      "classification": "B — superseded by stronger bounded canonical custody and platform-specific safe readers while preserving the historical recovery behavior",
+      "evidence": "Canonical scripts.run_tests suite tests/test_developmental_history_intervention_experiment.py: 13 selected, 13 executed, 13 passed. Includes recovery of an interrupted history intervention without replay and validation of a recovered digest-bound run.",
+      "limitations": "Test runner reports synthetic checkout SHA c440c10187467b128f4b04ee6ee7a9e5bd1a5afc; current source/test blobs were independently matched to the remote source commit above. This is not exact-SHA hosted or production acceptance."
+    }
+  ],
+  "scope": "Two high-value historical behavior hunks only; this is not completion of the remaining historical hunk inventory."
+}

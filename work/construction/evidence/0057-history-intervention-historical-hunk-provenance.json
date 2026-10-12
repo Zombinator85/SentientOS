@@ -1,0 +1,165 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_developmental_history_intervention_experiment.py::test_active_model_drift_invalidates_before_later_condition": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_actual_current_evidence_is_bounded_and_independent_of_writeback_dedup": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_experiment_artifact_publication_is_private_and_immutable": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_experiment_artifact_publication_rejects_symlinked_owner_root": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_experiment_store_rejects_canonical_memory_subtree": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_formal_run_preregisters_then_withholds_without_mutating_and_restores_exactly": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_interrupted_history_intervention_recovers_incomplete_without_replaying": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_missing_record_is_not_deliberate_withholding": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_protocol_is_deterministic_preregistered_and_tamper_detecting": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_run_recovery_rejects_self_consistent_but_unbound_controlled_claim": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_stable_difference_and_no_difference_are_bounded_descriptions": 0,
+    "tests/test_developmental_history_intervention_experiment.py::test_v2_comparison_rejects_unbound_observations_and_digest_rebinding": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 13,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-gr4-exact/glow/test_runs/pytest_junitxml_36b74c24381140f8803e6a899c270bf3.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_protocol_is_deterministic_preregistered_and_tamper_detecting",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_stable_difference_and_no_difference_are_bounded_descriptions",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_v2_comparison_rejects_unbound_observations_and_digest_rebinding",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_run_recovery_rejects_self_consistent_but_unbound_controlled_claim",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_actual_current_evidence_is_bounded_and_independent_of_writeback_dedup",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_formal_run_preregisters_then_withholds_without_mutating_and_restores_exactly",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_interrupted_history_intervention_recovers_incomplete_without_replaying",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_missing_record_is_not_deliberate_withholding",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_active_model_drift_invalidates_before_later_condition",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_experiment_artifact_publication_is_private_and_immutable",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_experiment_artifact_publication_rejects_symlinked_owner_root",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_experiment_store_rejects_canonical_memory_subtree",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "207a78db293473cf68687a1f0af1c2c8f941417beb103d8f8f2f088c39d44c3c",
+  "provenance_hash": "c6c2134b6925a3c282acac6b6b57f24f9d86169a66ce4c75d82b058c6ae23f4b",
+  "pytest_args": [
+    "-q",
+    "tests/test_developmental_history_intervention_experiment.py",
+    "--tb=short"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "d1f7da675276485fa30580be225370d2",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_developmental_history_intervention_experiment.py::test_protocol_is_deterministic_preregistered_and_tamper_detecting",
+    "tests/test_developmental_history_intervention_experiment.py::test_stable_difference_and_no_difference_are_bounded_descriptions",
+    "tests/test_developmental_history_intervention_experiment.py::test_v2_comparison_rejects_unbound_observations_and_digest_rebinding",
+    "tests/test_developmental_history_intervention_experiment.py::test_run_recovery_rejects_self_consistent_but_unbound_controlled_claim",
+    "tests/test_developmental_history_intervention_experiment.py::test_actual_current_evidence_is_bounded_and_independent_of_writeback_dedup",
+    "tests/test_developmental_history_intervention_experiment.py::test_formal_run_preregisters_then_withholds_without_mutating_and_restores_exactly",
+    "tests/test_developmental_history_intervention_experiment.py::test_interrupted_history_intervention_recovers_incomplete_without_replaying",
+    "tests/test_developmental_history_intervention_experiment.py::test_missing_record_is_not_deliberate_withholding",
+    "tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit",
+    "tests/test_developmental_history_intervention_experiment.py::test_active_model_drift_invalidates_before_later_condition",
+    "tests/test_developmental_history_intervention_experiment.py::test_experiment_artifact_publication_is_private_and_immutable",
+    "tests/test_developmental_history_intervention_experiment.py::test_experiment_artifact_publication_rejects_symlinked_owner_root",
+    "tests/test_developmental_history_intervention_experiment.py::test_experiment_store_rejects_canonical_memory_subtree"
+  ],
+  "selection_flags": [
+    "tests/test_developmental_history_intervention_experiment.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 13,
+  "tests_executed": 13,
+  "tests_failed": 0,
+  "tests_passed": 13,
+  "tests_selected": 13,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T19:09:39.159787+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

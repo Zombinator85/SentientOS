@@ -1,7 +1,8 @@
 # Active construction checkpoint
 
-- Fresh verified remote source before seq56 repair: `e32a3a677c56a92a294ec301f6a4b0a284644e0b`, tree `9f006d0aa2881feb3454043db9082fb493683265`.
-- Latest continuation segment: sequence 56, `work/construction/segments/0056-large-source-blob-repair.md`.
-- Seq55 fixed resource receipt-set completeness and passed 26 focused resource suites plus the composed legacy resource-to-cognition test. An independent check then found the large source blob had been truncated during upload. Seq56 restores the exact locally tested source blob using bounded base64 chunks and preserves the transfer discrepancy.
-- The complete source blob expected for `sentientos/host_resource_runtime.py` is `2b69190bd464751a87f7311f37d4b031be1720dd`; the repaired publication is pending independent branch/tree/blob readback. Tests use the synthetic runner SHA `c440c10187467b128f4b04ee6ee7a9e5bd1a5afc`, not exact-SHA hosted acceptance. Production remains unverified.
-- Next: verify publication, resume hunk-level historical reconciliation, and establish direct coverage of the resource proposal lineage join.
+- Fresh verified remote source before seq57: `ead58cbf7ee81974fc33954d0ab09c43fd33d8b3`, tree `d941548b51a5ee2568ee511f372707d4ca8ec6e4`.
+- Latest continuation segment: sequence 57, `work/construction/segments/0057-historical-resource-and-history-hunks.md`.
+- Seq55 repaired invocation-to-ledger lineage completeness. Seq56 repaired a truncated large source blob via chunked upload; independent readback confirms `sentientos/host_resource_runtime.py` exactly matches the tested local blob.
+- Seq57 reconciles two historical behavior sections: resource lineage join is A (incorporated and strengthened; direct test still absent), and developmental experiment restart custody is B (superseded by stronger bounded/platform-safe readers; canonical suite passed 13/13).
+- Existing test evidence uses synthetic runner SHA `c440c10187467b128f4b04ee6ee7a9e5bd1a5afc`, not hosted exact-SHA acceptance. Fixture behavior and production remain distinct.
+- Next: create direct acceptance coverage for the resource proposal join using real owner-produced inputs, then continue the remaining hunk inventory. Production and release acceptance are unverified.
