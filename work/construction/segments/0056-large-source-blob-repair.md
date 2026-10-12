@@ -1,0 +1,7 @@
+## 2026-10-12 — restore exact custody of the resource-lineage source
+
+- Remote base before repair: `e32a3a677c56a92a294ec301f6a4b0a284644e0b`, tree `9f006d0aa2881feb3454043db9082fb493683265`.
+- Independent blob readback found that seq55's GitHub blob for `sentientos/host_resource_runtime.py` (`5e0be14dd9176b7b01e7b5ee99f3816a43bee6e8`) did not match the complete local source used for the tests (`2b69190bd464751a87f7311f37d4b031be1720dd`). The connector input had been truncated while transferring this 113,935-byte source file; seq55 therefore did not preserve the tested implementation exactly.
+- Re-uploaded the file as ten bounded base64 chunks. GitHub returned blob `2b69190bd464751a87f7311f37d4b031be1720dd`, exactly the local Git blob SHA. This is a publication/custody repair, not a second implementation change.
+- Seq55's canonical focused suites (26/26) and composed legacy integration (1/1) ran against the full local file whose blob now matches the repair. Python compilation and `git diff --check` also passed. Their JUnit/provenance remain in `evidence/0055-*`; provenance names synthetic runner SHA `c440c10187467b128f4b04ee6ee7a9e5bd1a5afc`, so no exact-SHA hosted acceptance is claimed.
+- Next: verify this repaired blob at the published branch, then resume semantic hunk disposition and inspect whether the connected resource lineage join has direct acceptance coverage. Production behavior remains unverified.

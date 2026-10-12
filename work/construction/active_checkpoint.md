@@ -1,8 +1,7 @@
 # Active construction checkpoint
 
-- Fresh verified remote source before seq55: `4f3057644e695be4c7a90394a07604d170027b98`, tree `1b270e0a882e198ac59c0424daee6f5a07c3d346`.
-- Latest continuation segment: sequence 55, `work/construction/segments/0055-exact-resource-consumption-linkage.md`.
-- Seq53 repaired the isolated child fixture; seq54 added persisted receipt substitution rejection and no-replay restoration; seq55 found and fixed a producer defect where omitting a valid attempt receipt still appeared verified. Exact post-begin receipt linkage is now checked.
-- Seq55 canonical checks: focused resource runtime/invocation/allocation suites 26/26; composed canonical legacy resource-to-cognition node 1/1; changed-file compilation and `git diff --check` pass. Evidence includes the failing pre-fix negative control and post-fix results.
-- Runner reports synthetic checkout SHA `c440c10187467b128f4b04ee6ee7a9e5bd1a5afc`, not remote exact-SHA acceptance. Fixture model/measurements are not production evidence. No production or landing acceptance is claimed.
-- Next: examine bounded-tail and restart semantics for truthful completeness; then continue historical hunk-level semantic reconciliation and controlled fixture experiments.
+- Fresh verified remote source before seq56 repair: `e32a3a677c56a92a294ec301f6a4b0a284644e0b`, tree `9f006d0aa2881feb3454043db9082fb493683265`.
+- Latest continuation segment: sequence 56, `work/construction/segments/0056-large-source-blob-repair.md`.
+- Seq55 fixed resource receipt-set completeness and passed 26 focused resource suites plus the composed legacy resource-to-cognition test. An independent check then found the large source blob had been truncated during upload. Seq56 restores the exact locally tested source blob using bounded base64 chunks and preserves the transfer discrepancy.
+- The complete source blob expected for `sentientos/host_resource_runtime.py` is `2b69190bd464751a87f7311f37d4b031be1720dd`; the repaired publication is pending independent branch/tree/blob readback. Tests use the synthetic runner SHA `c440c10187467b128f4b04ee6ee7a9e5bd1a5afc`, not exact-SHA hosted acceptance. Production remains unverified.
+- Next: verify publication, resume hunk-level historical reconciliation, and establish direct coverage of the resource proposal lineage join.

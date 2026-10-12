@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 28484)
-Total output lines: 1620
-
 # mypy: disable-error-code="no-untyped-call,var-annotated,dict-item,arg-type"
 """Admitted, bounded read-only host resource observation runtime.
 
@@ -691,7 +688,201 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             dict(predecessor_reference)
             if isinstance(predecessor_reference, Mapping) else None)
         payload["predecessor_invocation_reference_posture"] = predecessor_reference_posture
-        serving_reference_fields = ("serving_receipt_id", "ser…3484 tokens truncated…         raise ValueError("chat_process_recovery_transition_duplicate")
+        serving_reference_fields = ("serving_receipt_id", "serving_receipt_semantic_digest",
+            "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest")
+        serving_reference_values = [request_linkage.get(key) for key in serving_reference_fields]
+        serving_lineage_posture = "historically_unbound"
+        if any(value is not None for value in serving_reference_values):
+            if any(not isinstance(value, str) or not value for value in serving_reference_values):
+                raise ValueError("chat_process_invocation_serving_lineage_incomplete")
+            receipt_id, receipt_digest, attempt_id, attempt_digest = serving_reference_values
+            history_matches = []
+            for history in verified_serving_operation_history:
+                if (not isinstance(history, Mapping)
+                        or history.get("history_semantic_digest") != semantic_digest({
+                            key: value for key, value in history.items()
+                            if key != "history_semantic_digest"})):
+                    raise ValueError("chat_process_invocation_serving_history_invalid")
+                receipt = history.get("receipt")
+                if (isinstance(receipt, Mapping)
+                        and receipt.get("receipt_id") == receipt_id
+                        and receipt.get("receipt_semantic_digest") == receipt_digest):
+                    history_matches.append(history)
+            if len(history_matches) != 1:
+                raise ValueError("chat_process_invocation_serving_history_missing_or_ambiguous")
+            history = history_matches[0]
+            receipt = history.get("receipt")
+            attempt = history.get("attempt")
+            binding = receipt.get("binding") if isinstance(receipt, Mapping) else None
+            serving_binding_fields = (
+                "installation_identity", "serving_operation_id", "activation_state_semantic_digest",
+                "activation_generation", "activation_predecessor_state_digest",
+                "activation_receipt_id", "activation_receipt_semantic_digest",
+                "model_serving_admission_ref", "authority_map_digest", "model_id",
+                "artifact_id", "artifact_sha256", "runtime_id", "observed_loaded_model_identity",
+            )
+            if (history.get("status") != "serving_receipt_verified"
+                    or history.get("attempt_semantic_digest") != attempt_digest
+                    or not isinstance(attempt, Mapping) or attempt.get("attempt_id") != attempt_id
+                    or not isinstance(binding, Mapping)
+                    or any(request_linkage.get(key) != binding.get(key)
+                        for key in serving_binding_fields)
+                    or receipt.get("session_id") != request_linkage.get("serving_session_id")):
+                raise ValueError("chat_process_invocation_serving_lineage_mismatch")
+            serving_lineage_posture = "verified_receipt_and_reservation"
+        upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
+        serving = (upstream.get("current_serving_lifetime")
+            if isinstance(upstream, Mapping) else None)
+        if (serving_lineage_posture == "verified_receipt_and_reservation"
+                and (not isinstance(serving, Mapping) or dict(serving) != dict(request_linkage))):
+            raise ValueError("chat_process_invocation_serving_lifetime_binding_mismatch")
+        serving_fields = ("serving_session_id", "serving_operation_id", "installation_identity",
+            "activation_state_semantic_digest", "activation_generation",
+            "activation_predecessor_state_digest", "activation_receipt_id",
+            "activation_receipt_semantic_digest", "serving_receipt_id",
+            "serving_receipt_semantic_digest", "serving_operation_attempt_id",
+            "serving_operation_attempt_semantic_digest", "model_serving_admission_ref",
+            "authority_map_digest", "artifact_id", "artifact_sha256", "runtime_id")
+        serving_binding = ({key: serving[key] for key in serving_fields if key in serving}
+            if isinstance(serving, Mapping) else {})
+        software_serving_operation_binding_posture = "serving_receipt_lineage_unavailable"
+        if serving_lineage_posture == "verified_receipt_and_reservation":
+            handoff_operation_id = handoff.get("configured_serving_operation_id")
+            receipt_operation_id = (
+                binding.get("serving_operation_id") if isinstance(binding, Mapping) else None)
+            if isinstance(handoff_operation_id, str) and handoff_operation_id:
+                if handoff_operation_id != receipt_operation_id:
+                    raise ValueError("chat_process_handoff_serving_operation_substitution")
+                software_serving_operation_binding_posture = "exact_handoff_serving_receipt_operation_match"
+            else:
+                # Historical handoff schemas can lack an operation reference;
+                # retain the invocation, but do not claim the process served it.
+                software_serving_operation_binding_posture = "legacy_handoff_serving_operation_unknown"
+        invocation_event_time = invocation.get("observed_at")
+        invocation_event_time = invocation_event_time if isinstance(invocation_event_time, str) else None
+        payload["event_time"] = invocation_event_time
+        payload["event_time_posture"] = (
+            "invocation_receipt_created_at_semantic_digest_bound"
+            if invocation_event_time is not None
+                and invocation.get("schema_version") == "sentientos.local_model_invocation_receipt:v2"
+            else "invocation_receipt_observed_at_unbound_metadata"
+                if invocation_event_time is not None
+                else "historical_invocation_time_unknown")
+        payload["chat_model_serving_lineage"] = {
+            "event_time": invocation_event_time,
+            "event_time_posture": payload["event_time_posture"],
+            "invocation_receipt_id": attribution["invocation_receipt_id"],
+            "invocation_receipt_digest": attribution["invocation_receipt_digest"],
+            "invocation_request_id": attribution["invocation_request_id"],
+            "invocation_request_digest": attribution["invocation_request_digest"],
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+            "resource_attempt_id": invocation.get("resource_attempt_id"),
+            "resource_consumption_receipt_digests": list(
+                invocation.get("resource_consumption_receipt_digests") or ()),
+            "resource_linkage_digest": invocation.get("resource_linkage_digest"),
+            "software_handoff_id": handoff.get("handoff_id"),
+            "software_handoff_digest": handoff.get("handoff_digest"),
+            "software_process_instance_id": handoff.get("process_instance_id"),
+            "software_generation_digest": handoff.get("software_generation_digest"),
+            "software_generation_startup_timestamp": handoff.get("startup_timestamp"),
+            "serving_identity": serving_binding,
+            "serving_receipt_lineage_posture": serving_lineage_posture,
+            "software_serving_operation_binding_posture":
+                software_serving_operation_binding_posture,
+            "active_model_identity": (request.get("active_model_identity")
+                if isinstance(request, Mapping) else None),
+            "model_id": request.get("model_id") if isinstance(request, Mapping) else None,
+            "model_artifact_digest": request.get("model_artifact_digest")
+                if isinstance(request, Mapping) else None,
+            "predecessor_invocation_reference": (
+                dict(predecessor_reference)
+                if isinstance(predecessor_reference, Mapping) else None),
+            "predecessor_invocation_reference_posture": predecessor_reference_posture,
+            "relation_posture": "co_bound_by_completed_invocation_request_and_receipt",
+            "currentness": "historical_only",
+            "effect_authority": False,
+        }
+        item = {
+            "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            "source_id": source_id,
+            "subject_kind": "chat_process_software_generation_invocation",
+            "subject_id": str(handoff.get("process_instance_id")),
+            "stage": "observation", "disposition": "recorded",
+            "evidence_strength": "child_handoff_bound_completed_invocation_receipt",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": observed_at,
+            "payload": payload,
+        }
+        output.append({**item, "digest": record_digest(item)})
+    recovery_required_fields = {
+        "request_id", "request_semantic_digest", "intent_id", "intent_semantic_digest",
+        "approval_id", "approval_semantic_digest", "installation_identity",
+        "runtime_supervisor_generation", "prior_serving_operation_id",
+        "replacement_serving_operation_id", "prior_serving_receipt_id",
+        "prior_serving_receipt_semantic_digest", "attempt_phase_digest", "readiness_phase_digest",
+        "completion_phase_digest", "attempt_started_at", "readiness_observed_at",
+        "snapshot_advanced_at", "advanced_snapshot_digest", "decision_outcome_claimed",
+        "decision_reference_claimed", "decision_posture", "predecessor_chat_process_handoff",
+        "successor_chat_process_handoff", "handoff_lineage_posture", "terminal_receipt_digest",
+        "terminal_status", "successor_serving_receipt_id",
+        "successor_serving_receipt_semantic_digest", "successor_serving_session_id",
+        "successor_serving_receipt_posture", "predecessor_serving_operation_binding_posture",
+        "successor_serving_operation_binding_posture", "successor_configured_serving_operation_id",
+        "phase_posture", "phase_evidence_posture", "runtime_currentness", "effect_authority",
+        "inference_performed",
+    }
+    seen_recovery: dict[str, Mapping[str, Any]] = {}
+    for transition in verified_chat_process_recovery_transitions:
+        if not isinstance(transition, Mapping) or set(transition) != recovery_required_fields:
+            raise ValueError("chat_process_recovery_transition_shape_invalid")
+        request_id = transition.get("request_id")
+        attempt_digest = transition.get("attempt_phase_digest")
+        if (not isinstance(request_id, str) or not request_id
+                or not isinstance(attempt_digest, str) or re.fullmatch(r"[0-9a-f]{64}", attempt_digest) is None
+                or transition.get("installation_identity") != selected_source_identity.get("installation_identity")
+                or transition.get("decision_posture") != "phase_claim_not_reauthorized"
+                or transition.get("phase_evidence_posture")
+                    != "canonical_installation_custody_and_digest_chain_checked_not_independently_signed"
+                or transition.get("runtime_currentness")
+                    != "historical_process_identity_not_reobserved_during_recovery"
+                or transition.get("successor_serving_receipt_posture") not in {
+                    "verified_historical_custody", "verified_historical_custody_and_operation_binding",
+                    "verified_receipt_legacy_handoff_operation_unknown", "legacy_or_missing"}
+                or transition.get("predecessor_serving_operation_binding_posture") not in {
+                    "exact_handoff_launch_operation_binding", "legacy_handoff_operation_unknown",
+                    "handoff_unavailable"}
+                or transition.get("successor_serving_operation_binding_posture") not in {
+                    "exact_handoff_launch_operation_binding", "legacy_handoff_operation_unknown",
+                    "handoff_unavailable"}
+                or any(transition.get(key) is not None and (
+                    not isinstance(transition.get(key), str) or not transition.get(key)
+                    or len(transition[key]) > 128) for key in (
+                        "prior_serving_operation_id", "replacement_serving_operation_id",
+                        "successor_configured_serving_operation_id"))
+                or (transition.get("predecessor_serving_operation_binding_posture")
+                    == "exact_handoff_launch_operation_binding"
+                    and (not isinstance(transition.get("predecessor_chat_process_handoff"), Mapping)
+                        or transition["predecessor_chat_process_handoff"].get(
+                            "configured_serving_operation_id")
+                            != transition.get("prior_serving_operation_id")))
+                or (transition.get("successor_serving_operation_binding_posture")
+                    == "exact_handoff_launch_operation_binding"
+                    and (not isinstance(transition.get("successor_chat_process_handoff"), Mapping)
+                        or transition["successor_chat_process_handoff"].get(
+                            "configured_serving_operation_id")
+                            != transition.get("replacement_serving_operation_id")
+                        or transition.get("successor_configured_serving_operation_id")
+                            != transition.get("replacement_serving_operation_id")))
+                or transition.get("effect_authority") is not False
+                or transition.get("inference_performed") is not False):
+            raise ValueError("chat_process_recovery_transition_binding_invalid")
+        prior_transition = seen_recovery.get(request_id)
+        if prior_transition is not None:
+            if dict(prior_transition) != dict(transition):
+                raise ValueError("chat_process_recovery_transition_identity_conflict")
+            raise ValueError("chat_process_recovery_transition_duplicate")
         seen_recovery[request_id] = transition
     for transition in verified_chat_process_recovery_transitions:
         request_id = str(transition["request_id"])
