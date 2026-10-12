@@ -1,0 +1,80 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {},
+  "behavioral_witness_digest": null,
+  "behavioral_witness_reporter_status": "incomplete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [
+    {
+      "metric": "tests_passed",
+      "rule": ">= 1",
+      "threshold": 1,
+      "value": 0
+    }
+  ],
+  "bypass_env": false,
+  "call_phase_outcome_count": 0,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": false,
+  "collection_error": true,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "exit_reason": "bootstrap-metrics-failed",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "metrics_status": "unavailable",
+  "node_outcomes": [],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "504d1a02049bdf829eaf54d8089769a945ec6ba7c8a6789331d18d241ebeb12b",
+  "provenance_hash": "c51e75b08cb11e959d926e2d5e09af575b6dd414cb5c753b61dc866eeabd29dd",
+  "pytest_args": [
+    "legacy",
+    "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "-q",
+    "-m"
+  ],
+  "pytest_exit_code": 4,
+  "python": "/tmp/sentientos-exact-venv/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": {
+    "message": "pytest metrics report file was not created.",
+    "type": "ReporterUnavailable"
+  },
+  "reporter_loaded": false,
+  "reporter_ok": false,
+  "reporter_status": "incomplete",
+  "run_id": "4d0a3f8c43744c3986c115f470917b79",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [],
+  "selection_flags": [
+    "legacy",
+    "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "-m"
+  ],
+  "session_finish_reached": false,
+  "tests_executed": 0,
+  "tests_failed": 0,
+  "tests_passed": 0,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T17:37:49.246496+00:00",
+  "validation_complete": false,
+  "validation_status": "metrics_missing"
+}

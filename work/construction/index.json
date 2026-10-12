@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8e6a13302c6b031a6b9c8b5cecfdda41bf55a7c9352e3669d6990247f60f4353",
-    "latest_segment_sequence": 43,
-    "latest_segment_sha256": "43f99c47ecb3b769b579b8b07ea73e2376f070d45d45f6c2c439c27054453d3f",
-    "source_commit": "e73e024ddd1b4c44586863e21a8ff767465dcc6d",
-    "source_tree": "a222a31ef175a5aeb1e73bdb652d91e7f6e81fbd"
+    "checkpoint_sha256": "e4d0e82b0c25961a1c9e7262f924220b66f9279658fabbeef38814b23c1c8128",
+    "latest_segment_sequence": 44,
+    "latest_segment_sha256": "5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
+    "source_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
+    "source_tree": "f34432c7453146573f9152f19825f63b00654d17"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -383,6 +383,24 @@
       "sha256": "43f99c47ecb3b769b579b8b07ea73e2376f070d45d45f6c2c439c27054453d3f",
       "source_commit": "e73e024ddd1b4c44586863e21a8ff767465dcc6d",
       "source_tree": "a222a31ef175a5aeb1e73bdb652d91e7f6e81fbd"
+    },
+    {
+      "bytes": 3078,
+      "path": "work/construction/segments/0044-writeback-receipt-recovery.md",
+      "predecessor": "segment-sha256:43f99c47ecb3b769b579b8b07ea73e2376f070d45d45f6c2c439c27054453d3f",
+      "sequence": 44,
+      "sha256": "6968c0ca60ce348a4a6eddc160818f9098a119af3c6e2e66b86bc72260bca10e",
+      "source_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
+      "source_tree": "f34432c7453146573f9152f19825f63b00654d17"
+    },
+    {
+      "bytes": 3085,
+      "path": "work/construction/segments/0044-writeback-receipt-recovery.md",
+      "predecessor": "segment-sha256:6968c0ca60ce348a4a6eddc160818f9098a119af3c6e2e66b86bc72260bca10e",
+      "sequence": 44,
+      "sha256": "5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
+      "source_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
+      "source_tree": "f34432c7453146573f9152f19825f63b00654d17"
     }
   ],
   "source_acquisition": {

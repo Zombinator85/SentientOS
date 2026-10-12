@@ -1,0 +1,69 @@
+{
+  "artifacts": {
+    "0044-focused-test-junit.xml": "cfd7c1856b72d181dffc295c56d291c221fa1f581cd0e3c14557065c666dd84d",
+    "0044-focused-test-provenance.json": "05f99452a73608f26c460b751e8f7fd15e07b3db760bbb9d7ec5048b72e3abd4",
+    "0044-invocation-error-provenance.json": "2e5aa760553ce12d655873db0b29b65a242c3c02a9ea1a33b82f4dad098619d5",
+    "0044-legacy-integration-junit.xml": "14704f00b315bba3f1d18e185dbc572df32ea0f154d880bdbef2adf323d5c261",
+    "0044-legacy-integration-provenance.json": "ddfee605e52c66d659d223abdd0521d1b9d273b12a5309b1de6e816f4733766b"
+  },
+  "authority": false,
+  "checks": {
+    "git_diff_check": "passed",
+    "python_compilation": "passed"
+  },
+  "effects_performed": [],
+  "historical_reconciliation": {
+    "classification": "A_incorporated",
+    "patch_sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307",
+    "path": "sentientos/resident_developmental_writeback.py",
+    "reason": "The current source already projects strategy_invocation_resource_lineage and model_replacement_invocation_resource_lineage into bounded payloads while binding source fact, source payload, source record, projected payload, and projection digest. Durable candidate recovery verifies the projection schema, lineage scope, source bindings, projected digest, and projection digest. No historical code was copied."
+  },
+  "limits": [
+    "The integration test uses a deterministic local model fixture; it demonstrates owner handoffs and custody, not local-model behavior or improvement.",
+    "No production behavior, provider, or real-model result was verified.",
+    "Canonical provenance git_sha is the synthetic local test-harness commit; the exact tested file tree is recorded separately."
+  ],
+  "recovery": {
+    "duplicate_recovery": "returns the same record and receipt identities without duplicate records or receipts",
+    "failure_boundary": "Canonical developmental record is durably appended; writeback receipt publication raises before a receipt exists.",
+    "later_tick": "recovers the original record as prior history and invokes later-tick retrieval cognition",
+    "restart_behavior": "The reconstructed cognition owner verifies the durable record and recorded admission, publishes the deterministic receipt, and rebuilds the tick checkpoint.",
+    "same_tick_retry": "rejected as tick_already_completed"
+  },
+  "source": {
+    "local_test_harness_commit": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+    "remote_parent_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
+    "remote_parent_tree": "f34432c7453146573f9152f19825f63b00654d17",
+    "test_file_blob_sha": "17333d3e8253688e55de86d0fca1dcc72e9df29b",
+    "tested_source_test_tree": "b75bee0c971be61595a9f763c0e9a430d6f4cbe5"
+  },
+  "tests": {
+    "canonical_provenance_hash_default": "2afee29c75fbd1815ed0a9b6654ad7f069f0ae8cca7f353b02d23615fc6bf0db",
+    "canonical_provenance_hash_legacy": "b64bf88b23526a28c0e360d553f860a62df1aba88c2b0a8b18dd30f1ca796403",
+    "default_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m scripts.run_tests -q tests/test_developmental_record_receipt_ack_recovery.py::test_restart_repairs_history_record_published_before_receipt_acknowledgement tests/test_resident_developmental_writeback.py::test_recovery_repairs_interrupted_receipt_publication_idempotently tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "default_passed": 2,
+    "default_selected": 3,
+    "default_skipped_legacy": 1,
+    "failed": 0,
+    "initial_misclassification": "The new test module was initially classified as legacy because it reused a helper from a quarantined module. It now carries the explicit no_legacy_skip marker; the final default run passes it and only the established integration test is skipped by the default quarantine.",
+    "invocation_error": "A first attempt placed the -m value before the runner separator; argparse exited before collection. It is preserved as diagnostic provenance and excluded from test evidence. The supported separator form above then passed.",
+    "legacy_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m scripts.run_tests -- -m legacy tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state -q",
+    "legacy_failed": 0,
+    "legacy_passed": 1,
+    "legacy_provenance_run_id": "8f257a5306444ebcaffe4c97be68edd0",
+    "legacy_selected": 1,
+    "legacy_skipped": 0,
+    "tests_default": {
+      "call_passed": 2,
+      "failed": 0,
+      "selected": 3,
+      "skipped_legacy": 1
+    },
+    "tests_legacy": {
+      "call_passed": 1,
+      "failed": 0,
+      "selected": 1,
+      "skipped": 0
+    }
+  }
+}
