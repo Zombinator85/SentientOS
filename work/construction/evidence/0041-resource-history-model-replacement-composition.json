@@ -1,0 +1,45 @@
+{
+  "authority": false,
+  "effects_performed": [],
+  "integration": {
+    "assertions": [
+      "exact model A/B/A identity sequence",
+      "identical current projection digest across five conditions",
+      "exact prior record IDs/digests for present/restored and none for withheld",
+      "no authority grant",
+      "run re-reconstruction does not issue further endpoint calls",
+      "previous developmental record digests remain unchanged"
+    ],
+    "conditions": [
+      "model_a_history_present",
+      "model_a_history_withheld",
+      "model_b_history_present",
+      "model_b_history_withheld",
+      "model_a_history_restored"
+    ],
+    "model_replacement": "the existing DevelopmentalModelReplacementExperiment receives a FrozenCausalContext built from the same canonical World-State current projection and durable recovered record objects/digests; it writes and reloads its canonical five-condition run",
+    "owner": "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "prior_history_intervention": "exact recovered resource-derived developmental record IDs and digests enter the canonical three-condition present/withheld/restored run"
+  },
+  "limits": [
+    "Both model replacement endpoints are deterministic fixture endpoints; their identities are synthetic test artifacts, not installed/activated production models.",
+    "No actual local model A/B inference, model activation, independent acceptance, production operation, or performance improvement is established.",
+    "Repository generation identity for the A/B test endpoints stays null because those fixture invocations do not originate from the child process handoff; the underlying retained resource history still includes the exact child process attribution."
+  ],
+  "production_verified": false,
+  "source": {
+    "parent_commit": "289ace34013ef28e465aab7cc4f21b9253f0fcbd",
+    "parent_tree": "be5ddf18626ab08ba307de1f49dcb3b1ddd75d32",
+    "tested_source_tree": "6647a15b696b265c570f18bafddbd7484310689d"
+  },
+  "tests": {
+    "chat_unit_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q --tb=short tests/test_chat_service_hardened_serving.py",
+    "chat_unit_failed": 0,
+    "chat_unit_passed": 10,
+    "diff_check": "passed",
+    "integration_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q -m legacy --tb=short tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "integration_failed": 0,
+    "integration_passed": 1,
+    "python_compilation": "passed for both changed test modules"
+  }
+}

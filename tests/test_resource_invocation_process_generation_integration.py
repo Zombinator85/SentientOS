@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime
 import sys
 import time
@@ -27,6 +27,12 @@ from sentientos.codex_task_authority_admission import (
 )
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import RuntimeAdmissionVerifier
+from sentientos.developmental_model_replacement_experiment import (
+    CONDITION_ORDER, DevelopmentalModelReplacementExperiment, FrozenCausalContext, _digest,
+)
+from tests.test_developmental_model_replacement_experiment import (
+    FakeEndpoint as FixtureReplacementEndpoint, identity as fixture_model_identity,
+)
 
 
 def test_parent_child_resource_invocation_generation_reaches_world_state(
@@ -329,6 +335,72 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             for record in comparison_cognition.writeback.store.records()}
         assert all(history_after_experiment.get(record_id) == record_digest
             for record_id, record_digest in history_before_experiment.items())
+
+        # Carry those same durable records and the exact resident current
+        # projection into the existing A/B five-condition experiment. The
+        # endpoint is an explicitly deterministic fixture; no production
+        # model transition or activation occurs.
+        current_projection = comparison_cognition._current_projection(epistemic_snapshot)
+        current_payload = asdict(current_projection)
+        replacement_history = tuple(asdict(comparison_cognition.writeback.store.get(record_id))
+            for record_id in comparison.prior_record_ids)
+        replacement_history_digests = tuple(row["record_digest"] for row in replacement_history)
+        replacement_context = FrozenCausalContext.create(
+            snapshot_id=epistemic_snapshot.snapshot_id,
+            snapshot_digest=epistemic_snapshot.digest,
+            current_projection_id=current_projection.projection_id,
+            current_projection_digest=current_projection.projection_digest,
+            current_fact_ids=current_projection.fact_ids,
+            projected_content_digest=_digest(current_payload),
+            current_projection_payload=current_payload,
+            history_record_ids=comparison.prior_record_ids,
+            history_record_digests=replacement_history_digests,
+            history_record_set_digest=_digest({
+                "record_ids": list(comparison.prior_record_ids),
+                "record_digests": list(replacement_history_digests)}),
+            history_projection_payload=replacement_history,
+            instruction_template=("Use this frozen current evidence and optional historical "
+                "interpretations; history is not current truth or authority."),
+            instruction_template_digest=_digest({"instruction": (
+                "Use this frozen current evidence and optional historical "
+                "interpretations; history is not current truth or authority.")} ),
+            inference_budget={"max_input_chars": 16000, "max_output_chars": 4000,
+                "max_new_tokens": 512, "timeout_seconds": 30,
+                "max_calls_per_correlation": 1},
+            generation_posture={"temperature": 0, "hardware_determinism_claimed": False},
+            repository_generation_identity=None,
+        )
+        replacement_a = FixtureReplacementEndpoint(fixture_model_identity("resource-model-a"))
+        replacement_b = FixtureReplacementEndpoint(fixture_model_identity("resource-model-b"))
+        replacement = DevelopmentalModelReplacementExperiment(
+            context=replacement_context, model_a=replacement_a, model_b=replacement_b,
+            artifact_root=tmp_path / "resource-history-model-replacement")
+        replacement_history_before = {
+            record_id: comparison_cognition.writeback.store.get(record_id).record_digest
+            for record_id in comparison.prior_record_ids}
+        replacement_result = replacement.run()
+        assert [row["condition_id"] for row in replacement_result["observations"]] == list(CONDITION_ORDER)
+        assert replacement_result["validity"] == "valid_controlled_observation"
+        assert replacement_result["protocol"]["grants_authority"] is False
+        assert [row["model_identity_digest"] for row in replacement_result["observations"]] == [
+            replacement.protocol.model_a_identity.identity_digest,
+            replacement.protocol.model_a_identity.identity_digest,
+            replacement.protocol.model_b_identity.identity_digest,
+            replacement.protocol.model_b_identity.identity_digest,
+            replacement.protocol.model_a_identity.identity_digest]
+        assert all(row["current_projection_digest"] == current_projection.projection_digest
+            for row in replacement_result["observations"])
+        replacement_calls = replacement_a.calls[:2] + replacement_b.calls
+        assert all(row["upstream_evidence"]["record_ids"] == list(comparison.prior_record_ids)
+            for row in replacement_calls if json.loads(row["prompt"])["developmental_history"])
+        assert all(not row["upstream_evidence"]["record_ids"]
+            for row in replacement_calls if not json.loads(row["prompt"])["developmental_history"])
+        assert replacement_result["protocol"]["causal_context_digest"] == replacement_context.context_digest
+        replacement_call_counts = (len(replacement_a.calls), len(replacement_b.calls))
+        assert replacement.run()["run_id"] == replacement_result["run_id"]
+        assert (len(replacement_a.calls), len(replacement_b.calls)) == replacement_call_counts
+        assert all(comparison_cognition.writeback.store.get(record_id).record_digest == record_digest
+            for record_id, record_digest in replacement_history_before.items())
     finally:
         release_path.write_text("release\n", encoding="utf-8")
         adapter.stop()
