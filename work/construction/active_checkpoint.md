@@ -1,7 +1,7 @@
 # Active construction checkpoint
 
-- Verified source: `56483692451e3b2bf72db579502a687eba2e77f3`, tree `7c9d3331c1e030a147002bebc28828ef02c88e5d`.
-- Latest continuation segment: sequence `28`, `work/construction/segments/0028-task-acceptance-skip-denial.md`, SHA-256 `873b6f85bf363752793e0324e8da04c70408182f19d35890476f59d2bb7433f8`.
-- Exact source-validation acceptance now requires a setup-skip denial node. The test verifies that a node selected but skipped during setup cannot satisfy the required call-phase contract.
-- Local canonical focus: **36 passed, 0 skipped** using disposable synthetic local HEAD `53a7f0e633929b3b84813622b09010577a7b4f35` solely for verifier tests. This identity is not a remote source SHA. Remote Actions evidence for 9539 remains unavailable from the current connector.
-- Next: publish the denial regression, then continue behavior-level reconciliation of the preserved patch against current owners. No runtime or mainline readiness claim is made.
+- Verified source: `46ad42e43a778d7bd2f9a816b947d2ce881172db`, tree `9cfc55cce63fd8e509fcaff8146a4ec4d4cb4256`.
+- Latest continuation segment: sequence `29`, `work/construction/segments/0029-world-state-supplemental-acceptance.md`, SHA-256 `27cfab454dcf4c2d8ea19391ea1d86d4faea4e3c77d3c2bce046d08efe98ab30`.
+- CI retains the normal test quarantine and adds a separate `-m legacy` source-validation run with its own `GITHUB_SHA`-bound acceptance manifest and preserved provenance for two World-State contracts plus the resource-process-generation join.
+- Local checks: two dependency-free World-State tests passed; workflow/task-acceptance contract tests passed 23/23. Both use synthetic local Git metadata because the exact reconstructed workspace has no original commit object. Hosted action records remain inaccessible through the configured connector.
+- Next: publish the supplemental acceptance increment, inspect available hosted evidence, then continue behavior-level historical hunk reconciliation. Do not treat local fixtures or construction as runtime/mainline evidence.

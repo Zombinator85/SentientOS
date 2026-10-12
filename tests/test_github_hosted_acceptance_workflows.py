@@ -182,3 +182,19 @@ def test_source_validation_verifies_exact_provenance_acceptance_nodes() -> None:
         "tests/test_task_acceptance_verifier.py::test_setup_phase_skip_cannot_satisfy_a_required_call_node",
     ):
         assert node in source_job
+
+
+def test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    source_job = workflow.split("  source-validation:", 1)[1].split("\n  self-check:", 1)[0]
+    assert "Run explicit World-State and resource-join controls" in source_job
+    assert "python -m scripts.run_tests -- -m legacy -q" in source_job
+    assert "world_state_contracts_provenance.json" in source_job
+    assert "world_state_contracts_acceptance_result.json" in source_job
+    assert "python -m scripts.verify_task_acceptance" in source_job
+    for node in (
+        "tests/test_world_state_board.py::test_world_state_snapshot_boundaries_and_authority_false",
+        "tests/test_world_state_sources.py::test_manifest_bounds_path_safety_and_dedup",
+        "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    ):
+        assert node in source_job

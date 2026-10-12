@@ -24,6 +24,43 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --no-deps -e .
           python -m pip install --only-binary=:all: -r requirements-codex.txt
+      - name: Run explicit World-State and resource-join controls
+        run: |
+          python -m scripts.run_tests -- -m legacy -q \
+            tests/test_world_state_board.py::test_world_state_snapshot_boundaries_and_authority_false \
+            tests/test_world_state_sources.py::test_manifest_bounds_path_safety_and_dedup \
+            tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("glow/test_runs")
+          provenance = root / "test_run_provenance.json"
+          if not provenance.is_file():
+              raise SystemExit("World-State supplemental run produced no provenance")
+          saved = root / "world_state_contracts_provenance.json"
+          saved.write_bytes(provenance.read_bytes())
+          nodes = [
+              "tests/test_world_state_board.py::test_world_state_snapshot_boundaries_and_authority_false",
+              "tests/test_world_state_sources.py::test_manifest_bounds_path_safety_and_dedup",
+              "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": str(saved),
+              "required_nodes": [{"node_id": node, "rationale": "explicitly exercise the quarantined read-only World-State/resource bridge"} for node in nodes],
+              "successful_path_nodes": nodes,
+          }
+          manifest_path = root / "world_state_contracts_acceptance.json"
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/world_state_contracts_acceptance.json \
+            --provenance glow/test_runs/world_state_contracts_provenance.json \
+            --output glow/test_runs/world_state_contracts_acceptance_result.json
       - name: Run integrated resource-to-cognition lifecycle
         run: |
           python -m scripts.run_tests -q \
@@ -91,6 +128,9 @@ jobs:
             glow/test_runs/pytest_junitxml*.xml
             glow/test_runs/source_validation_acceptance.json
             glow/test_runs/source_validation_acceptance_result.json
+            glow/test_runs/world_state_contracts_provenance.json
+            glow/test_runs/world_state_contracts_acceptance.json
+            glow/test_runs/world_state_contracts_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:
