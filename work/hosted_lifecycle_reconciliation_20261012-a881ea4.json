@@ -1,0 +1,141 @@
+{
+  "schema_version": 2,
+  "kind": "source_bound_hosted_lifecycle_reconciliation",
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "branch": "codex/construct-sentientos",
+    "commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
+    "tree": "980b661290863b40a8735b554f1f636656174269",
+    "relation_to_main": {
+      "main": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+      "ahead_by": 662,
+      "behind_by": 0,
+      "merge_base": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d"
+    }
+  },
+  "owners": [
+    {
+      "path": "sentientos/ops/__main__.py",
+      "git_blob_sha": "0578bf62501b061853d676d5b93d970203fd543b",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/runtime/startup.py",
+      "git_blob_sha": "07fa6d02009542a4a0cbee9d6a0f2e7113d8b907",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/runtime/local_model_chat_service.py",
+      "git_blob_sha": "8d617c3e3244bfe4d0076028acfeaca50332f107",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/chat_process_generation.py",
+      "git_blob_sha": "e34fc5aeaa20a47137a6d985cd192e1c4dc8894a",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/production_chat_resource_observation.py",
+      "git_blob_sha": "ff0dacb3997d3d4e15ef2dc86bc5562a27086238",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/host_resource_runtime.py",
+      "git_blob_sha": "772b0feb484581c6e876af3566c67cb5d61d6e21",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientosd.py",
+      "git_blob_sha": "136abc3a6bc674d4afc97ec398233950304e6d44",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/resident_epistemic_development.py",
+      "git_blob_sha": "0dbcaf819039eaa9c2f666568b708c7f2fe5fbfc",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/persistent_epistemic_state.py",
+      "git_blob_sha": "defbaeafae7aaafbfd39a5df5b0600195031bf0c",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/resident_epistemic_state_mutation.py",
+      "git_blob_sha": "269d1a5e29c862dce3b991bd8d17e1d863139fe8",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/resident_developmental_cognition.py",
+      "git_blob_sha": "fdd41c79264b6db2b331ba4ac0a7df35dcc5e2e9",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/resident_developmental_writeback.py",
+      "git_blob_sha": "7a1afda19c4e8666b6bec3138d75066c6a4202e2",
+      "role": "implementation owner"
+    },
+    {
+      "path": "sentientos/longitudinal_self_model.py",
+      "git_blob_sha": "ceed12d4ce888c237b7dbc392c02cd89f4bbfea5",
+      "role": "implementation owner"
+    },
+    {
+      "path": "tests/test_resource_invocation_process_generation_integration.py",
+      "git_blob_sha": "24d40fa7c07fca68be48f27adbf7b5c08b244e33",
+      "role": "hermetic cross-process integration test"
+    },
+    {
+      "path": "work/resource_invocation_process_generation_acceptance.json",
+      "git_blob_sha": "0338de238ae300a58288fb739c4ebec2f07d6e35",
+      "role": "prior test evidence artifact"
+    }
+  ],
+  "minimum_hosted_composition": [
+    "Installation-state registry with explicit installation identity; serving artifact/config and serving-operation identity admitted by their existing owner.",
+    "Operations entrypoint starts the separate chat runtime through installation-scoped singleton custody; the launcher records exact source members, process identity, startup time, and configured serving-operation identity.",
+    "The chat process may publish its runtime handoff and current startup observation through the canonical startup owner. Adapter health remains a lifecycle/readiness check and does not publish a competing runtime observation.",
+    "For optional resource evidence, sentientosd requires both SENTIENTOS_RESOURCE_OBSERVATION_INSTALLATION_IDENTITY and SENTIENTOS_RESOURCE_OBSERVATION_PROVISIONING_ID; incomplete configuration is invalid, missing installation root is missing, and the explicit owner performs a bounded read-only installation bundle observation. The observer and mutable governed ledger cannot be injected together.",
+    "The daemon projects verified allocation, attempt, invocation, consumption, process-generation, and receipt linkage into World-State; unsupported CPU/GPU/energy measurements remain unknown.",
+    "Epistemic state, epistemic development, resident developmental cognition, and longitudinal self-model are separately configured. World-State is built before cognition; epistemic development is evaluated afterward and becomes eligible only on a later tick."
+  ],
+  "evidence": {
+    "implemented_mechanism": "Exact source owner path exists at this commit; opt-in state and authority handoffs are explicit.",
+    "configured_composition": "Supported through selected installation custody and independent config; runtime configuration was not inspected in a live deployment.",
+    "hermetic_integration_execution": {
+      "status": "prior_focused_fixture_test_recorded",
+      "result": "65 passed",
+      "test": "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+      "source_parent": "5648051fcdc5d4b01e64da61c4c236af4f796062",
+      "source_parent_tree": "46354a151bfcbda7c998ddcb65b6ec72070e0b74",
+      "artifact": "work/resource_invocation_process_generation_acceptance.json",
+      "artifact_git_blob_sha": "0338de238ae300a58288fb739c4ebec2f07d6e35",
+      "backend": "deterministic fixture inference; adapter-launched child process; not a real model"
+    },
+    "fresh_execution_on_bound_revision": "not_performed; a complete clean checkout at the bound source could not be acquired in this environment",
+    "runtime_enablement": "not established",
+    "independently_observed_production_execution": "none established",
+    "production_evidence": "none supplied or generated",
+    "developmental_performance_improvement": "not demonstrated",
+    "full_acceptance": "not performed"
+  },
+  "authority_and_evidence_boundaries": [
+    "Resource observation is read-only and does not allocate or debit entitlement.",
+    "Process/source handoff proves the selected launcher source and process identity at capture; it does not prove a Git commit, model candidate, or production adoption by itself.",
+    "Invocation counts and output length are not physical resource measurements; shared host CPU/GPU/energy attribution remains unknown without independent measurement.",
+    "World-State evidence and epistemic interpretation do not confer effect authority.",
+    "No provider, production serving activation, external effect, host actuation, or model transition occurred."
+  ],
+  "source_acquisition": {
+    "clean_checkout": "blocked",
+    "attempts": 1,
+    "reason": "proxy port 8080 unreachable",
+    "fallback": "exact-ref GitHub source reads",
+    "stale_workspace_used_as_source": false
+  },
+  "unresolved_dependencies": [
+    "Obtain a complete clean checkout at the exact current remote commit before running fresh source-level acceptance on this revision.",
+    "Run the canonical source acceptance in a disposable installation using a real admitted local model and separately observe production lifecycle and consequences.",
+    "Independent CPU/GPU/energy sensors and physical outcome sources are unavailable here.",
+    "Windows-specific custody and complete native OS resource enforcement remain unverified."
+  ]
+}

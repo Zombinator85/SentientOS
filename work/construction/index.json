@@ -122,6 +122,14 @@
       "sha256": "7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
       "bytes": 2130,
       "source_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451"
+    },
+    {
+      "sequence": 15,
+      "path": "work/construction/segments/0015-current-hosted-lifecycle.md",
+      "predecessor": "segment-sha256:7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
+      "sha256": "00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
+      "bytes": 1878,
+      "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca"
     }
   ],
   "workspace_reconciliation": {
@@ -129,5 +137,11 @@
     "sha256": "08b7820ed97269bfb1e85858d4acc017ac232c6163362de442ec21f86e293a91",
     "verified_remote_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
     "verified_remote_tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef"
+  },
+  "hosted_lifecycle_reconciliation": {
+    "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
+    "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
+    "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
+    "source_tree": "980b661290863b40a8735b554f1f636656174269"
   }
 }
