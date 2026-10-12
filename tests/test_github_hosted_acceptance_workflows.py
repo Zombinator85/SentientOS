@@ -122,3 +122,28 @@ def test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in() -> 
     assert "ServiceMonitor\" not in default_render.stdout" in test
     assert '"deployment/relay"' in test
     assert '"http://localhost:3928/"' in test
+
+
+def test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text()
+    sections = ci.split("- name: Emit doctrine contract bundle")
+    assert len(sections) == 3
+    for section in sections[1:]:
+        bundle = section.split("- name: Upload doctrine contract bundle", 1)[0]
+        assert "python -m scripts.emit_contract_status" in bundle
+        assert "python -m scripts.emit_stability_doctrine" in bundle
+        assert "python -m scripts.emit_ci_baseline" in bundle
+        assert "python -m scripts.emit_contract_manifest" in bundle
+        assert "python scripts/emit_contract_status.py" not in bundle
+        assert "python scripts/emit_stability_doctrine.py" not in bundle
+        assert "python scripts/emit_contract_manifest.py" not in bundle
+        assert "protected_forge_ci=passed" in bundle
+        assert "::warning::protected Forge CI" in bundle
+        assert "make forge-ci || true" not in bundle
+
+    uploads = ci.split("- name: Upload doctrine contract bundle")
+    assert len(uploads) == 3
+    for upload in uploads[1:]:
+        assert "glow/contracts/contract_status.json" in upload
+        assert "glow/contracts/contract_manifest.json" in upload.split("- name:", 1)[0]
+        assert "if-no-files-found: error" in upload.split("- name:", 1)[0]

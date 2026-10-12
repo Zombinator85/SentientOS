@@ -13,14 +13,14 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, cast
+from typing import Any, Callable, Mapping
 
 from sentientos.chat_process_generation import verify_stored_chat_process_handoff
 from sentientos.control_plane_kernel import (AdmissionOutcome, AuthorityClass,
                                               ControlActionRequest, ControlPlaneKernel,
                                               LifecyclePhase)
 from sentientos.installation_state import (InstallationIdentity, InstallationStateError,
-                                           InstallationStateHandle, InstallationStateRegistry)
+                                           InstallationStateHandle, InstallationStateObject, InstallationStateRegistry)
 from sentientos.local_model_production_activation import (ProductionActivationError,
                                                           verify_current_activation)
 from sentientos.local_model_production_serving import _operation_id
@@ -63,10 +63,10 @@ def _without(value: Mapping[str, Any], *keys: str) -> dict[str, Any]:
 
 def startup_configuration_digest(config: LocalModelChatStartup) -> str:
     config.validate()
-    return cast(str, semantic_digest({"service_id": SERVICE_ID,
+    return semantic_digest({"service_id": SERVICE_ID,
                             "installation_identity": config.installation_identity,
                             "host": config.host, "port": config.port,
-                            "restart_policy": "never"}))
+                            "restart_policy": "never"})
 
 
 def build_startup_snapshot(config: LocalModelChatStartup, supervisor_generation: str, *,
@@ -397,7 +397,7 @@ def build_recovery_intent(*, snapshot: Mapping[str, Any], prior_receipt: Mapping
 
 def _current_activation(handle: InstallationStateHandle) -> dict[str, Any]:
     try:
-        return cast(dict[str, Any], verify_current_activation(handle))
+        return verify_current_activation(handle)
     except ProductionActivationError as exc:
         raise LocalModelChatRecoveryError("current_activation_invalid:" + exc.code) from exc
 
@@ -567,7 +567,9 @@ class ProductionLocalModelChatRecoveryController:
         return loaded
 
 
-    def _phase_path(self, phase: str, request_id: str):
+    def _phase_path(
+        self, phase: str, request_id: str
+    ) -> tuple[InstallationStateObject, InstallationStateObject]:
         if phase not in {"attempts", "readiness", "completed"}:
             raise LocalModelChatRecoveryError("recovery_phase_invalid")
         directory = self._handle.fixed_object(f"local-model/recovery/phases/{phase}")
@@ -705,7 +707,7 @@ class ProductionLocalModelChatRecoveryController:
             if attempt_time.tzinfo is None or attempt_time.utcoffset() is None:
                 raise ValueError("recovery_phase_time_invalid")
             approval_checked_at = attempt.get("approval_checked_at")
-            if type(approval_checked_at) not in (int, float):
+            if isinstance(approval_checked_at, bool) or not isinstance(approval_checked_at, (int, float)):
                 raise ValueError("recovery_phase_approval_time_missing")
             verify_approval(approval, intent, now=float(approval_checked_at),
                 allow_synthetic_evidence_for_tests=self._allow_synthetic)
@@ -723,11 +725,13 @@ class ProductionLocalModelChatRecoveryController:
             serving_ids = (readiness.get("successor_serving_receipt_id"),
                 readiness.get("successor_serving_receipt_semantic_digest"),
                 readiness.get("successor_serving_session_id"))
-            if any(value is not None for value in serving_ids) and (
-                    not all(isinstance(value, str) and value for value in serving_ids)
-                    or len(serving_ids[1]) != 64
-                    or any(char not in "0123456789abcdef" for char in serving_ids[1])):
-                raise LocalModelChatRecoveryError("recovery_readiness_serving_receipt_binding_invalid")
+            if any(value is not None for value in serving_ids):
+                if not all(isinstance(value, str) and value for value in serving_ids):
+                    raise LocalModelChatRecoveryError("recovery_readiness_serving_receipt_binding_invalid")
+                serving_digest = serving_ids[1]
+                if (not isinstance(serving_digest, str) or len(serving_digest) != 64
+                        or any(char not in "0123456789abcdef" for char in serving_digest)):
+                    raise LocalModelChatRecoveryError("recovery_readiness_serving_receipt_binding_invalid")
         if completed is not None:
             if (readiness is None
                     or completed.get("attempt_phase_digest") != attempt.get("phase_semantic_digest")
@@ -1100,12 +1104,14 @@ def inspect_chat_recovery_phase_custody(handle: Any, *, max_records: int = MAX_P
             ("runtime_supervisor_generation", intent.get("runtime_supervisor_generation")),
             ("prior_serving_receipt_id", intent.get("prior_serving_receipt_id")),
             ("prior_serving_receipt_semantic_digest", intent.get("prior_serving_receipt_semantic_digest")))
-        for phase in (attempt, readiness, completed):
-            if phase is not None and any(phase.get(key) != expected for key, expected in bound):
+        for phase_record in (attempt, readiness, completed):
+            if phase_record is not None and any(
+                phase_record.get(key) != expected for key, expected in bound
+            ):
                 raise LocalModelChatRecoveryError("recovery_phase_observation_binding_mismatch")
         try:
             checked = attempt.get("approval_checked_at")
-            if type(checked) not in (int, float):
+            if isinstance(checked, bool) or not isinstance(checked, (int, float)):
                 raise ValueError("approval_check_time_missing")
             verify_approval(approval, intent, now=float(checked),
                 allow_synthetic_evidence_for_tests=False)

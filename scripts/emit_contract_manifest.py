@@ -33,8 +33,15 @@ def _stable_json(path: Path) -> None:
 
 
 def emit_manifest(contract_dir: Path, *, git_sha: str, created_at: str) -> Path:
+    # The manifest is an output, not an input to its own digest. Requiring all
+    # other declared required files prevents a partial bundle from looking valid.
+    required_inputs = [name for name in REQUIRED_FILES if name != "contract_manifest.json"]
+    missing = [name for name in required_inputs if not (contract_dir / name).is_file()]
+    if missing:
+        raise FileNotFoundError("missing required contract artifacts: " + ", ".join(missing))
+
     file_hashes: dict[str, str] = {}
-    for rel_path in [*REQUIRED_FILES, *OPTIONAL_FILES]:
+    for rel_path in [*required_inputs, *OPTIONAL_FILES]:
         target = contract_dir / rel_path
         if not target.exists():
             continue

@@ -324,11 +324,16 @@ jobs:
         if: always()
         run: |
           mkdir -p glow/contracts
-          make forge-ci || true
-          python scripts/emit_contract_status.py
-          python scripts/emit_stability_doctrine.py
-          python scripts/emit_ci_baseline.py
-          python scripts/emit_forge_progress_contract.py || true
+          if make forge-ci; then
+            echo "protected_forge_ci=passed"
+          else
+            forge_ci_status=$?
+            echo "::warning::protected Forge CI failed or was not authorized on this runner (exit ${forge_ci_status}); bundle generation continues with failure recorded"
+          fi
+          python -m scripts.emit_contract_status
+          python -m scripts.emit_stability_doctrine
+          python -m scripts.emit_ci_baseline
+          python -m scripts.emit_forge_progress_contract || true
           python - <<'PYCODE'
           import json
           import os
@@ -343,7 +348,7 @@ jobs:
           }
           Path("glow/contracts/artifact_metadata.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           PYCODE
-          python scripts/emit_contract_manifest.py --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
+          python -m scripts.emit_contract_manifest --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
 
       - name: Upload doctrine contract bundle
         if: always()
@@ -358,7 +363,7 @@ jobs:
             glow/contracts/forge_progress_baseline.json
             glow/contracts/artifact_metadata.json
             glow/contracts/contract_manifest.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
 
       - name: Optional mirror doctrine contract bundle to release asset
@@ -381,8 +386,8 @@ jobs:
         if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
         run: |
           python -m scripts.run_tests -q
-          python scripts/emit_ci_baseline.py
-          python scripts/emit_contract_status.py
+          python -m scripts.emit_ci_baseline
+          python -m scripts.emit_contract_status
 
 
       - name: Upload test run provenance
@@ -554,11 +559,16 @@ jobs:
         if: always()
         run: |
           mkdir -p glow/contracts
-          make forge-ci || true
-          python scripts/emit_contract_status.py
-          python scripts/emit_stability_doctrine.py
-          python scripts/emit_ci_baseline.py
-          python scripts/emit_forge_progress_contract.py || true
+          if make forge-ci; then
+            echo "protected_forge_ci=passed"
+          else
+            forge_ci_status=$?
+            echo "::warning::protected Forge CI failed or was not authorized on this runner (exit ${forge_ci_status}); bundle generation continues with failure recorded"
+          fi
+          python -m scripts.emit_contract_status
+          python -m scripts.emit_stability_doctrine
+          python -m scripts.emit_ci_baseline
+          python -m scripts.emit_forge_progress_contract || true
           python - <<'PYCODE'
           import json
           import os
@@ -573,7 +583,7 @@ jobs:
           }
           Path("glow/contracts/artifact_metadata.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           PYCODE
-          python scripts/emit_contract_manifest.py --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
+          python -m scripts.emit_contract_manifest --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
 
       - name: Upload doctrine contract bundle
         if: always()
@@ -588,7 +598,7 @@ jobs:
             glow/contracts/forge_progress_baseline.json
             glow/contracts/artifact_metadata.json
             glow/contracts/contract_manifest.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
 
       - name: Optional mirror doctrine contract bundle to release asset
@@ -611,8 +621,8 @@ jobs:
         if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
         run: |
           python -m scripts.run_tests -q
-          python scripts/emit_ci_baseline.py
-          python scripts/emit_contract_status.py
+          python -m scripts.emit_ci_baseline
+          python -m scripts.emit_contract_status
 
 
       - name: Upload test run provenance

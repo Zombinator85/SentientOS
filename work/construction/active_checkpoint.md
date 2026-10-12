@@ -1,8 +1,8 @@
 # Active construction checkpoint
 
-- Fresh verified remote source at start: `92444b1877c2c3c23f8e8f398e3ba80753160448`, tree `7d66bf58808102cb9341973c666b745f2576b72d`; historical dirty `/workspace/SentientOS` checkout remains untouched.
-- All six previously failing chat-recovery cases now pass against exact-tree reconstructed source. Complete recovery module: 21 passed. ALLOW uses a live child and real installation-bound process/source handoff; the successor receipt is written through the production serving controller. DENY/DEFER/QUARANTINE preserve no-restart behavior.
-- Reconstructed 12-module resource-to-cognition lifecycle set: 195 passed. The earlier 247-case note did not retain its filename manifest; do not present the new run as an exact replay. Exact command and details: `work/recovery_acceptance_reconciliation_20261012.json`.
-- Corrected symlink-parent error classification in durable epistemic mutation custody. No authority or verifier gates were weakened.
-- Changed Python compilation passed. Pytest used `--noconftest`; local exact source tree has no original commit object. Canonical full-repository tests, mypy, strict audits, landing checks, model inference, and production operation remain unverified.
-- Next: establish commit-bound checkout identity if needed for canonical acceptance, then continue the mainline acceptance gates. No merge/deployment.
+- Verified source: `226f50c543ae6e982c77390113844e2c6a23f390`, tree `a8c1229bb2f2f0eb0b42d34794d30f0621a2b870`.
+- Latest continuation segment: sequence `24`, `work/construction/segments/0024-reconciliation-focused-acceptance.md`, SHA-256 `c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1`.
+- The legacy journal is restored exactly to its declared 586,585-byte Git blob. Its unique 39-line, 8,275-byte suffix is preserved as segment 0022. The published segment-0006 content drift is reconciled in the index without dropping content, and segment 0007 follows the measured predecessor digest.
+- Local exact-source focused reconciliation acceptance: 26 tests passed; chat-recovery module: 21 passed; targeted mypy for local recovery and new custody/emitter modules passed; changed Python compiled. Full production acceptance is not claimed.
+- Fresh hosted evidence on source 226f50c: integrated unprivileged source validation passed and Helm smoke tests passed. CI/Helm jobs remain failed after the protected Forge check was denied by the runner and direct script execution failed with `ModuleNotFoundError: scripts`; invariant, self-check, remote/Forge smoke workflows remain separately failed or gated. New artifact workflow and exact required-file failure paths await hosted execution.
+- Next: publish this exact-source correction with expected-head CAS, inspect its precise Actions results, then continue remaining acceptance and historical semantic reconciliation from available artifacts.

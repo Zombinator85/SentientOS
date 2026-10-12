@@ -1,5 +1,18 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
+  "active_checkpoint_binding": {
+    "checkpoint_sha256": "20bd2ebe580b7cfc171b8a8ebc6bc4a6436f2241d65d06d144555f3efc164d6d",
+    "latest_segment_sequence": 24,
+    "latest_segment_sha256": "c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
+    "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390",
+    "source_tree": "a8c1229bb2f2f0eb0b42d34794d30f0621a2b870"
+  },
+  "hosted_lifecycle_reconciliation": {
+    "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
+    "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
+    "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
+    "source_tree": "980b661290863b40a8735b554f1f636656174269"
+  },
   "legacy_journal": {
     "bytes": 586585,
     "frozen": true,
@@ -9,6 +22,12 @@
     "source_commit": "613a14b959451deff64442e5a2ed6145be3e7aac"
   },
   "protocol": "Append-only continuation segments. The index is navigation metadata, not authority to skip fresh remote verification.",
+  "recovery_acceptance": {
+    "path": "work/recovery_acceptance_reconciliation_20261012.json",
+    "sha256": "e16c1d9411673b4467cf4a48dca6aea4f0c17534a5688f86a23098db7f238e66",
+    "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448",
+    "source_tree": "7d66bf58808102cb9341973c666b745f2576b72d"
+  },
   "schema_version": 1,
   "segments": [
     {
@@ -52,17 +71,17 @@
       "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
     },
     {
-      "bytes": 1380,
+      "bytes": 1459,
       "path": "work/construction/segments/0006-resource-observation-world-state.md",
       "predecessor": "segment-sha256:fd888999c5c7bebf66c9440becbabd1a14b6ddfefd5d9679d30d59e95decd5ef",
       "sequence": 6,
-      "sha256": "125eebc8603395817b5b11a4a288eaab5ca2e7cdaa26c0653766d6b3ac6cb98d",
+      "sha256": "120f5e4c8aab27a9f8ff3ed16e3a73f1f45581dc1e69752a3a781ace27600d4e",
       "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
     },
     {
       "bytes": 2278,
       "path": "work/construction/segments/0007-resource-invocation-world-state.md",
-      "predecessor": "segment-sha256:125eebc8603395817b5b11a4a288eaab5ca2e7cdaa26c0653766d6b3ac6cb98d",
+      "predecessor": "segment-sha256:120f5e4c8aab27a9f8ff3ed16e3a73f1f45581dc1e69752a3a781ace27600d4e",
       "sequence": 7,
       "sha256": "0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
       "source_commit": "74cb9906756be7cd4b72bfbd8f0f0c1529c89492"
@@ -116,43 +135,43 @@
       "source_commit": "ada178bc412a9a2ebf82d225575947c7d959a568"
     },
     {
-      "sequence": 14,
+      "bytes": 2130,
       "path": "work/construction/segments/0014-workspace-reconciliation-current-remote.md",
       "predecessor": "segment-sha256:a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
+      "sequence": 14,
       "sha256": "7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
-      "bytes": 2130,
       "source_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451"
     },
     {
-      "sequence": 15,
+      "bytes": 1878,
       "path": "work/construction/segments/0015-current-hosted-lifecycle.md",
       "predecessor": "segment-sha256:7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
+      "sequence": 15,
       "sha256": "00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
-      "bytes": 1878,
       "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca"
     },
     {
-      "sequence": 16,
+      "bytes": 2501,
       "path": "work/construction/segments/0016-source-semantic-reconciliation.md",
       "predecessor": "segment-sha256:00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
+      "sequence": 16,
       "sha256": "8391d4923e4b2b34b9f9c4d40bd3b0438c3a4f672e2f4eedc011b24b0716abd3",
-      "bytes": 2501,
       "source_commit": "fedbb5fe27a72c714f6aee3a6e468c3367f4d65e"
     },
     {
-      "sequence": 17,
+      "bytes": 1804,
       "path": "work/construction/segments/0017-detached-workspace-inventory.md",
       "predecessor": "segment-sha256:8391d4923e4b2b34b9f9c4d40bd3b0438c3a4f672e2f4eedc011b24b0716abd3",
+      "sequence": 17,
       "sha256": "1ce148b6a91a1b26d5a42a51705d6f06048a375c41d164de66dcc5b87de00ab6",
-      "bytes": 1804,
       "source_commit": "c7f77156c1f4172be0b92336a4655beec23514ac"
     },
     {
-      "sequence": 18,
+      "bytes": 1705,
       "path": "work/construction/segments/0018-exact-source-acquisition-blocker.md",
       "predecessor": "segment-sha256:1ce148b6a91a1b26d5a42a51705d6f06048a375c41d164de66dcc5b87de00ab6",
+      "sequence": 18,
       "sha256": "a371984b6588a43a407ae1ac88adb9d48b4a8ac3d7223974494c05a496c879e0",
-      "bytes": 1705,
       "source_commit": "5b9083c79d905337ae967b5d4762cbcee226df02"
     },
     {
@@ -178,19 +197,44 @@
       "sequence": 21,
       "sha256": "9142aa5708aa2711156e3fc7cfaa5ebc9353bf1beeb6227da9e71e0eea4e1ede",
       "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448"
+    },
+    {
+      "bytes": 8275,
+      "path": "work/construction/segments/0022-recovery-acceptance-custody.md",
+      "predecessor": "segment-sha256:9142aa5708aa2711156e3fc7cfaa5ebc9353bf1beeb6227da9e71e0eea4e1ede",
+      "sequence": 22,
+      "sha256": "49e7f94a3925b77784dd29e03ab6d2fdf009c7fb8d5a8f4c6445a6ffda6f7478",
+      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
+    },
+    {
+      "bytes": 1381,
+      "path": "work/construction/segments/0023-continuation-custody-reconciliation.md",
+      "predecessor": "segment-sha256:49e7f94a3925b77784dd29e03ab6d2fdf009c7fb8d5a8f4c6445a6ffda6f7478",
+      "sequence": 23,
+      "sha256": "12253a52a56c54b941150281b2ec9affc2a37ee65d092932e2f0e8a4f66a0e21",
+      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
+    },
+    {
+      "bytes": 1219,
+      "path": "work/construction/segments/0024-reconciliation-focused-acceptance.md",
+      "predecessor": "segment-sha256:12253a52a56c54b941150281b2ec9affc2a37ee65d092932e2f0e8a4f66a0e21",
+      "sequence": 24,
+      "sha256": "c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
+      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
     }
   ],
+  "source_acquisition": {
+    "bytes": 3436,
+    "path": "work/source_acquisition_20261012.json",
+    "sha256": "bb703088c106cae69e37a682c2aee9e6e1557198ea9f14425b9927e925707f10",
+    "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
+    "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
+  },
   "workspace_reconciliation": {
     "path": "work/workspace_reconciliation_20261012-c7f7715.json",
     "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
     "verified_remote_commit": "c7f77156c1f4172be0b92336a4655beec23514ac",
     "verified_remote_tree": "0c0a671543c88e484ec250bc9735d2ce10bf9cae"
-  },
-  "hosted_lifecycle_reconciliation": {
-    "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
-    "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
-    "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
-    "source_tree": "980b661290863b40a8735b554f1f636656174269"
   },
   "workspace_reconciliation_history": [
     {
@@ -199,18 +243,5 @@
       "verified_remote_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
       "verified_remote_tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef"
     }
-  ],
-  "source_acquisition": {
-    "path": "work/source_acquisition_20261012.json",
-    "sha256": "bb703088c106cae69e37a682c2aee9e6e1557198ea9f14425b9927e925707f10",
-    "bytes": 3436,
-    "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
-    "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
-  },
-  "recovery_acceptance": {
-    "path": "work/recovery_acceptance_reconciliation_20261012.json",
-    "sha256": "e16c1d9411673b4467cf4a48dca6aea4f0c17534a5688f86a23098db7f238e66",
-    "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448",
-    "source_tree": "7d66bf58808102cb9341973c666b745f2576b72d"
-  }
+  ]
 }
