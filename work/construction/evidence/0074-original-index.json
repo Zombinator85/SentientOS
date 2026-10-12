@@ -1,0 +1,669 @@
+{
+  "active_checkpoint": "work/construction/active_checkpoint.md",
+  "active_checkpoint_binding": {
+    "checkpoint_sha256": "8f445080cd6f27517af8ff1046d78f6fc852ef02319763a5c276914868b8757a",
+    "latest_segment_sequence": 72,
+    "latest_segment_sha256": "c58753565e6bca44aef60d650762ac60d4c83b3b5188e695363ea55ea919ab53",
+    "source_commit": "e1677cade049a428cc28f3fd90e0643f9718843f",
+    "source_tree": "f866a35fcea9ff1bfd24d0c63506217241d84a90"
+  },
+  "hosted_lifecycle_reconciliation": {
+    "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
+    "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
+    "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
+    "source_tree": "980b661290863b40a8735b554f1f636656174269"
+  },
+  "legacy_journal": {
+    "bytes": 586585,
+    "frozen": true,
+    "git_blob_sha": "5127025527ec6248a159b228b6929a196f1449d1",
+    "path": "work/sentientos_night_watch_continuation.md",
+    "sha256": "1e2ddf6bdf8de2851fb752c4189035d6d7a46e0653aa53bdec37ffcd972ef7dd",
+    "source_commit": "613a14b959451deff64442e5a2ed6145be3e7aac"
+  },
+  "protocol": "Append-only continuation segments. The index is navigation metadata, not authority to skip fresh remote verification.",
+  "recovery_acceptance": {
+    "path": "work/recovery_acceptance_reconciliation_20261012.json",
+    "sha256": "e16c1d9411673b4467cf4a48dca6aea4f0c17534a5688f86a23098db7f238e66",
+    "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448",
+    "source_tree": "7d66bf58808102cb9341973c666b745f2576b72d"
+  },
+  "schema_version": 1,
+  "segments": [
+    {
+      "bytes": 2655,
+      "path": "work/construction/segments/0001-remediation-run-custody.md",
+      "predecessor": "legacy-blob:5127025527ec6248a159b228b6929a196f1449d1",
+      "sequence": 1,
+      "sha256": "a8465f1ce1f569a1be95b25a18a494693f5d8f2ec1e52203ad55613f9647b717",
+      "source_candidate_commit": "9acb4ff7d29e1313c34b918131c90bf72df0ada4"
+    },
+    {
+      "bytes": 1399,
+      "path": "work/construction/segments/0002-construction-source-preflight.md",
+      "predecessor": "segment-sha256:a8465f1ce1f569a1be95b25a18a494693f5d8f2ec1e52203ad55613f9647b717",
+      "sequence": 2,
+      "sha256": "69ae90a123bcfa91c4ae660042b5bf23cf483d2a92cde535875e70c59ff2fbd4",
+      "source_commit": "898a638299312cfebe9cc7c89df5680a646e4742"
+    },
+    {
+      "bytes": 1215,
+      "path": "work/construction/segments/0003-remediation-run-intent.md",
+      "predecessor": "segment-sha256:69ae90a123bcfa91c4ae660042b5bf23cf483d2a92cde535875e70c59ff2fbd4",
+      "sequence": 3,
+      "sha256": "ac3f3199dd8dc04206adfdb3b4b9035cac85b3f0389f92c2c5de2d66a4eb5e8c",
+      "source_commit": "d6cf835e0c7861789f089f7012a15d5850796c01"
+    },
+    {
+      "bytes": 1054,
+      "path": "work/construction/segments/0004-forge-remediation-projection.md",
+      "predecessor": "segment-sha256:ac3f3199dd8dc04206adfdb3b4b9035cac85b3f0389f92c2c5de2d66a4eb5e8c",
+      "sequence": 4,
+      "sha256": "a3f77865fc059c4ccd77b0b0651c55ca93d1c17a263873e2b5e0450af83277ea",
+      "source_commit": "f47bed0a607b5e894dd6291ccf08cfdb603a0223"
+    },
+    {
+      "bytes": 964,
+      "path": "work/construction/segments/0005-hosted-lifecycle-reconciliation.md",
+      "predecessor": "segment-sha256:a3f77865fc059c4ccd77b0b0651c55ca93d1c17a263873e2b5e0450af83277ea",
+      "sequence": 5,
+      "sha256": "fd888999c5c7bebf66c9440becbabd1a14b6ddfefd5d9679d30d59e95decd5ef",
+      "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
+    },
+    {
+      "bytes": 1459,
+      "path": "work/construction/segments/0006-resource-observation-world-state.md",
+      "predecessor": "segment-sha256:fd888999c5c7bebf66c9440becbabd1a14b6ddfefd5d9679d30d59e95decd5ef",
+      "sequence": 6,
+      "sha256": "120f5e4c8aab27a9f8ff3ed16e3a73f1f45581dc1e69752a3a781ace27600d4e",
+      "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
+    },
+    {
+      "bytes": 2278,
+      "path": "work/construction/segments/0007-resource-invocation-world-state.md",
+      "predecessor": "segment-sha256:120f5e4c8aab27a9f8ff3ed16e3a73f1f45581dc1e69752a3a781ace27600d4e",
+      "sequence": 7,
+      "sha256": "0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
+      "source_commit": "74cb9906756be7cd4b72bfbd8f0f0c1529c89492"
+    },
+    {
+      "bytes": 1824,
+      "path": "work/construction/segments/0008-chat-process-handoff.md",
+      "predecessor": "segment-sha256:0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
+      "sequence": 8,
+      "sha256": "4f8ef3deaa65ea482396ba7ebd935154f2dd9f4afdf4433d1ad6c26b5613a2fc",
+      "source_commit": "b7b7f496d71368867f901b8022bee93b271ee057"
+    },
+    {
+      "bytes": 1753,
+      "path": "work/construction/segments/0009-developmental-recovery-qualification.md",
+      "predecessor": "segment-sha256:4f8ef3deaa65ea482396ba7ebd935154f2dd9f4afdf4433d1ad6c26b5613a2fc",
+      "sequence": 9,
+      "sha256": "527085a34d7a1021c61ba1f76c12fdf238272b8a7ab1dda608f460c029e8cfd0",
+      "source_commit": "34771ff675c0d6b20990eda76cb9d29cddab96ea"
+    },
+    {
+      "bytes": 2008,
+      "path": "work/construction/segments/0010-resource-process-world-state.md",
+      "predecessor": "segment-sha256:527085a34d7a1021c61ba1f76c12fdf238272b8a7ab1dda608f460c029e8cfd0",
+      "sequence": 10,
+      "sha256": "1a2d5458dfdacfbaede406497f26bfa892b4971164ffb2a6808d7c9a9bf0b301",
+      "source_commit": "0868de97f85643c32916f91099bda9379347257f"
+    },
+    {
+      "bytes": 1584,
+      "path": "work/construction/segments/0011-resource-epistemic-later-tick.md",
+      "predecessor": "segment-sha256:1a2d5458dfdacfbaede406497f26bfa892b4971164ffb2a6808d7c9a9bf0b301",
+      "sequence": 11,
+      "sha256": "517f401368bae34648c48179205f2ae3d11b05a3523099306bc3ef6aeb0845ef",
+      "source_commit": "5648051fcdc5d4b01e64da61c4c236af4f796062"
+    },
+    {
+      "bytes": 1627,
+      "path": "work/construction/segments/0012-remediation-interruption-replay.md",
+      "predecessor": "segment-sha256:517f401368bae34648c48179205f2ae3d11b05a3523099306bc3ef6aeb0845ef",
+      "sequence": 12,
+      "sha256": "f8a51d8cd3ccb98d7affa78755fc81de2bea04e8db97eb9b2788e9ffd5122052",
+      "source_commit": "6d5aaee90b8a283eb4adff704efdfd0114ec6661"
+    },
+    {
+      "bytes": 1485,
+      "path": "work/construction/segments/0013-unfetched-remote-preflight.md",
+      "predecessor": "segment-sha256:f8a51d8cd3ccb98d7affa78755fc81de2bea04e8db97eb9b2788e9ffd5122052",
+      "sequence": 13,
+      "sha256": "a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
+      "source_commit": "ada178bc412a9a2ebf82d225575947c7d959a568"
+    },
+    {
+      "bytes": 2130,
+      "path": "work/construction/segments/0014-workspace-reconciliation-current-remote.md",
+      "predecessor": "segment-sha256:a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
+      "sequence": 14,
+      "sha256": "7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
+      "source_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451"
+    },
+    {
+      "bytes": 1878,
+      "path": "work/construction/segments/0015-current-hosted-lifecycle.md",
+      "predecessor": "segment-sha256:7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
+      "sequence": 15,
+      "sha256": "00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
+      "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca"
+    },
+    {
+      "bytes": 2501,
+      "path": "work/construction/segments/0016-source-semantic-reconciliation.md",
+      "predecessor": "segment-sha256:00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
+      "sequence": 16,
+      "sha256": "8391d4923e4b2b34b9f9c4d40bd3b0438c3a4f672e2f4eedc011b24b0716abd3",
+      "source_commit": "fedbb5fe27a72c714f6aee3a6e468c3367f4d65e"
+    },
+    {
+      "bytes": 1804,
+      "path": "work/construction/segments/0017-detached-workspace-inventory.md",
+      "predecessor": "segment-sha256:8391d4923e4b2b34b9f9c4d40bd3b0438c3a4f672e2f4eedc011b24b0716abd3",
+      "sequence": 17,
+      "sha256": "1ce148b6a91a1b26d5a42a51705d6f06048a375c41d164de66dcc5b87de00ab6",
+      "source_commit": "c7f77156c1f4172be0b92336a4655beec23514ac"
+    },
+    {
+      "bytes": 1705,
+      "path": "work/construction/segments/0018-exact-source-acquisition-blocker.md",
+      "predecessor": "segment-sha256:1ce148b6a91a1b26d5a42a51705d6f06048a375c41d164de66dcc5b87de00ab6",
+      "sequence": 18,
+      "sha256": "a371984b6588a43a407ae1ac88adb9d48b4a8ac3d7223974494c05a496c879e0",
+      "source_commit": "5b9083c79d905337ae967b5d4762cbcee226df02"
+    },
+    {
+      "bytes": 2764,
+      "path": "work/construction/segments/0019-source-integrity-recovery.md",
+      "predecessor": "segment-sha256:a371984b6588a43a407ae1ac88adb9d48b4a8ac3d7223974494c05a496c879e0",
+      "sequence": 19,
+      "sha256": "0216eb665910a7b9439c2233f20dc1d413abc59a1494e4906adc99c4c9b7d266",
+      "source_commit": "8338bee9b666e203b72c04b558948f3251e0bf09"
+    },
+    {
+      "bytes": 2194,
+      "path": "work/construction/segments/0020-exact-source-reconstruction.md",
+      "predecessor": "segment-sha256:0216eb665910a7b9439c2233f20dc1d413abc59a1494e4906adc99c4c9b7d266",
+      "sequence": 20,
+      "sha256": "4fb9955d37c8c649e7d70c411fa46dcfae71b4036d696fb2412063f56f2defdf",
+      "source_commit": "208f861c4af940b8cf722b6d9ca4224004250a19"
+    },
+    {
+      "bytes": 3234,
+      "path": "work/construction/segments/0021-recovery-acceptance-reconciliation.md",
+      "predecessor": "segment-sha256:4fb9955d37c8c649e7d70c411fa46dcfae71b4036d696fb2412063f56f2defdf",
+      "sequence": 21,
+      "sha256": "9142aa5708aa2711156e3fc7cfaa5ebc9353bf1beeb6227da9e71e0eea4e1ede",
+      "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448"
+    },
+    {
+      "bytes": 8275,
+      "path": "work/construction/segments/0022-recovery-acceptance-custody.md",
+      "predecessor": "segment-sha256:9142aa5708aa2711156e3fc7cfaa5ebc9353bf1beeb6227da9e71e0eea4e1ede",
+      "sequence": 22,
+      "sha256": "49e7f94a3925b77784dd29e03ab6d2fdf009c7fb8d5a8f4c6445a6ffda6f7478",
+      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
+    },
+    {
+      "bytes": 1381,
+      "path": "work/construction/segments/0023-continuation-custody-reconciliation.md",
+      "predecessor": "segment-sha256:49e7f94a3925b77784dd29e03ab6d2fdf009c7fb8d5a8f4c6445a6ffda6f7478",
+      "sequence": 23,
+      "sha256": "12253a52a56c54b941150281b2ec9affc2a37ee65d092932e2f0e8a4f66a0e21",
+      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
+    },
+    {
+      "bytes": 1219,
+      "path": "work/construction/segments/0024-reconciliation-focused-acceptance.md",
+      "predecessor": "segment-sha256:12253a52a56c54b941150281b2ec9affc2a37ee65d092932e2f0e8a4f66a0e21",
+      "sequence": 24,
+      "sha256": "c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
+      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
+    },
+    {
+      "bytes": 1045,
+      "path": "work/construction/segments/0025-smoke-workflow-gates.md",
+      "predecessor": "segment-sha256:c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
+      "sequence": 25,
+      "sha256": "cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
+      "source_commit": "5394c8595177ae920353c2ec2a1f1fd03dc34e0f"
+    },
+    {
+      "bytes": 2549,
+      "path": "work/construction/segments/0026-validation-provenance-integrity.md",
+      "predecessor": "segment-sha256:cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
+      "sequence": 26,
+      "sha256": "827f0db047c3c7e345e1e4674e79528666baf7b4602c8c05833e5a6c41c33ed0",
+      "source_commit": "5994788123743453e1f91942caa575e48d5c530c"
+    },
+    {
+      "bytes": 1659,
+      "path": "work/construction/segments/0027-exact-hosted-acceptance.md",
+      "predecessor": "segment-sha256:827f0db047c3c7e345e1e4674e79528666baf7b4602c8c05833e5a6c41c33ed0",
+      "sequence": 27,
+      "sha256": "5ad018209d9e8119b2b8992d2d17f8e70b94640446e7c516e70480ac2a45ebe3",
+      "source_commit": "9539fa4512e80c0121588872e5eefaa3783a6e91"
+    },
+    {
+      "bytes": 1515,
+      "path": "work/construction/segments/0028-task-acceptance-skip-denial.md",
+      "predecessor": "segment-sha256:5ad018209d9e8119b2b8992d2d17f8e70b94640446e7c516e70480ac2a45ebe3",
+      "sequence": 28,
+      "sha256": "873b6f85bf363752793e0324e8da04c70408182f19d35890476f59d2bb7433f8",
+      "source_commit": "56483692451e3b2bf72db579502a687eba2e77f3"
+    },
+    {
+      "bytes": 1872,
+      "path": "work/construction/segments/0029-world-state-supplemental-acceptance.md",
+      "predecessor": "segment-sha256:873b6f85bf363752793e0324e8da04c70408182f19d35890476f59d2bb7433f8",
+      "sequence": 29,
+      "sha256": "27cfab454dcf4c2d8ea19391ea1d86d4faea4e3c77d3c2bce046d08efe98ab30",
+      "source_commit": "46ad42e43a778d7bd2f9a816b947d2ce881172db"
+    },
+    {
+      "bytes": 2342,
+      "path": "work/construction/segments/0030-causal-chain-exact-acceptance.md",
+      "predecessor": "segment-sha256:27cfab454dcf4c2d8ea19391ea1d86d4faea4e3c77d3c2bce046d08efe98ab30",
+      "sequence": 30,
+      "sha256": "89fe65bd14a5e7cb095496f3851a5c24ba43a03caf1775a90b1287ecc4c6a41b",
+      "source_commit": "d5075ce4bfa6d22055839626af249d958f8f9fda"
+    },
+    {
+      "bytes": 4942,
+      "path": "work/construction/segments/0031-bootstrap-reliability-repair.md",
+      "predecessor": "segment-sha256:89fe65bd14a5e7cb095496f3851a5c24ba43a03caf1775a90b1287ecc4c6a41b",
+      "sequence": 31,
+      "sha256": "4d08268bb23d2c305a442128600869eee367f3fcf478dda9722d030d446ab5aa",
+      "source_commit": "cf59a4c61b58b87a100d903e2813ea46017a3ad9"
+    },
+    {
+      "bytes": 1356,
+      "path": "work/construction/segments/0032-bootstrap-repair-remote-custody.md",
+      "predecessor": "segment-sha256:4d08268bb23d2c305a442128600869eee367f3fcf478dda9722d030d446ab5aa",
+      "sequence": 32,
+      "sha256": "1d66d0913b834aad3698823170d244a23c4c04e69564b33786fb104b7583a774",
+      "source_commit": "dc3d7561d6a1d1a2b47f9c101a97d5d32de69cb9"
+    },
+    {
+      "bytes": 2624,
+      "path": "work/construction/segments/0033-resource-evidence-to-retained-cognition.md",
+      "predecessor": "segment-sha256:1d66d0913b834aad3698823170d244a23c4c04e69564b33786fb104b7583a774",
+      "sequence": 33,
+      "sha256": "eac7743a44398779022b9209c228e9d97b19913b980be917f53a1a028f1a5efe",
+      "source_commit": "bc25b7e45354f4f1d4e7f370ada2f91866951711"
+    },
+    {
+      "bytes": 5222,
+      "path": "work/construction/segments/0034-model-replacement-campaign-cas.md",
+      "predecessor": "segment-sha256:eac7743a44398779022b9209c228e9d97b19913b980be917f53a1a028f1a5efe",
+      "sequence": 34,
+      "sha256": "f85566c998ffe7da6c60d4d903607b4f3c143e48b4a6a966b169029b7ca4f24f",
+      "source_commit": "b5c0063b3e5c9cb4adc25d1dc1c36c56770b8078",
+      "source_tree": "06c7904f0d02ed5f259ba0f5e305ba5b1411ac1c"
+    },
+    {
+      "bytes": 3677,
+      "path": "work/construction/segments/0035-interrupted-trial-journal-recovery.md",
+      "predecessor": "segment-sha256:f85566c998ffe7da6c60d4d903607b4f3c143e48b4a6a966b169029b7ca4f24f",
+      "sequence": 35,
+      "sha256": "d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
+      "source_commit": "5c1f807ff5457cb29b3c54cb2f2e451796651584",
+      "source_tree": "b82860e2583b2ccb604ee5d8d3cd32504dd672b2"
+    },
+    {
+      "bytes": 3128,
+      "path": "work/construction/segments/0036-transition-token-and-boundary-recovery.md",
+      "predecessor": "segment-sha256:d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
+      "sequence": 36,
+      "sha256": "5d60f844074c163a437b1265c2e3bf4485b4302ccb4152b5be1728b37623098b",
+      "source_commit": "b612ac0b598d1b14edecc5acd06bbbd7ffdc1f54",
+      "source_tree": "93d575b25a157d06ba261ffc5a92d0705a87e02c"
+    },
+    {
+      "bytes": 1777,
+      "path": "work/construction/segments/0037-quiescence-link-shape.md",
+      "predecessor": "segment-sha256:5d60f844074c163a437b1265c2e3bf4485b4302ccb4152b5be1728b37623098b",
+      "sequence": 37,
+      "sha256": "a257827f254cb292900964a4672be99ac9e8d8957e38a6b6f49a8729db73df81",
+      "source_commit": "d181f0ee86734ffe6d9b1c13d259bd386ba0b16a",
+      "source_tree": "af9e39e44c1fdb6a67e3510b5ed69a6fda85b42d"
+    },
+    {
+      "bytes": 1687,
+      "path": "work/construction/segments/0038-shared-quiescence-validation.md",
+      "predecessor": "segment-sha256:a257827f254cb292900964a4672be99ac9e8d8957e38a6b6f49a8729db73df81",
+      "sequence": 38,
+      "sha256": "f904f058f415cc70db09a32c362257fbea0ab94a66b0ec4b4cde6aab219a57a3",
+      "source_commit": "e32ae881ada418faf880bce7b27e3a3566148d75",
+      "source_tree": "d7846e698b8de6976174ed43e3a0a422de8fa6c1"
+    },
+    {
+      "bytes": 2273,
+      "path": "work/construction/segments/0039-historical-chat-session-disposition.md",
+      "predecessor": "segment-sha256:f904f058f415cc70db09a32c362257fbea0ab94a66b0ec4b4cde6aab219a57a3",
+      "sequence": 39,
+      "sha256": "b5521a12b42315c7537e74c04d89fd1f33378bdbab8c401e9ce1f4aaa5192587",
+      "source_commit": "5df255579b8ee82e26ff95893a3e74f3ff230068",
+      "source_tree": "ba6ab40c99deede9659e7c768f3cac45a9d5d4ad"
+    },
+    {
+      "bytes": 2091,
+      "path": "work/construction/segments/0040-resource-history-intervention-composition.md",
+      "predecessor": "segment-sha256:b5521a12b42315c7537e74c04d89fd1f33378bdbab8c401e9ce1f4aaa5192587",
+      "sequence": 40,
+      "sha256": "df0fbd983a4aa2830f305de2ddfb5506421b82e5b65e76d736c5fc4208a8c0b4",
+      "source_commit": "a88ecbc8df8a67e0deb72aafaa647b93c622c69f",
+      "source_tree": "51126da2ecd55a1336a767a328322a0947e59c57"
+    },
+    {
+      "bytes": 2228,
+      "path": "work/construction/segments/0041-resource-history-model-replacement-composition.md",
+      "predecessor": "segment-sha256:df0fbd983a4aa2830f305de2ddfb5506421b82e5b65e76d736c5fc4208a8c0b4",
+      "sequence": 41,
+      "sha256": "ab9a581e698a11c032b46fffb822adcd228063f8e2c7c8fe0227f6d0dc3e090a",
+      "source_commit": "289ace34013ef28e465aab7cc4f21b9253f0fcbd",
+      "source_tree": "6647a15b696b265c570f18bafddbd7484310689d"
+    },
+    {
+      "bytes": 1571,
+      "path": "work/construction/segments/0042-resource-replacement-interruption-recovery.md",
+      "predecessor": "segment-sha256:ab9a581e698a11c032b46fffb822adcd228063f8e2c7c8fe0227f6d0dc3e090a",
+      "sequence": 42,
+      "sha256": "37db22124fe1d0d6ec30e08453737001fede0a01bd589656ade5f75e0a333a1c",
+      "source_commit": "93cf858847a2c65bec351c54e1262044b23101e6",
+      "source_tree": "bdebe4a287c9663a733f6047d424bd84b1eb66e3"
+    },
+    {
+      "bytes": 3367,
+      "path": "work/construction/segments/0043-history-intervention-interruption-recovery.md",
+      "predecessor": "segment-sha256:37db22124fe1d0d6ec30e08453737001fede0a01bd589656ade5f75e0a333a1c",
+      "sequence": 43,
+      "sha256": "43f99c47ecb3b769b579b8b07ea73e2376f070d45d45f6c2c439c27054453d3f",
+      "source_commit": "e73e024ddd1b4c44586863e21a8ff767465dcc6d",
+      "source_tree": "a222a31ef175a5aeb1e73bdb652d91e7f6e81fbd"
+    },
+    {
+      "bytes": 3085,
+      "path": "work/construction/segments/0044-writeback-receipt-recovery.md",
+      "predecessor": "segment-sha256:6968c0ca60ce348a4a6eddc160818f9098a119af3c6e2e66b86bc72260bca10e",
+      "sequence": 44,
+      "sha256": "5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
+      "source_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
+      "source_tree": "f34432c7453146573f9152f19825f63b00654d17"
+    },
+    {
+      "bytes": 936,
+      "path": "work/construction/segments/0045-continuation-index-correction.md",
+      "predecessor": "segment-sha256:5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
+      "sequence": 45,
+      "sha256": "1cfa5155628aeaf90fc4f4371210eedc6a480162f90ae64f0446578bcf819caf",
+      "source_commit": "2c8fb64f8dd8b37bfde5b9887c53520131cdb032",
+      "source_tree": "b1f84f13f287a27b3fa1a246f14e48ce711f7d86"
+    },
+    {
+      "bytes": 2672,
+      "path": "work/construction/segments/0046-model-replacement-history-integration.md",
+      "predecessor": "segment-sha256:1cfa5155628aeaf90fc4f4371210eedc6a480162f90ae64f0446578bcf819caf",
+      "sequence": 46,
+      "sha256": "7581b8c86652a3442c7c54a1de9d31ca0dd94a1095eb90d43fe2e4715179e18f",
+      "source_commit": "bb6e30b489ba6fc0fc068739dc5830f9c49979e7",
+      "source_tree": "761aa397d905d34656088a8a5bf8ac2154245976"
+    },
+    {
+      "bytes": 2227,
+      "path": "work/construction/segments/0047-model-replacement-continuity-assessment.md",
+      "predecessor": "segment-sha256:7581b8c86652a3442c7c54a1de9d31ca0dd94a1095eb90d43fe2e4715179e18f",
+      "sequence": 47,
+      "sha256": "acc6ce66a776c0b730998c235386ac61ebaccbfed97b7ed94356134be91570d8",
+      "source_commit": "d4acafd1864194fd1c2eeae61ad400f5ab77323a",
+      "source_tree": "06aa8776e6fcb0ec7e0e432a0d0757b107205c3d"
+    },
+    {
+      "bytes": 2667,
+      "path": "work/construction/segments/0048-conversation-lineage-semantic-reconciliation.md",
+      "predecessor": "segment-sha256:acc6ce66a776c0b730998c235386ac61ebaccbfed97b7ed94356134be91570d8",
+      "sequence": 48,
+      "sha256": "fcff433068c85015386a897b46aa7027ef847621e59adf82fa4a7a334f045b45",
+      "source_commit": "e433a84a08dd0241afe1f198701df02483d0c213",
+      "source_tree": "a134b4ef9adb97016d900553a9a8eb115debd47c"
+    },
+    {
+      "bytes": 1775,
+      "path": "work/construction/segments/0049-history-intervention-and-resource-claim-review.md",
+      "predecessor": "segment-sha256:fcff433068c85015386a897b46aa7027ef847621e59adf82fa4a7a334f045b45",
+      "sequence": 49,
+      "sha256": "72c8aff67133333f80573be09be0f3b09d67f8388eb606aa13cd846b60eb4afe",
+      "source_commit": "4f653e68a420423c13a092e14bce095e82488fb3",
+      "source_tree": "328b9d730a644df0d49edf3b95fc6e4a236c98e7"
+    },
+    {
+      "bytes": 1446,
+      "path": "work/construction/segments/0050-embodied-boundary-review.md",
+      "predecessor": "segment-sha256:72c8aff67133333f80573be09be0f3b09d67f8388eb606aa13cd846b60eb4afe",
+      "sequence": 50,
+      "sha256": "1a67974a514d1a24e08f4c5ac9431b1ccaed642649aeec6a6440fad53b3559aa",
+      "source_commit": "6ec5d7dbf093b8b8d0692428f6b3ed86cf270134",
+      "source_tree": "c2df3c915d7f1142b73b8dd68472fdfd850971c0"
+    },
+    {
+      "bytes": 3242,
+      "path": "work/construction/segments/0051-longitudinal-resource-and-cognition-reconciliation.md",
+      "predecessor": "segment-sha256:1a67974a514d1a24e08f4c5ac9431b1ccaed642649aeec6a6440fad53b3559aa",
+      "sequence": 51,
+      "sha256": "c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
+      "source_commit": "fd96dc27426875e9e5d422a30722791da03e224e",
+      "source_tree": "c2dc8da70fe3567b3e29f04e7d88f01ef312172b"
+    },
+    {
+      "bytes": 3262,
+      "path": "work/construction/segments/0052-resource-world-state-cognition-handoff.md",
+      "predecessor": "segment-sha256:c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
+      "sequence": 52,
+      "sha256": "584d2713415c1d1d9fa9169c5a3dd4be3aa45992db112a661ede251df98bb85a",
+      "source_commit": "047ca6c0de4f1ceafb600542876adc5129f7854d",
+      "source_tree": "56ffd2196b9895dfc82edbe18d0d6c1363a526ce"
+    },
+    {
+      "bytes": 2887,
+      "path": "work/construction/segments/0053-resource-chain-child-fixture.md",
+      "predecessor": "segment-sha256:584d2713415c1d1d9fa9169c5a3dd4be3aa45992db112a661ede251df98bb85a",
+      "sequence": 53,
+      "sha256": "98355cdc671b9c32d0df735c582a4195a89ef4e8476d8775418d53fc56c28fe6",
+      "source_commit": "a3149fe6d1620fdc5834f5dbaf2cf20aa2fefd18",
+      "source_tree": "6f453e752a470c44be41fb08c3bcd415e38186e2"
+    },
+    {
+      "bytes": 2172,
+      "path": "work/construction/segments/0054-resource-receipt-substitution-negative-control.md",
+      "predecessor": "segment-sha256:98355cdc671b9c32d0df735c582a4195a89ef4e8476d8775418d53fc56c28fe6",
+      "sequence": 54,
+      "sha256": "3c9f2c6f6d5df72c769df2d28ac11e069a7c6c2662be067195133d6877b1082d",
+      "source_commit": "1c060a97f4b4d40e28dc686599c38a24d1be8d66",
+      "source_tree": "1f12a3c06634e257f24b3a9766103f5a200329f8"
+    },
+    {
+      "bytes": 1955,
+      "path": "work/construction/segments/0055-exact-resource-consumption-linkage.md",
+      "predecessor": "segment-sha256:3c9f2c6f6d5df72c769df2d28ac11e069a7c6c2662be067195133d6877b1082d",
+      "sequence": 55,
+      "sha256": "95f4a63801a3c19254f25c4ba6bf636c985f83072810f3ca76c601521776b8c4",
+      "source_commit": "4f3057644e695be4c7a90394a07604d170027b98",
+      "source_tree": "1b270e0a882e198ac59c0424daee6f5a07c3d346"
+    },
+    {
+      "bytes": 1434,
+      "path": "work/construction/segments/0056-large-source-blob-repair.md",
+      "predecessor": "segment-sha256:95f4a63801a3c19254f25c4ba6bf636c985f83072810f3ca76c601521776b8c4",
+      "sequence": 56,
+      "sha256": "eb884b2b56c0a6ace06f28360fc2f2e0d7bdf3c48b82e44f365c01fb1cffb326",
+      "source_commit": "e32a3a677c56a92a294ec301f6a4b0a284644e0b",
+      "source_tree": "9f006d0aa2881feb3454043db9082fb493683265"
+    },
+    {
+      "bytes": 1636,
+      "path": "work/construction/segments/0057-historical-resource-and-history-hunks.md",
+      "predecessor": "segment-sha256:eb884b2b56c0a6ace06f28360fc2f2e0d7bdf3c48b82e44f365c01fb1cffb326",
+      "sequence": 57,
+      "sha256": "a61b3c70ecffcc5fa2652c8bd6409bc5d58eb1a884488e3e2c9566db328112f7",
+      "source_commit": "ead58cbf7ee81974fc33954d0ab09c43fd33d8b3",
+      "source_tree": "d941548b51a5ee2568ee511f372707d4ca8ec6e4"
+    },
+    {
+      "bytes": 2616,
+      "path": "work/construction/segments/0058-governed-resource-strategy-proposal-join.md",
+      "predecessor": "segment-sha256:a61b3c70ecffcc5fa2652c8bd6409bc5d58eb1a884488e3e2c9566db328112f7",
+      "sequence": 58,
+      "sha256": "9ef547b5d2f7875f5413625663507b117caa4dc14d1134ddca3bf217f4739f5e",
+      "source_commit": "d3ad5130b0054b6f0d96df3312567f3f86d2e903",
+      "source_tree": "7d949d6546e26e055eb98de6674c77322815b3a0"
+    },
+    {
+      "bytes": 2029,
+      "path": "work/construction/segments/0059-model-replacement-event-time.md",
+      "predecessor": "segment-sha256:9ef547b5d2f7875f5413625663507b117caa4dc14d1134ddca3bf217f4739f5e",
+      "sequence": 59,
+      "sha256": "f157674eef57b78d7706049c8bb0e81554ad659a7932e35cedcc1ca5d7af7f6b",
+      "source_commit": "242d5ebf2fc0b9c82b2937daf8f08a96b2958232",
+      "source_tree": "0bf9890241f475ac728f8f5ce56120c7e49f3584"
+    },
+    {
+      "bytes": 2875,
+      "path": "work/construction/segments/0060-model-replacement-resource-lineage.md",
+      "predecessor": "segment-sha256:f157674eef57b78d7706049c8bb0e81554ad659a7932e35cedcc1ca5d7af7f6b",
+      "sequence": 60,
+      "sha256": "3b0048301a3bf17c5a04062814885a28286480dc0053cef194ef16ecb8332283",
+      "source_commit": "8fa87436599b0971694c74b06e2e4c5b5ea23220",
+      "source_tree": "8b0da571102dbf182fb65c7ea7c328f9aebda63d"
+    },
+    {
+      "bytes": 1701,
+      "path": "work/construction/segments/0061-model-identity-history-lineage.md",
+      "predecessor": "segment-sha256:3b0048301a3bf17c5a04062814885a28286480dc0053cef194ef16ecb8332283",
+      "sequence": 61,
+      "sha256": "b9e96a588f7c30c1e3e683a74f7d4c5cd48c6239b0cf572a3bf0d2ed5270d3b3",
+      "source_commit": "2e3b358317bc8e5d62f8970da28257896f2e4135",
+      "source_tree": "3b2fdbc2ab7e32485130aae5ede14c1303ceedea"
+    },
+    {
+      "bytes": 3012,
+      "path": "work/construction/segments/0062-model-resource-cognition.md",
+      "predecessor": "segment-sha256:b9e96a588f7c30c1e3e683a74f7d4c5cd48c6239b0cf572a3bf0d2ed5270d3b3",
+      "sequence": 62,
+      "sha256": "0f79c3ae78854ea83b463c4cf7ae863ada379357840211f35b0eb789ac33bb43",
+      "source_commit": "57f737904003db2581378689278e50df9256d341",
+      "source_tree": "9fc54e3372b666b73cf5c96388c341881df2c8a3"
+    },
+    {
+      "bytes": 3246,
+      "path": "work/construction/segments/0063-cognition-epistemic-hunk-dispositions.md",
+      "predecessor": "segment-sha256:0f79c3ae78854ea83b463c4cf7ae863ada379357840211f35b0eb789ac33bb43",
+      "sequence": 63,
+      "sha256": "7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
+      "source_commit": "f54d04bd69366300fc74ec45d026babe7168a54d",
+      "source_tree": "6a9d3d81801d939c1ed4692f873f98e26197e82e"
+    },
+    {
+      "bytes": 2432,
+      "path": "work/construction/segments/0064-longitudinal-resource-cognition.md",
+      "predecessor": "segment-sha256:7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
+      "sequence": 64,
+      "sha256": "606f2678a9bc047d61d24655949cb3cd0f6c9dd7444c8377b3ee604dfc046dc8",
+      "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3"
+    },
+    {
+      "bytes": 1582,
+      "path": "work/construction/segments/0065-epistemic-event-time-dispositions.md",
+      "predecessor": "segment-sha256:606f2678a9bc047d61d24655949cb3cd0f6c9dd7444c8377b3ee604dfc046dc8",
+      "sequence": 65,
+      "sha256": "393ada44db0a4a0c7b059ae7a2aa5318a3795031300f9df612047fef44f7c086",
+      "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3"
+    },
+    {
+      "bytes": 1582,
+      "path": "work/construction/segments/0065-epistemic-event-time-dispositions.md",
+      "predecessor": "segment-sha256:606f2678a9bc047d61d24655949cb3cd0f6c9dd7444c8377b3ee604dfc046dc8",
+      "sequence": 65,
+      "sha256": "c7ed951fe566244904faf2f0ef28e16e88a4f81ccda489c26a8e5d749c3ebdcb",
+      "source_commit": "8c620dc0672e77f036433ecc20b079aa9444da0e"
+    },
+    {
+      "bytes": 1594,
+      "path": "work/construction/segments/0066-embodied-source-integrity-repair.md",
+      "predecessor": "segment-sha256:c7ed951fe566244904faf2f0ef28e16e88a4f81ccda489c26a8e5d749c3ebdcb",
+      "sequence": 66,
+      "sha256": "fb0c6b838622e1e67e76d37ca5d7a37f47ca17720027c2a993cb458175fc29db",
+      "source_commit": "2eeeeb21c66cc2fb96daef4ccc340197ff21fc30"
+    },
+    {
+      "bytes": 1932,
+      "path": "work/construction/segments/0067-controlled-history-and-recovery.md",
+      "predecessor": "segment-sha256:fb0c6b838622e1e67e76d37ca5d7a37f47ca17720027c2a993cb458175fc29db",
+      "sequence": 67,
+      "sha256": "010d8f4270c024545351c744b7c7f9ff47545bae4096e2a81427b2c8cb1b391a",
+      "source_commit": "db45c915209dcfc0af23acf8787fcd268786dc3b"
+    },
+    {
+      "bytes": 1910,
+      "path": "work/construction/segments/0068-process-restart-cognition.md",
+      "predecessor": "segment-sha256:010d8f4270c024545351c744b7c7f9ff47545bae4096e2a81427b2c8cb1b391a",
+      "sequence": 68,
+      "sha256": "cb10becb51ad6fc1b3d69af9567333de49de00c1c7f33bf538f26e769e9a0448",
+      "source_commit": "f4370b6b68eacdd734c9542b126b042d53495b09"
+    },
+    {
+      "bytes": 2671,
+      "path": "work/construction/segments/0069-installation-observation-restart-cognition.md",
+      "predecessor": "segment-sha256:cb10becb51ad6fc1b3d69af9567333de49de00c1c7f33bf538f26e769e9a0448",
+      "sequence": 69,
+      "sha256": "7743a162dba4b3b86da02751089b98d02e8fe7b73c9a58ba33f0a0ad8c75f55c",
+      "source_commit": "067fbbf5b199caff3f9dca65aed76f3c8d92b756"
+    },
+    {
+      "bytes": 1776,
+      "path": "work/construction/segments/0070-controlled-history-succession-review.md",
+      "predecessor": "segment-sha256:7743a162dba4b3b86da02751089b98d02e8fe7b73c9a58ba33f0a0ad8c75f55c",
+      "sequence": 70,
+      "sha256": "e7c5718231cb5dc908b6c7c6db67b91f944a42a743a5364b351d0cd5a455214e",
+      "source_commit": "1203784583e1be47cc983841da37adc012614828"
+    },
+    {
+      "bytes": 1586,
+      "path": "work/construction/segments/0071-resource-history-task-attribution.md",
+      "predecessor": "segment-sha256:e7c5718231cb5dc908b6c7c6db67b91f944a42a743a5364b351d0cd5a455214e",
+      "sequence": 71,
+      "sha256": "d4270beaf16fb43dded4bd10dcb69b409d984146f96567253b4ea41296a6f9d0",
+      "source_commit": "e1677cade049a428cc28f3fd90e0643f9718843f"
+    },
+    {
+      "bytes": 2515,
+      "path": "work/construction/segments/0072-resource-generation-developmental-continuity.md",
+      "predecessor": "segment-sha256:d4270beaf16fb43dded4bd10dcb69b409d984146f96567253b4ea41296a6f9d0",
+      "sequence": 72,
+      "sha256": "c58753565e6bca44aef60d650762ac60d4c83b3b5188e695363ea55ea919ab53",
+      "source_commit": "e1677cade049a428cc28f3fd90e0643f9718843f"
+    }
+  ],
+  "source_acquisition": {
+    "bytes": 3436,
+    "path": "work/source_acquisition_20261012.json",
+    "sha256": "bb703088c106cae69e37a682c2aee9e6e1557198ea9f14425b9927e925707f10",
+    "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
+    "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
+  },
+  "workspace_reconciliation": {
+    "path": "work/workspace_reconciliation_20261012-c7f7715.json",
+    "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
+    "verified_remote_commit": "c7f77156c1f4172be0b92336a4655beec23514ac",
+    "verified_remote_tree": "0c0a671543c88e484ec250bc9735d2ce10bf9cae"
+  },
+  "workspace_reconciliation_history": [
+    {
+      "path": "work/workspace_reconciliation_20261012-6ba0d6d.json",
+      "sha256": "08b7820ed97269bfb1e85858d4acc017ac232c6163362de442ec21f86e293a91",
+      "verified_remote_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
+      "verified_remote_tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef"
+    }
+  ]
+}

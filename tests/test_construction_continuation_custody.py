@@ -81,6 +81,7 @@ def test_frozen_journal_and_compact_segment_chain_verify(tmp_path: Path) -> None
         ("index", "predecessor", "segment_1_predecessor_mismatch"),
         ("checkpoint", "tamper", "active_checkpoint_sha256_mismatch"),
         ("index", "checkpoint", "active_checkpoint_segment_sequence_mismatch"),
+        ("index", "duplicate", "segment_2_path_missing_or_duplicate"),
     ],
 )
 def test_custody_verifier_rejects_tampered_or_incomplete_records(
@@ -99,6 +100,8 @@ def test_custody_verifier_rejects_tampered_or_incomplete_records(
         index = json.loads(index_path.read_text(encoding="utf-8"))
         if mutation == "predecessor":
             index["segments"][0]["predecessor"] = "segment-sha256:" + "f" * 64
+        elif mutation == "duplicate":
+            index["segments"].append(dict(index["segments"][0]))
         else:
             index["active_checkpoint_binding"]["latest_segment_sequence"] = 0
         index_path.write_text(json.dumps(index), encoding="utf-8")

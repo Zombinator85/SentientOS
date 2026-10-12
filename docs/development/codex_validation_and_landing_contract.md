@@ -268,3 +268,21 @@ untested and must preserve all authorization, custody, and effect-enforcement
 boundaries. Construction status is not a production-readiness claim; the full
 validation and landing contract applies before production acceptance.
 
+Construction continuation uses the frozen legacy journal and the indexed compact
+segments in `work/construction/index.json`. Add a new segment; never append to
+the frozen journal or modify an earlier segment. Run
+`python -m scripts.verify_construction_continuation_custody --summary` after
+updating navigation metadata.
+
+Before construction publication, bind the tested files to the staged Git tree
+with `scripts.construction_source_preflight.candidate_manifest`. Its manifest
+contains exact byte counts, SHA-256 and Git blob identities for every changed
+path. The candidate-tree guard verifies continuation custody, UTF-8/Python syntax,
+tree membership and the original frozen-journal definition. After uploading,
+supply independently read remote blob identities using `--observed-blobs` to
+`python -m scripts.construction_source_preflight REPOSITORY --candidate-manifest
+MANIFEST --observed-blobs OBSERVATIONS`. Require
+`candidate_integrity_ready_for_ref_update`, exact remote tree equality, and a
+fresh expected-HEAD CAS before moving the branch. A mismatch blocks publication;
+these observations confer no runtime or landing authority.
+

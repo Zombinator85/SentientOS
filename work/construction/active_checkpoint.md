@@ -1,7 +1,11 @@
 # Active construction checkpoint
 
-- Fresh remote base before seq72: `e1677cade049a428cc28f3fd90e0643f9718843f`, tree `f866a35fcea9ff1bfd24d0c63506217241d84a90`; published `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
-- Latest continuation segment: sequence 72, `work/construction/segments/0072-resource-generation-developmental-continuity.md`.
-- Seq72 carries receipt-bound chat software-generation attribution through resource World-State, developmental-history writeback, restart, and later cognition. Historical event times stay separate from observation/reconstruction; loaded-code identity remains unattested.
-- Focused results: 124 adjacent tests and the actual child-process continuity test passed; changed Python compiled; `git diff --check` passed. Work is unverified for production.
-- Next dependency: inspect whether an existing owner can independently attest the chat process's loaded code identity; if no such owner exists, retain unknown and advance to the next implemented developmental-continuity bridge.
+Source base `00023a269a2f3a0ebb08334a53465a57e2849702`, tree `6b71895e08991788ee78fe19acd726b69226e668`.
+
+Latest segment: work/construction/segments/0074-frozen-custody-publication-guard.md
+SHA-256: 4debe782bfc7ddbd4bc8ed508ee5c2cf116d80f157b3ed791305b514b43cc606
+Sequence: 74
+
+Frozen journal restored losslessly; full appended suffix retained as segment 0073. Historical segment bytes remain unchanged. Candidate publication must pass exact tree/source, continuation and observed remote-blob validation before CAS.
+
+Next: loaded-code evidence boundary, independent durable-source restart reconstruction, and preregistered objective task scoring in existing developmental experiments. Construction remains unverified for production.

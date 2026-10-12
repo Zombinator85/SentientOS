@@ -5,7 +5,7 @@ import hashlib
 import json
 import stat
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Callable
 
 MAX_INDEX_BYTES = 2 * 1024 * 1024
 MAX_CHECKPOINT_BYTES = 64 * 1024
@@ -40,10 +40,15 @@ def _read_regular(root: Path, relative: str, *, limit: int) -> bytes:
 
 def verify_construction_continuation(root: Path) -> dict[str, Any]:
     root = root.resolve(strict=True)
+    return verify_continuation_reader(lambda path, limit: _read_regular(root, path, limit=limit))
+
+
+def verify_continuation_reader(read: Callable[[str, int], bytes]) -> dict[str, Any]:
+    """Verify identical custody predicates for disk or an immutable Git tree."""
     failures: list[str] = []
     index_path = "work/construction/index.json"
     try:
-        index_bytes = _read_regular(root, index_path, limit=MAX_INDEX_BYTES)
+        index_bytes = read(index_path, MAX_INDEX_BYTES)
         index = json.loads(index_bytes)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return {"status": "invalid", "failures": [f"index_unreadable:{type(exc).__name__}:{exc}"]}
@@ -55,7 +60,7 @@ def verify_construction_continuation(root: Path) -> dict[str, Any]:
         failures.append("legacy_journal_not_declared_frozen")
         legacy = {}
     try:
-        legacy_bytes = _read_regular(root, str(legacy["path"]), limit=MAX_LEGACY_BYTES)
+        legacy_bytes = read(str(legacy["path"]), MAX_LEGACY_BYTES)
         actual_sha256 = hashlib.sha256(legacy_bytes).hexdigest()
         actual_blob = _git_blob_sha(legacy_bytes)
         if len(legacy_bytes) != legacy.get("bytes"):
@@ -92,7 +97,7 @@ def verify_construction_continuation(root: Path) -> dict[str, Any]:
         if entry.get("predecessor") != expected_predecessor:
             failures.append(f"segment_{expected_sequence}_predecessor_mismatch")
         try:
-            content = _read_regular(root, path, limit=MAX_SEGMENT_BYTES)
+            content = read(path, MAX_SEGMENT_BYTES)
             digest = hashlib.sha256(content).hexdigest()
             if len(content) != entry.get("bytes"):
                 failures.append(f"segment_{expected_sequence}_byte_count_mismatch")
@@ -111,7 +116,7 @@ def verify_construction_continuation(root: Path) -> dict[str, Any]:
         failures.append("active_checkpoint_binding_missing")
     else:
         try:
-            checkpoint = _read_regular(root, checkpoint_path, limit=MAX_CHECKPOINT_BYTES)
+            checkpoint = read(checkpoint_path, MAX_CHECKPOINT_BYTES)
             text = checkpoint.decode("utf-8")
             checkpoint_digest = hashlib.sha256(checkpoint).hexdigest()
             if binding.get("checkpoint_sha256") != checkpoint_digest:
