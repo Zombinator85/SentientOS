@@ -790,6 +790,8 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
         raw = handle.read_optional_regular_bounded(
             path, max_bytes=MAX_RUNTIME_OBSERVATION_BYTES)
     except InstallationStateError as exc:
+        if exc.code == "state_parent_missing":
+            return None
         raise ChatProcessGenerationError("runtime_observation_read_failed") from exc
     if raw is None:
         return None

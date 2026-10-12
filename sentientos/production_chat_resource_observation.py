@@ -134,7 +134,9 @@ class ProductionChatResourceObservationOwner:
         registry = ReadOnlyPrincipalRevocationRegistry.from_bytes(
             read("registry"), expected_registry_version=int(manifest["revocation_registry_version"]),
             expected_registry_digest=str(manifest["revocation_registry_digest"]))
-        del catalog, registry  # Validation only; this observer has no currentness or allocation authority.
+        # Reuse these immutable validated views for historical provenance and
+        # currentness checks below. Keeping them local grants no mutation or
+        # allocation authority to this observer.
         policy = GovernedLocalModelResourcePolicy.from_mapping(_mapping(read("policy"), "policy_json_invalid"))
         if policy.policy_digest != manifest["resource_policy_digest"]:
             raise ProductionChatResourceObservationError("manifest_policy_mismatch")

@@ -42,6 +42,22 @@
       "sequence": 4,
       "sha256": "a3f77865fc059c4ccd77b0b0651c55ca93d1c17a263873e2b5e0450af83277ea",
       "source_commit": "f47bed0a607b5e894dd6291ccf08cfdb603a0223"
+    },
+    {
+      "bytes": 964,
+      "path": "work/construction/segments/0005-hosted-lifecycle-reconciliation.md",
+      "predecessor": "segment-sha256:a3f77865fc059c4ccd77b0b0651c55ca93d1c17a263873e2b5e0450af83277ea",
+      "sequence": 5,
+      "sha256": "fd888999c5c7bebf66c9440becbabd1a14b6ddfefd5d9679d30d59e95decd5ef",
+      "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
+    },
+    {
+      "bytes": 1380,
+      "path": "work/construction/segments/0006-resource-observation-world-state.md",
+      "predecessor": "segment-sha256:fd888999c5c7bebf66c9440becbabd1a14b6ddfefd5d9679d30d59e95decd5ef",
+      "sequence": 6,
+      "sha256": "125eebc8603395817b5b11a4a288eaab5ca2e7cdaa26c0653766d6b3ac6cb98d",
+      "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
     }
   ],
   "workspace_reconciliation": {
