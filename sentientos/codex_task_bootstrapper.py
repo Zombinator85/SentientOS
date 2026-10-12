@@ -25,6 +25,7 @@ class CodexTaskBootstrapRequest:
     new_cli: tuple[str, ...] = ()
     test_path: tuple[str, ...] = ()
     doc_path: tuple[str, ...] = ()
+    existing_target_paths: tuple[str, ...] = ()
     capability_id: str = ""
     authority_principal: str = ""
     requested_effects: tuple[str, ...] = ()
@@ -79,6 +80,7 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
         new_cli=request.new_cli,
         test_path=request.test_path,
         doc_path=request.doc_path,
+        existing_target_paths=request.existing_target_paths,
         capability_id=request.capability_id,
         authority_principal=request.authority_principal,
         requested_effects=request.requested_effects,
@@ -96,6 +98,7 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
         new_cli_path=tuple(scaffold_payload["new_cli_path"]),
         expected_test_paths=tuple(scaffold_payload["expected_test_paths"]),
         expected_doc_paths=tuple(scaffold_payload["expected_doc_paths"]),
+        existing_target_paths=tuple(scaffold_payload.get("existing_target_paths", ())),
         expected_fixture_roots=tuple(scaffold_payload.get("expected_fixture_roots", ())),
         capability_id=str(scaffold_payload["capability_id"]),
         proof_bundle_artifact_kind=str(scaffold_payload["proof_bundle_artifact_kind"]),
@@ -113,7 +116,13 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
 
     warning_codes = tuple(sorted(set(planned.warning_codes + scaffold.scaffold.warning_codes)))
     blocker_codes = list(planned.blocker_codes + scaffold.scaffold.blocker_codes)
-    if verifier.status != "codex_task_scaffold_verifier_ready":
+    if not request.task_name.strip():
+        blocker_codes.append("missing_task_name")
+    if not request.task_goal.strip():
+        blocker_codes.append("missing_task_goal")
+    if not request.subsystem_kind.strip() and not request.preset_id.strip():
+        blocker_codes.append("missing_subsystem_kind")
+    if scaffold.status in {"codex_task_scaffold_ready", "codex_task_scaffold_ready_with_warnings"} and verifier.status != "codex_task_scaffold_verifier_ready":
         warning_codes = tuple(sorted(set(warning_codes + ("scaffold_verifier_incomplete",))))
     if preset_verifier_summary and preset_verifier_summary.get("status") != "codex_task_scaffold_preset_verifier_ready":
         warning_codes = tuple(sorted(set(warning_codes + ("preset_verifier_incomplete",))))
@@ -134,6 +143,8 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
         blocker_codes=tuple(sorted(set(blocker_codes))),
         planner_result_summary={
             "status": planned.status,
+            "blocker_codes": list(planned.blocker_codes),
+            "warning_codes": list(planned.warning_codes),
             "task_slug": planned.task_slug,
             "capability_id": planned.capability_id,
             "authority_principal": planned.authority_principal,
@@ -141,7 +152,7 @@ def bootstrap_codex_task(request: CodexTaskBootstrapRequest, *, include_preset_v
             "authority_definition_eligibility_only": True,
             "capability_granted": False,
         },
-        scaffold_result_summary={"status": scaffold.status, "scaffold_id": scaffold.scaffold.scaffold_id},
+        scaffold_result_summary={"status": scaffold.status, "scaffold_id": scaffold.scaffold.scaffold_id, "blocker_codes": list(scaffold.scaffold.blocker_codes)},
         scaffold_verifier_result_summary=verifier.to_dict(),
         preset_verifier_result_summary=preset_verifier_summary,
         generated_prompt_text=_blocked_bootstrap_prompt(request, tuple(sorted(set(blocker_codes)))) if status == "blocked" else scaffold.scaffold.generated_prompt,

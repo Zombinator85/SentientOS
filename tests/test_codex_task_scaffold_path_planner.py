@@ -254,6 +254,71 @@ def test_planner_distinguishes_prohibitions_from_authority_requests() -> None:
 
 @pytest.mark.no_legacy_skip
 @pytest.mark.parametrize(
+    ("scope", "path", "goal"),
+    (
+        ("ci_workflow_maintenance", ".github/workflows/ci.yml", "Update the existing .github/workflows/ci.yml source-validation job"),
+        ("construction_custody_reconciliation", "work/construction/index.json", "Reconcile the tracked work/construction/index.json custody entry"),
+        ("bootstrap_reliability_repair", "sentientos/codex_task_bootstrapper.py", "Repair the narrow task-bootstrap metadata diagnostic"),
+    ),
+)
+def test_planner_admits_only_existing_tracked_maintenance_targets(scope: str, path: str, goal: str) -> None:
+    out = plan_codex_task_scaffold_paths(
+        PlannerRequest(task_name="bounded maintenance", task_goal=goal, subsystem_kind=scope, existing_target_paths=(path,))
+    )
+    assert out.status in {"ready", "ready_with_warnings"}
+    assert out.existing_target_paths == (path,)
+    assert out.module_path == out.cli_path == out.api_test_path == out.cli_test_path == out.dev_doc_path == ""
+    assert "forbidden_authority_surface_requested" not in out.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    ("scope", "path", "reason"),
+    (
+        ("ci_workflow_maintenance", "../.github/workflows/ci.yml", "path_traversal_or_metacharacters"),
+        ("ci_workflow_maintenance", "README.md", "existing_maintenance_target_scope_violation"),
+        ("construction_custody_reconciliation", "work/construction/not-tracked.json", "existing_maintenance_target_not_tracked_regular_file"),
+        ("bootstrap_reliability_repair", "prompt_assembler.py", "existing_maintenance_target_scope_violation"),
+    ),
+)
+def test_planner_rejects_traversal_untracked_and_out_of_scope_maintenance_targets(scope: str, path: str, reason: str) -> None:
+    out = plan_codex_task_scaffold_paths(
+        PlannerRequest(task_name="bounded maintenance", task_goal="repair existing tracked source", subsystem_kind=scope, existing_target_paths=(path,))
+    )
+    assert out.status == "blocked"
+    assert reason in out.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
+def test_planner_maintenance_target_does_not_admit_privileged_effect_or_authority_definition() -> None:
+    effect = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="CI maintenance",
+            task_goal="Update the existing .github/workflows/ci.yml",
+            subsystem_kind="ci_workflow_maintenance",
+            existing_target_paths=(".github/workflows/ci.yml",),
+            capability_id="sentientos.model_mirror.publish",
+            authority_principal="operator",
+            requested_effects=("publish_model",),
+        )
+    )
+    registration = plan_codex_task_scaffold_paths(
+        PlannerRequest(
+            task_name="CI maintenance",
+            task_goal="Update the existing .github/workflows/ci.yml",
+            subsystem_kind="authority_definition_registration",
+            existing_target_paths=(".github/workflows/ci.yml",),
+            capability_id="sentientos.model_mirror.publish",
+        )
+    )
+    assert effect.status == "blocked"
+    assert "authority_subsystem_not_admitted" in effect.blocker_codes
+    assert registration.status == "blocked"
+    assert "authority_definition_registration_cannot_request_capability" in registration.blocker_codes
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
     "goal",
     (
         "remove shell-based execution",

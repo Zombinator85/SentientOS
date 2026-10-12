@@ -11,6 +11,26 @@
 
 `python scripts/bootstrap_codex_task.py --task-name ... --task-goal ... --subsystem-kind developer_workflow_metadata --output-dir artifacts/codex --summary`
 
+`--subsystem-kind` is required metadata. A request that omits it can have a
+ready path-planner result while the scaffold correctly returns
+`insufficient_required_metadata`; the CLI reports `missing_subsystem_kind` so
+the caller can repair its arguments. Planner, scaffold, and verifier outcomes
+are reported separately. A verifier warning is not added when the scaffold is
+already blocked for missing metadata.
+
+For bounded existing-file maintenance, the CLI accepts repeatable
+`--existing-target` only with the specific maintenance classifications and
+path boundaries in `codex_bootstrap_invocation_contract.md`. Those paths must
+be tracked regular files with no symlink component. This changes task-scope
+metadata only: it creates no file, performs no mutation, and grants no
+execution or runtime authority.
+
+The scaffold is a task-planning aid, not a universal authorization ritual.
+Explicit `[untested]` construction work may use the `AGENTS.md` construction
+exception without running the complete landing lifecycle. When bootstrap is
+required, a blocked result remains diagnostic and must not be used as its
+implementation contract.
+
 ## Authority-definition registration
 
 `authority_definition_registration` is the dedicated governance-only task

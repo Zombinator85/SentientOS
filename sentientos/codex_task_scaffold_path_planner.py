@@ -42,6 +42,7 @@ _LATER_AFFIRMATIVE_RE = re.compile(
     r"\b(?:then|but|and)\s+(?:\w+\s+){0,3}(?:use|call|access|invoke|spawn|execute|run|enable|allow)\b",
     re.IGNORECASE,
 )
+_REPOSITORY_PATH_RE = re.compile(r"(?<![A-Za-z0-9_])(?:\.github|work)(?:/[A-Za-z0-9_.-]+)+")
 _COORDINATED_PROHIBITION_RE = re.compile(
     r"(?:\b(?:is|are)\s+(?:forbidden|prohibited|disabled|disallowed)\b|"
     r"\bmust\s+(?:remain\s+disabled|not\s+be\s+used)\b)\s*$",
@@ -54,6 +55,23 @@ _COORDINATED_PROHIBITION_RE = re.compile(
 PACKAGED_SOURCE_ROOTS = frozenset({"sentientos", "api", "gui", "apps"})
 WORKFLOW_ROOTS = frozenset({"scripts", "tests", "docs", "artifacts"})
 ALLOWED_PATH_ROOTS = PACKAGED_SOURCE_ROOTS | WORKFLOW_ROOTS
+MAINTENANCE_TARGETS = {
+    "ci_workflow_maintenance": (".github/workflows",),
+    "construction_custody_reconciliation": ("work/construction",),
+    "bootstrap_reliability_repair": (
+        "sentientos/codex_task_bootstrapper.py",
+        "sentientos/codex_task_scaffold_path_planner.py",
+        "sentientos/codex_task_scaffold.py",
+        "scripts/bootstrap_codex_task.py",
+        "tests/test_codex_task_bootstrapper.py",
+        "tests/test_codex_task_scaffold_path_planner.py",
+        "tests/test_codex_task_scaffold.py",
+        "tests/test_bootstrap_codex_task_script.py",
+        "docs/development/codex_bootstrap_invocation_contract.md",
+        "docs/development/codex_task_bootstrapper.md",
+        "docs/development/codex_validation_and_landing_contract.md",
+    ),
+}
 
 
 class _AuthorityIntent(str, Enum):
@@ -77,6 +95,7 @@ class PlannerRequest:
     new_cli: tuple[str, ...] = ()
     test_path: tuple[str, ...] = ()
     doc_path: tuple[str, ...] = ()
+    existing_target_paths: tuple[str, ...] = ()
     capability_id: str = ""
     authority_principal: str = ""
     requested_effects: tuple[str, ...] = ()
@@ -103,6 +122,7 @@ class PlannerOutput:
     proof_bundle_filename: str
     fixture_root: str
     commit_title: str
+    existing_target_paths: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -114,7 +134,14 @@ def _snake(text: str) -> str:
 
 
 def _bad_path(path: str) -> bool:
-    return path.startswith("/") or ".." in PurePosixPath(path).parts or any(ch in path for ch in [";", "|", "&", "`", "$", "<", ">"])
+    normalized = str(PurePosixPath(path)) + ("/" if path.endswith("/") else "")
+    return (
+        path.startswith("/")
+        or "\\" in path
+        or normalized != path
+        or ".." in PurePosixPath(path).parts
+        or any(ch in path for ch in [";", "|", "&", "`", "$", "<", ">"])
+    )
 
 
 def _ensure_root(path: str) -> bool:
@@ -180,7 +207,10 @@ def _authority_intent(text: str, match: re.Match[str]) -> _AuthorityIntent:
 
 def _forbidden_authority_requested(text: str) -> bool:
     """Return true unless every authority occurrence is prohibited or reduced."""
+    repository_paths = tuple(_REPOSITORY_PATH_RE.finditer(text))
     for match in _FORBIDDEN_RE.finditer(text):
+        if any(path.start() <= match.start() < path.end() for path in repository_paths):
+            continue
         if _authority_intent(text, match) not in {_AuthorityIntent.PROHIBITED, _AuthorityIntent.REDUCTION}:
             return True
     return False
@@ -237,6 +267,37 @@ def _legacy_root_reduction_target_allowed(request: PlannerRequest, path: str) ->
     )
 
 
+def _existing_tracked_file(path: str, repository_root: str) -> bool:
+    relative = PurePosixPath(path)
+    root = Path(repository_root).resolve()
+    cursor = root
+    try:
+        for part in relative.parts:
+            cursor = cursor / part
+            if cursor.is_symlink():
+                return False
+        if not cursor.is_file():
+            return False
+        result = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", path],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0 and result.stdout.splitlines() == [path]
+
+
+def _maintenance_target_allowed(path: str, subsystem_kind: str) -> bool:
+    for root in MAINTENANCE_TARGETS.get(subsystem_kind, ()):
+        if path == root or path.startswith(root.rstrip("/") + "/"):
+            return True
+    return False
+
+
 def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     warnings: list[str] = []
     blockers: list[str] = []
@@ -254,15 +315,20 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
     fixture_root_default = f"tests/fixtures/{cap_default}/" if (request.subsystem_kind or request.preset_id) == "metadata_verification" and cap_default else ""
     commit_default = f"[codex:{scope}] {action} {slug.replace('_', ' ')}"
 
+    maintenance_mode = request.subsystem_kind in MAINTENANCE_TARGETS
     docs_only = request.subsystem_kind == "documentation" and bool(request.doc_path) and not (
         request.new_module or request.new_cli or request.test_path
     )
-    module_path = "" if docs_only else _choose(request.new_module, module_default)
-    cli_path = "" if docs_only else _choose(request.new_cli, cli_default)
-    tests = () if docs_only else request.test_path or (api_test_default, cli_test_default)
+    if maintenance_mode and not request.existing_target_paths:
+        blockers.append("existing_maintenance_target_required")
+    if maintenance_mode and (request.new_module or request.new_cli):
+        blockers.append("maintenance_scope_forbids_new_scaffold_paths")
+    module_path = "" if docs_only or maintenance_mode else _choose(request.new_module, module_default)
+    cli_path = "" if docs_only or maintenance_mode else _choose(request.new_cli, cli_default)
+    tests = () if docs_only or maintenance_mode and not request.test_path else request.test_path or (api_test_default, cli_test_default)
     api_test_path = tests[0] if tests else ""
-    cli_test_path = tests[1] if len(tests) > 1 else ("" if docs_only else cli_test_default)
-    dev_doc_path = _choose(request.doc_path, doc_default)
+    cli_test_path = tests[1] if len(tests) > 1 else ("" if docs_only or maintenance_mode else cli_test_default)
+    dev_doc_path = _choose(request.doc_path, "" if maintenance_mode else doc_default)
     commit_title = request.commit_title or commit_default
 
     admitted_authority = False
@@ -286,6 +352,19 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
                 blockers.append("forbidden_authority_surface_requested")
             break
 
+    if request.existing_target_paths and request.subsystem_kind not in MAINTENANCE_TARGETS:
+        blockers.append("existing_maintenance_target_scope_required")
+    for path in request.existing_target_paths:
+        if _bad_path(path):
+            blockers.append("path_traversal_or_metacharacters")
+            break
+        if not _maintenance_target_allowed(path, request.subsystem_kind):
+            blockers.append("existing_maintenance_target_scope_violation")
+            break
+        if not _existing_tracked_file(path, request.repository_root):
+            blockers.append("existing_maintenance_target_not_tracked_regular_file")
+            break
+
     paths = tuple(x for x in (module_path, cli_path, api_test_path, cli_test_path, *request.doc_path, proof_filename_default, fixture_root_default) if x)
     for path in paths:
         if _bad_path(path):
@@ -305,7 +384,7 @@ def plan_codex_task_scaffold_paths(request: PlannerRequest) -> PlannerOutput:
         status = "blocked"
     elif warnings:
         status = "ready_with_warnings"
-    return PlannerOutput(status, tuple(sorted(set(warnings))), tuple(sorted(set(blockers))), slug, module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, cap_default, request.authority_principal, tuple(request.requested_effects), proof_kind_default, proof_filename_default, fixture_root_default, commit_title)
+    return PlannerOutput(status, tuple(sorted(set(warnings))), tuple(sorted(set(blockers))), slug, module_path, cli_path, api_test_path, cli_test_path, dev_doc_path, cap_default, request.authority_principal, tuple(request.requested_effects), proof_kind_default, proof_filename_default, fixture_root_default, commit_title, tuple(request.existing_target_paths))
 
 
 def build_scaffold_request_payload(request: PlannerRequest, planned: PlannerOutput) -> dict[str, Any]:
@@ -316,7 +395,8 @@ def build_scaffold_request_payload(request: PlannerRequest, planned: PlannerOutp
         "new_module_path": [planned.module_path] if planned.module_path else [],
         "new_cli_path": [planned.cli_path] if planned.cli_path else [],
         "expected_test_paths": [path for path in (planned.api_test_path, planned.cli_test_path) if path],
-        "expected_doc_paths": list(request.doc_path) if request.doc_path else [planned.dev_doc_path],
+        "expected_doc_paths": list(request.doc_path) if request.doc_path else ([planned.dev_doc_path] if planned.dev_doc_path else []),
+        "existing_target_paths": list(planned.existing_target_paths),
         "expected_fixture_roots": [planned.fixture_root] if planned.fixture_root else [],
         "capability_id": planned.capability_id,
         "proof_bundle_artifact_kind": planned.proof_bundle_artifact_kind,
