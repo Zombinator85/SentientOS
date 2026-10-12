@@ -2,11 +2,21 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
+import os
 from pathlib import Path
 
 from scripts.run_recovery_task import _run_allowed
 from sentientos.artifact_catalog import append_catalog_entry
+from sentientos.private_file_custody import PrivateFileCustodyError, publish_immutable_bytes
+from sentientos.remediation_pack import (
+    MAX_REMEDIATION_PACK_BYTES,
+    MAX_REMEDIATION_RUN_BYTES,
+    _PACK_ID_RE,
+    _read_bounded_file,
+    _strict_json_object,
+)
 
 
 def _iso_now() -> str:
@@ -14,9 +24,19 @@ def _iso_now() -> str:
 
 
 def execute_pack_file(pack_path: Path, *, root: Path) -> dict[str, object]:
-    payload = json.loads(pack_path.read_text(encoding="utf-8"))
+    root = root.resolve()
+    pack_path = pack_path.resolve(strict=True)
+    try:
+        pack_relative_path = pack_path.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise ValueError("remediation_pack_outside_root") from exc
+    pack_bytes = _read_bounded_file(pack_path, max_bytes=MAX_REMEDIATION_PACK_BYTES)
+    payload = _strict_json_object(pack_bytes)
 
-    pack_id = str(payload.get("pack_id") or "unknown")
+    pack_id_value = payload.get("pack_id")
+    if not isinstance(pack_id_value, str) or not _PACK_ID_RE.fullmatch(pack_id_value):
+        raise ValueError("remediation_pack_id_invalid")
+    pack_id = pack_id_value
     steps_payload = payload.get("steps") if isinstance(payload.get("steps"), list) else []
     run_steps: list[dict[str, object]] = []
     overall_ok = True
@@ -46,14 +66,28 @@ def execute_pack_file(pack_path: Path, *, root: Path) -> dict[str, object]:
         "run_id": run_id,
         "generated_at": _iso_now(),
         "pack_id": pack_id,
-        "pack_path": str(pack_path.relative_to(root)),
+        "pack_path": pack_relative_path,
+        "pack_sha256": hashlib.sha256(pack_bytes).hexdigest(),
         "incident_id": payload.get("incident_id"),
         "status": "completed" if overall_ok else "failed",
         "steps": run_steps,
     }
     report_path = root / "glow/forge/remediation/runs" / f"run_{stamp}_{pack_id}.json"
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    encoded = (json.dumps(report, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if len(encoded) > MAX_REMEDIATION_RUN_BYTES:
+        raise ValueError("remediation_run_report_too_large")
+    if os.name == "posix":
+        publish_immutable_bytes(report_path, encoded, max_bytes=MAX_REMEDIATION_RUN_BYTES,
+            collision_code="remediation_run_identity_conflict")
+    else:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with report_path.open("xb") as handle:
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except FileExistsError as exc:
+            raise PrivateFileCustodyError("remediation_run_identity_conflict") from exc
     report["report_path"] = str(report_path.relative_to(root))
     append_catalog_entry(
         root,

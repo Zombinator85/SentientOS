@@ -107,6 +107,10 @@ def should_auto_run_pack(repo_root: Path, *, operating_mode: str, pack: dict[str
             return AutoRemediationDecision(status="idle", reason="contains_non_allowlisted_step")
 
     latest_run = latest_run_for_pack(repo_root, pack_id=pack_id)
+    if latest_run is not None and str(latest_run.get("custody_status", "")).startswith("invalid:"):
+        # A malformed or contradictory recent run is an interruption/custody
+        # ambiguity, not permission to replay remediation commands.
+        return AutoRemediationDecision(status="failed", reason="prior_run_custody_invalid")
     if latest_run is not None and str(latest_run.get("status")) == "completed":
         return AutoRemediationDecision(status="succeeded", reason="already_succeeded")
 

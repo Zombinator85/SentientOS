@@ -1,0 +1,28 @@
+{
+  "active_checkpoint": "work/construction/active_checkpoint.md",
+  "legacy_journal": {
+    "bytes": 586585,
+    "frozen": true,
+    "git_blob_sha": "5127025527ec6248a159b228b6929a196f1449d1",
+    "path": "work/sentientos_night_watch_continuation.md",
+    "sha256": "1e2ddf6bdf8de2851fb752c4189035d6d7a46e0653aa53bdec37ffcd972ef7dd",
+    "source_commit": "613a14b959451deff64442e5a2ed6145be3e7aac"
+  },
+  "protocol": "Append-only continuation segments. The index is navigation metadata, not authority to skip fresh remote verification.",
+  "schema_version": 1,
+  "segments": [
+    {
+      "bytes": 2655,
+      "path": "work/construction/segments/0001-remediation-run-custody.md",
+      "predecessor": "legacy-blob:5127025527ec6248a159b228b6929a196f1449d1",
+      "sequence": 1,
+      "sha256": "a8465f1ce1f569a1be95b25a18a494693f5d8f2ec1e52203ad55613f9647b717",
+      "source_candidate_commit": "9acb4ff7d29e1313c34b918131c90bf72df0ada4"
+    }
+  ],
+  "workspace_reconciliation": {
+    "path": "work/workspace_reconciliation_20261012.json",
+    "sha256": "d114da5e49dec24b404d34c8ccad3befedc7999d32e6dd0dae52193ff7391093",
+    "verified_remote_commit": "613a14b959451deff64442e5a2ed6145be3e7aac"
+  }
+}

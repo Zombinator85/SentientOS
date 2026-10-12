@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "status": "construction_verified_with_focused_tests",
+  "source_base": {
+    "commit": "613a14b959451deff64442e5a2ed6145be3e7aac",
+    "tree": "989778a02ebe308b722efe0643576514d1f1decd"
+  },
+  "scope": "remediation-run custody and completion reconciliation",
+  "changes": [
+    {
+      "path": "sentientos/remediation_pack.py",
+      "sha256": "341eb0db00eb0351f9e0d2caba21c69b180d9c4d05ba2a3e0db792260ab46aa8",
+      "summary": "Bounded no-follow report discovery and parsing; exact run, pack, incident, digest, step, and result reconciliation; malformed newest records remain invalid instead of falling back to older success."
+    },
+    {
+      "path": "scripts/run_remediation_pack.py",
+      "sha256": "6f607598b0e3862c28b3c326f4d1941aa48aca30ec18f14f7c2419f1ec5f6c33",
+      "summary": "Bounded pack input, safe pack-id and root checks, exact pack digest in the report, immutable POSIX publication, and exclusive-create Windows publication."
+    },
+    {
+      "path": "sentientos/auto_remediation.py",
+      "sha256": "da7f68024622ff6273462828a5334776f7255544f04bc356f841cf688d5afd75",
+      "summary": "Invalid or conflicting latest run custody blocks automatic replay."
+    },
+    {
+      "path": "sentientos/tests/test_auto_remediation.py",
+      "sha256": "57fd91548d56a4ba6225dfcaf3202b5e8160615fc1733da79f4274b178983cbe",
+      "summary": "Successful-run fixture now uses the existing report-producing owner, with only the final command executor replaced."
+    },
+    {
+      "path": "sentientos/tests/test_remediation_run_custody.py",
+      "sha256": "0d0c5b4e2634e02ccd666e7e3f5af83fa249684df1b884b7bb0b2cf36ea5bacb",
+      "summary": "Forged/minimal, duplicate-key, symlink, conflicting-newer, genuine owner-report, and actual clear-entrypoint cases."
+    }
+  ],
+  "verification": {
+    "python_compileall": "passed for all changed Python files",
+    "git_diff_check": "passed",
+    "focused_pytest": {
+      "command": "pytest sentientos/tests/test_remediation_run_custody.py sentientos/tests/test_quarantine_remediation_trace_binding.py sentientos/tests/test_artifact_catalog.py sentientos/tests/test_remediation_pack.py sentientos/tests/test_auto_remediation.py",
+      "result": "24 passed"
+    },
+    "quarantine_remediation_unchanged_cases": {
+      "command": "pytest sentientos/tests/test_quarantine_remediation.py -k 'not succeeds_with_completed_run'",
+      "result": "4 passed"
+    },
+    "known_legacy_expectation": {
+      "test": "sentientos/tests/test_quarantine_remediation.py::test_quarantine_clear_succeeds_with_completed_run",
+      "result": "fails under the stricter contract because the fixture writes only a hand-authored run_id/pack_id/status object and expects it to clear quarantine",
+      "interpretation": "obsolete test fixture; equivalent actual clear positive control passes in test_remediation_run_custody.py with an owner-produced report and real integrity/admission gates"
+    },
+    "provider_or_production_execution": false,
+    "windows_runtime_execution": false
+  },
+  "limitations": [
+    "The report remains an owner-produced local claim. Filesystem custody and internally reconciled step rows do not independently authenticate the runner or prove an external effect.",
+    "Windows publication uses exclusive creation and was not executed on Windows; it is not claimed equivalent to POSIX descriptor-relative immutable publication.",
+    "A crash after command execution and before durable report publication can leave an incomplete operation without a run result. The next implementation dependency is a durable pre-execution intent/attempt record that prevents automatic replay after interruption."
+  ]
+}

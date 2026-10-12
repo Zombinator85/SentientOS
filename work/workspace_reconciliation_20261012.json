@@ -1,0 +1,535 @@
+{
+  "classification_counts": {
+    "A already_published_exact": 22,
+    "D generated_or_remote_transfer_artifact": 4,
+    "E uncertain_different_source_requires_semantic_reconciliation": 26,
+    "E uncertain_non_prefix_legacy_journal_conflict": 1,
+    "E uncertain_untracked_candidate": 1
+  },
+  "disposition": "historical checkout preserved as reference; all nonmatching changes remain unresolved pending bounded semantic review; no contents copied into active source tree",
+  "entries": [
+    {
+      "bytes": 27360,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/chat_service.py",
+      "remote_sha256": "d4b470f17c2295e646b547d5d7be4523ddc6f9910e7f28f80ca28e0e17ddc24d",
+      "state": "unstaged_modified",
+      "working_sha256": "4ab749a712e64e258068f64244c439ea20180bd56b72d4f5bd7b4599be05e125"
+    },
+    {
+      "bytes": 13574,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/conversation_session.py",
+      "remote_sha256": "a6a38ebf416b417734f64424815c7bad1d749ff97a4b687fd552518ea8355e27",
+      "state": "unstaged_modified",
+      "working_sha256": "c1fb5025470e26460c17d771ab16cc15b9b84d1fe96e5a658838ef9e616b779f"
+    },
+    {
+      "bytes": 14712,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/developmental_history_intervention_experiment.py",
+      "remote_sha256": "281db08748e6d74c851c8dfd5f6ff1478b6d26928866ac23e1352da84c601b0b",
+      "state": "unstaged_modified",
+      "working_sha256": "b200d3ec91edf19cc0b428daaf503e9e8d8b42d2d89f507eaf282166ec325774"
+    },
+    {
+      "bytes": 35687,
+      "classification": "A already_published_exact",
+      "path": "sentientos/developmental_model_replacement_campaign.py",
+      "remote_sha256": "5d29590adf0c1dc0ec001623b754b6937cf805e0ebd9dded94a9eb646489c401",
+      "state": "unstaged_modified",
+      "working_sha256": "5d29590adf0c1dc0ec001623b754b6937cf805e0ebd9dded94a9eb646489c401"
+    },
+    {
+      "bytes": 107086,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/developmental_model_replacement_experiment.py",
+      "remote_sha256": "7a503a8c85f895f2a56e7879d2fd2ef1037f66ca8a2acaa3491b8d685bf4f26e",
+      "state": "unstaged_modified",
+      "working_sha256": "f679330a953ba4d87cb7718d568819b3cb95e6761ad7ddf4ba27e306a538d594"
+    },
+    {
+      "bytes": 22781,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/developmental_model_replacement_experimental_serving.py",
+      "remote_sha256": "a37ebb640629d323eaa54f5ee8160f15dc5f9c02bb4a1069fea363e16acf68b8",
+      "state": "unstaged_modified",
+      "working_sha256": "86b6da3d87f5d6bb5837147487d5ae77b216da17a8c41fd945a3abea0450fe55"
+    },
+    {
+      "bytes": 172609,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/embodied_consequence.py",
+      "remote_sha256": "6bb2c7d01aba6e822de0a4ec6ca16cc74221716cc5494c09521add5b9c424f56",
+      "state": "unstaged_modified",
+      "working_sha256": "c0d9ca5915c471f08a735c973895c4de85fd9f96e8196e2589d9ed310fa91472"
+    },
+    {
+      "bytes": 20082,
+      "classification": "A already_published_exact",
+      "path": "sentientos/embodiment_fulfillment.py",
+      "remote_sha256": "5ee7c25c1ce5f5e0bc69d4cda03d193df6fe27bb540e8e61e7767766624df171",
+      "state": "unstaged_modified",
+      "working_sha256": "5ee7c25c1ce5f5e0bc69d4cda03d193df6fe27bb540e8e61e7767766624df171"
+    },
+    {
+      "bytes": 20915,
+      "classification": "A already_published_exact",
+      "path": "sentientos/embodiment_proposal_review.py",
+      "remote_sha256": "9f07d4ecbaa829cd7b5b49e469f6f6c2341a09add433c254ff80b010361256c4",
+      "state": "unstaged_modified",
+      "working_sha256": "9f07d4ecbaa829cd7b5b49e469f6f6c2341a09add433c254ff80b010361256c4"
+    },
+    {
+      "bytes": 57616,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/host_resource_runtime.py",
+      "remote_sha256": "e690e066bb8f03092d12fb8dd9168c2c5b302d5549f7af6b1000a8eae05cee29",
+      "state": "unstaged_modified",
+      "working_sha256": "782abab803596e1a619965f753e6b698cdc3ab7ea2229c35d47ac0fcd5091674"
+    },
+    {
+      "bytes": 25749,
+      "classification": "A already_published_exact",
+      "path": "sentientos/installation_state.py",
+      "remote_sha256": "03e28684dab767e5cb70463e604a58f7ba8b60eace299797d94a8a1efc546406",
+      "state": "unstaged_modified",
+      "working_sha256": "03e28684dab767e5cb70463e604a58f7ba8b60eace299797d94a8a1efc546406"
+    },
+    {
+      "bytes": 19097,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/local_model_production_serving.py",
+      "remote_sha256": "c9606c515147973d8d2ce3adea962cff5a80862a75b0197662683c9040625099",
+      "state": "unstaged_modified",
+      "working_sha256": "61fd2609d14f9d1b5640a52282f15070370099036b8633e0d0fd530666673b0a"
+    },
+    {
+      "bytes": 12047,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/local_model_serving_inference.py",
+      "remote_sha256": "9f9d1f9f868c5baa5aafb187a2f6ece82148640f6026278ce1696af6c914b683",
+      "state": "unstaged_modified",
+      "working_sha256": "8874475718021c61d06bacf9956d939243a371ab7c9bf1f5ae0926b7389ead1b"
+    },
+    {
+      "bytes": 47115,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/longitudinal_self_model.py",
+      "remote_sha256": "fb40839de7721c495e489ec26e96a62ef26ab7a0f2d143883dcdb0d843ed03ec",
+      "state": "unstaged_modified",
+      "working_sha256": "211f4620467ff29d5888b8b6b740b2534bb305daf716bc7849b7b247ff10afa9"
+    },
+    {
+      "bytes": 24909,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_activation_profiles.py",
+      "remote_sha256": "977535e3a661d039b16eb6bf88cfe978a1d878bf34f146cb76a996dadfd43e1c",
+      "state": "unstaged_modified",
+      "working_sha256": "977535e3a661d039b16eb6bf88cfe978a1d878bf34f146cb76a996dadfd43e1c"
+    },
+    {
+      "bytes": 24822,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_authority_continuity.py",
+      "remote_sha256": "a101cfe07dc6b0f15c3f82ef3fb752e7d7c47b49abd86348313a22d8854ded6f",
+      "state": "unstaged_modified",
+      "working_sha256": "a101cfe07dc6b0f15c3f82ef3fb752e7d7c47b49abd86348313a22d8854ded6f"
+    },
+    {
+      "bytes": 22234,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_autonomy_cycle.py",
+      "remote_sha256": "088b3f53768a892d05a5e07f89b348604b5ea972b54df410981653486378d58b",
+      "state": "unstaged_modified",
+      "working_sha256": "088b3f53768a892d05a5e07f89b348604b5ea972b54df410981653486378d58b"
+    },
+    {
+      "bytes": 25306,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_candidate_collector.py",
+      "remote_sha256": "5e16a8c68fb63477dd3ae3031df09cc6eca7b70298a1ad57ed6c35c7164b702a",
+      "state": "unstaged_modified",
+      "working_sha256": "5e16a8c68fb63477dd3ae3031df09cc6eca7b70298a1ad57ed6c35c7164b702a"
+    },
+    {
+      "bytes": 43688,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_commit_publication.py",
+      "remote_sha256": "08f59291b939d8cdce925d903e3be430160196e71a10ebc23296a59d4d47d135",
+      "state": "unstaged_modified",
+      "working_sha256": "08f59291b939d8cdce925d903e3be430160196e71a10ebc23296a59d4d47d135"
+    },
+    {
+      "bytes": 16071,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_health_probe.py",
+      "remote_sha256": "121ddc9ea0ccd5910ddc0707fd96fdb42e387be5f970f1a1f873c209045bfab1",
+      "state": "unstaged_modified",
+      "working_sha256": "121ddc9ea0ccd5910ddc0707fd96fdb42e387be5f970f1a1f873c209045bfab1"
+    },
+    {
+      "bytes": 25746,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_implementation_agent.py",
+      "remote_sha256": "f9e47e0293da193558a1873d8bdab5d5a87283a917296ecb51a17306d28ab99d",
+      "state": "unstaged_modified",
+      "working_sha256": "f9e47e0293da193558a1873d8bdab5d5a87283a917296ecb51a17306d28ab99d"
+    },
+    {
+      "bytes": 35082,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/maintenance_initial_posix_resident_commissioning.py",
+      "remote_sha256": "96687933ab4a2853ab8b0b481acdf97061812901e648727fee54ecf482601f66",
+      "state": "unstaged_modified",
+      "working_sha256": "8db60fd45b72a020f9d655f82d2d6c0acb800e5a89e6672a9fd1bf346279b168"
+    },
+    {
+      "bytes": 30042,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_local_codex_foreman.py",
+      "remote_sha256": "514ea1767add8190f13b753fd3aa45264df8c34308e6305ad224042b18392f75",
+      "state": "unstaged_modified",
+      "working_sha256": "514ea1767add8190f13b753fd3aa45264df8c34308e6305ad224042b18392f75"
+    },
+    {
+      "bytes": 25373,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_loop_activation.py",
+      "remote_sha256": "984510c3cce97752a350477b80226156b1a08970c6c6178d921aa440fb383eee",
+      "state": "unstaged_modified",
+      "working_sha256": "984510c3cce97752a350477b80226156b1a08970c6c6178d921aa440fb383eee"
+    },
+    {
+      "bytes": 14412,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_loop_scheduler.py",
+      "remote_sha256": "97695e1d30754b7b7d9b693f91c0ebfc2e42ec1a26c1281473b77be6575b93b5",
+      "state": "unstaged_modified",
+      "working_sha256": "97695e1d30754b7b7d9b693f91c0ebfc2e42ec1a26c1281473b77be6575b93b5"
+    },
+    {
+      "bytes": 44400,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_loop_watchdog.py",
+      "remote_sha256": "3bb0ed4799abc79015a87b7c44908a51e5b89bf50e40f23a0a2fb8d9d50502fb",
+      "state": "unstaged_modified",
+      "working_sha256": "3bb0ed4799abc79015a87b7c44908a51e5b89bf50e40f23a0a2fb8d9d50502fb"
+    },
+    {
+      "bytes": 50347,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_post_adoption_attribution_campaign.py",
+      "remote_sha256": "52b946f5c7115c37e3105c3fe9a323e7e19899f3bd3f4dbf5b11e0947f1e76bb",
+      "state": "unstaged_modified",
+      "working_sha256": "52b946f5c7115c37e3105c3fe9a323e7e19899f3bd3f4dbf5b11e0947f1e76bb"
+    },
+    {
+      "bytes": 47565,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/maintenance_resident_runtime_adoption.py",
+      "remote_sha256": "b78208ccdf6c07e7ca1063af2540218ff4d1d3eacc56e361ffe62d66ebf4183a",
+      "state": "unstaged_modified",
+      "working_sha256": "8b3f2fecd6185e561636af5995c2ce3c313e19e0d527e1c56f5542b82a1005b5"
+    },
+    {
+      "bytes": 30777,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/maintenance_successor_generation_adoption.py",
+      "remote_sha256": "60eefe5b67319a90f3e0c9416f44c02068ca477adb57b7d080f47b8408bd58a0",
+      "state": "unstaged_modified",
+      "working_sha256": "0cf4ca0c6b97da136a05ccf8dcd3f92523d20c5cba9b55e249ce1647ede68688"
+    },
+    {
+      "bytes": 22170,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_task_authority_lease.py",
+      "remote_sha256": "63da0be42da58c6ab87bdbc92feca8fb798e2e9d7aacc24bbd56dbb63dad2c57",
+      "state": "unstaged_modified",
+      "working_sha256": "63da0be42da58c6ab87bdbc92feca8fb798e2e9d7aacc24bbd56dbb63dad2c57"
+    },
+    {
+      "bytes": 42145,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_task_journal.py",
+      "remote_sha256": "6506b6362395a5ab1ff9b49774a3f3bf045313b8a05b9abd78584566acf4a652",
+      "state": "unstaged_modified",
+      "working_sha256": "6506b6362395a5ab1ff9b49774a3f3bf045313b8a05b9abd78584566acf4a652"
+    },
+    {
+      "bytes": 60005,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_validation_controller.py",
+      "remote_sha256": "99b221a327224a92a0db9ae5363c3b34cd740bab7af1a11e47818199bfed5785",
+      "state": "unstaged_modified",
+      "working_sha256": "99b221a327224a92a0db9ae5363c3b34cd740bab7af1a11e47818199bfed5785"
+    },
+    {
+      "bytes": 12970,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_wake_cycle.py",
+      "remote_sha256": "90c21d3d7474c7aa282fd0028491b88dc17d1aa17b5e39aeebd0d81b067ab77e",
+      "state": "unstaged_modified",
+      "working_sha256": "90c21d3d7474c7aa282fd0028491b88dc17d1aa17b5e39aeebd0d81b067ab77e"
+    },
+    {
+      "bytes": 24173,
+      "classification": "A already_published_exact",
+      "path": "sentientos/maintenance_wake_daemon_adoption.py",
+      "remote_sha256": "855e71d8718f97f4fb679d2b2e6322d1e4f9da8662fe4b348757ff49ce21bcc6",
+      "state": "unstaged_modified",
+      "working_sha256": "855e71d8718f97f4fb679d2b2e6322d1e4f9da8662fe4b348757ff49ce21bcc6"
+    },
+    {
+      "bytes": 60772,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/persistent_epistemic_state.py",
+      "remote_sha256": "dbc64dacfa741991518cb8df5564c4dfdd348e1dcb7214077e468a193e651446",
+      "state": "unstaged_modified",
+      "working_sha256": "7eb8031260822faaf68122b308a71b84b1883514df141abd282dfbb1ecd44f03"
+    },
+    {
+      "bytes": 6960,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/production_chat_resource_context.py",
+      "remote_sha256": "363ffb7cb6e38f38edd23fad23d563d6395ba88c3ba44204e6b55b71126f59f6",
+      "state": "unstaged_modified",
+      "working_sha256": "5ed425d77ac53ed88fabb9c2a3602cb2cce9c6ef6c88b5a22238316ec9c69531"
+    },
+    {
+      "bytes": 29084,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/resident_cognitive_model_serving.py",
+      "remote_sha256": "382a7f7b3ccb5e4f3ff4a83392b6229997033e4305a30565e5ee4bb94c1ed454",
+      "state": "unstaged_modified",
+      "working_sha256": "261a05c0dff60b7f825ace1bc51b214273eb57f441a56981e02d44eb244aa7d2"
+    },
+    {
+      "bytes": 35907,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/resident_cognitive_model_transition_experiment.py",
+      "remote_sha256": "9208f31af3bf656d6a749d61f8c013ffc5d3b93a8566da1d9788523f734ad2e9",
+      "state": "unstaged_modified",
+      "working_sha256": "3c2c01c9439f7a81e78bec9624e88a04b84a6777d05c2aa67fb60d761228359a"
+    },
+    {
+      "bytes": 29703,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/resident_cognitive_transition_operator.py",
+      "remote_sha256": "a853721a347e85af43cc6dd7537af42c83b54e296fe3f26b013a8bfcdebbddeb",
+      "state": "unstaged_modified",
+      "working_sha256": "74cde32ba9d40e93610000760331b2f79f82fac79fcee26f308c849776d595e5"
+    },
+    {
+      "bytes": 61596,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/resident_developmental_cognition.py",
+      "remote_sha256": "9b2fa39e0b162a5e16d547865d8892a746c77e160ab45a3ee3e4a9bd94a99d2a",
+      "state": "unstaged_modified",
+      "working_sha256": "467210136fcda64ce85ebcb0fa734ea3dfa2269e3b13b7fd81514777df0e84c8"
+    },
+    {
+      "bytes": 47487,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/resident_developmental_writeback.py",
+      "remote_sha256": "15ca005656749da7efd744d76af1c1a7339b5610134d8cff07a4b42be31d906a",
+      "state": "unstaged_modified",
+      "working_sha256": "e164325a41ed1f062f65056494d64db1585c3244e8dcbde05c1ddf670e2e8007"
+    },
+    {
+      "bytes": 27948,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/resident_epistemic_development.py",
+      "remote_sha256": "12f7e941f98a272a357dfd08c9882530f79e04f43b9271a11f0ccab7bbdc7dcf",
+      "state": "unstaged_modified",
+      "working_sha256": "2d4d1fc043c6843e726fd24f38fb64110cf4af44024a538b7014cdb9eba8cc55"
+    },
+    {
+      "bytes": 36957,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/resident_epistemic_state_mutation.py",
+      "remote_sha256": "1890ded0414fb49ff67d3e06dacdd5265062299883b046aa68e2f8cd70121b0c",
+      "state": "unstaged_modified",
+      "working_sha256": "6f63c818e3299219e54632dae32afdd4488c4d0b4db09c2a5067c6b0a0404541"
+    },
+    {
+      "bytes": 12278,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/runtime_admission.py",
+      "remote_sha256": "813e00267a065c3310d5a5e8b10c57a5becf518fcaa34eb7a30f3c48da7b2818",
+      "state": "unstaged_modified",
+      "working_sha256": "c9934728898f068fcde3791670576f1fb353833be3bc46c83fa68daeee36bfeb"
+    },
+    {
+      "bytes": 19163,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/windows_handle_custody.py",
+      "remote_sha256": "9e2541eaa96fb69d145019e66a1d3eac261ceb492bfe4082facaecd112a92b8f",
+      "state": "unstaged_modified",
+      "working_sha256": "2917eab5fd598cb0e77be258afe51d98ea8cf5f62265c737e903ab4e251c5f68"
+    },
+    {
+      "bytes": 17622,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientos/world_state_board.py",
+      "remote_sha256": "2e3bab7a92401618f16826bbaf7d412d6b9452b034cf4668347cd737b7cf4b52",
+      "state": "unstaged_modified",
+      "working_sha256": "c4c2f7b1f8525c31ae89e6022fc0bb72bbb7bf06ffa27f6d70af38d41ce93756"
+    },
+    {
+      "bytes": 187257,
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation",
+      "path": "sentientosd.py",
+      "remote_sha256": "a94f7a1c648732678e56edbdd4a7904923cf1ab0262f8a278d2e272aa54d793e",
+      "state": "unstaged_modified",
+      "working_sha256": "c2e9800d88428844a4993cb49b0e8d3e6172983621234adacf0882e23df82bfb"
+    },
+    {
+      "bytes": 31397,
+      "classification": "E uncertain_non_prefix_legacy_journal_conflict",
+      "path": "work/sentientos_night_watch_continuation.md",
+      "remote_sha256": "1e2ddf6bdf8de2851fb752c4189035d6d7a46e0653aa53bdec37ffcd972ef7dd",
+      "state": "unstaged_modified",
+      "working_sha256": "71f659dd28b42c38d840ec0ca5bb8846b98816ec79c7191ab8b32e498d5ed45b"
+    },
+    {
+      "bytes": 1152,
+      "canonical_match": "sentientos/platform_fcntl.py",
+      "classification": "A already_published_exact",
+      "path": "sentientos/platform_fcntl.py",
+      "state": "untracked",
+      "working_sha256": "77c35670701b7511b10cad6547b68441c3e471b07058c438e121551c54055186"
+    },
+    {
+      "bytes": 160148,
+      "canonical_match": null,
+      "classification": "D generated_or_remote_transfer_artifact",
+      "path": "work/remote_embodied_consequence.b64",
+      "state": "untracked",
+      "working_sha256": "e9088d6e7e278e0b1e31319257345690d1cc8a4b0ac3ac6a124e0773cd0f3d8b"
+    },
+    {
+      "bytes": 120028,
+      "canonical_match": null,
+      "classification": "E uncertain_untracked_candidate",
+      "path": "work/remote_embodied_consequence.py",
+      "state": "untracked",
+      "working_sha256": "52e3cfdbaea9fac65225c738b446714abff41e397c940c50d617500e212cebf6"
+    },
+    {
+      "bytes": 120110,
+      "canonical_match": null,
+      "classification": "D generated_or_remote_transfer_artifact",
+      "path": "work/remote_embodied_consequence.raw",
+      "state": "untracked",
+      "working_sha256": "9bf9a2b86f52d986a051884d75e53eb277ef16bc8e47eadf9b8a9f25e195f6ea"
+    },
+    {
+      "bytes": 160148,
+      "canonical_match": null,
+      "classification": "D generated_or_remote_transfer_artifact",
+      "path": "work/remote_sentientosd.b64",
+      "state": "untracked",
+      "working_sha256": "c94fbda7b6e0661f29f271ad4ad2c56d4d4d12cfc9202f1a54cd524d06110e82"
+    },
+    {
+      "bytes": 120110,
+      "canonical_match": null,
+      "classification": "D generated_or_remote_transfer_artifact",
+      "path": "work/remote_sentientosd.raw",
+      "state": "untracked",
+      "working_sha256": "3db578159492b7a8612b014b5e8b1194499fa8bd3cd26b35b53b99027e7aad89"
+    }
+  ],
+  "historical_checkout": {
+    "branch": "codex/construct-sentientos",
+    "head": "2e3208a9024f7162b877373824c8bab31f25bd12",
+    "path": "/workspace/SentientOS",
+    "staged_changes": 0,
+    "status_lines": [
+      "## codex/construct-sentientos",
+      " M sentientos/chat_service.py",
+      " M sentientos/conversation_session.py",
+      " M sentientos/developmental_history_intervention_experiment.py",
+      " M sentientos/developmental_model_replacement_campaign.py",
+      " M sentientos/developmental_model_replacement_experiment.py",
+      " M sentientos/developmental_model_replacement_experimental_serving.py",
+      " M sentientos/embodied_consequence.py",
+      " M sentientos/embodiment_fulfillment.py",
+      " M sentientos/embodiment_proposal_review.py",
+      " M sentientos/host_resource_runtime.py",
+      " M sentientos/installation_state.py",
+      " M sentientos/local_model_production_serving.py",
+      " M sentientos/local_model_serving_inference.py",
+      " M sentientos/longitudinal_self_model.py",
+      " M sentientos/maintenance_activation_profiles.py",
+      " M sentientos/maintenance_authority_continuity.py",
+      " M sentientos/maintenance_autonomy_cycle.py",
+      " M sentientos/maintenance_candidate_collector.py",
+      " M sentientos/maintenance_commit_publication.py",
+      " M sentientos/maintenance_health_probe.py",
+      " M sentientos/maintenance_implementation_agent.py",
+      " M sentientos/maintenance_initial_posix_resident_commissioning.py",
+      " M sentientos/maintenance_local_codex_foreman.py",
+      " M sentientos/maintenance_loop_activation.py",
+      " M sentientos/maintenance_loop_scheduler.py",
+      " M sentientos/maintenance_loop_watchdog.py",
+      " M sentientos/maintenance_post_adoption_attribution_campaign.py",
+      " M sentientos/maintenance_resident_runtime_adoption.py",
+      " M sentientos/maintenance_successor_generation_adoption.py",
+      " M sentientos/maintenance_task_authority_lease.py",
+      " M sentientos/maintenance_task_journal.py",
+      " M sentientos/maintenance_validation_controller.py",
+      " M sentientos/maintenance_wake_cycle.py",
+      " M sentientos/maintenance_wake_daemon_adoption.py",
+      " M sentientos/persistent_epistemic_state.py",
+      " M sentientos/production_chat_resource_context.py",
+      " M sentientos/resident_cognitive_model_serving.py",
+      " M sentientos/resident_cognitive_model_transition_experiment.py",
+      " M sentientos/resident_cognitive_transition_operator.py",
+      " M sentientos/resident_developmental_cognition.py",
+      " M sentientos/resident_developmental_writeback.py",
+      " M sentientos/resident_epistemic_development.py",
+      " M sentientos/resident_epistemic_state_mutation.py",
+      " M sentientos/runtime_admission.py",
+      " M sentientos/windows_handle_custody.py",
+      " M sentientos/world_state_board.py",
+      " M sentientosd.py",
+      " M work/sentientos_night_watch_continuation.md",
+      "?? sentientos/platform_fcntl.py",
+      "?? work/remote_embodied_consequence.b64",
+      "?? work/remote_embodied_consequence.py",
+      "?? work/remote_embodied_consequence.raw",
+      "?? work/remote_sentientosd.b64",
+      "?? work/remote_sentientosd.raw"
+    ],
+    "tree": "cd4734cb8ba2979732c188686064bc377dffd69a",
+    "unstaged_changed_paths": 48,
+    "untracked_paths": 6
+  },
+  "journal_reconciliation": {
+    "classification": "E uncertain: local bytes are not an append-only extension of the verified remote journal; preserve unchanged and do not splice",
+    "local_bytes": 31397,
+    "local_is_remote_prefix_extension": false,
+    "local_sha256": "71f659dd28b42c38d840ec0ca5bb8846b98816ec79c7191ab8b32e498d5ed45b",
+    "path": "work/sentientos_night_watch_continuation.md",
+    "remote_bytes": 586585,
+    "remote_sha256": "1e2ddf6bdf8de2851fb752c4189035d6d7a46e0653aa53bdec37ffcd972ef7dd"
+  },
+  "preserved_candidate": {
+    "original_checkout_remains_untouched": true,
+    "path": "/tmp/sentientos-original-candidate-2e320",
+    "tracked_patch_bytes": 399831,
+    "tracked_patch_path": "/tmp/sentientos-original-candidate-2e320/tracked-changes-excluding-conflicted-journal.patch",
+    "tracked_patch_sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307",
+    "untracked_source_bytes": 120028,
+    "untracked_source_path": "/tmp/sentientos-original-candidate-2e320/remote_embodied_consequence.py",
+    "untracked_source_sha256": "52e3cfdbaea9fac65225c738b446714abff41e397c940c50d617500e212cebf6"
+  },
+  "schema_version": 1,
+  "verified_remote": {
+    "branch": "codex/construct-sentientos",
+    "commit": "613a14b959451deff64442e5a2ed6145be3e7aac",
+    "tree": "989778a02ebe308b722efe0643576514d1f1decd"
+  }
+}

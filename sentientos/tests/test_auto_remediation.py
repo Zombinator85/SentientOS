@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from sentientos.auto_remediation import maybe_auto_run_pack, should_auto_run_pack
+from scripts import run_remediation_pack
 
 
 def _write_pack(root: Path, *, pack_id: str = "pack_1", destructive: bool = False, allowlisted: bool = True) -> dict[str, object]:
@@ -56,13 +57,10 @@ def test_cooldown_prevents_repeated_runs(tmp_path: Path, monkeypatch) -> None:  
     assert decision.status == "cooldown"
 
 
-def test_successful_run_prevents_further_attempts(tmp_path: Path) -> None:
+def test_successful_run_prevents_further_attempts(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     pack = _write_pack(tmp_path)
-    (tmp_path / "glow/forge/remediation/runs").mkdir(parents=True, exist_ok=True)
-    (tmp_path / "glow/forge/remediation/runs/run_20990101_pack_1.json").write_text(
-        json.dumps({"run_id": "run_20990101_pack_1", "pack_id": "pack_1", "status": "completed"}, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    monkeypatch.setattr(run_remediation_pack, "_run_allowed", lambda _command, *, root: (True, 0, ""))
+    run_remediation_pack.execute_pack_file(tmp_path / str(pack["pack_path"]), root=tmp_path)
 
     decision = should_auto_run_pack(tmp_path, operating_mode="recovery", pack=pack, incident_id="inc-1", governance_trace_id="trace-1")
     assert decision.status == "succeeded"
