@@ -1,11 +1,9 @@
 # Active construction checkpoint
 
-Last independently verified source baseline `7db78f57635aff2acdd06f808d4ca36ba5e0538d`, tree `71e34f42f3df796df8450ec4333e884feda6bea3`. Sequence 80 adds partial same-model objective-score recovery on that exact base; not yet published or production verified.
+Last independently verified remote baseline `8ba5aa649e8ddf5c76dc3a328f7616fb6677a865`, tree `fef578c042bb181fbc4c0982fe457fe1793fd7d4`. Sequence 81 connects explicit completed developmental-history experiment custody through World-State, separately admitted history, and restart-safe later-tick cognition. Construction tests passed; not production verified.
 
-Latest segment: work/construction/segments/0080-objective-interrupted-score-recovery.md
-SHA-256: c128235306b5b06b8e4dfa55d68cefd98ba8b9fd957691d699e71301a6d209b7
-Sequence: 80
+Latest segment: work/construction/segments/0081-history-worldstate-later-cognition.md
+SHA-256: 35fc44272f8a8663cf75c541f64304fad0e6684b0c83605a6d7134c65302bbb2
+Sequence: 81
 
-A bounded answer checkpoint is now persisted per condition and revalidated against the immutable objective plan and the exact observation, request, receipt, and output identities. A child process recovered a completed first-condition score after the second condition was interrupted. The missing score remains missing, the trial remains incomplete, and same-tick inference is not replayed. Suite: 109 passed; `py_compile` and diff checks passed; mypy unavailable. Seq79 hosted Source validation and helm smoke succeeded; invariants, self-check, docs failed.
-
-Next: assess only source-backed, already-authorized local-model trial readiness, and investigate explicit resumption of missing conditions without rerunning completed ones. No provider/model activation. Construction remains unverified for production.
+Next: assess exact commissioned local-model readiness without invoking a model absent required approvals, then inspect whether a fresh process can reconstruct resource-backed World-State and later cognition from canonical original custody rather than serialized predecessor state. Record exact source identities and retain unknown/incomplete status.

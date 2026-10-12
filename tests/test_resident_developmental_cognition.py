@@ -38,9 +38,13 @@ from sentientos.runtime_governor import reset_runtime_governor
 from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.integrity_incident import build_incident, write_incident
 from sentientos.world_state_board import WorldStateBoardBuilder
+from sentientos.embodied_consequence import (
+    WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, digest as embodied_digest,
+)
 from sentientosd import (
     RuntimeMaintenanceSurfaces,
     _attestation_snapshot_verification_world_state_record,
+    _load_embodied_consequence_projection,
     _load_epistemic_state_owner,
 )
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
@@ -256,7 +260,7 @@ class SessionBoundFakeInvoker(FakeInvoker):
         assert receipt.request["active_model_identity"] == expected["expected_active_model_identity"]
         return {"receipt_id": receipt.receipt_id, "receipt_digest": receipt.receipt_digest,
             "request": receipt.request, "status": receipt.status,
-            "output_digest": receipt.output_digest}
+            "output_digest": receipt.output_digest, "observed_at": receipt.observed_at}
 
 
 def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(tmp_path: Path) -> None:
@@ -276,6 +280,13 @@ def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(
 
     loaded = first.experiments.load_run(experiment_result.changed_cognition_measurement_id)
     assert loaded["validity"] == "valid_controlled_observation"
+    projected = first.experiments.world_state_records(run_refs=((
+        loaded["run_id"], loaded["run_digest"]),))
+    assert len(projected) == 1
+    assert projected[0]["observed_at"] == "2026-01-01T00:00:00+00:00"
+    assert projected[0]["payload"]["event_time_posture"] == "all_condition_invocation_receipt_times_verified"
+    assert projected == first.experiments.world_state_records(run_refs=((
+        loaded["run_id"], loaded["run_digest"]),))
     with pytest.raises(DevelopmentalHistoryInterventionError,
                        match="run_artifact_invocation_verifier_unavailable"):
         DevelopmentalExperimentStore(tmp_path / "state").load_run(
@@ -311,6 +322,22 @@ def test_same_model_history_intervention_uses_preregistered_objective_oracle(
     assert second.changed_cognition_measurement_id is not None
     run = cognition.experiments.load_run(second.changed_cognition_measurement_id)
     evaluation = run["objective_evaluation"]
+    projected = cognition.experiments.world_state_records(run_refs=((run["run_id"], run["run_digest"]),))
+    assert len(projected) == 1 and projected[0]["observed_at"] is None
+    assert projected[0]["payload"]["event_time_posture"] == "historical_event_time_unverified_or_incomplete"
+    assert projected[0]["payload"]["objective_evaluation"] == evaluation
+    assert projected[0]["payload"]["current_truth"] is False
+    assert projected[0]["payload"]["learning_established"] is False
+    assert projected == cognition.experiments.world_state_records(
+        run_refs=((run["run_id"], run["run_digest"]),))
+    projection_board = WorldStateBoardBuilder(clock=lambda: datetime(2026, 10, 12,
+        tzinfo=timezone.utc)).build(projected)
+    projection_source = next(source for source in projection_board.sources
+        if source.source_id == projected[0]["source_id"])
+    assert projection_source.staleness == "undated"
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+                       match="run_projection_digest_mismatch"):
+        cognition.experiments.world_state_records(run_refs=((run["run_id"], "sha256:wrong"),))
     assert evaluation["history_accuracy_delta"] == delta
     assert evaluation["restoration_correctness_stable"] is stable
     assert evaluation["assessment"] == assessment
@@ -367,6 +394,55 @@ def test_same_model_objective_score_recovery_rejects_rehashed_substitution(tmp_p
     with pytest.raises(DevelopmentalHistoryInterventionError,
                        match="objective_score_binding_invalid"):
         cognition.experiments.load_run(forged_id)
+
+
+def test_history_intervention_run_reaches_world_state_and_later_cognition(tmp_path: Path) -> None:
+    fake = FakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    cognition.run_tick(snapshot=snapshot(), tick_id="world-projection-seed")
+    result = cognition.run_tick(snapshot=snapshot(), tick_id="world-projection-run")
+    run = cognition.experiments.load_run(result.changed_cognition_measurement_id)
+    config = {"schema_version": WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4,
+        "enabled": True, "store_root": None, "experiment_result_ids": [],
+        "consequence_chain_ids": [], "model_replacement_state_root": None,
+        "model_replacement_runs": [], "proposal_review_log_path": None,
+        "proposal_review_receipt_ids": [], "fulfillment_receipt_log_path": None,
+        "fulfillment_receipt_ids": [], "developmental_history_intervention_runs":[
+            {"run_id":run["run_id"],"run_digest":run["run_digest"]}]}
+    config["config_digest"] = embodied_digest(config)
+    config_path = tmp_path / "projection.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    loaded = _load_embodied_consequence_projection(str(config_path))
+    assert loaded[11] == ((run["run_id"], run["run_digest"]),)
+    assert loaded[12]["status"] == "verified"
+
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "maintenance",
+        resident_developmental_owner=cognition,  # type: ignore[arg-type]
+        developmental_history_intervention_run_refs=loaded[11])
+    surfaces.build_world_state_board(tick_id="2026-10-12T00:00:00+00:00")
+    world = surfaces.current_world_state_snapshot
+    assert world is not None
+    source = next(item for item in world.sources
+        if item.source_id == "developmental-history-run:" + run["run_id"])
+    fact = next(item for item in world.facts if item.source.source_id == source.source_id)
+    assert source.staleness == "undated"
+    assert fact.payload["objective_evaluation"]["history_accuracy_delta"] == 1
+    assert fact.effect_claimed is False and fact.effect_proven is False
+    minimal_snapshot = WorldStateBoardBuilder().build([
+        cognition.experiments.world_state_records(
+            run_refs=((run["run_id"], run["run_digest"]),))[0]])
+    later, later_fake = owner(tmp_path / "later", allowed_source_kinds=("embodiment",))
+    first = later.run_tick(snapshot=minimal_snapshot, tick_id="experiment-evidence-tick-n")
+    assert first.written_record_id and fact.fact_id in first.selected_fact_ids
+    restarted, restarted_fake = owner(tmp_path / "later", allowed_source_kinds=("embodiment",))
+    second = restarted.run_tick(snapshot=minimal_snapshot, tick_id="experiment-evidence-tick-n-plus-one")
+    assert first.written_record_id in second.prior_record_ids
+    retrieval = next(request for request in restarted_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert first.written_record_id in retrieval.upstream_evidence["record_ids"]
 
 
 def test_interrupted_same_model_trial_recovers_checkpointed_score_without_replay(tmp_path: Path) -> None:

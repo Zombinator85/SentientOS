@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
@@ -505,6 +506,111 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("objective_scores_unplanned")
         return value
 
+    def world_state_records(self, *, run_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
+        """Project explicitly selected completed history trials as historical evidence."""
+        from .world_state_board import record_digest
+
+        references = tuple(run_refs)
+        if (len(references) > 32 or any(not isinstance(item, tuple) or len(item) != 2
+                or any(not isinstance(value, str) or not value for value in item)
+                for item in references)
+                or len({item[0] for item in references}) != len(references)):
+            raise DevelopmentalHistoryInterventionError("run_projection_selection_invalid")
+        records: list[dict[str, Any]] = []
+        for run_id, expected_run_digest in references:
+            run = self.load_run(run_id)
+            if run.get("run_digest") != expected_run_digest:
+                raise DevelopmentalHistoryInterventionError("run_projection_digest_mismatch")
+            protocol_value = run.get("protocol")
+            if not isinstance(protocol_value, Mapping):
+                raise DevelopmentalHistoryInterventionError("run_projection_protocol_missing")
+            protocol = self.load_protocol(str(protocol_value.get("protocol_id") or ""))
+            if json.loads(json.dumps(asdict(protocol), sort_keys=True)) != dict(protocol_value):
+                raise DevelopmentalHistoryInterventionError("run_projection_protocol_binding_mismatch")
+            conditions = run.get("conditions")
+            if (not isinstance(conditions, list) or len(conditions) != len(CONDITION_ORDER)
+                    or tuple(item.get("condition_id") for item in conditions
+                        if isinstance(item, Mapping)) != CONDITION_ORDER):
+                raise DevelopmentalHistoryInterventionError("run_projection_conditions_invalid")
+            event_times: list[str | None] = []
+            all_receipt_times_verified = callable(self._invocation_verifier)
+            for condition in conditions:
+                if not isinstance(condition, Mapping):
+                    raise DevelopmentalHistoryInterventionError("run_projection_condition_invalid")
+                observed_at = condition.get("observed_at")
+                event_times.append(observed_at if isinstance(observed_at, str) else None)
+                if (condition.get("serving_session_id") is None
+                        or not isinstance(observed_at, str)):
+                    all_receipt_times_verified = False
+                    continue
+                try:
+                    parsed = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
+                except ValueError as exc:
+                    raise DevelopmentalHistoryInterventionError("run_projection_event_time_invalid") from exc
+                if parsed.tzinfo is None:
+                    raise DevelopmentalHistoryInterventionError("run_projection_event_time_invalid")
+            world_state_event_time: str | None = None
+            if all_receipt_times_verified:
+                parsed_times = [datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    for value in event_times if value is not None]
+                if len(parsed_times) == len(CONDITION_ORDER):
+                    world_state_event_time = max(parsed_times).isoformat()
+            objective_scores = run.get("objective_scores")
+            objective_evaluation = run.get("objective_evaluation")
+            score_projection = None
+            if objective_scores is not None:
+                if (not isinstance(objective_scores, list)
+                        or len(objective_scores) != len(CONDITION_ORDER)):
+                    raise DevelopmentalHistoryInterventionError("run_projection_objective_scores_invalid")
+                score_projection = [{"condition_id": item["condition_id"],
+                    "score_digest": item["score"]["score_digest"],
+                    "status": item["score"]["status"],
+                    "correct": item["score"]["correct"]}
+                    for item in objective_scores]
+            payload = {
+                "run_id": run_id, "run_digest": run["run_digest"],
+                "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
+                "protocol_schema_version": protocol.schema_version,
+                "record_set_digest": protocol.record_set_digest,
+                "history_record_ids": list(protocol.record_ids),
+                "history_record_digests": list(protocol.record_digests),
+                "model_id": protocol.model_id,
+                "model_artifact_digest": protocol.model_artifact_digest,
+                "active_model_identity": dict(protocol.active_model_identity),
+                "authority_map_digest": protocol.authority_map_digest,
+                "conditions": [{key: condition.get(key) for key in (
+                    "condition_id", "observation_id", "observation_digest", "output_digest",
+                    "request_id", "request_digest", "inference_receipt_id",
+                    "inference_receipt_digest", "retrieved_record_ids",
+                    "retrieved_record_digests", "serving_session_id", "observed_at")}
+                    for condition in conditions],
+                "condition_event_times": event_times,
+                "event_time_posture": ("all_condition_invocation_receipt_times_verified"
+                    if all_receipt_times_verified and world_state_event_time is not None
+                    else "historical_event_time_unverified_or_incomplete"),
+                "history_intervention_summary": run["summary"],
+                "objective_scores": score_projection,
+                "objective_evaluation": objective_evaluation,
+                "claims_posture": "bounded_single_trial_history_association_only",
+                "current_truth": False, "authority": False,
+                "learning_established": False,
+                "reconstruction_time_is_event_time": False,
+            }
+            if len(json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")) > 32_768:
+                raise DevelopmentalHistoryInterventionError("run_projection_payload_over_bound")
+            record: dict[str, Any] = {"source_kind": "embodiment",
+                "source_id": "developmental-history-run:" + run_id,
+                "schema_version": RUN_SCHEMA, "subject_id": run_id,
+                "subject_kind": "developmental_history_intervention_experiment",
+                "stage": "observation", "disposition": str(run["summary"].get("classification") or "unknown"),
+                "evidence_strength": "digest_bound_history_intervention_artifact",
+                "payload": payload, "effect_claimed": False, "effect_proven": False,
+                "observed_at": world_state_event_time}
+            record["digest"] = record_digest(record)
+            records.append(record)
+        return records
+
 
 def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: Sequence[Any]) -> dict[str, Any]:
     if tuple(x.condition_id for x in observations) != CONDITION_ORDER:
@@ -550,7 +656,8 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                 calculated = _digest(semantic_observation)
             if (schema_version not in {"sentientos.resident_cognition_observation:v2",
                         "sentientos.resident_cognition_observation:v3",
-                        "sentientos.resident_cognition_observation:v4"}
+                        "sentientos.resident_cognition_observation:v4",
+                        "sentientos.resident_cognition_observation:v5"}
                     or observation_digest != calculated
                     or observation_id != "devcog-" + calculated[7:31]):
                 raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")

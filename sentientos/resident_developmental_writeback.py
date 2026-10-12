@@ -47,6 +47,10 @@ MAX_RESOURCE_LINEAGE_SELECTED_EVIDENCE_BYTES = 8192
 # bounded lineage vector. This allowance is limited to one v2 embodiment fact;
 # all general and mixed-source selections retain the 6 KB cap.
 MAX_MODEL_REPLACEMENT_SELECTED_EVIDENCE_BYTES = 8192
+# A completed three-condition history-intervention run carries a bounded set
+# of invocation and score identities. Keep its writeback allowance narrow to
+# one explicitly projected experiment fact.
+MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES = 9216
 MAX_RETRIEVAL_RECORDS = 16
 MAX_INTERPRETATION_CHARS = 4000
 MAX_DURABLE_RECORDS = 4096
@@ -407,6 +411,16 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 and _valid_model_replacement_continuity_assessment(
                     payload.get("continuity_assessment"), disposition=fact.get("disposition"))):
             return MAX_MODEL_REPLACEMENT_SELECTED_EVIDENCE_BYTES
+        if (isinstance(source, Mapping) and source.get("kind") == "embodiment"
+                and isinstance(subject, Mapping)
+                and subject.get("subject_kind") == "developmental_history_intervention_experiment"
+                and isinstance(payload, Mapping)
+                and payload.get("current_truth") is False and payload.get("authority") is False
+                and payload.get("learning_established") is False
+                and isinstance(projection, Mapping)
+                and projection.get("schema_version")
+                    == "sentientos.developmental_history_interpretation_projection:v1"):
+            return MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES
         projection = (payload.get("interpretation_projection")
             if isinstance(payload, Mapping) else None)
         if (isinstance(source, Mapping) and source.get("kind") == "resource_governor"
@@ -674,6 +688,11 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
             and subject.get("subject_kind") == "developmental_model_replacement_experiment"
             and isinstance(original, Mapping)):
         return _model_replacement_interpretation_projection(fact, original, source)
+    if (isinstance(source, Mapping) and source.get("kind") == "embodiment"
+            and isinstance(subject, Mapping)
+            and subject.get("subject_kind") == "developmental_history_intervention_experiment"
+            and isinstance(original, Mapping)):
+        return _developmental_history_interpretation_projection(fact, original, source)
     if (not isinstance(source, Mapping) or source.get("kind") != "resource_governor"
             or not isinstance(subject, Mapping) or not isinstance(original, Mapping)):
         return dict(fact)
@@ -1004,6 +1023,88 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
     summary["interpretation_projection"]=projection_binding
     projected = dict(fact)
     projected["payload"] = summary
+    return projected
+
+
+def _developmental_history_interpretation_projection(
+    fact: Mapping[str, Any], original: Mapping[str, Any], source: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Keep exact trial provenance while bounding a run for later interpretation.
+
+    The full source payload remains bound by its digest. The projection carries
+    only the three canonical conditions and their exact receipt, request,
+    retrieved-history, event-time, and objective-score identities.
+    """
+    conditions = original.get("conditions")
+    if not isinstance(conditions, (list, tuple)) or len(conditions) != 3:
+        raise DevelopmentalWritebackError("developmental_history_conditions_invalid")
+    selected_conditions: list[dict[str, Any]] = []
+    condition_fields = (
+        "condition_id", "observation_id", "observation_digest", "output_digest",
+        "request_id", "request_digest", "inference_receipt_id",
+        "inference_receipt_digest", "retrieved_record_ids", "retrieved_record_digests",
+        "serving_session_id", "observed_at",
+    )
+    for condition in conditions:
+        if not isinstance(condition, Mapping):
+            raise DevelopmentalWritebackError("developmental_history_condition_invalid")
+        selected = {key: condition.get(key) for key in condition_fields}
+        for key in ("retrieved_record_ids", "retrieved_record_digests"):
+            value = selected[key]
+            if not isinstance(value, (list, tuple)) or len(value) > 64:
+                raise DevelopmentalWritebackError("developmental_history_retrieval_lineage_invalid")
+            selected[key] = list(value)
+        selected_conditions.append(selected)
+    scores = original.get("objective_scores")
+    score_summary = None
+    if scores is not None:
+        if not isinstance(scores, (list, tuple)) or len(scores) != 3:
+            raise DevelopmentalWritebackError("developmental_history_scores_invalid")
+        score_summary = []
+        for item in scores:
+            if not isinstance(item, Mapping):
+                raise DevelopmentalWritebackError("developmental_history_score_invalid")
+            score_summary.append({
+                "condition_id": item.get("condition_id"),
+                "score_digest": item.get("score_digest"),
+                "status": item.get("status"),
+                "correct": item.get("correct"),
+            })
+    summary = {
+        "run_id": original.get("run_id"), "run_digest": original.get("run_digest"),
+        "protocol_id": original.get("protocol_id"),
+        "protocol_digest": original.get("protocol_digest"),
+        "protocol_schema_version": original.get("protocol_schema_version"),
+        "record_set_digest": original.get("record_set_digest"),
+        "history_record_ids": original.get("history_record_ids"),
+        "history_record_digests": original.get("history_record_digests"),
+        "model_id": original.get("model_id"),
+        "model_artifact_digest": original.get("model_artifact_digest"),
+        "active_model_identity": original.get("active_model_identity"),
+        "authority_map_digest": original.get("authority_map_digest"),
+        "conditions": selected_conditions,
+        "condition_event_times": original.get("condition_event_times"),
+        "event_time_posture": original.get("event_time_posture"),
+        "history_intervention_summary": original.get("history_intervention_summary"),
+        "objective_scores": score_summary,
+        "objective_evaluation": original.get("objective_evaluation"),
+        "claims_posture": original.get("claims_posture"),
+        "current_truth": False, "authority": False,
+        "learning_established": False, "reconstruction_time_is_event_time": False,
+    }
+    if len(json.dumps(summary, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False).encode("utf-8")) > MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES:
+        raise DevelopmentalWritebackError("developmental_history_projection_over_bound")
+    binding = {
+        "schema_version": "sentientos.developmental_history_interpretation_projection:v1",
+        "source_fact_id": str(fact.get("fact_id", "")),
+        "source_payload_digest": digest(dict(original)),
+        "source_record_digest": str(source.get("digest", "")),
+        "projected_payload_digest": digest(summary),
+    }
+    binding["projection_digest"] = digest(binding)
+    projected = dict(fact)
+    projected["payload"] = {**summary, "interpretation_projection": binding}
     return projected
 
 
@@ -1863,7 +1964,8 @@ class ResidentDevelopmentalWritebackController:
                                     "sentientos.resource_interpretation_projection:v1",
                                     "sentientos.runtime_history_projection:v1",
                                     "sentientos.model_replacement_interpretation_projection:v1",
-                                    "sentientos.model_replacement_interpretation_projection:v2"}
+                                    "sentientos.model_replacement_interpretation_projection:v2",
+                                    "sentientos.developmental_history_interpretation_projection:v1"}
                                 or (projection.get("schema_version")
                                     == "sentientos.runtime_history_projection:v1"
                                     and not (
@@ -1890,6 +1992,18 @@ class ResidentDevelopmentalWritebackController:
                                     and not _valid_model_replacement_continuity_assessment(
                                         payload_value.get("continuity_assessment"),
                                         disposition=fact.get("disposition")))
+                                or (projection.get("schema_version")
+                                    == "sentientos.developmental_history_interpretation_projection:v1"
+                                    and not (source.get("kind") == "embodiment"
+                                        and subject.get("subject_kind")
+                                            == "developmental_history_intervention_experiment"
+                                        and payload_value.get("run_id") == subject.get("subject_id")
+                                        and payload_value.get("current_truth") is False
+                                        and payload_value.get("authority") is False
+                                        and payload_value.get("learning_established") is False
+                                        and payload_value.get("reconstruction_time_is_event_time") is False
+                                        and isinstance(payload_value.get("conditions"), list)
+                                        and len(payload_value["conditions"]) == 3))
                                 or projection.get("source_fact_id") != fact.get("fact_id")
                                 or projection.get("source_record_digest") != source.get("digest")
                                 or projection.get("projected_payload_digest") != digest(payload_value)):

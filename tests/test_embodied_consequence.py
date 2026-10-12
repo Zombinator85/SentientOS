@@ -11,7 +11,8 @@ from sentientos.avatar_authoring import renderer_handoff
 from sentientos.embodied_consequence import (
     ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
     SyntheticRenderer, digest, evaluate_consequence, make_expectation, make_strategy_proposal,
-    run_strategy_experiment, score_strategy_experiment, world_state_records,
+    WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, run_strategy_experiment,
+    score_strategy_experiment, validate_world_state_projection_config, world_state_records,
     _history_evidence_scope,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
@@ -21,6 +22,26 @@ from scripts.avatar_authoring import parser as avatar_cli_parser
 
 pytestmark = pytest.mark.no_legacy_skip
 T0="2035-01-01T00:00:00+00:00"; T1="2035-01-01T00:00:01+00:00"; T2="2035-01-01T00:00:02+00:00"; TX="2035-01-02T00:00:00+00:00"
+
+
+def test_explicit_world_state_projection_config_binds_developmental_history_runs():
+    run_digest="sha256:"+"a"*64
+    reference={"run_id":"devexp-run-"+"a"*24,"run_digest":run_digest}
+    config={"schema_version":WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4,"enabled":True,
+        "store_root":None,"experiment_result_ids":[],"consequence_chain_ids":[],
+        "model_replacement_state_root":None,"model_replacement_runs":[],
+        "proposal_review_log_path":None,"proposal_review_receipt_ids":[],
+        "fulfillment_receipt_log_path":None,"fulfillment_receipt_ids":[],
+        "developmental_history_intervention_runs":[reference]}
+    config["config_digest"]=digest(config)
+    assert validate_world_state_projection_config(config)[
+        "developmental_history_intervention_runs"]==[reference]
+    duplicate=dict(config)
+    duplicate.pop("config_digest")
+    duplicate["developmental_history_intervention_runs"]=[reference,reference]
+    duplicate["config_digest"]=digest(duplicate)
+    with pytest.raises(EmbodiedConsequenceError,match="developmental_history_projection_run_invalid"):
+        validate_world_state_projection_config(duplicate)
 
 
 def pointer():
