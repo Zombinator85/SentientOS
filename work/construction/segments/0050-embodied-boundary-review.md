@@ -1,0 +1,7 @@
+## 2026-10-12 checkpoint — exercise embodied consequence numeric and time boundaries
+
+- Published source parent: `6ec5d7dbf093b8b8d0692428f6b3ed86cf270134`, tree `c2df3c915d7f1142b73b8dd68472fdfd850971c0`; historical patch SHA-256 remains `6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307`.
+- The current `embodied_consequence.py` already contains the stronger semantics from its historical hunk: strict type-sensitive JSON equality, finite nonnegative tolerance validation, non-finite/overflow numeric results remaining indeterminate, and temporal ordering across command, renderer report, observation, and evaluation. Added adversarial tests rather than duplicating those implementations.
+- Canonical `scripts.run_tests` passed `tests/test_embodied_consequence.py` 23/23, including boolean-vs-integer exact comparison, NaN/infinity/negative tolerance denial, huge-number overflow, and evaluation-before-observation denial. Provenance and JUnit are under `work/construction/evidence/0050-*`. Python compilation and diff check passed.
+- Results are fixture-only and use synthetic runner SHA `c440c101...`; no physical observer, real effect, or production behavior is established.
+- Next: compare the historical `longitudinal_self_model.py` and resident cognition handoffs against current source, focusing on whether interpreted evidence retains exact temporal/currentness distinctions through later-tick cognition and recovery.

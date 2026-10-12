@@ -41,6 +41,26 @@ def chain(observed_pose="idle"):
     return handoff,expectation,report,observation,attribution,comparison
 
 
+def numeric_chain(*, expected=1, observed=1, comparison_kind="numeric_tolerance",
+                  tolerance=0.0, observed_at=T2):
+    handoff=renderer_handoff(pointer(),renderer_interface_id="renderer:test:v1",
+        requested_pose="wave",requested_expression="neutral",correlation_id="numeric-corr",
+        commanded_at=T0)
+    expectation=make_expectation(installation_body_id="installation-a",body_id="body-a",
+        body_generation=2,body_manifest_digest="sha256:manifest",handoff_id=handoff["handoff_id"],
+        handoff_digest=handoff["handoff_digest"],renderer_interface_id="renderer:test:v1",
+        requested={"value":expected},predicted_observables={"value":expected},
+        observable_fields=("value",),comparison_policy={"value":{"kind":comparison_kind,
+        **({"tolerance":tolerance} if comparison_kind=="numeric_tolerance" else {})}},
+        expected_observation_source_class="synthetic_independent_fixture",correlation_id="numeric-corr",
+        causal_principal_binding_digest=None,created_at=T0,expires_at=TX)
+    report=SyntheticRenderer(applied={"value":expected},started_at=T0,completed_at=T1).render_test(handoff)
+    observation=SyntheticIndependentObserver(observer_id="numeric-observer",
+        observed={"value":observed},observed_at=observed_at).observe(
+            expectation=expectation,handoff=handoff,report=report)
+    return handoff,expectation,report,observation
+
+
 def test_synthetic_contradiction_projects_and_selects_for_developmental_writeback():
     handoff,expectation,report,observation,attribution,comparison=chain("idle")
     assert attribution["classification"]=="expectation_contradicted"
@@ -184,6 +204,43 @@ def test_observer_separation_predating_and_synthetic_production_fail_closed():
     oid,dg=_identity("independent-observation",early.semantic_payload()); early=replace(early,observation_id=oid,observation_digest=dg)
     with pytest.raises(EmbodiedConsequenceError,match="predates"):
         evaluate_consequence(expectation=expectation,handoff=handoff,current_body=pointer(),renderer_report=report,observation=early,evaluated_at=T2)
+
+
+def test_exact_comparison_does_not_equate_boolean_and_integer():
+    handoff,expectation,report,observation=numeric_chain(expected=1,observed=True,
+        comparison_kind="exact")
+    attribution,comparison=evaluate_consequence(expectation=expectation,handoff=handoff,
+        current_body=pointer(),renderer_report=report,observation=observation,evaluated_at=T2)
+    assert attribution["classification"]=="expectation_contradicted"
+    assert comparison["counts"]["contradicted"]==1
+
+
+@pytest.mark.parametrize("tolerance",[float("inf"),float("nan"),-1.0])
+def test_numeric_tolerance_rejects_nonfinite_or_negative_values(tolerance):
+    handoff=renderer_handoff(pointer(),renderer_interface_id="renderer:test:v1",
+        requested_pose="wave",requested_expression="neutral",correlation_id="numeric-corr",
+        commanded_at=T0)
+    with pytest.raises(EmbodiedConsequenceError,match="comparison_tolerance_invalid"):
+        make_expectation(installation_body_id="installation-a",body_id="body-a",body_generation=2,
+            body_manifest_digest="sha256:manifest",handoff_id=handoff["handoff_id"],
+            handoff_digest=handoff["handoff_digest"],renderer_interface_id="renderer:test:v1",
+            requested={"value":1},predicted_observables={"value":1},observable_fields=("value",),
+            comparison_policy={"value":{"kind":"numeric_tolerance","tolerance":tolerance}},
+            expected_observation_source_class="synthetic_independent_fixture",correlation_id="numeric-corr",
+            causal_principal_binding_digest=None,created_at=T0,expires_at=TX)
+
+
+def test_numeric_overflow_and_evaluation_before_observation_remain_indeterminate_or_denied():
+    handoff,expectation,report,observation=numeric_chain(expected=1,observed=10**400,tolerance=0.0)
+    attribution,comparison=evaluate_consequence(expectation=expectation,handoff=handoff,
+        current_body=pointer(),renderer_report=report,observation=observation,evaluated_at=T2)
+    assert attribution["classification"]=="indeterminate"
+    assert comparison["observable_results"][0]["numeric_range_posture"]=="not_representable_as_finite_float"
+
+    handoff,expectation,report,observation=numeric_chain(observed_at=T2)
+    with pytest.raises(EmbodiedConsequenceError,match="comparison_predates_evidence"):
+        evaluate_consequence(expectation=expectation,handoff=handoff,current_body=pointer(),
+            renderer_report=report,observation=observation,evaluated_at=T1)
 
 
 class CognitiveFixture:

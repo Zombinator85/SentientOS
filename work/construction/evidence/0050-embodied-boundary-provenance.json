@@ -1,0 +1,234 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_embodied_consequence.py::test_conflicting_resource_source_digests_are_rejected": 0,
+    "tests/test_embodied_consequence.py::test_consequence_records_reach_longitudinal_history_as_historical_evidence": 0,
+    "tests/test_embodied_consequence.py::test_consequence_verifier_rejects_digest_recomputed_effect_proof": 0,
+    "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-body_generation_mismatch]": 0,
+    "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch0]": 0,
+    "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch1]": 0,
+    "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch2]": 0,
+    "tests/test_embodied_consequence.py::test_digest_recomputed_comparison_cannot_assert_effect_completion": 0,
+    "tests/test_embodied_consequence.py::test_exact_comparison_does_not_equate_boolean_and_integer": 0,
+    "tests/test_embodied_consequence.py::test_missing_observer_is_renderer_report_only_and_stale_is_indeterminate": 0,
+    "tests/test_embodied_consequence.py::test_numeric_overflow_and_evaluation_before_observation_remain_indeterminate_or_denied": 0,
+    "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[-1.0]": 0,
+    "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[inf]": 0,
+    "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[nan]": 0,
+    "tests/test_embodied_consequence.py::test_observer_separation_predating_and_synthetic_production_fail_closed": 0,
+    "tests/test_embodied_consequence.py::test_operator_cli_exposes_complete_one_shot_surface": 0,
+    "tests/test_embodied_consequence.py::test_present_withheld_restored_strategy_experiment_and_external_score": 0,
+    "tests/test_embodied_consequence.py::test_resource_citation_binds_source_but_never_verifies_claim_semantics": 0,
+    "tests/test_embodied_consequence.py::test_restart_reconstruction_and_tamper_detection": 0,
+    "tests/test_embodied_consequence.py::test_synthetic_contradiction_projects_and_selects_for_developmental_writeback": 0,
+    "tests/test_embodied_consequence.py::test_synthetic_satisfied_retains_causal_limit": 0,
+    "tests/test_embodied_consequence.py::test_unissued_measurement_claims_cannot_enter_consequence_lineage": 0,
+    "tests/test_embodied_consequence.py::test_unresolved_principal_digest_cannot_be_attributed_as_cause": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 23,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-gr4-exact/glow/test_runs/pytest_junitxml_48346a6b336f467783ba86e578ecfd5c.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_synthetic_contradiction_projects_and_selects_for_developmental_writeback",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_consequence_records_reach_longitudinal_history_as_historical_evidence",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_synthetic_satisfied_retains_causal_limit",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_unissued_measurement_claims_cannot_enter_consequence_lineage",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_unresolved_principal_digest_cannot_be_attributed_as_cause",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_digest_recomputed_comparison_cannot_assert_effect_completion",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_consequence_verifier_rejects_digest_recomputed_effect_proof",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-body_generation_mismatch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch1]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch2]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_missing_observer_is_renderer_report_only_and_stale_is_indeterminate",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_observer_separation_predating_and_synthetic_production_fail_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_exact_comparison_does_not_equate_boolean_and_integer",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[inf]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[nan]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[-1.0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_numeric_overflow_and_evaluation_before_observation_remain_indeterminate_or_denied",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_present_withheld_restored_strategy_experiment_and_external_score",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_resource_citation_binds_source_but_never_verifies_claim_semantics",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_conflicting_resource_source_digests_are_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_restart_reconstruction_and_tamper_detection",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_operator_cli_exposes_complete_one_shot_surface",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "34a05d4f37c60246148f2e641e0bf1dd178a1fa1aa3a49c8033b4b0a17540995",
+  "provenance_hash": "abcd1e39fdcb2db8d0006a243d153dfd68551dc77a6cbd758b3d3488abb1453d",
+  "pytest_args": [
+    "tests/test_embodied_consequence.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "c4fd6e5bfb4b44b28da696173c0d89de",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_embodied_consequence.py::test_synthetic_contradiction_projects_and_selects_for_developmental_writeback",
+    "tests/test_embodied_consequence.py::test_consequence_records_reach_longitudinal_history_as_historical_evidence",
+    "tests/test_embodied_consequence.py::test_synthetic_satisfied_retains_causal_limit",
+    "tests/test_embodied_consequence.py::test_unissued_measurement_claims_cannot_enter_consequence_lineage",
+    "tests/test_embodied_consequence.py::test_unresolved_principal_digest_cannot_be_attributed_as_cause",
+    "tests/test_embodied_consequence.py::test_digest_recomputed_comparison_cannot_assert_effect_completion",
+    "tests/test_embodied_consequence.py::test_consequence_verifier_rejects_digest_recomputed_effect_proof",
+    "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch0]",
+    "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-body_generation_mismatch]",
+    "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch1]",
+    "tests/test_embodied_consequence.py::test_correlation_mismatches_fail_closed[<lambda>-correlation_mismatch2]",
+    "tests/test_embodied_consequence.py::test_missing_observer_is_renderer_report_only_and_stale_is_indeterminate",
+    "tests/test_embodied_consequence.py::test_observer_separation_predating_and_synthetic_production_fail_closed",
+    "tests/test_embodied_consequence.py::test_exact_comparison_does_not_equate_boolean_and_integer",
+    "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[inf]",
+    "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[nan]",
+    "tests/test_embodied_consequence.py::test_numeric_tolerance_rejects_nonfinite_or_negative_values[-1.0]",
+    "tests/test_embodied_consequence.py::test_numeric_overflow_and_evaluation_before_observation_remain_indeterminate_or_denied",
+    "tests/test_embodied_consequence.py::test_present_withheld_restored_strategy_experiment_and_external_score",
+    "tests/test_embodied_consequence.py::test_resource_citation_binds_source_but_never_verifies_claim_semantics",
+    "tests/test_embodied_consequence.py::test_conflicting_resource_source_digests_are_rejected",
+    "tests/test_embodied_consequence.py::test_restart_reconstruction_and_tamper_detection",
+    "tests/test_embodied_consequence.py::test_operator_cli_exposes_complete_one_shot_surface"
+  ],
+  "selection_flags": [
+    "tests/test_embodied_consequence.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 23,
+  "tests_executed": 23,
+  "tests_failed": 0,
+  "tests_passed": 23,
+  "tests_selected": 23,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T18:25:25.393335+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
