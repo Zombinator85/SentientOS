@@ -172,6 +172,34 @@ def test_transition_journal_round_trips_canonical_appends_and_rejects_truncated_
         journal.entries()
 
 
+def test_operator_request_provenance_does_not_replace_the_quiescence_capability(tmp_path):
+    ctl, _, _, slot, _ = controller(tmp_path)
+    advance(ctl, slot)
+    ctl.advance(approval=approval(ctl, slot), evidence={"timeout_seconds": 1},
+        operation_context={"request_id": "request-1", "request_digest": "d" * 64})
+
+    # The following stage reconstructs the persisted gate token from a journal
+    # entry that also carries operator request linkage.
+    advance(ctl, slot)
+    assert ctl.phase == "b_activation_committed"
+    assert ctl.health()["status"] == "in_progress"
+
+
+def test_malformed_operator_linkage_cannot_be_ignored_as_quiescence_metadata(tmp_path):
+    gate = ResidentCognitionQuiescenceGate()
+    journal = TransitionJournal(tmp_path / "journal.jsonl")
+    journal.append(PHASES[0], {"attempted_stage": PHASES[1]}, status="attempted")
+    journal.append(PHASES[1], {})
+    token = gate.quiesce(timeout_seconds=1, observation={})
+    journal.append("a_quiesced", {**dict(token), "operator_request": []})
+
+    rebuilt = ResidentCognitiveModelTransitionController(protocol=protocol(), journal=journal,
+        gate=gate, slot=Slot(), history_snapshot=lambda: history_boundary([]),
+        allow_synthetic_approval_for_tests=True, clock=lambda: NOW)
+    assert rebuilt.health()["status"] == "interrupted"
+    assert rebuilt.health()["reason"] == "quiescence_token_evidence_invalid"
+
+
 def test_failed_effectful_stage_is_not_replayable_after_reconstruction(tmp_path):
     ctl, gate, journal, slot, _ = controller(tmp_path)
     ctl.operations = Operations(slot, fail="b_activation")

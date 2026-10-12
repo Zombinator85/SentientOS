@@ -635,8 +635,15 @@ class ResidentCognitiveModelTransitionController:
                 if entry_phase in {"a_quiesced", "b_quiesced"}:
                     token_fields = {"schema_version", "generation", "no_inflight", "observation", "token",
                                     "observation_digest"}
+                    request_link = evidence.get("operator_request")
                     if (not token_fields.issubset(evidence)
-                            or set(evidence) - token_fields - {"operator_request"}):
+                            or set(evidence) - token_fields - {"operator_request"}
+                            or ("operator_request" in evidence
+                                and (not isinstance(request_link, Mapping)
+                                    or set(request_link) != {"request_id", "request_digest"}
+                                    or any(not isinstance(request_link.get(key), str)
+                                        or not request_link.get(key)
+                                        for key in ("request_id", "request_digest"))))):
                         return _Reconstructed(entry_phase, True, "quiescence_token_evidence_invalid",
                                               entry_phase, token,
                                               tuple(semantically_verified[-128:]))

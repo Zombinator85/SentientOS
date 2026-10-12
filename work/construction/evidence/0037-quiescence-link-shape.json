@@ -1,0 +1,30 @@
+{
+  "authority": false,
+  "change": {
+    "behavior": "When recovering quiescence evidence, the optional operator_request field is now accepted only as an exact two-string request_id/request_digest mapping. It remains provenance metadata and is excluded from the six-field gate capability comparison. Unknown fields or malformed linkage keep recovery interrupted with quiescence_token_evidence_invalid.",
+    "compatibility": "Existing capability token verification remains exact. Records without operator_request remain accepted. No transition stage is replayed during reconstruction.",
+    "owner": "sentientos/resident_cognitive_model_transition_experiment.py:ResidentCognitiveModelTransitionController._reconstruct"
+  },
+  "effects_performed": [],
+  "limitations": [
+    "Fixture tests do not establish production transition execution, real-model improvement, or independent operating-system runtime attestation.",
+    "The prior strict mypy run on the broader transition/daemon selection reported 204 diagnostics; this increment did not rerun or repair those diagnostics.",
+    "An initial attempted pytest command named a nonexistent composition test path and ran no tests; the corrected existing path was used for the passing run."
+  ],
+  "production_verified": false,
+  "source": {
+    "parent_commit": "d181f0ee86734ffe6d9b1c13d259bd386ba0b16a",
+    "parent_tree": "6ed4b0649d9c519052739939517a3393c6b299f8",
+    "tested_source_tree": "af9e39e44c1fdb6a67e3510b5ed69a6fda85b42d"
+  },
+  "tests": {
+    "diff_check": "passed for the two changed files",
+    "focused_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q tests/test_resident_cognitive_model_transition_experiment.py tests/test_resident_cognitive_transition_operator.py tests/test_sentientosd_resident_cognitive_transition_composition.py",
+    "focused_failed": 0,
+    "focused_passed": 33,
+    "legacy_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q -m legacy tests/test_resource_invocation_process_generation_integration.py tests/test_sentientosd_software_succession_projection.py",
+    "legacy_failed": 0,
+    "legacy_passed": 7,
+    "python_compilation": "passed for the changed production and test modules"
+  }
+}
