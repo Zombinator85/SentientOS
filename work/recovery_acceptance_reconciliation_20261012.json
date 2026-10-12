@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "status": "source_tests_passed; commit_bound_and_production_acceptance_unverified",
+  "repository": "Zombinator85/SentientOS",
+  "branch": "codex/construct-sentientos",
+  "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448",
+  "source_tree": "7d66bf58808102cb9341973c666b745f2576b72d",
+  "original_commit_object_imported": false,
+  "failure_reconciliation": {
+    "reported_nodes": 6,
+    "reproduced_failures": 6,
+    "root_causes": [
+      "noncanonical serving receipt ID and noncanonical custody filename in fixture",
+      "activation fixture omitted predecessor and history needed to reach expected-state race assertion",
+      "controller fixtures lacked explicit installation-bound live child process handoff"
+    ],
+    "production_recovery_gate_weakened": false
+  },
+  "changes": {
+    "production": [
+      "sentientos/resident_epistemic_state_mutation.py: classify ENOTDIR/ELOOP descriptor traversal failures as invalid custody parent"
+    ],
+    "tests": [
+      "tests/test_local_model_chat_recovery.py",
+      "tests/test_local_model_production_serving.py"
+    ],
+    "serving_or_recovery_authority_weakened": false
+  },
+  "verification": [
+    {
+      "scope": "six exact formerly failing recovery nodes",
+      "command": "pytest --noconftest -q tests/test_local_model_chat_recovery.py::test_globally_fresh_replacement_operation_rejects_any_older_lifetime tests/test_local_model_chat_recovery.py::test_activation_race_guard_fails_before_model_serving_admission tests/test_local_model_chat_recovery.py::test_full_recovery_controller_transaction_and_denials",
+      "result": "6 passed"
+    },
+    {
+      "scope": "full chat recovery module",
+      "command": "pytest --noconftest -q tests/test_local_model_chat_recovery.py",
+      "result": "21 passed"
+    },
+    {
+      "scope": "12-module reconstructed resource-to-cognition lifecycle",
+      "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-exact-snapshot/test-state/governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-exact-snapshot/test-state/federation SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-exact-snapshot/test-state/runtime SENTIENTOS_REPO_ROOT=/tmp/sentientos-exact-snapshot/checkout-latest PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-exact-snapshot/test-state/pulse.json PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-exact-snapshot/test-state/pulse uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q tests/test_world_state_board.py tests/test_world_state_sources.py tests/test_resource_invocation_process_generation_integration.py tests/test_local_model_chat_recovery.py tests/test_local_model_chat_runtime_startup.py tests/test_resident_epistemic_development.py tests/test_persistent_epistemic_state.py tests/test_resident_developmental_writeback.py tests/test_resident_developmental_cognition_generation_scope.py tests/test_developmental_history_intervention_experiment.py tests/test_resident_developmental_cognition.py tests/test_developmental_model_replacement_experiment.py",
+      "result": "195 passed"
+    },
+    {
+      "scope": "changed Python compile",
+      "command": "python -m py_compile sentientos/resident_epistemic_state_mutation.py tests/test_local_model_chat_recovery.py tests/test_local_model_production_serving.py",
+      "result": "passed"
+    }
+  ],
+  "limitations": [
+    "Prior 247-case 12-module report did not preserve its filename manifest; 195-case run is a reconstructed subsystem-equivalent set, not an exact replay.",
+    "All pytest execution used --noconftest on a reconstructed exact source tree; original commit object is unavailable locally.",
+    "Full repository canonical runner, mypy, strict audits, landing checks, model inference, and production behavior remain unverified."
+  ],
+  "status_by_layer": {
+    "source_construction": "implemented",
+    "focused_and_reconstructed_lifecycle_tests": "passed",
+    "actual_local_model_behavior": "not exercised",
+    "production_acceptance": "unverified"
+  }
+}

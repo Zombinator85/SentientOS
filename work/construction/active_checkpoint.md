@@ -1,8 +1,8 @@
 # Active construction checkpoint
 
-- Latest verified remote source commit: 208f861c4af940b8cf722b6d9ca4224004250a19; tree ee7ba1812cde266596d3efce3041ee25755c4289. Branch is 667 ahead and 0 behind main 197e2a4ceeb13ab59a88fd531283355e15e1fd7d; no merge or deployment.
-- Exact source tree reconstruction is complete: 6,273 referenced blob identities verified; 222 missing Git objects were recovered and SHA-1 checked; computed tree equals ee7ba1812cde266596d3efce3041ee25755c4289. No original commit object was imported. The historical dirty checkout remains untouched.
-- Cognition source integrity repair was published and independently read back as blob 0e44b68fea43936214ec8ca663603d1c7bca1145. UTF-8, AST, compile, and seven source-selector cases pass.
-- Focused developmental suites: 60 passed. Broader 12-module lifecycle run: 241 passed, 6 failed. The six remaining failures are stale local-model-chat recovery test fixtures that omit canonical receipt identities, activation predecessor history, or actual supervised-process custody. Details are in work/source_snapshot_reconstruction_20261012.json.
-- Full repository scripts.run_tests, mypy, strict audits, and landing workflow are not run. Production behavior and mainline acceptance remain unverified.
-- Next dependency: update the six recovery tests with canonical receipts and actual handoff custody, rerun the broader group, then resume mainline candidate review. Do not merge or deploy.
+- Fresh verified remote source at start: `92444b1877c2c3c23f8e8f398e3ba80753160448`, tree `7d66bf58808102cb9341973c666b745f2576b72d`; historical dirty `/workspace/SentientOS` checkout remains untouched.
+- All six previously failing chat-recovery cases now pass against exact-tree reconstructed source. Complete recovery module: 21 passed. ALLOW uses a live child and real installation-bound process/source handoff; the successor receipt is written through the production serving controller. DENY/DEFER/QUARANTINE preserve no-restart behavior.
+- Reconstructed 12-module resource-to-cognition lifecycle set: 195 passed. The earlier 247-case note did not retain its filename manifest; do not present the new run as an exact replay. Exact command and details: `work/recovery_acceptance_reconciliation_20261012.json`.
+- Corrected symlink-parent error classification in durable epistemic mutation custody. No authority or verifier gates were weakened.
+- Changed Python compilation passed. Pytest used `--noconftest`; local exact source tree has no original commit object. Canonical full-repository tests, mypy, strict audits, landing checks, model inference, and production operation remain unverified.
+- Next: establish commit-bound checkout identity if needed for canonical acceptance, then continue the mainline acceptance gates. No merge/deployment.
