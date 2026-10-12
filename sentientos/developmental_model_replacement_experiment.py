@@ -1314,7 +1314,8 @@ class ModelReplacementArtifactStore:
                     "model_serving_receipt_digest", "model_serving_lifetime_id",
                     "model_serving_receipt_posture", "inference_event_time",
                     "inference_event_time_posture", "output_digest",
-                    "model_id", "model_artifact_digest",
+                    "model_id", "model_artifact_digest", "invocation_model_id",
+                    "invocation_authority_map_digest",
                     "prior_self_model_projection_id", "prior_self_model_projection_digest",
                     "prior_self_model_source_tick", "prior_epistemic_projection_id",
                     "prior_epistemic_projection_digest", "prior_epistemic_source_tick",
@@ -1584,6 +1585,8 @@ class DevelopmentalModelReplacementExperiment:
                     "model_identity_digest": expected.identity_digest,
                     "model_id": expected.model_id,
                     "model_artifact_digest": expected.model_content_sha256,
+                    "invocation_model_id": receipt.get("invocation_model_id"),
+                    "invocation_authority_map_digest": receipt.get("invocation_authority_map_digest"),
                     "model_provenance_manifest_digest": provenance_digest,
                     "current_projection_id": self.context.current_projection_id,
                     "current_projection_digest": self.context.current_projection_digest,
@@ -1651,6 +1654,12 @@ class DevelopmentalModelReplacementExperiment:
                 or value.get("inference_event_time_posture", event_time_posture) != event_time_posture
                 or (resource_binding is not None and any(value.get(key) != expected_value
                     for key, expected_value in resource_binding.items()))
+                or (resource_binding is not None and resource_binding.get("resource_attribution_posture")
+                    == "linkage_digest_bound_ledger_reconciliation_pending"
+                    and (not isinstance(value.get("invocation_model_id"), str)
+                    or not value.get("invocation_model_id")
+                    or not isinstance(value.get("invocation_authority_map_digest"), str)
+                    or not value.get("invocation_authority_map_digest")))
                 or any(value.get(key) != expected_value
                     for key, expected_value in serving_binding.items())
                 or (has_prior_bindings and any(value.get(key) != expected_value

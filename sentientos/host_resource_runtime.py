@@ -522,6 +522,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "request_digest": (invocation.get("request", {}).get("request_digest")
             if isinstance(invocation.get("request"), Mapping) else None),
         "status": invocation.get("status"), "purpose": invocation.get("purpose"),
+        "authority_map_digest": (invocation.get("request", {}).get("authority_map_digest")
+            if isinstance(invocation.get("request"), Mapping) else None),
         "model_id": (invocation.get("request", {}).get("model_id")
             if isinstance(invocation.get("request"), Mapping) else None),
         "model_artifact_digest": (invocation.get("request", {}).get("model_artifact_digest")
@@ -1330,7 +1332,12 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     "request_id": observation.get("request_id"),
                     "request_digest": observation.get("request_digest"),
                     "purpose": "resident_developmental_model_replacement_experiment",
-                    "model_id": observation.get("model_id"),
+                    # Invocation receipts use the authority-map model record id;
+                    # retain the separately governed cognitive/catalog model id
+                    # as context rather than substituting it into the receipt join.
+                    "model_id": observation.get("invocation_model_id") or observation.get("model_id"),
+                    "cognitive_model_id": observation.get("model_id"),
+                    "invocation_authority_map_digest": observation.get("invocation_authority_map_digest"),
                     "model_artifact_digest": observation.get("model_artifact_digest"),
                     "allocation_digest": observation.get("resource_allocation_digest"),
                     "attempt_id": observation.get("resource_attempt_id"),
@@ -1453,6 +1460,9 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     or invocation_row.get("purpose") != linkage.get("purpose")
                     or invocation_row.get("model_id") != linkage.get("model_id")
                     or invocation_row.get("model_artifact_digest") != linkage.get("model_artifact_digest")
+                    or (linkage.get("invocation_authority_map_digest") is not None
+                        and invocation_row.get("authority_map_digest")
+                            != linkage.get("invocation_authority_map_digest"))
                     or invocation_row.get("resource_allocation_digest") != linkage.get("allocation_digest")
                     or invocation_row.get("resource_attempt_id") != linkage.get("attempt_id")
                     or tuple(invocation_row.get("resource_consumption_receipt_digests") or ()) != expected_receipts):
@@ -1544,7 +1554,9 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     if allocation_identity is not None else None),
                 "principal_binding_digest": (allocation_identity.get("principal_binding_digest")
                     if allocation_identity is not None else None),
-                "model_attribution": {"model_id": linkage.get("model_id"),
+                "model_attribution": {"model_id": linkage.get("cognitive_model_id") or linkage.get("model_id"),
+                    "invocation_model_id": linkage.get("model_id"),
+                    "invocation_authority_map_digest": linkage.get("invocation_authority_map_digest"),
                     "model_artifact_digest": linkage.get("model_artifact_digest"),
                     "active_model_identity_digest": payload.get("active_model_identity_digest")},
                 "software_attribution": {"declared_generation": payload.get("declared_software_generation"),

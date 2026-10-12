@@ -20,6 +20,7 @@ from .installation_state import InstallationStateError, InstallationStateHandle
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_runtime_provisioning import semantic_digest
+from .production_chat_resource_context import ProductionChatResourceContextOwner
 
 CAPABILITY = "developmental_model_replacement_experimental_serving"
 PRINCIPAL = "deterministic_developmental_model_replacement_experimental_serving_controller"
@@ -117,11 +118,18 @@ class ExperimentalModelServingController:
     """Own exact workers outside canonical activation and production-serving custody."""
     def __init__(self, installation_handle: InstallationStateHandle, control_plane_kernel: ControlPlaneKernel,
                  *, artifact_root: Path, model_factory: Callable[[Mapping[str, Any], Mapping[str, Any]], Any] = ExactRuntimeLocalModel,
-                 allow_synthetic_evidence_for_tests: bool = False) -> None:
+                 allow_synthetic_evidence_for_tests: bool = False,
+                 resource_context_owner: ProductionChatResourceContextOwner | None = None) -> None:
         if not isinstance(installation_handle, InstallationStateHandle):
             raise ExperimentalModelServingError("authenticated_installation_handle_required")
+        if (resource_context_owner is not None
+                and type(resource_context_owner) is not ProductionChatResourceContextOwner):
+            raise ExperimentalModelServingError("exact_resource_context_owner_required")
         self._handle, self._kernel, self._store = installation_handle, control_plane_kernel, ModelReplacementArtifactStore(artifact_root)
         self._factory, self._allow_synthetic = model_factory, allow_synthetic_evidence_for_tests
+        # The caller keeps the single-process ledger lease and allocation owner.
+        # This controller borrows it only to obtain one context per inference.
+        self._resource_context_owner = resource_context_owner
         for item in ("local-model", "local-model/developmental-model-replacement",
                      "local-model/developmental-model-replacement/experimental-serving",
                      "local-model/developmental-model-replacement/experimental-serving/receipts"):
@@ -192,6 +200,27 @@ class ExperimentalModelServingController:
         if (commissioned.cognitive_identity != expected
                 or commissioned.receipt.get("receipt_semantic_digest") != serving.get("commissioning_receipt_digest")):
             raise ExperimentalModelServingError("historical_experiment_commissioning_identity_mismatch")
+        load_configuration = serving.get("load_configuration")
+        if not isinstance(load_configuration, Mapping):
+            raise ExperimentalModelServingError("historical_experiment_load_configuration_invalid")
+        try:
+            invocation_config = ModelConfig(
+                [ModelCandidate(Path(commissioned.artifact_path), "llama_cpp", expected.model_id,
+                    {"gpu_layers": int(load_configuration["n_gpu_layers"])})],
+                default_engine="llama_cpp",
+                max_context_tokens=int(load_configuration["n_ctx"]),
+                generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1),
+            )
+            invocation_authority = build_local_model_authority_map(
+                invocation_config,
+                allowed_roots=[Path(commissioned.artifact_path).parent],
+                observed_at="1970-01-01T00:00:00+00:00",
+            )
+            invocation_model_id = invocation_authority.records[0].model_id
+        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            raise ExperimentalModelServingError("historical_experiment_invocation_authority_invalid") from exc
+        if invocation_authority.map_digest != commissioned.receipt.get("authority_map_digest"):
+            raise ExperimentalModelServingError("historical_experiment_invocation_authority_mismatch")
         inference_path = self._handle.fixed_object(
             f"local-model/developmental-model-replacement/experimental-serving/inference/receipts/{inference_id}.json")
         try:
@@ -215,7 +244,13 @@ class ExperimentalModelServingController:
         if (not isinstance(request, Mapping)
                 or request.get("request_id") != observation.get("request_id")
                 or request.get("request_digest") != observation.get("request_digest")
-                or request.get("model_id") != expected.model_id
+                # The invocation owner uses the deterministic authority-map
+                # record id; the commissioned catalog model id is a separate
+                # identity and must not be compared directly to it.
+                or request.get("model_id") != invocation_model_id
+                or request.get("authority_map_digest") != invocation_authority.map_digest
+                or observation.get("invocation_model_id") != invocation_model_id
+                or observation.get("invocation_authority_map_digest") != invocation_authority.map_digest
                 or request.get("model_artifact_digest") != expected.model_content_sha256
                 or request.get("active_model_identity") != dict(expected.active_model_identity)
                 or request.get("purpose") != PURPOSE
@@ -383,7 +418,10 @@ class ExperimentalCognitiveEndpoint:
                      "experimental_serving_receipt_id": self._receipt["receipt_id"],
                      "experimental_serving_receipt_digest": self._receipt["receipt_digest"],
                      "model_serving_admission_ref": self._receipt["model_serving_admission_ref"]})
-        result = invoker.invoke(request, pre_effect_guard=self._current, post_effect_guard=self._current)
+        resource_context = (self._controller._resource_context_owner.next_context()
+            if self._controller._resource_context_owner is not None else None)
+        result = invoker.invoke(request, pre_effect_guard=self._current, post_effect_guard=self._current,
+            resource_context=resource_context)
         if result.admission_decision_ref == self._receipt["model_serving_admission_ref"]:
             self._invalidate("inference_admission_not_independent"); raise ExperimentalModelServingError("inference_admission_not_independent")
         request_linkage = request.linkage if isinstance(request.linkage, Mapping) else None
@@ -404,6 +442,8 @@ class ExperimentalCognitiveEndpoint:
                 # Preserve owner-supplied time; its invocation digest excludes
                 # this custody metadata, so it remains unverified downstream.
                 "observed_at": result.observed_at,
+                "invocation_model_id": request.model_id,
+                "invocation_authority_map_digest": request.authority_map_digest,
                 "output_digest": result.output_digest,
                 "actual_generation_parameters": result.generation_config.get("actual_generation_parameters", {}),
                 "resource_allocation_digest": result.resource_allocation_digest,

@@ -32,6 +32,7 @@ from .local_model_production_commissioning_authority import (CAPABILITY as COMMI
 from .local_runtime_provisioning import semantic_digest
 from .model_catalog_custody import ModelCatalogCustody
 from .model_mirror_publication import RECEIPT_SCHEMA as PUBLICATION_SCHEMA
+from .production_chat_resource_context import ProductionChatResourceContextOwner
 
 SCENARIO_SCHEMA = "sentientos.developmental_model_replacement_rehearsal:v1"
 VERIFICATION_SCHEMA = "sentientos.developmental_model_replacement_rehearsal_verification:v1"
@@ -258,7 +259,7 @@ def _approval(intent: Mapping[str, Any], suffix: str) -> dict[str, Any]:
     value["approval_digest"] = semantic_digest(value); return value
 
 
-def run_next(root: Path) -> Mapping[str, Any]:
+def run_next(root: Path, *, resource_context_owner: ProductionChatResourceContextOwner | None = None) -> Mapping[str, Any]:
     bundle, handle, scenario, context, pa, pb = _load(root)
     controller = ExperimentalModelServingController(handle, ControlPlaneKernel(decisions_path=bundle / "intent-decisions.jsonl"),
         artifact_root=bundle, allow_synthetic_evidence_for_tests=True)
@@ -275,7 +276,8 @@ def run_next(root: Path) -> Mapping[str, Any]:
         return _Worker(identity, fail_currentness=fault == "inference_currentness_failure" and constructed[0] == 1)
     runner = DevelopmentalModelReplacementProductionTrialRunner(handle,
         ControlPlaneKernel(decisions_path=bundle / "run-decisions.jsonl"), campaign_artifact_root=bundle,
-        experiment_artifact_root=bundle, model_factory=factory, allow_synthetic_evidence_for_tests=True)
+        experiment_artifact_root=bundle, model_factory=factory, allow_synthetic_evidence_for_tests=True,
+        resource_context_owner=resource_context_owner)
     result = runner.run_one(campaign_id=scenario["campaign_id"], campaign_digest=scenario["campaign_digest"],
         base_protocol_id=scenario["protocol_id"], base_protocol_digest=scenario["protocol_digest"],
         commissioning_receipt_a=scenario["commissioning_receipt_a"], commissioning_receipt_b=scenario["commissioning_receipt_b"],

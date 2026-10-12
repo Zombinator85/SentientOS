@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-- Fresh remote source before seq59: `242d5ebf2fc0b9c82b2937daf8f08a96b2958232`, tree `0bf9890241f475ac728f8f5ce56120c7e49f3584`; `main` is `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
-- Latest continuation segment: sequence 59, `work/construction/segments/0059-model-replacement-event-time.md`.
-- Seq59 reconciles model-replacement historical event-time and artifact-identity hunks against exact current source and adds focused event-time/reprojection regressions. Focused tests passed; canonical runner failed before collection on offline build dependency retrieval; production remains unverified.
-- Next dependency: inject an already-issued resource context into existing model-replacement experimental serving and bind its invocation receipts to resource lineage. Do not allocate/replenish resources from the experiment.
+- Fresh remote source before seq60: `8fa87436599b0971694c74b06e2e4c5b5ea23220`, tree `8b0da571102dbf182fb65c7ea7c328f9aebda63d`; `main` is `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Latest continuation segment: sequence 60, `work/construction/segments/0060-model-replacement-resource-lineage.md`.
+- Seq60 connects an explicitly borrowed, already-issued resource context through the model-replacement trial owner to actual governed inference calls; fixes serving verification of the distinct invocation authority-map model id; and joins all five persisted invocation receipts to the resource ledger and model-run World-State evidence. Fixture-focused tests pass with 2 quarantined legacy skips. Canonical runner is blocked before collection by offline build dependency retrieval; targeted mypy reports 21 diagnostics in host_resource_runtime.py and none in the other four checked production modules (no parent baseline comparison); production remains unverified.
+- Next dependency: reconcile remaining developmental-history/World-State owner handoffs and verify restart/recovered-history resource attribution without upgrading experiment fixtures to actual model-performance evidence.

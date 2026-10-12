@@ -23,6 +23,7 @@ from .installation_state import InstallationStateHandle
 from .local_model_authority import atomic_write_json
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_runtime_provisioning import semantic_digest
+from .production_chat_resource_context import ProductionChatResourceContextOwner
 
 RECEIPT_SCHEMA = "sentientos.developmental_model_replacement_production_trial_receipt:v1"
 POSTURES = {"production_experimental_trial", "synthetic_test_trial"}
@@ -58,15 +59,20 @@ class DevelopmentalModelReplacementProductionTrialRunner:
     def __init__(self, installation_handle: InstallationStateHandle, control_plane_kernel: ControlPlaneKernel,
                  *, campaign_artifact_root: Path, experiment_artifact_root: Path,
                  model_factory: Callable[[Mapping[str, Any], Mapping[str, Any]], Any] = ExactRuntimeLocalModel,
-                 allow_synthetic_evidence_for_tests: bool = False) -> None:
+                 allow_synthetic_evidence_for_tests: bool = False,
+                 resource_context_owner: ProductionChatResourceContextOwner | None = None) -> None:
         if not isinstance(installation_handle, InstallationStateHandle):
             raise ProductionTrialError("authenticated_installation_handle_required")
+        if (resource_context_owner is not None
+                and type(resource_context_owner) is not ProductionChatResourceContextOwner):
+            raise ProductionTrialError("exact_resource_context_owner_required")
         self._handle, self._kernel = installation_handle, control_plane_kernel
         self._campaign_root, self._experiment_root = Path(campaign_artifact_root), Path(experiment_artifact_root)
         self._factory, self._synthetic = model_factory, allow_synthetic_evidence_for_tests
         self._controller = ExperimentalModelServingController(installation_handle, control_plane_kernel,
             artifact_root=self._experiment_root, model_factory=model_factory,
-            allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
+            allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests,
+            resource_context_owner=resource_context_owner)
         installation_handle.ensure_directory(installation_handle.fixed_object(
             "local-model/developmental-model-replacement/production-trials"))
 

@@ -1,0 +1,110 @@
+{
+  "canonical_runner_attempt": {
+    "command": "python -m scripts.run_tests -q tests/test_developmental_model_replacement_resource_lineage_integration.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_experimental_serving.py tests/test_strategy_resource_lineage_integration.py sentientos/tests/test_resource_observation_world_state_integration.py --tb=short",
+    "diagnostic_path": "work/construction/evidence/0060-canonical-runner-blocker.txt",
+    "diagnostic_sha256": "b20d4dcc66be5fdd33cbe6259dd836f46a3277c196ed67c36fdc4d383bff90b4",
+    "reason": "pip isolated editable build could not fetch setuptools>=78.1.1; restricted proxy returned Operation not permitted; zero canonical tests collected.",
+    "status": "blocked_before_test_execution"
+  },
+  "compilation": {
+    "command": "python -m py_compile sentientos/developmental_model_replacement_experimental_serving.py sentientos/developmental_model_replacement_production_trial.py sentientos/developmental_model_replacement_rehearsal.py sentientos/developmental_model_replacement_experiment.py sentientos/host_resource_runtime.py tests/test_developmental_model_replacement_resource_lineage_integration.py",
+    "status": "passed"
+  },
+  "diff_check": {
+    "command": "git diff --check",
+    "status": "passed"
+  },
+  "focused_execution": {
+    "airlock_bypass": true,
+    "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 /tmp/sentientos-test-venv/bin/python -m pytest -q -rs tests/test_developmental_model_replacement_resource_lineage_integration.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_experimental_serving.py tests/test_strategy_resource_lineage_integration.py sentientos/tests/test_resource_observation_world_state_integration.py --tb=short --junitxml=glow/test_runs/0060-model-replacement-resource-lineage-junit.xml",
+    "failed": 0,
+    "failed_nodes": [],
+    "junit_path": "glow/test_runs/0060-model-replacement-resource-lineage-junit.xml",
+    "junit_sha256": "7f9cf220214b2464953c9dfeeb432e416500a5eebe6b0e9eb32361d612078c68",
+    "passed": 29,
+    "passed_nodes": [
+      "tests.test_developmental_model_replacement_resource_lineage_integration::test_model_replacement_invocations_reconcile_to_preissued_resource_owner",
+      "tests.test_developmental_model_replacement_experiment::test_serving_receipt_references_survive_controlled_run_recovery",
+      "tests.test_developmental_model_replacement_experiment::test_recovered_model_replacement_preserves_event_time_without_reconstruction_freshness",
+      "tests.test_developmental_model_replacement_experiment::test_model_replacement_event_time_rejects_unzoned_or_malformed_metadata",
+      "tests.test_developmental_model_replacement_experiment::test_preregistered_five_condition_model_replacement_experiment",
+      "tests.test_developmental_model_replacement_experiment::test_exact_shared_current_and_history_state_across_models",
+      "tests.test_developmental_model_replacement_experiment::test_history_association_measured_independently_under_both_models",
+      "tests.test_developmental_model_replacement_experiment::test_bounded_history_classifications[True-False-history_association_observed_model_a_only]",
+      "tests.test_developmental_model_replacement_experiment::test_bounded_history_classifications[False-True-history_association_observed_model_b_only]",
+      "tests.test_developmental_model_replacement_experiment::test_bounded_history_classifications[False-False-no_observable_history_effect_either_model]",
+      "tests.test_developmental_model_replacement_experiment::test_exact_model_a_restoration",
+      "tests.test_developmental_model_replacement_experiment::test_semantic_epistemic_projection_v2_and_legacy_v1_identity_are_accepted",
+      "tests.test_developmental_model_replacement_experiment::test_provenance_claim_remains_source_bound_non_truth_metadata",
+      "tests.test_developmental_model_replacement_experiment::test_absent_provenance_is_unknown_not_inferred_from_name",
+      "tests.test_developmental_model_replacement_experiment::test_same_model_supplied_as_a_and_b_is_rejected",
+      "tests.test_developmental_model_replacement_experiment::test_crossed_or_tampered_provenance_is_rejected",
+      "tests.test_developmental_model_replacement_experiment::test_model_identity_drift_and_a_restoration_mismatch_fail_closed",
+      "tests.test_developmental_model_replacement_experiment::test_orphan_condition_terminal_is_not_recovered_as_unstarted",
+      "tests.test_developmental_model_replacement_experiment::test_nonproduction_fallback_and_identity_tampering_are_rejected",
+      "tests.test_developmental_model_replacement_experiment::test_protocol_provenance_and_run_custody_detect_tampering",
+      "tests.test_developmental_model_replacement_experiment::test_developmental_history_mutation_attempt_is_detected_before_inference",
+      "tests.test_developmental_model_replacement_experiment::test_generation_posture_and_purpose_are_fixed",
+      "tests.test_developmental_model_replacement_experimental_serving::test_preregistration_before_load_verified_loader",
+      "tests.test_developmental_model_replacement_experimental_serving::test_tampered_preregistered_protocol_fails",
+      "tests.test_developmental_model_replacement_experimental_serving::test_operator_approval_precedes_load_and_is_exact",
+      "tests.test_developmental_model_replacement_experimental_serving::test_synthetic_vs_production_evidence_posture",
+      "tests.test_developmental_model_replacement_experimental_serving::test_runtime_schemas_and_effect_surface_are_exact",
+      "tests.test_developmental_model_replacement_experimental_serving::test_historical_receipt_reconciler_fails_closed_on_missing_and_substituted_custody",
+      "tests.test_strategy_resource_lineage_integration::test_resource_linked_strategy_proposals_join_to_reconciled_ledger"
+    ],
+    "scope": "Local synthetic rehearsal/worker and owner-composed fixture only. No actual model weights or production runtime; not canonical provenance or hosted acceptance.",
+    "skip_reason": "Two existing sentientos/tests/test_resource_observation_world_state_integration.py cases are marked legacy and remain quarantined under default selection.",
+    "skipped": 2,
+    "skipped_nodes": [
+      "sentientos.tests.test_resource_observation_world_state_integration::test_explicit_read_only_resource_owner_reaches_runtime_world_state",
+      "sentientos.tests.test_resource_observation_world_state_integration::test_owner_produced_invocation_and_debit_reach_world_state"
+    ],
+    "tests_collected": 31
+  },
+  "implementation": [
+    "ExperimentalModelServingController accepts only the exact existing ProductionChatResourceContextOwner type as an optional borrowed owner; it obtains one new context per inference and retains caller ownership of allocation/ledger lock.",
+    "DevelopmentalModelReplacementProductionTrialRunner and the isolated rehearsal path pass that owner through to the endpoint; no allocation is issued by serving or trial code.",
+    "Experimental inference verifier reconstructs the invocation authority map from the verified commissioned artifact/configuration. It compares the derived invocation model-record id and map digest separately from the commissioned cognitive/catalog model id.",
+    "Model replacement observations now preserve both cognitive model identity and invocation authority-map model identity; resource World-State projection cross-checks request authority-map digest and ledger joins exact invocation id, allocation, attempt, consumption receipts and effect receipt."
+  ],
+  "production_status": "unverified",
+  "runner_workspace_commit": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "runner_workspace_note": "Synthetic local test harness SHA, not the exact source SHA. Relevant source files were read from remote parent and base blobs are listed separately.",
+  "schema_version": 1,
+  "source_blobs": {
+    "sentientos/developmental_model_replacement_experiment.py": {
+      "base_remote_blob": "b50fd5eac90f36ea1a5e3b17011fb201e117d4b5",
+      "tested_working_blob": "6251dc516d96a2f8dbb601e544a64d86297c7cec"
+    },
+    "sentientos/developmental_model_replacement_experimental_serving.py": {
+      "base_remote_blob": "7dd8dfdc3aa3cc5d32f50e54c5a43ff966962767",
+      "tested_working_blob": "65c621ab5b93aef03165716a37d16df06558e73e"
+    },
+    "sentientos/developmental_model_replacement_production_trial.py": {
+      "base_remote_blob": "c46b4b04bf54b4d5f385bcb3902392580c444daa",
+      "tested_working_blob": "496902309c07b65e15297f2e1783b5b78783297f"
+    },
+    "sentientos/developmental_model_replacement_rehearsal.py": {
+      "base_remote_blob": "04df7c0db91b83d5654c42944758b0b86e29533b",
+      "tested_working_blob": "3205a984ebf9539b898d2ad4a82d57fa2f946f0d"
+    },
+    "sentientos/host_resource_runtime.py": {
+      "base_remote_blob": "2b69190bd464751a87f7311f37d4b031be1720dd",
+      "tested_working_blob": "ce5889f8d2daf03f8a14541a3413c00823832182"
+    },
+    "tests/test_developmental_model_replacement_resource_lineage_integration.py": {
+      "base_remote_blob": null,
+      "tested_working_blob": "8591bc3d8bbf9fccc7fa035fe78c54ff9e7b2e38"
+    }
+  },
+  "source_commit": "8fa87436599b0971694c74b06e2e4c5b5ea23220",
+  "source_tree": "8b0da571102dbf182fb65c7ea7c328f9aebda63d",
+  "targeted_mypy": {
+    "command": "/tmp/sentientos-test-venv/bin/mypy --config-file=mypy.ini --follow-imports=silent sentientos/developmental_model_replacement_experimental_serving.py sentientos/developmental_model_replacement_production_trial.py sentientos/developmental_model_replacement_rehearsal.py sentientos/developmental_model_replacement_experiment.py sentientos/host_resource_runtime.py",
+    "diagnostic_path": "/tmp/0060-mypy.txt",
+    "production_verification": "not performed",
+    "status": "failed",
+    "summary": "21 diagnostics, all reported in host_resource_runtime.py; 0 diagnostics reported in the other four checked production modules. No parent baseline comparison was run, so diagnostics are not characterized as pre-existing."
+  }
+}
