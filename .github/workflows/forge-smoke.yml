@@ -7,7 +7,7 @@ on:
 
 jobs:
   forge-smoke:
-    if: ${{ vars.SENTIENTOS_CI_RUN_FORGE_SMOKE == '1' || env.SENTIENTOS_CI_RUN_FORGE_SMOKE == '1' }}
+    if: ${{ vars.SENTIENTOS_CI_RUN_FORGE_SMOKE == '1' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

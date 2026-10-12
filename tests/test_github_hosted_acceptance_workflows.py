@@ -147,3 +147,20 @@ def test_doctrine_bundle_uses_importable_modules_and_requires_artifact_presence(
         assert "glow/contracts/contract_status.json" in upload
         assert "glow/contracts/contract_manifest.json" in upload.split("- name:", 1)[0]
         assert "if-no-files-found: error" in upload.split("- name:", 1)[0]
+
+
+def test_smoke_job_conditions_use_supported_explicit_opt_in_contexts() -> None:
+    remote = (ROOT / ".github/workflows/remote-smoke-ci.yml").read_text()
+    remote_job = remote.split("  remote-smoke:", 1)[1].split("    steps:", 1)[0]
+    assert "if: ${{ vars.SENTIENTOS_CI_RUN_REMOTE_SMOKE == '1' }}" in remote_job
+    assert "secrets." not in remote_job and "env." not in remote_job
+    assert "Require explicitly configured remote smoke credentials" in remote
+    preflight = remote.split("Require explicitly configured remote smoke credentials", 1)[1].split("- uses:", 1)[0]
+    assert "${{ secrets.REMOTE_SMOKE_HOST_1 }}" in preflight
+    assert "required secret ${name} is missing" in preflight
+    assert "exit 1" in preflight
+
+    forge = (ROOT / ".github/workflows/forge-smoke.yml").read_text()
+    forge_job = forge.split("  forge-smoke:", 1)[1].split("    steps:", 1)[0]
+    assert "if: ${{ vars.SENTIENTOS_CI_RUN_FORGE_SMOKE == '1' }}" in forge_job
+    assert "secrets." not in forge_job and "env." not in forge_job

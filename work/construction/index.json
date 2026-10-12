@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "20bd2ebe580b7cfc171b8a8ebc6bc4a6436f2241d65d06d144555f3efc164d6d",
-    "latest_segment_sequence": 24,
-    "latest_segment_sha256": "c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
-    "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390",
-    "source_tree": "a8c1229bb2f2f0eb0b42d34794d30f0621a2b870"
+    "checkpoint_sha256": "4205fcaa7cd5a5eaeb44d6510eb20deb13e251891a43405dcae3830e461062d6",
+    "latest_segment_sequence": 25,
+    "latest_segment_sha256": "cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
+    "source_commit": "5394c8595177ae920353c2ec2a1f1fd03dc34e0f",
+    "source_tree": "21f5820ef3e0882d1f4630bf9bb4b666e0bd559d"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -221,6 +221,14 @@
       "sequence": 24,
       "sha256": "c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
       "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
+    },
+    {
+      "bytes": 1045,
+      "path": "work/construction/segments/0025-smoke-workflow-gates.md",
+      "predecessor": "segment-sha256:c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
+      "sequence": 25,
+      "sha256": "cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
+      "source_commit": "5394c8595177ae920353c2ec2a1f1fd03dc34e0f"
     }
   ],
   "source_acquisition": {
