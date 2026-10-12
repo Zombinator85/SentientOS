@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping, Sequence, cast
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -114,7 +114,7 @@ def _valid_store_identity(value: Any, prefix: str) -> bool:
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + cast(str, digest_payload(value))
+    return "sha256:" + digest_payload(value)
 
 
 def _identity(prefix: str, payload: Any) -> tuple[str, str]:
@@ -468,7 +468,10 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
     attempts = tuple(item for item in original.get("attempts", ()) if isinstance(item, Mapping))
     receipts = tuple(item for item in original.get("consumption_receipts", ()) if isinstance(item, Mapping))
     invocations = tuple(item for item in original.get("invocation_receipts", ()) if isinstance(item, Mapping))
-    selected_receipts = receipts[-4:]
+    # Keep a small verified receipt-chain tail. The original source-payload
+    # digest and each retained receipt digest bind omitted historical entries.
+    selected_receipts = receipts[-2:]
+    omitted_receipts = receipts[:-2]
     selected_invocations = invocations[-4:]
     selected_attempts = attempts[-8:]
     compact_allocations = tuple({key: item.get(key) for key in
@@ -478,11 +481,59 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
     compact_attempts = tuple({"attempt_id": item.get("attempt_id"),
         "allocation_id": item.get("allocation_id"), "status": item.get("status")}
         for item in selected_attempts)
-    compact_receipts = tuple({key: item.get(key) for key in
-        ("receipt_id", "receipt_digest", "allocation_digest", "principal_binding_digest", "attempt_id",
-         "state", "observed_at", "previous_receipt_digest", "effect_receipt_digest",
-         "resource_specific_measurement", "measurement_posture") if key in item}
+    allocation_index_by_digest = {str(item.get("allocation_digest")): index
+        for index, item in enumerate(compact_allocations)
+        if isinstance(item.get("allocation_digest"), str)}
+    compact_receipts_list: list[dict[str, Any]] = []
+    measured_postures: list[dict[str, Any]] = []
+    receipt_allocation_links_complete = True
+    for item in selected_receipts:
+        selected_receipt = {key: item.get(key) for key in
+            ("receipt_id", "receipt_digest", "attempt_id", "state", "observed_at",
+             "previous_receipt_digest", "effect_receipt_digest") if key in item}
+        allocation_digest = item.get("allocation_digest")
+        principal_digest = item.get("principal_binding_digest")
+        allocation_index = allocation_index_by_digest.get(str(allocation_digest))
+        if (allocation_index is not None and
+                compact_allocations[allocation_index].get("principal_binding_digest") == principal_digest):
+            # The allocation table carries the exact allocation and principal
+            # identities once; this index preserves the receipt-to-allocation
+            # binding without repeating two 64-byte digests per receipt.
+            selected_receipt["allocation_index"] = allocation_index
+        else:
+            receipt_allocation_links_complete = False
+            selected_receipt["allocation_digest"] = allocation_digest
+            selected_receipt["principal_binding_digest"] = principal_digest
+        raw_measurement = item.get("resource_specific_measurement")
+        if isinstance(raw_measurement, Mapping):
+            # Allocation bounds already carry the configured limits. Preserve
+            # exact scalar measurements (including explicit null/unknowns) and
+            # avoid repeating that bound document in every receipt.
+            selected_measurement = {key: raw_measurement.get(key) for key in (
+                "generation_attempted", "call_units_consumed", "generated_output_size_bytes",
+                "returned_output_size_bytes", "output_truncated", "latency_ms",
+                "invocation_outcome", "actual_token_count") if key in raw_measurement}
+            selected_receipt["resource_specific_measurement"] = selected_measurement
+        posture = item.get("measurement_posture")
+        if isinstance(posture, Mapping):
+            measured_postures.append({"receipt_id": item.get("receipt_id"),
+                "receipt_digest": item.get("receipt_digest"), "posture": dict(posture)})
+        compact_receipts_list.append(selected_receipt)
+    compact_receipts = tuple(compact_receipts_list)
+    retained_attempt_ids = {str(item.get("attempt_id")) for item in compact_attempts}
+    receipt_attempt_links_complete = all(
+        isinstance(item.get("attempt_id"), str)
+        and str(item.get("attempt_id")) in retained_attempt_ids
         for item in selected_receipts)
+    posture_fields = sorted({str(key) for item in measured_postures
+        for key in item["posture"]})
+    measurement_posture_summary = {
+        "scope": "retained_consumption_receipt_tail",
+        "per_receipt_postures_digest": digest(measured_postures),
+        "posture_values": {key: sorted({str(item["posture"][key]) for item in measured_postures
+            if key in item["posture"]}) for key in posture_fields
+            if key != "shared_host_cpu_gpu"},
+    }
     compact_invocations = tuple({key: item.get(key) for key in
         ("receipt_id", "receipt_digest", "request_id", "request_digest", "status", "purpose",
          "model_id", "model_artifact_digest", "observed_at", "resource_allocation_digest",
@@ -494,6 +545,8 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
         "allocations": compact_allocations, "allocation_count": len(allocations),
         "attempts": compact_attempts, "attempt_count": len(attempts),
         "consumption_receipts": compact_receipts, "consumption_receipt_count": len(receipts),
+        "omitted_consumption_receipt_count": len(omitted_receipts),
+        "measurement_posture_summary": measurement_posture_summary,
         "invocation_receipts": compact_invocations, "invocation_receipt_count": len(invocations),
         "attribution_posture": original.get("attribution_posture"),
         "shared_host_usage_attribution": original.get("shared_host_usage_attribution"),
@@ -505,11 +558,19 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
         "incomplete_attempt_count": int(original.get("incomplete_attempt_count",
             len(original.get("incomplete_attempt_ids", ())))),
         "retention_posture": original.get("retention_posture"),
-        "interpretation_projection_posture": ("complete" if len(allocations) <= 4 and len(attempts) <= 8
-            and len(receipts) <= 4 and len(invocations) <= 4
+    }
+    if not summary["lineage_findings"]:
+        summary.pop("lineage_findings")
+    if not summary["incomplete_attempt_ids"]:
+        summary.pop("incomplete_attempt_ids")
+    summary["interpretation_projection_posture"] = (
+        "complete" if len(allocations) <= 4 and len(attempts) <= 8
+            and len(receipts) <= 2 and len(selected_receipts) == len(receipts)
+            and receipt_allocation_links_complete and receipt_attempt_links_complete
+            and len(invocations) <= 4
             and int(original.get("lineage_finding_count", len(original.get("lineage_findings", ())))) <= 16
             and int(original.get("incomplete_attempt_count", len(original.get("incomplete_attempt_ids", ())))) <= 16
-            else "bounded_tail_incomplete")}
+        else "bounded_tail_incomplete")
     projection_binding={"schema_version":"sentientos.resource_interpretation_projection:v1",
         "source_fact_id":str(fact.get("fact_id", "")),
         "source_payload_digest":digest(dict(original)),
@@ -1541,7 +1602,7 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
     context = provenance.get("consumed_context")
     dependencies = lesson.get("evidence_dependencies") if isinstance(lesson, Mapping) else None
     contradictions = lesson.get("possible_contradiction_ids") if isinstance(lesson, Mapping) else None
-    consumed_ids = set()
+    consumed_ids: set[str] = set()
     if isinstance(context, Mapping):
         for key in ("retrieved_record_ids", "current_fact_ids", "self_model_claim_ids",
                     "epistemic_consumed_packet_ids"):

@@ -236,6 +236,61 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         }
         assert later_projection.source_tick == tick_n
         assert later_projection.state_ids == tuple(developed["successor_state_ids"])
+
+        # Continue this same invocation's causal evidence through admitted
+        # developmental history, then reconstruct the owner and prove a later
+        # tick actually retrieves the retained record alongside the eligible
+        # prior epistemic projection. The deterministic cognition backend is a
+        # fixture; it does not claim a production-model improvement.
+        from tests.test_resident_developmental_cognition import owner as developmental_owner
+
+        developmental_root = tmp_path / "developmental-history"
+        cognition, _cognition_fixture = developmental_owner(
+            developmental_root, allowed_source_kinds=("resource_governor",))
+        tick_n_plus_one = "2026-09-21T08:41:00+00:00"
+        first_cognition = cognition.run_tick(
+            snapshot=epistemic_snapshot, tick_id=tick_n_plus_one,
+            prior_epistemic_state=later_projection)
+        assert first_cognition.status == "completed"
+        assert first_cognition.same_tick_history_excluded is True
+        assert first_cognition.written_record_id is not None
+        retained = cognition.writeback.store.get(first_cognition.written_record_id)
+        assert retained.current_truth is False
+        assert set(retained.candidate["selected_fact_ids"]) == set(
+            first_cognition.selected_fact_ids)
+        assert first_cognition.selected_fact_ids
+        original_resource_fact = next(fact for fact in epistemic_snapshot.facts
+            if fact.subject.subject_kind == "causal_resource_consumption")
+        projected_resource_fact = next(
+            fact for fact in retained.candidate["selected_facts"]
+            if fact["subject"]["subject_kind"] == "causal_resource_consumption")
+        projection_binding = projected_resource_fact["payload"]["interpretation_projection"]
+        from sentientos.world_state_board import digest as world_state_digest
+        assert projection_binding["source_fact_id"] == original_resource_fact.fact_id
+        assert projection_binding["source_payload_digest"] == world_state_digest(
+            original_resource_fact.payload)
+        projected_payload = projected_resource_fact["payload"]
+        assert projected_payload["interpretation_projection_posture"] == "bounded_tail_incomplete"
+        assert projected_payload["omitted_consumption_receipt_count"] == 1
+        assert projected_payload["shared_host_usage_attribution"] == (
+            "unknown_without_independent_observation")
+        assert projected_payload["measurement_posture_summary"]["posture_values"]["token_count"] == [
+            "unknown"]
+        assert projected_payload["allocations"][0]["principal_id"]
+        assert all(receipt["allocation_index"] == 0
+            for receipt in projected_payload["consumption_receipts"])
+
+        recovered_cognition, recovered_fixture = developmental_owner(
+            developmental_root, allowed_source_kinds=("resource_governor",))
+        tick_n_plus_two = "2026-09-21T08:42:00+00:00"
+        later_cognition = recovered_cognition.run_tick(
+            snapshot=epistemic_snapshot, tick_id=tick_n_plus_two,
+            prior_epistemic_state=later_projection)
+        assert later_cognition.prior_record_ids == (first_cognition.written_record_id,)
+        retrieval = next(request for request in recovered_fixture.requests
+            if request.purpose == "resident_developmental_retrieval_cognition")
+        assert first_cognition.written_record_id in retrieval.upstream_evidence["record_ids"]
+        assert retrieval.upstream_evidence["epistemic_projection_id"] == later_projection.projection_id
     finally:
         release_path.write_text("release\n", encoding="utf-8")
         adapter.stop()
