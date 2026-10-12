@@ -850,6 +850,8 @@ def test_quarantine_incident_restart_custody_reaches_later_cognition_as_context(
     incident = build_incident(
         triggers=["verified_integrity_mismatch"], enforcement_mode="enforce",
         severity="warning", created_at=event_at,
+        context={"attacker-authored-fixture": "ATTACKER_NARRATIVE_FIXTURE"},
+        suggested_actions=["UNTRUSTED_ACTION_FIXTURE"],
     )
     write_incident(tmp_path, incident, quarantine_activated=True)
     save_state(tmp_path, QuarantineState(
@@ -882,6 +884,8 @@ def test_quarantine_incident_restart_custody_reaches_later_cognition_as_context(
     assert "local artifact and feed custody" in current_request.prompt
     assert incident.incident_id in current_request.prompt
     assert event_at in current_request.prompt
+    assert "ATTACKER_NARRATIVE_FIXTURE" not in current_request.prompt
+    assert "UNTRUSTED_ACTION_FIXTURE" not in current_request.prompt
 
     second_fake = FakeInvoker()
     second_owner, _ = owner(tmp_path / "cognition", invoker=second_fake,
@@ -899,6 +903,8 @@ def test_quarantine_incident_restart_custody_reaches_later_cognition_as_context(
     assert event_at in history_request.prompt
     assert "feed is unauthenticated" in history_request.prompt
     assert "does not establish attack" in history_request.prompt
+    assert "ATTACKER_NARRATIVE_FIXTURE" not in history_request.prompt
+    assert "UNTRUSTED_ACTION_FIXTURE" not in history_request.prompt
     assert second_result["written_record_id"]
     assert second_owner.writeback.store.get(second_result["written_record_id"])
     reset_runtime_governor()

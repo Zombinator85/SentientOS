@@ -303,6 +303,14 @@ def _quarantine_incident_custody_world_state_record(
         "feed_status": inspection.get("feed_status") if inspection.get("feed_status") in {
             "present_unverified", "missing", "invalid", "conflict", "not_checked"} else "not_checked",
         "feed_row_sha256": feed_digest,
+        "catalog_status": inspection.get("catalog_status") if inspection.get("catalog_status") in {
+            "present_unverified", "missing", "incomplete", "invalid", "conflict", "unsupported"} else "unavailable",
+        "catalog_entry_sha256": inspection.get("catalog_entry_sha256")
+            if valid_digest(inspection.get("catalog_entry_sha256")) else None,
+        "catalog_duplicate_count": inspection.get("catalog_duplicate_count")
+            if type(inspection.get("catalog_duplicate_count")) is int
+                and 0 <= inspection["catalog_duplicate_count"] <= 8_192 else 0,
+        "catalog_row_is_authenticated": False,
         "feed_is_authenticated": False,
         "event_meaning": (
             "A read-only restart check compared the active quarantine's historical incident reference with its local artifact and feed custody."

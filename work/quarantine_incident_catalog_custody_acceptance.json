@@ -1,0 +1,30 @@
+{
+  "status": "construction_fixture_verified_not_production_acceptance",
+  "scope": "bounded secondary artifact-catalog reconciliation for quarantine incident recovery",
+  "custody": {
+    "path": "pulse/artifact_catalog.jsonl",
+    "reader": "existing descriptor-relative no-follow stable regular-file reader with explicit 1 MiB byte, 8192 row, and 16 KiB row bounds",
+    "mode": "read-only 0644 compatibility; owner, single-link, and no group/other write requirements remain",
+    "semantics": "catalog is a mutable local index, not authenticated incident evidence",
+    "duplicates": "identical exact retry rows are counted and remain locally consistent; conflicting rows report conflict",
+    "partial": "missing or truncated catalog reference remains incomplete; no repair or append occurs",
+    "platform": "unsupported custody is explicit on platforms without the existing descriptor-safe reader"
+  },
+  "causal_projection": {
+    "world_state": "catalog status, exact matching row digest, duplicate count, and unauthenticated posture",
+    "cognition": "bounded context reaches later history; attacker narrative and suggested actions are excluded",
+    "epistemics": "contextualizes with unknown dependency and no dependency group"
+  },
+  "focused_results": {
+    "integrity_pressure_quarantine_runtime_cognition_epistemic_world_state": "116 passed, 29 skipped",
+    "forge_observatory": "22 passed",
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "The artifact catalog and pressure feed do not independently authenticate their writer.",
+    "A local matching chain does not establish attack, hostile intent, compromise, or a successful defensive consequence.",
+    "Hermetic fixture cognition does not establish real-model acquisition or defensive performance.",
+    "Construction work remains unverified for production."
+  ]
+}

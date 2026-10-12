@@ -414,8 +414,13 @@ class ResidentEpistemicDevelopmentRuntime:
             and quarantine_payload.get("read_only") is True
             and quarantine_payload.get("artifact_status") in {"valid", "missing", "invalid", "conflict", "not_checked"}
             and quarantine_payload.get("feed_status") in {"present_unverified", "missing", "invalid", "conflict", "not_checked"}
+            and quarantine_payload.get("catalog_status") in {"present_unverified", "missing", "incomplete", "invalid", "conflict", "unsupported", "unavailable"}
+            and type(quarantine_payload.get("catalog_duplicate_count")) is int
+            and 0 <= quarantine_payload["catalog_duplicate_count"] <= 8_192
+            and quarantine_payload.get("catalog_row_is_authenticated") is False
             and _valid_optional_lower_sha256(quarantine_payload.get("artifact_sha256"))
             and _valid_optional_lower_sha256(quarantine_payload.get("feed_row_sha256"))
+            and _valid_optional_lower_sha256(quarantine_payload.get("catalog_entry_sha256"))
             and fact.effect_claimed is False and fact.effect_proven is False)
         attestation_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
         attestation_snapshot_verification_context = (

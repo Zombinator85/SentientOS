@@ -307,6 +307,10 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
                 and payload.get("read_only") is True
                 and payload.get("artifact_status") in {"valid", "missing", "invalid", "conflict", "not_checked"}
                 and payload.get("feed_status") in {"present_unverified", "missing", "invalid", "conflict", "not_checked"}
+                and payload.get("catalog_status") in {"present_unverified", "missing", "incomplete", "invalid", "conflict", "unsupported", "unavailable"}
+                and type(payload.get("catalog_duplicate_count")) is int
+                and 0 <= payload["catalog_duplicate_count"] <= 8_192
+                and payload.get("catalog_row_is_authenticated") is False
                 and (payload.get("incident_id") is None
                     or (isinstance(payload.get("incident_id"), str)
                         and 0 < len(payload["incident_id"]) <= 128))
@@ -323,10 +327,14 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
                 "artifact_sha256": payload.get("artifact_sha256"),
                 "feed_status": payload.get("feed_status"),
                 "feed_row_sha256": payload.get("feed_row_sha256"),
+                "catalog_status": payload.get("catalog_status"),
+                "catalog_entry_sha256": payload.get("catalog_entry_sha256"),
+                "catalog_duplicate_count": payload.get("catalog_duplicate_count"),
                 "feed_is_authenticated": False,
+                "catalog_row_is_authenticated": False,
                 "event_meaning": event_meaning,
                 "interpretation_limits": (
-                    "The feed is unauthenticated; local cross-record consistency does not establish attack or defensive consequence."
+                    "The feed and catalog are unauthenticated indexes; local cross-record consistency does not establish attack or defensive consequence."
                 ),
                 "cause_unknown": True,
             }
@@ -1625,6 +1633,10 @@ class ResidentDevelopmentalCognitionOwner:
             and payload.get("read_only") is True
             and payload.get("artifact_status") in {"valid", "missing", "invalid", "conflict", "not_checked"}
             and payload.get("feed_status") in {"present_unverified", "missing", "invalid", "conflict", "not_checked"}
+            and payload.get("catalog_status") in {"present_unverified", "missing", "incomplete", "invalid", "conflict", "unsupported", "unavailable"}
+            and type(payload.get("catalog_duplicate_count")) is int
+            and 0 <= payload["catalog_duplicate_count"] <= 8_192
+            and payload.get("catalog_row_is_authenticated") is False
             and (payload.get("incident_id") is None
                 or (isinstance(payload.get("incident_id"), str)
                     and 0 < len(payload["incident_id"]) <= 128))
@@ -1633,6 +1645,7 @@ class ResidentDevelopmentalCognitionOwner:
                     and 0 < len(payload["incident_activated_at"]) <= 64))
             and _valid_optional_lower_sha256(payload.get("artifact_sha256"))
             and _valid_optional_lower_sha256(payload.get("feed_row_sha256"))
+            and _valid_optional_lower_sha256(payload.get("catalog_entry_sha256"))
             and fact.effect_claimed is False and fact.effect_proven is False
         )
         attestation_verification_failure = (
@@ -1981,6 +1994,7 @@ class ResidentDevelopmentalCognitionOwner:
                 "complete_local_custody", "incomplete", "conflict",
                 "incomplete_identity", "observer_unavailable"}
             and fact["payload"].get("feed_is_authenticated") is False
+            and fact["payload"].get("catalog_row_is_authenticated") is False
             and fact["payload"].get("attack_established") is False
             and fact["payload"].get("defensive_consequence_established") is False
             for fact in current.facts

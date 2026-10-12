@@ -11,6 +11,7 @@ import subprocess
 from typing import Any, Callable
 
 from sentientos.artifact_catalog import append_catalog_entry
+from sentientos.artifact_catalog import CATALOG_PATH as ARTIFACT_CATALOG_PATH
 from sentientos.private_file_custody import (
     PrivateFileCustodyError,
     open_private_directory,
@@ -34,6 +35,9 @@ from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_ex
 INCIDENTS_DIR = Path("glow/forge/incidents")
 INCIDENTS_FEED_PATH = Path("pulse/integrity_incidents.jsonl")
 MAX_INCIDENT_ARTIFACT_BYTES = 1_048_576
+MAX_INCIDENT_CATALOG_BYTES = 1_048_576
+MAX_INCIDENT_CATALOG_ROWS = 8_192
+MAX_INCIDENT_CATALOG_ROW_BYTES = 16_384
 
 
 class IntegrityIncidentFeedRecordError(ValueError):
@@ -311,10 +315,18 @@ def inspect_quarantine_incident_custody(
             ).hexdigest()
             feed_status = "present_unverified"
 
+    catalog_status, catalog_digest, catalog_duplicate_count = _inspect_incident_catalog_reference(
+        root, incident_id=incident_id, activated_at=activated_at,
+        artifact_path=artifact_path, artifact=artifact_payload,
+    )
+
     status = "incomplete"
-    if artifact_status in {"invalid", "conflict"} or feed_status in {"invalid", "conflict"}:
+    if (artifact_status in {"invalid", "conflict"}
+            or feed_status in {"invalid", "conflict"}
+            or catalog_status in {"invalid", "conflict"}):
         status = "conflict"
-    elif artifact_status == "valid" and feed_status == "present_unverified" and artifact_payload is not None:
+    elif (artifact_status == "valid" and feed_status == "present_unverified"
+            and catalog_status == "present_unverified" and artifact_payload is not None):
         expected_feed = {
             "schema_version": 1,
             "incident_id": incident_id,
@@ -340,10 +352,99 @@ def inspect_quarantine_incident_custody(
         "artifact_sha256": artifact_digest,
         "feed_status": feed_status,
         "feed_row_sha256": feed_digest,
+        "catalog_status": catalog_status,
+        "catalog_entry_sha256": catalog_digest,
+        "catalog_duplicate_count": catalog_duplicate_count,
+        "catalog_row_is_authenticated": False,
         "feed_is_authenticated": False,
         "attack_established": False,
         "defensive_consequence_established": False,
     }
+
+
+def _inspect_incident_catalog_reference(
+    root: Path, *, incident_id: str, activated_at: str,
+    artifact_path: Path, artifact: dict[str, object] | None,
+) -> tuple[str, str | None, int]:
+    """Boundedly inspect the append-only catalog as a secondary local index only."""
+    try:
+        directory_fd = open_private_directory(root / ARTIFACT_CATALOG_PATH.parent, create=False)
+    except PrivateFileCustodyError as exc:
+        if exc.code == "directory_root_missing":
+            return "missing", None, 0
+        if exc.code == "directory_custody_unsupported":
+            return "unsupported", None, 0
+        return "invalid", None, 0
+    try:
+        try:
+            encoded = read_private_file_at(directory_fd, ARTIFACT_CATALOG_PATH.name,
+                max_bytes=MAX_INCIDENT_CATALOG_BYTES, require_private_mode=False)
+        except PrivateFileCustodyError as exc:
+            if exc.code == "file_missing":
+                return "missing", None, 0
+            if exc.code in {"directory_custody_unsupported", "file_custody_unsupported"}:
+                return "unsupported", None, 0
+            return "invalid", None, 0
+    finally:
+        os.close(directory_fd)
+
+    if not encoded:
+        return "missing", None, 0
+    if not encoded.endswith(b"\n"):
+        return "incomplete", None, 0
+    lines = encoded.splitlines(keepends=True)
+    if len(lines) > MAX_INCIDENT_CATALOG_ROWS:
+        return "invalid", None, 0
+    parsed_rows: list[tuple[dict[str, Any], bytes]] = []
+    try:
+        for line in lines:
+            if len(line) > MAX_INCIDENT_CATALOG_ROW_BYTES or not line.endswith(b"\n"):
+                return "invalid", None, 0
+            payload = json.loads(
+                line[:-1].decode("utf-8", errors="strict"),
+                object_pairs_hook=_incident_unique_object,
+                parse_constant=_incident_reject_constant,
+            )
+            if not isinstance(payload, dict):
+                return "invalid", None, 0
+            parsed_rows.append((payload, line))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
+        return "invalid", None, 0
+
+    relative_path = str(artifact_path.relative_to(root))
+    candidates: list[tuple[dict[str, Any], bytes]] = []
+    for row, raw in parsed_rows:
+        links = row.get("links") if isinstance(row.get("links"), dict) else {}
+        if (row.get("id") == incident_id or links.get("incident_id") == incident_id
+                or row.get("path") == relative_path):
+            candidates.append((row, raw))
+    if not candidates:
+        return "missing", None, 0
+    if artifact is None:
+        return "conflict", None, max(0, len(candidates) - 1)
+    expected_summary = {
+        "severity": artifact.get("severity"),
+        "enforcement_mode": artifact.get("enforcement_mode"),
+    }
+    exact = []
+    for row, raw in candidates:
+        links = row.get("links") if isinstance(row.get("links"), dict) else {}
+        summary = row.get("summary") if isinstance(row.get("summary"), dict) else {}
+        if (type(row.get("schema_version")) is int and row.get("schema_version") == 1
+                and row.get("ts") == activated_at
+                and row.get("kind") == "incident"
+                and row.get("id") == incident_id
+                and row.get("path") == relative_path
+                and row.get("schema_name") == "incident"
+                and type(row.get("schema_version_artifact")) is int
+                and row.get("schema_version_artifact") == 1
+                and links.get("incident_id") == incident_id
+                and links.get("quarantine_activated") is True
+                and summary == expected_summary):
+            exact.append(raw)
+    if len(exact) != len(candidates):
+        return "conflict", None, max(0, len(candidates) - 1)
+    return "present_unverified", hashlib.sha256(exact[0]).hexdigest(), max(0, len(exact) - 1)
 
 
 def _parse_incident_time(value: str) -> datetime | None:

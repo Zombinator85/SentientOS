@@ -442,10 +442,73 @@ def test_restart_custody_inspection_reconciles_exact_artifact_and_feed(tmp_path:
     assert custody["status"] == "complete_local_custody"
     assert custody["artifact_status"] == "valid"
     assert custody["feed_status"] == "present_unverified"
+    assert custody["catalog_status"] == "present_unverified"
+    assert custody["catalog_duplicate_count"] == 0
+    assert custody["catalog_row_is_authenticated"] is False
     assert custody["feed_is_authenticated"] is False
     assert custody["attack_established"] is False
     assert isinstance(custody["artifact_sha256"], str)
     assert isinstance(custody["feed_row_sha256"], str)
+    assert isinstance(custody["catalog_entry_sha256"], str)
+
+
+@pytest.mark.no_legacy_skip
+def test_restart_custody_inspection_marks_missing_catalog_as_incomplete(tmp_path: Path) -> None:
+    incident = Incident(
+        schema_version=1, incident_id="activation-without-catalog",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["verified_integrity_mismatch"], enforcement_mode="enforce",
+        context={}, evidence_paths=[], suggested_actions=[],
+    )
+    write_incident(tmp_path, incident, quarantine_activated=True)
+    (tmp_path / "pulse/artifact_catalog.jsonl").unlink()
+    custody = inspect_quarantine_incident_custody(
+        tmp_path, incident_id=incident.incident_id, activated_at=incident.created_at,
+    )
+    assert custody["status"] == "incomplete"
+    assert custody["artifact_status"] == "valid"
+    assert custody["feed_status"] == "present_unverified"
+    assert custody["catalog_status"] == "missing"
+
+
+@pytest.mark.no_legacy_skip
+def test_restart_custody_surfaces_conflicting_catalog_reference(tmp_path: Path) -> None:
+    incident = Incident(
+        schema_version=1, incident_id="activation-conflicting-catalog",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["verified_integrity_mismatch"], enforcement_mode="enforce",
+        context={}, evidence_paths=[], suggested_actions=[],
+    )
+    write_incident(tmp_path, incident, quarantine_activated=True)
+    catalog = tmp_path / "pulse/artifact_catalog.jsonl"
+    rows = [json.loads(line) for line in catalog.read_text(encoding="utf-8").splitlines()]
+    row = next(item for item in rows if item.get("id") == incident.incident_id)
+    row["path"] = "glow/forge/incidents/substituted.json"
+    catalog.write_text("".join(json.dumps(item, sort_keys=True) + "\n" for item in rows), encoding="utf-8")
+    custody = inspect_quarantine_incident_custody(
+        tmp_path, incident_id=incident.incident_id, activated_at=incident.created_at,
+    )
+    assert custody["status"] == "conflict"
+    assert custody["catalog_status"] == "conflict"
+    assert custody["attack_established"] is False
+
+
+@pytest.mark.no_legacy_skip
+def test_restart_custody_tolerates_identical_catalog_retry_rows(tmp_path: Path) -> None:
+    incident = Incident(
+        schema_version=1, incident_id="activation-identical-catalog-retry",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["verified_integrity_mismatch"], enforcement_mode="enforce",
+        context={}, evidence_paths=[], suggested_actions=[],
+    )
+    write_incident(tmp_path, incident, quarantine_activated=True)
+    write_incident(tmp_path, incident, quarantine_activated=True)
+    custody = inspect_quarantine_incident_custody(
+        tmp_path, incident_id=incident.incident_id, activated_at=incident.created_at,
+    )
+    assert custody["status"] == "complete_local_custody"
+    assert custody["catalog_status"] == "present_unverified"
+    assert custody["catalog_duplicate_count"] == 1
 
 
 @pytest.mark.no_legacy_skip
