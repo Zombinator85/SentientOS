@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from sentientos.event_stream import record_forge_event
-from sentientos.integrity_quarantine import acknowledge
+from sentientos.integrity_quarantine import QuarantineStateError, acknowledge
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -14,7 +14,16 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root = Path.cwd().resolve()
-    state = acknowledge(root, args.note)
+    try:
+        state = acknowledge(root, args.note)
+    except QuarantineStateError as exc:
+        print(json.dumps({
+            "status": "blocked",
+            "failure": "quarantine_custody_invalid",
+            "quarantine_active": None,
+            "quarantine_custody_status": "invalid:" + exc.code,
+        }, indent=2, sort_keys=True))
+        return 1
     record_forge_event({"event": "integrity_quarantine_acknowledged", "level": "warning", "note": args.note, "active": state.active})
     print(json.dumps({"status": "ok", "quarantine": state.to_dict()}, indent=2, sort_keys=True))
     return 0

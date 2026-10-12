@@ -3460,3 +3460,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - The clear CLI now catches only `QuarantineStateError`, prints `blocked` with `quarantine_custody_invalid`, exposes active state as null with exact custody error, and returns before remediation lookup/admission/clear. It leaves the damaged bytes untouched.
 - The remediation trace-binding plus status modules: **6 passed** with the actual integrity gates and isolated custody; changed Python compiled and `git diff --check` passed. Acceptance: `work/quarantine_clear_invalid_custody_acceptance.json`. No privileged clear of the malformed state is attempted.
 - Next: inspect acknowledgment and recovery reporting for consistent unknown-state semantics, then verify remaining quarantine publication recovery boundaries against actual tests and source.
+
+
+## 2026-10-12 checkpoint — report invalid custody in acknowledgment CLI
+
+- Continued from verified remote `c49dd09ee5066ca84f670bd9ec2a365817c41bb2`, tree `d5860186ef3cfb12775fae3017512bc6f0e590fe`. The acknowledgment owner already rejected invalid quarantine state before writing, but its CLI let the typed failure escape as a traceback.
+- The CLI now emits a structured blocked result with `quarantine_active: null` and exact custody status, and returns before acknowledgment event publication. The damaged record is byte-identical after refusal. The genuine first-use positive control still initializes and acknowledges through the existing owner and supported publisher.
+- Acknowledgment, status, and remediation trace modules: **8 passed**. Changed Python compiled; `git diff --check` passed. Acceptance: `work/quarantine_ack_custody_acceptance.json`.
+- Next: audit remaining quarantine publication/recovery and activated-state lifecycle tests for uncertain replacement behavior and stale markers; preserve no-retry/no-clear semantics.
