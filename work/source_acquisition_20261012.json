@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "kind": "exact_source_acquisition_status",
+  "checked_on": "2026-10-12",
+  "repository": "Zombinator85/SentientOS",
+  "branch": "codex/construct-sentientos",
+  "remote": {
+    "commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
+    "tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6",
+    "parent": "c7f77156c1f4172be0b92336a4655beec23514ac",
+    "main": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+    "merge_base": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+    "ahead_of_main": 665,
+    "behind_main": 0
+  },
+  "tree_metadata": {
+    "acquired_from": "GitHub Git Trees API, recursive=true",
+    "reported_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6",
+    "entry_count": 6677,
+    "blob_path_count": 6356,
+    "distinct_blob_sha_count": 6269,
+    "truncated": false,
+    "content_recovered": false
+  },
+  "local_object_reuse": {
+    "repository": "/workspace/SentientOS",
+    "object_format": "sha1",
+    "distinct_remote_blob_objects_present": 6051,
+    "distinct_remote_blob_objects_missing": 218,
+    "missing_blob_bytes_total": 5326323,
+    "workspace_status": "dirty historical checkout preserved and unmodified"
+  },
+  "acquisition_attempts": [
+    {
+      "route": "existing local Git object database",
+      "result": "incomplete",
+      "detail": "The exact remote cognition blob is absent. 218 distinct blobs referenced by the current tree are absent from the local object database."
+    },
+    {
+      "route": "Git transport over configured HTTP proxy",
+      "command": "git ls-remote https://github.com/Zombinator85/SentientOS.git refs/heads/codex/construct-sentientos refs/heads/main",
+      "result": "blocked",
+      "detail": "Failed to connect to proxy port 8080. No repeated clone or transport retry was made."
+    },
+    {
+      "route": "GitHub Git-data and file APIs",
+      "result": "metadata complete; source bytes incomplete",
+      "detail": "The exact commit and complete recursive tree metadata were retrieved. The remote cognition blob cannot be decoded as UTF-8 (byte 0xaa at position 1); raw-file fetch reports binary content; blob fetch also fails on UTF-8 decoding; the file Base64 result is marked/truncated and cannot be verified against its Git blob SHA."
+    }
+  ],
+  "blocking_blob": {
+    "path": "sentientos/resident_developmental_cognition.py",
+    "git_blob_sha1": "fdd41c79264b6db2b331ba4ac0a7df35dcc5e2e9",
+    "size_bytes": 150060,
+    "local_object_present": false,
+    "utf8_fetch": "UnicodeDecodeError at byte 1 (0xaa)",
+    "raw_fetch": "HTTP 400: file appears binary or encoded differently",
+    "base64_fetch": "response begins with truncation marker; complete bytes and Git blob hash could not be verified",
+    "classification": "E unresolved; do not reconstruct from damaged output"
+  },
+  "acceptance": {
+    "clean_complete_exact_tree_workspace": false,
+    "current_revision_tests_run": false,
+    "canonical_acceptance_run": false,
+    "mainline_candidate_accepted": false,
+    "reason": "Complete exact-tree content was not reconstructed and the blocking blob is unavailable through the authorized routes."
+  },
+  "next_dependency": "Obtain an authorized lossless binary-capable source route for the exact blocking blob (and remaining missing blobs), verify every fetched byte against Git blob identity, assemble a clean snapshot whose computed tree is f9d3db31a404619cf7ad75fadcb8cb3af848aad6, then resume current-revision acceptance."
+}

@@ -1,0 +1,8 @@
+## 2026-10-12 — exact-source acquisition blocked at content layer
+
+- Reacquired branch: 5b9083c79d905337ae967b5d4762cbcee226df02 / tree f9d3db31a404619cf7ad75fadcb8cb3af848aad6; parent c7f77156c1f4172be0b92336a4655beec23514ac. Main 197e2a4ceeb13ab59a88fd531283355e15e1fd7d is the merge base, 665 ahead / zero behind.
+- GitHub's recursive Git Tree API returned the complete, non-truncated metadata tree: 6,677 entries, 6,356 blob paths, 6,269 distinct blob identities. This proves the tree inventory, not file-content recovery.
+- The dirty /workspace/SentientOS object database was queried read-only. It contains 6,051 distinct remote blob objects; 218 objects totaling 5,326,323 bytes are absent. The historical checkout and its worktree were not modified.
+- Acquisition paths were bounded: exact target blob is not in local objects; git ls-remote failed immediately because the configured proxy at port 8080 is unreachable; GitHub Git-data/tree metadata succeeded, but target file APIs reject its non-UTF-8 bytes or return a truncated Base64 response that cannot be verified. Target: sentientos/resident_developmental_cognition.py blob fdd41c79264b6db2b331ba4ac0a7df35dcc5e2e9 (150,060 bytes). It remains E; no damaged reconstruction was used.
+- No exact-tree checkout exists, so no current-revision tests, canonical acceptance, or mainline-readiness claim is made. Prior test counts remain evidence from earlier revisions only.
+- Durable detail: work/source_acquisition_20261012.json. Next dependency is a lossless authorized binary-capable route for the blocking blob and the other missing objects, followed by byte-level Git blob verification and computed exact-tree verification before acceptance.

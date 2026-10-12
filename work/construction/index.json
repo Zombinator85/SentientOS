@@ -146,6 +146,14 @@
       "sha256": "1ce148b6a91a1b26d5a42a51705d6f06048a375c41d164de66dcc5b87de00ab6",
       "bytes": 1804,
       "source_commit": "c7f77156c1f4172be0b92336a4655beec23514ac"
+    },
+    {
+      "sequence": 18,
+      "path": "work/construction/segments/0018-exact-source-acquisition-blocker.md",
+      "predecessor": "segment-sha256:1ce148b6a91a1b26d5a42a51705d6f06048a375c41d164de66dcc5b87de00ab6",
+      "sha256": "a371984b6588a43a407ae1ac88adb9d48b4a8ac3d7223974494c05a496c879e0",
+      "bytes": 1705,
+      "source_commit": "5b9083c79d905337ae967b5d4762cbcee226df02"
     }
   ],
   "workspace_reconciliation": {
@@ -167,5 +175,12 @@
       "verified_remote_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
       "verified_remote_tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef"
     }
-  ]
+  ],
+  "source_acquisition": {
+    "path": "work/source_acquisition_20261012.json",
+    "sha256": "bb703088c106cae69e37a682c2aee9e6e1557198ea9f14425b9927e925707f10",
+    "bytes": 3436,
+    "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
+    "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
+  }
 }
