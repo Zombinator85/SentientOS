@@ -224,9 +224,9 @@ def _bounded(value: Any) -> Any:
         result = value
     elif isinstance(value, str):
         result = value
-    elif isinstance(value, list):
+    elif isinstance(value, (list, tuple)):
         result = [_bounded(item) for item in value]
-    elif isinstance(value, dict) and all(isinstance(key, str) for key in value):
+    elif isinstance(value, Mapping) and all(isinstance(key, str) for key in value):
         result = {key: _bounded(value[key]) for key in sorted(value)}
     else:
         raise LongitudinalSelfModelError("claim_value_not_bounded_json")

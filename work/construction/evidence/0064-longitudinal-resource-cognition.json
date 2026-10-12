@@ -1,0 +1,44 @@
+{
+  "canonical_runner": "not retried; previous exact selected runner attempt blocked before collection because isolated build could not retrieve setuptools>=78.1.1 through the restricted proxy.",
+  "compile": {
+    "command": "python -m py_compile sentientos/longitudinal_self_model.py tests/test_developmental_model_replacement_resource_lineage_integration.py",
+    "status": "passed"
+  },
+  "diagnostics": [
+    "The first composed run reproduced claim_value_not_bounded_json for immutable/tuple source payloads, then after normalization exposed the fixed 16,000-character cognition input bound when requesting eight claims. The integration now selects one bounded historical model-replacement claim; it does not increase or bypass the production cognition limit."
+  ],
+  "diff_check": {
+    "command": "git diff --check -- sentientos/longitudinal_self_model.py tests/test_developmental_model_replacement_resource_lineage_integration.py",
+    "status": "passed"
+  },
+  "focused_execution": {
+    "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 with isolated SENTIENTOS_* roots: /tmp/sentientos-test-venv/bin/python -m pytest -q -rs tests/test_longitudinal_self_model.py tests/test_developmental_model_replacement_resource_lineage_integration.py --tb=short --junitxml=glow/test_runs/0064-longitudinal-resource-cognition-junit.xml",
+    "failed": 0,
+    "junit_path": "glow/test_runs/0064-longitudinal-resource-cognition-junit.xml",
+    "junit_sha256": "949993aa6a5cd2d6ca087874508482e4bf8cea58b75d782f883403c2a5dbd574",
+    "passed": 24,
+    "scope": "Hermetic owner fixtures; deterministic test backend; no real-model performance or production evidence.",
+    "skipped": 0,
+    "tests_collected": 24
+  },
+  "implementation": [
+    "The longitudinal self-model bounded JSON normalizer now accepts immutable Mapping objects and tuple sequences, converting them recursively to canonical JSON-compatible dict/list values. This preserves the existing type, byte-size, and canonical serialization bounds.",
+    "The actual model-replacement resource integration now composes resource allocation/receipt custody, daemon World-State, epistemic admission and restart, longitudinal self-model reconciliation/restart, developmental writeback, and later-tick cognition consuming both durable projections.",
+    "The integration retains exact model-replacement resource receipt attribution, source event times, historical freshness, separate cognitive and invocation model identities, and a digest-recomputed substituted-attempt negative control."
+  ],
+  "mypy": "not run",
+  "production_status": "unverified",
+  "schema_version": 1,
+  "source_blobs": {
+    "sentientos/longitudinal_self_model.py": {
+      "parent_remote_blob": "ceed12d4ce888c237b7dbc392c02cd89f4bbfea5",
+      "working_blob": "ce360c208d471332e0aa6e2741b36964de6f20f5"
+    },
+    "tests/test_developmental_model_replacement_resource_lineage_integration.py": {
+      "parent_remote_blob": "4d21763125352590008a3e0ed873f02234abcb4d",
+      "working_blob": "fc3b997609e2c15f75e6a592b5ee8b9987cdc8d1"
+    }
+  },
+  "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3",
+  "source_tree": "8b708346dbf54535f0f49a404c435e769cbe2bcc"
+}

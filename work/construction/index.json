@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "e46dfaafe2c0dc8e45a7d4b42bbf1b1f08351c19ecab09045c147eb0db4aee43",
-    "latest_segment_sequence": 63,
-    "latest_segment_sha256": "7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
-    "source_commit": "f54d04bd69366300fc74ec45d026babe7168a54d",
-    "source_tree": "6a9d3d81801d939c1ed4692f873f98e26197e82e"
+    "checkpoint_sha256": "1491fef91ad8b46fb69c3c1e4231b8dc2e909f14c26b70864839d2e07f2561ca",
+    "latest_segment_sequence": 65,
+    "latest_segment_sha256": "393ada44db0a4a0c7b059ae7a2aa5318a3795031300f9df612047fef44f7c086",
+    "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3",
+    "source_tree": "8b708346dbf54535f0f49a404c435e769cbe2bcc"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -563,6 +563,22 @@
       "sha256": "7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
       "source_commit": "f54d04bd69366300fc74ec45d026babe7168a54d",
       "source_tree": "6a9d3d81801d939c1ed4692f873f98e26197e82e"
+    },
+    {
+      "bytes": 2432,
+      "path": "work/construction/segments/0064-longitudinal-resource-cognition.md",
+      "predecessor": "segment-sha256:7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
+      "sequence": 64,
+      "sha256": "606f2678a9bc047d61d24655949cb3cd0f6c9dd7444c8377b3ee604dfc046dc8",
+      "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3"
+    },
+    {
+      "bytes": 1582,
+      "path": "work/construction/segments/0065-epistemic-event-time-dispositions.md",
+      "predecessor": "segment-sha256:606f2678a9bc047d61d24655949cb3cd0f6c9dd7444c8377b3ee604dfc046dc8",
+      "sequence": 65,
+      "sha256": "393ada44db0a4a0c7b059ae7a2aa5318a3795031300f9df612047fef44f7c086",
+      "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3"
     }
   ],
   "source_acquisition": {

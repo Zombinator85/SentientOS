@@ -23,6 +23,7 @@ from sentientos.host_resource_runtime import (
     resource_invocation_proposal_lineage_records,
 )
 from sentientos.local_model_authority import digest_payload
+from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
 from sentientos.production_chat_resource_provisioning import load_production_chat_resource_context_owner
 from sentientos.production_chat_resource_provisioning_bundle_producer import (
     produce_production_chat_resource_provisioning_bundle,
@@ -156,6 +157,8 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
             tmp_path, runtime_state_root=tmp_path / "composed-runtime",
             governed_resource_ledger=owner.allocator.ledger,
             governed_invocation_receipts=tuple(receipts),
+            longitudinal_self_model_owner=LongitudinalSelfModelOwner(
+                tmp_path / "composed-self-model"),
             model_replacement_artifact_store=ModelReplacementArtifactStore(
                 experiment_root / "rehearsal"),
             model_replacement_run_refs=((run["run_id"], run["run_digest"]),),
@@ -174,6 +177,18 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         assert all(fact.source.finding == "ok" and fact.disposition == "verified"
             for fact in history_lineage_facts)
         assert world_state_feedback["snapshot_id"] == snapshot.snapshot_id
+        self_model_feedback = surfaces.reconcile_longitudinal_self_model(tick_id=tick_n)
+        assert self_model_feedback["status"] == "ok"
+        assert self_model_feedback["claim_count"] > 0
+        assert self_model_feedback["authority"] is False
+        self_model_owner = surfaces._longitudinal_self_model_owner
+        assert self_model_owner is not None
+        assert self_model_owner.cognitive_projection(before_tick=tick_n, max_claims=1,
+            allowed_predicates=("developmental.model_replacement_interpretation",)) is None
+        later_self_model = self_model_owner.cognitive_projection(
+            before_tick="model-resource-history-tick-n-plus-one", max_claims=1,
+            allowed_predicates=("developmental.model_replacement_interpretation",))
+        assert later_self_model is not None
         developed = surfaces.run_epistemic_development(tick_id=tick_n)
         assert developed["status"] == "state_advanced"
         assert developed["next_tick_only"] is True and developed["authority"] is False
@@ -202,7 +217,8 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         assert cognition_snapshot.facts[0].source.digest == history_lineage_facts[0].source.digest
         first = cognition.run_tick(snapshot=cognition_snapshot,
             tick_id="model-resource-history-tick-n-plus-one",
-            prior_epistemic_state=later_epistemic)
+            prior_epistemic_state=later_epistemic,
+            prior_self_model=later_self_model)
         assert first.status == "completed"
         assert first.same_tick_history_excluded is True
         assert first.written_record_id is not None
@@ -243,14 +259,23 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         assert recovered_projection.source_tick == later_epistemic.source_tick == tick_n_value
         assert recovered_projection.state_ids == later_epistemic.state_ids
         assert recovered_projection.state_digests == later_epistemic.state_digests
+        recovered_self_model = LongitudinalSelfModelOwner(
+            tmp_path / "composed-self-model").cognitive_projection(
+                before_tick="model-resource-history-tick-n-plus-two", max_claims=1,
+                allowed_predicates=("developmental.model_replacement_interpretation",))
+        assert recovered_self_model is not None
+        assert recovered_self_model.source_reconciliation_id == later_self_model.source_reconciliation_id
+        assert recovered_self_model.source_reconciliation_digest == later_self_model.source_reconciliation_digest
         later = recovered_cognition.run_tick(
             snapshot=cognition_snapshot, tick_id="model-resource-history-tick-n-plus-two",
-            prior_epistemic_state=recovered_projection)
+            prior_epistemic_state=recovered_projection,
+            prior_self_model=recovered_self_model)
         assert later.prior_record_ids == (first.written_record_id,)
         retrieval = next(request for request in later_fixture.requests
             if request.purpose == "resident_developmental_retrieval_cognition")
         assert first.written_record_id in retrieval.upstream_evidence["record_ids"]
         assert retrieval.upstream_evidence["epistemic_projection_id"] == recovered_projection.projection_id
+        assert retrieval.upstream_evidence["self_model_projection_id"] == recovered_self_model.projection_id
         assert first_fixture.requests
 
         # A fully re-digested but ledger-substituted attempt remains degraded.
