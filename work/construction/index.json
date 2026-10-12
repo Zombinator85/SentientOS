@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "e4d0e82b0c25961a1c9e7262f924220b66f9279658fabbeef38814b23c1c8128",
-    "latest_segment_sequence": 44,
-    "latest_segment_sha256": "5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
-    "source_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
-    "source_tree": "f34432c7453146573f9152f19825f63b00654d17"
+    "checkpoint_sha256": "acf1404f2e3d173e17745c223417fbae623747634189aff870d3195873e85d37",
+    "latest_segment_sequence": 45,
+    "latest_segment_sha256": "1cfa5155628aeaf90fc4f4371210eedc6a480162f90ae64f0446578bcf819caf",
+    "source_commit": "2c8fb64f8dd8b37bfde5b9887c53520131cdb032",
+    "source_tree": "b1f84f13f287a27b3fa1a246f14e48ce711f7d86"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -385,15 +385,6 @@
       "source_tree": "a222a31ef175a5aeb1e73bdb652d91e7f6e81fbd"
     },
     {
-      "bytes": 3078,
-      "path": "work/construction/segments/0044-writeback-receipt-recovery.md",
-      "predecessor": "segment-sha256:43f99c47ecb3b769b579b8b07ea73e2376f070d45d45f6c2c439c27054453d3f",
-      "sequence": 44,
-      "sha256": "6968c0ca60ce348a4a6eddc160818f9098a119af3c6e2e66b86bc72260bca10e",
-      "source_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
-      "source_tree": "f34432c7453146573f9152f19825f63b00654d17"
-    },
-    {
       "bytes": 3085,
       "path": "work/construction/segments/0044-writeback-receipt-recovery.md",
       "predecessor": "segment-sha256:6968c0ca60ce348a4a6eddc160818f9098a119af3c6e2e66b86bc72260bca10e",
@@ -401,6 +392,15 @@
       "sha256": "5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
       "source_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
       "source_tree": "f34432c7453146573f9152f19825f63b00654d17"
+    },
+    {
+      "bytes": 936,
+      "path": "work/construction/segments/0045-continuation-index-correction.md",
+      "predecessor": "segment-sha256:5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
+      "sequence": 45,
+      "sha256": "1cfa5155628aeaf90fc4f4371210eedc6a480162f90ae64f0446578bcf819caf",
+      "source_commit": "2c8fb64f8dd8b37bfde5b9887c53520131cdb032",
+      "source_tree": "b1f84f13f287a27b3fa1a246f14e48ce711f7d86"
     }
   ],
   "source_acquisition": {
