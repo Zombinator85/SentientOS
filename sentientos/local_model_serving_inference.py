@@ -146,6 +146,7 @@ class ProductionServingInferenceController:
             "activation_receipt_semantic_digest": binding["activation_receipt_semantic_digest"],
             "model_serving_admission_ref": binding["model_serving_admission_ref"],
             "authority_map_digest": binding["authority_map_digest"],
+            "model_id": binding["model_id"],
             "observed_loaded_model_identity": identity,
             "artifact_id": binding["artifact_id"],
             "artifact_sha256": binding["artifact_sha256"],

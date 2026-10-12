@@ -58,6 +58,14 @@
       "sequence": 6,
       "sha256": "125eebc8603395817b5b11a4a288eaab5ca2e7cdaa26c0653766d6b3ac6cb98d",
       "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
+    },
+    {
+      "bytes": 2278,
+      "path": "work/construction/segments/0007-resource-invocation-world-state.md",
+      "predecessor": "segment-sha256:125eebc8603395817b5b11a4a288eaab5ca2e7cdaa26c0653766d6b3ac6cb98d",
+      "sequence": 7,
+      "sha256": "0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
+      "source_commit": "74cb9906756be7cd4b72bfbd8f0f0c1529c89492"
     }
   ],
   "workspace_reconciliation": {

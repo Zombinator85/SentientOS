@@ -166,6 +166,13 @@ else:
 
                 return decorator
 
+            def on_event(self, _event_type: str) -> Callable[[Handler], Handler]:
+                """Accept lifecycle declarations when the optional web runtime is absent."""
+                def decorator(fn: Handler) -> Handler:
+                    return fn
+
+                return decorator
+
 
 __all__ = [
     "Body",

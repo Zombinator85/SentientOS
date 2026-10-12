@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 SCHEMA_VERSION="world_state_board.v1"
-LIFECYCLE_STAGES=("observation","proposal","review","admission","execution","rollback","adoption","repository_handoff","repository_landing")
+LIFECYCLE_STAGES=("observation","history","proposal","review","admission","attempt","execution","rollback","adoption","repository_handoff","repository_landing")
 FALSE_AUTHORITY={"decision_authority":False,"admission_authority":False,"execution_authority":False,"adoption_authority":False,"repository_mutation_authority":False}
 
 class WorldStateSourceKind(str, Enum):

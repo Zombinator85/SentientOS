@@ -1,0 +1,74 @@
+{
+  "checks": {
+    "compileall": "passed for all changed Python files",
+    "git_diff_check": "passed",
+    "focused_pytest_command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-resource-invocation-test/governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-resource-invocation-test/runtime SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-resource-invocation-test/federation SENTIENTOS_REPO_ROOT=/tmp/sentientos-resource-invocation-test/repo PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-resource-invocation-test/trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-resource-invocation-test/trust/state.json uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q sentientos/tests/test_resource_observation_world_state_integration.py tests/test_local_model_serving_inference.py tests/test_production_chat_resource_context.py tests/test_production_chat_resource_provisioning_bundle_producer.py tests/test_world_state_board.py",
+    "focused_pytest_result": "33 passed",
+    "production_acceptance": "not performed"
+  },
+  "findings": [
+    {
+      "defect": "Serving operation-history verification called re.fullmatch without importing re; a real serving receipt made the read-only observer raise NameError.",
+      "path": "sentientos/local_model_production_serving.py",
+      "repair": "Import re in the owner module."
+    },
+    {
+      "defect": "The serving-history World-State projector emitted legitimate attempt and history lifecycle stages that the World-State builder rejected.",
+      "path": "sentientos/world_state_board.py",
+      "repair": "Admit the two existing evidence stages while retaining digest, identity, and effect validation."
+    },
+    {
+      "defect": "Completed chat invocation receipts omitted model_id from serving-lifetime linkage, so the real stored-receipt verifier could not bind the receipt to the serving operation.",
+      "path": "sentientos/local_model_serving_inference.py",
+      "repair": "Include the model identity already held by the serving receipt in canonical invocation linkage."
+    },
+    {
+      "defect": "The optional FastAPI import fallback lacked the lifecycle decorator used by chat_service, preventing offline lifecycle tests and imports.",
+      "path": "sentientos/fastapi_stub.py",
+      "repair": "Add the fallback's no-op decorator; no application startup or shutdown action is executed by the stub."
+    },
+    {
+      "defect": "The resource-provisioning restart fixture attempted to acquire a second single-process ledger owner without releasing the first.",
+      "path": "tests/test_production_chat_resource_provisioning_bundle_producer.py",
+      "repair": "Release the first owner before reconstruction, matching lock release at process exit."
+    }
+  ],
+  "positive_control": {
+    "result": "passed",
+    "tests": [
+      "sentientos/tests/test_resource_observation_world_state_integration.py::test_explicit_read_only_resource_owner_reaches_runtime_world_state",
+      "sentientos/tests/test_resource_observation_world_state_integration.py::test_owner_produced_invocation_and_debit_reach_world_state",
+      "tests/test_production_chat_resource_context.py::test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_contamination"
+    ],
+    "observed": [
+      "A real temporary installation bundle producer issued one allocation under a single-process mutable chat owner.",
+      "The real serving controller entered the test backend and atomically registered its validated invocation receipt in installation custody.",
+      "Read-only observation recovered the exact allocation, attempt, measured completion, reconciled receipt, invocation identity, and effect-receipt digest into World-State.",
+      "The persistent-chat owner completed two turns against the same pre-issued allocation; transcripts did not contain protected resource-custody fields.",
+      "Consumption event time remained historical and the World-State resource fact was undated; read-only projection did not promote it to a current observation.",
+      "Host-wide CPU/GPU attribution remained unknown; effect authority and effect-proven flags remained false."
+    ]
+  },
+  "schema_version": 1,
+  "scope": "complete the owner-produced local invocation and resource debit path through installation custody and resident World-State",
+  "source_parent": {
+    "commit": "74cb9906756be7cd4b72bfbd8f0f0c1529c89492",
+    "tree": "4acb1bbf7ad53bea7f5aebe576844cca5470cc8d"
+  },
+  "source_sha256": {
+    "sentientos/fastapi_stub.py": "c91243052da5b3191ef1ef27be449ef64f8d05dd7a914b54a418a1f6327bd26e",
+    "sentientos/local_model_production_serving.py": "d40f3e1b0781c9f23d1d2a87bf2cd79accd31cfaf5011b1f3227ef21eca65807",
+    "sentientos/local_model_serving_inference.py": "84b74f3506ef6035ea9b17ba6ea5122bfbc8771ef14863e740e9b4003b6cbda9",
+    "sentientos/world_state_board.py": "583de6f4d0069ed101e1716f36afb0807599dbd097667f070dc5299652816b0b",
+    "sentientos/tests/test_resource_observation_world_state_integration.py": "0b5cd980d06a48240a4af4c3d0c689af70a3c5ebdc50d446ab1661680c760222",
+    "tests/test_local_model_serving_inference.py": "cc935955386f79c955b37251deebf658104f3b94a1a999e03804234350f50417",
+    "tests/test_production_chat_resource_context.py": "480b6f9b76448a86b7377295294f8cafaaaaf376126df53b28e0a08874a05b82",
+    "tests/test_production_chat_resource_provisioning_bundle_producer.py": "12a721fb4df82c96f41b62a24b775362313a198a3fbfa2ddd2c9cd854733a8d0"
+  },
+  "status": "focused_owner_composition_passed; production_unverified",
+  "limitations": [
+    "The repository root conftest intentionally rejected the available noncanonical Python environment; the focused hermetic suites were run with --noconftest and explicit disposable state roots.",
+    "The backend and activation proof use existing deterministic test fixtures; no real model, production activation, external provider, physical measurement, or effect was used.",
+    "This fixture has no authenticated chat launcher handoff or running software-generation issuer, so process generation remains explicitly unavailable and the daemon health posture remains degraded for that separate missing evidence."
+  ]
+}
