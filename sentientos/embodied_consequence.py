@@ -717,12 +717,13 @@ class GovernedStrategyCognitionBackend:
 
     def __init__(self, *, invoker: Any, model_id: str, model_artifact_digest: str,
                  inference_budget: Mapping[str, Any], caller: str,
-                 resident_runtime_owner: Any | None = None) -> None:
+                 resident_runtime_owner: Any | None = None,
+                 resource_context_owner: Any | None = None) -> None:
         from .governed_local_model_invocation import GovernedLocalModelInvoker, LocalModelInvocationBudget
-        from .resident_cognitive_model_serving import ResidentCognitiveModelServingInvoker, ResidentCognitiveServingSlot
+        from .resident_cognitive_model_serving import ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot
         if not isinstance(caller, str) or not caller.strip() or len(caller) > 128:
             raise EmbodiedConsequenceError("governed_strategy_caller_invalid")
-        if type(invoker) not in {GovernedLocalModelInvoker, ResidentCognitiveModelServingInvoker,
+        if type(invoker) not in {GovernedLocalModelInvoker, ResidentCognitiveServingInvoker,
                 ResidentCognitiveServingSlot}:
             raise EmbodiedConsequenceError("existing_governed_local_invoker_required")
         if resident_runtime_owner is not None:
@@ -732,6 +733,10 @@ class GovernedStrategyCognitionBackend:
                 raise EmbodiedConsequenceError("resident_software_generation_owner_unsupported_on_platform") from exc
             if type(resident_runtime_owner) is not MaintenanceResidentRuntimeAdoptionController:
                 raise EmbodiedConsequenceError("resident_software_generation_owner_required")
+        if resource_context_owner is not None:
+            from .production_chat_resource_context import ProductionChatResourceContextOwner
+            if type(resource_context_owner) is not ProductionChatResourceContextOwner:
+                raise EmbodiedConsequenceError("existing_governed_resource_context_owner_required")
         try:
             self.budget = LocalModelInvocationBudget(**dict(inference_budget))
         except (TypeError, ValueError) as exc:
@@ -747,6 +752,11 @@ class GovernedStrategyCognitionBackend:
         self.model_artifact_digest = model_artifact_digest
         self.caller = caller
         self.resident_runtime_owner = resident_runtime_owner
+        # This is a borrowed, explicitly injected owner of an already-issued
+        # allocation. It can create per-call contexts, but this adapter cannot
+        # issue or replenish entitlement; its caller retains close/lifetime
+        # responsibility for the owner's single-process ledger lock.
+        self.resource_context_owner = resource_context_owner
         self.protocol: dict[str, Any] | None = None
         self._last_execution_evidence: dict[str, Any] | None = None
 
@@ -798,7 +808,10 @@ class GovernedStrategyCognitionBackend:
             linkage={"experiment_condition": condition,
                 "experiment_protocol_id": self.protocol["protocol_id"],
                 "history_record_ids": [str(item.get("record_id", "")) for item in history]})
-        receipt = self.invoker.invoke(request, persist=True, include_output_in_receipt=False)
+        invoke_options: dict[str, Any] = {"persist": True, "include_output_in_receipt": False}
+        if self.resource_context_owner is not None:
+            invoke_options["resource_context"] = self.resource_context_owner.next_context()
+        receipt = self.invoker.invoke(request, **invoke_options)
         receipt_value = receipt.to_dict(include_output=False)
         self._last_execution_evidence = {"condition": condition,
             "execution_posture": "incomplete_invocation_receipt",
@@ -2247,6 +2260,7 @@ class ConsequenceStore:
                 proposal_id = status.get("proposal_id")
                 if isinstance(proposal_id, str):
                     statuses_by_proposal.setdefault(proposal_id, []).append(status)
+            proposal_occurrences: dict[tuple[str, str], int] = {}
             execution_by_condition: dict[str, Mapping[str, Any]] = {}
             for execution in execution_rows:
                 if not isinstance(execution, Mapping) or not isinstance(execution.get("condition"), str):
@@ -2262,9 +2276,16 @@ class ConsequenceStore:
                 proposal_statuses = statuses_by_proposal.get(proposal.strategy_id, [])
                 matching_statuses = [status for status in proposal_statuses
                     if status.get("proposal_digest") == proposal.strategy_digest]
-                if len(matching_statuses) != 1:
+                proposal_key = (proposal.strategy_id, proposal.strategy_digest)
+                occurrence = proposal_occurrences.get(proposal_key, 0)
+                if occurrence >= len(matching_statuses):
                     raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
-                proposal_status = matching_statuses[0]
+                # Repeated semantic proposals are legitimate experimental
+                # outcomes (notably history_present == history_restored).
+                # Bind each occurrence to its ordered condition status rather
+                # than treating a repeated proposal identity as ambiguous.
+                proposal_status = matching_statuses[occurrence]
+                proposal_occurrences[proposal_key] = occurrence + 1
                 condition = str(proposal_status.get("condition", ""))
                 if (condition not in condition_order or proposal_status.get("status") not in {"completed", "contradictory"}):
                     raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
@@ -2354,7 +2375,7 @@ class ConsequenceStore:
                             }
                 proposal_record: dict[str, Any] = {
                     "source_kind":"embodiment",
-                    "source_id":f"strategy-experiment-proposal:{identity}:{proposal.strategy_id}",
+                    "source_id":f"strategy-experiment-proposal:{identity}:{condition}:{proposal.strategy_id}",
                     "schema_version":STRATEGY_SCHEMA,
                     "subject_id":proposal.strategy_id,
                     "subject_kind":"embodied_strategy_proposal",
@@ -2500,6 +2521,7 @@ class ConsequenceStore:
             proposals = result.get("proposals")
             if not isinstance(statuses, list) or not isinstance(proposals, list):
                 raise EmbodiedConsequenceError("stored_strategy_experiment_condition_lineage_invalid")
+            proposal_occurrences: dict[tuple[str, str], int] = {}
             for raw in proposals:
                 if not isinstance(raw, Mapping):
                     raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_invalid")
@@ -2507,12 +2529,17 @@ class ConsequenceStore:
                 matches = [item for item in statuses if isinstance(item, Mapping)
                     and item.get("proposal_id") == proposal.strategy_id
                     and item.get("proposal_digest") == proposal.strategy_digest]
-                if len(matches) != 1 or matches[0].get("status") not in {"completed", "contradictory"}:
+                proposal_key = (proposal.strategy_id, proposal.strategy_digest)
+                occurrence = proposal_occurrences.get(proposal_key, 0)
+                if occurrence >= len(matches) or matches[occurrence].get("status") not in {"completed", "contradictory"}:
                     raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
-                condition = matches[0].get("condition")
+                status = matches[occurrence]
+                proposal_occurrences[proposal_key] = occurrence + 1
+                condition = status.get("condition")
                 if condition not in {"history_present", "history_withheld", "history_restored"}:
                     raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_status_invalid")
-                execution_contexts = projected_contexts.get((proposal.strategy_id, proposal.strategy_digest), [])
+                execution_contexts = [item for item in projected_contexts.get(proposal_key, [])
+                    if item.get("condition") == condition]
                 if len(execution_contexts) != 1:
                     raise EmbodiedConsequenceError("stored_strategy_experiment_proposal_projection_ambiguous")
                 records.append(strategy_proposal_review_record(proposal,

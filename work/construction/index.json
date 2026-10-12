@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "1a5a07187db277a39a99e516951d1d8fa8777627ac96581478bb8788d8c8eb09",
-    "latest_segment_sequence": 57,
-    "latest_segment_sha256": "a61b3c70ecffcc5fa2652c8bd6409bc5d58eb1a884488e3e2c9566db328112f7",
-    "source_commit": "ead58cbf7ee81974fc33954d0ab09c43fd33d8b3",
-    "source_tree": "d941548b51a5ee2568ee511f372707d4ca8ec6e4"
+    "checkpoint_sha256": "57d8cbd10428f219efa53590022c41ab3410bedba59786b55ac132bd6bcb973d",
+    "latest_segment_sequence": 58,
+    "latest_segment_sha256": "9ef547b5d2f7875f5413625663507b117caa4dc14d1134ddca3bf217f4739f5e",
+    "source_commit": "d3ad5130b0054b6f0d96df3312567f3f86d2e903",
+    "source_tree": "7d949d6546e26e055eb98de6674c77322815b3a0"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -509,6 +509,15 @@
       "sha256": "a61b3c70ecffcc5fa2652c8bd6409bc5d58eb1a884488e3e2c9566db328112f7",
       "source_commit": "ead58cbf7ee81974fc33954d0ab09c43fd33d8b3",
       "source_tree": "d941548b51a5ee2568ee511f372707d4ca8ec6e4"
+    },
+    {
+      "bytes": 2616,
+      "path": "work/construction/segments/0058-governed-resource-strategy-proposal-join.md",
+      "predecessor": "segment-sha256:a61b3c70ecffcc5fa2652c8bd6409bc5d58eb1a884488e3e2c9566db328112f7",
+      "sequence": 58,
+      "sha256": "9ef547b5d2f7875f5413625663507b117caa4dc14d1134ddca3bf217f4739f5e",
+      "source_commit": "d3ad5130b0054b6f0d96df3312567f3f86d2e903",
+      "source_tree": "7d949d6546e26e055eb98de6674c77322815b3a0"
     }
   ],
   "source_acquisition": {
