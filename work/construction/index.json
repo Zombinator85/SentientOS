@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "1491fef91ad8b46fb69c3c1e4231b8dc2e909f14c26b70864839d2e07f2561ca",
+    "checkpoint_sha256": "b93235de2458f3d39a8ed888bc9a83778c2c218ceaaf3694d879780e723b9aa1",
     "latest_segment_sequence": 65,
-    "latest_segment_sha256": "393ada44db0a4a0c7b059ae7a2aa5318a3795031300f9df612047fef44f7c086",
-    "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3",
-    "source_tree": "8b708346dbf54535f0f49a404c435e769cbe2bcc"
+    "latest_segment_sha256": "c7ed951fe566244904faf2f0ef28e16e88a4f81ccda489c26a8e5d749c3ebdcb",
+    "source_commit": "8c620dc0672e77f036433ecc20b079aa9444da0e",
+    "source_tree": "0acb1821c8e043994b81748800091d7706fd2068"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -579,6 +579,14 @@
       "sequence": 65,
       "sha256": "393ada44db0a4a0c7b059ae7a2aa5318a3795031300f9df612047fef44f7c086",
       "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3"
+    },
+    {
+      "bytes": 1582,
+      "path": "work/construction/segments/0065-epistemic-event-time-dispositions.md",
+      "predecessor": "segment-sha256:606f2678a9bc047d61d24655949cb3cd0f6c9dd7444c8377b3ee604dfc046dc8",
+      "sequence": 65,
+      "sha256": "c7ed951fe566244904faf2f0ef28e16e88a4f81ccda489c26a8e5d749c3ebdcb",
+      "source_commit": "8c620dc0672e77f036433ecc20b079aa9444da0e"
     }
   ],
   "source_acquisition": {

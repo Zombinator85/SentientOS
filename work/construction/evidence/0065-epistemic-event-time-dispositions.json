@@ -1,0 +1,56 @@
+{
+  "compile": {
+    "command": "python -m py_compile sentientos/resident_epistemic_development.py sentientos/longitudinal_self_model.py",
+    "status": "passed"
+  },
+  "diff_check": {
+    "command": "git diff --check -- sentientos/longitudinal_self_model.py",
+    "status": "passed"
+  },
+  "dispositions": [
+    {
+      "items": [
+        {
+          "basis": "Current _latest_historical_event_time requires timezone-aware parseable instants. _adapt selects times from source payloads/receipts and preserves undated state; source integrity conflicts erase support time.",
+          "behavior": "Select latest valid historical source event time without using World-State retrieval/reconstruction time; malformed or naive timestamps remain unknown.",
+          "disposition": "A"
+        },
+        {
+          "basis": "Current _adapt requires verified resource lineage and empty findings; also checks predecessor receipt shape, causal-resource recovery posture, and complete retention before eligible support. This is stricter than the historical condition.",
+          "behavior": "Keep incomplete/substituted resource lineage contextual and non-supporting.",
+          "disposition": "B"
+        },
+        {
+          "basis": "Current adapter distinguishes source event time, observation time, retrieval time, and reconstruction time; runtime transition recovery is intentionally undated, while only qualified point observations can carry current freshness.",
+          "behavior": "Historical model/software/embodiment observations do not become current because they were recovered recently.",
+          "disposition": "A"
+        }
+      ],
+      "patch_lines": "4684-5010 (resident_epistemic_development.py portion; exact hunks matched by path and function context)",
+      "path": "sentientos/resident_epistemic_development.py",
+      "remote_source_blob": "0dbcaf819039eaa9c2f666568b708c7f2fe5fbfc",
+      "working_blob": "0dbcaf819039eaa9c2f666568b708c7f2fe5fbfc"
+    }
+  ],
+  "focused_execution": {
+    "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 with isolated SENTIENTOS_* roots: /tmp/sentientos-test-venv/bin/python -m pytest -q -rs tests/test_resident_epistemic_development.py tests/test_longitudinal_self_model.py tests/test_developmental_model_replacement_resource_lineage_integration.py --tb=short --junitxml=glow/test_runs/0065-epistemic-event-time-junit.xml",
+    "failed": 0,
+    "junit_path": "glow/test_runs/0065-epistemic-event-time-junit.xml",
+    "junit_sha256": "668db618f5d35d98c1b3e9d7b4a1e029bf8f337aa6e88d6faecddec0f0731a12",
+    "passed": 43,
+    "scope": "Hermetic owner fixtures and deterministic cognition backend.",
+    "skipped": 0,
+    "tests_collected": 43
+  },
+  "historical_patch": {
+    "bytes": 399831,
+    "path": "/tmp/sentientos-original-candidate-2e320/tracked-changes-excluding-conflicted-journal.patch",
+    "sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307"
+  },
+  "mypy": "not run",
+  "production_status": "unverified",
+  "schema_version": 1,
+  "semantic_result": "No unique missing behavior justified from this hunk; incorporated/stricter current behavior retained. No production or actual-model performance evidence.",
+  "source_commit": "8c620dc0672e77f036433ecc20b079aa9444da0e",
+  "source_tree": "0acb1821c8e043994b81748800091d7706fd2068"
+}
