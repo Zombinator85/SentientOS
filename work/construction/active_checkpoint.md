@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-- Fresh remote source before seq62: `57f737904003db2581378689278e50df9256d341`, tree `9fc54e3372b666b73cf5c96388c341881df2c8a3`; `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
-- Latest continuation segment: sequence 62, `work/construction/segments/0062-model-resource-cognition.md`.
-- Seq62 composes actual resource-ledger/invocation receipt custody and model-replacement artifacts through RuntimeMaintenanceSurfaces, World-State, configured epistemic admission, mutation-receipt recovery, immutable developmental writeback, restart, and later cognition. Focused adjacent owner suites passed 164/164. The canonical runner stopped before collection on unavailable isolated build dependency; direct local pytest is synthetic-fixture evidence only. Production remains unverified.
-- Next dependency: continue semantic review of the remaining historical patches and investigate further interruption/recovery or identity gaps in the configured cognition consumers.
+- Fresh remote source before seq63: `f54d04bd69366300fc74ec45d026babe7168a54d`, tree `6a9d3d81801d939c1ed4692f873f98e26197e82e`; `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Latest continuation segment: sequence 63, `work/construction/segments/0063-cognition-epistemic-hunk-dispositions.md`.
+- Seq63 reconciles specific historical hunks for cognition, developmental writeback, and persistent epistemic state as incorporated or superseded against exact remote blobs; no code transplant was justified. Seq62 carries adjacent focused execution evidence.
+- Next dependency: continue source-bound semantic review of longitudinal self-model and epistemic-development handoffs, then address any actual missing behavior rather than equating old/new file differences with omissions.

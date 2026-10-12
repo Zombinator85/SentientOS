@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "8fe87c4937002b4c54a63f8c73fb05320efea3a28b1760d4d9190f4ac1b5a4a4",
-    "latest_segment_sequence": 62,
-    "latest_segment_sha256": "0f79c3ae78854ea83b463c4cf7ae863ada379357840211f35b0eb789ac33bb43",
-    "source_commit": "57f737904003db2581378689278e50df9256d341",
-    "source_tree": "9fc54e3372b666b73cf5c96388c341881df2c8a3"
+    "checkpoint_sha256": "e46dfaafe2c0dc8e45a7d4b42bbf1b1f08351c19ecab09045c147eb0db4aee43",
+    "latest_segment_sequence": 63,
+    "latest_segment_sha256": "7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
+    "source_commit": "f54d04bd69366300fc74ec45d026babe7168a54d",
+    "source_tree": "6a9d3d81801d939c1ed4692f873f98e26197e82e"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -554,6 +554,15 @@
       "sha256": "0f79c3ae78854ea83b463c4cf7ae863ada379357840211f35b0eb789ac33bb43",
       "source_commit": "57f737904003db2581378689278e50df9256d341",
       "source_tree": "9fc54e3372b666b73cf5c96388c341881df2c8a3"
+    },
+    {
+      "bytes": 3246,
+      "path": "work/construction/segments/0063-cognition-epistemic-hunk-dispositions.md",
+      "predecessor": "segment-sha256:0f79c3ae78854ea83b463c4cf7ae863ada379357840211f35b0eb789ac33bb43",
+      "sequence": 63,
+      "sha256": "7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
+      "source_commit": "f54d04bd69366300fc74ec45d026babe7168a54d",
+      "source_tree": "6a9d3d81801d939c1ed4692f873f98e26197e82e"
     }
   ],
   "source_acquisition": {
