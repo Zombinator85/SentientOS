@@ -1,0 +1,565 @@
+{
+  "schema_version": 2,
+  "verified_remote": {
+    "branch": "codex/construct-sentientos",
+    "commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
+    "tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef",
+    "commit_object_read_back": true,
+    "tree_from_commit_object": true
+  },
+  "published_main": {
+    "commit": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+    "relationship": "ancestor",
+    "ahead_by": 661,
+    "behind_by": 0,
+    "merge_base": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d"
+  },
+  "acquisition": {
+    "clean_clone_attempt": "git clone --filter=blob:none --no-checkout --depth=1 --branch codex/construct-sentientos https://github.com/Zombinator85/SentientOS.git /tmp/sentientos-great-reconciliation",
+    "result": "blocked: proxy port 8080 unreachable",
+    "retries": 1,
+    "source_fallback": "exact-ref GitHub contents reads for named files; no stale local tree substituted"
+  },
+  "historical_checkout": {
+    "path": "/workspace/SentientOS",
+    "head": "2e3208a9024f7162b877373824c8bab31f25bd12",
+    "tree": "cd4734cb8ba2979732c188686064bc377dffd69a",
+    "branch": "codex/construct-sentientos",
+    "staged_changes": 0,
+    "unstaged_changed_paths": 48,
+    "untracked_paths": 6,
+    "read_only": true
+  },
+  "source_comparisons": [
+    {
+      "bytes": 27360,
+      "local_git_blob_sha": "b8ec2cf2565d01be749aeb832677afe5ec6ddeef",
+      "local_sha256": "4ab749a712e64e258068f64244c439ea20180bd56b72d4f5bd7b4599be05e125",
+      "path": "sentientos/chat_service.py",
+      "tracked": true,
+      "remote_git_blob_sha": "33f8ba2aa67e9ee1cc03c28a2bf29390deae960e",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 13574,
+      "local_git_blob_sha": "6c6c5aeb7583d5e3b5c962514846533a453d9317",
+      "local_sha256": "c1fb5025470e26460c17d771ab16cc15b9b84d1fe96e5a658838ef9e616b779f",
+      "path": "sentientos/conversation_session.py",
+      "tracked": true,
+      "remote_git_blob_sha": "231543032c451bbb730398934749494ea2a05552",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 14712,
+      "local_git_blob_sha": "9e5392927532468f1573bc63f7349a68ba5e1428",
+      "local_sha256": "b200d3ec91edf19cc0b428daaf503e9e8d8b42d2d89f507eaf282166ec325774",
+      "path": "sentientos/developmental_history_intervention_experiment.py",
+      "tracked": true,
+      "remote_git_blob_sha": "30ddbb41fb88939465629d7485849e330926ae71",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 35687,
+      "local_git_blob_sha": "601e43e2d63e7e0e306aa6af37d5e346bb48c47c",
+      "local_sha256": "5d29590adf0c1dc0ec001623b754b6937cf805e0ebd9dded94a9eb646489c401",
+      "path": "sentientos/developmental_model_replacement_campaign.py",
+      "tracked": true,
+      "remote_git_blob_sha": "601e43e2d63e7e0e306aa6af37d5e346bb48c47c",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 107086,
+      "local_git_blob_sha": "5289067cc534d6a75f2a050000e7fcb883b8c226",
+      "local_sha256": "f679330a953ba4d87cb7718d568819b3cb95e6761ad7ddf4ba27e306a538d594",
+      "path": "sentientos/developmental_model_replacement_experiment.py",
+      "tracked": true,
+      "remote_git_blob_sha": "23cb7bd5850f8fa440d8a8380ec889564f75e808",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 22781,
+      "local_git_blob_sha": "8895c264ca78287bd0916cc7f187a951d12b6cc0",
+      "local_sha256": "86b6da3d87f5d6bb5837147487d5ae77b216da17a8c41fd945a3abea0450fe55",
+      "path": "sentientos/developmental_model_replacement_experimental_serving.py",
+      "tracked": true,
+      "remote_git_blob_sha": "7dd8dfdc3aa3cc5d32f50e54c5a43ff966962767",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 172609,
+      "local_git_blob_sha": "f7cabf5d5268474f9fd11c05fb32bd4dc18ad5a7",
+      "local_sha256": "c0d9ca5915c471f08a735c973895c4de85fd9f96e8196e2589d9ed310fa91472",
+      "path": "sentientos/embodied_consequence.py",
+      "tracked": true,
+      "remote_git_blob_sha": "5992e82b91143ddc38b913094703660dc42aa3a9",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 20082,
+      "local_git_blob_sha": "5a7227ec1e386d9a1927ba13fce364cf5dd106e7",
+      "local_sha256": "5ee7c25c1ce5f5e0bc69d4cda03d193df6fe27bb540e8e61e7767766624df171",
+      "path": "sentientos/embodiment_fulfillment.py",
+      "tracked": true,
+      "remote_git_blob_sha": "5a7227ec1e386d9a1927ba13fce364cf5dd106e7",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 20915,
+      "local_git_blob_sha": "7571476f5832ef27808dd511fcf6d60d63b9c147",
+      "local_sha256": "9f07d4ecbaa829cd7b5b49e469f6f6c2341a09add433c254ff80b010361256c4",
+      "path": "sentientos/embodiment_proposal_review.py",
+      "tracked": true,
+      "remote_git_blob_sha": "7571476f5832ef27808dd511fcf6d60d63b9c147",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 57616,
+      "local_git_blob_sha": "9adbbfdcbbbead276d2b03e194ef3a8a65f5125d",
+      "local_sha256": "782abab803596e1a619965f753e6b698cdc3ab7ea2229c35d47ac0fcd5091674",
+      "path": "sentientos/host_resource_runtime.py",
+      "tracked": true,
+      "remote_git_blob_sha": "772b0feb484581c6e876af3566c67cb5d61d6e21",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 25749,
+      "local_git_blob_sha": "036901ab88e7c5ab974866374f482e1c8262cde6",
+      "local_sha256": "03e28684dab767e5cb70463e604a58f7ba8b60eace299797d94a8a1efc546406",
+      "path": "sentientos/installation_state.py",
+      "tracked": true,
+      "remote_git_blob_sha": "036901ab88e7c5ab974866374f482e1c8262cde6",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 19097,
+      "local_git_blob_sha": "d3c26df963ac0ba7e6f9daed333d42b4e23631bf",
+      "local_sha256": "61fd2609d14f9d1b5640a52282f15070370099036b8633e0d0fd530666673b0a",
+      "path": "sentientos/local_model_production_serving.py",
+      "tracked": true,
+      "remote_git_blob_sha": "022e1ef288fe9c0ddb6587ff10ef3b849e337d26",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 12047,
+      "local_git_blob_sha": "0b8fbd678b65120871025e268e9d6c17d0c3e89f",
+      "local_sha256": "8874475718021c61d06bacf9956d939243a371ab7c9bf1f5ae0926b7389ead1b",
+      "path": "sentientos/local_model_serving_inference.py",
+      "tracked": true,
+      "remote_git_blob_sha": "3fa116fffea0c52534e093e32d5897f3a2405348",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 47115,
+      "local_git_blob_sha": "9041820ac3791c44f44e7adee2de8f41459dc435",
+      "local_sha256": "211f4620467ff29d5888b8b6b740b2534bb305daf716bc7849b7b247ff10afa9",
+      "path": "sentientos/longitudinal_self_model.py",
+      "tracked": true,
+      "remote_git_blob_sha": "ceed12d4ce888c237b7dbc392c02cd89f4bbfea5",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 24909,
+      "local_git_blob_sha": "227ec6ef58ff3e28a85cece056098677bd19bbdc",
+      "local_sha256": "977535e3a661d039b16eb6bf88cfe978a1d878bf34f146cb76a996dadfd43e1c",
+      "path": "sentientos/maintenance_activation_profiles.py",
+      "tracked": true,
+      "remote_git_blob_sha": "227ec6ef58ff3e28a85cece056098677bd19bbdc",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 24822,
+      "local_git_blob_sha": "254c53acedea5b322b249662707938bf59812e33",
+      "local_sha256": "a101cfe07dc6b0f15c3f82ef3fb752e7d7c47b49abd86348313a22d8854ded6f",
+      "path": "sentientos/maintenance_authority_continuity.py",
+      "tracked": true,
+      "remote_git_blob_sha": "254c53acedea5b322b249662707938bf59812e33",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 22234,
+      "local_git_blob_sha": "c331e54f006cd3cb03645f5f3c3d7da3d86df63f",
+      "local_sha256": "088b3f53768a892d05a5e07f89b348604b5ea972b54df410981653486378d58b",
+      "path": "sentientos/maintenance_autonomy_cycle.py",
+      "tracked": true,
+      "remote_git_blob_sha": "c331e54f006cd3cb03645f5f3c3d7da3d86df63f",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 25306,
+      "local_git_blob_sha": "b9deaf9cb015f0024294a2acf5a289b515d0000d",
+      "local_sha256": "5e16a8c68fb63477dd3ae3031df09cc6eca7b70298a1ad57ed6c35c7164b702a",
+      "path": "sentientos/maintenance_candidate_collector.py",
+      "tracked": true,
+      "remote_git_blob_sha": "b9deaf9cb015f0024294a2acf5a289b515d0000d",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 43688,
+      "local_git_blob_sha": "c4831a861c36bfad45d3e99cb501a5cd94c159f1",
+      "local_sha256": "08f59291b939d8cdce925d903e3be430160196e71a10ebc23296a59d4d47d135",
+      "path": "sentientos/maintenance_commit_publication.py",
+      "tracked": true,
+      "remote_git_blob_sha": "c4831a861c36bfad45d3e99cb501a5cd94c159f1",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 16071,
+      "local_git_blob_sha": "5833ae5db152adb8537d94fa78bef0a6c4a2c8dc",
+      "local_sha256": "121ddc9ea0ccd5910ddc0707fd96fdb42e387be5f970f1a1f873c209045bfab1",
+      "path": "sentientos/maintenance_health_probe.py",
+      "tracked": true,
+      "remote_git_blob_sha": "5833ae5db152adb8537d94fa78bef0a6c4a2c8dc",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 25746,
+      "local_git_blob_sha": "f34717ffbe6aab2480c010151b8b2460e578377b",
+      "local_sha256": "f9e47e0293da193558a1873d8bdab5d5a87283a917296ecb51a17306d28ab99d",
+      "path": "sentientos/maintenance_implementation_agent.py",
+      "tracked": true,
+      "remote_git_blob_sha": "f34717ffbe6aab2480c010151b8b2460e578377b",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 35082,
+      "local_git_blob_sha": "1e00f1f92ef078ff2b57414180904e8d1450c8b0",
+      "local_sha256": "8db60fd45b72a020f9d655f82d2d6c0acb800e5a89e6672a9fd1bf346279b168",
+      "path": "sentientos/maintenance_initial_posix_resident_commissioning.py",
+      "tracked": true,
+      "remote_git_blob_sha": "d23c87d8fc329d0992882b835a4493871db9f5e3",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 30042,
+      "local_git_blob_sha": "4bc7a700502d9ff15b3cbb3cee2ed1993e0ee995",
+      "local_sha256": "514ea1767add8190f13b753fd3aa45264df8c34308e6305ad224042b18392f75",
+      "path": "sentientos/maintenance_local_codex_foreman.py",
+      "tracked": true,
+      "remote_git_blob_sha": "4bc7a700502d9ff15b3cbb3cee2ed1993e0ee995",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 25373,
+      "local_git_blob_sha": "509de9933dfa4ee2ecf603b018115f3802ae15da",
+      "local_sha256": "984510c3cce97752a350477b80226156b1a08970c6c6178d921aa440fb383eee",
+      "path": "sentientos/maintenance_loop_activation.py",
+      "tracked": true,
+      "remote_git_blob_sha": "509de9933dfa4ee2ecf603b018115f3802ae15da",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 14412,
+      "local_git_blob_sha": "f90d12c3f15b20d9d2c4c4075315f2c508f7bc28",
+      "local_sha256": "97695e1d30754b7b7d9b693f91c0ebfc2e42ec1a26c1281473b77be6575b93b5",
+      "path": "sentientos/maintenance_loop_scheduler.py",
+      "tracked": true,
+      "remote_git_blob_sha": "f90d12c3f15b20d9d2c4c4075315f2c508f7bc28",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 44400,
+      "local_git_blob_sha": "94e09fe81bf443488e246d3ace6d76070af0b9ca",
+      "local_sha256": "3bb0ed4799abc79015a87b7c44908a51e5b89bf50e40f23a0a2fb8d9d50502fb",
+      "path": "sentientos/maintenance_loop_watchdog.py",
+      "tracked": true,
+      "remote_git_blob_sha": "94e09fe81bf443488e246d3ace6d76070af0b9ca",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 50347,
+      "local_git_blob_sha": "7b4bce062173b59e541e9e177351cd28ad7863d1",
+      "local_sha256": "52b946f5c7115c37e3105c3fe9a323e7e19899f3bd3f4dbf5b11e0947f1e76bb",
+      "path": "sentientos/maintenance_post_adoption_attribution_campaign.py",
+      "tracked": true,
+      "remote_git_blob_sha": "7b4bce062173b59e541e9e177351cd28ad7863d1",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 47565,
+      "local_git_blob_sha": "ab27e9d53a97d2f8214711000112f8fa898ef573",
+      "local_sha256": "8b3f2fecd6185e561636af5995c2ce3c313e19e0d527e1c56f5542b82a1005b5",
+      "path": "sentientos/maintenance_resident_runtime_adoption.py",
+      "tracked": true,
+      "remote_git_blob_sha": "d1de8bae6558180693e23bc2ee2aea66668dd3d2",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 30777,
+      "local_git_blob_sha": "0e3a0fd3d29040c4a1a53895a2bc2ee4ef074a00",
+      "local_sha256": "0cf4ca0c6b97da136a05ccf8dcd3f92523d20c5cba9b55e249ce1647ede68688",
+      "path": "sentientos/maintenance_successor_generation_adoption.py",
+      "tracked": true,
+      "remote_git_blob_sha": "aed4c864ac096f40ad94e0500a0cd1269d06e022",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 22170,
+      "local_git_blob_sha": "0b61cbb64c61d363faec5115c1a40dea09d6df9d",
+      "local_sha256": "63da0be42da58c6ab87bdbc92feca8fb798e2e9d7aacc24bbd56dbb63dad2c57",
+      "path": "sentientos/maintenance_task_authority_lease.py",
+      "tracked": true,
+      "remote_git_blob_sha": "0b61cbb64c61d363faec5115c1a40dea09d6df9d",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 42145,
+      "local_git_blob_sha": "4dae72cda20f37884ff1aff53c96c760694f7391",
+      "local_sha256": "6506b6362395a5ab1ff9b49774a3f3bf045313b8a05b9abd78584566acf4a652",
+      "path": "sentientos/maintenance_task_journal.py",
+      "tracked": true,
+      "remote_git_blob_sha": "4dae72cda20f37884ff1aff53c96c760694f7391",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 60005,
+      "local_git_blob_sha": "502fee010bc4c7292612dabb03d4fe116f8e459f",
+      "local_sha256": "99b221a327224a92a0db9ae5363c3b34cd740bab7af1a11e47818199bfed5785",
+      "path": "sentientos/maintenance_validation_controller.py",
+      "tracked": true,
+      "remote_git_blob_sha": "502fee010bc4c7292612dabb03d4fe116f8e459f",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 12970,
+      "local_git_blob_sha": "921185455a3a8aa4f3cd0fd9344e6e546157bce4",
+      "local_sha256": "90c21d3d7474c7aa282fd0028491b88dc17d1aa17b5e39aeebd0d81b067ab77e",
+      "path": "sentientos/maintenance_wake_cycle.py",
+      "tracked": true,
+      "remote_git_blob_sha": "921185455a3a8aa4f3cd0fd9344e6e546157bce4",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 24173,
+      "local_git_blob_sha": "69bd9ff4a466897fe60a291d3812a36e8fc4d245",
+      "local_sha256": "855e71d8718f97f4fb679d2b2e6322d1e4f9da8662fe4b348757ff49ce21bcc6",
+      "path": "sentientos/maintenance_wake_daemon_adoption.py",
+      "tracked": true,
+      "remote_git_blob_sha": "69bd9ff4a466897fe60a291d3812a36e8fc4d245",
+      "classification": "A already_published_exact"
+    },
+    {
+      "bytes": 60772,
+      "local_git_blob_sha": "9099403e8c8fccf259b531e518261857146db583",
+      "local_sha256": "7eb8031260822faaf68122b308a71b84b1883514df141abd282dfbb1ecd44f03",
+      "path": "sentientos/persistent_epistemic_state.py",
+      "tracked": true,
+      "remote_git_blob_sha": "defbaeafae7aaafbfd39a5df5b0600195031bf0c",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 6960,
+      "local_git_blob_sha": "7cb42340650fe38b6a76cca8295f8344fb9dbce1",
+      "local_sha256": "5ed425d77ac53ed88fabb9c2a3602cb2cce9c6ef6c88b5a22238316ec9c69531",
+      "path": "sentientos/production_chat_resource_context.py",
+      "tracked": true,
+      "remote_git_blob_sha": "7383dee8cc9aa3a80691b6bf7074c905f60af9b7",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 29084,
+      "local_git_blob_sha": "d24229e12d6940bc0f7fb2378ac19125b2ddc49e",
+      "local_sha256": "261a05c0dff60b7f825ace1bc51b214273eb57f441a56981e02d44eb244aa7d2",
+      "path": "sentientos/resident_cognitive_model_serving.py",
+      "tracked": true,
+      "remote_git_blob_sha": "16c37f175972d5854583b9f14b6b72739d36194c",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 35907,
+      "local_git_blob_sha": "2912706df770c38140ce7a2c96650df7785649b9",
+      "local_sha256": "3c2c01c9439f7a81e78bec9624e88a04b84a6777d05c2aa67fb60d761228359a",
+      "path": "sentientos/resident_cognitive_model_transition_experiment.py",
+      "tracked": true,
+      "remote_git_blob_sha": "c8634e1e01354ac936c03cae254dd0327338151a",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 29703,
+      "local_git_blob_sha": "22b6800dcd436c15ba03809902079015ecdc62e8",
+      "local_sha256": "74cde32ba9d40e93610000760331b2f79f82fac79fcee26f308c849776d595e5",
+      "path": "sentientos/resident_cognitive_transition_operator.py",
+      "tracked": true,
+      "remote_git_blob_sha": "3ae15a207cbd384704ff31ee4c4b95445acf1a15",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 61596,
+      "local_git_blob_sha": "51dbd6e7682f7119c9b0e12b0961b79269b974bd",
+      "local_sha256": "467210136fcda64ce85ebcb0fa734ea3dfa2269e3b13b7fd81514777df0e84c8",
+      "path": "sentientos/resident_developmental_cognition.py",
+      "tracked": true,
+      "remote_git_blob_sha": "fdd41c79264b6db2b331ba4ac0a7df35dcc5e2e9",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 47487,
+      "local_git_blob_sha": "2f2f7fd06b757d175149c641d6529e44f004087c",
+      "local_sha256": "e164325a41ed1f062f65056494d64db1585c3244e8dcbde05c1ddf670e2e8007",
+      "path": "sentientos/resident_developmental_writeback.py",
+      "tracked": true,
+      "remote_git_blob_sha": "7a1afda19c4e8666b6bec3138d75066c6a4202e2",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 27948,
+      "local_git_blob_sha": "5f85aba9de3ae04560c506f8580e1a5cfda818b7",
+      "local_sha256": "2d4d1fc043c6843e726fd24f38fb64110cf4af44024a538b7014cdb9eba8cc55",
+      "path": "sentientos/resident_epistemic_development.py",
+      "tracked": true,
+      "remote_git_blob_sha": "0dbcaf819039eaa9c2f666568b708c7f2fe5fbfc",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 36957,
+      "local_git_blob_sha": "9e6187559002b7410ab9fa58a280087d6abaf4b0",
+      "local_sha256": "6f63c818e3299219e54632dae32afdd4488c4d0b4db09c2a5067c6b0a0404541",
+      "path": "sentientos/resident_epistemic_state_mutation.py",
+      "tracked": true,
+      "remote_git_blob_sha": "269d1a5e29c862dce3b991bd8d17e1d863139fe8",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 12278,
+      "local_git_blob_sha": "780baa82c49bc3ce14d75a08138f219e37a81e97",
+      "local_sha256": "c9934728898f068fcde3791670576f1fb353833be3bc46c83fa68daeee36bfeb",
+      "path": "sentientos/runtime_admission.py",
+      "tracked": true,
+      "remote_git_blob_sha": "bd51d6f4a7276caa2ad549535dcfb6909cb9da2a",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 19163,
+      "local_git_blob_sha": "9e368e93f4dc6d03d600a62a585d4d368977a287",
+      "local_sha256": "2917eab5fd598cb0e77be258afe51d98ea8cf5f62265c737e903ab4e251c5f68",
+      "path": "sentientos/windows_handle_custody.py",
+      "tracked": true,
+      "remote_git_blob_sha": "7ed870d19556f8ac79dd17fa3c96e42aa4e3d001",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 17622,
+      "local_git_blob_sha": "7d6066b4fac5361cc08be9b82b465a3ed44023f2",
+      "local_sha256": "c4c2f7b1f8525c31ae89e6022fc0bb72bbb7bf06ffa27f6d70af38d41ce93756",
+      "path": "sentientos/world_state_board.py",
+      "tracked": true,
+      "remote_git_blob_sha": "63dbf213dad3a8f2047f4a9abdad6e13728b29fc",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 187257,
+      "local_git_blob_sha": "362b3d0d9ea34b7d32ffd44042051bf7f3d2b700",
+      "local_sha256": "c2e9800d88428844a4993cb49b0e8d3e6172983621234adacf0882e23df82bfb",
+      "path": "sentientosd.py",
+      "tracked": true,
+      "remote_git_blob_sha": "136abc3a6bc674d4afc97ec398233950304e6d44",
+      "classification": "E uncertain_different_source_requires_semantic_reconciliation"
+    },
+    {
+      "bytes": 1152,
+      "local_git_blob_sha": "be6582905145d2004819d6adab7ffc7b7183502b",
+      "local_sha256": "77c35670701b7511b10cad6547b68441c3e471b07058c438e121551c54055186",
+      "path": "sentientos/platform_fcntl.py",
+      "tracked": false,
+      "remote_git_blob_sha": "be6582905145d2004819d6adab7ffc7b7183502b",
+      "classification": "A already_published_exact"
+    }
+  ],
+  "preserved_non_python_entries": [
+    {
+      "bytes": 31397,
+      "classification": "E uncertain_non_prefix_legacy_journal_conflict",
+      "path": "work/sentientos_night_watch_continuation.md",
+      "remote_sha256": "1e2ddf6bdf8de2851fb752c4189035d6d7a46e0653aa53bdec37ffcd972ef7dd",
+      "state": "unstaged_modified",
+      "working_sha256": "71f659dd28b42c38d840ec0ca5bb8846b98816ec79c7191ab8b32e498d5ed45b",
+      "source_comparison": "preserved from prior exact-ref inventory; no content copied"
+    },
+    {
+      "bytes": 160148,
+      "canonical_match": null,
+      "classification": "D generated_or_remote_transfer_artifact",
+      "path": "work/remote_embodied_consequence.b64",
+      "state": "untracked",
+      "working_sha256": "e9088d6e7e278e0b1e31319257345690d1cc8a4b0ac3ac6a124e0773cd0f3d8b",
+      "source_comparison": "preserved from prior exact-ref inventory; no content copied"
+    },
+    {
+      "bytes": 120110,
+      "canonical_match": null,
+      "classification": "D generated_or_remote_transfer_artifact",
+      "path": "work/remote_embodied_consequence.raw",
+      "state": "untracked",
+      "working_sha256": "9bf9a2b86f52d986a051884d75e53eb277ef16bc8e47eadf9b8a9f25e195f6ea",
+      "source_comparison": "preserved from prior exact-ref inventory; no content copied"
+    },
+    {
+      "bytes": 160148,
+      "canonical_match": null,
+      "classification": "D generated_or_remote_transfer_artifact",
+      "path": "work/remote_sentientosd.b64",
+      "state": "untracked",
+      "working_sha256": "c94fbda7b6e0661f29f271ad4ad2c56d4d4d12cfc9202f1a54cd524d06110e82",
+      "source_comparison": "preserved from prior exact-ref inventory; no content copied"
+    },
+    {
+      "bytes": 120110,
+      "canonical_match": null,
+      "classification": "D generated_or_remote_transfer_artifact",
+      "path": "work/remote_sentientosd.raw",
+      "state": "untracked",
+      "working_sha256": "3db578159492b7a8612b014b5e8b1194499fa8bd3cd26b35b53b99027e7aad89",
+      "source_comparison": "preserved from prior exact-ref inventory; no content copied"
+    },
+    {
+      "path": "/tmp/sentientos-original-candidate-2e320/remote_embodied_consequence.py",
+      "bytes": 120028,
+      "sha256": "52e3cfdbaea9fac65225c738b446714abff41e397c940c50d617500e212cebf6",
+      "classification": "E uncertain_untracked_candidate",
+      "state": "preserved_candidate_outside_checkout"
+    }
+  ],
+  "counts": {
+    "python_paths": 48,
+    "A": 22,
+    "E": 26,
+    "D": 4,
+    "non_python_uncertain": 2,
+    "tracked_plus_untracked_source_paths": 48,
+    "total_reconciliation_entries": 54,
+    "E_total": 28
+  },
+  "semantic_review": {
+    "disposition": "partial; source identity comparisons are complete for named Python paths, but only owner excerpts were reviewed semantically; no differing file is promoted as uniquely valuable or discarded",
+    "reviewed": [
+      {
+        "path": "sentientos/host_resource_runtime.py",
+        "finding": "The exact remote source contains additional verified chat-process-generation attribution and predecessor-receipt inputs beyond the local resource projection excerpt. This supports the remote as the current composition baseline, but does not prove every local hunk is obsolete; file remains E."
+      },
+      {
+        "path": "sentientos/world_state_board.py",
+        "finding": "Both versions exclude the record's own digest from producer digest scope; full contract/hash comparison across all records remains unverified. File remains E."
+      },
+      {
+        "path": "sentientos/resident_epistemic_development.py",
+        "finding": "Remote source includes explicit historical event-time and incomplete-resource-lineage qualification. No full semantic comparison of every changed hunk; file remains E."
+      },
+      {
+        "path": "sentientosd.py",
+        "finding": "Remote excerpt composes resident succession and bounded owner observations; local file has differing content. Full composition comparison remains incomplete; file remains E."
+      }
+    ],
+    "candidate_preservation": {
+      "path": "/tmp/sentientos-original-candidate-2e320/tracked-changes-excluding-conflicted-journal.patch",
+      "bytes": 399831,
+      "sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307",
+      "path2": "/tmp/sentientos-original-candidate-2e320/remote_embodied_consequence.py",
+      "bytes2": 120028,
+      "sha256_2": "52e3cfdbaea9fac65225c738b446714abff41e397c940c50d617500e212cebf6",
+      "disposition": "preserved separate; not applied",
+      "patch_bytes": 399831,
+      "patch_sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307",
+      "candidate_file_verified": true
+    },
+    "next": "Continue bounded semantic review of remaining changed source owners; retain E where compatibility or provenance is not established, then inspect exact untracked candidate and determine whether any isolated test/artifact is recoverable without merging stale source."
+  }
+}

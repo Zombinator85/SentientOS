@@ -114,11 +114,20 @@
       "sequence": 13,
       "sha256": "a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
       "source_commit": "ada178bc412a9a2ebf82d225575947c7d959a568"
+    },
+    {
+      "sequence": 14,
+      "path": "work/construction/segments/0014-workspace-reconciliation-current-remote.md",
+      "predecessor": "segment-sha256:a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
+      "sha256": "7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
+      "bytes": 2130,
+      "source_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451"
     }
   ],
   "workspace_reconciliation": {
-    "path": "work/workspace_reconciliation_20261012.json",
-    "sha256": "d114da5e49dec24b404d34c8ccad3befedc7999d32e6dd0dae52193ff7391093",
-    "verified_remote_commit": "613a14b959451deff64442e5a2ed6145be3e7aac"
+    "path": "work/workspace_reconciliation_20261012-6ba0d6d.json",
+    "sha256": "08b7820ed97269bfb1e85858d4acc017ac232c6163362de442ec21f86e293a91",
+    "verified_remote_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
+    "verified_remote_tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef"
   }
 }
