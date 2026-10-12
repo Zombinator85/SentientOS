@@ -1347,6 +1347,27 @@ class ModelReplacementArtifactStore:
                 classification = "experiment_contradictory" if completion == "contradictory" else "experiment_incomplete"
             if run.get("differences") != differences or run.get("classification") != classification:
                 raise DevelopmentalModelReplacementError("run_projection_comparison_binding_invalid")
+            continuity_assessment = {
+                "schema_version": "sentientos.model_replacement_continuity_assessment:v1",
+                "history_identity": {
+                    "posture": ("frozen_context_record_set_bound" if projection_context is not None
+                        else "historical_context_identity_unavailable"),
+                    "record_set_digest": (projection_context.get("history_record_set_digest")
+                        if projection_context is not None else None),
+                    "cross_process_continuity": "not_established_by_this_run_artifact",
+                },
+                "input_delivery": {
+                    "posture": ("condition_request_lineage_verified" if completion == "completed"
+                        else "incomplete_or_contradictory"),
+                    "model_internal_use": "not_established_by_request_or_receipt_custody",
+                },
+                "output_relation": {
+                    "posture": ("digest_level_observed_association_only"
+                        if completion == "completed" else "not_assessed_incomplete_or_contradictory"),
+                    "classification": classification,
+                    "improvement_posture": "not_assessed",
+                },
+            }
             payload = {
                 "run_id": run_id, "run_digest": run_digest,
                 "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
@@ -1373,6 +1394,7 @@ class ModelReplacementArtifactStore:
                 "observations": observations, "differences": differences,
                 "prior_cognitive_context_posture": prior_cognition_context_posture,
                 "classification": classification,
+                "continuity_assessment": continuity_assessment,
                 "experiment_completion_posture": run.get("experiment_completion_posture", "completed"),
                 "condition_statuses": run.get("condition_statuses"),
                 "condition_lineage_posture": ("verified_durable_condition_journal"

@@ -281,6 +281,14 @@ def test_model_identity_drift_and_a_restoration_mismatch_fail_closed(tmp_path: P
     assert first["classification"] == "experiment_contradictory"
     assert first["failure_posture"] == "contradictory_execution_evidence"
     assert len(first["condition_statuses"]) == 1
+    incomplete_records = exp.store.world_state_records(
+        run_refs=((first["run_id"], first["run_digest"]),))
+    incomplete_assessment = incomplete_records[0]["payload"]["continuity_assessment"]
+    assert incomplete_assessment["input_delivery"]["posture"] == "incomplete_or_contradictory"
+    assert incomplete_assessment["output_relation"]["posture"] == (
+        "not_assessed_incomplete_or_contradictory")
+    assert incomplete_assessment["output_relation"]["improvement_posture"] == "not_assessed"
+    assert incomplete_assessment["output_relation"]["classification"] == "experiment_contradictory"
     # A reconstructed run reads the terminal contradictory condition and never
     # calls the endpoint again.
     call_count = len(a.calls)

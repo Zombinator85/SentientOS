@@ -1,0 +1,81 @@
+{
+  "bounds": {
+    "general_selected_evidence_bytes": 6000,
+    "integrated_fixture_selected_evidence_bytes": 6299,
+    "scope": "one verified embodiment model-replacement v2 fact; mixed and other evidence retain the general cap",
+    "single_verified_model_replacement_v2_limit_bytes": 8192
+  },
+  "canonical_test_runner_git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "canonical_test_runner_git_sha_is_remote_source": false,
+  "compilation": "python -m py_compile on two changed source modules and three changed test modules: passed",
+  "diff_check": "git diff --check on five changed Python files: passed",
+  "files": {
+    "sentientos/developmental_model_replacement_experiment.py": {
+      "bytes": 118385,
+      "sha256": "65ad7b80829811b940335a0b0cc5c328311d1b3cc10a89260e454a2540383c93"
+    },
+    "sentientos/resident_developmental_writeback.py": {
+      "bytes": 117892,
+      "sha256": "47a8d51d8ab24d478c30b82ea8e59c6c8e64e83c0d9d8dfcff5cf3b5847aa5b5"
+    },
+    "tests/test_developmental_model_replacement_experiment.py": {
+      "bytes": 19995,
+      "sha256": "aa272337b833be8d8977e61f9723e2bb22a83f6e1b9a9831a93b40ccad290741"
+    },
+    "tests/test_developmental_record_receipt_ack_recovery.py": {
+      "bytes": 7041,
+      "sha256": "dff69e212826c3ae73752b8c40f38dc8c82d3b736750ad093299d76e9e4edbae"
+    },
+    "tests/test_resource_invocation_process_generation_integration.py": {
+      "bytes": 31196,
+      "sha256": "f7ffe6236749f047507a7816183c312ca83fb63b4dead41440722aab859e7e24"
+    },
+    "work/construction/evidence/0047-focused-junit.xml": {
+      "bytes": 3664,
+      "sha256": "417521d1d2b9c6bea91889fb0431af6d77668e5fcdbcf093912487038c3e0aa2"
+    },
+    "work/construction/evidence/0047-focused-provenance.json": {
+      "bytes": 12286,
+      "sha256": "eb00da8df1e4087b1e12ce61733d9079e27ccd25766669d9db6a1415db378221"
+    },
+    "work/construction/evidence/0047-legacy-junit.xml": {
+      "bytes": 423,
+      "sha256": "64e51246ad4f1b4dfdb34e505492dc8bcfbcdd55bf296f7ba5e19a5ae98d5849"
+    },
+    "work/construction/evidence/0047-legacy-provenance.json": {
+      "bytes": 3045,
+      "sha256": "2235586499743da4746797cdcce8383a790b7d953cce9f1ec882d067a1107a7e"
+    }
+  },
+  "production_model_or_runtime_behavior": "not_exercised",
+  "remote_parent": {
+    "commit": "d4acafd1864194fd1c2eeae61ad400f5ab77323a",
+    "tree": "06aa8776e6fcb0ec7e0e432a0d0757b107205c3d"
+  },
+  "runs": [
+    {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m scripts.run_tests -q tests/test_developmental_record_receipt_ack_recovery.py tests/test_developmental_model_replacement_experiment.py",
+      "failed": 0,
+      "junit": "work/construction/evidence/0047-focused-junit.xml",
+      "passed": 21,
+      "provenance": "work/construction/evidence/0047-focused-provenance.json",
+      "selected": 21,
+      "skipped": 0
+    },
+    {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m scripts.run_tests -- -m legacy tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state -q",
+      "failed": 0,
+      "junit": "work/construction/evidence/0047-legacy-junit.xml",
+      "passed": 1,
+      "provenance": "work/construction/evidence/0047-legacy-provenance.json",
+      "selected": 1,
+      "skipped": 0
+    }
+  ],
+  "schema_version": "sentientos.construction_acceptance_note:v1",
+  "status": "local_focused_fixture_acceptance_only",
+  "typing": {
+    "command": "/tmp/sentientos-exact-venv/bin/python -m mypy --follow-imports=silent sentientos/developmental_model_replacement_experiment.py sentientos/resident_developmental_writeback.py",
+    "result": "passed for both target modules"
+  }
+}

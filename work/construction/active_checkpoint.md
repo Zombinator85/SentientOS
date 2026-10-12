@@ -1,7 +1,7 @@
 # Active construction checkpoint
 
-- Fresh verified branch parent: `codex/construct-sentientos` at `bb6e30b489ba6fc0fc068739dc5830f9c49979e7`, tree `761aa397d905d34656088a8a5bf8ac2154245976`; `main` remains ancestor `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
-- Latest continuation segment: sequence 46, `work/construction/segments/0046-model-replacement-history-integration.md`.
-- The model-replacement run now has a bounded, source-bound World-State to resident-history projection; replacement-context recovery accepts the canonical bare SHA-256 used by World-State snapshot identity while keeping tagged digest checks strict.
-- The composed fixture path now returns through replacement-run World-State, durable history, restart, and later cognition. Final local focused evidence is 21/21 plus the separately selected legacy integration 1/1; changed-owner mypy with silent imports and Python compilation passed. The full import graph still reports 494 untriaged mypy diagnostics across 82 files. The runner's synthetic local Git identity is not the remote source identity; no real-model or production result is claimed.
-- Next: reconcile unresolved historical behavioral hunks against current source owners, prioritizing concrete missing behavior rather than blob differences.
+- Fresh verified branch parent: `codex/construct-sentientos` at `d4acafd1864194fd1c2eeae61ad400f5ab77323a`, tree `06aa8776e6fcb0ec7e0e432a0d0757b107205c3d`; `main` remains ancestor `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Latest continuation segment: sequence 47, `work/construction/segments/0047-model-replacement-continuity-assessment.md`.
+- Replacement outcomes now separately state frozen-history identity, request-input lineage, output-digest association, unknown internal model use, unproven cross-process continuity, and unassessed improvement. A bounded v2 history projection preserves these postures while legacy v1 receipts remain valid.
+- The composed fixture integration passes 21 focused nodes and the separate legacy end-to-end node. Targeted changed-owner mypy, compilation, and diff check passed. The full import graph has 494 untriaged mypy diagnostics across 82 files. No real-model behavior or production result is claimed; local runner identity is synthetic.
+- Next: source-bound semantic review of the historical candidate patch's still-unresolved owner hunks, beginning with the highest-value remaining hunk and testing behavior before disposition.

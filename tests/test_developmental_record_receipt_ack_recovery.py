@@ -68,6 +68,16 @@ def test_verified_model_replacement_run_reaches_recovered_later_cognition(tmp_pa
     assert experiment_fact.payload["claims_posture"] == "bounded_digest_level_observed_association_only"
     assert experiment_fact.payload["authority"] is False
     assert experiment_fact.observed_at is None
+    assessment = experiment_fact.payload["continuity_assessment"]
+    assert assessment["history_identity"]["posture"] == "frozen_context_record_set_bound"
+    assert assessment["history_identity"]["cross_process_continuity"] == (
+        "not_established_by_this_run_artifact")
+    assert assessment["input_delivery"]["posture"] == "condition_request_lineage_verified"
+    assert assessment["input_delivery"]["model_internal_use"] == (
+        "not_established_by_request_or_receipt_custody")
+    assert assessment["output_relation"]["posture"] == (
+        "digest_level_observed_association_only")
+    assert assessment["output_relation"]["improvement_posture"] == "not_assessed"
 
     first, _first_fixture = owner(
         tmp_path / "history", allowed_source_kinds=("embodiment",), max_selected_facts=4)
@@ -82,10 +92,19 @@ def test_verified_model_replacement_run_reaches_recovered_later_cognition(tmp_pa
     assert selected["disposition"] == experiment_fact.disposition
     assert selected["payload"]["protocol_digest"] == run["protocol"]["protocol_digest"]
     assert selected["payload"]["run_digest"] == run["run_digest"]
-    assert selected["payload"]["interpretation_projection_posture"] == "complete"
-    assert selected["payload"]["inference_event_time_postures"] == ["unknown"]
-    assert selected["payload"]["condition_model_digest_encoding"] == "sha256_hex"
+    assert selected["payload"]["projection_posture"] == "complete"
+    assert selected["payload"]["event_time_postures"] == ["unknown"]
+    assert selected["payload"]["vector_hash_encoding"] == "sha256_hex"
     assert len(selected["payload"]["conditions"]) == 5
+    retained_assessment = selected["payload"]["continuity_assessment"]
+    assert retained_assessment["history"] == "bound"
+    assert retained_assessment["history_set_digest"] == assessment[
+        "history_identity"]["record_set_digest"]
+    assert retained_assessment["restart"] == "not_established"
+    assert retained_assessment["input"] == "request_lineage_verified"
+    assert retained_assessment["model_use"] == "not_established"
+    assert retained_assessment["output"] == "digest_association_only"
+    assert retained_assessment["improvement"] == "not_assessed"
     assert selected["payload"]["model_lineage"][0][0] == experiment_fact.payload["model_a_id"]
     assert selected["payload"]["model_lineage"][1][0] == experiment_fact.payload["model_b_id"]
     assert retained.current_truth is False and retained.authority is False

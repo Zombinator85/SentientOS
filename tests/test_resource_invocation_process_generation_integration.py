@@ -418,6 +418,16 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             if fact.subject.subject_kind == "developmental_model_replacement_experiment"]
         assert len(replacement_facts) == 1
         assert replacement_facts[0].payload["run_digest"] == replacement_result["run_digest"]
+        replacement_assessment = replacement_facts[0].payload["continuity_assessment"]
+        assert replacement_assessment["history_identity"]["posture"] == (
+            "frozen_context_record_set_bound")
+        assert replacement_assessment["history_identity"]["cross_process_continuity"] == (
+            "not_established_by_this_run_artifact")
+        assert replacement_assessment["input_delivery"]["posture"] == (
+            "condition_request_lineage_verified")
+        assert replacement_assessment["input_delivery"]["model_internal_use"] == (
+            "not_established_by_request_or_receipt_custody")
+        assert replacement_assessment["output_relation"]["improvement_posture"] == "not_assessed"
         replacement_history_cognition, _replacement_fixture = developmental_owner(
             developmental_root, allowed_source_kinds=("resource_governor", "embodiment"))
         replacement_tick = "2026-09-21T08:44:00+00:00"
@@ -432,6 +442,15 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             if fact["subject"]["subject_kind"] == "developmental_model_replacement_experiment")
         assert retained_replacement["source"]["digest"] == replacement_facts[0].source.digest
         assert retained_replacement["payload"]["run_digest"] == replacement_result["run_digest"]
+        retained_assessment = retained_replacement["payload"]["continuity_assessment"]
+        assert retained_assessment["history_set_digest"] == replacement_assessment[
+            "history_identity"]["record_set_digest"]
+        assert retained_assessment["model_use"] == "not_established"
+        assert retained_assessment["input"] == "request_lineage_verified"
+        assert retained_assessment["output"] == "digest_association_only"
+        assert retained_assessment["classification"] == replacement_assessment[
+            "output_relation"]["classification"]
+        assert retained_assessment["improvement"] == "not_assessed"
         assert replacement_record.current_truth is False and replacement_record.authority is False
         recovered_replacement_cognition, recovered_replacement_fixture = developmental_owner(
             developmental_root, allowed_source_kinds=("resource_governor", "embodiment"))
