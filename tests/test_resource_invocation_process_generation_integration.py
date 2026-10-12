@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import replace
+from datetime import datetime
 import sys
 import time
 from pathlib import Path
@@ -17,6 +19,14 @@ from sentientos.runtime.local_model_chat_service import (
 from sentientosd import RuntimeMaintenanceSurfaces
 from tests.test_local_model_serving_inference import setup as serving_setup
 from tests.test_production_chat_resource_provisioning_bundle_producer import inputs
+from tests.test_resident_epistemic_development import fixture as epistemic_fixture
+from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_EPISTEMIC_STATE_MUTATION,
+    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+)
+from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
+from sentientos.runtime_admission import RuntimeAdmissionVerifier
 
 
 def test_parent_child_resource_invocation_generation_reaches_world_state(
@@ -167,6 +177,65 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         assert len(resource_facts) == 1
         assert resource_facts[0].payload["shared_host_usage_attribution"] == (
             "unknown_without_independent_observation")
+
+        # Admit this exact recovered resource observation through the existing
+        # configured epistemic owner, then reconstruct custody and enforce the
+        # persisted N-to-N+1 cognition cutoff.
+        epistemic_root = tmp_path / "epistemics"
+        epistemic_owner, proposition, _admission_ledger, development = epistemic_fixture(
+            epistemic_root)
+        rule = replace(development.config.rules[0], selector={
+            "source_kind": "resource_governor",
+            "source_id": "governed_local_model_resource_consumption",
+            "subject_kind": "causal_resource_consumption",
+            "stage": "observation",
+            "disposition": "recorded",
+        })
+        development.config = replace(development.config, rules=(rule,))
+        tick_id_n = "2026-09-21T08:40:00+00:00"
+        tick_n = int(datetime.fromisoformat(tick_id_n).timestamp())
+        epistemic_surfaces = RuntimeMaintenanceSurfaces(
+            tmp_path, resource_observation_owner=observer,
+            resource_observation_configuration_status={
+                "status": "configured", "read_only": True, "effect_authority": False},
+            epistemic_state_owner=epistemic_owner,
+            epistemic_state_config={"status": "configured",
+                "cognitive_consumption_enabled": True,
+                "max_cognitive_projection_count": 4},
+            epistemic_development_runtime=development)
+        epistemic_surfaces.build_world_state_board(tick_id=tick_id_n)
+        epistemic_snapshot = epistemic_surfaces.current_world_state_snapshot
+        assert epistemic_snapshot is not None
+        developed = epistemic_surfaces.run_epistemic_development(tick_id=tick_id_n)
+        assert developed["status"] == "state_advanced"
+        assert developed["next_tick_only"] is True and developed["authority"] is False
+        bindings = epistemic_owner.bindings(proposition.proposition_id)
+        assert len(bindings) == 1
+        assert bindings[0].observation_time == "2026-09-21T08:30:00Z"
+        assert bindings[0].freshness != "current"
+        assert epistemic_owner.cognitive_projection(max_states=4, current_tick=tick_n) is None
+
+        recovered_epistemic_owner = PersistentEpistemicStateOwner(
+            epistemic_root / "epistemics", allowed_namespaces=("operator",))
+        ResidentEpistemicStateMutationController(
+            owner=recovered_epistemic_owner,
+            admission_verifier=RuntimeAdmissionVerifier(
+                definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
+                    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION},
+                ledger=_admission_ledger),
+            current_sequence=_admission_ledger.current_sequence,
+            receipt_root=epistemic_root / "receipts")
+        assert recovered_epistemic_owner.cognitive_projection(
+            max_states=4, current_tick=tick_n) is None
+        recovered_state = recovered_epistemic_owner.current_state(proposition.proposition_id)
+        later_projection = recovered_epistemic_owner.cognitive_projection(
+            max_states=4, current_tick=tick_n + 1)
+        assert later_projection is not None, {
+            "state": recovered_state, "verification": recovered_epistemic_owner.verify(),
+            "tick_n": tick_n,
+        }
+        assert later_projection.source_tick == tick_n
+        assert later_projection.state_ids == tuple(developed["successor_state_ids"])
     finally:
         release_path.write_text("release\n", encoding="utf-8")
         adapter.stop()
