@@ -45,6 +45,7 @@ jobs:
             tests/test_pytest_collection_reporter.py \
             tests/test_run_tests_failure_digest.py \
             tests/test_run_tests_bootstrap_airlock.py \
+            tests/test_task_acceptance_verifier.py \
             tests/test_github_hosted_acceptance_workflows.py \
             tests/test_import_inertness_verifier.py \
             tests/integrity/test_import_purity.py
@@ -60,6 +61,7 @@ jobs:
               "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_xfail_as_xfailed_not_skipped",
               "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
               "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
+              "tests/test_task_acceptance_verifier.py::test_setup_phase_skip_cannot_satisfy_a_required_call_node",
           ]
           manifest = {
               "schema_version": "sentientos.task_acceptance:v1",

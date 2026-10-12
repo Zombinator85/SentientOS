@@ -179,5 +179,6 @@ def test_source_validation_verifies_exact_provenance_acceptance_nodes() -> None:
         "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_xfail_as_xfailed_not_skipped",
         "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
         "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
+        "tests/test_task_acceptance_verifier.py::test_setup_phase_skip_cannot_satisfy_a_required_call_node",
     ):
         assert node in source_job
