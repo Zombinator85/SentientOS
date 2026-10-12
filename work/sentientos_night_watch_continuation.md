@@ -3476,3 +3476,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - The controller now emits a distinct failed `integrity_pressure_input` gate while retaining the quarantine failure. Pressure measurement/metrics are explicitly null; an explicitly labeled lockdown-threshold fallback is used only for internal policy calculation. The combined status denies mutation, publish, and automerge.
 - Focused quarantine-pressure and controller cases: **5 passed, 2 deselected by marker**. Changed Python compiled and `git diff --check` passed. Acceptance: `work/integrity_controller_compounded_custody_failure_acceptance.json`.
 - Next: inspect whether downstream integrity-status persistence and World-State preserve both independent failures without replacing unknown pressure with a numeric zero or stale previous status.
+
+
+## 2026-10-12 checkpoint — carry simultaneous integrity failures into World-State
+
+- Continued from verified remote `ab161a9f0bef0c7ab595c50fdb11e84d4222bb5d`, tree `d77365e261a43f5f0637e54c821afb9d069bfeec`. The controller now returns distinct quarantine and pressure-input gates, and the resident adapter already selects bounded gate results through its opt-in World-State source path.
+- Added an actual adapter regression with malformed quarantine state and independently malformed pressure feed. World-State source receives both separate failed gate identities/reasons, controller fail posture, and the canonical integrity digest. No numeric pressure or pressure summary is presented as an observation; attack, compromise, effect, and authority remain false.
+- Focused adapter case: **1 passed with `-m legacy`**. Changed Python compiled and `git diff --check` passed. Acceptance: `work/integrity_controller_cognition_compounded_failure_acceptance.json`.
+- Next: inspect later-cognition historical projection for preserving the pair of gate failures and unknown-pressure posture across ticks/restart; if that path remains accurate, move to another existing defensive evidence producer rather than expanding this schema.
