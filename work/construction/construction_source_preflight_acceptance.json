@@ -1,0 +1,54 @@
+{
+  "coverage": [
+    "fresh exact ref",
+    "dirty source on exact base",
+    "unpublished candidate",
+    "stale dirty checkout",
+    "divergent history",
+    "expected-head publication race",
+    "same tree different commit identity",
+    "wrong origin",
+    "unreachable origin"
+  ],
+  "implementation": "scripts/construction_source_preflight.py",
+  "limitations": [
+    "An exact remote SHA absent from the local Git object database is reported as unavailable; the helper does not fetch to discover its tree or ancestry.",
+    "A network result verifies the observed Git ref only; it is not an authenticated GitHub API observation in environments where transport trust is not independently configured.",
+    "This helper does not authorize commit, push, PR, merge, landing, or production operation."
+  ],
+  "live_readonly_preflight_observation": {
+    "expected_head": "898a638299312cfebe9cc7c89df5680a646e4742",
+    "local_head": "898a638299312cfebe9cc7c89df5680a646e4742",
+    "observed_origin_url": "https://github.com/Zombinator85/SentientOS.git",
+    "purpose": "Read-only ls-remote observation before publication; local candidate paths were listed separately.",
+    "remote_head": "898a638299312cfebe9cc7c89df5680a646e4742",
+    "remote_tree": "5f14c4331e5c34eaa4aadd8ff7dffc50d895003b",
+    "status": "valid_unpublished_changes_on_correct_base"
+  },
+  "read_only_contract": [
+    "no_fetch",
+    "no_checkout",
+    "no_stage",
+    "no_commit",
+    "no_ref_update",
+    "no_publication"
+  ],
+  "result": "8 passed",
+  "schema_version": 1,
+  "source_base": {
+    "commit": "898a638299312cfebe9cc7c89df5680a646e4742",
+    "tree": "5f14c4331e5c34eaa4aadd8ff7dffc50d895003b"
+  },
+  "status": "focused_source_preflight_acceptance_passed; production_unverified",
+  "test_command": "pytest -rA sentientos/tests/test_construction_source_preflight.py",
+  "test_nodes": [
+    "sentientos/tests/test_construction_source_preflight.py::test_exact_clean_remote_base_is_distinguished",
+    "sentientos/tests/test_construction_source_preflight.py::test_unpublished_work_on_exact_base_is_separately_reported",
+    "sentientos/tests/test_construction_source_preflight.py::test_unpublished_commit_is_candidate_and_not_remote_base",
+    "sentientos/tests/test_construction_source_preflight.py::test_stale_and_dirty_historical_checkout_are_both_visible",
+    "sentientos/tests/test_construction_source_preflight.py::test_divergence_and_expected_head_race_are_not_accepted",
+    "sentientos/tests/test_construction_source_preflight.py::test_equal_tree_with_rewritten_commit_is_not_exact_identity",
+    "sentientos/tests/test_construction_source_preflight.py::test_remote_identity_mismatch_fails_closed",
+    "sentientos/tests/test_construction_source_preflight.py::test_unreachable_expected_remote_is_explicitly_unavailable"
+  ]
+}

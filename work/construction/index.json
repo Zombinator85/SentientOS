@@ -18,6 +18,14 @@
       "sequence": 1,
       "sha256": "a8465f1ce1f569a1be95b25a18a494693f5d8f2ec1e52203ad55613f9647b717",
       "source_candidate_commit": "9acb4ff7d29e1313c34b918131c90bf72df0ada4"
+    },
+    {
+      "bytes": 1399,
+      "path": "work/construction/segments/0002-construction-source-preflight.md",
+      "predecessor": "segment-sha256:a8465f1ce1f569a1be95b25a18a494693f5d8f2ec1e52203ad55613f9647b717",
+      "sequence": 2,
+      "sha256": "69ae90a123bcfa91c4ae660042b5bf23cf483d2a92cde535875e70c59ff2fbd4",
+      "source_commit": "898a638299312cfebe9cc7c89df5680a646e4742"
     }
   ],
   "workspace_reconciliation": {
