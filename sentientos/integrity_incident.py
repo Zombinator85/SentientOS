@@ -349,6 +349,14 @@ def inspect_quarantine_incident_custody(
         "incident_id": incident_id,
         "activated_at": activated_at,
         "artifact_status": artifact_status,
+        # This identity is usable for exact incident linkage only when the
+        # immutable artifact bytes passed the canonical artifact verifier. It
+        # remains locally asserted metadata, not an authenticated trace issuer.
+        "incident_governance_trace_id": (
+            artifact_payload.get("governance_trace_id")
+            if artifact_status == "valid" and artifact_payload is not None
+            else None
+        ),
         "artifact_sha256": artifact_digest,
         "feed_status": feed_status,
         "feed_row_sha256": feed_digest,
