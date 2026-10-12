@@ -512,6 +512,55 @@ def test_integrity_controller_gate_results_reach_configured_cognition_as_context
     reset_runtime_governor()
 
 
+def test_unsigned_incident_narrative_is_not_attack_evidence_in_resident_cognition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    reset_runtime_governor()
+    monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0")
+    tick = datetime.now(timezone.utc).isoformat()
+    feed = tmp_path / "pulse" / "integrity_incidents.jsonl"
+    feed.parent.mkdir(parents=True)
+    feed.write_text(json.dumps({
+        "schema_version": 1,
+        "incident_id": "untrusted-narrative-only",
+        "created_at": tick,
+        "severity": "critical",
+        "enforcement_mode": "enforce",
+        "quarantine_activated": True,
+        "triggers": ["attack confirmed: attacker-authored text"],
+    }) + "\n", encoding="utf-8")
+
+    cognition, fake = owner(
+        tmp_path / "cognition", allowed_source_kinds=("audit_trust",))
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=cognition,  # type: ignore[arg-type]
+    )
+    surfaces.build_world_state_board(tick_id=tick)
+    snapshot = surfaces.current_world_state_snapshot
+    assert snapshot is not None
+    fact = next(item for item in snapshot.facts
+        if item.subject.subject_kind == "integrity_controller_observation")
+    assert fact.payload["source_owner"] == "sentientos.integrity_controller.evaluate_integrity"
+    assert fact.payload["attack_established"] is False
+    assert fact.payload["hostile_activity_established"] is False
+    assert fact.payload["independent_signature"] is False
+    assert "pressure_summary" not in fact.payload
+    assert "attack confirmed" not in json.dumps(fact.payload)
+
+    result = surfaces.run_resident_developmental_cognition(tick_id=tick)
+    assert result["written_record_id"]
+    interpretation = next(request for request in fake.requests
+        if request.purpose == "resident_developmental_interpretation")
+    assert "attack confirmed" not in interpretation.prompt
+    assert "does not establish attack, cause, hostile intent, compromise, or a successful defense" in (
+        interpretation.prompt)
+    reset_runtime_governor()
+
+
 def test_integrity_controller_gate_context_becomes_scoped_later_tick_history(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
