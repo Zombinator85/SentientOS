@@ -80,6 +80,25 @@ def test_corrupt_receipt_ledger_cannot_requeue_request_or_reach_forge(
     assert forge.runs == []
 
 
+def test_invalid_integrity_pressure_feed_defers_without_starting_forge_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.enqueue(ForgeRequest(request_id="req-pressure", goal="forge_smoke_noop",
+        goal_id="forge_smoke_noop"))
+    (tmp_path / "pulse/integrity_incidents.jsonl").write_bytes(
+        b'{"created_at":"2026-01-01T00:00:00Z","quarantine_activated":"false"}\n')
+    forge = _FakeForge(tmp_path)
+    daemon = ForgeDaemon(queue=queue, forge=forge, repo_root=tmp_path)
+    monkeypatch.setenv("SENTIENTOS_FORGE_DAEMON_ENABLED", "1")
+
+    daemon.run_tick()
+
+    assert forge.runs == []
+    assert [item.request_id for item in queue.pending_requests()] == ["req-pressure"]
+    assert not queue._load_receipts()  # noqa: SLF001
+
+
 def test_legacy_terminal_receipt_remains_consumed(tmp_path: Path) -> None:
     queue = ForgeQueue(pulse_root=tmp_path / "pulse")
     queue.enqueue(ForgeRequest(request_id="req-legacy", goal="forge_smoke_noop", goal_id="forge_smoke_noop"))

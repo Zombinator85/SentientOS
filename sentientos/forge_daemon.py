@@ -24,7 +24,9 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.event_stream import record as record_event, record_forge_event
 from sentientos.forge_index import update_index_incremental
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
-from sentientos.integrity_pressure import compute_integrity_pressure, update_pressure_state
+from sentientos.integrity_pressure import (
+    IntegrityPressureInputError, compute_integrity_pressure, update_pressure_state,
+)
 from sentientos.integrity_quarantine import (
     QuarantineStateError,
     load_state as load_quarantine_state,
@@ -109,7 +111,18 @@ class ForgeDaemon:
                 level="error",
             )
             return
-        pressure_snapshot = compute_integrity_pressure(self.repo_root)
+        try:
+            pressure_snapshot = compute_integrity_pressure(self.repo_root)
+        except IntegrityPressureInputError as exc:
+            # Do not turn damaged narrative input into zero pressure or a
+            # started request. Leave custody queued for a later tick after
+            # the input can be read and validated.
+            self._emit(
+                f"ForgeDaemon deferred request {request.request_id}: "
+                f"integrity pressure input unavailable ({exc.code})",
+                level="error",
+            )
+            return
         pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
         throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
         posture = resolve_posture()

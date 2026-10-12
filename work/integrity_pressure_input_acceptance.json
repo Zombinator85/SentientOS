@@ -20,10 +20,10 @@
     "malformed_or_duplicate_json": "typed input error; no silent undercount",
     "oversized_or_unstable_file": "typed input error; pressure calculation stops",
     "unsafe_path_or_custody": "typed input error; pressure calculation stops",
-    "automatic_policy": "No new policy is defined; callers retain their existing failure behavior."
+    "automatic_policy": "No new policy is defined; callers retain their existing failure behavior. ForgeDaemon catches this typed input failure before marking a request started and leaves it queued."
   },
   "tests": {
-    "command": "pytest sentientos/tests/test_integrity_pressure.py::test_compute_pressure_from_synthetic_incidents sentientos/tests/test_integrity_pressure.py::test_invalid_incident_feed_rows_block_pressure_calculation sentientos/tests/test_integrity_pressure.py::test_incident_feed_bounds_block_pressure_calculation sentientos/tests/test_integrity_pressure.py::test_incident_feed_symlink_is_not_followed tests/test_sentientosd_runtime_closure.py::test_integrity_controller_observation_is_bounded_context_only_and_opt_in -m 'legacy or no_legacy_skip' -q",
+    "command": "pytest sentientos/tests/test_integrity_pressure.py::test_compute_pressure_from_synthetic_incidents sentientos/tests/test_integrity_pressure.py::test_invalid_incident_feed_rows_block_pressure_calculation sentientos/tests/test_integrity_pressure.py::test_incident_feed_bounds_block_pressure_calculation sentientos/tests/test_integrity_pressure.py::test_incident_feed_symlink_is_not_followed tests/test_forge_queue_daemon.py::test_invalid_integrity_pressure_feed_defers_without_starting_forge_request -m 'legacy or no_legacy_skip' -q",
     "result": "11 passed",
     "python_compilation": "passed",
     "git_diff_check": "passed"
