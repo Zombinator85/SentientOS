@@ -32,6 +32,17 @@ from sentientos.signed_strategic import latest_signature, latest_sig_hash_short
 from sentientos.goal_graph import load_goal_state
 from sentientos.strategic_adaptation import strategic_cooldown_until
 from sentientos.consistency_checks import compare_tick_vs_replay
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError,
+    list_bounded_json_names_at,
+    open_private_directory,
+    read_private_file_at,
+)
+from sentientos.windows_handle_custody import (
+    WindowsHandleCustodyError,
+    read_explicit_file,
+    verify_explicit_directory,
+)
 
 SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
@@ -566,13 +577,110 @@ def _latest_quarantines(root: Path) -> list[dict[str, object]]:
     return rows
 
 def _latest_incident(root: Path) -> dict[str, object]:
-    items = sorted((root / "glow/forge/incidents").glob("incident_*.json"), key=lambda item: item.name)
-    if not items:
-        return {}
-    return _load_json(items[-1])
+    directory = root / "glow/forge/incidents"
+    max_entries = 4096
+    max_bytes = 1_048_576
+    if os.name == "posix":
+        try:
+            directory_fd = open_private_directory(directory, create=False)
+        except PrivateFileCustodyError as exc:
+            if exc.code == "directory_root_missing":
+                return {"_forge_incident_custody": "absent"}
+            return {"_forge_incident_custody": "unavailable", "_forge_incident_reason": exc.code}
+        try:
+            try:
+                names = list_bounded_json_names_at(
+                    directory_fd, max_entries=max_entries,
+                    max_directory_entries=max_entries + 1024,
+                )
+                candidates = [name for name in names if name.startswith("incident_")]
+                if not candidates:
+                    return {"_forge_incident_custody": "absent"}
+                data = read_private_file_at(
+                    directory_fd, candidates[-1], max_bytes=max_bytes,
+                    require_private_mode=False, require_owner_read=True,
+                )
+            except PrivateFileCustodyError as exc:
+                return {"_forge_incident_custody": "invalid", "_forge_incident_reason": exc.code}
+        finally:
+            os.close(directory_fd)
+    elif os.name == "nt":
+        try:
+            verify_explicit_directory(directory)
+            names: list[str] = []
+            entry_count = 0
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    entry_count += 1
+                    if entry_count > max_entries + 1024:
+                        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "directory_entry_limit_exceeded"}
+                    if entry.name.endswith(".json"):
+                        names.append(entry.name)
+                        if len(names) > max_entries:
+                            return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "directory_file_count_limit_exceeded"}
+            candidates = sorted(name for name in names if name.startswith("incident_"))
+            if not candidates:
+                return {"_forge_incident_custody": "absent"}
+            data = read_explicit_file(directory / candidates[-1], max_bytes=max_bytes,
+                require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return {"_forge_incident_custody": "absent"}
+            return {"_forge_incident_custody": "invalid", "_forge_incident_reason": str(exc)}
+        except OSError as exc:
+            return {"_forge_incident_custody": "unavailable", "_forge_incident_reason": type(exc).__name__}
+    else:
+        return {"_forge_incident_custody": "unsupported"}
+
+    try:
+        payload = json.loads(
+            data.decode("utf-8", errors="strict"),
+            object_pairs_hook=_incident_unique_object,
+            parse_constant=_incident_reject_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "json_invalid"}
+    if not isinstance(payload, dict):
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "object_required"}
+    if ("schema_version" in payload
+            and (type(payload["schema_version"]) is not int or payload["schema_version"] != 1)):
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "schema_unsupported"}
+    if not isinstance(payload.get("incident_id"), str) or not payload["incident_id"]:
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "incident_id_invalid"}
+    if _parse_iso(payload.get("created_at") if isinstance(payload.get("created_at"), str) else "") is None:
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "event_time_invalid"}
+    if "triggers" in payload and (
+        not isinstance(payload["triggers"], list)
+        or len(payload["triggers"]) > 512
+        or any(not isinstance(item, str) or len(item) > 512 for item in payload["triggers"])
+    ):
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "triggers_invalid"}
+    payload["_forge_incident_custody"] = (
+        "bounded_record_valid" if "schema_version" in payload else "bounded_legacy_record"
+    )
+    return payload
+
+
+def _incident_unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in payload:
+            raise ValueError("duplicate_key")
+        payload[key] = value
+    return payload
+
+
+def _incident_reject_constant(value: str) -> None:
+    raise ValueError("invalid_json_constant:" + value)
 
 
 def _incident_summary(incident: dict[str, object]) -> dict[str, object]:
+    custody = incident.get("_forge_incident_custody")
+    if custody not in {"bounded_record_valid", "bounded_legacy_record"}:
+        return {
+            "custody_status": custody or "unknown",
+            "custody_reason": incident.get("_forge_incident_reason"),
+        }
     raw_triggers = incident.get("triggers")
     triggers: list[object] = raw_triggers if isinstance(raw_triggers, list) else []
     compact = [str(item) for item in triggers[:3]]
@@ -581,6 +689,7 @@ def _incident_summary(incident: dict[str, object]) -> dict[str, object]:
         "severity": incident.get("severity"),
         "triggers": compact,
         "incident_id": incident.get("incident_id"),
+        "custody_status": custody,
     }
 
 

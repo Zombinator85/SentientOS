@@ -486,3 +486,79 @@ def test_index_includes_retention_observability(tmp_path: Path, monkeypatch) -> 
     assert payload["retention_last_summary"]["archived_items"] == 3
     assert payload["catalog_redirects_count"] == 1
     assert payload["rollup_status"] in {"ok", "missing"}
+
+
+def test_latest_incident_uses_bounded_record_and_exposes_custody_status(tmp_path: Path) -> None:
+    from sentientos.forge_index import _incident_summary, _latest_incident
+
+    directory = tmp_path / "glow/forge/incidents"
+    directory.mkdir(parents=True)
+    (directory / "incident_2026-10-12T00-00-00Z_valid.json").write_text(
+        json.dumps({
+            "schema_version": 1,
+            "incident_id": "incident-valid",
+            "created_at": "2026-10-12T00:00:00Z",
+            "severity": "warning",
+            "triggers": ["receipt_chain_warning"],
+        }),
+        encoding="utf-8",
+    )
+
+    incident = _latest_incident(tmp_path)
+    summary = _incident_summary(incident)
+
+    assert incident["_forge_incident_custody"] == "bounded_record_valid"
+    assert summary["custody_status"] == "bounded_record_valid"
+    assert summary["incident_id"] == "incident-valid"
+    assert summary["triggers"] == ["receipt_chain_warning"]
+
+
+def test_latest_incident_invalid_newest_record_is_not_replaced_by_older_claim(
+    tmp_path: Path,
+) -> None:
+    from sentientos.forge_index import _incident_summary, _latest_incident
+
+    directory = tmp_path / "glow/forge/incidents"
+    directory.mkdir(parents=True)
+    (directory / "incident_001.json").write_text(json.dumps({
+        "schema_version": 1,
+        "incident_id": "older-valid",
+        "created_at": "2026-10-11T00:00:00Z",
+        "severity": "warning",
+        "triggers": ["older"],
+    }), encoding="utf-8")
+    (directory / "incident_999.json").write_text('{"incident_id":"newer-unverified"', encoding="utf-8")
+
+    summary = _incident_summary(_latest_incident(tmp_path))
+
+    assert summary["custody_status"] == "invalid"
+    assert summary["custody_reason"] == "json_invalid"
+    assert "incident_id" not in summary
+
+
+def test_latest_incident_rejects_symlink_and_oversized_record(tmp_path: Path) -> None:
+    import os
+    import pytest
+
+    from sentientos.forge_index import _latest_incident
+
+    if os.name != "posix":
+        pytest.skip("POSIX no-follow incident artifact fixture")
+    directory = tmp_path / "glow/forge/incidents"
+    directory.mkdir(parents=True)
+    outside = tmp_path / "outside.json"
+    outside.write_text(json.dumps({
+        "schema_version": 1,
+        "incident_id": "outside",
+        "created_at": "2026-10-12T00:00:00Z",
+    }), encoding="utf-8")
+    (directory / "incident_001.json").symlink_to(outside)
+
+    result = _latest_incident(tmp_path)
+    assert result["_forge_incident_custody"] == "invalid"
+    assert "incident_id" not in result
+
+    (directory / "incident_001.json").unlink()
+    (directory / "incident_002.json").write_bytes(b" " * (1_048_577))
+    result = _latest_incident(tmp_path)
+    assert result["_forge_incident_custody"] == "invalid"
