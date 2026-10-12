@@ -12,6 +12,11 @@ def _fact(payload):
         payload=payload,
         source=SimpleNamespace(source_id="chat-invocation"),
         fact_id="fact-1",
+        stage="observation",
+        observed_at="2026-10-12T00:00:00Z",
+        evidence_strength="receipt_bound",
+        effect_claimed=False,
+        effect_proven=False,
     )
 
 
@@ -52,7 +57,9 @@ def test_chat_recovery_priority_requires_loaded_code_scope_qualification() -> No
         subject=SimpleNamespace(subject_kind="chat_process_recovery_transition"),
         disposition="recorded", payload=payload,
         source=SimpleNamespace(source_id="chat-recovery"),
-        fact_id="fact-2")
+        fact_id="fact-2", stage="observation", observed_at=None,
+        evidence_strength="phase_chain_with_terminal_receipt",
+        effect_claimed=False, effect_proven=False)
     owner = ResidentDevelopmentalCognitionOwner
     assert owner._fact_selection_key(fact, "runtime_supervisor")[0] == 4
     incomplete = dict(payload)

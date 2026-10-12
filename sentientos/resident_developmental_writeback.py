@@ -1401,12 +1401,14 @@ class ResidentDevelopmentalWritebackController:
                                 or any(character not in "0123456789abcdef" for character in source_payload_digest)):
                             raise DevelopmentalWritebackError("durable_resource_source_payload_digest_invalid")
             admission = self.admission_verifier.recorded_admission(record.admission_id)
+            # The recorded admission's configuration digest below binds the
+            # exact operation_id. Recovery must not infer that identity again
+            # from correlation_id: the public append owner accepts explicit,
+            # independently admitted operation identities.
             if (admission.binding_digest != record.admission_binding_digest
                     or admission.effects != EFFECTS or record.principal != PRINCIPAL
                     or admission.principal_id != PRINCIPAL
-                    or admission.subject_id != candidate.candidate_id
-                    or record.operation_id != "resident-developmental-writeback:" +
-                        record.correlation_id.removesuffix(":resident-developmental-writeback") + ":" + candidate.candidate_id):
+                    or admission.subject_id != candidate.candidate_id):
                 raise DevelopmentalWritebackError("durable_admission_binding_mismatch")
             request_digest = self.admission_configuration_digest(candidate, operation_id=record.operation_id)
             try:

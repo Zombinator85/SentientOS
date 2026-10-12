@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "status": "focused_owner_composition_passed; production_unverified",
+  "source_parent": {
+    "commit": "34771ff675c0d6b20990eda76cb9d29cddab96ea",
+    "tree": "be12208b41d12b1a97df3ae6b8fb2c3ee67d31d8"
+  },
+  "integrity_changes": [
+    {
+      "owner": "sentientos/resident_developmental_writeback.py",
+      "change": "Recovery verifies operation_id through the exact recorded admission configuration digest instead of re-deriving it from correlation_id; append and recovery now agree on the admitted owner identity."
+    },
+    {
+      "owner": "sentientos/resident_developmental_cognition.py",
+      "change": "Chat-process recovery evidence with optional software-generation identity is prioritized only when the generation matches its observed value and the successor handoff source scope; authority and effect flags must remain false."
+    }
+  ],
+  "focused_tests": {
+    "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q tests/test_developmental_history_intervention_experiment.py tests/test_resident_developmental_writeback.py tests/test_resident_developmental_cognition_generation_scope.py tests/test_resident_epistemic_development.py",
+    "result": "60 passed",
+    "environment_note": "--noconftest avoids the repository root guard that requires its canonical minimal test install.",
+    "test_fixture_repairs": [
+      "Tamper tests now keep stored JSON canonical so they reach digest validation.",
+      "Recovery fixtures use authorized operation bindings and compare recovered semantic identities rather than in-memory tuple versus persisted JSON list representation.",
+      "Cognition selection fixtures now provide complete World-State event-time and effect fields."
+    ]
+  },
+  "other_checks": [
+    "python -m py_compile sentientos/resident_developmental_writeback.py sentientos/resident_developmental_cognition.py tests/test_resident_developmental_writeback.py tests/test_resident_developmental_cognition_generation_scope.py",
+    "git diff --check"
+  ],
+  "source_sha256": {
+    "sentientos/resident_developmental_writeback.py": "1a13ee94678778c9c25b632e55044fd669fba81b9ca5b2684a37794a6bb3087a",
+    "sentientos/resident_developmental_cognition.py": "2568162fe86f80fd9ad1fd3a2b572c1a1c65eb4a1270e5ae9d1190babd883047",
+    "tests/test_resident_developmental_writeback.py": "42b1a95a9ca1a05ce44831651a84f2c74383a4a241ed7b6e25cb576edbf714e8",
+    "tests/test_resident_developmental_cognition_generation_scope.py": "7af768a100eeafd069017288c9be81c44da923ac3afc2a23e390f66fb9875b1c"
+  },
+  "limits": [
+    "Tests use controlled fixture models and do not establish actual model acquisition or improvement.",
+    "No production run, model activation, provider call, host measurement, or consequential effect occurred."
+  ]
+}

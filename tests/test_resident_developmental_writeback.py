@@ -156,7 +156,7 @@ def test_candidate_tamper_and_store_identity_collision_fail_closed(tmp_path: Pat
         ctrl.append(replace(candidate, interpretation="changed"), admission=admission, operation_id="op-1", correlation_id="c")
     record, _ = ctrl.append(candidate, admission=admission, operation_id="op-1", correlation_id="c", created_at="fixed")
     ctrl.append(candidate, admission=admission, operation_id="op-1", correlation_id="c", created_at="fixed")
-    path = ctrl.store.records_root / f"{record.record_id}.json"; payload = json.loads(path.read_text()); payload["operation_id"] = "changed"; path.write_text(json.dumps(payload))
+    path = ctrl.store.records_root / f"{record.record_id}.json"; payload = json.loads(path.read_text()); payload["operation_id"] = "changed"; path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n")
     with pytest.raises(DevelopmentalWritebackError, match="record_digest_mismatch"): ctrl.store.get(record.record_id)
 
 
@@ -237,7 +237,10 @@ def test_recovery_repairs_interrupted_receipt_publication_idempotently(tmp_path:
     (ctrl.store.receipts_root / f"{expected_receipt.receipt_id}.json").unlink()
 
     recovered = ctrl.recover_completed_records()
-    assert recovered == ((record, expected_receipt),)
+    assert len(recovered) == 1
+    assert recovered[0][0].record_id == record.record_id
+    assert recovered[0][0].record_digest == record.record_digest
+    assert recovered[0][1] == expected_receipt
     assert record_path.read_bytes() == original_record
     assert ctrl.store.get_receipt(expected_receipt.receipt_id) == expected_receipt
     assert ctrl.recover_completed_records() == recovered
@@ -317,7 +320,9 @@ def test_concurrent_retry_of_one_operation_reuses_durable_record(tmp_path: Path)
     first, authority = controller(tmp_path)
     second, _ = controller(tmp_path)
     _selection, candidate, _fake = candidate_for(first)
-    admission = issue(authority, candidate)
+    admission = issue(authority, candidate, operation_id="one-operation",
+        config=ResidentDevelopmentalWritebackController.admission_configuration_digest(
+            candidate, operation_id="one-operation"))
     barrier = Barrier(2)
 
     def append_with(owner):

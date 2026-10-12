@@ -74,6 +74,14 @@
       "sequence": 8,
       "sha256": "4f8ef3deaa65ea482396ba7ebd935154f2dd9f4afdf4433d1ad6c26b5613a2fc",
       "source_commit": "b7b7f496d71368867f901b8022bee93b271ee057"
+    },
+    {
+      "bytes": 1753,
+      "path": "work/construction/segments/0009-developmental-recovery-qualification.md",
+      "predecessor": "segment-sha256:4f8ef3deaa65ea482396ba7ebd935154f2dd9f4afdf4433d1ad6c26b5613a2fc",
+      "sequence": 9,
+      "sha256": "527085a34d7a1021c61ba1f76c12fdf238272b8a7ab1dda608f460c029e8cfd0",
+      "source_commit": "34771ff675c0d6b20990eda76cb9d29cddab96ea"
     }
   ],
   "workspace_reconciliation": {
