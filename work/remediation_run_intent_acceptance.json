@@ -1,0 +1,42 @@
+{
+  "additional_quarantine_cases": {
+    "command": "pytest sentientos/tests/test_quarantine_remediation.py -k 'not succeeds_with_completed_run'",
+    "result": "4 passed"
+  },
+  "behavior": [
+    "Runner atomically publishes an immutable bounded intent before the first remediation command.",
+    "Final run report binds the exact intent ID and digest.",
+    "Recovery keeps an orphan intent incomplete/invalid; clear admission and automatic retry remain blocked.",
+    "Historical completed reports without intent remain readable only when no new intent claims that run.",
+    "Intent, report, pack, incident, run identity, command count, and command digest are reconciled."
+  ],
+  "checks": {
+    "git_diff_check": "passed",
+    "python_compileall": "passed for all changed Python files"
+  },
+  "focused_result": "25 passed",
+  "focused_test_command": "pytest -rA sentientos/tests/test_remediation_run_custody.py sentientos/tests/test_quarantine_remediation_trace_binding.py sentientos/tests/test_artifact_catalog.py sentientos/tests/test_remediation_pack.py sentientos/tests/test_auto_remediation.py",
+  "known_legacy_fixture": {
+    "node": "sentientos/tests/test_quarantine_remediation.py::test_quarantine_clear_succeeds_with_completed_run",
+    "result": "fails as expected: a hand-written run_id/pack_id/status object is rejected and quarantine clear remains blocked; a genuine owner-produced positive clear passes in the new suite"
+  },
+  "limitations": [
+    "Intent records are local owner custody, not independent runner authentication or proof that a command caused an external effect.",
+    "An interrupted intent remains blocked pending operator review; recovery does not resume, replay, or fabricate completion.",
+    "POSIX immutable publication was exercised in hermetic tests. Windows intent durability/runtime behavior was not executed.",
+    "No production remediation command, provider, external effect, or deployment was performed."
+  ],
+  "new_interruption_case": "sentientos/tests/test_remediation_run_custody.py::test_report_publication_interruption_persists_intent_and_blocks_replay",
+  "schema_version": 1,
+  "scope": "durable pre-execution remediation intent and fail-closed restart recovery",
+  "source_base": {
+    "commit": "d6cf835e0c7861789f089f7012a15d5850796c01",
+    "tree": "e7c0ca087d73bcf705ad5a2926d8ef4fffefc662"
+  },
+  "source_sha256": {
+    "scripts/run_remediation_pack.py": "378ac72a2650acc1097efc1fc86f3aafc78e6c12b1fbaeb03ed032870ac7c2de",
+    "sentientos/remediation_pack.py": "20c8bbc7ddde4a81281d986f7ec59b14e207ab24d1272c8b9b49a216500de675",
+    "sentientos/tests/test_remediation_run_custody.py": "81ea64843f3a841eb8aa076dd8b8094149944fe552fe33dec6dc7c89be30530f"
+  },
+  "status": "focused_interruption_recovery_acceptance_passed; production_unverified"
+}

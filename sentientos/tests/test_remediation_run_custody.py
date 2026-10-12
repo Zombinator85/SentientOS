@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
+
+import pytest
 
 from scripts import quarantine_clear, run_remediation_pack
 from sentientos.integrity_incident import build_incident, write_incident
@@ -110,10 +113,52 @@ def test_runner_publishes_reconciled_bounded_report(tmp_path: Path, monkeypatch)
     assert recovered is not None
     assert recovered["run_id"] == report["run_id"]
     assert recovered["pack_sha256"] == report["pack_sha256"]
+    assert recovered["intent_id"] == report["intent_id"]
+    intent_path = tmp_path / "glow/forge/remediation/intents" / f"{report['intent_id']}.json"
+    assert hashlib.sha256(intent_path.read_bytes()).hexdigest() == report["intent_sha256"]
     assert recovered["custody_status"] == "locally_reconciled"
     assert recovered["execution_authenticity"] == "owner_report_not_independently_authenticated"
     path = tmp_path / str(report["report_path"])
     assert path.stat().st_mode & 0o077 == 0
+
+
+def test_report_publication_interruption_persists_intent_and_blocks_replay(
+        tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    pack_path = _pack(tmp_path)
+    command_calls = 0
+    publication_calls = 0
+    original_publish = run_remediation_pack.publish_immutable_bytes
+
+    def execute_once(_command: str, *, root: Path) -> tuple[bool, int, str]:
+        nonlocal command_calls
+        command_calls += 1
+        return True, 0, ""
+
+    def interrupt_report(path: Path, data: bytes, *, max_bytes: int,
+            collision_code: str) -> str:
+        nonlocal publication_calls
+        publication_calls += 1
+        if publication_calls == 2:
+            raise RuntimeError("simulated interruption after command and durable intent")
+        return original_publish(path, data, max_bytes=max_bytes, collision_code=collision_code)
+
+    monkeypatch.setattr(run_remediation_pack, "_run_allowed", execute_once)
+    monkeypatch.setattr(run_remediation_pack, "publish_immutable_bytes", interrupt_report)
+    with pytest.raises(RuntimeError, match="simulated interruption"):
+        run_remediation_pack.execute_pack_file(pack_path, root=tmp_path)
+
+    status, recovered = remediation_status_for_pack(tmp_path, pack_id="pack-1")
+    assert status == "invalid"
+    assert recovered is not None
+    assert recovered["custody_status"] == "invalid:run_interrupted_without_final_report"
+    decision = should_auto_run_pack(tmp_path, operating_mode="recovery",
+        pack={"pack_id": "pack-1", "pack_path": pack_path.relative_to(tmp_path).as_posix()},
+        incident_id="incident-1", governance_trace_id="trace-1")
+    assert decision.status == "failed"
+    assert decision.reason == "prior_run_custody_invalid"
+    with pytest.raises(ValueError, match="prior_run_custody_invalid"):
+        run_remediation_pack.execute_pack_file(pack_path, root=tmp_path)
+    assert command_calls == 1
 
 
 def test_newer_conflicting_report_shadows_older_success(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -138,7 +183,7 @@ def test_newer_conflicting_report_shadows_older_success(tmp_path: Path, monkeypa
     assert first["status"] == "completed"
     assert status == "invalid"
     assert recovered is not None
-    assert recovered["custody_status"] == "invalid:completed_run_steps_incomplete"
+    assert recovered["custody_status"] == "invalid:run_report_conflicts_with_latest_intent"
 
 
 def test_real_clear_blocks_bare_remediation_claim(monkeypatch, tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]

@@ -25,11 +25,13 @@ SCHEMA_VERSION = 1
 PACKS_DIR = Path("glow/forge/remediation/packs")
 PACKS_PULSE_PATH = Path("pulse/remediation_packs.jsonl")
 RUNS_DIR = Path("glow/forge/remediation/runs")
+INTENTS_DIR = Path("glow/forge/remediation/intents")
 MAX_REMEDIATION_PACK_BYTES = 1_048_576
 MAX_REMEDIATION_RUN_BYTES = 1_048_576
 MAX_REMEDIATION_RUN_FILES = 512
 _PACK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _RUN_FILE_RE = re.compile(r"^run_[0-9]{8}T[0-9]{6}Z_[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.json$")
+_INTENT_FILE_RE = re.compile(r"^intent_([0-9]{8}T[0-9]{6}Z)_([A-Za-z0-9][A-Za-z0-9_.-]{0,127})\.json$")
 
 
 _REASON_STEP_LIBRARY: dict[str, list[dict[str, object]]] = {
@@ -367,35 +369,95 @@ def latest_run_for_pack(repo_root: Path, *, pack_id: str) -> dict[str, object] |
     if not isinstance(pack_id, str) or not _PACK_ID_RE.fullmatch(pack_id):
         return _invalid_run_projection(pack_id, "pack_id_invalid")
     run_dir = root / RUNS_DIR
-    try:
-        names = _bounded_run_names(run_dir)
-    except (PrivateFileCustodyError, WindowsHandleCustodyError) as exc:
-        if _custody_code(exc) in {"directory_root_missing", "explicit_file_missing"}:
-            return None
-        return _invalid_run_projection(pack_id, _custody_code(exc))
+    intent_dir = root / INTENTS_DIR
+    names: tuple[str, ...] = ()
+    intent_names: tuple[str, ...] = ()
+    for directory, destination in ((run_dir, "runs"), (intent_dir, "intents")):
+        try:
+            found = _bounded_run_names(directory)
+        except (PrivateFileCustodyError, WindowsHandleCustodyError) as exc:
+            if _custody_code(exc) not in {"directory_root_missing", "explicit_file_missing"}:
+                return _invalid_run_projection(pack_id, _custody_code(exc))
+            found = ()
+        if destination == "runs":
+            names = found
+        else:
+            intent_names = found
     suffix = f"_{pack_id}.json"
     candidates = sorted(name for name in names if name.startswith("run_") and name.endswith(suffix))
-    if not candidates:
+    intent_suffix = f"_{pack_id}.json"
+    intent_candidates = sorted(name for name in intent_names
+        if name.startswith("intent_") and name.endswith(intent_suffix))
+    if not candidates and not intent_candidates:
         return None
-    # The newest named record is authoritative. A malformed or contradictory
-    # latest record must not make an older successful claim current again.
-    name = candidates[-1]
-    relative = (RUNS_DIR / name).as_posix()
-    if not _RUN_FILE_RE.fullmatch(name):
-        return _invalid_run_projection(pack_id, "run_filename_invalid", report_path=relative)
+
+    # Intent is published before the first remediation command. The latest
+    # intent shadows prior completed reports until its exact final report is
+    # durably available and bound back to the intent bytes.
+    selected_intent: dict[str, object] | None = None
+    selected_intent_name: str | None = None
+    selected_intent_digest: str | None = None
+    if intent_candidates:
+        selected_intent_name = intent_candidates[-1]
+        if not _INTENT_FILE_RE.fullmatch(selected_intent_name):
+            return _invalid_run_projection(pack_id, "run_intent_filename_invalid",
+                report_path=(INTENTS_DIR / selected_intent_name).as_posix())
     try:
-        run_bytes = _read_bounded_file(run_dir / name, max_bytes=MAX_REMEDIATION_RUN_BYTES)
-        payload = _strict_json_object(run_bytes)
         pack_path = root / PACKS_DIR / f"pack_{pack_id}.json"
         pack_bytes = _read_bounded_file(pack_path, max_bytes=MAX_REMEDIATION_PACK_BYTES)
         pack = _strict_json_object(pack_bytes)
         pack, _warnings = normalize(pack, SchemaName.REMEDIATION_PACK)
     except (OSError, ValueError, UnicodeError, SchemaCompatibilityError,
             PrivateFileCustodyError, WindowsHandleCustodyError) as exc:
+        report_path = (INTENTS_DIR / selected_intent_name).as_posix() if selected_intent_name else None
+        return _invalid_run_projection(pack_id, _custody_code(exc), report_path=report_path)
+
+    expected_pack_path = str((PACKS_DIR / f"pack_{pack_id}.json").as_posix())
+    if pack.get("pack_id") != pack_id:
+        return _invalid_run_projection(pack_id, "pack_identity_mismatch")
+    if selected_intent_name is not None:
+        intent_relative = (INTENTS_DIR / selected_intent_name).as_posix()
+        try:
+            intent_bytes = _read_bounded_file(intent_dir / selected_intent_name,
+                max_bytes=MAX_REMEDIATION_RUN_BYTES)
+            selected_intent = _strict_json_object(intent_bytes)
+            selected_intent_digest = hashlib.sha256(intent_bytes).hexdigest()
+        except (OSError, ValueError, UnicodeError, PrivateFileCustodyError,
+                WindowsHandleCustodyError) as exc:
+            return _invalid_run_projection(pack_id, _custody_code(exc), report_path=intent_relative)
+        code = _validate_remediation_intent(selected_intent, name=selected_intent_name,
+            pack_id=pack_id, pack_path=expected_pack_path, pack=pack, pack_bytes=pack_bytes)
+        if code is not None:
+            return _invalid_run_projection(pack_id, code, report_path=intent_relative)
+        expected_run_name = str(selected_intent["run_id"]) + ".json"
+        if expected_run_name not in candidates:
+            return _invalid_run_projection(pack_id, "run_interrupted_without_final_report",
+                report_path=intent_relative)
+        if candidates[-1] != expected_run_name:
+            return _invalid_run_projection(pack_id, "run_report_conflicts_with_latest_intent",
+                report_path=(RUNS_DIR / candidates[-1]).as_posix())
+        name = expected_run_name
+    else:
+        # Historical reports remain readable when no intent exists.
+        name = candidates[-1]
+    relative = (RUNS_DIR / name).as_posix()
+    if not _RUN_FILE_RE.fullmatch(name):
+        return _invalid_run_projection(pack_id, "run_filename_invalid", report_path=relative)
+    try:
+        run_bytes = _read_bounded_file(run_dir / name, max_bytes=MAX_REMEDIATION_RUN_BYTES)
+        payload = _strict_json_object(run_bytes)
+    except (OSError, ValueError, UnicodeError, PrivateFileCustodyError,
+            WindowsHandleCustodyError) as exc:
         return _invalid_run_projection(pack_id, _custody_code(exc), report_path=relative)
     code = _validate_remediation_run(payload, name=name, pack_id=pack_id,
-        pack_path=str((PACKS_DIR / f"pack_{pack_id}.json").as_posix()),
+        pack_path=expected_pack_path,
         pack=pack, pack_bytes=pack_bytes)
+    if code is None and selected_intent is not None:
+        if (payload.get("intent_id") != selected_intent.get("intent_id")
+                or payload.get("intent_sha256") != selected_intent_digest):
+            code = "run_intent_binding_mismatch"
+    elif code is None and (payload.get("intent_id") is not None or payload.get("intent_sha256") is not None):
+        code = "run_intent_missing"
     if code is not None:
         invalid = dict(payload)
         invalid["status"] = "invalid"
@@ -408,6 +470,41 @@ def latest_run_for_pack(repo_root: Path, *, pack_id: str) -> dict[str, object] |
     # do not authenticate the runner or independently prove external effects.
     payload["execution_authenticity"] = "owner_report_not_independently_authenticated"
     return payload
+
+
+def _validate_remediation_intent(payload: dict[str, object], *, name: str,
+        pack_id: str, pack_path: str, pack: dict[str, object], pack_bytes: bytes) -> str | None:
+    match = _INTENT_FILE_RE.fullmatch(name)
+    if match is None:
+        return "run_intent_filename_invalid"
+    stamp = match.group(1)
+    intent_id = name[:-5]
+    expected_run_id = f"run_{stamp}_{pack_id}"
+    if (type(payload.get("schema_version")) is not int or payload.get("schema_version") != 1
+            or payload.get("intent_id") != intent_id or payload.get("run_id") != expected_run_id
+            or payload.get("pack_id") != pack_id or pack.get("pack_id") != pack_id
+            or payload.get("pack_path") != pack_path
+            or payload.get("pack_sha256") != hashlib.sha256(pack_bytes).hexdigest()
+            or payload.get("incident_id") != pack.get("incident_id")
+            or payload.get("governance_trace_id") != pack.get("governance_trace_id")
+            or payload.get("status") != "started"):
+        return "run_intent_identity_mismatch"
+    started_at = payload.get("started_at")
+    if not isinstance(started_at, str):
+        return "run_intent_time_missing"
+    try:
+        parsed = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    except ValueError:
+        return "run_intent_time_invalid"
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return "run_intent_time_invalid"
+    steps = pack.get("steps")
+    if not isinstance(steps, list) or payload.get("step_count") != len(steps) or type(payload.get("step_count")) is not int:
+        return "run_intent_step_count_mismatch"
+    step_bytes = json.dumps(steps, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    if payload.get("steps_sha256") != hashlib.sha256(step_bytes).hexdigest():
+        return "run_intent_steps_digest_mismatch"
+    return None
 
 
 def remediation_status_for_pack(repo_root: Path, *, pack_id: str) -> tuple[str, dict[str, object] | None]:

@@ -1,12 +1,12 @@
 # Active construction checkpoint
 
-- Last independently verified construction remote: `898a638299312cfebe9cc7c89df5680a646e4742`.
-- Verified source tree: `5f14c4331e5c34eaa4aadd8ff7dffc50d895003b`.
-- Verified `main`: `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`; it is the merge base and 650 commits behind this checkpoint.
-- Reacquire construction and main heads from GitHub before continuing or publishing; this checkpoint is not authority to skip remote verification.
-- The remediation-run custody increment is published. Its focused owner-path suites passed 24 tests plus 4 unchanged quarantine-remediation tests; the stale forged-success fixture remains separately identified.
-- The legacy 586,585-byte continuation file is frozen at blob `5127025527ec6248a159b228b6929a196f1449d1`. New checkpoint material is stored under `work/construction/segments/`, indexed by `work/construction/index.json`.
-- Historical `/workspace/SentientOS` remains untouched at local HEAD `2e3208a9024f7162b877373824c8bab31f25bd12`; its 26 nonmatching tracked source paths and local-only candidates are unresolved and preserved in `work/workspace_reconciliation_20261012.json`.
-- Active dependency: identify minimum complete hosted lifecycle and close the highest-impact uncomposed existing owner path. Use source-backed integration evidence; do not imply actual model operation from fixtures.
-- Source-preflight acceptance: `work/construction/construction_source_preflight_acceptance.json` (8 hermetic cases).
-- All construction source remains unverified for production.
+- Last independently verified construction remote: `d6cf835e0c7861789f089f7012a15d5850796c01`.
+- Verified source tree: `e7c0ca087d73bcf705ad5a2926d8ef4fffefc662`.
+- Verified `main`: `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`; it is the merge base, 651 commits behind.
+- Freshly reacquire construction and main heads from GitHub before continuation or publication; this file is not authority to skip remote verification.
+- Published: remediation report custody and bounded segmented continuation (`898a6382…`); read-only source preflight for stale/divergent/dirty/matching-tree/race identities (`d6cf835e…`).
+- Active candidate: durable pre-execution remediation intent, bound final reports, and no-replay handling for interrupted runs. Focused suites passed 25 + 4 cases; a legacy hand-authored positive fixture remains a known safe failure.
+- Historical workspace inventory is in `work/workspace_reconciliation_20261012.json`; `/workspace/SentientOS` remains untouched and its differing source is not merged.
+- Legacy 586,585-byte continuation is frozen at blob `5127025527ec6248a159b228b6929a196f1449d1`. Segments are indexed in `work/construction/index.json`.
+- Next dependency: source-bound hosted lifecycle reconciliation and implementation of its smallest remaining consequential connection.
+- Production behavior, Windows durability, and all broad acceptance remain unverified.
