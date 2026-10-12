@@ -253,8 +253,14 @@ from pathlib import Path
 from sentientos.codex_task_authority_admission import (
     RESIDENT_EPISTEMIC_STATE_MUTATION,
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION)
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
 from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
+from sentientos.production_chat_resource_observation import ProductionChatResourceObservationOwner
+from sentientos.host_resource_runtime import (resource_consumption_world_state_records,
+    resource_invocation_proposal_lineage_records)
+from sentientos.developmental_model_replacement_experiment import ModelReplacementArtifactStore
+from sentientosd import RuntimeMaintenanceSurfaces
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
@@ -276,11 +282,52 @@ projection = state.cognitive_projection(max_states=8, current_tick=data["epistem
 self_model = LongitudinalSelfModelOwner(Path(data["self_model_root"])).cognitive_projection(
     before_tick=data["tick_id"], max_claims=1,
     allowed_predicates=("developmental.model_replacement_interpretation",))
-board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(data["tick_n"])).build(
-    [data["record"]])
+registry = InstallationStateRegistry._for_testing(Path(data["installation_state_root"]))
+handle = registry.open_read_only(InstallationIdentity.parse(data["installation_identity"]))
+observer = ProductionChatResourceObservationOwner(handle, data["provisioning_id"])
+surfaces = RuntimeMaintenanceSurfaces(Path(data["repo_root"]),
+    runtime_state_root=Path(data["runtime_root"]),
+    resource_observation_owner=observer,
+    resource_observation_configuration_status={
+        "status": "configured", "read_only": True, "effect_authority": False},
+    model_replacement_artifact_store=ModelReplacementArtifactStore(
+        Path(data["model_replacement_root"])),
+    model_replacement_run_refs=((data["run_id"], data["run_digest"]),))
+surfaces.build_world_state_board(tick_id=data["world_state_tick"])
+board = surfaces.current_world_state_snapshot
+assert board is not None
+lineage_facts = [fact for fact in board.facts
+    if fact.subject.subject_kind == "model_replacement_invocation_resource_lineage"]
+assert len(lineage_facts) == 5
+# Select the exact bounded producer record whose identity appears in the
+# daemon-built board. The full projection remains in custody; cognition's
+# configured per-tick selector receives one evidence fact.
+source_observation = observer.observe()
+resource_records = resource_consumption_world_state_records(
+    ledger=source_observation.ledger,
+    invocation_receipts=source_observation.invocation_receipts,
+    verified_predecessor_invocation_receipts=(
+        source_observation.predecessor_invocation_receipts),
+    observed_at=data["world_state_tick"],
+    source_identity={"installation_identity": data["installation_identity"],
+        "provisioning_id": data["provisioning_id"],
+        "manifest_digest": source_observation.manifest_digest})
+replacement_records = ModelReplacementArtifactStore(
+    Path(data["model_replacement_root"])).world_state_records(
+        run_refs=((data["run_id"], data["run_digest"]),))
+joined_records = resource_invocation_proposal_lineage_records(
+    [*resource_records, *replacement_records])
+target = next(record for record in joined_records
+    if record.get("payload", {}).get("model_replacement_condition")
+        == lineage_facts[0].payload.get("model_replacement_condition"))
+assert target["digest"] == lineage_facts[0].source.digest
+bounded_board = WorldStateBoardBuilder(
+    clock=lambda: datetime.fromisoformat(data["world_state_tick"])).build([target])
+assert len(bounded_board.facts) == 1
+assert bounded_board.facts[0].fact_id == lineage_facts[0].fact_id
 cognition, invoker = developmental_owner(Path(data["cognition_root"]),
     allowed_source_kinds=("resource_governor",), max_selected_facts=1)
-result = cognition.run_tick(snapshot=board, tick_id=data["tick_id"],
+result = cognition.run_tick(snapshot=bounded_board, tick_id=data["tick_id"],
     prior_epistemic_state=projection, prior_self_model=self_model)
 request = next(item for item in invoker.requests
     if item.purpose == "resident_developmental_retrieval_cognition")
@@ -298,9 +345,17 @@ print(json.dumps({"status": result.status, "prior_record_ids": list(result.prior
             input=json.dumps({"epistemic_root": str(epistemic_root),
                 "self_model_root": str(tmp_path / "composed-self-model"),
                 "cognition_root": str(cognition_root),
+                "installation_state_root": str(tmp_path / "resources" / "state"),
+                "installation_identity": "production",
+                "provisioning_id": "replacement-trial",
+                "repo_root": str(tmp_path),
+                "runtime_root": str(tmp_path / "composed-runtime"),
+                "model_replacement_root": str(experiment_root / "rehearsal"),
+                "run_id": run["run_id"], "run_digest": run["run_digest"],
                 "epistemic_tick": tick_n_value + 2, "tick_n": tick_n,
-                "tick_id": "model-resource-history-tick-n-plus-two",
-                "record": lineage_record}), text=True, capture_output=True, timeout=60)
+                "world_state_tick": "2026-09-21T08:50:00+00:00",
+                "tick_id": "model-resource-history-tick-n-plus-two"}),
+            text=True, capture_output=True, timeout=60)
         assert process.returncode == 0, process.stderr
         recovered = json.loads(process.stdout.strip().splitlines()[-1])
         assert recovered["status"] == "completed"
