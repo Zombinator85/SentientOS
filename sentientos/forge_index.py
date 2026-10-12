@@ -15,6 +15,7 @@ from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_pressure import compute_integrity_pressure, load_pressure_state
+from sentientos.integrity_incident import inspect_quarantine_incident_custody
 from sentientos.recovery_tasks import backlog_count
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
@@ -93,6 +94,14 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     witness_status = _load_json(root / "glow/federation/anchor_witness_status.json")
     strategic_witness_status = _load_json(root / "glow/federation/strategic_witness_status.json")
     quarantine = load_quarantine_state(root)
+    quarantine_incident_custody = (
+        inspect_quarantine_incident_custody(
+            root, incident_id=quarantine.last_incident_id, activated_at=quarantine.activated_at,
+        )
+        if quarantine.active
+        else {"status": "not_active", "attack_established": False,
+              "defensive_consequence_established": False}
+    )
     pressure_snapshot = compute_integrity_pressure(root)
     pressure_state = load_pressure_state(root)
     throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
@@ -308,6 +317,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "quarantine_active": quarantine.active,
         "quarantine_activated_at": quarantine.activated_at,
         "quarantine_last_incident_id": quarantine.last_incident_id,
+        "quarantine_incident_custody": quarantine_incident_custody,
         "last_incident_summary": _incident_summary(latest_incident),
         "incident_count_last_24h": _incident_count_last_24h(incident_rows),
         "integrity_pressure_level": pressure_snapshot.level,

@@ -271,6 +271,11 @@ def parse_bounded_incident_feed(data: bytes) -> list[dict[str, object]]:
     return rows
 
 
+def read_bounded_incident_feed(path: Path) -> list[dict[str, object]]:
+    """Read the explicit incident feed through the pressure owner's custody rules."""
+    return _read_incidents(path)
+
+
 def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:

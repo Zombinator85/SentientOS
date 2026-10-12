@@ -16,6 +16,7 @@ from sentientos.integrity_incident import (
     Incident,
     MAX_INCIDENT_ARTIFACT_BYTES,
     append_incident_feed,
+    inspect_quarantine_incident_custody,
     write_incident,
 )
 from sentientos.integrity_pressure import (
@@ -422,3 +423,63 @@ def test_concurrent_incident_feed_publishers_preserve_both_rows(tmp_path: Path) 
         list(executor.map(publish, (1, 2)))
     rows = parse_bounded_incident_feed((tmp_path / "pulse/integrity_incidents.jsonl").read_bytes())
     assert {row["incident_id"] for row in rows} == {"concurrent-1", "concurrent-2"}
+
+
+@pytest.mark.no_legacy_skip
+def test_restart_custody_inspection_reconciles_exact_artifact_and_feed(tmp_path: Path) -> None:
+    incident = Incident(
+        schema_version=1, incident_id="activation-lineage-id",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["verified_integrity_mismatch"], enforcement_mode="enforce",
+        context={"source": "integrity_controller"}, evidence_paths=[], suggested_actions=[],
+    )
+    write_incident(tmp_path, incident, quarantine_activated=True)
+
+    custody = inspect_quarantine_incident_custody(
+        tmp_path, incident_id=incident.incident_id, activated_at=incident.created_at,
+    )
+
+    assert custody["status"] == "complete_local_custody"
+    assert custody["artifact_status"] == "valid"
+    assert custody["feed_status"] == "present_unverified"
+    assert custody["feed_is_authenticated"] is False
+    assert custody["attack_established"] is False
+    assert isinstance(custody["artifact_sha256"], str)
+    assert isinstance(custody["feed_row_sha256"], str)
+
+
+@pytest.mark.no_legacy_skip
+def test_restart_custody_inspection_reports_missing_records_without_repair(tmp_path: Path) -> None:
+    custody = inspect_quarantine_incident_custody(
+        tmp_path, incident_id="activation-without-artifact", activated_at="2026-10-12T00:00:00Z",
+    )
+
+    assert custody["status"] == "incomplete"
+    assert custody["artifact_status"] == "missing"
+    assert custody["feed_status"] == "missing"
+    assert not (tmp_path / INCIDENTS_DIR).exists()
+    assert not (tmp_path / "pulse/integrity_incidents.jsonl").exists()
+
+
+@pytest.mark.no_legacy_skip
+def test_restart_custody_inspection_surfaces_feed_conflict_without_trusting_it(tmp_path: Path) -> None:
+    incident = Incident(
+        schema_version=1, incident_id="activation-conflict-id",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["verified_integrity_mismatch"], enforcement_mode="enforce",
+        context={}, evidence_paths=[], suggested_actions=[],
+    )
+    write_incident(tmp_path, incident, quarantine_activated=True)
+    feed = tmp_path / "pulse/integrity_incidents.jsonl"
+    row = parse_bounded_incident_feed(feed.read_bytes())[0]
+    row["triggers"] = ["substituted_trigger"]
+    feed.write_text(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+
+    custody = inspect_quarantine_incident_custody(
+        tmp_path, incident_id=incident.incident_id, activated_at=incident.created_at,
+    )
+
+    assert custody["status"] == "conflict"
+    assert custody["artifact_status"] == "valid"
+    assert custody["feed_status"] == "conflict"
+    assert custody["feed_is_authenticated"] is False

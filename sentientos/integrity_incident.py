@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
-from typing import Callable
+from typing import Any, Callable
 
 from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.private_file_custody import (
@@ -27,6 +27,7 @@ from sentientos.integrity_pressure import (
     MAX_TRIGGER_CHARS,
     IntegrityPressureInputError,
     parse_bounded_incident_feed,
+    read_bounded_incident_feed,
 )
 from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
@@ -185,9 +186,13 @@ def _incident_feed_row(
 
 
 def _incident_artifact_path(root: Path, incident: Incident) -> Path:
+    return _incident_artifact_path_for_identity(root, incident.created_at, incident.incident_id)
+
+
+def _incident_artifact_path_for_identity(root: Path, created_at: str, incident_id: str) -> Path:
     return root / INCIDENTS_DIR / (
-        f"incident_{_safe_timestamp(incident.created_at)}_"
-        f"{_incident_identity_hash(incident.incident_id)}.json"
+        f"incident_{_safe_timestamp(created_at)}_"
+        f"{_incident_identity_hash(incident_id)}.json"
     )
 
 
@@ -197,6 +202,12 @@ def _verify_incident_artifact_reference(root: Path, path: Path, incident: Incide
         raise IntegrityIncidentArtifactError("incident_artifact_reference_path_mismatch")
     path = expected
     expected_bytes = _serialize_incident_artifact(incident)
+    actual_bytes = _read_incident_artifact_bytes(path)
+    if actual_bytes != expected_bytes:
+        raise IntegrityIncidentArtifactError("incident_artifact_identity_conflict")
+
+
+def _read_incident_artifact_bytes(path: Path) -> bytes:
     if os.name == "posix":
         try:
             directory_fd = open_private_directory(path.parent, create=False)
@@ -205,7 +216,7 @@ def _verify_incident_artifact_reference(root: Path, path: Path, incident: Incide
                 "incident_artifact_reference_" + exc.code) from exc
         try:
             try:
-                actual_bytes = read_private_file_at(
+                return read_private_file_at(
                     directory_fd, path.name,
                     max_bytes=MAX_INCIDENT_ARTIFACT_BYTES,
                     require_private_mode=False,
@@ -218,7 +229,7 @@ def _verify_incident_artifact_reference(root: Path, path: Path, incident: Incide
             os.close(directory_fd)
     elif os.name == "nt":
         try:
-            actual_bytes = read_explicit_file(
+            return read_explicit_file(
                 path, max_bytes=MAX_INCIDENT_ARTIFACT_BYTES, require_private_acl=True,
             )
         except WindowsHandleCustodyError as exc:
@@ -226,8 +237,178 @@ def _verify_incident_artifact_reference(root: Path, path: Path, incident: Incide
                 "incident_artifact_reference_" + exc.code) from exc
     else:
         raise IntegrityIncidentArtifactError("incident_artifact_reference_custody_unsupported")
-    if actual_bytes != expected_bytes:
-        raise IntegrityIncidentArtifactError("incident_artifact_identity_conflict")
+
+
+def inspect_quarantine_incident_custody(
+    repo_root: Path, *, incident_id: str | None, activated_at: str | None,
+) -> dict[str, object]:
+    """Report exact restart custody for an active state's incident references.
+
+    This is a read-only reconciliation status. It does not repair missing rows or
+    authenticate the local incident publisher.
+    """
+    root = repo_root.resolve()
+    if not isinstance(incident_id, str) or not incident_id:
+        return {"status": "incomplete_identity", "artifact_status": "not_checked", "feed_status": "not_checked"}
+    if not isinstance(activated_at, str) or _parse_incident_time(activated_at) is None:
+        return {
+            "status": "incomplete_identity", "incident_id": incident_id,
+            "artifact_status": "not_checked", "feed_status": "not_checked",
+        }
+    artifact_path = _incident_artifact_path_for_identity(root, activated_at, incident_id)
+    artifact_payload: dict[str, object] | None = None
+    artifact_digest: str | None = None
+    artifact_status = "valid"
+    try:
+        artifact_bytes = _read_incident_artifact_bytes(artifact_path)
+    except IntegrityIncidentArtifactError as exc:
+        if exc.code.endswith("file_missing") or exc.code.endswith("directory_root_missing"):
+            artifact_status = "missing"
+        else:
+            artifact_status = "invalid"
+    else:
+        artifact_digest = hashlib.sha256(artifact_bytes).hexdigest()
+        try:
+            parsed = json.loads(
+                artifact_bytes.decode("utf-8", errors="strict"),
+                object_pairs_hook=_incident_unique_object,
+                parse_constant=_incident_reject_constant,
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
+            artifact_status = "invalid"
+        else:
+            if (not isinstance(parsed, dict)
+                    or type(parsed.get("schema_version")) is not int
+                    or parsed.get("schema_version") != 1
+                    or parsed.get("incident_id") != incident_id
+                    or parsed.get("created_at") != activated_at):
+                artifact_status = "conflict"
+            else:
+                try:
+                    incident_record = _incident_from_payload(parsed)
+                except ValueError:
+                    artifact_status = "invalid"
+                else:
+                    if _serialize_incident_artifact(incident_record) != artifact_bytes:
+                        artifact_status = "conflict"
+                    else:
+                        artifact_payload = parsed
+
+    feed_status = "missing"
+    feed_digest: str | None = None
+    matching_feed: list[dict[str, object]] = []
+    try:
+        feed_rows = read_bounded_incident_feed(root / INCIDENTS_FEED_PATH)
+    except IntegrityPressureInputError as exc:
+        feed_status = "invalid"
+    else:
+        matching_feed = [row for row in feed_rows if row.get("incident_id") == incident_id]
+        if len(matching_feed) > 1:
+            feed_status = "conflict"
+        elif matching_feed:
+            feed_digest = hashlib.sha256(
+                (json.dumps(matching_feed[0], sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+            ).hexdigest()
+            feed_status = "present_unverified"
+
+    status = "incomplete"
+    if artifact_status in {"invalid", "conflict"} or feed_status in {"invalid", "conflict"}:
+        status = "conflict"
+    elif artifact_status == "valid" and feed_status == "present_unverified" and artifact_payload is not None:
+        expected_feed = {
+            "schema_version": 1,
+            "incident_id": incident_id,
+            "created_at": activated_at,
+            "severity": artifact_payload.get("severity"),
+            "enforcement_mode": artifact_payload.get("enforcement_mode"),
+            "quarantine_activated": True,
+            "triggers": artifact_payload.get("triggers"),
+            "path": str(artifact_path.relative_to(root)),
+            "governance_trace_id": artifact_payload.get("governance_trace_id"),
+            "remediation_pack_id": artifact_payload.get("remediation_pack_id"),
+        }
+        if matching_feed[0] == expected_feed:
+            status = "complete_local_custody"
+        else:
+            feed_status = "conflict"
+            status = "conflict"
+    return {
+        "status": status,
+        "incident_id": incident_id,
+        "activated_at": activated_at,
+        "artifact_status": artifact_status,
+        "artifact_sha256": artifact_digest,
+        "feed_status": feed_status,
+        "feed_row_sha256": feed_digest,
+        "feed_is_authenticated": False,
+        "attack_established": False,
+        "defensive_consequence_established": False,
+    }
+
+
+def _parse_incident_time(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
+def _incident_unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in payload:
+            raise ValueError("duplicate_incident_artifact_key")
+        payload[key] = value
+    return payload
+
+
+def _incident_reject_constant(value: str) -> None:
+    raise ValueError("invalid_incident_artifact_constant:" + value)
+
+
+def _incident_from_payload(payload: dict[str, object]) -> Incident:
+    allowed = set(Incident.__dataclass_fields__)
+    if set(payload) - allowed:
+        raise ValueError("unexpected_incident_artifact_fields")
+    if type(payload.get("schema_version")) is not int or payload.get("schema_version") != 1:
+        raise ValueError("incident_schema_invalid")
+    incident_id = payload.get("incident_id")
+    created_at = payload.get("created_at")
+    severity = payload.get("severity")
+    enforcement_mode = payload.get("enforcement_mode")
+    triggers = payload.get("triggers")
+    context = payload.get("context")
+    evidence_paths = payload.get("evidence_paths")
+    suggested_actions = payload.get("suggested_actions")
+    if (not isinstance(incident_id, str) or not incident_id
+            or not isinstance(created_at, str) or not created_at
+            or not isinstance(severity, str) or not isinstance(enforcement_mode, str)
+            or not isinstance(triggers, list) or any(not isinstance(item, str) for item in triggers)
+            or not isinstance(context, dict)
+            or not isinstance(evidence_paths, list) or any(not isinstance(item, str) for item in evidence_paths)
+            or not isinstance(suggested_actions, list) or any(not isinstance(item, str) for item in suggested_actions)):
+        raise ValueError("incident_artifact_fields_invalid")
+    trace_id = payload.get("governance_trace_id")
+    pack_id = payload.get("remediation_pack_id")
+    if ((trace_id is not None and not isinstance(trace_id, str))
+            or (pack_id is not None and not isinstance(pack_id, str))):
+        raise ValueError("incident_artifact_optional_fields_invalid")
+    return Incident(
+        schema_version=1,
+        incident_id=incident_id,
+        created_at=created_at,
+        severity=severity,
+        triggers=triggers,
+        enforcement_mode=enforcement_mode,
+        context=context,
+        evidence_paths=evidence_paths,
+        suggested_actions=suggested_actions,
+        governance_trace_id=trace_id,
+        remediation_pack_id=pack_id,
+    )
 
 
 def _serialize_incident_feed_row(row: dict[str, object]) -> bytes:

@@ -562,3 +562,37 @@ def test_latest_incident_rejects_symlink_and_oversized_record(tmp_path: Path) ->
     (directory / "incident_002.json").write_bytes(b" " * (1_048_577))
     result = _latest_incident(tmp_path)
     assert result["_forge_incident_custody"] == "invalid"
+
+
+def test_index_reports_quarantine_incident_restart_custody(tmp_path: Path) -> None:
+    from sentientos.integrity_incident import Incident, write_incident
+
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    incident = Incident(
+        schema_version=1,
+        incident_id="indexed-activation-id",
+        created_at="2026-10-12T00:00:00Z",
+        severity="warning",
+        triggers=["verified_integrity_mismatch"],
+        enforcement_mode="enforce",
+        context={}, evidence_paths=[], suggested_actions=[],
+    )
+    write_incident(tmp_path, incident, quarantine_activated=True)
+    (tmp_path / "glow/forge/quarantine.json").write_text(json.dumps({
+        "schema_version": 1,
+        "active": True,
+        "activated_at": incident.created_at,
+        "activated_by": "auto",
+        "last_incident_id": incident.incident_id,
+        "freeze_forge": True,
+        "allow_automerge": False,
+        "allow_publish": False,
+        "allow_federation_sync": False,
+        "notes": [],
+    }) + "\n", encoding="utf-8")
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["quarantine_incident_custody"]["status"] == "complete_local_custody"
+    assert payload["quarantine_incident_custody"]["feed_is_authenticated"] is False
