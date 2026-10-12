@@ -91,8 +91,9 @@ def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
     assert "--noconftest" not in source
     assert "continue-on-error" not in source
     assert "|| true" not in source
-    assert "${{ runner.temp }}/sentientos-governor" in source
+    assert "${{ github.workspace }}/.ci-runtime/governor" in source
     assert "${{ github.workspace }}" in source
+    assert "runner.temp" not in ci
     # The existing privileged self-check remains present with its approval gate.
     self_check = ci.split("  self-check:", 1)[1].split("  docs:", 1)[0]
     assert "python -m scripts.lock install" in self_check
