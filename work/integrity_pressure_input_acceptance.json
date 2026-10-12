@@ -1,0 +1,37 @@
+{
+  "schema_version": "sentientos.integrity_pressure_input_acceptance:v1",
+  "verified_parent_commit": "7d92880659bd18e9c17252ce41a9301c5b09f3a8",
+  "verified_parent_tree": "e24fced498e95ef5503f6526be5c024a612b8653",
+  "status": "bounded_local_parser_hermetically_checked_unverified_for_production",
+  "input": {
+    "path": "pulse/integrity_incidents.jsonl",
+    "writer": "sentientos.integrity_incident.append_incident_feed",
+    "authentication": "none; this feed remains mutable narrative, not an authenticated incident source",
+    "maximum_bytes": 1048576,
+    "maximum_physical_rows": 4096,
+    "maximum_row_bytes": 65536,
+    "maximum_triggers_per_row": 512,
+    "maximum_trigger_characters": 512,
+    "maximum_trigger_characters": 512,
+    "reader": "POSIX descriptor-bound owner/mode/single-link stable read; Windows explicit handle custody with private ACL requirement"
+  },
+  "semantics": {
+    "absent_feed": "zero rows, preserving existing first-use behavior",
+    "malformed_or_duplicate_json": "typed input error; no silent undercount",
+    "oversized_or_unstable_file": "typed input error; pressure calculation stops",
+    "unsafe_path_or_custody": "typed input error; pressure calculation stops",
+    "automatic_policy": "No new policy is defined; callers retain their existing failure behavior."
+  },
+  "tests": {
+    "command": "pytest sentientos/tests/test_integrity_pressure.py::test_compute_pressure_from_synthetic_incidents sentientos/tests/test_integrity_pressure.py::test_invalid_incident_feed_rows_block_pressure_calculation sentientos/tests/test_integrity_pressure.py::test_incident_feed_bounds_block_pressure_calculation sentientos/tests/test_integrity_pressure.py::test_incident_feed_symlink_is_not_followed tests/test_sentientosd_runtime_closure.py::test_integrity_controller_observation_is_bounded_context_only_and_opt_in -m 'legacy or no_legacy_skip' -q",
+    "result": "11 passed",
+    "python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "Bounds and file custody do not authenticate incident content or prevent well-formed fabricated records.",
+    "The pressure policy has many callers; Windows runtime behavior and full caller-wide failure behavior were not exercised.",
+    "Malformed, oversized, or unavailable custody now blocks calculation instead of silently returning zero pressure; operators may observe fail-closed interruption.",
+    "No attack attribution, actual defensive action, external effect, or production operation is established."
+  ]
+}

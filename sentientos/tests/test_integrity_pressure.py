@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+import os
 from pathlib import Path
 
+import pytest
+
 from sentientos.forge_merge_train import ForgeMergeTrain
-from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure
+from sentientos.integrity_pressure import (
+    MAX_INCIDENT_FEED_BYTES, MAX_INCIDENT_ROWS, MAX_INCIDENT_ROW_BYTES,
+    IntegrityPressureInputError, apply_escalation, compute_integrity_pressure,
+)
 
 
 def _write_incidents(path: Path, rows: list[dict[str, object]]) -> None:
@@ -77,3 +83,63 @@ def test_critical_pressure_forces_quarantine_activation(tmp_path: Path, monkeypa
 
     quarantine = json.loads((tmp_path / "glow/forge/quarantine.json").read_text(encoding="utf-8"))
     assert quarantine["active"] is True
+
+
+@pytest.mark.parametrize(("body", "expected_code"), [
+    (b'{"created_at":"2026-01-01T00:00:00Z","created_at":"2026-01-01T00:00:00Z"}\n',
+     "incident_feed_row_invalid"),
+    (b'{"created_at":"2026-01-01T00:00:00Z","triggers":[NaN]}\n',
+     "incident_feed_row_invalid"),
+    (b'[]\n', "incident_feed_row_not_object"),
+    (b'{"created_at":"2026-01-01T00:00:00Z"', "incident_feed_row_invalid"),
+    (b'{"created_at":"not-a-time"}\n', "incident_feed_event_time_invalid"),
+    (b'{"created_at":"2026-01-01T00:00:00Z","quarantine_activated":"false"}\n',
+     "incident_feed_quarantine_flag_invalid"),
+    (b'{"created_at":"2026-01-01T00:00:00Z","triggers":"receipt_chain_broken"}\n',
+     "incident_feed_triggers_invalid"),
+])
+def test_invalid_incident_feed_rows_block_pressure_calculation(
+    tmp_path: Path, body: bytes, expected_code: str,
+) -> None:
+    target = tmp_path / "pulse/integrity_incidents.jsonl"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(body)
+
+    with pytest.raises(IntegrityPressureInputError) as raised:
+        compute_integrity_pressure(tmp_path)
+    assert raised.value.code == expected_code
+
+
+def test_incident_feed_bounds_block_pressure_calculation(tmp_path: Path) -> None:
+    target = tmp_path / "pulse/integrity_incidents.jsonl"
+    target.parent.mkdir(parents=True)
+    target.write_bytes(b"{}\n" * (MAX_INCIDENT_ROWS + 1))
+    with pytest.raises(IntegrityPressureInputError, match="incident_feed_row_limit_exceeded"):
+        compute_integrity_pressure(tmp_path)
+
+    target.write_bytes(b"{}" + b" " * MAX_INCIDENT_ROW_BYTES + b"\n")
+    with pytest.raises(IntegrityPressureInputError, match="incident_feed_row_size_limit_exceeded"):
+        compute_integrity_pressure(tmp_path)
+
+    target.write_text(json.dumps({"created_at": "2026-01-01T00:00:00Z",
+        "triggers": ["bounded-trigger"] * 513}) + "\n",
+        encoding="utf-8")
+    with pytest.raises(IntegrityPressureInputError, match="incident_feed_trigger_limit_exceeded"):
+        compute_integrity_pressure(tmp_path)
+
+    target.write_bytes(b" " * MAX_INCIDENT_FEED_BYTES + b"\n")
+    with pytest.raises(IntegrityPressureInputError, match="incident_feed_size_or_custody_invalid"):
+        compute_integrity_pressure(tmp_path)
+
+
+def test_incident_feed_symlink_is_not_followed(tmp_path: Path) -> None:
+    if os.name != "posix":
+        pytest.skip("POSIX symlink custody fixture")
+    outside = tmp_path / "outside.jsonl"
+    outside.write_text("{}\n", encoding="utf-8")
+    target = tmp_path / "pulse/integrity_incidents.jsonl"
+    target.parent.mkdir(parents=True)
+    target.symlink_to(outside)
+
+    with pytest.raises(IntegrityPressureInputError, match="incident_feed_custody_unavailable"):
+        compute_integrity_pressure(tmp_path)
