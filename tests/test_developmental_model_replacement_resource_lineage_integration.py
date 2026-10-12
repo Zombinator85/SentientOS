@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from sentientos.developmental_model_replacement_experiment import ModelReplacementArtifactStore
 from sentientos.developmental_model_replacement_rehearsal import _load, prepare, run_next
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_EPISTEMIC_STATE_MUTATION,
+    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+)
 from sentientos.governed_local_model_resource_allocation import (
     GovernedLocalModelResourceBounds,
     GovernedLocalModelResourcePolicy,
@@ -21,8 +27,14 @@ from sentientos.production_chat_resource_provisioning import load_production_cha
 from sentientos.production_chat_resource_provisioning_bundle_producer import (
     produce_production_chat_resource_provisioning_bundle,
 )
+from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
+from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
+from sentientos.runtime_admission import RuntimeAdmissionVerifier
+from sentientosd import RuntimeMaintenanceSurfaces
+from tests.test_resident_developmental_cognition import owner as developmental_owner
+from tests.test_resident_epistemic_development import fixture as epistemic_fixture
 from tests.test_production_chat_resource_provisioning_bundle_producer import inputs
-from sentientos.world_state_board import record_digest
+from sentientos.world_state_board import WorldStateBoardBuilder, record_digest
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -127,6 +139,119 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
             for row in joined)
         assert all(row["payload"]["software_attribution"]["generation_posture"]
             == "not_bound_by_selected_protocol" for row in joined)
+
+        # Compose the same ledger, exact invocation receipts, and model-run
+        # artifact through the daemon's actual configured World-State path.
+        # Then admit historical evidence, append developmental history, and
+        # verify restart plus later-tick retrieval through the existing owner.
+        epistemic_root = tmp_path / "composed-epistemics"
+        epistemic_state, proposition, admission_ledger, development = epistemic_fixture(
+            epistemic_root)
+        development_rule = replace(development.config.rules[0], selector={
+            "source_kind": "resource_governor",
+            "subject_kind": "model_replacement_invocation_resource_lineage",
+            "stage": "observation", "disposition": "verified"})
+        development.config = replace(development.config, rules=(development_rule,))
+        surfaces = RuntimeMaintenanceSurfaces(
+            tmp_path, runtime_state_root=tmp_path / "composed-runtime",
+            governed_resource_ledger=owner.allocator.ledger,
+            governed_invocation_receipts=tuple(receipts),
+            model_replacement_artifact_store=ModelReplacementArtifactStore(
+                experiment_root / "rehearsal"),
+            model_replacement_run_refs=((run["run_id"], run["run_digest"]),),
+            epistemic_state_owner=epistemic_state,
+            epistemic_state_config={"status": "configured",
+                "cognitive_consumption_enabled": True,
+                "max_cognitive_projection_count": 8},
+            epistemic_development_runtime=development)
+        tick_n = "2026-09-21T08:40:00+00:00"
+        world_state_feedback = surfaces.build_world_state_board(tick_id=tick_n)
+        snapshot = surfaces.current_world_state_snapshot
+        assert snapshot is not None
+        history_lineage_facts = [fact for fact in snapshot.facts
+            if fact.subject.subject_kind == "model_replacement_invocation_resource_lineage"]
+        assert len(history_lineage_facts) == 5
+        assert all(fact.source.finding == "ok" and fact.disposition == "verified"
+            for fact in history_lineage_facts)
+        assert world_state_feedback["snapshot_id"] == snapshot.snapshot_id
+        developed = surfaces.run_epistemic_development(tick_id=tick_n)
+        assert developed["status"] == "state_advanced"
+        assert developed["next_tick_only"] is True and developed["authority"] is False
+        bindings = epistemic_state.bindings(proposition.proposition_id)
+        assert len(bindings) == 5
+        assert all(binding.freshness != "current" for binding in bindings)
+        assert all(binding.observation_time is not None for binding in bindings)
+        tick_n_value = int(datetime.fromisoformat(tick_n).timestamp())
+        assert epistemic_state.cognitive_projection(max_states=8,
+            current_tick=tick_n_value) is None
+        later_epistemic = epistemic_state.cognitive_projection(
+            max_states=8, current_tick=tick_n_value + 1)
+        assert later_epistemic is not None
+        assert later_epistemic.source_tick == tick_n_value
+
+        cognition_root = tmp_path / "composed-developmental-history"
+        cognition, first_fixture = developmental_owner(
+            cognition_root, allowed_source_kinds=("resource_governor",),
+            max_selected_facts=1)
+        lineage_record = next(row for row in joined
+            if row["payload"].get("model_replacement_condition")
+                == history_lineage_facts[0].payload.get("model_replacement_condition"))
+        cognition_snapshot = WorldStateBoardBuilder(
+            clock=lambda: datetime.fromisoformat(tick_n)).build([lineage_record])
+        assert len(cognition_snapshot.facts) == 1
+        assert cognition_snapshot.facts[0].source.digest == history_lineage_facts[0].source.digest
+        first = cognition.run_tick(snapshot=cognition_snapshot,
+            tick_id="model-resource-history-tick-n-plus-one",
+            prior_epistemic_state=later_epistemic)
+        assert first.status == "completed"
+        assert first.same_tick_history_excluded is True
+        assert first.written_record_id is not None
+        retained = cognition.writeback.store.get(first.written_record_id)
+        assert retained.current_truth is False
+        retained_resource_facts = [fact for fact in retained.candidate["selected_facts"]
+            if fact["subject"]["subject_kind"]
+                == "model_replacement_invocation_resource_lineage"]
+        assert retained_resource_facts
+        history_scope = __import__("sentientos.embodied_consequence",
+            fromlist=["_history_evidence_scope"])._history_evidence_scope(
+                {"candidate": retained.candidate})
+        assert history_scope["posture"] in {
+            "resource_invocation_lineage_history",
+            "resource_invocation_lineage_history_context_bounded"}
+        retained_binding = next(binding for binding in history_scope["resource_bindings"]
+            if binding.get("lineage_subject_kind")
+                == "model_replacement_invocation_resource_lineage")
+        assert retained_binding["invocation_model_id"].startswith("lma-")
+        assert retained_binding["cognitive_model_id"]
+
+        recovered_cognition, later_fixture = developmental_owner(
+            cognition_root, allowed_source_kinds=("resource_governor",),
+            max_selected_facts=1)
+        recovered_epistemic = PersistentEpistemicStateOwner(
+            epistemic_root / "epistemics", allowed_namespaces=("operator",))
+        ResidentEpistemicStateMutationController(
+            owner=recovered_epistemic,
+            admission_verifier=RuntimeAdmissionVerifier(
+                definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
+                    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION},
+                ledger=admission_ledger),
+            current_sequence=admission_ledger.current_sequence,
+            receipt_root=epistemic_root / "receipts")
+        recovered_projection = recovered_epistemic.cognitive_projection(
+            max_states=8, current_tick=tick_n_value + 2)
+        assert recovered_projection is not None
+        assert recovered_projection.source_tick == later_epistemic.source_tick == tick_n_value
+        assert recovered_projection.state_ids == later_epistemic.state_ids
+        assert recovered_projection.state_digests == later_epistemic.state_digests
+        later = recovered_cognition.run_tick(
+            snapshot=cognition_snapshot, tick_id="model-resource-history-tick-n-plus-two",
+            prior_epistemic_state=recovered_projection)
+        assert later.prior_record_ids == (first.written_record_id,)
+        retrieval = next(request for request in later_fixture.requests
+            if request.purpose == "resident_developmental_retrieval_cognition")
+        assert first.written_record_id in retrieval.upstream_evidence["record_ids"]
+        assert retrieval.upstream_evidence["epistemic_projection_id"] == recovered_projection.projection_id
+        assert first_fixture.requests
 
         # A fully re-digested but ledger-substituted attempt remains degraded.
         altered_records = deepcopy(replacement_records)

@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-- Fresh remote source before seq61: `2e3b358317bc8e5d62f8970da28257896f2e4135`, tree `3b2fdbc2ab7e32485130aae5ede14c1303ceedea`; `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
-- Latest continuation segment: sequence 61, `work/construction/segments/0061-model-identity-history-lineage.md`.
-- Seq61 repairs the downstream history consumer that incorrectly equated the semantic cognitive/catalog model id with the governed invocation authority-map id. History now preserves both; legacy strategy positive control and substitution negative control are covered. Focused tests and compilation passed; production remains unverified.
-- Next dependency: inspect later cognition and writeback/recovery consumers for remaining assumptions that collapse invocation, cognitive, and provenance identities, then continue source-backed reconciliation.
+- Fresh remote source before seq62: `57f737904003db2581378689278e50df9256d341`, tree `9fc54e3372b666b73cf5c96388c341881df2c8a3`; `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Latest continuation segment: sequence 62, `work/construction/segments/0062-model-resource-cognition.md`.
+- Seq62 composes actual resource-ledger/invocation receipt custody and model-replacement artifacts through RuntimeMaintenanceSurfaces, World-State, configured epistemic admission, mutation-receipt recovery, immutable developmental writeback, restart, and later cognition. Focused adjacent owner suites passed 164/164. The canonical runner stopped before collection on unavailable isolated build dependency; direct local pytest is synthetic-fixture evidence only. Production remains unverified.
+- Next dependency: continue semantic review of the remaining historical patches and investigate further interruption/recovery or identity gaps in the configured cognition consumers.
