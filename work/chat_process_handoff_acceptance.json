@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "focused_owner_composition_passed; production_unverified",
+  "source_parent": {
+    "commit": "b7b7f496d71368867f901b8022bee93b271ee057",
+    "tree": "0457c7f172f948d4e2a6f3236f24777888748efe"
+  },
+  "finding": {
+    "code": "sentientos/chat_process_generation.py",
+    "defect": "canonical JSON helper converted every value to dict, so bounded argv arrays raised before launch-handoff publication",
+    "repair": "retain mapping normalization for JSON objects and serialize sequence values as canonical JSON arrays"
+  },
+  "owner_path_exercised": [
+    "LocalModelChatServiceAdapter.start launches a real child with Popen",
+    "the adapter publishes immutable process, argv, environment, installation, and measured source-generation custody",
+    "the parent verifies the live child against its exact launch inputs",
+    "the child independently verifies its own pid, parent pid, argv, environment, and source generation"
+  ],
+  "test": {
+    "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q tests/test_local_model_chat_runtime_startup.py",
+    "result": "17 passed",
+    "conftest_note": "--noconftest avoids the repository root conftest guard that requires the canonical minimal test install",
+    "coverage_note": "The new process-level test uses an isolated test installation registry and a hermetic child source root; it does not configure model serving or perform inference."
+  },
+  "other_checks": [
+    "python -m py_compile sentientos/chat_process_generation.py tests/test_local_model_chat_runtime_startup.py",
+    "git diff --check"
+  ],
+  "source_sha256": {
+    "sentientos/chat_process_generation.py": "547fdc8428d9f321315ccbdd9eb3090ad9e593974c18d0e938eb2fd45dbdb4ff",
+    "tests/test_local_model_chat_runtime_startup.py": "f6865acf08419b6341a558b35e5d9a84a172072b78013fcfe5d7c7d58fe063f9"
+  },
+  "limits": [
+    "No production installation or model activation was used.",
+    "No actual model inference, provider call, host measurement, or external effect occurred.",
+    "The resource invocation fixture and the child handoff fixture are separately exercised; their full installed runtime combination remains untested."
+  ]
+}

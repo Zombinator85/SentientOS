@@ -66,6 +66,14 @@
       "sequence": 7,
       "sha256": "0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
       "source_commit": "74cb9906756be7cd4b72bfbd8f0f0c1529c89492"
+    },
+    {
+      "bytes": 1824,
+      "path": "work/construction/segments/0008-chat-process-handoff.md",
+      "predecessor": "segment-sha256:0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
+      "sequence": 8,
+      "sha256": "4f8ef3deaa65ea482396ba7ebd935154f2dd9f4afdf4433d1ad6c26b5613a2fc",
+      "source_commit": "b7b7f496d71368867f901b8022bee93b271ee057"
     }
   ],
   "workspace_reconciliation": {

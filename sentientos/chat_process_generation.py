@@ -52,9 +52,10 @@ class ChatProcessGenerationError(ValueError):
     """Invalid, incomplete or stale supervised chat-process lineage."""
 
 
-def _canonical(value: Mapping[str, Any]) -> bytes:
+def _canonical(value: Any) -> bytes:
     try:
-        return json.dumps(dict(value), sort_keys=True, separators=(",", ":"),
+        canonical_value = dict(value) if isinstance(value, Mapping) else value
+        return json.dumps(canonical_value, sort_keys=True, separators=(",", ":"),
                           ensure_ascii=False, allow_nan=False).encode("utf-8") + b"\n"
     except (TypeError, ValueError, RecursionError, UnicodeError) as exc:
         raise ChatProcessGenerationError("chat_process_handoff_noncanonical_value") from exc

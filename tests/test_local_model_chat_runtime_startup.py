@@ -53,7 +53,8 @@ def test_service_surface_has_no_execution_or_model_injection_parameters() -> Non
     forbidden = {"executable", "script", "argv", "model_path", "activation_path", "runtime_path",
                  "interpreter_path", "custody_root", "preloaded_model", "simulation", "fallback"}
     assert not fields & forbidden
-    assert set(inspect.signature(build_runtime_service_registry).parameters) == {"config", "adapter_factory"}
+    assert set(inspect.signature(build_runtime_service_registry).parameters) == {
+        "config", "adapter_factory", "installation_handle"}
 
 
 def test_enabled_adapter_constructs_only_exact_launcher_argv() -> None:
@@ -175,3 +176,89 @@ def test_canonical_cli_passes_only_explicit_chat_configuration(monkeypatch) -> N
 def test_canonical_cli_rejects_arbitrary_process_arguments() -> None:
     with pytest.raises(SystemExit):
         ops.main(["runtime", "start", "--enable-local-model-chat", "--argv", "evil"])
+
+
+def test_actual_adapter_handoff_binds_live_child_and_source_generation(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exercise the real parent publisher and child verifier without serving a model."""
+    import json
+    import os
+    import sys
+    import time
+
+    from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+    from sentientos.chat_process_generation import source_generation
+
+    root = tmp_path / "runtime-source"
+    (root / "sentientos").mkdir(parents=True)
+    scripts = root / "scripts"
+    scripts.mkdir()
+    result_path = tmp_path / "child-result.json"
+    release_path = tmp_path / "release-child"
+    registry_root = tmp_path / "installation-state"
+    helper = scripts / "local_model_chat.py"
+    helper.write_text("""\
+import json, os, sys, time
+from pathlib import Path
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.chat_process_generation import verify_current_chat_process_handoff
+
+args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
+registry = InstallationStateRegistry._for_testing(Path(os.environ['TEST_REGISTRY_ROOT']))
+handle = registry.open(InstallationIdentity.parse(args['--installation-identity']))
+handoff = verify_current_chat_process_handoff(handle=handle, handoff_id=args['--runtime-handoff-id'])
+if handoff['software_generation_digest'] != args['--expected-software-generation-digest']:
+    raise SystemExit('source_generation_expectation_mismatch')
+Path(os.environ['TEST_CHILD_RESULT']).write_text(json.dumps(handoff, sort_keys=True))
+deadline = time.monotonic() + 10
+while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() < deadline:
+    time.sleep(.01)
+""", encoding="utf-8")
+    (root / "sentientos" / "marker.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    identity = InstallationIdentity("handoff-test")
+    handle = InstallationStateRegistry._for_testing(registry_root).open(identity, create=True)
+    monkeypatch.setenv("TEST_REGISTRY_ROOT", str(registry_root))
+    monkeypatch.setenv("TEST_CHILD_RESULT", str(result_path))
+    monkeypatch.setenv("TEST_RELEASE_CHILD", str(release_path))
+    real_root = Path(__file__).resolve().parents[1]
+
+    def child_argv(config, *, root, runtime_handoff_id=None,
+                   expected_source_generation_digest=None, **_kwargs):
+        assert runtime_handoff_id is not None
+        argv = (sys.executable, str(root / "scripts" / "local_model_chat.py"),
+                "--installation-identity", config.installation_identity,
+                "--serving-operation-id", config.serving_operation_id,
+                "--runtime-handoff-id", runtime_handoff_id)
+        if expected_source_generation_digest is not None:
+            argv += ("--expected-software-generation-digest", expected_source_generation_digest)
+        return argv
+
+    monkeypatch.setattr(LocalModelChatServiceAdapter, "_launcher_argv", staticmethod(child_argv))
+    config = LocalModelChatStartup(enabled=True, installation_identity=identity.value,
+                                   serving_operation_id="serve-handoff")
+    adapter = LocalModelChatServiceAdapter(config, installation_handle=handle)
+    adapter._root = root
+    adapter._launch_environment["PYTHONPATH"] = os.pathsep.join(
+        (str(real_root), adapter._launch_environment["PYTHONPATH"]))
+    adapter._environment = dict(adapter._launch_environment)
+    try:
+        adapter.start()
+        parent_observation = adapter.current_runtime_handoff()
+        deadline = time.monotonic() + 5
+        while not result_path.exists() and time.monotonic() < deadline:
+            time.sleep(.01)
+        assert result_path.exists(), (
+            "child did not verify the published handoff: "
+            + bytes(adapter._diagnostics).decode("utf-8", "replace"))
+        child_observation = json.loads(result_path.read_text(encoding="utf-8"))
+        assert child_observation["status"] == "runtime_launcher_process_and_source_bound"
+        assert parent_observation["status"] == "runtime_launcher_child_launch_and_source_bound"
+        for field in ("handoff_id", "handoff_digest", "process_instance_id",
+                      "software_generation_digest", "process_id", "parent_process_id"):
+            assert child_observation[field] == parent_observation[field]
+        assert child_observation["process_id"] == adapter._process.pid
+        assert child_observation["software_generation_digest"] == source_generation(root)[0]
+    finally:
+        release_path.write_text("release\n", encoding="utf-8")
+        adapter.stop()
