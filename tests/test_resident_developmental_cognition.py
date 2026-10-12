@@ -70,6 +70,7 @@ class FakeInvoker:
         self.no_cognition_lesson = False
         self.unavailable_cognition_output = False
         self.objective_mode = "derive_from_history"
+        self.fail_objective_condition: str | None = None
         self.objective_plan_root: Path | None = None
         self.history_interpretation = "bounded history"
 
@@ -108,6 +109,9 @@ class FakeInvoker:
         return request
 
     def invoke(self, request, *, persist, include_output_in_receipt):
+        if (request.purpose == "resident_developmental_history_intervention_experiment"
+                and self.fail_objective_condition == request.linkage.get("condition_id")):
+            raise RuntimeError("fixture_interrupted_before_condition_invocation")
         truncated = False
         original_output = None
         if request.purpose == "resident_developmental_interpretation":
@@ -345,6 +349,7 @@ print(json.dumps(run["objective_evaluation"], sort_keys=True))
 def test_same_model_objective_score_recovery_rejects_rehashed_substitution(tmp_path: Path) -> None:
     fake = FakeInvoker()
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
     cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
     cognition.run_tick(snapshot=snapshot(), tick_id="score-recovery-seed")
@@ -362,6 +367,53 @@ def test_same_model_objective_score_recovery_rejects_rehashed_substitution(tmp_p
     with pytest.raises(DevelopmentalHistoryInterventionError,
                        match="objective_score_binding_invalid"):
         cognition.experiments.load_run(forged_id)
+
+
+def test_interrupted_same_model_trial_recovers_checkpointed_score_without_replay(tmp_path: Path) -> None:
+    fake = FakeInvoker()
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    cognition.run_tick(snapshot=snapshot(), tick_id="interrupted-score-seed")
+    fake.fail_objective_condition = "history_withheld"
+    with pytest.raises(RuntimeError, match="fixture_interrupted_before_condition_invocation"):
+        cognition.run_tick(snapshot=snapshot(), tick_id="interrupted-objective-trial")
+    protocol_paths = list(fake.objective_plan_root.glob("devexp-protocol-*.json"))
+    assert len(protocol_paths) == 1
+    protocol = cognition.experiments.load_protocol(protocol_paths[0].stem)
+    observations = cognition._recover_observation_ticks(include_records=True)
+    condition = next(value for value in observations.values()
+        if value.get("tick_id") == "interrupted-objective-trial")
+    restarted_store = DevelopmentalExperimentStore(tmp_path / "state")
+    recovered = restarted_store.load_objective_condition_score(protocol,
+        condition_id="history_present", observation=condition)
+    assert recovered["score"]["correct"] is True
+    assert recovered["score"]["output_text"] == '{"answer":23}'
+    condition_path = tmp_path / "state" / "cognition_observations" / (
+        condition["observation_id"] + ".json")
+    child = subprocess.run([sys.executable, "-c", """
+import json, sys
+from pathlib import Path
+from sentientos.developmental_history_intervention_experiment import DevelopmentalExperimentStore
+store=DevelopmentalExperimentStore(Path(sys.argv[1]))
+protocol=store.load_protocol(sys.argv[2])
+observation=json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+score=store.load_objective_condition_score(protocol, condition_id="history_present", observation=observation)
+print(json.dumps(score["score"], sort_keys=True))
+""", str(tmp_path / "state"), protocol.protocol_id, str(condition_path)],
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=True)
+    assert json.loads(child.stdout.strip().splitlines()[-1]) == recovered["score"]
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+                       match="objective_condition_score_missing"):
+        restarted_store.load_objective_condition_score(protocol,
+            condition_id="history_withheld", observation=condition)
+    invocations = len(fake.requests)
+    fake.fail_objective_condition = None
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(), tick_id="interrupted-objective-trial")
+    assert len(fake.requests) == invocations
 
 
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,

@@ -1,0 +1,33 @@
+{
+  "answer_custody": "only the bounded answer bytes required by the exact-integer rubric are persisted; raw prompts and other model output remain unpersisted",
+  "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/gr5-objective-governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/gr5-objective-runtime PULSE_TRUST_EPOCH_ROOT=/tmp/gr5-objective-pulse PULSE_TRUST_EPOCH_STATE=/tmp/gr5-objective-pulse/state.json SENTIENTOS_FEDERATION_ROOT=/tmp/gr5-objective-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/gr5-objective-kernel /tmp/sentientos-gr5-venv/bin/python -m scripts.run_tests tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_cognition.py -q --junitxml=/tmp/gr5-objective-interrupted-final.xml",
+  "compile": "py_compile passed for modified Python source/tests",
+  "diff_check": "passed",
+  "errors": 0,
+  "failures": 0,
+  "interruption_result": {
+    "first_condition_score_durably_checkpointed": true,
+    "incomplete_tick_stays_nonreplayable": true,
+    "missing_later_condition_remains_missing": true,
+    "no_additional_invocation_after_restart": true,
+    "reopened_and_revalidated_in_fresh_python_process": true
+  },
+  "limits": [
+    "The partial trial is not promoted to a completed run.",
+    "Missing conditions are not automatically invoked after restart.",
+    "The process reports the trial as interrupted and blocks same-tick replay.",
+    "Fixture invoker only; no actual model or production behavior evidence."
+  ],
+  "modified_tested_file_sha256": {
+    "sentientos/developmental_history_intervention_experiment.py": "43f903ffe09f9358fbd003d4d8bf35f2ad186f22175f79d44174843cca7077f4",
+    "sentientos/resident_developmental_cognition.py": "4df103547bea43050ffecf17bd2073169770cd8eb158c64e8279d545a164947c",
+    "tests/test_resident_developmental_cognition.py": "b86cee7b499a0a5df7e9f82730c82ff90443b221c5e30e8b5df94be8f871810f"
+  },
+  "mypy": "unavailable; no typing result claimed",
+  "schema_version": "sentientos.construction.interrupted_objective_recovery:v1",
+  "skipped": 0,
+  "tests": 109,
+  "verified_base_commit": "7db78f57635aff2acdd06f808d4ca36ba5e0538d",
+  "verified_base_tree": "71e34f42f3df796df8450ec4333e884feda6bea3",
+  "workspace_staged_tree_matches_verified_base": true
+}

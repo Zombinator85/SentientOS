@@ -1,13 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified source baseline `180b15e4f3bcf39d8813e54337509880c99817d5`, tree `3780cf0446ddc58d431596d959da69da25577e5c`. The current sequence 79 candidate adds same-model history objective scoring on that baseline; it is not yet published or production-verified.
+Last independently verified source baseline `7db78f57635aff2acdd06f808d4ca36ba5e0538d`, tree `71e34f42f3df796df8450ec4333e884feda6bea3`. Sequence 80 adds partial same-model objective-score recovery on that exact base; not yet published or production verified.
 
-Latest segment: work/construction/segments/0079-same-model-objective-history.md
-SHA-256: 30a21da55b067bcb1a101712764147e8f2284824246864173b50fd83ce7dfee9
-Sequence: 79
+Latest segment: work/construction/segments/0080-objective-interrupted-score-recovery.md
+SHA-256: c128235306b5b06b8e4dfa55d68cefd98ba8b9fd957691d699e71301a6d209b7
+Sequence: 80
 
-The existing canonical history-intervention path now supports a preregistered, receipt-bound objective oracle across history-present, withheld, and restored conditions. Focused suite: 108 passed; fixture-only outcomes and exact file fingerprints are in evidence/0079-objective-history-results.json. Compilation and diff checks passed. Mypy was unavailable. No real model was invoked, and interrupted mid-trial score reconstruction remains unresolved.
+A bounded answer checkpoint is now persisted per condition and revalidated against the immutable objective plan and the exact observation, request, receipt, and output identities. A child process recovered a completed first-condition score after the second condition was interrupted. The missing score remains missing, the trial remains incomplete, and same-tick inference is not replayed. Suite: 109 passed; `py_compile` and diff checks passed; mypy unavailable. Seq79 hosted Source validation and helm smoke succeeded; invariants, self-check, docs failed.
 
-Next dependency: test/implement truthful recovery of a partially completed objective comparison from already durable observations and exact authenticated receipts, without replay; keep unrecoverable conditions incomplete. Then inspect legitimate local-model readiness and distinguish external prerequisites from source gaps.
-
-Construction is unverified for production.
+Next: assess only source-backed, already-authorized local-model trial readiness, and investigate explicit resumption of missing conditions without rerunning completed ones. No provider/model activation. Construction remains unverified for production.

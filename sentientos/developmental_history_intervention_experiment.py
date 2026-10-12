@@ -269,6 +269,102 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("objective_task_plan_binding_invalid") from exc
         return value
 
+    def persist_objective_condition_score(self,
+            protocol: DevelopmentalHistoryInterventionProtocol,
+            plan: Mapping[str, Any], *, condition_id: str,
+            observation: Mapping[str, Any], receipt: Any) -> dict[str, Any]:
+        """Checkpoint one bounded score while authenticated output bytes are live."""
+        verified_plan = self.verify_objective_task_plan(protocol)
+        if (condition_id not in CONDITION_ORDER or not isinstance(observation, Mapping)
+                or observation.get("condition_id") != condition_id
+                or observation.get("observation_id") is None
+                or observation.get("observation_digest") is None
+                or plan.get("plan_digest") != verified_plan.get("plan_digest")):
+            raise DevelopmentalHistoryInterventionError("objective_condition_score_binding_invalid")
+        output_text = getattr(receipt, "output_text", None)
+        output_digest = getattr(receipt, "output_digest", None)
+        receipt_id = getattr(receipt, "receipt_id", None)
+        receipt_digest = getattr(receipt, "receipt_digest", None)
+        if (receipt_id != observation.get("inference_receipt_id")
+                or receipt_digest != observation.get("inference_receipt_digest")):
+            raise DevelopmentalHistoryInterventionError("objective_condition_receipt_binding_invalid")
+        if output_digest != observation.get("output_digest"):
+            raise DevelopmentalHistoryInterventionError("objective_condition_output_binding_invalid")
+        if output_text is not None and digest_payload({"output": output_text}) != output_digest:
+            raise DevelopmentalHistoryInterventionError("objective_condition_output_digest_invalid")
+        from .developmental_model_replacement_experiment import _objective_score
+        try:
+            score = _objective_score(verified_plan, output_text,
+                output_digest if output_text is not None else None)
+        except (TypeError, ValueError) as exc:
+            raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid") from exc
+        semantic = {"schema_version": "sentientos.objective_condition_score:v1",
+            "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
+            "plan_digest": verified_plan["plan_digest"], "condition_id": condition_id,
+            "observation_id": observation["observation_id"],
+            "observation_digest": observation["observation_digest"],
+            "request_id": observation.get("request_id"),
+            "request_digest": observation.get("request_digest"),
+            "inference_receipt_id": receipt_id,
+            "inference_receipt_digest": receipt_digest,
+            "output_digest": output_digest, "score": score}
+        digest = _digest(semantic)
+        record = {**semantic, "score_record_id": "devscore-" + digest[7:31],
+            "score_record_digest": digest}
+        path = self.protocols / f"objective-score-{protocol.protocol_id}-{condition_id}.json"
+        self._write_immutable(path, record)
+        return self.load_objective_condition_score(protocol, condition_id=condition_id,
+            observation=observation)
+
+    def load_objective_condition_score(self,
+            protocol: DevelopmentalHistoryInterventionProtocol, *, condition_id: str,
+            observation: Mapping[str, Any]) -> dict[str, Any]:
+        """Revalidate a previously checkpointed score without invoking a model."""
+        plan = self.verify_objective_task_plan(protocol)
+        if condition_id not in CONDITION_ORDER or not isinstance(observation, Mapping):
+            raise DevelopmentalHistoryInterventionError("objective_condition_score_binding_invalid")
+        try:
+            value = self._read_json(self.protocols /
+                f"objective-score-{protocol.protocol_id}-{condition_id}.json")
+        except FileNotFoundError as exc:
+            raise DevelopmentalHistoryInterventionError("objective_condition_score_missing") from exc
+        semantic = {key: item for key, item in value.items()
+            if key not in {"score_record_id", "score_record_digest"}}
+        claimed = value.get("score_record_digest")
+        expected_digest = _digest(semantic)
+        if (set(value) != {"schema_version", "protocol_id", "protocol_digest", "plan_digest",
+                "condition_id", "observation_id", "observation_digest", "request_id",
+                "request_digest", "inference_receipt_id", "inference_receipt_digest",
+                "output_digest", "score", "score_record_id", "score_record_digest"}
+                or value.get("schema_version") != "sentientos.objective_condition_score:v1"
+                or value.get("protocol_id") != protocol.protocol_id
+                or value.get("protocol_digest") != protocol.protocol_digest
+                or value.get("plan_digest") != plan.get("plan_digest")
+                or value.get("condition_id") != condition_id
+                or value.get("observation_id") != observation.get("observation_id")
+                or value.get("observation_digest") != observation.get("observation_digest")
+                or value.get("request_id") != observation.get("request_id")
+                or value.get("request_digest") != observation.get("request_digest")
+                or value.get("inference_receipt_id") != observation.get("inference_receipt_id")
+                or value.get("inference_receipt_digest") != observation.get("inference_receipt_digest")
+                or value.get("output_digest") != observation.get("output_digest")
+                or claimed != expected_digest
+                or value.get("score_record_id") != "devscore-" + expected_digest[7:31]):
+            raise DevelopmentalHistoryInterventionError("objective_condition_score_binding_invalid")
+        score = value.get("score")
+        if not isinstance(score, Mapping):
+            raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid")
+        from .developmental_model_replacement_experiment import _objective_score
+        try:
+            recomputed = _objective_score(plan, score.get("output_text"),
+                value["output_digest"] if score.get("output_text") is not None else None)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid") from exc
+        if json.dumps(recomputed, sort_keys=True, separators=(",", ":"), ensure_ascii=False) != json.dumps(
+                score, sort_keys=True, separators=(",", ":"), ensure_ascii=False):
+            raise DevelopmentalHistoryInterventionError("objective_condition_score_binding_invalid")
+        return value
+
     def load_protocol(self, protocol_id: str) -> DevelopmentalHistoryInterventionProtocol:
         if (not isinstance(protocol_id, str) or not protocol_id.startswith("devexp-protocol-")
                 or len(protocol_id) != len("devexp-protocol-") + 24
@@ -397,6 +493,10 @@ class DevelopmentalExperimentStore:
                     raise DevelopmentalHistoryInterventionError("objective_score_invalid") from exc
                 if canonical(expected_score) != canonical(wrapper["score"]):
                     raise DevelopmentalHistoryInterventionError("objective_score_binding_invalid")
+                checkpoint = self.load_objective_condition_score(protocol,
+                    condition_id=condition_id, observation=observation_payload)
+                if canonical(checkpoint.get("score")) != canonical(wrapper["score"]):
+                    raise DevelopmentalHistoryInterventionError("objective_score_checkpoint_mismatch")
                 verified_scores.append(dict(wrapper))
             evaluation = summarize_objective_task(plan, verified_scores)
             if canonical(evaluation) != canonical(value.get("objective_evaluation")):

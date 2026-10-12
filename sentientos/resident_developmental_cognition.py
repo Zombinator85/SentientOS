@@ -24,7 +24,8 @@ from .governed_local_model_invocation import (
 )
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
-    DevelopmentalExperimentStore, OBJECTIVE_SCHEMA, make_protocol, summarize,
+    DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
+    OBJECTIVE_SCHEMA, make_protocol, summarize,
     summarize_objective_task,
     PURPOSE as EXPERIMENT_PURPOSE,
 )
@@ -2476,11 +2477,14 @@ class ResidentDevelopmentalCognitionOwner:
             raise ResidentDevelopmentalCognitionError(
                 "cognition_observation_publication_failed") from exc
         if objective_plan is not None:
-            from .developmental_model_replacement_experiment import _objective_score
+            if protocol is None:
+                raise ResidentDevelopmentalCognitionError("objective_task_protocol_missing")
             try:
-                score = _objective_score(objective_plan, source_output_text,
-                    receipt.output_digest if source_output_text is not None else None)
-            except (TypeError, ValueError) as exc:
+                checkpoint = self.experiments.persist_objective_condition_score(
+                    protocol, objective_plan, condition_id=condition_id,
+                    observation=asdict(observation), receipt=receipt)
+                score = checkpoint["score"]
+            except (DevelopmentalHistoryInterventionError, TypeError, ValueError) as exc:
                 raise ResidentDevelopmentalCognitionError("objective_task_scoring_failed") from exc
             self._pending_objective_scores[observation.observation_id] = {
                 "condition_id": condition_id,
