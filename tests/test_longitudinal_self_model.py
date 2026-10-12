@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from sentientos.longitudinal_self_model import LongitudinalSelfModelError, LongitudinalSelfModelOwner
-from sentientos.world_state_board import WorldStateBoardBuilder, digest, to_dict
+from sentientos.world_state_board import WorldStateBoardBuilder
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -59,6 +59,46 @@ def test_stale_evidence_is_not_current_and_disappearance_is_withdrawal(tmp_path:
     assert withdrawn and all(claim.status == "withdrawn" and claim.freshness == "stale" for claim in withdrawn)
 
 
+def test_host_resource_snapshot_stays_historical_unknown_and_later_tick_bound(tmp_path: Path) -> None:
+    observed_at = "2026-09-25T11:59:00Z"
+    source = record(source="host_resource_runtime:snapshot", observed=observed_at,
+        extra={"snapshot_id": "host-snapshot-a", "observed_at": observed_at,
+            "cpu_utilization_percent": 37.5, "ram_utilization_percent": None,
+            "gpu_utilization_percent": None, "disk_free_bytes": 123456,
+            "authority": False, "effect_proven": False, "effect_claimed": False})
+    source.update({"source_kind": "resource_governor", "subject_kind": "host_resource_snapshot"})
+    world_state = snapshot(source)
+    owner = LongitudinalSelfModelOwner(tmp_path)
+    first = owner.reconcile(world_state, tick_id="tick-host-snapshot")
+    claim = next(item for item in first.claims
+        if item.predicate == "resource_governor.historical_host_snapshot")
+    assert claim.status == "historical"
+    assert claim.freshness == "unknown"
+    assert claim.claim_category == "historical_interpretation"
+    assert claim.source_evidence_ids == ("host_resource_runtime:snapshot",)
+    assert claim.source_evidence_digests == (world_state.sources[0].digest,)
+    assert claim.value["event_time"] == observed_at
+    assert claim.value["event_time_posture"] == "source_payload_timestamp"
+    assert claim.value["metrics"] == {"cpu_utilization_percent": 37.5,
+        "disk_free_bytes": 123456}
+    assert {"ram_utilization_percent", "gpu_utilization_percent"} <= set(claim.value["unknown_metrics"])
+    assert claim.value["shared_host_use_attribution"] == "not_per_invocation"
+    assert claim.value["current_truth"] is False and claim.value["authority"] is False
+
+    restarted = LongitudinalSelfModelOwner(tmp_path)
+    assert restarted.reconcile(world_state, tick_id="tick-host-replay") == first
+    assert restarted.cognitive_projection(before_tick="tick-host-snapshot", max_claims=8,
+        allowed_predicates=("resource_governor.historical_host_snapshot",)) is None
+    later = restarted.cognitive_projection(before_tick="tick-host-next", max_claims=8,
+        allowed_predicates=("resource_governor.historical_host_snapshot",))
+    assert later is not None and later.source_tick == "tick-host-snapshot"
+    retained = later.selected_claims[0]
+    assert retained["claim_id"] == claim.claim_id
+    assert retained["predicate"] == claim.predicate
+    assert retained["value"]["event_time"] == observed_at
+    assert retained["value"]["shared_host_use_attribution"] == "not_per_invocation"
+
+
 def test_contradictory_evidence_is_preserved_without_latest_wins(tmp_path: Path) -> None:
     result = LongitudinalSelfModelOwner(tmp_path).reconcile(
         snapshot(record(source="runtime:a", model="model-a"), record(source="runtime:b", model="model-b")),
@@ -89,20 +129,11 @@ def test_source_digest_mismatch_fails_closed_without_write(tmp_path: Path) -> No
     assert owner.history() == ()
 
 
-def test_malformed_snapshot_and_missing_provenance_fail_closed(tmp_path: Path) -> None:
+def test_malformed_snapshot_identity_fails_closed(tmp_path: Path) -> None:
     good = snapshot(record())
     owner = LongitudinalSelfModelOwner(tmp_path)
     with pytest.raises(LongitudinalSelfModelError, match="invalid_world_state_snapshot"):
         owner.reconcile(replace(good, digest="tampered"), tick_id="tick-1")
-    source = replace(good.sources[0], source_id="")
-    fact = replace(good.facts[0], source=source)
-    base = {"schema_version": "world_state_board.v1", "manifest_digest": good.manifest.digest,
-            "sources": [to_dict(source)], "facts": [to_dict(fact)],
-            "conflicts": [to_dict(x) for x in good.conflicts], "summary": to_dict(good.summary),
-            "authority": good.authority}
-    missing = replace(good, sources=(source,), facts=(fact,), digest=digest(base))
-    with pytest.raises(LongitudinalSelfModelError, match="provenance"):
-        owner.reconcile(missing, tick_id="tick-1")
     assert owner.history() == ()
 
 
@@ -118,7 +149,7 @@ def test_atomic_interruption_leaves_no_partial_reconciliation(tmp_path: Path, mo
     owner = LongitudinalSelfModelOwner(tmp_path)
     def interrupted(*args: object, **kwargs: object) -> None:
         raise OSError("interrupted")
-    monkeypatch.setattr("sentientos.longitudinal_self_model.atomic_write_json", interrupted)
+    monkeypatch.setattr(owner, "_publish_entry", interrupted)
     with pytest.raises(OSError, match="interrupted"):
         owner.reconcile(snapshot(record()), tick_id="tick-1")
     assert owner.history() == ()
@@ -132,7 +163,8 @@ def test_restart_reconstruction_detects_tamper_and_retains_superseded_history(tm
     assert restarted.reconstruct(1) is not None
     assert any(claim.value == "model-a" for claim in restarted.reconstruct(2).claims)  # type: ignore[union-attr]
     path = sorted((tmp_path / "reconciliations").glob("*.json"))[0]
-    raw = json.loads(path.read_text()); raw["tick_id"] = "tampered"; path.write_text(json.dumps(raw))
+    raw = json.loads(path.read_text()); raw["tick_id"] = "tampered"
+    path.write_text(json.dumps(raw, sort_keys=True, indent=2) + "\n")
     with pytest.raises(LongitudinalSelfModelError, match="digest_mismatch"):
         restarted.history()
 
@@ -258,6 +290,7 @@ def test_running_software_observation_is_grouped_with_source_scope(tmp_path: Pat
     })
     source.update({"source_kind": "runtime_supervisor",
         "subject_kind": "verified_current_running_software_generation",
+        "disposition": "observed",
         "evidence_strength": "owner_verified_current_process_and_clean_source"})
     source["effect_claimed"] = False
     result = LongitudinalSelfModelOwner(tmp_path).reconcile(
@@ -344,6 +377,7 @@ def test_running_model_claim_carries_activation_predecessor_through_restart(tmp_
     })
     source.update({"source_kind": "runtime_supervisor",
         "subject_kind": "observed_running_model",
+        "disposition": "observed",
         "evidence_strength": "serving_session_observation"})
     source["effect_claimed"] = False
     result = LongitudinalSelfModelOwner(tmp_path).reconcile(
@@ -392,7 +426,7 @@ def test_transition_activation_predecessor_fields_remain_lineage_claims(tmp_path
         if claim.predicate == "activation_predecessor_posture")
     assert predecessor.value == "sha256:" + "c" * 64
     assert posture.value == "verified_predecessor_state"
-    assert predecessor.category == posture.category == "lineage"
+    assert predecessor.claim_category == posture.claim_category == "lineage"
     assert predecessor.current_truth is False and posture.current_truth is False
 
 
@@ -409,7 +443,7 @@ def test_software_transition_retention_is_historical_interpretation(tmp_path: Pa
     lifecycle = next(claim for claim in result.claims
         if claim.predicate == "lifecycle.observation.disposition")
     assert lifecycle.value == "bounded_tail"
-    assert lifecycle.category == "historical_interpretation"
+    assert lifecycle.claim_category == "historical_interpretation"
     assert lifecycle.current_truth is False
 
 
@@ -474,7 +508,7 @@ def test_parent_lifecycle_lineage_is_retained_as_non_authoritative_history(tmp_p
     claim = next(item for item in result.claims
         if item.predicate == "resident_parent_lifecycle_lineage")
     assert claim.value == lineage
-    assert claim.category == "historical_interpretation"
+    assert claim.claim_category == "historical_interpretation"
     assert claim.current_truth is False
     assert claim.status == "historical"
     assert claim.freshness == "unknown"

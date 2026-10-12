@@ -1,0 +1,235 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_longitudinal_self_model.py::test_atomic_interruption_leaves_no_partial_reconciliation": 0,
+    "tests/test_longitudinal_self_model.py::test_authority_and_model_authored_claim_smuggling_is_rejected": 0,
+    "tests/test_longitudinal_self_model.py::test_chat_recovery_history_retains_loaded_code_scope_posture": 0,
+    "tests/test_longitudinal_self_model.py::test_chat_runtime_history_binds_source_scope_and_loaded_code_limit": 0,
+    "tests/test_longitudinal_self_model.py::test_concurrent_self_model_writers_preserve_generation_predecessors": 0,
+    "tests/test_longitudinal_self_model.py::test_conflicting_running_and_represented_generation_is_not_grouped": 0,
+    "tests/test_longitudinal_self_model.py::test_contradictory_evidence_is_preserved_without_latest_wins": 0,
+    "tests/test_longitudinal_self_model.py::test_exact_source_binding_and_identical_replay_are_idempotent": 0,
+    "tests/test_longitudinal_self_model.py::test_generation_and_model_transition_preserves_historical_claims": 0,
+    "tests/test_longitudinal_self_model.py::test_host_resource_snapshot_stays_historical_unknown_and_later_tick_bound": 0,
+    "tests/test_longitudinal_self_model.py::test_launch_software_observation_is_historical_interpretation": 0,
+    "tests/test_longitudinal_self_model.py::test_longitudinal_self_model_rejects_canonical_memory_root": 0,
+    "tests/test_longitudinal_self_model.py::test_longitudinal_self_model_rejects_storage_inside_canonical_memory": 0,
+    "tests/test_longitudinal_self_model.py::test_malformed_snapshot_identity_fails_closed": 0,
+    "tests/test_longitudinal_self_model.py::test_parent_lifecycle_lineage_is_retained_as_non_authoritative_history": 0,
+    "tests/test_longitudinal_self_model.py::test_qualified_software_generation_scope_survives_longitudinal_writeback": 0,
+    "tests/test_longitudinal_self_model.py::test_restart_reconstruction_detects_tamper_and_retains_superseded_history": 0,
+    "tests/test_longitudinal_self_model.py::test_running_model_claim_carries_activation_predecessor_through_restart": 0,
+    "tests/test_longitudinal_self_model.py::test_running_software_observation_is_grouped_with_source_scope": 0,
+    "tests/test_longitudinal_self_model.py::test_software_transition_retention_is_historical_interpretation": 0,
+    "tests/test_longitudinal_self_model.py::test_source_digest_mismatch_fails_closed_without_write": 0,
+    "tests/test_longitudinal_self_model.py::test_stale_evidence_is_not_current_and_disappearance_is_withdrawal": 0,
+    "tests/test_longitudinal_self_model.py::test_transition_activation_predecessor_fields_remain_lineage_claims": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 23,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-gr4-exact/glow/test_runs/pytest_junitxml_70a53018a3a54a21be4dd99710b87769.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_exact_source_binding_and_identical_replay_are_idempotent",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_stale_evidence_is_not_current_and_disappearance_is_withdrawal",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_host_resource_snapshot_stays_historical_unknown_and_later_tick_bound",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_contradictory_evidence_is_preserved_without_latest_wins",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_generation_and_model_transition_preserves_historical_claims",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_source_digest_mismatch_fails_closed_without_write",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_malformed_snapshot_identity_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_authority_and_model_authored_claim_smuggling_is_rejected",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_atomic_interruption_leaves_no_partial_reconciliation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_restart_reconstruction_detects_tamper_and_retains_superseded_history",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_qualified_software_generation_scope_survives_longitudinal_writeback",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_chat_runtime_history_binds_source_scope_and_loaded_code_limit",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_chat_recovery_history_retains_loaded_code_scope_posture",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_running_software_observation_is_grouped_with_source_scope",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_launch_software_observation_is_historical_interpretation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_conflicting_running_and_represented_generation_is_not_grouped",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_running_model_claim_carries_activation_predecessor_through_restart",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_transition_activation_predecessor_fields_remain_lineage_claims",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_software_transition_retention_is_historical_interpretation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_longitudinal_self_model_rejects_canonical_memory_root",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_longitudinal_self_model_rejects_storage_inside_canonical_memory",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_concurrent_self_model_writers_preserve_generation_predecessors",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_longitudinal_self_model.py::test_parent_lifecycle_lineage_is_retained_as_non_authoritative_history",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "af27abeb9a53e6384d9efca4c2a416403938e24fec40cf6cdcb376bc3b5df5ee",
+  "provenance_hash": "60c58ed3d0ca55dae22cf7c16f0c06ca648faae527a98a9fca9e221df7789b40",
+  "pytest_args": [
+    "tests/test_longitudinal_self_model.py",
+    "-q",
+    "--tb=short"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "483f61e222b24b2e882c113d206f87fd",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_longitudinal_self_model.py::test_exact_source_binding_and_identical_replay_are_idempotent",
+    "tests/test_longitudinal_self_model.py::test_stale_evidence_is_not_current_and_disappearance_is_withdrawal",
+    "tests/test_longitudinal_self_model.py::test_host_resource_snapshot_stays_historical_unknown_and_later_tick_bound",
+    "tests/test_longitudinal_self_model.py::test_contradictory_evidence_is_preserved_without_latest_wins",
+    "tests/test_longitudinal_self_model.py::test_generation_and_model_transition_preserves_historical_claims",
+    "tests/test_longitudinal_self_model.py::test_source_digest_mismatch_fails_closed_without_write",
+    "tests/test_longitudinal_self_model.py::test_malformed_snapshot_identity_fails_closed",
+    "tests/test_longitudinal_self_model.py::test_authority_and_model_authored_claim_smuggling_is_rejected",
+    "tests/test_longitudinal_self_model.py::test_atomic_interruption_leaves_no_partial_reconciliation",
+    "tests/test_longitudinal_self_model.py::test_restart_reconstruction_detects_tamper_and_retains_superseded_history",
+    "tests/test_longitudinal_self_model.py::test_qualified_software_generation_scope_survives_longitudinal_writeback",
+    "tests/test_longitudinal_self_model.py::test_chat_runtime_history_binds_source_scope_and_loaded_code_limit",
+    "tests/test_longitudinal_self_model.py::test_chat_recovery_history_retains_loaded_code_scope_posture",
+    "tests/test_longitudinal_self_model.py::test_running_software_observation_is_grouped_with_source_scope",
+    "tests/test_longitudinal_self_model.py::test_launch_software_observation_is_historical_interpretation",
+    "tests/test_longitudinal_self_model.py::test_conflicting_running_and_represented_generation_is_not_grouped",
+    "tests/test_longitudinal_self_model.py::test_running_model_claim_carries_activation_predecessor_through_restart",
+    "tests/test_longitudinal_self_model.py::test_transition_activation_predecessor_fields_remain_lineage_claims",
+    "tests/test_longitudinal_self_model.py::test_software_transition_retention_is_historical_interpretation",
+    "tests/test_longitudinal_self_model.py::test_longitudinal_self_model_rejects_canonical_memory_root",
+    "tests/test_longitudinal_self_model.py::test_longitudinal_self_model_rejects_storage_inside_canonical_memory",
+    "tests/test_longitudinal_self_model.py::test_concurrent_self_model_writers_preserve_generation_predecessors",
+    "tests/test_longitudinal_self_model.py::test_parent_lifecycle_lineage_is_retained_as_non_authoritative_history"
+  ],
+  "selection_flags": [
+    "tests/test_longitudinal_self_model.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 23,
+  "tests_executed": 23,
+  "tests_failed": 0,
+  "tests_passed": 23,
+  "tests_selected": 23,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T18:32:05.552804+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

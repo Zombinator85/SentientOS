@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "5254ee7ea594ca55b806886517fa8cb52bc4f2bbff870c115777db144e63245b",
-    "latest_segment_sequence": 50,
-    "latest_segment_sha256": "1a67974a514d1a24e08f4c5ac9431b1ccaed642649aeec6a6440fad53b3559aa",
-    "source_commit": "6ec5d7dbf093b8b8d0692428f6b3ed86cf270134",
-    "source_tree": "c2df3c915d7f1142b73b8dd68472fdfd850971c0"
+    "checkpoint_sha256": "a13a40706740f50fc8f294cc4fe8a28d3f0e8ba482264c970d28e4a39fefcb35",
+    "latest_segment_sequence": 51,
+    "latest_segment_sha256": "c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
+    "source_commit": "fd96dc27426875e9e5d422a30722791da03e224e",
+    "source_tree": "c2dc8da70fe3567b3e29f04e7d88f01ef312172b"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -446,6 +446,15 @@
       "sha256": "1a67974a514d1a24e08f4c5ac9431b1ccaed642649aeec6a6440fad53b3559aa",
       "source_commit": "6ec5d7dbf093b8b8d0692428f6b3ed86cf270134",
       "source_tree": "c2df3c915d7f1142b73b8dd68472fdfd850971c0"
+    },
+    {
+      "bytes": 3242,
+      "path": "work/construction/segments/0051-longitudinal-resource-and-cognition-reconciliation.md",
+      "predecessor": "segment-sha256:1a67974a514d1a24e08f4c5ac9431b1ccaed642649aeec6a6440fad53b3559aa",
+      "sequence": 51,
+      "sha256": "c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
+      "source_commit": "fd96dc27426875e9e5d422a30722791da03e224e",
+      "source_tree": "c2dc8da70fe3567b3e29f04e7d88f01ef312172b"
     }
   ],
   "source_acquisition": {
