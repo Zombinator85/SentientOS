@@ -34,6 +34,14 @@
       "sequence": 3,
       "sha256": "ac3f3199dd8dc04206adfdb3b4b9035cac85b3f0389f92c2c5de2d66a4eb5e8c",
       "source_commit": "d6cf835e0c7861789f089f7012a15d5850796c01"
+    },
+    {
+      "bytes": 1054,
+      "path": "work/construction/segments/0004-forge-remediation-projection.md",
+      "predecessor": "segment-sha256:ac3f3199dd8dc04206adfdb3b4b9035cac85b3f0389f92c2c5de2d66a4eb5e8c",
+      "sequence": 4,
+      "sha256": "a3f77865fc059c4ccd77b0b0651c55ca93d1c17a263873e2b5e0450af83277ea",
+      "source_commit": "f47bed0a607b5e894dd6291ccf08cfdb603a0223"
     }
   ],
   "workspace_reconciliation": {

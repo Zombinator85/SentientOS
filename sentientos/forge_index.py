@@ -19,6 +19,7 @@ from sentientos.integrity_quarantine import (
 from sentientos.integrity_pressure import compute_integrity_pressure, load_pressure_state
 from sentientos.integrity_incident import inspect_quarantine_incident_custody
 from sentientos.recovery_tasks import backlog_count
+from sentientos.remediation_pack import latest_run_for_pack
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import derived_thresholds, resolve_posture
@@ -190,26 +191,40 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         latest_at = _parse_iso(_optional_str(last_auto_attempt.get("attempted_at")) or "")
         cooldown_minutes = max(1, int(os.getenv("SENTIENTOS_AUTO_REMEDIATION_COOLDOWN_MINUTES", "60")))
         if latest_status == "completed":
-            auto_status = "succeeded"
+            # Attempt logs are projections, not execution receipts. A claimed
+            # success is only shown as success when it names the exact latest
+            # run that the remediation custody owner reconciles.
+            attempt_pack_id = _optional_str(last_auto_attempt.get("pack_id"))
+            attempt_run_id = _optional_str(last_auto_attempt.get("run_id"))
+            owner_run = latest_run_for_pack(root, pack_id=attempt_pack_id) if attempt_pack_id else None
+            if (owner_run is not None
+                    and not str(owner_run.get("custody_status", "")).startswith("invalid:")
+                    and owner_run.get("status") == "completed"
+                    and owner_run.get("run_id") == attempt_run_id):
+                auto_status = "succeeded"
+            else:
+                auto_status = "unverified"
         elif latest_status == "failed":
             auto_status = "failed"
         if latest_at is not None and datetime.now(timezone.utc) - latest_at < timedelta(minutes=cooldown_minutes):
-            auto_status = "cooldown" if auto_status not in {"succeeded", "failed"} else auto_status
+            auto_status = "cooldown" if auto_status not in {"succeeded", "failed", "unverified"} else auto_status
     last_remediation_entry = catalog_latest(root, "remediation_pack")
     last_remediation = {"pack_id": (last_remediation_entry.get("id") if last_remediation_entry else None), "status": ((last_remediation_entry.get("summary") if isinstance(last_remediation_entry.get("summary"), dict) else {}).get("status") if last_remediation_entry else None), "governance_trace_id": ((last_remediation_entry.get("links") if isinstance(last_remediation_entry.get("links"), dict) else {}).get("trace_id") if last_remediation_entry else None)} if last_remediation_entry else (remediation_rows[-1] if remediation_rows else {})
-    remediation_runs = sorted((root / "glow/forge/remediation/runs").glob("run_*.json"), key=lambda item: item.name)
     last_run_entry = catalog_latest(root, "remediation_run")
     last_remediation_run_summary = None
     if last_run_entry is not None:
-        run_summary = {"pack_id": ((last_run_entry.get("links") if isinstance(last_run_entry.get("links"), dict) else {}).get("pack_id")), "status": ((last_run_entry.get("summary") if isinstance(last_run_entry.get("summary"), dict) else {}).get("status")), "generated_at": last_run_entry.get("ts")}
-        last_remediation_run_summary = json.dumps(run_summary, sort_keys=True)[:240]
-    elif remediation_runs:
-        run_payload = _load_json(remediation_runs[-1])
-        run_summary = {
-            "pack_id": run_payload.get("pack_id"),
-            "status": run_payload.get("status"),
-            "generated_at": run_payload.get("generated_at"),
-        }
+        links = last_run_entry.get("links") if isinstance(last_run_entry.get("links"), dict) else {}
+        pack_id = _optional_str(links.get("pack_id"))
+        verified_run = latest_run_for_pack(root, pack_id=pack_id) if pack_id else None
+        if verified_run is None or str(verified_run.get("custody_status", "")).startswith("invalid:"):
+            run_summary = {"pack_id": pack_id, "status": "invalid",
+                "custody_status": str((verified_run or {}).get("custody_status")
+                    or "invalid:catalog_run_without_verified_owner_report")}
+        else:
+            run_summary = {"pack_id": pack_id, "run_id": verified_run.get("run_id"),
+                "status": verified_run.get("status"),
+                "custody_status": verified_run.get("custody_status"),
+                "generated_at": verified_run.get("generated_at")}
         last_remediation_run_summary = json.dumps(run_summary, sort_keys=True)[:240]
 
     quarantine_requires_remediation = os.getenv("SENTIENTOS_QUARANTINE_REQUIRE_REMEDIATION", "0") == "1"
@@ -233,16 +248,15 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     related_pack_id = _optional_str((related_pack.get("id") if "id" in related_pack else related_pack.get("pack_id"))) if related_pack else None
     related_run = None
     if related_pack_id:
-        run_entry = catalog_latest(root, "remediation_run")
-        if run_entry is not None and str((run_entry.get("links") if isinstance(run_entry.get("links"), dict) else {}).get("pack_id") or "") == related_pack_id:
-            related_run = {"run_id": run_entry.get("id"), "status": ((run_entry.get("summary") if isinstance(run_entry.get("summary"), dict) else {}).get("status"))}
-        if related_run is None:
-            related_run = _latest_run_for_pack(remediation_runs, pack_id=related_pack_id)
+        related_run = latest_run_for_pack(root, pack_id=related_pack_id)
     related_status = "missing"
     related_run_id: str | None = None
     if related_run is not None:
         related_run_id = _optional_str(related_run.get("run_id"))
-        related_status = "completed" if _optional_str(related_run.get("status")) == "completed" else "failed"
+        if str(related_run.get("custody_status", "")).startswith("invalid:"):
+            related_status = "invalid"
+        else:
+            related_status = "completed" if _optional_str(related_run.get("status")) == "completed" else "failed"
 
 
     orchestrator_rows, _orchestrator_corrupt = _read_jsonl(root / "pulse/orchestrator_ticks.jsonl")
@@ -980,16 +994,6 @@ def _latest_pack_for_incident_or_trace(
         if governance_trace_id and row_trace == governance_trace_id:
             return row
     return None
-
-
-def _latest_run_for_pack(runs: Sequence[Path], *, pack_id: str) -> dict[str, object] | None:
-    for path in reversed(list(runs)):
-        payload = _load_json(path)
-        if _optional_str(payload.get("pack_id")) != pack_id:
-            continue
-        return payload
-    return None
-
 
 
 def _artifact_catalog_status(root: Path) -> str:

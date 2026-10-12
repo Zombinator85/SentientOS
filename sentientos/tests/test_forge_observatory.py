@@ -444,11 +444,11 @@ def test_index_includes_remediation_pack_fields(tmp_path: Path) -> None:
     assert payload["remediation_backlog_count"] == 1
     assert payload["last_trace_remediation_pack_id"] == "pack_1"
     assert payload["last_quarantine_remediation_pack_id"] == "pack_1"
-    assert payload["last_quarantine_remediation_status"] == "completed"
-    assert payload.get("last_quarantine_remediation_run_id") in {None, "run_20260101_pack_1"}
-    assert isinstance(payload.get("last_remediation_run_summary"), str)
+    assert payload["last_quarantine_remediation_status"] == "invalid"
+    assert payload.get("last_quarantine_remediation_run_id") is None
+    assert payload.get("last_remediation_run_summary") is None
 
-    assert payload["auto_remediation_status"] == "succeeded"
+    assert payload["auto_remediation_status"] == "unverified"
     assert payload["last_auto_remediation_pack_id"] == "pack_1"
     assert payload["last_auto_remediation_run_id"] == "run_20260101_pack_1"
     assert payload["auto_remediation_attempts_last_24h"] == 1
