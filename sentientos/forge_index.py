@@ -538,7 +538,10 @@ def _pending_from_rows(queue_rows: list[dict[str, object]], receipt_rows: list[d
     consumed = {
         row.get("request_id")
         for row in receipt_rows
-        if row.get("status") in {"started", "success", "failed", "skipped_budget", "rejected_policy"}
+        if row.get("status") in {
+            "started", "success", "failed", "skipped_budget", "rejected_policy",
+            "rejected_quarantine_custody",
+        }
     }
     pending = [row for row in queue_rows if row.get("request_id") not in consumed]
     def _priority(row: dict[str, object]) -> int:

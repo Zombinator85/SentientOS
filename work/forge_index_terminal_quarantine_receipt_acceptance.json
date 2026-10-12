@@ -1,0 +1,15 @@
+{
+  "change": "The index pending-request filter now treats rejected_quarantine_custody as terminal, matching ForgeQueue.next_request and receipt consumption semantics.",
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed",
+    "invalid_custody_daemon_queue_index_and_forge_index_tests": "24 passed with -m legacy"
+  },
+  "limits": [
+    "The effect boundary remains the daemon's quarantine pre-effector gate.",
+    "The test uses a counting fixture effector to establish it is never called.",
+    "No production behavior has been verified."
+  ],
+  "scope": "keep durable Forge request status consistent between receipt history and pending queue projection",
+  "status": "focused_hermetic_terminal_receipt_projection_verified_not_production_acceptance"
+}

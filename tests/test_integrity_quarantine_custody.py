@@ -341,6 +341,11 @@ def test_enabled_forge_is_stopped_before_effector_on_invalid_custody(
     assert index["quarantine_active"] is None
     assert index["quarantine_custody_status"] == "invalid:quarantine_json_invalid"
     assert index["quarantine_incident_custody"]["status"] == "custody_invalid"
+    assert any(
+        row.get("request_id") == "blocked" and row.get("status") == "rejected_quarantine_custody"
+        for row in index["latest_receipts"]
+    )
+    assert all(row.get("request_id") != "blocked" for row in index["latest_queue"])
 
 
 def test_first_use_does_not_block_independently_allowed_forge_work(

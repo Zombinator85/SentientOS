@@ -3436,3 +3436,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - After marking the request `rejected_quarantine_custody`, the daemon now emits through its ordinary Forge event/index path. The invalid-custody-aware index then publishes `quarantine_active: null`, exact invalid custody status, and restrictive toggles together with the denial event. The outcome remains non-execution; no automatic repair or retry occurs.
 - The actual enabled-daemon custody rejection plus Forge queue module: **22 passed** with `-m legacy`. The regression confirms zero effector calls, a terminal rejection receipt, and the matching current index snapshot. Changed Python compiled and `git diff --check` passed. Acceptance: `work/forge_daemon_quarantine_rejection_index_acceptance.json`.
 - Next: follow this evidence into other current-facing status surfaces and verify no stale positive operation state supersedes the rejection; otherwise continue through adjacent clear/recovery lifecycle evidence.
+
+
+## 2026-10-12 checkpoint — treat quarantine-custody rejection as terminal in the index
+
+- Continued from verified remote `194e7ac5823fe8ab0d018311fac5b07fdfe7c543`, tree `65b23460f95f34c85575b2261aacbc18962fa6be`. Inspection of the refreshed index found a state disagreement: `ForgeQueue.next_request()` consumes `rejected_quarantine_custody`, but `_pending_from_rows()` did not. The same current snapshot could show a terminal rejection receipt while still displaying the request as pending.
+- The index now counts `rejected_quarantine_custody` as terminal. The real enabled daemon invalid-custody test asserts the same request appears in latest receipts, is absent from latest pending requests, has unknown protective state, and never reaches the fixture effector.
+- Focused daemon/queue/index tests: **24 passed** with `-m legacy`; changed Python compiled and `git diff --check` passed. Acceptance: `work/forge_index_terminal_quarantine_receipt_acceptance.json`.
+- Next: audit the bounded `ForgeQueue` terminal-status vocabulary against every writer and recovery reader for any additional mismatched transitions, then continue the next consequential custody boundary.
