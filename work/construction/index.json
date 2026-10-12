@@ -106,6 +106,14 @@
       "sequence": 12,
       "sha256": "f8a51d8cd3ccb98d7affa78755fc81de2bea04e8db97eb9b2788e9ffd5122052",
       "source_commit": "6d5aaee90b8a283eb4adff704efdfd0114ec6661"
+    },
+    {
+      "bytes": 1485,
+      "path": "work/construction/segments/0013-unfetched-remote-preflight.md",
+      "predecessor": "segment-sha256:f8a51d8cd3ccb98d7affa78755fc81de2bea04e8db97eb9b2788e9ffd5122052",
+      "sequence": 13,
+      "sha256": "a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
+      "source_commit": "ada178bc412a9a2ebf82d225575947c7d959a568"
     }
   ],
   "workspace_reconciliation": {

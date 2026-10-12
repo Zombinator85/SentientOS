@@ -129,3 +129,22 @@ def test_unreachable_expected_remote_is_explicitly_unavailable(tmp_path: Path) -
     report = inspect_source(checkout, branch=BRANCH, expected_remote_url=str(bare))
     assert report["status"] == "remote_identity_unavailable"
     assert report["reason_code"] == "remote_read_failed"
+
+
+def test_remote_advance_without_fetch_never_accepts_stale_checkout(tmp_path: Path) -> None:
+    checkout, bare = _source_pair(tmp_path)
+    stale_head = _git(checkout, "rev-parse", "HEAD")
+    remote_head = _advance_remote(tmp_path, bare)
+
+    report = inspect_source(checkout, branch=BRANCH, expected_remote_url=str(bare))
+
+    assert report["status"] == "remote_commit_object_unavailable"
+    assert report["reason_code"] == "remote_head_not_present_in_local_object_database"
+    assert report["local_head"] == stale_head
+    assert report["remote_head"] == remote_head
+    assert report["dirty"] is False
+
+    raced = inspect_source(
+        checkout, branch=BRANCH, expected_remote_url=str(bare), expected_head=stale_head)
+    assert raced["status"] == "branch_advanced_during_publication"
+    assert raced["remote_head"] == remote_head
