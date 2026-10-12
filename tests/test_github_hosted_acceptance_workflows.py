@@ -88,6 +88,9 @@ def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
     assert "python -m scripts.run_tests -q" in source
     assert "tests/test_local_model_chat_recovery.py" in source
     assert "tests/test_resident_developmental_cognition.py" in source
+    assert "tests/test_local_model_catalog_deployment_capability_admission.py" in source
+    assert "tests/test_import_inertness_verifier.py" in source
+    assert "tests/integrity/test_import_purity.py" in source
     assert "--noconftest" not in source
     assert "continue-on-error" not in source
     assert "|| true" not in source
@@ -105,3 +108,13 @@ def test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate() -> Non
     assert 'python -m pip install -e ".[docs]"' in docs
     assert "make docs" in docs
     assert "continue-on-error" not in docs
+
+
+def test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in() -> None:
+    values = (ROOT / "helm/values.yaml").read_text()
+    template = (ROOT / "helm/templates/serviceMonitor.yaml").read_text()
+    test = (ROOT / "tests/integration/helm_k8s_test.py").read_text()
+    assert "serviceMonitor:" in values and "enabled: false" in values
+    assert "if .Values.serviceMonitor.enabled" in template
+    assert "--set\", \"serviceMonitor.enabled=true" in test
+    assert "ServiceMonitor\" not in default_render.stdout" in test

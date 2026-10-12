@@ -40,7 +40,10 @@ jobs:
             tests/test_resident_developmental_cognition.py \
             tests/test_developmental_model_replacement_experiment.py \
             tests/test_local_model_production_serving.py \
-            tests/test_resident_epistemic_state_mutation.py
+            tests/test_resident_epistemic_state_mutation.py \
+            tests/test_local_model_catalog_deployment_capability_admission.py \
+            tests/test_import_inertness_verifier.py \
+            tests/integrity/test_import_purity.py
       - name: Upload canonical test evidence
         if: always()
         uses: actions/upload-artifact@v4

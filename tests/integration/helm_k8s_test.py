@@ -28,6 +28,19 @@ def _wait_for_status(url: str, timeout: int = 120) -> int:
     raise RuntimeError("status endpoint not available")
 
 
+def test_service_monitor_is_opt_in_without_prometheus_crd() -> None:
+    default_render = subprocess.run(
+        ["helm", "template", "sentientos", "./helm"],
+        capture_output=True, text=True, check=True,
+    )
+    enabled_render = subprocess.run(
+        ["helm", "template", "sentientos", "./helm", "--set", "serviceMonitor.enabled=true"],
+        capture_output=True, text=True, check=True,
+    )
+    assert "kind: ServiceMonitor" not in default_render.stdout
+    assert "kind: ServiceMonitor" in enabled_render.stdout
+
+
 def test_placeholder(tmp_path: Path) -> None:
     cluster_name = "sentientos-test"
     try:

@@ -45,6 +45,12 @@ os.environ.update({
     "SENTIENTOS_DATA_DIR": str(root / "data"),
     "IMPORT_INERTNESS_PLUGIN_MARKER": str(marker),
 })
+# The Codex startup guard's first import deliberately binds this interpreter's
+# root PID so later child processes cannot reopen startup authority. Seed that
+# expected process context before measuring import-time changes; mutations to
+# the marker or to any other environment value remain visible to the verifier.
+if module in {"codex.integrity_daemon", "sentientos.codex_startup_guard"}:
+    os.environ.setdefault("CODEX_STARTUP_ROOT_PID", str(os.getpid()))
 invoked = []
 effects = []
 environment_before = dict(os.environ)
