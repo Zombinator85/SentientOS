@@ -169,7 +169,7 @@ def test_smoke_job_conditions_use_supported_explicit_opt_in_contexts() -> None:
 def test_source_validation_verifies_exact_provenance_acceptance_nodes() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_job = workflow.split("  source-validation:", 1)[1].split("\n  self-check:", 1)[0]
-    assert "Verify exact provenance-integrity acceptance nodes" in source_job
+    assert "Verify exact resource-to-cognition acceptance nodes" in source_job
     assert "python -m scripts.verify_task_acceptance" in source_job
     assert '"repository_sha": os.environ["GITHUB_SHA"]' in source_job
     assert "glow/test_runs/source_validation_acceptance.json" in source_job
@@ -180,6 +180,12 @@ def test_source_validation_verifies_exact_provenance_acceptance_nodes() -> None:
         "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
         "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
         "tests/test_task_acceptance_verifier.py::test_setup_phase_skip_cannot_satisfy_a_required_call_node",
+        "tests/test_local_model_chat_recovery.py::test_restart_preserves_resource_provisioning_identity",
+        "tests/test_resident_epistemic_development.py::test_restart_between_evidence_and_state_deduplicates_and_continues",
+        "tests/test_resident_developmental_writeback.py::test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart",
+        "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
+        "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them",
+        "tests/test_developmental_model_replacement_experiment.py::test_serving_receipt_references_survive_controlled_run_recovery",
     ):
         assert node in source_job
 

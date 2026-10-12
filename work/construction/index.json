@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "dc5ca95da6efd6f94e5a1e73eeeeaf26cfcd35af4ccfe5c3dcc6296259949613",
-    "latest_segment_sequence": 29,
-    "latest_segment_sha256": "27cfab454dcf4c2d8ea19391ea1d86d4faea4e3c77d3c2bce046d08efe98ab30",
-    "source_commit": "46ad42e43a778d7bd2f9a816b947d2ce881172db",
-    "source_tree": "9cfc55cce63fd8e509fcaff8146a4ec4d4cb4256"
+    "checkpoint_sha256": "22a78c3cbaee2cf73a99c6fa2d5114fd1e62ce1bbdf9c3ebf1ab37c80dd352b2",
+    "latest_segment_sequence": 30,
+    "latest_segment_sha256": "89fe65bd14a5e7cb095496f3851a5c24ba43a03caf1775a90b1287ecc4c6a41b",
+    "source_commit": "d5075ce4bfa6d22055839626af249d958f8f9fda",
+    "source_tree": "32f0a01aecf23891f2a62f6ba023758f97790365"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -261,6 +261,14 @@
       "sequence": 29,
       "sha256": "27cfab454dcf4c2d8ea19391ea1d86d4faea4e3c77d3c2bce046d08efe98ab30",
       "source_commit": "46ad42e43a778d7bd2f9a816b947d2ce881172db"
+    },
+    {
+      "bytes": 2342,
+      "path": "work/construction/segments/0030-causal-chain-exact-acceptance.md",
+      "predecessor": "segment-sha256:27cfab454dcf4c2d8ea19391ea1d86d4faea4e3c77d3c2bce046d08efe98ab30",
+      "sequence": 30,
+      "sha256": "89fe65bd14a5e7cb095496f3851a5c24ba43a03caf1775a90b1287ecc4c6a41b",
+      "source_commit": "d5075ce4bfa6d22055839626af249d958f8f9fda"
     }
   ],
   "source_acquisition": {
