@@ -561,6 +561,107 @@ def test_unsigned_incident_narrative_is_not_attack_evidence_in_resident_cognitio
     reset_runtime_governor()
 
 
+def test_later_valid_custody_evidence_can_narrow_an_earlier_failure_interpretation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    reset_runtime_governor()
+    monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0")
+    quarantine_path = tmp_path / "glow" / "forge" / "quarantine.json"
+    quarantine_path.parent.mkdir(parents=True)
+    quarantine_path.write_bytes(b'{"schema_version":1')
+
+    first_fake = FakeInvoker()
+    first_owner, _ = owner(
+        tmp_path / "cognition", invoker=first_fake,
+        allowed_source_kinds=("audit_trust",))
+    first_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=first_owner,  # type: ignore[arg-type]
+    )
+    first_tick = "2026-10-12T00:02:00+00:00"
+    first_surfaces.build_world_state_board(tick_id=first_tick)
+    first_result = first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    assert first_result["written_record_id"]
+
+    lesson_fake = FakeInvoker()
+    lesson_fake.lesson_statement = (
+        "A custody read failure leaves the stored protective posture unknown.")
+    lesson_fake.lesson_scope = "quarantine custody read interpretation"
+    lesson_owner, _ = owner(
+        tmp_path / "cognition", invoker=lesson_fake,
+        allowed_source_kinds=("audit_trust",))
+    lesson_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=lesson_owner,  # type: ignore[arg-type]
+    )
+    lesson_tick = "2026-10-12T00:02:01+00:00"
+    lesson_surfaces.build_world_state_board(tick_id=lesson_tick)
+    lesson_snapshot = lesson_surfaces.current_world_state_snapshot
+    assert lesson_snapshot is not None
+    failure_fact = next(fact for fact in lesson_snapshot.facts
+        if fact.subject.subject_kind == "integrity_controller_observation")
+    lesson_fake.lesson_dependency_override = failure_fact.fact_id
+    lesson_result = lesson_surfaces.run_resident_developmental_cognition(tick_id=lesson_tick)
+    prior_record_id = lesson_result["written_record_id"]
+    assert prior_record_id
+    prior = lesson_owner.writeback.store.get(prior_record_id)
+    assert prior.candidate["transformation_provenance"]["lesson_candidate"][
+        "statement"] == lesson_fake.lesson_statement
+
+    # Model an external operator-preserved custody repair in this disposable
+    # fixture. The real quarantine writer correctly refuses to overwrite the
+    # malformed record; retain its exact bytes before publishing a valid state.
+    preserved_corruption = tmp_path / "quarantine-invalid-evidence.bin"
+    corrupt_bytes = quarantine_path.read_bytes()
+    quarantine_path.replace(preserved_corruption)
+    save_state(tmp_path, QuarantineState(
+        active=False, allow_publish=True, allow_automerge=True,
+        freeze_forge=False, allow_federation_sync=True,
+    ))
+    assert preserved_corruption.read_bytes() == corrupt_bytes
+    revision_fake = FakeInvoker()
+    revision_fake.lesson_statement = (
+        "A later valid custody read narrows the present posture to inactive; the earlier read's cause remains unknown.")
+    revision_fake.lesson_scope = "current valid quarantine custody observation"
+    revision_owner, _ = owner(
+        tmp_path / "cognition", invoker=revision_fake,
+        allowed_source_kinds=("audit_trust",))
+    revision_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=revision_owner,  # type: ignore[arg-type]
+    )
+    revision_tick = "2026-10-12T00:02:02+00:00"
+    revision_surfaces.build_world_state_board(tick_id=revision_tick)
+    current_snapshot = revision_surfaces.current_world_state_snapshot
+    assert current_snapshot is not None
+    current_fact = next(fact for fact in current_snapshot.facts
+        if fact.subject.subject_kind == "integrity_controller_observation")
+    current_gate = next(gate for gate in current_fact.payload["gate_results"]
+        if gate["name"] == "quarantine_custody")
+    assert current_gate["status"] == "ok"
+    revision_fake.lesson_dependency_override = current_fact.fact_id
+
+    result = revision_surfaces.run_resident_developmental_cognition(tick_id=revision_tick)
+    assert result["written_record_id"]
+    retrieval = next(request for request in revision_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert prior_record_id in retrieval.upstream_evidence["record_ids"]
+    assert current_fact.fact_id in retrieval.upstream_evidence["current_fact_ids"]
+    assert lesson_fake.lesson_statement in retrieval.prompt
+    candidate = revision_owner.writeback.store.get(result["written_record_id"])
+    assert candidate.candidate["epistemic_status"] == (
+        "untrusted_history_conditioned_cognition_candidate")
+    assert candidate.candidate["transformation_provenance"]["lesson_candidate"][
+        "evidence_dependencies"] == [current_fact.fact_id]
+    assert candidate.candidate["transformation_provenance"]["lesson_candidate"][
+        "statement"] == revision_fake.lesson_statement
+    assert candidate.candidate["transformation_provenance"]["authority"] is False
+    reset_runtime_governor()
+
+
 def test_integrity_controller_gate_context_becomes_scoped_later_tick_history(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
