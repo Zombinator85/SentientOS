@@ -154,6 +154,14 @@
       "sha256": "a371984b6588a43a407ae1ac88adb9d48b4a8ac3d7223974494c05a496c879e0",
       "bytes": 1705,
       "source_commit": "5b9083c79d905337ae967b5d4762cbcee226df02"
+    },
+    {
+      "bytes": 2764,
+      "path": "work/construction/segments/0019-source-integrity-recovery.md",
+      "predecessor": "segment-sha256:a371984b6588a43a407ae1ac88adb9d48b4a8ac3d7223974494c05a496c879e0",
+      "sequence": 19,
+      "sha256": "0216eb665910a7b9439c2233f20dc1d413abc59a1494e4906adc99c4c9b7d266",
+      "source_commit": "8338bee9b666e203b72c04b558948f3251e0bf09"
     }
   ],
   "workspace_reconciliation": {

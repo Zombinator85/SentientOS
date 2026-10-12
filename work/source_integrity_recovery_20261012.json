@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "status": "source_repaired_and_published; focused pytest blocked; production_unverified",
+  "inspected_branch_head": "8338bee9b666e203b72c04b558948f3251e0bf09",
+  "inspected_tree": "5e237c4a3e5342a5d97e14502662679e361eba25",
+  "main_head": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+  "first_corrupt_commit": "0868de97f85643c32916f91099bda9379347257f",
+  "last_good_commit": "34771ff675c0d6b20990eda76cb9d29cddab96ea",
+  "last_good_blob": "68deb63eef41e54b1e16f6ed5b70dd40c0d86641",
+  "corrupt_blob": "fdd41c79264b6db2b331ba4ac0a7df35dcc5e2e9",
+  "repair_blob": "0e44b68fea43936214ec8ca663603d1c7bca1145",
+  "repair_sha256": "111b019bcb8f66e40b2ea104cea32e7718dd4c00cbf9bffc98fe8980f76abaae",
+  "repair_semantics": [
+    "qualify chat-process recovery facts by observation stage, phase-chain evidence strength, and non-effect fields",
+    "if software_generation is supplied, require equality with running_software_generation_observed and chat_process_handoff.source_generation_scope",
+    "preserve unqualified runtime and model claims as lower-priority evidence"
+  ],
+  "corruption_cause_assessment": {
+    "hypothesis": "tool output warning text was interpreted as Base64 while constructing the blob",
+    "assessment": "strongly_indicated_not_directly_proven",
+    "prefix": "Warningtruncatedoutputoriginaltokencount53449Totaloutputlines1",
+    "decoded_prefix_hex": "59aae78a782daee9dc6ad79da2eb69bada2b8a08a76a5b6891e9dca2e9ede77e38f53a2d6a5a2eb69bad9629deb3",
+    "invalid_utf8_offset": 1,
+    "invalid_byte_hex": "aa",
+    "limitation": "GitHub connector rejects the non-UTF-8 object; blob-creation request audit was unavailable."
+  },
+  "tested": {
+    "python_utf8_decode": true,
+    "ast_parse": true,
+    "py_compile": true,
+    "ast_isolated_selection_cases": "5 passed",
+    "pytest_command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q tests/test_resident_developmental_cognition_generation_scope.py",
+    "pytest_result": "blocked at collection: ModuleNotFoundError: No module named 'nacl'; PyNaCl unavailable in offline cache",
+    "adjacent_pytest": "not run",
+    "production": "unverified"
+  },
+  "source_acquisition": {
+    "previous_missing_blob_count": 218,
+    "previous_missing_bytes": 5326323,
+    "complete_snapshot": false,
+    "missing_objects_recovered_in_this_repair": 0
+  },
+  "changed_files_audit": "The cognition source was the only file among the seven changed by 0868de9 without a readable text patch; other six had ordinary patches. No additional corruption identified in that bounded scope."
+}
