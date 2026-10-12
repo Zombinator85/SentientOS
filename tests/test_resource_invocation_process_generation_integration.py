@@ -404,6 +404,46 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         assert all(comparison_cognition.writeback.store.get(record_id).record_digest == record_digest
             for record_id, record_digest in replacement_history_before.items())
 
+        # Close the return edge: the verified replacement run becomes an
+        # embodiment World-State fact, is separately admitted to developmental
+        # history, then is recovered for cognition on the following tick.
+        # This remains fixture inference; the artifact's bounded association
+        # is not treated as improvement, current truth, or authority.
+        from sentientos.world_state_board import WorldStateBoardBuilder
+
+        replacement_records = replacement.store.world_state_records(
+            run_refs=((replacement_result["run_id"], replacement_result["run_digest"]),))
+        replacement_snapshot = WorldStateBoardBuilder().build(replacement_records)
+        replacement_facts = [fact for fact in replacement_snapshot.facts
+            if fact.subject.subject_kind == "developmental_model_replacement_experiment"]
+        assert len(replacement_facts) == 1
+        assert replacement_facts[0].payload["run_digest"] == replacement_result["run_digest"]
+        replacement_history_cognition, _replacement_fixture = developmental_owner(
+            developmental_root, allowed_source_kinds=("resource_governor", "embodiment"))
+        replacement_tick = "2026-09-21T08:44:00+00:00"
+        replacement_history_tick = replacement_history_cognition.run_tick(
+            snapshot=replacement_snapshot, tick_id=replacement_tick,
+            prior_epistemic_state=later_projection)
+        assert replacement_history_tick.status == "completed"
+        assert replacement_history_tick.written_record_id is not None
+        replacement_record = replacement_history_cognition.writeback.store.get(
+            replacement_history_tick.written_record_id)
+        retained_replacement = next(fact for fact in replacement_record.candidate["selected_facts"]
+            if fact["subject"]["subject_kind"] == "developmental_model_replacement_experiment")
+        assert retained_replacement["source"]["digest"] == replacement_facts[0].source.digest
+        assert retained_replacement["payload"]["run_digest"] == replacement_result["run_digest"]
+        assert replacement_record.current_truth is False and replacement_record.authority is False
+        recovered_replacement_cognition, recovered_replacement_fixture = developmental_owner(
+            developmental_root, allowed_source_kinds=("resource_governor", "embodiment"))
+        recovered_replacement_tick = recovered_replacement_cognition.run_tick(
+            snapshot=replacement_snapshot, tick_id="2026-09-21T08:45:00+00:00",
+            prior_epistemic_state=later_projection)
+        assert replacement_history_tick.written_record_id in recovered_replacement_tick.prior_record_ids
+        replacement_retrieval = next(request for request in recovered_replacement_fixture.requests
+            if request.purpose == "resident_developmental_retrieval_cognition")
+        assert replacement_history_tick.written_record_id in (
+            replacement_retrieval.upstream_evidence["record_ids"])
+
         class InterruptedEndpoint(FixtureReplacementEndpoint):
             def infer(self, **kwargs):
                 self.calls.append(dict(kwargs))

@@ -305,6 +305,16 @@ def _digest(value: Any) -> str:
     return "sha256:" + digest_payload(value)
 
 
+def _is_sha256_digest(value: Any, *, allow_unprefixed: bool = False) -> bool:
+    if not isinstance(value, str):
+        return False
+    if value.startswith("sha256:"):
+        value = value[7:]
+    elif not allow_unprefixed:
+        return False
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
 def _identity_payload(identity: "CognitiveModelIdentity") -> dict[str, Any]:
     value = asdict(identity)
     value.pop("identity_digest", None)
@@ -873,10 +883,14 @@ class ModelReplacementArtifactStore:
                         "snapshot_id", "snapshot_digest", "current_projection_id",
                         "current_projection_digest", "projected_content_digest",
                         "instruction_template_digest"))
-                    or any(len(value.get(key, "")) != 71 or not value[key].startswith("sha256:")
-                        or any(character not in "0123456789abcdef" for character in value[key][7:])
-                        for key in ("snapshot_digest", "current_projection_digest",
-                            "projected_content_digest", "instruction_template_digest"))
+                    # WorldStateSnapshot.digest is the canonical bare SHA-256
+                    # hex value. Other context digests use the tagged
+                    # ``sha256:`` form, so accept both only for this source
+                    # snapshot identity and keep the remaining checks strict.
+                    or not _is_sha256_digest(value.get("snapshot_digest"), allow_unprefixed=True)
+                    or any(not _is_sha256_digest(value.get(key))
+                        for key in ("current_projection_digest", "projected_content_digest",
+                            "instruction_template_digest"))
                     or not isinstance(value.get("inference_budget"), Mapping)
                     or not isinstance(value.get("generation_posture"), Mapping)
                     or value.get("generation_posture", {}).get("temperature") != 0

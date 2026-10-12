@@ -3,6 +3,8 @@ from __future__ import annotations
 import pytest
 
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
+from sentientos.world_state_board import WorldStateBoardBuilder
+from tests.test_developmental_model_replacement_experiment import experiment
 from tests.test_resident_developmental_cognition import FakeInvoker, owner, snapshot
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -49,3 +51,51 @@ def test_restart_repairs_history_record_published_before_receipt_acknowledgement
     assert later.prior_record_ids == (durable_records[0].record_id,)
     assert any(request.purpose == "resident_developmental_retrieval_cognition"
                for request in fake.requests)
+
+
+def test_verified_model_replacement_run_reaches_recovered_later_cognition(tmp_path) -> None:
+    replacement, _model_a, _model_b = experiment(tmp_path / "replacement")
+    run = replacement.run()
+    source_records = replacement.store.world_state_records(
+        run_refs=((run["run_id"], run["run_digest"]),))
+    board = WorldStateBoardBuilder().build(source_records)
+    experiment_facts = [fact for fact in board.facts
+        if fact.subject.subject_kind == "developmental_model_replacement_experiment"]
+    assert len(experiment_facts) == 1
+    experiment_fact = experiment_facts[0]
+    assert experiment_fact.source.kind == "embodiment"
+    assert experiment_fact.payload["protocol_digest"] == run["protocol"]["protocol_digest"]
+    assert experiment_fact.payload["claims_posture"] == "bounded_digest_level_observed_association_only"
+    assert experiment_fact.payload["authority"] is False
+    assert experiment_fact.observed_at is None
+
+    first, _first_fixture = owner(
+        tmp_path / "history", allowed_source_kinds=("embodiment",), max_selected_facts=4)
+    first_tick = first.run_tick(snapshot=board, tick_id="model-replacement-history-tick-n")
+    assert first_tick.status == "completed"
+    assert first_tick.written_record_id is not None
+    retained = first.writeback.store.get(first_tick.written_record_id)
+    selected = next(fact for fact in retained.candidate["selected_facts"]
+        if fact["subject"]["subject_kind"] == "developmental_model_replacement_experiment")
+    assert selected["source"]["digest"] == experiment_fact.source.digest
+    assert selected["subject"]["subject_id"] == run["run_id"]
+    assert selected["disposition"] == experiment_fact.disposition
+    assert selected["payload"]["protocol_digest"] == run["protocol"]["protocol_digest"]
+    assert selected["payload"]["run_digest"] == run["run_digest"]
+    assert selected["payload"]["interpretation_projection_posture"] == "complete"
+    assert selected["payload"]["inference_event_time_postures"] == ["unknown"]
+    assert selected["payload"]["condition_model_digest_encoding"] == "sha256_hex"
+    assert len(selected["payload"]["conditions"]) == 5
+    assert selected["payload"]["model_lineage"][0][0] == experiment_fact.payload["model_a_id"]
+    assert selected["payload"]["model_lineage"][1][0] == experiment_fact.payload["model_b_id"]
+    assert retained.current_truth is False and retained.authority is False
+
+    restarted, fixture = owner(
+        tmp_path / "history", allowed_source_kinds=("embodiment",),
+        max_selected_facts=4, invoker=FakeInvoker())
+    later_tick = restarted.run_tick(snapshot=board, tick_id="model-replacement-history-tick-n1")
+    assert first_tick.written_record_id in later_tick.prior_record_ids
+    retrieval = next(request for request in fixture.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert first_tick.written_record_id in retrieval.upstream_evidence["record_ids"]
+    assert retrieval.upstream_evidence["epistemic_projection_id"] is None

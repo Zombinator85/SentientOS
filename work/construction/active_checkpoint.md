@@ -1,7 +1,7 @@
 # Active construction checkpoint
 
-- Fresh verified remote parent: `codex/construct-sentientos` at `2c8fb64f8dd8b37bfde5b9887c53520131cdb032`, tree `b1f84f13f287a27b3fa1a246f14e48ce711f7d86`; `main` remains ancestor `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
-- Latest continuation segment: sequence 45, `work/construction/segments/0045-continuation-index-correction.md`. Sequence 44’s duplicate index entry is removed; one published segment entry remains.
-- Sequence 44 adds a regression for record publication followed by receipt-ack interruption. Recovery verified admission/record lineage, deterministically published the receipt, reconstructed tick custody, rejected same-tick replay, and made the record available to later cognition. The exact composed resource→epistemic→history→cognition integration node passed under the explicit legacy marker.
-- Focused results are fixture-backed: 3 unique nodes passed, 0 failed; Python compilation and diff check passed. This is not model behavior or production verification.
-- Next dependency: examine whether controlled model-replacement observations have a separately admitted, later-tick developmental-history path. Preserve actual model/context/condition provenance and report differences without treating them as improvement.
+- Fresh verified branch parent: `codex/construct-sentientos` at `bb6e30b489ba6fc0fc068739dc5830f9c49979e7`, tree `761aa397d905d34656088a8a5bf8ac2154245976`; `main` remains ancestor `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Latest continuation segment: sequence 46, `work/construction/segments/0046-model-replacement-history-integration.md`.
+- The model-replacement run now has a bounded, source-bound World-State to resident-history projection; replacement-context recovery accepts the canonical bare SHA-256 used by World-State snapshot identity while keeping tagged digest checks strict.
+- The composed fixture path now returns through replacement-run World-State, durable history, restart, and later cognition. Final local focused evidence is 21/21 plus the separately selected legacy integration 1/1; changed-owner mypy with silent imports and Python compilation passed. The full import graph still reports 494 untriaged mypy diagnostics across 82 files. The runner's synthetic local Git identity is not the remote source identity; no real-model or production result is claimed.
+- Next: reconcile unresolved historical behavioral hunks against current source owners, prioritizing concrete missing behavior rather than blob differences.

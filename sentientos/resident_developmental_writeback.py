@@ -361,6 +361,182 @@ def _runtime_history_projection(fact: Mapping[str, Any]) -> dict[str, Any] | Non
     return projected
 
 
+def _model_replacement_interpretation_projection(
+    fact: Mapping[str, Any], original: Mapping[str, Any], source: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bound a verified five-condition run for separately admitted history.
+
+    The experiment artifact can be larger than the writeback input budget.
+    Keep the complete condition identities and the causal fields needed to
+    interpret them; bind every omitted payload byte through the original
+    source-payload digest. Long identity arrays retain a digest and omission
+    count, so a bounded projection never claims complete lineage after truncation.
+    """
+    raw_observations = original.get("observations")
+    if not isinstance(raw_observations, (list, tuple)) or len(raw_observations) > 5:
+        return dict(fact)
+    omitted = False
+
+    def bounded_values(value: Any, *, limit: int = 8) -> Any:
+        nonlocal omitted
+        if value is None:
+            return None
+        if not isinstance(value, (list, tuple)):
+            omitted = True
+            return {"lineage_posture": "invalid_source_shape", "value_digest": digest(value)}
+        values = list(value)
+        if len(values) <= limit:
+            return values
+        omitted = True
+        return {"values": values[:limit], "count": len(values),
+            "lineage_posture": "bounded_incomplete", "full_values_digest": digest(values),
+            "omitted_count": len(values) - limit}
+
+    def compact_sha256(value: Any) -> Any:
+        # The enclosing versioned vectors declare raw lowercase SHA-256 hex;
+        # removing the repeated algorithm prefix keeps the five-condition
+        # evidence within the existing selected-evidence byte budget.
+        return value[7:] if isinstance(value, str) and value.startswith("sha256:") else value
+
+    observation_columns = ("condition", "observation_id", "observation_digest",
+        "request_id", "request_digest", "history_withheld", "inference_receipt_id",
+        "inference_receipt_digest", "output_digest", "event_time")
+    condition_rows: list[list[Any]] = []
+    resource_attributions: list[dict[str, Any]] = []
+    resource_postures: set[str] = set()
+    event_time_postures: set[str] = set()
+    serving_receipts: list[dict[str, Any]] = []
+    model_artifacts: dict[str, set[str]] = {"model_a": set(), "model_b": set()}
+    for raw in raw_observations:
+        if not isinstance(raw, Mapping):
+            return dict(fact)
+        condition = raw.get("condition_id")
+        role = ("model_a" if isinstance(condition, str)
+            and condition.startswith("model_a") else "model_b")
+        artifact_digest = raw.get("model_artifact_digest")
+        if isinstance(artifact_digest, str) and artifact_digest:
+            model_artifacts[role].add(artifact_digest)
+        resource_linkage = {key: raw.get(key) for key in (
+            "resource_allocation_digest", "resource_attempt_id", "resource_linkage_digest",
+            "resource_attribution_posture") if raw.get(key) is not None}
+        posture = raw.get("resource_attribution_posture")
+        if isinstance(posture, str):
+            resource_postures.add(posture)
+        event_posture = raw.get("inference_event_time_posture")
+        if isinstance(event_posture, str):
+            event_time_postures.add(event_posture)
+        if raw.get("resource_consumption_receipt_digests"):
+            resource_linkage["consumption_receipt_digests"] = bounded_values(
+                raw.get("resource_consumption_receipt_digests"))
+        if any(resource_linkage.get(key) for key in (
+                "resource_allocation_digest", "resource_attempt_id", "resource_linkage_digest",
+                "consumption_receipt_digests")):
+            resource_attributions.append({"condition_id": condition, **resource_linkage})
+        serving = {key: raw.get(key) for key in (
+            "model_serving_receipt_id", "model_serving_receipt_digest",
+            "model_serving_lifetime_id", "model_serving_receipt_posture")
+            if raw.get(key) is not None}
+        if serving:
+            serving_receipts.append({"condition_id": condition, **serving})
+        row = [raw.get(key) for key in observation_columns]
+        for index in (2, 4, 7, 8):
+            row[index] = compact_sha256(row[index])
+        condition_rows.append(row)
+    if any(len(values) != 1 for values in model_artifacts.values()):
+        omitted = True
+
+    shared: dict[str, Any] = {}
+    if condition_rows:
+        first_raw = raw_observations[0]
+        assert isinstance(first_raw, Mapping)
+        shared["causal_context"] = [first_raw.get("causal_context_id"),
+            first_raw.get("causal_context_digest")]
+        shared["current_projection"] = [first_raw.get("current_projection_id"),
+            first_raw.get("current_projection_digest")]
+        if any(first_raw.get(key) for key in (
+                "prior_self_model_projection_id", "prior_self_model_projection_digest",
+                "prior_self_model_source_tick")):
+            shared["prior_self_model"] = [first_raw.get("prior_self_model_projection_id"),
+                first_raw.get("prior_self_model_projection_digest"),
+                first_raw.get("prior_self_model_source_tick")]
+        if any(first_raw.get(key) for key in (
+                "prior_epistemic_projection_id", "prior_epistemic_projection_digest",
+                "prior_epistemic_source_tick", "prior_epistemic_state_ids", "prior_epistemic_state_digests")):
+            shared["prior_epistemic"] = [first_raw.get("prior_epistemic_projection_id"),
+                first_raw.get("prior_epistemic_projection_digest"),
+                first_raw.get("prior_epistemic_source_tick"),
+                bounded_values(first_raw.get("prior_epistemic_state_ids")),
+                bounded_values(first_raw.get("prior_epistemic_state_digests"))]
+        shared["prior_cognitive_context_posture"] = first_raw.get("prior_cognitive_context_posture")
+        # The run verifier already enforces one frozen current projection and
+        # equal present/restored history. Retain that history once instead of
+        # repeating it in three condition rows.
+        present = next((item for item in raw_observations
+            if isinstance(item, Mapping) and item.get("history_withheld") is False), None)
+        if isinstance(present, Mapping):
+            shared["history"] = [bounded_values(present.get("history_record_ids")),
+                bounded_values(present.get("history_record_digests"))]
+
+    raw_statuses = original.get("condition_statuses")
+    statuses: list[dict[str, Any]] | None = None
+    if isinstance(raw_statuses, (list, tuple)):
+        if len(raw_statuses) > 5 or any(not isinstance(item, Mapping) for item in raw_statuses):
+            omitted = True
+        elif original.get("experiment_completion_posture") != "completed":
+            statuses = [{key: item.get(key) for key in (
+                "condition", "condition_id", "status", "condition_input_digest",
+                "condition_start_digest", "condition_result_digest", "failure_posture")}
+                for item in raw_statuses]
+    elif raw_statuses is not None:
+        omitted = True
+
+    model_lineage = [
+        [original.get("model_a_id"), original.get("model_a_identity_digest"),
+            next(iter(model_artifacts["model_a"])) if len(model_artifacts["model_a"]) == 1 else None,
+            original.get("model_a_provenance_digest"), original.get("model_a_provenance_availability")],
+        [original.get("model_b_id"), original.get("model_b_identity_digest"),
+            next(iter(model_artifacts["model_b"])) if len(model_artifacts["model_b"]) == 1 else None,
+            original.get("model_b_provenance_digest"), original.get("model_b_provenance_availability")],
+    ]
+    model_lineage = [[row[0], *(compact_sha256(value) for value in row[1:4]), row[4]]
+        for row in model_lineage]
+    summary = {
+        "run_id": original.get("run_id"), "run_digest": original.get("run_digest"),
+        "protocol_id": original.get("protocol_id"), "protocol_digest": original.get("protocol_digest"),
+        "declared_repository_generation_posture": original.get("declared_repository_generation_posture"),
+        "software_generation_posture": original.get("software_generation_posture"),
+        "model_lineage": model_lineage,
+        "shared_context": shared,
+        "condition_model_digest_encoding": "sha256_hex",
+        "condition_columns": list(observation_columns),
+        "conditions": condition_rows,
+        "resource_attribution_postures": sorted(resource_postures),
+        "inference_event_time_postures": sorted(event_time_postures),
+        "experiment_completion_posture": original.get("experiment_completion_posture"),
+        "condition_lineage_posture": original.get("condition_lineage_posture"),
+        "claims_posture": original.get("claims_posture"), "non_claims": original.get("non_claims"),
+        "current_truth": False, "authority": False,
+        "interpretation_projection_posture": "bounded_context_incomplete" if omitted else "complete",
+    }
+    if resource_attributions:
+        summary["resource_attributions"] = resource_attributions
+    if serving_receipts:
+        summary["serving_receipts"] = serving_receipts
+    if statuses:
+        summary["condition_statuses"] = statuses
+    projection_binding = {
+        "schema_version": "sentientos.model_replacement_interpretation_projection:v1",
+        "source_fact_id": str(fact.get("fact_id", "")),
+        "source_payload_digest": digest(dict(original)),
+        "source_record_digest": str(source.get("digest", "")),
+        "projected_payload_digest": digest(summary),
+    }
+    projection_binding["projection_digest"] = digest(projection_binding)
+    projected = dict(fact)
+    projected["payload"] = {**summary, "interpretation_projection": projection_binding}
+    return projected
+
+
 def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, Any]:
     """Keep resource interpretation bounded while binding it to the full source fact."""
     source = fact.get("source")
@@ -369,6 +545,11 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
     runtime_projection = _runtime_history_projection(fact)
     if runtime_projection is not None:
         return runtime_projection
+    if (isinstance(source, Mapping) and source.get("kind") == "embodiment"
+            and isinstance(subject, Mapping)
+            and subject.get("subject_kind") == "developmental_model_replacement_experiment"
+            and isinstance(original, Mapping)):
+        return _model_replacement_interpretation_projection(fact, original, source)
     if (not isinstance(source, Mapping) or source.get("kind") != "resource_governor"
             or not isinstance(subject, Mapping) or not isinstance(original, Mapping)):
         return dict(fact)
@@ -1437,7 +1618,8 @@ class ResidentDevelopmentalWritebackController:
                                     "source_record_digest", "projected_payload_digest", "projection_digest"}
                                 or projection.get("schema_version") not in {
                                     "sentientos.resource_interpretation_projection:v1",
-                                    "sentientos.runtime_history_projection:v1"}
+                                    "sentientos.runtime_history_projection:v1",
+                                    "sentientos.model_replacement_interpretation_projection:v1"}
                                 or (projection.get("schema_version")
                                     == "sentientos.runtime_history_projection:v1"
                                     and not (
@@ -1450,6 +1632,14 @@ class ResidentDevelopmentalWritebackController:
                                         or (source.get("kind") == "resource_governor"
                                             and subject.get("subject_kind")
                                                 == "chat_process_software_generation_invocation")))
+                                or (projection.get("schema_version")
+                                    == "sentientos.model_replacement_interpretation_projection:v1"
+                                    and not (source.get("kind") == "embodiment"
+                                        and subject.get("subject_kind")
+                                            == "developmental_model_replacement_experiment"
+                                        and payload_value.get("run_id") == subject.get("subject_id")
+                                        and payload_value.get("current_truth") is False
+                                        and payload_value.get("authority") is False))
                                 or projection.get("source_fact_id") != fact.get("fact_id")
                                 or projection.get("source_record_digest") != source.get("digest")
                                 or projection.get("projected_payload_digest") != digest(payload_value)):

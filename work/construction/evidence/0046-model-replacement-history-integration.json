@@ -1,0 +1,76 @@
+{
+  "canonical_test_runner_git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "canonical_test_runner_git_sha_is_remote_source": false,
+  "compilation": "python -m py_compile on both changed source modules and both changed test modules: passed",
+  "diff_check": "git diff --check on four changed Python files: passed",
+  "files": {
+    "sentientos/developmental_model_replacement_experiment.py": {
+      "bytes": 117046,
+      "sha256": "20b1c92e9e26e9bec36c006005411ec3a35520a2ad289d898f8516a94138a959"
+    },
+    "sentientos/resident_developmental_writeback.py": {
+      "bytes": 113033,
+      "sha256": "c67284bf7dc8517c459ad829f6ac85c2e9647639a6a00dc4cf1dac9f58126556"
+    },
+    "tests/test_developmental_record_receipt_ack_recovery.py": {
+      "bytes": 5821,
+      "sha256": "c18c5613d8a2f0ba2843ebb21564fa512e8efbbd5815d99ec3b7d48e5875d60c"
+    },
+    "tests/test_resource_invocation_process_generation_integration.py": {
+      "bytes": 29843,
+      "sha256": "50f3164022b26f72f35f7ad14d7d774a20e927333a54eae02bb42a6739ebb755"
+    },
+    "work/construction/evidence/0046-focused-junit.xml": {
+      "bytes": 3664,
+      "sha256": "b4a854f39a800e6d176f3576145959d31bbea292a3f064583bd0c4ab1af419c5"
+    },
+    "work/construction/evidence/0046-focused-provenance.json": {
+      "bytes": 12286,
+      "sha256": "abd3707c3f24015db760c90c2bbc706b4c529e0248af8396993e27b80e930427"
+    },
+    "work/construction/evidence/0046-legacy-junit.xml": {
+      "bytes": 423,
+      "sha256": "b14b0967910a6f23040b65a6425fb9a0ae8d2b3cf09b335879e685c589ad1e6b"
+    },
+    "work/construction/evidence/0046-legacy-provenance.json": {
+      "bytes": 3045,
+      "sha256": "c4d2b8c73e7229412be2da3fdd379895e42ee7b72f8c1e2004442fd059808506"
+    }
+  },
+  "production_model_or_runtime_behavior": "not_exercised",
+  "remote_parent": {
+    "commit": "bb6e30b489ba6fc0fc068739dc5830f9c49979e7",
+    "tree": "761aa397d905d34656088a8a5bf8ac2154245976"
+  },
+  "runs": [
+    {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m scripts.run_tests -q tests/test_developmental_record_receipt_ack_recovery.py tests/test_developmental_model_replacement_experiment.py",
+      "failed": 0,
+      "junit": "work/construction/evidence/0046-focused-junit.xml",
+      "passed": 21,
+      "provenance": "work/construction/evidence/0046-focused-provenance.json",
+      "selected": 21,
+      "skipped": 0
+    },
+    {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m scripts.run_tests -- -m legacy tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state -q",
+      "failed": 0,
+      "junit": "work/construction/evidence/0046-legacy-junit.xml",
+      "passed": 1,
+      "provenance": "work/construction/evidence/0046-legacy-provenance.json",
+      "selected": 1,
+      "skipped": 0
+    }
+  ],
+  "schema_version": "sentientos.construction_acceptance_note:v1",
+  "status": "local_focused_fixture_acceptance_only",
+  "typing": {
+    "command": "/tmp/sentientos-exact-venv/bin/python -m mypy --follow-imports=silent sentientos/developmental_model_replacement_experiment.py sentientos/resident_developmental_writeback.py",
+    "import_graph_probe": {
+      "command": "/tmp/sentientos-exact-venv/bin/python -m mypy sentientos/developmental_model_replacement_experiment.py sentientos/resident_developmental_writeback.py",
+      "interpretation": "not attributed to the changed modules because the focused --follow-imports=silent check passed; broader dependency typing remains unverified",
+      "result": "failed with 494 diagnostics across 82 files in the transitive graph; output was truncated and the diagnostics were not individually triaged"
+    },
+    "result": "passed for both target modules"
+  }
+}
