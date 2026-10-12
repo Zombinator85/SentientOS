@@ -53,6 +53,11 @@ class DevelopmentalWritebackError(ValueError):
     """Fail-closed runtime boundary violation."""
 
 
+def _valid_optional_lower_sha256(value: Any) -> bool:
+    return (value is None or (type(value) is str and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)))
+
+
 def _has_bounded_integrity_controller_observation(selection: SelectedEvidence) -> bool:
     for fact in selection.facts:
         source = fact.get("source")
@@ -67,8 +72,10 @@ def _has_bounded_integrity_controller_observation(selection: SelectedEvidence) -
                 or fact.get("evidence_strength") not in {
                     "source_integrity_status", "integrity_controller_observation_unavailable"}
                 or not isinstance(payload, Mapping)
-                or payload.get("observation_schema")
-                    != "sentientos.integrity_controller_observation:v1"
+                or payload.get("observation_schema") not in {
+                    "sentientos.integrity_controller_observation:v1",
+                    "sentientos.integrity_controller_observation:v2",
+                }
                 or payload.get("source_owner")
                     != "sentientos.integrity_controller.evaluate_integrity"
                 or payload.get("controller_posture") not in {"ok", "warn", "fail", "unknown"}
@@ -88,6 +95,7 @@ def _has_bounded_integrity_controller_observation(selection: SelectedEvidence) -
                 and payload["gate_count"] == len(gates)
                 and all(isinstance(gate, Mapping)
                     and gate.get("status") in {"ok", "warn", "fail", "skipped"}
+                    and _valid_optional_lower_sha256(gate.get("failed_record_sha256"))
                     for gate in gates)):
             return True
     return False

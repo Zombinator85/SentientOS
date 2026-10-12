@@ -192,6 +192,22 @@ def _digest(value: Any) -> str:
     return "sha256:" + str(digest_payload(value))
 
 
+def _valid_optional_lower_sha256(value: Any) -> bool:
+    return (value is None or (type(value) is str and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)))
+
+
+def _valid_integrity_controller_gates(payload: Mapping[str, Any]) -> bool:
+    gates = payload.get("gate_results")
+    count = payload.get("gate_count")
+    return (type(count) is int and 0 <= count <= 32
+        and isinstance(gates, list) and len(gates) == count
+        and all(isinstance(gate, Mapping)
+            and gate.get("status") in {"ok", "warn", "fail", "skipped"}
+            and _valid_optional_lower_sha256(gate.get("failed_record_sha256"))
+            for gate in gates))
+
+
 def _history_context_packet(record: Mapping[str, Any]) -> dict[str, Any]:
     """Project a verified durable record to the bounded semantics cognition needs.
 
@@ -1394,17 +1410,16 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.disposition in {"recorded", "degraded", "unavailable"}
             and fact.evidence_strength in {
                 "source_integrity_status", "integrity_controller_observation_unavailable"}
-            and payload.get("observation_schema")
-                == "sentientos.integrity_controller_observation:v1"
+            and payload.get("observation_schema") in {
+                "sentientos.integrity_controller_observation:v1",
+                "sentientos.integrity_controller_observation:v2",
+            }
             and payload.get("source_owner")
                 == "sentientos.integrity_controller.evaluate_integrity"
             and payload.get("event_time_posture")
                 == "daemon_tick_point_observation_of_integrity_controller"
             and payload.get("controller_posture") in {"ok", "warn", "fail", "unknown"}
-            and type(payload.get("gate_count")) is int
-            and 0 <= payload["gate_count"] <= 32
-            and isinstance(payload.get("gate_results"), list)
-            and len(payload["gate_results"]) == payload["gate_count"]
+            and _valid_integrity_controller_gates(payload)
             and payload.get("cause_unknown") is True
             and payload.get("attack_established") is False
             and payload.get("hostile_activity_established") is False
@@ -1652,17 +1667,16 @@ class ResidentDevelopmentalCognitionOwner:
             and fact.get("evidence_strength") in {
                 "source_integrity_status", "integrity_controller_observation_unavailable"}
             and isinstance(fact.get("payload"), Mapping)
-            and fact["payload"].get("observation_schema")
-                == "sentientos.integrity_controller_observation:v1"
+            and fact["payload"].get("observation_schema") in {
+                "sentientos.integrity_controller_observation:v1",
+                "sentientos.integrity_controller_observation:v2",
+            }
             and fact["payload"].get("source_owner")
                 == "sentientos.integrity_controller.evaluate_integrity"
             and fact["payload"].get("event_time_posture")
                 == "daemon_tick_point_observation_of_integrity_controller"
             and fact["payload"].get("controller_posture") in {"ok", "warn", "fail", "unknown"}
-            and type(fact["payload"].get("gate_count")) is int
-            and 0 <= fact["payload"]["gate_count"] <= 32
-            and isinstance(fact["payload"].get("gate_results"), list)
-            and len(fact["payload"]["gate_results"]) == fact["payload"]["gate_count"]
+            and _valid_integrity_controller_gates(fact["payload"])
             and fact["payload"].get("cause_unknown") is True
             and fact["payload"].get("attack_established") is False
             and fact["payload"].get("hostile_activity_established") is False

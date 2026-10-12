@@ -15,6 +15,7 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_writeback import (
     EFFECTS, PRINCIPAL, PURPOSE, CognitionObservation, DevelopmentalHistoryStore,
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
+    SelectedEvidence, _has_bounded_integrity_controller_observation,
     measure_changed_cognition,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
@@ -63,6 +64,37 @@ def candidate_for(ctrl, snap=None, invoker=None):
 
 def issue(authority, candidate, *, operation_id="op-1", principal=PRINCIPAL, effects=EFFECTS, config=None, suffix="1", sequence=1):
     return authority.issue(admission_id=f"admission-{suffix}", capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK, definition_version=1, subsystem_kind="memory_context_reflection", principal_id=principal, principal_kind=PRINCIPAL, effects=effects, subject_id=candidate.candidate_id, request_configuration_digest=config or ResidentDevelopmentalWritebackController.admission_configuration_digest(candidate, operation_id=operation_id), provenance="operator-runtime-grant", issued_sequence=sequence, valid_through_sequence=4, affirmative_preconditions=RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.approval_requirements)
+
+
+def test_integrity_controller_v2_digest_is_bounded_before_cognition_qualification() -> None:
+    def selection(*, schema: str, failed_digest: object) -> SelectedEvidence:
+        fact = {
+            "source": {"kind": "audit_trust", "source_id": "integrity-controller:resident-daemon"},
+            "subject": {"subject_kind": "integrity_controller_observation"},
+            "stage": "observation", "disposition": "degraded",
+            "evidence_strength": "source_integrity_status",
+            "payload": {
+                "observation_schema": schema,
+                "source_owner": "sentientos.integrity_controller.evaluate_integrity",
+                "controller_posture": "fail", "gate_count": 1,
+                "gate_results": [{"name": "snapshot-signature", "status": "fail",
+                    "failed_record_sha256": failed_digest}],
+                "cause_unknown": True, "attack_established": False,
+                "hostile_activity_established": False, "compromise_established": False,
+                "effect_proven": False, "effect_authority": False,
+                "authority": False, "current_truth": False, "read_only": True,
+            },
+        }
+        return SelectedEvidence("snapshot", "sha256:snapshot", (fact,), (), ())
+
+    assert _has_bounded_integrity_controller_observation(selection(
+        schema="sentientos.integrity_controller_observation:v1", failed_digest=None))
+    assert _has_bounded_integrity_controller_observation(selection(
+        schema="sentientos.integrity_controller_observation:v2", failed_digest="a" * 64))
+    assert not _has_bounded_integrity_controller_observation(selection(
+        schema="sentientos.integrity_controller_observation:v2", failed_digest="A" * 64))
+    assert not _has_bounded_integrity_controller_observation(selection(
+        schema="sentientos.integrity_controller_observation:v2", failed_digest="short"))
 
 
 def test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart(tmp_path: Path) -> None:

@@ -502,6 +502,7 @@ def test_integrity_controller_gate_results_reach_configured_cognition_as_context
     fact = next(item for item in current.facts
         if item.subject.subject_kind == "integrity_controller_observation")
     assert fact.source.kind == "audit_trust"
+    assert fact.payload["observation_schema"] == "sentientos.integrity_controller_observation:v2"
     assert fact.payload["gate_results"]
     result = surfaces.run_resident_developmental_cognition(tick_id=tick)
     assert result["written_record_id"]
