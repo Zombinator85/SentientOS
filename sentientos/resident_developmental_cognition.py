@@ -410,9 +410,12 @@ def _history_context_packet(record: Mapping[str, Any]) -> dict[str, Any]:
     if security_contexts:
         selected_contexts = security_contexts[:MAX_HISTORY_SECURITY_EVIDENCE_FACTS]
         packet["source_evidence_context"] = selected_contexts
+        omitted_contexts = security_contexts[len(selected_contexts):]
         packet["source_evidence_context_digest"] = _digest(security_contexts)
-        packet["source_evidence_context_omitted_count"] = max(
-            0, len(security_contexts) - len(selected_contexts))
+        packet["source_evidence_context_omitted_count"] = len(omitted_contexts)
+        packet["source_evidence_context_omitted_digest"] = _digest(omitted_contexts)
+        packet["source_evidence_context_posture"] = (
+            "complete" if not omitted_contexts else "bounded_incomplete")
     sources = candidate.get("selected_sources", ())
     if isinstance(sources, (list, tuple)):
         packet["source_bindings"] = [
