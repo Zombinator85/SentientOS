@@ -172,11 +172,11 @@
       "source_commit": "208f861c4af940b8cf722b6d9ca4224004250a19"
     },
     {
-      "bytes": 2999,
+      "bytes": 3234,
       "path": "work/construction/segments/0021-recovery-acceptance-reconciliation.md",
       "predecessor": "segment-sha256:4fb9955d37c8c649e7d70c411fa46dcfae71b4036d696fb2412063f56f2defdf",
       "sequence": 21,
-      "sha256": "fe5c0f17b35b5a593d838f8cbca83e13bfd0458e39eea1944e35638d9fe5cf0f",
+      "sha256": "9142aa5708aa2711156e3fc7cfaa5ebc9353bf1beeb6227da9e71e0eea4e1ede",
       "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448"
     }
   ],
@@ -209,7 +209,7 @@
   },
   "recovery_acceptance": {
     "path": "work/recovery_acceptance_reconciliation_20261012.json",
-    "sha256": "0a96685e0996219ab505c3dcf91a6f2ec40192a6897731973be7e95199f93381",
+    "sha256": "e16c1d9411673b4467cf4a48dca6aea4f0c17534a5688f86a23098db7f238e66",
     "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448",
     "source_tree": "7d66bf58808102cb9341973c666b745f2576b72d"
   }

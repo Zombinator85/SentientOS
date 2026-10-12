@@ -43,6 +43,11 @@
       "result": "195 passed"
     },
     {
+      "scope": "adjacent production-serving and epistemic-state custody contracts",
+      "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-exact-snapshot/test-state/governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-exact-snapshot/test-state/federation SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-exact-snapshot/test-state/runtime SENTIENTOS_REPO_ROOT=/tmp/sentientos-exact-snapshot/checkout-latest PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-exact-snapshot/test-state/pulse.json PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-exact-snapshot/test-state/pulse uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q tests/test_local_model_production_serving.py tests/test_resident_epistemic_state_mutation.py",
+      "result": "42 passed"
+    },
+    {
       "scope": "changed Python compile",
       "command": "python -m py_compile sentientos/resident_epistemic_state_mutation.py tests/test_local_model_chat_recovery.py tests/test_local_model_production_serving.py",
       "result": "passed"
@@ -51,7 +56,10 @@
   "limitations": [
     "Prior 247-case 12-module report did not preserve its filename manifest; 195-case run is a reconstructed subsystem-equivalent set, not an exact replay.",
     "All pytest execution used --noconftest on a reconstructed exact source tree; original commit object is unavailable locally.",
-    "Full repository canonical runner, mypy, strict audits, landing checks, model inference, and production behavior remain unverified."
+    "Canonical scripts.run_tests preconditions are unavailable: system test-import probe fails at missing jinja2 and editable-install status is distribution-not-found. The runner would bootstrap packages; network is unavailable, so bootstrap was not attempted.",
+    "Targeted mypy could not run because mypy==1.13.0 is absent from the offline UV cache and registry access is disabled.",
+    "Strict audit was not run: the repository verifier writes audit-chain/strict-status artifacts and requires admin/Lumos authorization; this construction pass has neither.",
+    "Landing checks, real model inference, and production behavior remain unverified."
   ],
   "status_by_layer": {
     "source_construction": "implemented",
