@@ -302,7 +302,7 @@ class DevelopmentalModelReplacementError(ValueError):
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + cast(str, digest_payload(value))
+    return "sha256:" + digest_payload(value)
 
 
 def _identity_payload(identity: "CognitiveModelIdentity") -> dict[str, Any]:
@@ -1015,7 +1015,18 @@ class ModelReplacementArtifactStore:
                 missing_code="condition_start_missing", invalid_code="condition_start_invalid")
         except DevelopmentalModelReplacementError as exc:
             if str(exc) == "condition_start_missing":
-                return None, None
+                result_path = self.condition_results / f"{condition_id}.json"
+                try:
+                    self._read_artifact_json(result_path,
+                        maximum_bytes=MAX_CONDITION_ARTIFACT_BYTES,
+                        missing_code="condition_result_missing",
+                        invalid_code="condition_result_invalid")
+                except DevelopmentalModelReplacementError as result_exc:
+                    if str(result_exc) == "condition_result_missing":
+                        return None, None
+                    raise
+                raise DevelopmentalModelReplacementError(
+                    "condition_terminal_without_start")
             raise
         start_semantic = {key: item for key, item in start.items() if key != "condition_start_digest"}
         expected_id = self.condition_artifact_id(protocol_id=str(start.get("protocol_id") or ""),
@@ -1184,7 +1195,7 @@ class ModelReplacementArtifactStore:
                         and (not saw_terminal_status
                             or condition_statuses[-1].get("status") != completion))):
                 raise DevelopmentalModelReplacementError("trial_condition_completion_posture_conflict")
-        return cast(dict[str, Any], value)
+        return value
 
     def world_state_records(self, *, run_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
         """Project explicitly selected immutable A/B runs without recovery-time freshness."""
@@ -1399,6 +1410,101 @@ class DevelopmentalModelReplacementExperiment:
                 "developmental_history_posture": "historical_interpretation_not_current_truth"}
         return json.dumps(body, sort_keys=True, separators=(",", ":"))
 
+    def _condition_plan(self) -> tuple[tuple[str, GovernedCognitiveEndpoint,
+            CognitiveModelIdentity, str, bool], ...]:
+        return ((CONDITION_ORDER[0], self.model_a, self.protocol.model_a_identity,
+                 self.provenance_a.manifest_digest, True),
+                (CONDITION_ORDER[1], self.model_a, self.protocol.model_a_identity,
+                 self.provenance_a.manifest_digest, False),
+                (CONDITION_ORDER[2], self.model_b, self.protocol.model_b_identity,
+                 self.provenance_b.manifest_digest, True),
+                (CONDITION_ORDER[3], self.model_b, self.protocol.model_b_identity,
+                 self.provenance_b.manifest_digest, False),
+                (CONDITION_ORDER[4], self.model_a, self.protocol.model_a_identity,
+                 self.provenance_a.manifest_digest, True))
+
+    def _condition_input_digest(self, *, trial_id: str, condition: str,
+                                expected: CognitiveModelIdentity,
+                                provenance_digest: str, with_history: bool) -> str:
+        correlation = f"{self.protocol.protocol_id}:{trial_id}:{condition}"
+        return _digest({"protocol_id": self.protocol.protocol_id,
+            "protocol_digest": self.protocol.protocol_digest, "trial_id": trial_id,
+            "condition": condition, "causal_context_id": self.context.context_id,
+            "causal_context_digest": self.context.context_digest,
+            "model_identity_digest": expected.identity_digest,
+            "model_provenance_digest": provenance_digest,
+            "current_projection_id": self.context.current_projection_id,
+            "current_projection_digest": self.context.current_projection_digest,
+            "history_record_ids": list(self.context.history_record_ids) if with_history else [],
+            "history_record_digests": list(self.context.history_record_digests) if with_history else [],
+            "prompt_digest": _digest({"prompt": self._prompt(with_history)}),
+            "correlation_id": correlation})
+
+    def inspect_trial_custody(self, *, trial_id: str) -> dict[str, Any]:
+        """Read bounded condition journals without consulting endpoints or replaying inference."""
+        if (not isinstance(trial_id, str) or not trial_id or len(trial_id) > MAX_TRIAL_ID_LENGTH
+                or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+                    for character in trial_id)):
+            raise DevelopmentalModelReplacementError("trial_id_invalid")
+        self.context.verify()
+        self.protocol.verify()
+        rows: list[dict[str, Any]] = []
+        for condition, _endpoint, expected, provenance_digest, with_history in self._condition_plan():
+            input_digest = self._condition_input_digest(trial_id=trial_id,
+                condition=condition, expected=expected,
+                provenance_digest=provenance_digest, with_history=with_history)
+            condition_id = self.store.condition_artifact_id(
+                protocol_id=self.protocol.protocol_id, trial_id=trial_id,
+                condition=condition)
+            start, terminal = self.store.read_condition(condition_id=condition_id,
+                expected_input_digest=input_digest)
+            row: dict[str, Any] = {"condition": condition,
+                "condition_id": condition_id, "condition_input_digest": input_digest}
+            if start is None:
+                row["status"] = "not_started"
+            elif terminal is None:
+                row.update({"status": "started_without_terminal_no_replay",
+                    "condition_start_digest": start["condition_start_digest"]})
+            else:
+                status = str(terminal["status"])
+                row.update({"status": status,
+                    "condition_start_digest": terminal["condition_start_digest"],
+                    "condition_result_digest": terminal["condition_result_digest"]})
+                if status == "completed":
+                    observation = self._verify_observation(terminal["observation"],
+                        condition=condition, provenance_digest=provenance_digest,
+                        with_history=with_history, trial_id=trial_id)
+                    row.update({"observation_id": observation["observation_id"],
+                        "observation_digest": observation["observation_digest"],
+                        "inference_receipt_id": observation["inference_receipt_id"],
+                        "inference_receipt_digest": observation["inference_receipt_digest"],
+                        "receipt_posture": "condition_and_observation_digests_verified_endpoint_not_requeried"})
+                else:
+                    row["failure_posture"] = terminal.get("failure_posture")
+                    evidence = terminal.get("failure_evidence")
+                    if isinstance(evidence, Mapping):
+                        row["failure_evidence_digest"] = _digest(dict(evidence))
+                    if status == "contradictory":
+                        contradictory_observation: object = terminal.get("observation")
+                        if isinstance(contradictory_observation, Mapping):
+                            row["contradictory_observation_digest"] = contradictory_observation.get("observation_digest")
+            rows.append(row)
+        statuses = [str(row["status"]) for row in rows]
+        incomplete = any(status in {"started_without_terminal_no_replay", "incomplete",
+            "contradictory"} for status in statuses)
+        return {"read_only": True, "authority": False, "effects_performed": [],
+            "inference_invocations": 0, "trial_id": trial_id,
+            "protocol_id": self.protocol.protocol_id,
+            "protocol_digest": self.protocol.protocol_digest,
+            "causal_context_id": self.context.context_id,
+            "causal_context_digest": self.context.context_digest,
+            "status": "interrupted_or_incomplete" if incomplete else
+                "all_condition_records_completed" if statuses and all(
+                    status == "completed" for status in statuses) else
+                "not_started" if all(status == "not_started" for status in statuses) else
+                "partial_condition_journal",
+            "conditions": rows}
+
     def _observe(self, condition: str, endpoint: GovernedCognitiveEndpoint,
                  expected: CognitiveModelIdentity, provenance_digest: str,
                  with_history: bool, trial_id: str) -> dict[str, Any]:
@@ -1557,32 +1663,14 @@ class DevelopmentalModelReplacementExperiment:
         self.store.persist_provenance(self.provenance_b)
         self.store.persist_context(self.context)
         self.store.persist_protocol(self.protocol)
-        plan = ((CONDITION_ORDER[0], self.model_a, self.protocol.model_a_identity,
-                 self.provenance_a.manifest_digest, True),
-                (CONDITION_ORDER[1], self.model_a, self.protocol.model_a_identity,
-                 self.provenance_a.manifest_digest, False),
-                (CONDITION_ORDER[2], self.model_b, self.protocol.model_b_identity,
-                 self.provenance_b.manifest_digest, True),
-                (CONDITION_ORDER[3], self.model_b, self.protocol.model_b_identity,
-                 self.provenance_b.manifest_digest, False),
-                (CONDITION_ORDER[4], self.model_a, self.protocol.model_a_identity,
-                 self.provenance_a.manifest_digest, True))
+        plan = self._condition_plan()
         observations: list[dict[str, Any]] = []
         condition_statuses: list[dict[str, Any]] = []
         for condition, endpoint, expected, provenance_digest, with_history in plan:
             correlation = f"{self.protocol.protocol_id}:{trial_id}:{condition}"
-            input_digest = _digest({"protocol_id": self.protocol.protocol_id,
-                "protocol_digest": self.protocol.protocol_digest, "trial_id": trial_id,
-                "condition": condition, "causal_context_id": self.context.context_id,
-                "causal_context_digest": self.context.context_digest,
-                "model_identity_digest": expected.identity_digest,
-                "model_provenance_digest": provenance_digest,
-                "current_projection_id": self.context.current_projection_id,
-                "current_projection_digest": self.context.current_projection_digest,
-                "history_record_ids": list(self.context.history_record_ids) if with_history else [],
-                "history_record_digests": list(self.context.history_record_digests) if with_history else [],
-                "prompt_digest": _digest({"prompt": self._prompt(with_history)}),
-                "correlation_id": correlation})
+            input_digest = self._condition_input_digest(trial_id=trial_id,
+                condition=condition, expected=expected,
+                provenance_digest=provenance_digest, with_history=with_history)
             condition_id = self.store.condition_artifact_id(protocol_id=self.protocol.protocol_id,
                 trial_id=trial_id, condition=condition)
             start, terminal = self.store.read_condition(condition_id=condition_id,

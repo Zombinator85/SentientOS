@@ -294,6 +294,21 @@ def test_model_identity_drift_and_a_restoration_mismatch_fail_closed(tmp_path: P
     assert len(second["condition_statuses"]) == 2
 
 
+def test_orphan_condition_terminal_is_not_recovered_as_unstarted(tmp_path: Path) -> None:
+    exp, _, _ = experiment(tmp_path)
+    exp.store.persist_provenance(exp.provenance_a)
+    exp.store.persist_provenance(exp.provenance_b)
+    exp.store.persist_context(exp.context)
+    exp.store.persist_protocol(exp.protocol)
+    condition = exp.inspect_trial_custody(trial_id="interrupted")["conditions"][0]
+    condition_id = condition["condition_id"]
+    exp.store._write(exp.store.condition_results / f"{condition_id}.json",
+        {"condition_id": condition_id, "orphaned_terminal": True})
+    with pytest.raises(DevelopmentalModelReplacementError,
+                       match="condition_terminal_without_start"):
+        exp.inspect_trial_custody(trial_id="interrupted")
+
+
 def test_nonproduction_fallback_and_identity_tampering_are_rejected(tmp_path: Path) -> None:
     valid = identity("a")
     for invalid in (replace(valid, active_production=False), replace(valid, fallback=True),

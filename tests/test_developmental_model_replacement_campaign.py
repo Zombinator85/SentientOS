@@ -184,12 +184,31 @@ def test_trial_inventory_is_fixed_and_bounded(tmp_path: Path) -> None:
 
 def test_interrupted_trial_is_not_replayed(tmp_path: Path) -> None:
     subject, exp, _, _ = campaign(tmp_path)
+    exp.store.persist_provenance(exp.provenance_a)
+    exp.store.persist_provenance(exp.provenance_b)
+    exp.store.persist_context(exp.context)
+    exp.store.persist_protocol(exp.protocol)
+    empty_journal = exp.inspect_trial_custody(trial_id="trial-1")
+    first_condition = empty_journal["conditions"][0]
+    created, _start = exp.store.begin_condition(
+        protocol_id=exp.protocol.protocol_id,
+        protocol_digest=exp.protocol.protocol_digest,
+        trial_id="trial-1", condition=first_condition["condition"],
+        input_digest=first_condition["condition_input_digest"],
+        correlation_id=f"{exp.protocol.protocol_id}:trial-1:{first_condition['condition']}")
+    assert created
     subject.state = subject.store.write_state(subject.protocol, {**subject.state, "in_progress_trial_id": "trial-1"})
     before = subject.store.load_state(subject.protocol)
     reconstructed = DevelopmentalModelReplacementCampaign.reconstruct(
         experiment=exp, artifact_root=tmp_path, campaign_id=subject.protocol.campaign_id)
     assert reconstructed.recovery_posture == "interrupted_trial_preserved_not_replayed"
     assert reconstructed.state == before
+    assert reconstructed.recovery_condition_journal is not None
+    assert reconstructed.recovery_condition_journal["status"] == "interrupted_or_incomplete"
+    statuses = [item["status"] for item in reconstructed.recovery_condition_journal["conditions"]]
+    assert statuses == ["started_without_terminal_no_replay", "not_started", "not_started",
+        "not_started", "not_started"]
+    assert reconstructed.recovery_condition_journal["inference_invocations"] == 0
     calls_before = (len(exp.model_a.calls), len(exp.model_b.calls))
     with pytest.raises(DevelopmentalModelReplacementError, match="campaign_not_runnable"):
         reconstructed.run_next_trial()

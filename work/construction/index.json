@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "c2ffb91d3177af96b0ec1e6f6414ddc4755fc84a5ed7c6a0b91084bc67f1b203",
-    "latest_segment_sequence": 34,
-    "latest_segment_sha256": "f85566c998ffe7da6c60d4d903607b4f3c143e48b4a6a966b169029b7ca4f24f",
-    "source_commit": "b5c0063b3e5c9cb4adc25d1dc1c36c56770b8078",
-    "source_tree": "06c7904f0d02ed5f259ba0f5e305ba5b1411ac1c"
+    "checkpoint_sha256": "41edcb423679a864eec00db88fc55b141d75b095972a5391798504b35002b59c",
+    "latest_segment_sequence": 35,
+    "latest_segment_sha256": "d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
+    "source_commit": "5c1f807ff5457cb29b3c54cb2f2e451796651584",
+    "source_tree": "b82860e2583b2ccb604ee5d8d3cd32504dd672b2"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -302,6 +302,15 @@
       "sha256": "f85566c998ffe7da6c60d4d903607b4f3c143e48b4a6a966b169029b7ca4f24f",
       "source_commit": "b5c0063b3e5c9cb4adc25d1dc1c36c56770b8078",
       "source_tree": "06c7904f0d02ed5f259ba0f5e305ba5b1411ac1c"
+    },
+    {
+      "bytes": 3677,
+      "path": "work/construction/segments/0035-interrupted-trial-journal-recovery.md",
+      "predecessor": "segment-sha256:f85566c998ffe7da6c60d4d903607b4f3c143e48b4a6a966b169029b7ca4f24f",
+      "sequence": 35,
+      "sha256": "d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
+      "source_commit": "5c1f807ff5457cb29b3c54cb2f2e451796651584",
+      "source_tree": "b82860e2583b2ccb604ee5d8d3cd32504dd672b2"
     }
   ],
   "source_acquisition": {

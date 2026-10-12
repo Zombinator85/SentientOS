@@ -436,6 +436,7 @@ class DevelopmentalModelReplacementCampaign:
                  protocol: CampaignProtocol, store: CampaignStore, state: Mapping[str, Any]) -> None:
         self.experiment, self.protocol, self.store, self.state = experiment, protocol, store, dict(state)
         self.recovery_posture = "not_reconstructed"
+        self.recovery_condition_journal: dict[str, Any] | None = None
 
     @classmethod
     def create(cls, *, experiment: DevelopmentalModelReplacementExperiment,
@@ -469,6 +470,8 @@ class DevelopmentalModelReplacementCampaign:
             # A campaign recovery read must never call the inference endpoint or
             # reinterpret a started condition as a completed trial. Preserve the
             # exact durable in-progress state for explicit later review.
+            campaign.recovery_condition_journal = experiment.inspect_trial_custody(
+                trial_id=trial_id)
             campaign.recovery_posture = "interrupted_trial_preserved_not_replayed"
         else:
             campaign.recovery_posture = "durable_state_reconstructed"

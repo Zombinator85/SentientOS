@@ -1,0 +1,35 @@
+{
+  "authority": false,
+  "effects_performed": [],
+  "execution": "hermetic deterministic fake endpoint and canonical immutable condition/campaign writers",
+  "interrupted_trial": {
+    "campaign_state_unchanged": true,
+    "condition_statuses": [
+      "started_without_terminal_no_replay",
+      "not_started",
+      "not_started",
+      "not_started",
+      "not_started"
+    ],
+    "endpoint_call_counts_before_after": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ],
+    "inference_invocations": 0,
+    "journal_status": "interrupted_or_incomplete",
+    "recovery_posture": "interrupted_trial_preserved_not_replayed"
+  },
+  "orphan_terminal": {
+    "not_reclassified_as_unstarted": true,
+    "reason_code": "condition_terminal_without_start",
+    "status": "rejected"
+  },
+  "production_model": false,
+  "tested_source_tree": "bfefa676b81d39d2d0dd1c8aaaccaf44bcbf2d34"
+}
