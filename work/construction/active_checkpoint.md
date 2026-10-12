@@ -1,7 +1,7 @@
 # Active construction checkpoint
 
-- Verified source: `cf59a4c61b58b87a100d903e2813ea46017a3ad9`, tree `585043166128b27880727a12d44383a41c6b33e8`.
-- Latest continuation segment: sequence `31`, `work/construction/segments/0031-bootstrap-reliability-repair.md`, SHA-256 `4d08268bb23d2c305a442128600869eee367f3fcf478dda9722d030d446ab5aa`.
-- Bootstrap repair has bounded existing-target scopes, actionable planner/scaffold diagnostics, and explicit separation between normal landing bootstrap and the authorized `[untested]` construction exception. Focused tests: 114 passed, 22 skipped; strict mypy and Python compilation passed.
-- At `cf59a4c6`, exact hosted records show Source Validation and Helm smoke succeeded; Invariants, self-check, and docs failed at an administrator-protected source boundary. Source Validation artifact was retrieved. This is not production acceptance.
-- Source emitter module invocations already work in the successful jobs; no CI emitter change was justified. Next action: publish the bootstrap repair with expected-HEAD compare-and-swap and independently verify GitHub custody.
+- Latest remote source: `dc3d7561d6a1d1a2b47f9c101a97d5d32de69cb9`, tree `7a3c998446713fd9628fd3561aed507cf6478487` (parent `cf59a4c61b58b87a100d903e2813ea46017a3ad9`).
+- Latest continuation segment: sequence `32`, `work/construction/segments/0032-bootstrap-repair-remote-custody.md`, SHA-256 `1d66d0913b834aad3698823170d244a23c4c04e69564b33786fb104b7583a774`.
+- Bootstrap repair is published under remote-verified custody. Focused regression tests: 114 passed, 22 skipped; strict targeted mypy, compilation, JSON parsing, and `git diff --check` passed. Production remains unverified.
+- Parent `cf59a4c6` hosted records show Source Validation and Helm smoke succeeded; Invariants, self-check, and docs failed at an administrator-protected source boundary. No hosted result for the new commit is claimed.
+- Next dependency: protected repository acceptance in its authorized environment, including resolution of protected-boundary failures without weakening that boundary.

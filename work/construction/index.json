@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "202061a7023745d6e2d685275d176e695b2ab39e5da214e2b58700ef327998a3",
-    "latest_segment_sequence": 31,
-    "latest_segment_sha256": "4d08268bb23d2c305a442128600869eee367f3fcf478dda9722d030d446ab5aa",
-    "source_commit": "cf59a4c61b58b87a100d903e2813ea46017a3ad9",
-    "source_tree": "585043166128b27880727a12d44383a41c6b33e8"
+    "checkpoint_sha256": "aac2662b224b59023fa169044e779a8f285bded055ec80e149a828ae3fc4e8b4",
+    "latest_segment_sequence": 32,
+    "latest_segment_sha256": "1d66d0913b834aad3698823170d244a23c4c04e69564b33786fb104b7583a774",
+    "source_commit": "dc3d7561d6a1d1a2b47f9c101a97d5d32de69cb9",
+    "source_tree": "7a3c998446713fd9628fd3561aed507cf6478487"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -277,6 +277,14 @@
       "sequence": 31,
       "sha256": "4d08268bb23d2c305a442128600869eee367f3fcf478dda9722d030d446ab5aa",
       "source_commit": "cf59a4c61b58b87a100d903e2813ea46017a3ad9"
+    },
+    {
+      "bytes": 1356,
+      "path": "work/construction/segments/0032-bootstrap-repair-remote-custody.md",
+      "predecessor": "segment-sha256:4d08268bb23d2c305a442128600869eee367f3fcf478dda9722d030d446ab5aa",
+      "sequence": 32,
+      "sha256": "1d66d0913b834aad3698823170d244a23c4c04e69564b33786fb104b7583a774",
+      "source_commit": "dc3d7561d6a1d1a2b47f9c101a97d5d32de69cb9"
     }
   ],
   "source_acquisition": {
