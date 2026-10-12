@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -139,6 +140,132 @@ def test_request_reader_rejects_symlink_and_oversized_custody(tmp_path: Path) ->
     with pytest.raises(ForgeQueueCustodyError):
         queue.pending_requests()
 
+
+def test_prune_validates_both_ledgers_before_replacing_either(tmp_path: Path) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.enqueue(ForgeRequest(request_id="req-1", goal="forge_smoke_noop"))
+    queue.receipts_path.parent.mkdir(parents=True, exist_ok=True)
+    queue.receipts_path.write_bytes(b'{"request_id":"req-1","status":"started"}\n{bad\n')
+    original_queue = queue.queue_path.read_bytes()
+    original_receipts = queue.receipts_path.read_bytes()
+
+    with pytest.raises(ForgeReceiptLedgerError):
+        queue.prune(max_age_days=0, keep_last_n=1)
+
+    assert queue.queue_path.read_bytes() == original_queue
+    assert queue.receipts_path.read_bytes() == original_receipts
+
+
+def test_prune_rejects_semantically_incomplete_ledgers_without_rewriting(
+    tmp_path: Path,
+) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.enqueue(ForgeRequest(request_id="req-1", goal="forge_smoke_noop"))
+    queue.receipts_path.parent.mkdir(parents=True, exist_ok=True)
+    queue.receipts_path.write_text(
+        '{"request_id":"req-1","status":"started"}\n', encoding="utf-8",
+    )
+    queue_bytes = queue.queue_path.read_bytes()
+    receipt_bytes = queue.receipts_path.read_bytes()
+
+    queue.queue_path.write_bytes(queue_bytes + b'{"request_id":"missing-goal"}\n')
+    damaged_queue = queue.queue_path.read_bytes()
+    with pytest.raises(ForgeQueueCustodyError, match="queue_ledger_identity_invalid"):
+        queue.prune()
+    assert queue.queue_path.read_bytes() == damaged_queue
+    assert queue.receipts_path.read_bytes() == receipt_bytes
+
+    queue.queue_path.write_bytes(queue_bytes)
+    queue.receipts_path.write_text('{"status":"started"}\n', encoding="utf-8")
+    damaged_receipts = queue.receipts_path.read_bytes()
+    with pytest.raises(ForgeReceiptLedgerError, match="receipt_ledger_identity_invalid"):
+        queue.prune()
+    assert queue.queue_path.read_bytes() == queue_bytes
+    assert queue.receipts_path.read_bytes() == damaged_receipts
+
+
+def test_prune_preserves_complete_receipt_chain_for_retained_request(tmp_path: Path) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    old = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+    current = datetime.now(timezone.utc).isoformat()
+    queue.enqueue(ForgeRequest(request_id="req-drop", goal="old", requested_at=old))
+    queue.enqueue(ForgeRequest(request_id="req-keep", goal="current", requested_at=current))
+    queue.receipts_path.parent.mkdir(parents=True, exist_ok=True)
+    stale_chain = [
+        {"request_id": "req-keep", "status": "started", "started_at": old},
+        {"request_id": "req-keep", "status": "success", "finished_at": old},
+        {"request_id": "req-drop", "status": "success", "finished_at": old},
+    ]
+    queue.receipts_path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in stale_chain),
+        encoding="utf-8",
+    )
+
+    queue.prune(max_age_days=1, keep_last_n=1)
+
+    assert [request.request_id for request in queue._load_requests()] == ["req-keep"]
+    recovered = queue._read_receipt_rows()
+    assert [(row["request_id"], row["status"]) for row in recovered] == [
+        ("req-keep", "started"), ("req-keep", "success"),
+    ]
+    assert queue.next_request() is None
+
+
+def test_interrupted_prune_leaves_only_inert_extra_receipts_and_retries_safely(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    old = (datetime.now(timezone.utc) - timedelta(days=90)).isoformat()
+    current = datetime.now(timezone.utc).isoformat()
+    queue.enqueue(ForgeRequest(request_id="req-drop", goal="old", requested_at=old))
+    queue.enqueue(ForgeRequest(request_id="req-keep", goal="current", requested_at=current))
+    queue.receipts_path.parent.mkdir(parents=True, exist_ok=True)
+    receipts = [
+        {"request_id": "req-drop", "status": "success", "finished_at": old},
+        {"request_id": "req-keep", "status": "started", "started_at": old},
+        {"request_id": "req-keep", "status": "success", "finished_at": old},
+    ]
+    queue.receipts_path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in receipts),
+        encoding="utf-8",
+    )
+    replace_jsonl = queue._replace_jsonl
+
+    def interrupt_receipt_replace(path: Path, rows: list[dict[str, object]]) -> None:
+        if path == queue.receipts_path:
+            raise OSError("simulated interruption before receipt publication")
+        replace_jsonl(path, rows)
+
+    monkeypatch.setattr(queue, "_replace_jsonl", interrupt_receipt_replace)
+    with pytest.raises(OSError, match="simulated interruption"):
+        queue.prune(max_age_days=1, keep_last_n=1)
+
+    assert [request.request_id for request in queue._load_requests()] == ["req-keep"]
+    assert len(queue._read_receipt_rows()) == 3
+    assert queue.next_request() is None
+
+    monkeypatch.setattr(queue, "_replace_jsonl", replace_jsonl)
+    queue.prune(max_age_days=1, keep_last_n=1)
+    assert [(row["request_id"], row["status"]) for row in queue._read_receipt_rows()] == [
+        ("req-keep", "started"), ("req-keep", "success"),
+    ]
+    assert queue.next_request() is None
+
+
+def test_append_enforces_reader_row_bound_and_rejects_partial_tail(tmp_path: Path) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.queue_path.parent.mkdir(parents=True, exist_ok=True)
+    rows = b'{"request_id":"old","goal":"goal"}\n' * 4096
+    queue.queue_path.write_bytes(rows)
+
+    with pytest.raises(ForgeQueueCustodyError, match="ledger_row_limit_exceeded"):
+        queue.enqueue(ForgeRequest(request_id="req-over-limit", goal="goal"))
+    assert queue.queue_path.read_bytes() == rows
+
+    queue.queue_path.write_bytes(b'{"request_id":"old","goal":"goal"}')
+    with pytest.raises(ForgeQueueCustodyError, match="ledger_existing_tail_incomplete"):
+        queue.enqueue(ForgeRequest(request_id="req-partial", goal="goal"))
+    assert queue.queue_path.read_bytes() == b'{"request_id":"old","goal":"goal"}'
 
 def test_next_request_priority_then_fifo(tmp_path: Path) -> None:
     queue = ForgeQueue(pulse_root=tmp_path / "pulse")

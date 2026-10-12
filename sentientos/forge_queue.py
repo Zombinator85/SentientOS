@@ -10,13 +10,19 @@ import os
 from pathlib import Path
 import stat
 import uuid
+from contextlib import contextmanager
+from typing import Iterator
 try:
     import fcntl
 except ImportError:  # Windows must fail closed until a safe writer is available.
     fcntl = None  # type: ignore[assignment]
 
 from sentientos.event_stream import record_forge_event
-from sentientos.private_file_custody import PrivateFileCustodyError, open_private_directory
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError,
+    open_private_directory,
+    replace_private_bytes_with_status,
+)
 from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 LOGGER = logging.getLogger(__name__)
@@ -177,9 +183,39 @@ class ForgeQueue:
         return receipt
 
     def prune(self, *, max_age_days: int = 30, keep_last_n: int = 200) -> None:
+        if (type(max_age_days) is not int or max_age_days < 0
+                or type(keep_last_n) is not int or not 1 <= keep_last_n <= MAX_QUEUE_LEDGER_ROWS):
+            raise ForgeQueueCustodyError("ledger_prune_bounds_invalid")
         cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
-        self._prune_file(self.queue_path, cutoff, keep_last_n, "requested_at")
-        self._prune_file(self.receipts_path, cutoff, keep_last_n, "finished_at")
+        with self._writer_lock():
+            # Validate both owners before publication. Then prune requests
+            # first: if interrupted between replacements, extra receipts are
+            # inert, while removing a receipt for a retained request could
+            # cause replay. The stable owner lock excludes appends while the
+            # two files are reconciled.
+            queue_rows = self._read_request_jsonl(strict=True)
+            receipt_rows = self._read_receipt_rows()
+            retained_queue = _pruned_rows(queue_rows, cutoff, keep_last_n, "requested_at")
+            retained_request_ids = {
+                request_id for row in retained_queue
+                if isinstance((request_id := row.get("request_id")), str)
+            }
+            ordinary_receipt_indexes = _pruned_row_indexes(
+                receipt_rows, cutoff, keep_last_n, "finished_at"
+            )
+            # Preserve the complete ordered receipt chain for every request
+            # retained in the queue. For removed requests, retain only rows
+            # selected by the ordinary age/count policy. Index-based filtering
+            # preserves ordering and repeated identical rows.
+            retained_receipts = [
+                row for index, row in enumerate(receipt_rows)
+                if row.get("request_id") in retained_request_ids
+                or index in ordinary_receipt_indexes
+            ]
+            if retained_queue != queue_rows:
+                self._replace_jsonl(self.queue_path, retained_queue)
+            if retained_receipts != receipt_rows:
+                self._replace_jsonl(self.receipts_path, retained_receipts)
 
     def recent_receipts(self, *, limit: int = 20) -> list[ForgeReceipt]:
         return self._load_receipts()[-limit:]
@@ -201,7 +237,7 @@ class ForgeQueue:
             loaded.append(request)
         return loaded
 
-    def _read_request_jsonl(self) -> list[dict[str, object]]:
+    def _read_request_jsonl(self, *, strict: bool = False) -> list[dict[str, object]]:
         try:
             raw = read_explicit_file(
                 self.queue_path,
@@ -231,16 +267,40 @@ class ForgeQueue:
                     object_pairs_hook=_unique_json_object,
                     parse_constant=_reject_json_constant,
                 )
-            except (json.JSONDecodeError, ValueError, RecursionError):
+            except (json.JSONDecodeError, ValueError, RecursionError) as exc:
+                if strict:
+                    raise ForgeQueueCustodyError(
+                        f"queue_ledger_json_invalid:{line_number}"
+                    ) from exc
                 LOGGER.warning("forge_queue_corrupt_line", extra={"line": line_number})
                 continue
             if not isinstance(payload, dict):
+                if strict:
+                    raise ForgeQueueCustodyError(
+                        f"queue_ledger_record_not_object:{line_number}"
+                    )
                 LOGGER.warning("forge_queue_non_object_line", extra={"line": line_number})
                 continue
+            if strict and _request_from_row(payload) is None:
+                raise ForgeQueueCustodyError(
+                    f"queue_ledger_identity_invalid:{line_number}"
+                )
             rows.append(payload)
         return rows
 
     def _load_receipts(self) -> list[ForgeReceipt]:
+        rows = self._read_receipt_rows()
+        loaded: list[ForgeReceipt] = []
+        for line_number, row in enumerate(rows, start=1):
+            receipt = _receipt_from_row(row)
+            if receipt is None:
+                raise ForgeReceiptLedgerError(
+                    f"receipt_ledger_identity_invalid:{line_number}"
+                )
+            loaded.append(receipt)
+        return loaded
+
+    def _read_receipt_rows(self) -> list[dict[str, object]]:
         try:
             raw = read_explicit_file(
                 self.receipts_path,
@@ -278,19 +338,75 @@ class ForgeQueue:
                 raise ForgeReceiptLedgerError(
                     f"receipt_ledger_record_not_object:{line_number}"
                 )
-            rows.append(payload)
-        loaded: list[ForgeReceipt] = []
-        for line_number, row in enumerate(rows, start=1):
-            receipt = _receipt_from_row(row)
-            if receipt is None:
+            if _receipt_from_row(payload) is None:
                 raise ForgeReceiptLedgerError(
                     f"receipt_ledger_identity_invalid:{line_number}"
                 )
-            loaded.append(receipt)
-        return loaded
+            rows.append(payload)
+        return rows
+
+    def _replace_jsonl(self, path: Path, rows: list[dict[str, object]]) -> None:
+        encoded = b"".join(
+            (json.dumps(row, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
+            for row in rows
+        )
+        if len(encoded) > MAX_QUEUE_LEDGER_BYTES:
+            raise ForgeQueueCustodyError("ledger_prune_byte_limit_exceeded")
+        try:
+            durable = replace_private_bytes_with_status(
+                path, encoded, max_bytes=MAX_QUEUE_LEDGER_BYTES,
+            )
+        except PrivateFileCustodyError as exc:
+            raise ForgeQueueCustodyError(f"ledger_prune_{exc.code}") from exc
+        if not durable:
+            raise ForgeQueueCustodyError("ledger_prune_durability_uncertain")
+
+    @contextmanager
+    def _writer_lock(self) -> Iterator[int]:
+        if (os.name != "posix" or fcntl is None or not hasattr(os, "O_NOFOLLOW")
+                or not hasattr(os, "pread")):
+            raise ForgeQueueCustodyError("ledger_writer_lock_unsupported")
+        try:
+            directory_fd = open_private_directory(self.queue_path.parent, create=True)
+        except PrivateFileCustodyError as exc:
+            raise ForgeQueueCustodyError(f"ledger_directory_{exc.code}") from exc
+        lock_fd: int | None = None
+        locked = False
+        try:
+            try:
+                lock_fd = os.open(
+                    ".forge_queue.lock",
+                    os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                    0o600,
+                    dir_fd=directory_fd,
+                )
+                metadata = os.fstat(lock_fd)
+                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid()
+                        or metadata.st_nlink != 1 or metadata.st_mode & 0o022):
+                    raise ForgeQueueCustodyError("ledger_writer_lock_custody_invalid")
+                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                locked = True
+                os.fsync(directory_fd)
+            except ForgeQueueCustodyError:
+                raise
+            except OSError as exc:
+                raise ForgeQueueCustodyError("ledger_writer_lock_unavailable") from exc
+            yield directory_fd
+        finally:
+            try:
+                if lock_fd is not None:
+                    if locked:
+                        try:
+                            fcntl.flock(lock_fd, fcntl.LOCK_UN)
+                        except OSError:
+                            pass
+                    os.close(lock_fd)
+            finally:
+                os.close(directory_fd)
 
     def _append_jsonl(self, path: Path, row: dict[str, object]) -> None:
-        if os.name != "posix" or fcntl is None or not hasattr(os, "O_NOFOLLOW"):
+        if (os.name != "posix" or fcntl is None or not hasattr(os, "O_NOFOLLOW")
+                or not hasattr(os, "pread")):
             raise ForgeQueueCustodyError("ledger_append_unsupported")
         try:
             encoded = (json.dumps(row, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
@@ -298,30 +414,39 @@ class ForgeQueue:
             raise ForgeQueueCustodyError("ledger_record_not_canonical_json") from exc
         if len(encoded) > MAX_QUEUE_LEDGER_ROW_BYTES:
             raise ForgeQueueCustodyError("ledger_record_too_large")
-        try:
-            directory_fd = open_private_directory(path.parent, create=True)
-        except PrivateFileCustodyError as exc:
-            raise ForgeQueueCustodyError(f"ledger_directory_{exc.code}") from exc
         fd: int | None = None
-        try:
+        with self._writer_lock() as directory_fd:
             try:
                 fd = os.open(
                     path.name,
-                    os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW
+                    os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW
                     | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0),
                     0o600,
                     dir_fd=directory_fd,
                 )
-            except OSError as exc:
-                raise ForgeQueueCustodyError("ledger_file_open_unavailable") from exc
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX)
                 metadata = os.fstat(fd)
                 if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid()
                         or metadata.st_nlink != 1 or metadata.st_mode & 0o022):
                     raise ForgeQueueCustodyError("ledger_file_custody_invalid")
                 if metadata.st_size + len(encoded) > MAX_QUEUE_LEDGER_BYTES:
                     raise ForgeQueueCustodyError("ledger_byte_limit_exceeded")
+                existing = bytearray()
+                offset = 0
+                while offset < metadata.st_size:
+                    chunk = os.pread(fd, min(65_536, metadata.st_size - offset), offset)
+                    if not chunk:
+                        raise ForgeQueueCustodyError("ledger_existing_read_incomplete")
+                    existing.extend(chunk)
+                    offset += len(chunk)
+                try:
+                    existing.decode("utf-8", errors="strict")
+                except UnicodeDecodeError as exc:
+                    raise ForgeQueueCustodyError("ledger_existing_encoding_invalid") from exc
+                if existing and not existing.endswith(b"\n"):
+                    raise ForgeQueueCustodyError("ledger_existing_tail_incomplete")
+                existing_rows = sum(bool(line.strip()) for line in existing.splitlines())
+                if existing_rows >= MAX_QUEUE_LEDGER_ROWS:
+                    raise ForgeQueueCustodyError("ledger_row_limit_exceeded")
                 view = memoryview(encoded)
                 while view:
                     written = os.write(fd, view)
@@ -337,14 +462,14 @@ class ForgeQueue:
                 # receipt reader will then block request selection on restart.
                 raise ForgeQueueCustodyError("ledger_append_durability_uncertain") from exc
             finally:
-                try:
-                    fcntl.flock(fd, fcntl.LOCK_UN)
-                except OSError:
-                    pass
-        finally:
-            if fd is not None:
-                os.close(fd)
-            os.close(directory_fd)
+                if fd is not None:
+                    try:
+                        os.close(fd)
+                    except OSError as exc:
+                        raise ForgeQueueCustodyError(
+                            "ledger_append_close_uncertain"
+                        ) from exc
+                    fd = None
 
     def _read_jsonl(self, path: Path) -> list[dict[str, object]]:
         if not path.exists():
@@ -366,23 +491,6 @@ class ForgeQueue:
                 rows.append(payload)
         return rows
 
-    def _prune_file(self, path: Path, cutoff: datetime, keep_last_n: int, ts_field: str) -> None:
-        rows = self._read_jsonl(path)
-        if len(rows) <= keep_last_n:
-            return
-        recent_rows = rows[-keep_last_n:]
-        preserved: list[dict[str, object]] = []
-        for row in recent_rows:
-            timestamp = row.get(ts_field)
-            if not isinstance(timestamp, str):
-                preserved.append(row)
-                continue
-            parsed = _parse_iso(timestamp)
-            if parsed is None or parsed >= cutoff:
-                preserved.append(row)
-        text = "".join(json.dumps(item, sort_keys=True) + "\n" for item in preserved)
-        path.write_text(text, encoding="utf-8")
-
     def _new_request_id(self) -> str:
         return f"forge-{uuid.uuid4().hex[:12]}"
 
@@ -400,6 +508,27 @@ def _parse_iso(value: str) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _pruned_row_indexes(
+    rows: list[dict[str, object]], cutoff: datetime, keep_last_n: int, ts_field: str,
+) -> set[int]:
+    if len(rows) <= keep_last_n:
+        return set(range(len(rows)))
+    retained: set[int] = set()
+    for index in range(len(rows) - keep_last_n, len(rows)):
+        timestamp = rows[index].get(ts_field)
+        parsed = _parse_iso(timestamp) if isinstance(timestamp, str) else None
+        if not isinstance(timestamp, str) or parsed is None or parsed >= cutoff:
+            retained.add(index)
+    return retained
+
+
+def _pruned_rows(
+    rows: list[dict[str, object]], cutoff: datetime, keep_last_n: int, ts_field: str,
+) -> list[dict[str, object]]:
+    indexes = _pruned_row_indexes(rows, cutoff, keep_last_n, ts_field)
+    return [row for index, row in enumerate(rows) if index in indexes]
 
 
 def _request_from_row(row: dict[str, object]) -> ForgeRequest | None:
