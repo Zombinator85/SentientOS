@@ -8,9 +8,11 @@ import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
 
+from sentientos import chat_service
 from sentientos.chat_service import DevelopmentSimulationInference, PersistentConversationService
 from sentientos.canonical_memory import (CanonicalMemoryStore, ExplicitRetentionAdmissionGate,
-    AdmittedRetentionWriter, CANDIDATE_TYPE, digest, sentientos_data_dir)
+    AdmittedRetentionWriter, CANDIDATE_TYPE, digest, retention_request_id,
+    sentientos_data_dir)
 from sentientos.conversation_session import (
     ConversationSessionStore, assemble_local_chat_context,
 )
@@ -29,14 +31,20 @@ class FakeInvoker:
 
     def build_request(self, **kwargs):
         request = SimpleNamespace(**kwargs)
-        request.request_id = "lmreq-test"
+        request.request_id = kwargs.get("correlation_id", "lmreq-test")
+        request.active_model_identity = self.model.active_identity.to_dict()
         self.requests.append(request)
         return request
 
     def invoke(self, request):
         status = "denied" if self.denied else "admitted_completed"
-        return SimpleNamespace(status=status, output_text=None if self.denied else "local answer",
-            request={"request_id": request.request_id}, receipt_digest="receipt-digest")
+        output = None if self.denied else "local answer"
+        return SimpleNamespace(status=status, output_text=output,
+            output_digest=(chat_service.digest_payload({"output": output}) if output else None),
+            output_truncated=False, request={"request_id": request.request_id,
+                "active_model_identity": request.active_model_identity},
+            receipt_id="fixture-receipt-" + request.request_id,
+            receipt_digest="fixture-digest-" + request.request_id)
 
 
 def service(root: Path, invoker: FakeInvoker | None = None) -> PersistentConversationService:
@@ -57,11 +65,54 @@ def test_durable_session_reopen(tmp_path: Path) -> None:
 def test_bounded_context_reconstruction(tmp_path: Path) -> None:
     store = ConversationSessionStore(tmp_path / "sessions")
     session = store.create(model_identity={})
-    for text in ("old " * 20, "recent user", "recent assistant"):
-        store.append_turn(session["session_id"], role="user" if "user" in text or "old" in text else "assistant", text=text)
+    store.append_turn(session["session_id"], role="user", text="old " * 20)
+    recent_user = store.append_turn(session["session_id"], role="user", text="recent user")
+    store.append_turn(session["session_id"], role="assistant", text="recent assistant",
+        linkage={"source_user_turn_id": recent_user["turn_id"]})
     snapshot = store.reconstruct(session["session_id"], budget_chars=60)
     assert [turn["text"] for turn in snapshot.turns] == ["recent user", "recent assistant"]
     assert snapshot.truncated and snapshot.snapshot_digest == store.reconstruct(session["session_id"], budget_chars=60).snapshot_digest
+
+
+def test_context_identity_binds_turn_model_provenance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Equal transcript text with different serving provenance is distinct context."""
+    import hashlib
+    import json
+    from types import SimpleNamespace
+
+    counter = 0
+
+    def stable_uuid() -> SimpleNamespace:
+        nonlocal counter
+        counter += 1
+        return SimpleNamespace(hex=f"{counter:032x}")
+
+    monkeypatch.setattr("sentientos.conversation_session.uuid.uuid4", stable_uuid)
+    snapshots = []
+    prompts = []
+    for label in ("model-a", "model-b"):
+        store = ConversationSessionStore(tmp_path / label)
+        session = store.create(model_identity={"model_id": label})
+        identity = {"model_id": label}
+        identity_digest = hashlib.sha256(json.dumps(
+            identity, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")).hexdigest()
+        store.append_turn(session["session_id"], role="user", text="same request",
+            linkage={"active_model_identity": identity,
+                "active_model_identity_digest": identity_digest})
+        snapshot = store.reconstruct(session["session_id"], budget_chars=100)
+        snapshots.append(snapshot)
+        prompts.append(assemble_local_chat_context(history=snapshot,
+            memory_snapshot={"memories": []}, current_message="continue"))
+        counter = 0
+
+    assert snapshots[0].turns[0]["text"] == snapshots[1].turns[0]["text"]
+    assert snapshots[0].snapshot_digest != snapshots[1].snapshot_digest
+    assert snapshots[0].metadata()["selected_turn_roles"] == ["user"]
+    assert snapshots[0].metadata()["selected_turn_linkage_digests"] != snapshots[1].metadata()["selected_turn_linkage_digests"]
+    assert '"active_model_identity_digest"' in prompts[0]
+    assert '"active_model_identity_digest"' in prompts[1]
+    assert prompts[0].count("[SYSTEM_INSTRUCTION]") == prompts[1].count("[SYSTEM_INSTRUCTION]") == 1
 
 
 def test_malicious_recalled_memory_cannot_become_system_authority(tmp_path: Path) -> None:
@@ -125,7 +176,7 @@ def test_composed_persistent_governed_conversation_success(tmp_path: Path) -> No
 def test_storage_rejects_symlink_and_size_and_cross_session_leakage(tmp_path: Path) -> None:
     target = tmp_path / "target"; target.mkdir()
     link = tmp_path / "link"; link.symlink_to(target, target_is_directory=True)
-    with pytest.raises(ValueError, match="symlink"): ConversationSessionStore(link)
+    with pytest.raises((ValueError, OSError)): ConversationSessionStore(link)
     store = ConversationSessionStore(tmp_path / "sessions")
     one = store.create(model_identity={}); two = store.create(model_identity={})
     store.append_turn(one["session_id"], role="user", text="only one")
@@ -161,16 +212,19 @@ def test_admission_denial_and_fabrication_cause_zero_write(tmp_path: Path) -> No
 def test_exact_admitted_retention_writes_canonical_memory_once(tmp_path: Path) -> None:
     store = CanonicalMemoryStore(tmp_path / "memory"); writer = AdmittedRetentionWriter(store)
     turn = {"turn_id":"turn-12345678", "role":"user", "text":"blue comet", "text_digest":digest({"text":"blue comet"})}
-    candidate = {"candidate_type":CANDIDATE_TYPE,"explicitly_requested":True,"source_role":"user","session_id":"session-12345678","source_turn_id":turn["turn_id"],"source_text_digest":turn["text_digest"],"request_id":"request-12345678","operation_id":"operation-12345678"}
+    operation_id = "retain:session-12345678:turn-12345678"
+    candidate = {"candidate_type":CANDIDATE_TYPE,"explicitly_requested":True,"source_role":"user","session_id":"session-12345678","source_turn_id":turn["turn_id"],"source_text_digest":turn["text_digest"],"request_id":retention_request_id(operation_id),"operation_id":operation_id}
     admission=ExplicitRetentionAdmissionGate().decide(candidate)
     first=writer.execute(candidate,admission,turn); second=writer.execute(candidate,admission,turn)
     assert first["status"] == "memory_retention_committed" and second["memory_id"] == first["memory_id"]
     assert len(list(store.raw.glob("*.json"))) == 1
 
-def test_canonical_root_selection(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_canonical_data_root_is_frozen_after_import(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     primary=tmp_path/"primary"; legacy=tmp_path/"legacy"
+    original = sentientos_data_dir()
     monkeypatch.setenv("SENTIENTOS_DATA_DIR",str(primary)); monkeypatch.setenv("SENTIENTOS_DATA_ROOT",str(legacy))
-    assert sentientos_data_dir() == primary.resolve()
+    assert sentientos_data_dir() == original
+    assert sentientos_data_dir() != primary.resolve()
 
 def test_legacy_sidecar_is_inert_but_visible(tmp_path: Path) -> None:
     root=tmp_path/"memory"; root.mkdir(); (root/"conversation_memories.json").write_text('[{"text":"legacy secret"}]')

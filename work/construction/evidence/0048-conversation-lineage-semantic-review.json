@@ -1,0 +1,227 @@
+{
+  "dispositions": [
+    {
+      "classification": "B - incorporated and superseded",
+      "current_contracts": [
+        "private installation-scoped transcript custody",
+        "descriptor-safe root and record reads",
+        "turn sequence/text/model/linkage validation",
+        "context digest binds turn id, role, text digest, and linkage digest",
+        "provenance-labeled context marks transcript/memory as untrusted data"
+      ],
+      "path": "sentientos/conversation_session.py"
+    },
+    {
+      "classification": "B - incorporated and superseded",
+      "current_contracts": [
+        "serving receipt verification bound to session and source user turn",
+        "distinct serving and loaded model identity",
+        "verified predecessor invocation and runtime-generation handoff",
+        "request/output lineage and no-replay recovery",
+        "persistent memory retention remains separate and explicitly admitted"
+      ],
+      "path": "sentientos/chat_service.py"
+    }
+  ],
+  "historical_patch_sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307",
+  "limitations": [
+    "Canonical runner host git SHA c440c10187467b128f4b04ee6ee7a9e5bd1a5afc is synthetic and does not equal the published source parent.",
+    "All invocation behavior in these tests uses explicit development fixtures; no model, provider, or production inference ran.",
+    "The initial test-file run exposed stale fixture assumptions; those were updated to the current source-user linkage, invocation receipt, retention operation, and import-time frozen-root contracts."
+  ],
+  "schema_version": 1,
+  "source_parent_commit": "e433a84a08dd0241afe1f198701df02483d0c213",
+  "source_parent_tree": "a134b4ef9adb97016d900553a9a8eb115debd47c",
+  "tests": [
+    {
+      "artifact": {
+        "bytes": 8299,
+        "path": "work/construction/evidence/0048-persistent-provenance.json",
+        "sha256": "280476e2497cd4e39a90088e02214ca028f8ec269294a714fd743707b7a15d3f"
+      },
+      "node_outcomes": [
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_durable_session_reopen",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_bounded_context_reconstruction",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_context_identity_binds_turn_model_provenance",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_malicious_recalled_memory_cannot_become_system_authority",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_control_plane_denied_session_chat_preserves_only_unanswered_user_turn",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_explicit_retention_boundary",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_process_restart_resume_composed_success",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_storage_rejects_symlink_and_size_and_cross_session_leakage",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_duplicate_or_malformed_session_fails_closed",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_concurrent_same_session_append_preserves_both_revisions",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_admission_denial_and_fabrication_cause_zero_write",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_exact_admitted_retention_writes_canonical_memory_once",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_canonical_data_root_is_frozen_after_import",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_persistent_governed_conversation.py::test_legacy_sidecar_is_inert_but_visible",
+          "outcome": "passed",
+          "phase": "call"
+        }
+      ],
+      "provenance_hash": "9d4d756298c35d135f629135b817f37f0a6c2cd3d251ade1619e5d975d2ccd42",
+      "pytest_args": [
+        "tests/test_persistent_governed_conversation.py",
+        "-q"
+      ],
+      "reporter_ok": true,
+      "runner_git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+      "selected_node_ids": [
+        "tests/test_persistent_governed_conversation.py::test_durable_session_reopen",
+        "tests/test_persistent_governed_conversation.py::test_bounded_context_reconstruction",
+        "tests/test_persistent_governed_conversation.py::test_context_identity_binds_turn_model_provenance",
+        "tests/test_persistent_governed_conversation.py::test_malicious_recalled_memory_cannot_become_system_authority",
+        "tests/test_persistent_governed_conversation.py::test_control_plane_denied_session_chat_preserves_only_unanswered_user_turn",
+        "tests/test_persistent_governed_conversation.py::test_explicit_retention_boundary",
+        "tests/test_persistent_governed_conversation.py::test_process_restart_resume_composed_success",
+        "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success",
+        "tests/test_persistent_governed_conversation.py::test_storage_rejects_symlink_and_size_and_cross_session_leakage",
+        "tests/test_persistent_governed_conversation.py::test_duplicate_or_malformed_session_fails_closed",
+        "tests/test_persistent_governed_conversation.py::test_concurrent_same_session_append_preserves_both_revisions",
+        "tests/test_persistent_governed_conversation.py::test_admission_denial_and_fabrication_cause_zero_write",
+        "tests/test_persistent_governed_conversation.py::test_exact_admitted_retention_writes_canonical_memory_once",
+        "tests/test_persistent_governed_conversation.py::test_canonical_data_root_is_frozen_after_import",
+        "tests/test_persistent_governed_conversation.py::test_legacy_sidecar_is_inert_but_visible"
+      ],
+      "tests_failed": 0,
+      "tests_passed": 15
+    },
+    {
+      "artifact": {
+        "bytes": 6907,
+        "path": "work/construction/evidence/0048-hardened-serving-provenance.json",
+        "sha256": "a9a3febfa2d7afce11c782d7e201f3afa1963b90c8a59005a901a0e7a923137e"
+      },
+      "node_outcomes": [
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_production_chat_requires_process_generation_handoff_before_custody",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_invalid_installation_identity_fails_before_custody",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_successful_turn_and_second_turn_have_distinct_inference_correlations",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_conversation_identity_change_uses_verified_predecessor_lineage",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[denied]",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[deferred]",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[quarantined]",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[serving_lifetime_stale_after_generation]",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[backend_failure]",
+          "outcome": "passed",
+          "phase": "call"
+        },
+        {
+          "node_id": "tests/test_chat_service_hardened_serving.py::test_conversation_service_has_no_raw_execution_escape_hatch",
+          "outcome": "passed",
+          "phase": "call"
+        }
+      ],
+      "provenance_hash": "c28af835726558c4449751c67d716158c799261dbf228adaeac27e71b88193a5",
+      "pytest_args": [
+        "tests/test_chat_service_hardened_serving.py",
+        "-q"
+      ],
+      "reporter_ok": true,
+      "runner_git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+      "selected_node_ids": [
+        "tests/test_chat_service_hardened_serving.py::test_production_chat_requires_process_generation_handoff_before_custody",
+        "tests/test_chat_service_hardened_serving.py::test_invalid_installation_identity_fails_before_custody",
+        "tests/test_chat_service_hardened_serving.py::test_successful_turn_and_second_turn_have_distinct_inference_correlations",
+        "tests/test_chat_service_hardened_serving.py::test_conversation_identity_change_uses_verified_predecessor_lineage",
+        "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[denied]",
+        "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[deferred]",
+        "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[quarantined]",
+        "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[serving_lifetime_stale_after_generation]",
+        "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[backend_failure]",
+        "tests/test_chat_service_hardened_serving.py::test_conversation_service_has_no_raw_execution_escape_hatch"
+      ],
+      "tests_failed": 0,
+      "tests_passed": 10
+    }
+  ]
+}
