@@ -32,6 +32,7 @@ from sentientos.codex_task_authority_admission import (
 )
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
 from sentientos.runtime_admission import RuntimeAdmissionVerifier
+from sentientos.host_resource_runtime import resource_consumption_world_state_records
 from sentientos.developmental_model_replacement_experiment import (
     CONDITION_ORDER, DevelopmentalModelReplacementExperiment, FrozenCausalContext, _digest,
 )
@@ -164,6 +165,22 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             "process_instance_id"]
         assert attribution["chat_process_handoff"]["software_generation_digest"] == child_result[
             "software_generation_digest"]
+
+        projected_resource = resource_consumption_world_state_records(
+            ledger=observation.ledger,
+            invocation_receipts=observation.invocation_receipts,
+        )[0]["payload"]
+        assert projected_resource["lineage_posture"] == "verified"
+        linked_invocation = dict(observation.invocation_receipts[0])
+        linked_digests = tuple(linked_invocation["resource_consumption_receipt_digests"])
+        assert len(linked_digests) == 2
+        linked_invocation["resource_consumption_receipt_digests"] = linked_digests[:1]
+        incomplete_linkage = resource_consumption_world_state_records(
+            ledger=observation.ledger,
+            invocation_receipts=(linked_invocation,),
+        )[0]["payload"]
+        assert incomplete_linkage["lineage_posture"] == "degraded"
+        assert "consumption_receipt_set_mismatch" in incomplete_linkage["lineage_findings"][0]
 
         # A changed historical receipt must be rejected at the read-only
         # observation boundary, and restoration must preserve the same source

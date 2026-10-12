@@ -1,0 +1,260 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_governed_local_model_invocation.py::test_admitted_chat_receipt_is_digest_bound": 0,
+    "tests/test_governed_local_model_invocation.py::test_denied_duplicate_does_not_call_backend_twice": 0,
+    "tests/test_governed_local_model_invocation.py::test_malformed_genesis_advice_records_failure": 0,
+    "tests/test_governed_local_model_invocation.py::test_mutating_cognition_schema_after_request_build_cannot_widen_invocation": 0,
+    "tests/test_governed_local_model_invocation.py::test_production_identity_mismatch_is_blocked": 0,
+    "tests/test_governed_local_model_invocation.py::test_resident_cognition_json_schema_is_exactly_purpose_scoped": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_broader_request_stale_currentness_and_caller_id_fail": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_fail_closed_substitution_exhaustion_and_attempt_uniqueness": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[-1]": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[0]": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[True]": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_module_has_no_effect_or_serving_authority_surface": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_policy_loader_is_exact_digest_bound_and_closed": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_provisional_restore_survives_restart_and_entry_is_irrevocable": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_real_principal_durable_debit_receipt_chain_and_restart": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_replace_status_reports_visible_but_uncertain_directory_close": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_replace_status_reports_visible_but_uncertain_directory_commit": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_resource_ledger_rejects_symlinked_custody_file": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[0.0]": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[inf]": 0,
+    "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[nan]": 0,
+    "tests/test_host_resource_runtime.py::test_denial_defer_quarantine_call_zero_collectors": 0,
+    "tests/test_host_resource_runtime.py::test_duplicate_correlation_and_one_epoch_per_tick": 0,
+    "tests/test_host_resource_runtime.py::test_evaluation_snapshot_policy_world_state_and_artifact_custody": 0,
+    "tests/test_host_resource_runtime.py::test_timeout_exception_partial_failure_and_late_discard": 0,
+    "tests/test_host_resource_runtime.py::test_validation_redaction_identity_and_semantics": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 26,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-gr4-exact/glow/test_runs/pytest_junitxml_246f32330a244aa3ababb57a55275768.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_host_resource_runtime.py::test_denial_defer_quarantine_call_zero_collectors",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_host_resource_runtime.py::test_duplicate_correlation_and_one_epoch_per_tick",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_host_resource_runtime.py::test_timeout_exception_partial_failure_and_late_discard",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_host_resource_runtime.py::test_validation_redaction_identity_and_semantics",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_host_resource_runtime.py::test_evaluation_snapshot_policy_world_state_and_artifact_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_admitted_chat_receipt_is_digest_bound",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_denied_duplicate_does_not_call_backend_twice",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_malformed_genesis_advice_records_failure",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_production_identity_mismatch_is_blocked",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_resident_cognition_json_schema_is_exactly_purpose_scoped",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_invocation.py::test_mutating_cognition_schema_after_request_build_cannot_widen_invocation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_real_principal_durable_debit_receipt_chain_and_restart",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_provisional_restore_survives_restart_and_entry_is_irrevocable",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_fail_closed_substitution_exhaustion_and_attempt_uniqueness",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[True]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[-1]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[nan]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[inf]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[0.0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_policy_loader_is_exact_digest_bound_and_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_broader_request_stale_currentness_and_caller_id_fail",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_module_has_no_effect_or_serving_authority_surface",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_resource_ledger_rejects_symlinked_custody_file",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_replace_status_reports_visible_but_uncertain_directory_commit",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_replace_status_reports_visible_but_uncertain_directory_close",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "0ce4ab7536d3af9ea6070c1a94231d8b39ccad6a9bc3e9e97c8a23f25f773723",
+  "provenance_hash": "1472c4d6f717a036d786a624855d8b1dc9f831c55514b57cc81f303c1db4bfb5",
+  "pytest_args": [
+    "-q",
+    "tests/test_host_resource_runtime.py",
+    "tests/test_governed_local_model_invocation.py",
+    "tests/test_governed_local_model_resource_allocation.py",
+    "--tb=short"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "5493200f7f9b437d92894bfc7a63aabb",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_host_resource_runtime.py::test_denial_defer_quarantine_call_zero_collectors",
+    "tests/test_host_resource_runtime.py::test_duplicate_correlation_and_one_epoch_per_tick",
+    "tests/test_host_resource_runtime.py::test_timeout_exception_partial_failure_and_late_discard",
+    "tests/test_host_resource_runtime.py::test_validation_redaction_identity_and_semantics",
+    "tests/test_host_resource_runtime.py::test_evaluation_snapshot_policy_world_state_and_artifact_custody",
+    "tests/test_governed_local_model_invocation.py::test_admitted_chat_receipt_is_digest_bound",
+    "tests/test_governed_local_model_invocation.py::test_denied_duplicate_does_not_call_backend_twice",
+    "tests/test_governed_local_model_invocation.py::test_malformed_genesis_advice_records_failure",
+    "tests/test_governed_local_model_invocation.py::test_production_identity_mismatch_is_blocked",
+    "tests/test_governed_local_model_invocation.py::test_resident_cognition_json_schema_is_exactly_purpose_scoped",
+    "tests/test_governed_local_model_invocation.py::test_mutating_cognition_schema_after_request_build_cannot_widen_invocation",
+    "tests/test_governed_local_model_resource_allocation.py::test_real_principal_durable_debit_receipt_chain_and_restart",
+    "tests/test_governed_local_model_resource_allocation.py::test_provisional_restore_survives_restart_and_entry_is_irrevocable",
+    "tests/test_governed_local_model_resource_allocation.py::test_fail_closed_substitution_exhaustion_and_attempt_uniqueness",
+    "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[True]",
+    "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[0]",
+    "tests/test_governed_local_model_resource_allocation.py::test_integer_bounds_reject_bool_and_nonpositive[-1]",
+    "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[nan]",
+    "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[inf]",
+    "tests/test_governed_local_model_resource_allocation.py::test_timeout_rejects_nonfinite_and_nonpositive[0.0]",
+    "tests/test_governed_local_model_resource_allocation.py::test_policy_loader_is_exact_digest_bound_and_closed",
+    "tests/test_governed_local_model_resource_allocation.py::test_broader_request_stale_currentness_and_caller_id_fail",
+    "tests/test_governed_local_model_resource_allocation.py::test_module_has_no_effect_or_serving_authority_surface",
+    "tests/test_governed_local_model_resource_allocation.py::test_resource_ledger_rejects_symlinked_custody_file",
+    "tests/test_governed_local_model_resource_allocation.py::test_replace_status_reports_visible_but_uncertain_directory_commit",
+    "tests/test_governed_local_model_resource_allocation.py::test_replace_status_reports_visible_but_uncertain_directory_close"
+  ],
+  "selection_flags": [
+    "tests/test_host_resource_runtime.py",
+    "tests/test_governed_local_model_invocation.py",
+    "tests/test_governed_local_model_resource_allocation.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 26,
+  "tests_executed": 26,
+  "tests_failed": 0,
+  "tests_passed": 26,
+  "tests_selected": 26,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T18:59:56.918769+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

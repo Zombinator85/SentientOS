@@ -1,7 +1,8 @@
 # Active construction checkpoint
 
-- Fresh verified remote source before seq54: `1c060a97f4b4d40e28dc686599c38a24d1be8d66`, tree `1f12a3c06634e257f24b3a9766103f5a200329f8`.
-- Latest continuation segment: sequence 54, `work/construction/segments/0054-resource-receipt-substitution-negative-control.md`.
-- Seq53 extracted a pytest-independent child serving fixture; the composed canonical legacy integration passed 1/1 and the serving suite passed 10/10. Seq54 added an end-to-end persisted receipt substitution denial and restored-byte positive control; the same canonical integration passed 1/1.
-- This exercises one deterministic fixture path through runtime handoff, governed resource invocation, observer, World-State, authorized epistemic update, durable developmental history, restart, later cognition and history intervention. It does not exercise actual model quality, host-resource measurements, physical consequences, production deployment, or exact-SHA hosted acceptance. The canonical runner still reports synthetic SHA `c440c10187467b128f4b04ee6ee7a9e5bd1a5afc`.
-- Next: identify and repair a source-level contract gap in the connected resource evidence path, continuing historical semantic reconciliation at owner/hunk granularity. No production or landing acceptance is claimed.
+- Fresh verified remote source before seq55: `4f3057644e695be4c7a90394a07604d170027b98`, tree `1b270e0a882e198ac59c0424daee6f5a07c3d346`.
+- Latest continuation segment: sequence 55, `work/construction/segments/0055-exact-resource-consumption-linkage.md`.
+- Seq53 repaired the isolated child fixture; seq54 added persisted receipt substitution rejection and no-replay restoration; seq55 found and fixed a producer defect where omitting a valid attempt receipt still appeared verified. Exact post-begin receipt linkage is now checked.
+- Seq55 canonical checks: focused resource runtime/invocation/allocation suites 26/26; composed canonical legacy resource-to-cognition node 1/1; changed-file compilation and `git diff --check` pass. Evidence includes the failing pre-fix negative control and post-fix results.
+- Runner reports synthetic checkout SHA `c440c10187467b128f4b04ee6ee7a9e5bd1a5afc`, not remote exact-SHA acceptance. Fixture model/measurements are not production evidence. No production or landing acceptance is claimed.
+- Next: examine bounded-tail and restart semantics for truthful completeness; then continue historical hunk-level semantic reconciliation and controlled fixture experiments.

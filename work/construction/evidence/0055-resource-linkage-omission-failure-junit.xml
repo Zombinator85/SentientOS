@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.250" timestamp="2026-10-12T18:59:18.324645+00:00" hostname="26f42f715b9f"><testcase classname="tests.test_resource_invocation_process_generation_integration" name="test_parent_child_resource_invocation_generation_reaches_world_state" time="0.411"><failure message="AssertionError: assert 'verified' == 'degraded'&#10;  &#10;  - degraded&#10;  + verified">tests/test_resource_invocation_process_generation_integration.py:182: in test_parent_child_resource_invocation_generation_reaches_world_state
+    assert incomplete_linkage["lineage_posture"] == "degraded"
+E   AssertionError: assert 'verified' == 'degraded'
+E     
+E     - degraded
+E     + verified</failure></testcase></testsuite></testsuites>
