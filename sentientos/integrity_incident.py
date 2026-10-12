@@ -6,15 +6,27 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import subprocess
-from typing import Any
+from typing import Callable
 
 from sentientos.artifact_catalog import append_catalog_entry
-from sentientos.private_file_custody import PrivateFileCustodyError, publish_immutable_bytes
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError,
+    open_private_directory,
+    publish_immutable_bytes,
+    read_private_file_at,
+    replace_private_bytes,
+)
+from sentientos.platform_fcntl import fcntl, require_flock
 from sentientos.integrity_pressure import (
+    MAX_INCIDENT_FEED_BYTES,
     MAX_INCIDENT_ROW_BYTES,
+    MAX_INCIDENT_ROWS,
     MAX_TRIGGERS_PER_INCIDENT,
     MAX_TRIGGER_CHARS,
+    IntegrityPressureInputError,
+    parse_bounded_incident_feed,
 )
 
 INCIDENTS_DIR = Path("glow/forge/incidents")
@@ -117,8 +129,10 @@ def write_incident(repo_root: Path, incident: Incident, *, quarantine_activated:
     feed_row = _incident_feed_row(root, incident, incident_path, quarantine_activated=quarantine_activated)
     feed_bytes = _serialize_incident_feed_row(feed_row)
     artifact_bytes = _serialize_incident_artifact(incident)
-    _publish_incident_artifact(root, incident_path, artifact_bytes)
-    _append_incident_feed_bytes(root, feed_bytes)
+    _append_incident_feed_bytes(
+        root, feed_bytes,
+        before_publish=lambda: _publish_incident_artifact(root, incident_path, artifact_bytes),
+    )
     append_catalog_entry(
         root,
         kind="incident",
@@ -249,14 +263,136 @@ def _publish_incident_artifact(root: Path, path: Path, encoded: bytes) -> None:
     raise IntegrityIncidentArtifactError("incident_artifact_publication_unsupported")
 
 
-def _append_incident_feed_bytes(root: Path, encoded: bytes) -> None:
+def _append_incident_feed_bytes(
+    root: Path, encoded: bytes, *, before_publish: Callable[[], None] | None = None,
+) -> None:
     target = root / INCIDENTS_FEED_PATH
+    if os.name == "posix":
+        _publish_bounded_incident_feed_posix(target, encoded, before_publish=before_publish)
+        return
+    # Windows has a reparse-safe bounded reader, but no equivalent held-directory
+    # atomic replacement writer in the current custody module. Preserve the
+    # existing compatibility append without claiming POSIX locking/custody.
     target.parent.mkdir(parents=True, exist_ok=True)
+    if before_publish is not None:
+        before_publish()
     with target.open("ab") as handle:
         written = handle.write(encoded)
         if written != len(encoded):
             raise OSError("incident_feed_append_incomplete")
         handle.flush()
+
+
+def _publish_bounded_incident_feed_posix(
+    target: Path, encoded: bytes, *, before_publish: Callable[[], None] | None = None,
+) -> None:
+    if len(encoded) > MAX_INCIDENT_ROW_BYTES + 1 or not encoded.endswith(b"\n"):
+        raise IntegrityIncidentFeedRecordError("incident_feed_row_size_limit_exceeded")
+    try:
+        new_rows = parse_bounded_incident_feed(encoded)
+    except IntegrityPressureInputError as exc:
+        raise IntegrityIncidentFeedRecordError("incident_feed_new_row_invalid_" + exc.code) from exc
+    if len(new_rows) != 1:
+        raise IntegrityIncidentFeedRecordError("incident_feed_new_row_invalid")
+    new_row = new_rows[0]
+    incident_id = new_row.get("incident_id")
+    if not isinstance(incident_id, str) or not incident_id:
+        raise IntegrityIncidentFeedRecordError("incident_feed_identity_invalid")
+
+    try:
+        require_flock()
+        directory_fd = open_private_directory(target.parent, create=True)
+    except (PrivateFileCustodyError, OSError) as exc:
+        raise IntegrityIncidentFeedRecordError("incident_feed_lock_custody_unavailable") from exc
+
+    lock_fd: int | None = None
+    try:
+        lock_flags = (os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+                      | getattr(os, "O_CLOEXEC", 0))
+        try:
+            lock_fd = os.open(".integrity-incidents.lock", lock_flags, 0o600, dir_fd=directory_fd)
+            lock_stat = os.fstat(lock_fd)
+            if (not stat.S_ISREG(lock_stat.st_mode) or lock_stat.st_uid != os.geteuid()
+                    or lock_stat.st_nlink != 1 or lock_stat.st_mode & 0o077):
+                raise IntegrityIncidentFeedRecordError("incident_feed_lock_invalid")
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        except IntegrityIncidentFeedRecordError:
+            raise
+        except OSError as exc:
+            raise IntegrityIncidentFeedRecordError("incident_feed_lock_unavailable") from exc
+
+        try:
+            existing = read_private_file_at(
+                directory_fd, target.name,
+                max_bytes=MAX_INCIDENT_FEED_BYTES,
+                require_private_mode=False,
+                require_owner_read=True,
+            )
+        except PrivateFileCustodyError as exc:
+            if exc.code == "file_missing":
+                existing = b""
+            else:
+                raise IntegrityIncidentFeedRecordError(
+                    "incident_feed_existing_custody_invalid_" + exc.code) from exc
+        try:
+            existing_rows = parse_bounded_incident_feed(existing)
+        except IntegrityPressureInputError as exc:
+            raise IntegrityIncidentFeedRecordError(
+                "incident_feed_existing_invalid_" + exc.code) from exc
+
+        matching = [row for row in existing_rows if row.get("incident_id") == incident_id]
+        if len(matching) > 1:
+            raise IntegrityIncidentFeedRecordError("incident_feed_existing_identity_duplicate")
+        if matching and any(row != new_row for row in matching):
+            raise IntegrityIncidentFeedRecordError("incident_feed_identity_conflict")
+        duplicate = bool(matching)
+
+        candidate = existing
+        if not duplicate:
+            separator = b"\n" if existing and not existing.endswith(b"\n") else b""
+            candidate = existing + separator + encoded
+            if len(candidate) > MAX_INCIDENT_FEED_BYTES:
+                raise IntegrityIncidentFeedRecordError("incident_feed_capacity_exhausted")
+            try:
+                candidate_rows = parse_bounded_incident_feed(candidate)
+            except IntegrityPressureInputError as exc:
+                if exc.code == "incident_feed_row_limit_exceeded":
+                    raise IntegrityIncidentFeedRecordError("incident_feed_row_capacity_exhausted") from exc
+                raise IntegrityIncidentFeedRecordError(
+                    "incident_feed_existing_invalid_" + exc.code) from exc
+            if len(candidate_rows) != len(existing_rows) + 1:
+                raise IntegrityIncidentFeedRecordError("incident_feed_candidate_invalid")
+
+        # Ensure the lock pathname still names the inode whose flock we hold.
+        # The containing directory is private to this process owner.
+        try:
+            path_stat = os.stat(".integrity-incidents.lock", dir_fd=directory_fd,
+                                follow_symlinks=False)
+        except OSError as exc:
+            raise IntegrityIncidentFeedRecordError("incident_feed_lock_path_changed") from exc
+        if (lock_fd is None or path_stat.st_dev != lock_stat.st_dev
+                or path_stat.st_ino != lock_stat.st_ino):
+            raise IntegrityIncidentFeedRecordError("incident_feed_lock_path_changed")
+
+        # Preflight the complete feed before making an immutable artifact. A crash
+        # after the artifact but before feed replacement leaves a retryable orphan;
+        # these two records are not claimed to form one filesystem transaction.
+        if before_publish is not None:
+            before_publish()
+        if duplicate:
+            return
+        try:
+            replace_private_bytes(target, candidate, max_bytes=MAX_INCIDENT_FEED_BYTES)
+        except PrivateFileCustodyError as exc:
+            raise IntegrityIncidentFeedRecordError(
+                "incident_feed_publication_" + exc.code) from exc
+    finally:
+        if lock_fd is not None:
+            try:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
+            finally:
+                os.close(lock_fd)
+        os.close(directory_fd)
 
 
 def build_base_context(repo_root: Path) -> dict[str, object]:

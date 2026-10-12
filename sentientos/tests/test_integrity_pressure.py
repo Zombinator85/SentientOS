@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 import os
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -14,11 +15,13 @@ from sentientos.integrity_incident import (
     IntegrityIncidentFeedRecordError,
     Incident,
     MAX_INCIDENT_ARTIFACT_BYTES,
+    append_incident_feed,
     write_incident,
 )
 from sentientos.integrity_pressure import (
     MAX_INCIDENT_FEED_BYTES, MAX_INCIDENT_ROWS, MAX_INCIDENT_ROW_BYTES,
     IntegrityPressureInputError, apply_escalation, compute_integrity_pressure,
+    parse_bounded_incident_feed,
 )
 
 
@@ -208,6 +211,9 @@ def test_incident_artifact_identity_collision_preserves_prior_bytes(tmp_path: Pa
     )
     path = write_incident(tmp_path, first)
     original = path.read_bytes()
+    # Exercise the artifact owner's collision path independently of feed
+    # identity deduplication: simulate a missing feed with retained artifact.
+    (tmp_path / "pulse/integrity_incidents.jsonl").unlink()
     second = Incident(
         schema_version=1, incident_id="stable-incident-id",
         created_at="2026-10-12T00:00:00Z", severity="critical",
@@ -218,8 +224,7 @@ def test_incident_artifact_identity_collision_preserves_prior_bytes(tmp_path: Pa
         write_incident(tmp_path, second)
     assert raised.value.code == "incident_artifact_publication_incident_artifact_identity_conflict"
     assert path.read_bytes() == original
-    feed = tmp_path / "pulse/integrity_incidents.jsonl"
-    assert len(feed.read_text(encoding="utf-8").splitlines()) == 1
+    assert not (tmp_path / "pulse/integrity_incidents.jsonl").exists()
 
 
 @pytest.mark.no_legacy_skip
@@ -259,3 +264,134 @@ def test_incident_artifact_directory_symlink_is_rejected_before_feed_publication
     assert raised.value.code.startswith("incident_artifact_publication_directory_")
     assert not list(outside.glob("incident_*.json"))
     assert not (tmp_path / "pulse/integrity_incidents.jsonl").exists()
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_feed_exact_retry_is_idempotent_and_conflict_preserves_bytes(tmp_path: Path) -> None:
+    first = Incident(
+        schema_version=1, incident_id="feed-retry-id",
+        created_at="2026-10-12T00:00:00Z", severity="warning",
+        triggers=["receipt_chain_warning"], enforcement_mode="warn", context={},
+        evidence_paths=[], suggested_actions=[],
+    )
+    path = tmp_path / "glow/forge/incidents/incident.json"
+    append_incident_feed(tmp_path, first, path)
+    feed = tmp_path / "pulse/integrity_incidents.jsonl"
+    original = feed.read_bytes()
+    append_incident_feed(tmp_path, first, path)
+    assert feed.read_bytes() == original
+    second = Incident(
+        schema_version=1, incident_id=first.incident_id,
+        created_at=first.created_at, severity="critical",
+        triggers=["different_trigger"], enforcement_mode="enforce", context={},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentFeedRecordError) as raised:
+        append_incident_feed(tmp_path, second, path)
+    assert raised.value.code == "incident_feed_identity_conflict"
+    assert feed.read_bytes() == original
+    assert len(parse_bounded_incident_feed(original)) == 1
+
+
+@pytest.mark.no_legacy_skip
+def test_malformed_existing_incident_feed_blocks_artifact_and_feed_publication(tmp_path: Path) -> None:
+    feed = tmp_path / "pulse/integrity_incidents.jsonl"
+    feed.parent.mkdir()
+    original = b'{"created_at":"not-a-time"}\n'
+    feed.write_bytes(original)
+    incident = Incident(
+        schema_version=1, incident_id="malformed-feed-block", created_at="2026-10-12T00:00:00Z",
+        severity="warning", triggers=["bounded-trigger"], enforcement_mode="warn", context={},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentFeedRecordError) as raised:
+        write_incident(tmp_path, incident)
+    assert raised.value.code.startswith("incident_feed_existing_invalid_")
+    assert feed.read_bytes() == original
+    assert not list((tmp_path / INCIDENTS_DIR).glob("incident_*.json"))
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_feed_row_capacity_rejects_before_artifact_publication(tmp_path: Path) -> None:
+    feed = tmp_path / "pulse/integrity_incidents.jsonl"
+    rows = [{"incident_id": f"old-{index}", "created_at": "2026-10-12T00:00:00Z"}
+            for index in range(MAX_INCIDENT_ROWS)]
+    _write_incidents(feed, rows)
+    original = feed.read_bytes()
+    incident = Incident(
+        schema_version=1, incident_id="would-exceed-row-limit", created_at="2026-10-12T00:00:00Z",
+        severity="warning", triggers=["bounded-trigger"], enforcement_mode="warn", context={},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentFeedRecordError) as raised:
+        write_incident(tmp_path, incident)
+    assert raised.value.code == "incident_feed_row_capacity_exhausted"
+    assert feed.read_bytes() == original
+    assert not list((tmp_path / INCIDENTS_DIR).glob("incident_*.json"))
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_feed_byte_capacity_rejects_before_artifact_publication(tmp_path: Path) -> None:
+    feed = tmp_path / "pulse/integrity_incidents.jsonl"
+    feed.parent.mkdir()
+    prefix = b'{"created_at":"2026-10-12T00:00:00Z","pad":"'
+    suffix = b'"}'
+    row = prefix + b"x" * (65_535 - len(prefix) - len(suffix)) + suffix + b"\n"
+    original = row * 16
+    assert len(original) == MAX_INCIDENT_FEED_BYTES
+    feed.write_bytes(original)
+    incident = Incident(
+        schema_version=1, incident_id="would-exceed-byte-limit", created_at="2026-10-12T00:00:00Z",
+        severity="warning", triggers=["bounded-trigger"], enforcement_mode="warn", context={},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentFeedRecordError) as raised:
+        write_incident(tmp_path, incident)
+    assert raised.value.code == "incident_feed_capacity_exhausted"
+    assert feed.read_bytes() == original
+    assert not list((tmp_path / INCIDENTS_DIR).glob("incident_*.json"))
+
+
+@pytest.mark.no_legacy_skip
+def test_incident_feed_symlink_and_lock_symlink_are_rejected(tmp_path: Path) -> None:
+    if os.name != "posix":
+        pytest.skip("descriptor-relative incident feed publisher is POSIX-only")
+    outside = tmp_path / "outside.jsonl"
+    outside.write_bytes(b"")
+    pulse = tmp_path / "pulse"
+    pulse.mkdir()
+    (pulse / "integrity_incidents.jsonl").symlink_to(outside)
+    incident = Incident(
+        schema_version=1, incident_id="feed-symlink-id", created_at="2026-10-12T00:00:00Z",
+        severity="warning", triggers=["bounded-trigger"], enforcement_mode="warn", context={},
+        evidence_paths=[], suggested_actions=[],
+    )
+    with pytest.raises(IntegrityIncidentFeedRecordError):
+        append_incident_feed(tmp_path, incident, tmp_path / "incident.json")
+    assert outside.read_bytes() == b""
+
+    (pulse / "integrity_incidents.jsonl").unlink()
+    (pulse / ".integrity-incidents.lock").unlink()
+    (pulse / ".integrity-incidents.lock").symlink_to(outside)
+    with pytest.raises(IntegrityIncidentFeedRecordError) as raised:
+        append_incident_feed(tmp_path, incident, tmp_path / "incident.json")
+    assert raised.value.code == "incident_feed_lock_unavailable"
+    assert outside.read_bytes() == b""
+
+
+@pytest.mark.no_legacy_skip
+def test_concurrent_incident_feed_publishers_preserve_both_rows(tmp_path: Path) -> None:
+    if os.name != "posix":
+        pytest.skip("interprocess flock is POSIX-only")
+    def publish(index: int) -> None:
+        incident = Incident(
+            schema_version=1, incident_id=f"concurrent-{index}",
+            created_at="2026-10-12T00:00:00Z", severity="warning",
+            triggers=[f"trigger-{index}"], enforcement_mode="warn", context={},
+            evidence_paths=[], suggested_actions=[],
+        )
+        append_incident_feed(tmp_path, incident, tmp_path / f"incident-{index}.json")
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(publish, (1, 2)))
+    rows = parse_bounded_incident_feed((tmp_path / "pulse/integrity_incidents.jsonl").read_bytes())
+    assert {row["incident_id"] for row in rows} == {"concurrent-1", "concurrent-2"}

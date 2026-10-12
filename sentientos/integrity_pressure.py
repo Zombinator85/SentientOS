@@ -218,6 +218,13 @@ def _read_incidents(path: Path) -> list[dict[str, object]]:
             raise IntegrityPressureInputError("incident_feed_custody_unavailable") from exc
     else:
         raise IntegrityPressureInputError("incident_feed_custody_unsupported")
+    return parse_bounded_incident_feed(data)
+
+
+def parse_bounded_incident_feed(data: bytes) -> list[dict[str, object]]:
+    """Apply the pressure reader's exact byte, row, and semantic bounds to bytes."""
+    if not isinstance(data, bytes):
+        raise IntegrityPressureInputError("incident_feed_bytes_invalid")
     if len(data) > MAX_INCIDENT_FEED_BYTES:
         raise IntegrityPressureInputError("incident_feed_size_limit_exceeded")
     try:
