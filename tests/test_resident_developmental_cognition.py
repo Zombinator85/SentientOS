@@ -12,6 +12,11 @@ from sentientos.developmental_history_intervention_experiment import (
 )
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
+from sentientos.host_collectors import HostCollectorResult
+from sentientos.host_resource_runtime import (
+    HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
+    build_observation_plan, world_state_records,
+)
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, LocalModelInvocationReceipt,
     FORBIDDEN_EFFECTS,
@@ -237,6 +242,88 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence)
     return result, fake
+
+
+def test_host_resource_owner_reaches_restart_safe_later_tick_cognition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest,
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "kernel"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "pulse-trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "pulse-trust" / "state.json"))
+    reset_runtime_governor()
+    request.addfinalizer(reset_runtime_governor)
+    with pytest.raises(TypeError, match="trusted_host_resource_runtime_required"):
+        RuntimeMaintenanceSurfaces(tmp_path, host_resource_runtime=object())  # type: ignore[arg-type]
+
+    observed_at = "2026-10-12T00:00:00+00:00"
+
+    def disk_fixture(*, observed_at: str | None = None) -> HostCollectorResult:
+        return HostCollectorResult("disk", "available", observed_at or "unknown",
+            "bounded_test_fixture", values={"used_percent": 25.0, "free_bytes": 4096})
+
+    coordinator = HostResourceRuntimeCoordinator(
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.MAINTENANCE,
+            decisions_path=tmp_path / "resource-decisions.jsonl"),
+        runtime_state_root=tmp_path / "host-resource-runtime",
+        plan=build_observation_plan(specs=[HostObservationCollectorSpec(
+            "disk", True, ("linux", "unknown"), 1, disk_fixture)]),
+        clock=lambda: observed_at,
+    )
+    first_owner, first_fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("resource_governor",), max_selected_facts=1)
+    first_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "maintenance-runtime",
+        resident_developmental_owner=first_owner,  # type: ignore[arg-type]
+        host_resource_runtime=coordinator,
+    )
+    runtime_tick = "2026-10-12T00:00:01+00:00"
+    observation = first_surfaces.run_host_resource_observation_runtime(tick_id=runtime_tick)
+    assert observation["status"] in {"ok", "degraded"}
+    assert observation["no_effect_authority"] is True
+    assert observation["host_mutation_performed"] is False
+    first_surfaces.build_world_state_board(tick_id=runtime_tick)
+    world = first_surfaces.current_world_state_snapshot
+    assert world is not None
+    source = next(item for item in world.sources
+        if item.source_id == "host_resource_runtime:snapshot")
+    fact = next(item for item in world.facts
+        if item.source.source_id == source.source_id)
+    assert fact.source.digest == source.digest
+    assert fact.payload["disk_free_bytes"] == 4096
+    assert fact.payload["observed_at"] == observed_at
+    assert fact.effect_claimed is False and fact.effect_proven is False
+
+    evaluation = coordinator.run_cycle(
+        correlation_id=f"{runtime_tick}:host_resource_observation_runtime")
+    assert evaluation is not None
+    snapshot_record = next(item for item in world_state_records(evaluation)
+        if item["source_id"] == "host_resource_runtime:snapshot")
+    cognition_snapshot = WorldStateBoardBuilder().build([snapshot_record])
+    # Tick identifiers are opaque. Durable commit order, not wall-clock parsing,
+    # determines which history is available to subsequent cognition.
+    cognition_tick_one = "resource-cognition-z"
+    cognition_tick_two = "resource-cognition-a"
+    first = first_owner.run_tick(snapshot=cognition_snapshot, tick_id=cognition_tick_one)
+    assert first.written_record_id
+    assert fact.fact_id in first.selected_fact_ids
+    assert first.prior_record_ids == () and first.same_tick_history_excluded
+    initial_request = first_fake.requests[0]
+    assert not initial_request.upstream_evidence.get("record_ids", [])
+    first_record = first_owner.writeback.store.get(first.written_record_id)
+    assert any(item["source_id"] == source.source_id
+        and item["digest"] == source.digest
+        for item in first_record.candidate["selected_sources"])
+
+    later_owner, later_fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("resource_governor",), max_selected_facts=1)
+    later = later_owner.run_tick(snapshot=cognition_snapshot, tick_id=cognition_tick_two)
+    assert later.status == "completed"
+    assert first.written_record_id in later.prior_record_ids
+    history_request = next(request for request in later_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert first.written_record_id in history_request.upstream_evidence["record_ids"]
 
 
 def test_quarantine_custody_failure_reaches_configured_cognition_and_next_tick_history(

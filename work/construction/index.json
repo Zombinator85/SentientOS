@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a13a40706740f50fc8f294cc4fe8a28d3f0e8ba482264c970d28e4a39fefcb35",
-    "latest_segment_sequence": 51,
-    "latest_segment_sha256": "c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
-    "source_commit": "fd96dc27426875e9e5d422a30722791da03e224e",
-    "source_tree": "c2dc8da70fe3567b3e29f04e7d88f01ef312172b"
+    "checkpoint_sha256": "81daebc8897be619ec6243d2e1fba47f9c7a37f6c527a656d804b4330e680aca",
+    "latest_segment_sequence": 52,
+    "latest_segment_sha256": "584d2713415c1d1d9fa9169c5a3dd4be3aa45992db112a661ede251df98bb85a",
+    "source_commit": "047ca6c0de4f1ceafb600542876adc5129f7854d",
+    "source_tree": "56ffd2196b9895dfc82edbe18d0d6c1363a526ce"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -455,6 +455,15 @@
       "sha256": "c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
       "source_commit": "fd96dc27426875e9e5d422a30722791da03e224e",
       "source_tree": "c2dc8da70fe3567b3e29f04e7d88f01ef312172b"
+    },
+    {
+      "bytes": 3262,
+      "path": "work/construction/segments/0052-resource-world-state-cognition-handoff.md",
+      "predecessor": "segment-sha256:c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
+      "sequence": 52,
+      "sha256": "584d2713415c1d1d9fa9169c5a3dd4be3aa45992db112a661ede251df98bb85a",
+      "source_commit": "047ca6c0de4f1ceafb600542876adc5129f7854d",
+      "source_tree": "56ffd2196b9895dfc82edbe18d0d6c1363a526ce"
     }
   ],
   "source_acquisition": {
