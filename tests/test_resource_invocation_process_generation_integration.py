@@ -11,7 +11,10 @@ from pathlib import Path
 import pytest
 
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
-from sentientos.production_chat_resource_observation import ProductionChatResourceObservationOwner
+from sentientos.production_chat_resource_observation import (
+    ProductionChatResourceObservationError,
+    ProductionChatResourceObservationOwner,
+)
 from sentientos.production_chat_resource_provisioning_bundle_producer import (
     produce_production_chat_resource_provisioning_bundle,
 )
@@ -99,6 +102,7 @@ try:
         raise RuntimeError('fixture_invocation_not_completed')
     output = {'status': receipt.status, 'receipt_id': receipt.receipt_id,
         'receipt_digest': receipt.receipt_digest,
+        'backend_calls': model.calls,
         'model_id': receipt.request.get('model_id'),
         'linked_model_id': receipt.request['linkage'].get('model_id'),
         'software_generation_digest': handoff['software_generation_digest'],
@@ -144,6 +148,7 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         assert result_path.exists(), bytes(adapter._diagnostics).decode("utf-8", "replace")
         child_result = json.loads(result_path.read_text(encoding="utf-8"))
         assert child_result["status"] == "admitted_completed"
+        assert child_result["backend_calls"] == 1
         assert child_result["software_generation_digest"] == parent_handoff["software_generation_digest"]
         assert child_result["handoff_digest"] == parent_handoff["handoff_digest"]
 
@@ -159,6 +164,26 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             "process_instance_id"]
         assert attribution["chat_process_handoff"]["software_generation_digest"] == child_result[
             "software_generation_digest"]
+
+        # A changed historical receipt must be rejected at the read-only
+        # observation boundary, and restoration must preserve the same source
+        # identity without invoking the model a second time.
+        receipt_path = f"local-model/inference/receipts/{child_result['receipt_id']}.json"
+        original_receipt = readonly.read_regular_bounded(receipt_path, max_bytes=256 * 1024)
+        substituted_receipt = json.loads(original_receipt)
+        substituted_receipt["output_digest"] = "0" * 64
+        receipt_object = registry.fixed_object(receipt_path)
+        registry.durable_replace(
+            receipt_object,
+            json.dumps(substituted_receipt, sort_keys=True, separators=(",", ":")).encode("utf-8"),
+        )
+        with pytest.raises(ProductionChatResourceObservationError, match="invocation_receipt_invalid"):
+            observer.observe()
+        registry.durable_replace(receipt_object, original_receipt)
+        restored_observation = observer.observe()
+        assert restored_observation.invocation_receipts[0]["receipt_digest"] == child_result[
+            "receipt_digest"]
+        assert child_result["backend_calls"] == 1
 
         surfaces = RuntimeMaintenanceSurfaces(tmp_path,
             resource_observation_owner=observer,

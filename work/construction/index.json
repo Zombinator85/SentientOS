@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "0a3cf8ca14e867f1722c5e552c2ed08442e250c5aa9cbaa7906c8817e68d13cd",
-    "latest_segment_sequence": 53,
-    "latest_segment_sha256": "98355cdc671b9c32d0df735c582a4195a89ef4e8476d8775418d53fc56c28fe6",
-    "source_commit": "a3149fe6d1620fdc5834f5dbaf2cf20aa2fefd18",
-    "source_tree": "6f453e752a470c44be41fb08c3bcd415e38186e2"
+    "checkpoint_sha256": "aef89c49b9c45bee0129fe8b657faa5ef98b0375c382e1a85996ee4d6735ebbb",
+    "latest_segment_sequence": 54,
+    "latest_segment_sha256": "3c9f2c6f6d5df72c769df2d28ac11e069a7c6c2662be067195133d6877b1082d",
+    "source_commit": "1c060a97f4b4d40e28dc686599c38a24d1be8d66",
+    "source_tree": "1f12a3c06634e257f24b3a9766103f5a200329f8"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -473,6 +473,15 @@
       "sha256": "98355cdc671b9c32d0df735c582a4195a89ef4e8476d8775418d53fc56c28fe6",
       "source_commit": "a3149fe6d1620fdc5834f5dbaf2cf20aa2fefd18",
       "source_tree": "6f453e752a470c44be41fb08c3bcd415e38186e2"
+    },
+    {
+      "bytes": 2172,
+      "path": "work/construction/segments/0054-resource-receipt-substitution-negative-control.md",
+      "predecessor": "segment-sha256:98355cdc671b9c32d0df735c582a4195a89ef4e8476d8775418d53fc56c28fe6",
+      "sequence": 54,
+      "sha256": "3c9f2c6f6d5df72c769df2d28ac11e069a7c6c2662be067195133d6877b1082d",
+      "source_commit": "1c060a97f4b4d40e28dc686599c38a24d1be8d66",
+      "source_tree": "1f12a3c06634e257f24b3a9766103f5a200329f8"
     }
   ],
   "source_acquisition": {
