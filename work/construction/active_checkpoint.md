@@ -1,6 +1,6 @@
 # Active construction checkpoint
 
-- Fresh remote source before seq60: `8fa87436599b0971694c74b06e2e4c5b5ea23220`, tree `8b0da571102dbf182fb65c7ea7c328f9aebda63d`; `main` is `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
-- Latest continuation segment: sequence 60, `work/construction/segments/0060-model-replacement-resource-lineage.md`.
-- Seq60 connects an explicitly borrowed, already-issued resource context through the model-replacement trial owner to actual governed inference calls; fixes serving verification of the distinct invocation authority-map model id; and joins all five persisted invocation receipts to the resource ledger and model-run World-State evidence. Fixture-focused tests pass with 2 quarantined legacy skips. Canonical runner is blocked before collection by offline build dependency retrieval; targeted mypy reports 21 diagnostics in host_resource_runtime.py and none in the other four checked production modules (no parent baseline comparison); production remains unverified.
-- Next dependency: reconcile remaining developmental-history/World-State owner handoffs and verify restart/recovered-history resource attribution without upgrading experiment fixtures to actual model-performance evidence.
+- Fresh remote source before seq61: `2e3b358317bc8e5d62f8970da28257896f2e4135`, tree `3b2fdbc2ab7e32485130aae5ede14c1303ceedea`; `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Latest continuation segment: sequence 61, `work/construction/segments/0061-model-identity-history-lineage.md`.
+- Seq61 repairs the downstream history consumer that incorrectly equated the semantic cognitive/catalog model id with the governed invocation authority-map id. History now preserves both; legacy strategy positive control and substitution negative control are covered. Focused tests and compilation passed; production remains unverified.
+- Next dependency: inspect later cognition and writeback/recovery consumers for remaining assumptions that collapse invocation, cognitive, and provenance identities, then continue source-backed reconciliation.

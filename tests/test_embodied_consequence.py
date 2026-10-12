@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from dataclasses import asdict, replace
 from datetime import datetime
 
@@ -11,6 +12,7 @@ from sentientos.embodied_consequence import (
     ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
     SyntheticRenderer, digest, evaluate_consequence, make_expectation, make_strategy_proposal,
     run_strategy_experiment, score_strategy_experiment, world_state_records,
+    _history_evidence_scope,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
@@ -315,6 +317,63 @@ def test_resource_citation_binds_source_but_never_verifies_claim_semantics():
         consequence=attribution,resource_evidence_bindings=(binding,))
     assert rejected["outcome"]=="unsupported"
     assert rejected["proposal_scores"][0]["unsupported_factual_assertions"]
+
+
+def test_model_replacement_resource_history_keeps_invocation_and_cognitive_model_ids_distinct():
+    receipt_digests=("consumption-digest",)
+    linkage={"effect_receipt_id":"lmrec-invocation","effect_receipt_digest":"invocation-digest",
+        "allocation_digest":"allocation-digest","attempt_id":"attempt-1",
+        "consumption_receipt_digests":receipt_digests,"model_id":"authority-map-model",
+        "model_artifact_digest":"model-artifact-digest"}
+    linkage_body={"receipt_digest":linkage["effect_receipt_digest"],
+        "allocation_digest":linkage["allocation_digest"],"attempt_id":linkage["attempt_id"],
+        "consumption_receipt_digests":receipt_digests}
+    payload={"resource_linkage":{**linkage,
+        "linkage_digest":hashlib.sha256(json.dumps(linkage_body,sort_keys=True,
+            separators=(",",":"),ensure_ascii=False,allow_nan=False).encode()).hexdigest()},
+        "resource_record":{"source_id":"ledger-record","record_digest":"record-digest",
+            "ledger_digest":"ledger-digest"},
+        "allocation_identity":{"allocation_digest":"allocation-digest","principal_id":"principal",
+            "principal_binding_digest":"principal-binding"},
+        "invocation_receipt_id":"lmrec-invocation","invocation_receipt_digest":"invocation-digest",
+        "principal_id":"principal","principal_binding_digest":"principal-binding",
+        "model_attribution":{"model_id":"cognitive-catalog-model",
+            "invocation_model_id":"authority-map-model","model_artifact_digest":"model-artifact-digest",
+            "invocation_authority_map_digest":"authority-map-digest"},
+        "software_attribution":{"generation":"unknown"},"event_times":[T1],
+        "lineage_projection_posture":"complete","lineage_findings":[],
+        "model_replacement_run_id":"run-1","model_replacement_run_digest":"run-digest",
+        "model_replacement_source_record_id":"source-record",
+        "model_replacement_source_record_digest":"source-digest",
+        "model_replacement_condition":"model_a_history_present",
+        "model_identity_digest":"cognitive-identity-digest",
+        "model_provenance_manifest_digest":"provenance-digest",
+        "causal_context_id":"context-1","causal_context_digest":"context-digest"}
+    fact={"fact_id":"fact:model-replacement-resource",
+        "source":{"kind":"resource_governor","source_id":"source-resource",
+            "digest":"source-digest"},
+        "subject":{"subject_kind":"model_replacement_invocation_resource_lineage"},
+        "disposition":"verified","payload":payload}
+    record={"candidate":{"selected_fact_ids":[fact["fact_id"]],"selected_facts":[fact]}}
+
+    accepted=_history_evidence_scope(record)
+    assert accepted["posture"]=="resource_invocation_lineage_history"
+    binding=accepted["resource_bindings"][0]
+    assert binding["cognitive_model_id"]=="cognitive-catalog-model"
+    assert binding["invocation_model_id"]=="authority-map-model"
+
+    legacy_fact=json.loads(json.dumps(fact))
+    legacy_fact["subject"]["subject_kind"]="strategy_invocation_resource_lineage"
+    legacy_model=legacy_fact["payload"]["model_attribution"]
+    legacy_model["model_id"]="authority-map-model"
+    legacy_model.pop("invocation_model_id")
+    legacy_record={"candidate":{"selected_fact_ids":[legacy_fact["fact_id"]],
+        "selected_facts":[legacy_fact]}}
+    assert _history_evidence_scope(legacy_record)["posture"]=="resource_invocation_lineage_history"
+
+    payload["model_attribution"]["invocation_model_id"]="substituted-model"
+    rejected=_history_evidence_scope(record)
+    assert rejected["posture"]=="resource_evidence_lineage_incomplete"
 
 
 def test_conflicting_resource_source_digests_are_rejected():
