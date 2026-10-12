@@ -1,11 +1,13 @@
 # Active construction checkpoint
 
-Source commit `b882138149a4b048c1814df0fb02ec86479b82ed`, tree `1cb8c7e9c7dad6bcf1391a78eb75a40312727eff`.
+Last independently verified source commit `323a8f1d5d7873ac6b51daf1f93f42ab494f4996`, tree `ebfd55c65686cd88a26aa0abdb953c9293c2b35e`.
 
-Latest segment: work/construction/segments/0077-objective-restart-process.md
-SHA-256: cc6b1c7c3966b855124401c1031dea8b349b1dad5a004f5cbee3844f2982f79f
-Sequence: 77
+Latest segment: work/construction/segments/0078-resource-observer-restart-custody.md
+SHA-256: f74bf66471a2c06add3f75a67c1fc6d6079923ebacda4a6baa4ec766a9f1d070
+Sequence: 78
 
-Scored experiment custody and score projection now recover in a fresh read-only Python process and later cognition. Full focused and isolated cognition suites passed; hosted Source validation succeeded at seq76. No local model/approval was available, and loaded-code attestation remains unavailable.
+Read-only resource observation now has focused restart/stability and missing/corrupt-ledger controls (2/2 passed) against the exact published source plus this test-only candidate. Production source did not change. Fixture results establish local custody semantics only.
 
-Next: continue the adjacent resource source recovery adversarial path; separately wait for or reacquire final hosted check results. Real-model treatment testing requires operator-supplied commissioned artifacts and exact valid approval. Construction remains unverified for production.
+Sequence-77 hosted checks: Source validation and helm-k8s-test succeeded; docs, invariants, and self-check failed. Exact statuses are preserved in evidence/0078-hosted-checks-seq77.json.
+
+Next: continue source-backed acquisition/transfer experiment readiness and adjacent developmental closure. Real-model effect measurements require an operator-commissioned artifact and exact valid approval. Construction remains unverified for production.

@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "case": "read-only observer reconstruction",
+      "result": "passed",
+      "evidence": [
+        "manifest digest stable across repeated observations",
+        "canonical ledger snapshot stable across repeated observations and a newly opened read-only observer",
+        "one durable provisional attempt remained bound to the published allocation",
+        "allocation bounds remained unchanged after reopening",
+        "ledger bytes remained unchanged by observation"
+      ]
+    },
+    {
+      "case": "missing or corrupt ledger custody",
+      "result": "passed",
+      "evidence": [
+        "truncated ledger was reported as resource_ledger_invalid",
+        "missing ledger was reported as resource_ledger_missing",
+        "restored original ledger recovered the unchanged allocation with no attempts"
+      ]
+    }
+  ],
+  "production_source_changed": false,
+  "tests_passed": 2,
+  "tests_failed": 0,
+  "production_runtime_observed": false,
+  "production_verification": "not_performed"
+}
