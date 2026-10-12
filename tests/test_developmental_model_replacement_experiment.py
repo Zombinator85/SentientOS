@@ -11,7 +11,7 @@ from sentientos.developmental_model_replacement_experiment import (
     CONDITION_ORDER, PURPOSE, CognitiveModelIdentity, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext,
     ModelDevelopmentClaim, ModelDevelopmentProvenance,
-    _prior_cognition_bindings,
+    _inference_event_time, _prior_cognition_bindings,
 )
 from sentientos.local_model_authority import digest_payload
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
@@ -71,10 +71,12 @@ def context() -> FrozenCausalContext:
 
 class FakeEndpoint:
     def __init__(self, model: CognitiveModelIdentity, *, history_effect: bool = True,
-                 serving_receipt_reference: bool = False) -> None:
+                 serving_receipt_reference: bool = False,
+                 event_time: str | None = None) -> None:
         self.identity = model
         self.history_effect = history_effect
         self.serving_receipt_reference = serving_receipt_reference
+        self.event_time = event_time
         self.calls: list[dict[str, Any]] = []
         self.drift_after: int | None = None
         self.serving_receipt_verifications: list[dict[str, Any]] = []
@@ -98,6 +100,8 @@ class FakeEndpoint:
                 "inference_receipt_digest": digest({"receipt": self.identity.model_id, "number": number}),
                 "output_digest": digest(semantic),
                 "actual_generation_parameters": {"temperature": 0, "max_new_tokens": 512}}
+        if self.event_time is not None:
+            receipt["observed_at"] = self.event_time
         if self.serving_receipt_reference:
             receipt.update({"model_serving_receipt_id": "experimental-serving-receipt-" + self.identity.model_id.ljust(24, "x")[:24],
                 "model_serving_receipt_digest": digest({"serving": self.identity.model_id})[7:],
@@ -148,6 +152,35 @@ def test_serving_receipt_references_survive_controlled_run_recovery(tmp_path: Pa
         row["model_serving_receipt_id"] for row in recovered["observations"]]
     assert all(row["model_serving_receipt_posture"] ==
         "endpoint_receipt_reference_only_not_independently_reverified" for row in projected)
+
+
+def test_recovered_model_replacement_preserves_event_time_without_reconstruction_freshness(
+        tmp_path: Path) -> None:
+    a_time = "2035-01-03T00:00:00+00:00"
+    b_time = "2035-01-03T00:00:01+00:00"
+    a, b = FakeEndpoint(identity("a"), event_time=a_time), FakeEndpoint(identity("b"), event_time=b_time)
+    exp = DevelopmentalModelReplacementExperiment(
+        context=context(), model_a=a, model_b=b, artifact_root=tmp_path)
+    run = exp.run()
+    refs = ((run["run_id"], run["run_digest"]),)
+    first = exp.store.world_state_records(run_refs=refs)[0]
+    second = exp.store.world_state_records(run_refs=refs)[0]
+    observations = first["payload"]["observations"]
+    assert [row["inference_event_time"] for row in observations] == [
+        a_time, a_time, b_time, b_time, a_time]
+    assert all(row["inference_event_time_posture"] == "invocation_receipt_metadata_unverified"
+        for row in observations)
+    assert "observed_at" not in first
+    assert first["digest"] == second["digest"]
+    assert first["payload"]["continuity_assessment"]["output_relation"][
+        "improvement_posture"] == "not_assessed"
+
+
+def test_model_replacement_event_time_rejects_unzoned_or_malformed_metadata() -> None:
+    with pytest.raises(DevelopmentalModelReplacementError, match="timezone_required"):
+        _inference_event_time("2035-01-03T00:00:00")
+    with pytest.raises(DevelopmentalModelReplacementError, match="event_time_invalid"):
+        _inference_event_time("not-a-timestamp")
 
 
 def test_preregistered_five_condition_model_replacement_experiment(tmp_path: Path) -> None:
