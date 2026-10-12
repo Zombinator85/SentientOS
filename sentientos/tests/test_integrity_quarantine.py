@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from sentientos.cathedral_forge import CathedralForge
 from sentientos.forge_goals import resolve_goal
 from sentientos.forge_merge_train import ForgeMergeTrain, TrainState
@@ -157,6 +159,79 @@ def test_incident_docket_deterministic_shape(tmp_path: Path) -> None:
     assert payload["schema_version"] == 1
     assert payload["incident_id"].startswith("2026-01-01T00:00:00Z_")
     assert payload["evidence_paths"] == ["glow/forge/receipts/receipts_index.jsonl"]
+
+
+def test_quarantine_is_durably_active_before_incident_claim_and_event(
+    tmp_path: Path, monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    from sentientos import integrity_quarantine as quarantine
+    from sentientos.integrity_incident import build_incident
+
+    incident = build_incident(
+        triggers=["verified_integrity_mismatch"],
+        enforcement_mode="enforce",
+        severity="enforced",
+        context={},
+        created_at="2026-10-12T01:00:00Z",
+    )
+    observed: list[str] = []
+
+    def inspect_write(root, value, *, quarantine_activated=False):  # type: ignore[no-untyped-def]
+        state = quarantine.load_state(root)
+        assert quarantine_activated is True
+        assert state.active is True
+        assert state.last_incident_id == value.incident_id
+        observed.append("incident")
+        return root / "glow/forge/incidents/fixture.json"
+
+    def inspect_event(event):  # type: ignore[no-untyped-def]
+        state = quarantine.load_state(tmp_path)
+        assert state.active is True
+        assert state.last_incident_id == incident.incident_id
+        observed.append("event")
+        return event
+
+    monkeypatch.setattr(quarantine, "write_incident", inspect_write)
+    monkeypatch.setattr(quarantine, "record_forge_event", inspect_event)
+    activated, _path, returned = quarantine.maybe_activate_quarantine(
+        tmp_path, ["verified_integrity_mismatch"], incident, force_activate=True,
+    )
+
+    assert activated is True
+    assert returned.active is True
+    assert observed == ["incident", "event"]
+
+
+def test_incident_publication_failure_leaves_truthful_active_state_without_event(
+    tmp_path: Path, monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    from sentientos import integrity_quarantine as quarantine
+    from sentientos.integrity_incident import IntegrityIncidentFeedRecordError, build_incident
+
+    incident = build_incident(
+        triggers=["verified_integrity_mismatch"],
+        enforcement_mode="enforce",
+        severity="enforced",
+        context={},
+        created_at="2026-10-12T01:01:00Z",
+    )
+    events: list[dict[str, object]] = []
+
+    def fail_incident(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        raise IntegrityIncidentFeedRecordError("incident_feed_capacity_exhausted")
+
+    monkeypatch.setattr(quarantine, "write_incident", fail_incident)
+    monkeypatch.setattr(quarantine, "record_forge_event", events.append)
+
+    with pytest.raises(IntegrityIncidentFeedRecordError, match="incident_feed_capacity_exhausted"):
+        quarantine.maybe_activate_quarantine(
+            tmp_path, ["verified_integrity_mismatch"], incident, force_activate=True,
+        )
+
+    persisted = quarantine.load_state(tmp_path)
+    assert persisted.active is True
+    assert persisted.last_incident_id == incident.incident_id
+    assert events == []
 
 
 def test_observability_includes_quarantine_fields(tmp_path: Path) -> None:

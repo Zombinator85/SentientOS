@@ -184,6 +184,16 @@ def maybe_activate_quarantine(repo_root: Path, failures: list[str], incident: In
         state.notes = list(state.notes or [])
         state.notes.append(f"auto:{incident.incident_id}:{','.join(sorted(set(failures)))}")
         activated = True
+        # Persist and re-read the protective state before any incident record
+        # can claim that quarantine was activated. If publication is rejected
+        # or durability is uncertain, the incident/feed writer is not reached.
+        save_state(repo_root, state)
+        persisted = load_state(repo_root)
+        if not persisted.active or persisted.last_incident_id != incident.incident_id:
+            raise QuarantineStateError("quarantine_activation_not_persisted")
+
+    incident_path = write_incident(repo_root, incident, quarantine_activated=activated)
+    if activated:
         record_forge_event(
             {
                 "event": "integrity_quarantine_activated",
@@ -193,8 +203,7 @@ def maybe_activate_quarantine(repo_root: Path, failures: list[str], incident: In
                 "freeze_forge": state.freeze_forge,
             }
         )
-    incident_path = write_incident(repo_root, incident, quarantine_activated=activated)
-    if not activated:
+    else:
         record_forge_event(
             {
                 "event": "integrity_incident_recorded",
@@ -204,7 +213,7 @@ def maybe_activate_quarantine(repo_root: Path, failures: list[str], incident: In
                 "enforcement_mode": incident.enforcement_mode,
             }
         )
-    save_state(repo_root, state)
+        save_state(repo_root, state)
     return activated, incident_path, state
 
 
