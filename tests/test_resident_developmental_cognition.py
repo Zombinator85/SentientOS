@@ -28,6 +28,7 @@ from sentientos.resident_developmental_writeback import (
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.runtime_governor import reset_runtime_governor
 from sentientos.integrity_quarantine import QuarantineState, save_state
+from sentientos.integrity_incident import build_incident, write_incident
 from sentientos.world_state_board import WorldStateBoardBuilder
 from sentientosd import (
     RuntimeMaintenanceSurfaces,
@@ -773,6 +774,8 @@ def test_integrity_controller_gate_context_becomes_scoped_later_tick_history(
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
     reset_runtime_governor()
+
+
     monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
     monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0")
     quarantine_path = tmp_path / "glow/forge/quarantine.json"
@@ -837,6 +840,69 @@ def test_integrity_controller_gate_context_becomes_scoped_later_tick_history(
     reset_runtime_governor()
 
 
+def test_quarantine_incident_restart_custody_reaches_later_cognition_as_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    reset_runtime_governor()
+    event_at = "2026-10-11T23:59:00+00:00"
+    incident = build_incident(
+        triggers=["verified_integrity_mismatch"], enforcement_mode="enforce",
+        severity="warning", created_at=event_at,
+    )
+    write_incident(tmp_path, incident, quarantine_activated=True)
+    save_state(tmp_path, QuarantineState(
+        active=True, activated_at=event_at, activated_by="auto",
+        last_incident_id=incident.incident_id, freeze_forge=True,
+        allow_automerge=False, allow_publish=False,
+        allow_federation_sync=False, notes=[],
+    ))
+
+    first_owner, first_fake = owner(
+        tmp_path / "cognition", allowed_source_kinds=("quarantine",),
+        max_selected_facts=2)
+    first_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=first_owner,  # type: ignore[arg-type]
+    )
+    first_tick = "2026-10-12T00:00:00+00:00"
+    first_surfaces.build_world_state_board(tick_id=first_tick)
+    first_snapshot = first_surfaces.current_world_state_snapshot
+    assert first_snapshot is not None
+    fact = next(item for item in first_snapshot.facts
+        if item.subject.subject_kind == "quarantine_incident_custody_observation")
+    assert fact.payload["reconciliation_status"] == "complete_local_custody"
+    assert fact.payload["incident_activated_at"] == event_at
+    assert fact.observed_at == first_tick
+    assert fact.payload["feed_is_authenticated"] is False
+    first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    current_request = next(request for request in first_fake.requests
+        if request.purpose == "resident_developmental_interpretation")
+    assert "local artifact and feed custody" in current_request.prompt
+    assert incident.incident_id in current_request.prompt
+    assert event_at in current_request.prompt
+
+    second_fake = FakeInvoker()
+    second_owner, _ = owner(tmp_path / "cognition", invoker=second_fake,
+        allowed_source_kinds=("quarantine",), max_selected_facts=2)
+    second_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=second_owner,  # type: ignore[arg-type]
+    )
+    second_tick = "2026-10-12T00:00:01+00:00"
+    second_surfaces.build_world_state_board(tick_id=second_tick)
+    second_result = second_surfaces.run_resident_developmental_cognition(tick_id=second_tick)
+    history_request = next(request for request in second_fake.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert incident.incident_id in history_request.prompt
+    assert event_at in history_request.prompt
+    assert "feed is unauthenticated" in history_request.prompt
+    assert "does not establish attack" in history_request.prompt
+    assert second_result["written_record_id"]
+    assert second_owner.writeback.store.get(second_result["written_record_id"])
+    reset_runtime_governor()
+
 @pytest.mark.parametrize(("active", "expected"), [(False, False), (True, True)])
 def test_valid_quarantine_state_projection_preserves_actual_posture(
     tmp_path: Path, active: bool, expected: bool,
@@ -848,11 +914,17 @@ def test_valid_quarantine_state_projection_preserves_actual_posture(
     snapshot_value = surfaces.current_world_state_snapshot
     assert snapshot_value is not None
     facts = [fact for fact in snapshot_value.facts if fact.source.kind == "quarantine"]
-    assert len(facts) == 1
-    assert facts[0].disposition == "recorded"
-    assert facts[0].payload["custody_result"] == "valid_v1"
-    assert facts[0].payload["quarantine_active"] is expected
-    assert facts[0].payload["attack_established"] is False
+    custody_fact = next(fact for fact in facts
+        if fact.subject.subject_kind == "quarantine_custody_observation")
+    assert custody_fact.disposition == "recorded"
+    assert custody_fact.payload["custody_result"] == "valid_v1"
+    assert custody_fact.payload["quarantine_active"] is expected
+    assert custody_fact.payload["attack_established"] is False
+    incident_facts = [fact for fact in facts
+        if fact.subject.subject_kind == "quarantine_incident_custody_observation"]
+    assert len(incident_facts) == (1 if active else 0)
+    if active:
+        assert incident_facts[0].payload["reconciliation_status"] == "incomplete_identity"
 
 
 def epistemic_projection(root: Path):

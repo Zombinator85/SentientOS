@@ -23,9 +23,12 @@ from sentientos.resident_epistemic_state_mutation import (
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.world_state_board import WorldStateBoardBuilder
+from sentientos.integrity_incident import build_incident, write_incident
+from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientosd import (
     _integrity_controller_world_state_record,
     _quarantine_custody_world_state_record,
+    _quarantine_incident_custody_world_state_record,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -169,6 +172,38 @@ def test_integrity_controller_observation_cannot_become_epistemic_support(
     assert binding.dependency_kind == "unknown_dependency"
     assert binding.dependency_group is None
     assert binding.reliability_posture == "integrity_controller_verification_context_only"
+
+
+def test_incident_restart_custody_is_epistemic_context_not_support(tmp_path):
+    incident_at = "2026-09-28T11:59:00+00:00"
+    incident = build_incident(triggers=["verified_integrity_mismatch"],
+        enforcement_mode="enforce", severity="warning", created_at=incident_at)
+    write_incident(tmp_path, incident, quarantine_activated=True)
+    save_state(tmp_path, QuarantineState(active=True, activated_at=incident_at,
+        activated_by="auto", last_incident_id=incident.incident_id,
+        freeze_forge=True, allow_automerge=False, allow_publish=False,
+        allow_federation_sync=False, notes=[]))
+    record = _quarantine_incident_custody_world_state_record(
+        tmp_path, observed_at=NOW, expected_incident_id=incident.incident_id,
+        expected_activated_at=incident_at)
+    assert record is not None
+    assert record["payload"]["incident_activated_at"] == incident_at
+    board = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    _, proposition, _, runtime = fixture(tmp_path)
+    configured = replace(runtime.config.rules[0], selector={
+        "source_kind": "quarantine",
+        "subject_kind": "quarantine_incident_custody_observation",
+        "stage": "observation",
+    }, evidence_relation="supports", dependency_kind="independently_sourced_observation",
+       reliability_posture="verified", independence_basis="configured-test-source")
+    assert configured.proposition_id == proposition.proposition_id
+    _proof, binding = ResidentEpistemicDevelopmentRuntime._adapt(
+        board, board.facts[0], configured)
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.dependency_group is None
+    assert binding.reliability_posture == "quarantine_incident_custody_context_only"
 
 
 def test_incomplete_mutation_recovery_is_reported_without_new_admission(tmp_path):

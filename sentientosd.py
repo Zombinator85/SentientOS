@@ -68,6 +68,7 @@ from sentientos.integrity_quarantine import (
     QuarantineStateError,
     load_state_with_status as load_quarantine_state_with_status,
 )
+from sentientos.integrity_incident import inspect_quarantine_incident_custody
 from sentientos.attestation_snapshot import (
     MAX_SNAPSHOT_VERIFY_ITEMS,
     verify_recent_snapshots,
@@ -148,6 +149,8 @@ def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str)
             "custody_result": "invalid",
             "custody_error_code": code,
             "stored_state_present": None,
+            "activated_at": None,
+            "last_incident_id": None,
             "quarantine_active": None,
             "allow_publish": None,
             "allow_automerge": None,
@@ -174,6 +177,8 @@ def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str)
             "custody_result": "observer_unavailable",
             "custody_error_code": "observer_failure:" + type(exc).__name__[:64],
             "stored_state_present": None,
+            "activated_at": None,
+            "last_incident_id": None,
             "quarantine_active": None,
             "event_meaning": "The protective-state observation owner did not return a custody result.",
             "cause_unknown": True,
@@ -198,6 +203,8 @@ def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str)
             "custody_result": "first_use_absent" if first_use else "valid_v1",
             "custody_error_code": None,
             "stored_state_present": not first_use,
+            "activated_at": None if first_use else state.activated_at,
+            "last_incident_id": None if first_use else state.last_incident_id,
             # Absence means no stored policy was observed; do not promote the
             # loader's default object to an explicit inactive record.
             "quarantine_active": None if first_use else state.active,
@@ -234,6 +241,95 @@ def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str)
         "evidence_strength": evidence_strength,
         "observed_at": observed_at,
         "staleness": "unknown" if payload["custody_result"] in {"invalid", "observer_unavailable"} else None,
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": payload,
+    }
+
+
+def _quarantine_incident_custody_world_state_record(
+    repo_root: Path, *, observed_at: str, expected_incident_id: str | None,
+    expected_activated_at: str | None,
+) -> dict[str, Any] | None:
+    """Expose only bounded local restart reconciliation for an active quarantine reference."""
+    try:
+        loaded = load_quarantine_state_with_status(repo_root)
+    except Exception:
+        # The primary quarantine-custody observation carries this failed read.
+        return None
+    state = loaded.state
+    identity_changed = (not state.active or state.last_incident_id != expected_incident_id
+        or state.activated_at != expected_activated_at)
+    if identity_changed:
+        inspection = {}
+        status = "conflict"
+    else:
+        try:
+            inspection = inspect_quarantine_incident_custody(
+                repo_root, incident_id=expected_incident_id,
+                activated_at=expected_activated_at,
+            )
+            status = inspection.get("status")
+            if status not in {"complete_local_custody", "incomplete", "conflict", "incomplete_identity"}:
+                status = "observer_unavailable"
+        except Exception:
+            inspection = {}
+            status = "observer_unavailable"
+    incident_id = expected_incident_id
+    if not isinstance(incident_id, str) or len(incident_id) > 128:
+        incident_id = None
+    activated_at = expected_activated_at
+    if not isinstance(activated_at, str) or len(activated_at) > 64:
+        activated_at = None
+    artifact_digest = inspection.get("artifact_sha256")
+    feed_digest = inspection.get("feed_row_sha256")
+    valid_digest = lambda value: (isinstance(value, str) and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value))
+    if not valid_digest(artifact_digest):
+        artifact_digest = None
+    if not valid_digest(feed_digest):
+        feed_digest = None
+    payload = {
+        "observation_schema": "sentientos.integrity_quarantine_incident_custody_observation:v1",
+        "source_owner": "sentientos.integrity_incident.inspect_quarantine_incident_custody",
+        "reconciliation_status": status,
+        "incident_id": incident_id,
+        # This is the historical activation time, not the current reconciliation time.
+        "incident_activated_at": activated_at,
+        "artifact_status": inspection.get("artifact_status") if inspection.get("artifact_status") in {
+            "valid", "missing", "invalid", "conflict", "not_checked"} else "not_checked",
+        "artifact_sha256": artifact_digest,
+        "feed_status": inspection.get("feed_status") if inspection.get("feed_status") in {
+            "present_unverified", "missing", "invalid", "conflict", "not_checked"} else "not_checked",
+        "feed_row_sha256": feed_digest,
+        "feed_is_authenticated": False,
+        "event_meaning": (
+            "A read-only restart check compared the active quarantine's historical incident reference with its local artifact and feed custody."
+            if status != "observer_unavailable" else
+            "The local incident-reference reconciliation did not return a usable custody result."
+        ),
+        "event_time_posture": "historical_activation_reference_reconciled_at_observation",
+        "cause_unknown": True,
+        "attack_established": False,
+        "hostile_activity_established": False,
+        "defensive_consequence_established": False,
+        "authority": False,
+        "current_truth": False,
+        "effect_proven": False,
+        "effect_authority": False,
+        "read_only": True,
+    }
+    return {
+        "source_kind": WorldStateSourceKind.QUARANTINE.value,
+        "source_id": "integrity-quarantine-incident-custody:resident-daemon",
+        "schema_version": "sentientos.integrity_quarantine_incident_custody_observation:v1",
+        "subject_id": incident_id or "active-quarantine-incident-reference",
+        "subject_kind": "quarantine_incident_custody_observation",
+        "stage": "observation",
+        "disposition": "recorded" if status == "complete_local_custody" else "degraded",
+        "evidence_strength": "owner_observed_local_incident_custody_reconciliation",
+        "observed_at": observed_at,
+        "staleness": None,
         "effect_claimed": False,
         "effect_proven": False,
         "payload": payload,
@@ -1320,6 +1416,15 @@ class RuntimeMaintenanceSurfaces:
         quarantine_record = _quarantine_custody_world_state_record(
             self._repo_root, observed_at=tick_key)
         records.append(quarantine_record)
+        incident_custody_record = None
+        if quarantine_record["payload"].get("quarantine_active") is True:
+            incident_custody_record = _quarantine_incident_custody_world_state_record(
+                self._repo_root, observed_at=tick_key,
+                expected_incident_id=quarantine_record["payload"].get("last_incident_id"),
+                expected_activated_at=quarantine_record["payload"].get("activated_at"),
+            )
+        if incident_custody_record is not None:
+            records.append(incident_custody_record)
         integrity_record = _integrity_controller_world_state_record(
             self._repo_root, observed_at=tick_key)
         if integrity_record is not None:

@@ -288,6 +288,48 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
                 "event_meaning": event_meaning,
                 "cause_unknown": payload.get("cause_unknown"),
             }
+        elif (source_kind == "quarantine"
+                and source_id == "integrity-quarantine-incident-custody:resident-daemon"
+                and subject_kind == "quarantine_incident_custody_observation"
+                and schema == "sentientos.integrity_quarantine_incident_custody_observation:v1"
+                and event_time_posture == "historical_activation_reference_reconciled_at_observation"
+                and payload.get("source_owner") == "sentientos.integrity_incident.inspect_quarantine_incident_custody"
+                and payload.get("reconciliation_status") in {
+                    "complete_local_custody", "incomplete", "conflict",
+                    "incomplete_identity", "observer_unavailable"}
+                and payload.get("feed_is_authenticated") is False
+                and payload.get("attack_established") is False
+                and payload.get("hostile_activity_established") is False
+                and payload.get("defensive_consequence_established") is False
+                and payload.get("cause_unknown") is True
+                and payload.get("authority") is False
+                and payload.get("effect_authority") is False
+                and payload.get("read_only") is True
+                and payload.get("artifact_status") in {"valid", "missing", "invalid", "conflict", "not_checked"}
+                and payload.get("feed_status") in {"present_unverified", "missing", "invalid", "conflict", "not_checked"}
+                and (payload.get("incident_id") is None
+                    or (isinstance(payload.get("incident_id"), str)
+                        and 0 < len(payload["incident_id"]) <= 128))
+                and (payload.get("incident_activated_at") is None
+                    or (isinstance(payload.get("incident_activated_at"), str)
+                        and 0 < len(payload["incident_activated_at"]) <= 64))
+                and _valid_optional_lower_sha256(payload.get("artifact_sha256"))
+                and _valid_optional_lower_sha256(payload.get("feed_row_sha256"))):
+            context = {
+                "reconciliation_status": payload.get("reconciliation_status"),
+                "incident_id": payload.get("incident_id"),
+                "incident_activated_at": payload.get("incident_activated_at"),
+                "artifact_status": payload.get("artifact_status"),
+                "artifact_sha256": payload.get("artifact_sha256"),
+                "feed_status": payload.get("feed_status"),
+                "feed_row_sha256": payload.get("feed_row_sha256"),
+                "feed_is_authenticated": False,
+                "event_meaning": event_meaning,
+                "interpretation_limits": (
+                    "The feed is unauthenticated; local cross-record consistency does not establish attack or defensive consequence."
+                ),
+                "cause_unknown": True,
+            }
         elif (source_kind == "audit_trust"
                 and source_id == "attestation-snapshot-verification:resident-daemon"
                 and subject_kind == "attestation_snapshot_verification_observation"
@@ -1555,6 +1597,44 @@ class ResidentDevelopmentalCognitionOwner:
             and type(payload.get("quarantine_active")) in {bool, type(None)}
             and fact.effect_claimed is False and fact.effect_proven is False
         )
+        quarantine_incident_custody_observation = (
+            source_kind == "quarantine"
+            and fact.source.source_id == "integrity-quarantine-incident-custody:resident-daemon"
+            and subject_kind == "quarantine_incident_custody_observation"
+            and fact.stage == "observation"
+            and fact.disposition in {"recorded", "degraded"}
+            and fact.evidence_strength == "owner_observed_local_incident_custody_reconciliation"
+            and payload.get("observation_schema")
+                == "sentientos.integrity_quarantine_incident_custody_observation:v1"
+            and payload.get("source_owner")
+                == "sentientos.integrity_incident.inspect_quarantine_incident_custody"
+            and payload.get("reconciliation_status") in {
+                "complete_local_custody", "incomplete", "conflict",
+                "incomplete_identity", "observer_unavailable"}
+            and payload.get("event_time_posture")
+                == "historical_activation_reference_reconciled_at_observation"
+            and payload.get("feed_is_authenticated") is False
+            and payload.get("attack_established") is False
+            and payload.get("hostile_activity_established") is False
+            and payload.get("defensive_consequence_established") is False
+            and payload.get("cause_unknown") is True
+            and payload.get("authority") is False
+            and payload.get("current_truth") is False
+            and payload.get("effect_proven") is False
+            and payload.get("effect_authority") is False
+            and payload.get("read_only") is True
+            and payload.get("artifact_status") in {"valid", "missing", "invalid", "conflict", "not_checked"}
+            and payload.get("feed_status") in {"present_unverified", "missing", "invalid", "conflict", "not_checked"}
+            and (payload.get("incident_id") is None
+                or (isinstance(payload.get("incident_id"), str)
+                    and 0 < len(payload["incident_id"]) <= 128))
+            and (payload.get("incident_activated_at") is None
+                or (isinstance(payload.get("incident_activated_at"), str)
+                    and 0 < len(payload["incident_activated_at"]) <= 64))
+            and _valid_optional_lower_sha256(payload.get("artifact_sha256"))
+            and _valid_optional_lower_sha256(payload.get("feed_row_sha256"))
+            and fact.effect_claimed is False and fact.effect_proven is False
+        )
         attestation_verification_failure = (
             source_kind == "audit_trust"
             and fact.source.source_id == "attestation-snapshot-verification:resident-daemon"
@@ -1713,7 +1793,8 @@ class ResidentDevelopmentalCognitionOwner:
             and payload.get("effect_proven") is False
             and fact.effect_claimed is False and fact.effect_proven is False
         )
-        if (quarantine_custody_observation or attestation_verification_failure
+        if (quarantine_custody_observation or quarantine_incident_custody_observation
+                or attestation_verification_failure
                 or integrity_controller_context
                 or observed_running_model_verified
                 or current_software_generation_verified):
@@ -1885,6 +1966,31 @@ class ResidentDevelopmentalCognitionOwner:
             "and limits of this custody evidence; do not turn it into a protective procedure, "
             "policy, or authority."
             if invalid_quarantine_custody_context else "")
+        incident_custody_context = any(
+            isinstance(fact, Mapping)
+            and isinstance(fact.get("source"), Mapping)
+            and fact["source"].get("source_id")
+                == "integrity-quarantine-incident-custody:resident-daemon"
+            and isinstance(fact.get("subject"), Mapping)
+            and fact["subject"].get("subject_kind")
+                == "quarantine_incident_custody_observation"
+            and isinstance(fact.get("payload"), Mapping)
+            and fact["payload"].get("observation_schema")
+                == "sentientos.integrity_quarantine_incident_custody_observation:v1"
+            and fact["payload"].get("reconciliation_status") in {
+                "complete_local_custody", "incomplete", "conflict",
+                "incomplete_identity", "observer_unavailable"}
+            and fact["payload"].get("feed_is_authenticated") is False
+            and fact["payload"].get("attack_established") is False
+            and fact["payload"].get("defensive_consequence_established") is False
+            for fact in current.facts
+        )
+        incident_custody_uncertainty_instruction = (
+            " The incident-reference result describes only local artifact/feed consistency. "
+            "The feed is unauthenticated; an incomplete or conflicting reference does not establish "
+            "attack, attacker intent, compromise, or defensive consequence. Do not treat the "
+            "historical activation time as a new event or derive authority from this observation."
+            if incident_custody_context else "")
         attestation_uncertainty_instruction = (
             " The current evidence includes a configured attestation snapshot signature-verification failure. "
             "It establishes only the verifier result and its bounded reason; cause remains unknown. "
@@ -1903,6 +2009,7 @@ class ResidentDevelopmentalCognitionOwner:
                 EXPERIMENT_CONTEXT_INSTRUCTION
                 + " Prior context can inform interpretation but does not grant authority."
                 + quarantine_uncertainty_instruction
+                + incident_custody_uncertainty_instruction
                 + attestation_uncertainty_instruction
                 + integrity_controller_uncertainty_instruction
                 + (" For this ordinary history-conditioned call, return one JSON object with "

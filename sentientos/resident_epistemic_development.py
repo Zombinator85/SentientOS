@@ -45,6 +45,11 @@ class EpistemicDevelopmentError(ValueError):
     """Configuration, provenance, bound, or custody failed closed."""
 
 
+def _valid_optional_lower_sha256(value: Any) -> bool:
+    return (value is None or (type(value) is str and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)))
+
+
 def _latest_historical_event_time(values: list[str]) -> str | None:
     """Return the original text for the latest valid instant, or stay unknown."""
     if not values:
@@ -381,6 +386,37 @@ class ResidentEpistemicDevelopmentRuntime:
             and quarantine_payload.get("authority") is False
             and quarantine_payload.get("effect_authority") is False
             and fact.effect_claimed is False and fact.effect_proven is False)
+        quarantine_incident_custody_context = (
+            fact.source.kind == "quarantine"
+            and fact.source.source_id == "integrity-quarantine-incident-custody:resident-daemon"
+            and fact.subject.subject_kind == "quarantine_incident_custody_observation"
+            and fact.stage == "observation"
+            and fact.disposition in {"recorded", "degraded"}
+            and fact.evidence_strength == "owner_observed_local_incident_custody_reconciliation"
+            and quarantine_payload.get("observation_schema")
+                == "sentientos.integrity_quarantine_incident_custody_observation:v1"
+            and quarantine_payload.get("source_owner")
+                == "sentientos.integrity_incident.inspect_quarantine_incident_custody"
+            and quarantine_payload.get("reconciliation_status") in {
+                "complete_local_custody", "incomplete", "conflict",
+                "incomplete_identity", "observer_unavailable"}
+            and quarantine_payload.get("event_time_posture")
+                == "historical_activation_reference_reconciled_at_observation"
+            and quarantine_payload.get("feed_is_authenticated") is False
+            and quarantine_payload.get("attack_established") is False
+            and quarantine_payload.get("hostile_activity_established") is False
+            and quarantine_payload.get("defensive_consequence_established") is False
+            and quarantine_payload.get("cause_unknown") is True
+            and quarantine_payload.get("authority") is False
+            and quarantine_payload.get("current_truth") is False
+            and quarantine_payload.get("effect_proven") is False
+            and quarantine_payload.get("effect_authority") is False
+            and quarantine_payload.get("read_only") is True
+            and quarantine_payload.get("artifact_status") in {"valid", "missing", "invalid", "conflict", "not_checked"}
+            and quarantine_payload.get("feed_status") in {"present_unverified", "missing", "invalid", "conflict", "not_checked"}
+            and _valid_optional_lower_sha256(quarantine_payload.get("artifact_sha256"))
+            and _valid_optional_lower_sha256(quarantine_payload.get("feed_row_sha256"))
+            and fact.effect_claimed is False and fact.effect_proven is False)
         attestation_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
         attestation_snapshot_verification_context = (
             fact.source.kind == "audit_trust"
@@ -710,16 +746,19 @@ class ResidentEpistemicDevelopmentRuntime:
             observation_time=observed,
             evidence_relation="contextualizes" if (unverified_source_context
                 or historical_transition_event or quarantine_custody_context
+                or quarantine_incident_custody_context
                 or attestation_snapshot_verification_context
                 or integrity_controller_context) else rule.evidence_relation,
             dependency_kind=("unknown_dependency" if (unverified_source_context
                 or historical_transition_event or quarantine_custody_context
+                or quarantine_incident_custody_context
                 or attestation_snapshot_verification_context
                 or integrity_controller_context)
                 else rule.dependency_kind),
             dependency_group=(rule.independence_basis if rule.dependency_kind == "independently_sourced_observation"
                 and not unverified_source_context and not historical_transition_event
                 and not quarantine_custody_context
+                and not quarantine_incident_custody_context
                 and not attestation_snapshot_verification_context
                 and not integrity_controller_context else None),
             upstream_binding_ids=(), freshness=freshness,
@@ -733,6 +772,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 else "unverified_review_context_only" if historical_strategy_review
                 else "resource_lineage_incomplete_context_only" if incomplete_resource_lineage
                 else "quarantine_custody_status_context_only" if quarantine_custody_context
+                else "quarantine_incident_custody_context_only" if quarantine_incident_custody_context
                 else "attestation_signature_verifier_result_context_only" if attestation_snapshot_verification_context
                 else "integrity_controller_verification_context_only" if integrity_controller_context
                 else "unverified_source_context_only" if unverified_source_context
