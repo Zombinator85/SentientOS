@@ -22,12 +22,21 @@ def digest(value: Any) -> str:
 
 
 def identity(name: str) -> CognitiveModelIdentity:
-    active = {"model_id": name, "artifact": f"artifact-{name}", "configuration": f"cfg-{name}"}
+    model_artifact = f"artifact-{name}"
+    model_digest = digest({"model": name})
+    sidecar_digest = digest({"sidecar": name})
+    configuration_digest = digest({"configuration": name})
+    active = {"semantic_artifact_identity": model_artifact,
+        "model_content_sha256": model_digest, "artifact_size_bytes": 10,
+        "sidecar_metadata_digest": sidecar_digest,
+        "configuration_digest": configuration_digest,
+        "engine": "deterministic-test-runtime", "candidate_index": 0,
+        "posture": "production", "fallback": False}
     return CognitiveModelIdentity.create(
-        model_id=name, semantic_artifact_identity=f"artifact-{name}",
-        model_content_sha256=digest({"model": name}), artifact_size_bytes=10,
-        sidecar_metadata_digest=digest({"sidecar": name}),
-        configuration_digest=digest({"configuration": name}),
+        model_id=name, semantic_artifact_identity=model_artifact,
+        model_content_sha256=model_digest, artifact_size_bytes=10,
+        sidecar_metadata_digest=sidecar_digest,
+        configuration_digest=configuration_digest,
         engine_runtime_family="deterministic-test-runtime", candidate_index=0,
         active_production=True, fallback=False, authority_record_id=f"authority-{name}",
         authority_record_digest=digest({"authority": name}), active_model_identity=active,
@@ -176,11 +185,16 @@ def test_trial_inventory_is_fixed_and_bounded(tmp_path: Path) -> None:
 def test_interrupted_trial_is_not_replayed(tmp_path: Path) -> None:
     subject, exp, _, _ = campaign(tmp_path)
     subject.state = subject.store.write_state(subject.protocol, {**subject.state, "in_progress_trial_id": "trial-1"})
-    with pytest.raises(DevelopmentalModelReplacementError, match="interrupted"):
-        DevelopmentalModelReplacementCampaign.reconstruct(experiment=exp, artifact_root=tmp_path,
-                                                            campaign_id=subject.protocol.campaign_id)
-    state = subject.store.load_state(subject.protocol)
-    assert state["validity"] == "invalid_incomplete" and state["failure_reason"] == "campaign_interrupted_during_trial"
+    before = subject.store.load_state(subject.protocol)
+    reconstructed = DevelopmentalModelReplacementCampaign.reconstruct(
+        experiment=exp, artifact_root=tmp_path, campaign_id=subject.protocol.campaign_id)
+    assert reconstructed.recovery_posture == "interrupted_trial_preserved_not_replayed"
+    assert reconstructed.state == before
+    calls_before = (len(exp.model_a.calls), len(exp.model_b.calls))
+    with pytest.raises(DevelopmentalModelReplacementError, match="campaign_not_runnable"):
+        reconstructed.run_next_trial()
+    assert (len(exp.model_a.calls), len(exp.model_b.calls)) == calls_before
+    assert subject.store.load_state(subject.protocol) == before
 
 
 @pytest.mark.parametrize("target", ["state", "protocol"])

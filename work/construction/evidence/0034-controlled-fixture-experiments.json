@@ -1,0 +1,79 @@
+{
+  "base_source_commit": "b5c0063b3e5c9cb4adc25d1dc1c36c56770b8078",
+  "base_source_tree": "06c7904f0d02ed5f259ba0f5e305ba5b1411ac1c",
+  "claims": "Fixture outcomes demonstrate harness behavior and recovery only; they do not demonstrate actual-model improvement or production execution.",
+  "execution": "hermetic deterministic fake cognition endpoints; no production model/provider",
+  "five_condition_replacement": {
+    "call_counts": [
+      3,
+      2
+    ],
+    "classification": "history_association_observed_under_both_cognitive_models",
+    "condition_order": [
+      "model_a_history_present",
+      "model_a_history_withheld",
+      "model_b_history_present",
+      "model_b_history_withheld",
+      "model_a_history_restored"
+    ],
+    "differences": {
+      "history_effect_model_a": true,
+      "history_effect_model_b": true,
+      "model_a_restoration": true,
+      "model_difference_with_history": true,
+      "model_difference_without_history": true
+    },
+    "output_digests": [
+      "sha256:67712f6efd82783fd1718664693ae39fa1b11d58903018f7c462d777606da4e8",
+      "sha256:1965910698ebce8b9fbea3c5ea03ff950049669134ffa1925ef8e690e8efbefe",
+      "sha256:b27dc2476de0f31c855e982bc2f2bd63724b9d02ac5d452e046986755d6864d3",
+      "sha256:9ea37a1106243a61f1810997f098db848181dc19133bcdcda35169abf57354b7",
+      "sha256:67712f6efd82783fd1718664693ae39fa1b11d58903018f7c462d777606da4e8"
+    ],
+    "recovered_same_run": true,
+    "recovery_replayed_inference": false,
+    "validity": "valid_controlled_observation"
+  },
+  "history_intervention": {
+    "claims_posture": "bounded_observed_association_only",
+    "classification": "history_presence_associated_stable_difference",
+    "condition_order": [
+      "history_present",
+      "history_withheld",
+      "history_restored"
+    ],
+    "later_tick": "tick-n-plus-one",
+    "measurement_differences": [
+      true,
+      true
+    ],
+    "measurement_digests": [
+      "sha256:4dea43fb05830de961b7f263b053ed88e9856c3bfa2c6262a02ad61b29b919e1",
+      "sha256:08c8078c929b73ca26be2310687a6db9d62054a488d562e2bc27f5daab6f9531"
+    ],
+    "retrieved_record_ids": [
+      [
+        "devrec-6fc92c733f107523732c243b"
+      ],
+      [],
+      [
+        "devrec-6fc92c733f107523732c243b"
+      ]
+    ],
+    "seed_record_id": "devrec-6fc92c733f107523732c243b",
+    "validity": "valid_controlled_observation"
+  },
+  "tested_source_tree": "d39c3233a6f4730dbb8e2ee61c3a3a15395c777a",
+  "tested_source_tree_scope": "exact base source plus the two staged implementation/test changes; generated runner outputs excluded",
+  "two_trial_campaign": {
+    "claims_posture": "descriptive_exact_counts_only",
+    "classifications": {
+      "history_association_observed_under_both_cognitive_models": 2
+    },
+    "completed_valid_trials": 2,
+    "identical_condition_output_digests_across_trials": true,
+    "planned_trials": 2,
+    "same_classification_every_trial": true,
+    "validity": "valid_completed_replication_campaign"
+  }
+}

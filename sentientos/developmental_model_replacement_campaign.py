@@ -8,8 +8,10 @@ import secrets
 import stat
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Mapping, Sequence, cast
 
+_fcntl: ModuleType | None
 try:
     import fcntl as _fcntl
 except ImportError:  # Keep imports usable on Windows; custody fails closed there.
@@ -305,13 +307,17 @@ class CampaignStore:
             raise DevelopmentalModelReplacementError("campaign_state_identity_invalid")
         kind, filename = self._artifact_location(self.state_path(protocol.campaign_id))
         directory_fd = self._open_kind_directory(kind, create=True)
+        fcntl_module = _fcntl
+        if fcntl_module is None:
+            os.close(directory_fd)
+            raise DevelopmentalModelReplacementError("campaign_store_unsupported_platform")
         lock_fd: int | None = None
         temporary_name = ".campaign-state-" + secrets.token_hex(16) + ".tmp"
         temporary_created = False
         try:
             lock_fd = os.open(".state.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
                 0o600, dir_fd=directory_fd)
-            _fcntl.flock(lock_fd, _fcntl.LOCK_EX)
+            fcntl_module.flock(lock_fd, fcntl_module.LOCK_EX)
             try:
                 prior = self._read_json(self.state_path(protocol.campaign_id),
                     missing_code="campaign_state_missing", invalid_code="campaign_state_tampered")
@@ -366,7 +372,7 @@ class CampaignStore:
                     pass
             if lock_fd is not None:
                 try:
-                    _fcntl.flock(lock_fd, _fcntl.LOCK_UN)
+                    fcntl_module.flock(lock_fd, fcntl_module.LOCK_UN)
                 finally:
                     os.close(lock_fd)
             os.close(directory_fd)
@@ -422,7 +428,7 @@ class CampaignStore:
                 current = self._read_json(self.state_revision_path(protocol.campaign_id,
                     expected_revision - 1, previous), missing_code="campaign_state_predecessor_missing",
                     invalid_code="campaign_state_predecessor_invalid")
-        return cast(dict[str, Any], value)
+        return value
 
 
 class DevelopmentalModelReplacementCampaign:
@@ -512,7 +518,7 @@ class DevelopmentalModelReplacementCampaign:
 
     def _invalidate(self, reason: str, *, failure_evidence: Mapping[str, Any] | None = None) -> None:
         self.state = self.store.write_state(self.protocol, {**self.state, "validity": "invalid_incomplete", "failure_reason": reason})
-        failure = {"campaign_id": self.protocol.campaign_id, "reason": reason}
+        failure: dict[str, Any] = {"campaign_id": self.protocol.campaign_id, "reason": reason}
         if failure_evidence is not None:
             failure["failure_evidence"] = dict(failure_evidence)
         self.store.immutable(self.store.failures / f"{self.protocol.campaign_id}-{reason}.json",
@@ -541,7 +547,8 @@ class DevelopmentalModelReplacementCampaign:
         completed = list(self.state["completed_trials"])
         completed.append({"trial_id": trial_id, "run_id": run["run_id"], "run_digest": run["run_digest"]})
         index = len(completed); next_id = self.protocol.trial_ids[index] if index < len(self.protocol.trial_ids) else None
-        self.state = self.store.write_state(self.protocol, {"completed_trials": completed, "next_trial_id": next_id,
+        self.state = self.store.write_state(self.protocol, {"state_digest": self.state["state_digest"],
+            "completed_trials": completed, "next_trial_id": next_id,
             "in_progress_trial_id": None, "validity": "valid_complete" if next_id is None else "valid_incomplete",
             "failure_reason": None})
         return run
