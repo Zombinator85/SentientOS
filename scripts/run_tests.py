@@ -825,6 +825,10 @@ def main(argv: list[str] | None = None) -> int:
     report_path = run_dir / f"pytest_report_{uuid4().hex}.json"
     junitxml_path: Path | None = run_dir / f"pytest_junitxml_{uuid4().hex}.xml"
     failure_report_path: Path | None = run_dir / "test_failure_digest.json"
+    # This path is the current run's failure digest, not an append-only history.
+    # Remove any prior run's result before pytest so a passing run cannot upload
+    # stale failures beside its own successful provenance.
+    failure_report_path.unlink(missing_ok=True)
     env["SENTIENTOS_PYTEST_REPORT_PATH"] = str(report_path)
     run_id = uuid4().hex
     repository_sha = _git_sha(REPO_ROOT)

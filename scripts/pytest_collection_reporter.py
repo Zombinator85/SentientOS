@@ -145,7 +145,9 @@ class PytestCollectionReporter:
                 self._stats.tests_collected = self._stats.tests_selected + self._stats.tests_deselected
         witnesses = [self._witnesses[key] for key in sorted(self._witnesses)]
         per_node = {node: sum(w["node_id"] == node for w in witnesses) for node in self._selected_node_ids}
-        call_phase_outcome_count = len(self._node_outcomes)
+        call_phase_outcome_count = sum(
+            1 for outcome in self._node_outcomes.values() if outcome.get("phase") == "call"
+        )
         reporter_status = "complete" if self._reporter_ok and self._session_finish_reached else "incomplete"
         payload = {
             "tests_collected": self._stats.tests_collected,
@@ -183,6 +185,22 @@ class PytestCollectionReporter:
         self._safe_hook(lambda: self._handle_pytest_runtest_logreport(report))
 
     def _handle_pytest_runtest_logreport(self, report: Any) -> None:
+        # A setup-phase skip never produces a call report.  Record it explicitly
+        # so provenance can distinguish selected-but-not-called nodes from
+        # successful calls instead of making them disappear from node outcomes.
+        if report.when == "setup" and report.skipped:
+            nodeid = str(getattr(report, "nodeid", "<unknown>"))
+            was_xfail = bool(getattr(report, "wasxfail", False))
+            self._node_outcomes[nodeid] = {
+                "node_id": nodeid,
+                "phase": "setup",
+                "outcome": "xfailed" if was_xfail else "skipped",
+            }
+            if was_xfail:
+                self._stats.tests_xfailed += 1
+            else:
+                self._stats.tests_skipped += 1
+            return
         if report.when != "call":
             return
         nodeid = str(getattr(report, "nodeid", "<unknown>"))

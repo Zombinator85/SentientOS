@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "4205fcaa7cd5a5eaeb44d6510eb20deb13e251891a43405dcae3830e461062d6",
-    "latest_segment_sequence": 25,
-    "latest_segment_sha256": "cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
-    "source_commit": "5394c8595177ae920353c2ec2a1f1fd03dc34e0f",
-    "source_tree": "21f5820ef3e0882d1f4630bf9bb4b666e0bd559d"
+    "checkpoint_sha256": "0d0596086f60959af3e0f5db83605479be7e7b782491bbb26210ddd2546afe90",
+    "latest_segment_sequence": 26,
+    "latest_segment_sha256": "827f0db047c3c7e345e1e4674e79528666baf7b4602c8c05833e5a6c41c33ed0",
+    "source_commit": "5994788123743453e1f91942caa575e48d5c530c",
+    "source_tree": "6e21fc243a013636aad743ea71529e60a0d92e37"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -229,6 +229,14 @@
       "sequence": 25,
       "sha256": "cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
       "source_commit": "5394c8595177ae920353c2ec2a1f1fd03dc34e0f"
+    },
+    {
+      "bytes": 2549,
+      "path": "work/construction/segments/0026-validation-provenance-integrity.md",
+      "predecessor": "segment-sha256:cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
+      "sequence": 26,
+      "sha256": "827f0db047c3c7e345e1e4674e79528666baf7b4602c8c05833e5a6c41c33ed0",
+      "source_commit": "5994788123743453e1f91942caa575e48d5c530c"
     }
   ],
   "source_acquisition": {
