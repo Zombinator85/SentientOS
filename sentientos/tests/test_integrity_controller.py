@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sentientos.integrity_controller import evaluate_integrity
+import pytest
+
+from sentientos.integrity_controller import (
+    IntegrityBudget,
+    IntegrityGateResult,
+    evaluate_integrity,
+)
 from sentientos.orchestrator import OrchestratorConfig, tick
 from sentientos.policy_fingerprint import emit_policy_fingerprint
 
@@ -44,6 +50,48 @@ def test_integrity_controller_fails_closed_on_corrupt_enabled_snapshot_index(
     assert status.mutation_allowed is False
     assert status.publish_allowed is False
     assert status.automerge_allowed is False
+
+
+@pytest.mark.no_legacy_skip
+def test_verification_budget_does_not_execute_skipped_gates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    import sentientos.integrity_controller as controller
+
+    calls: dict[str, list[bool]] = {
+        "attestation_snapshot_signatures": [],
+        "rollup_signatures": [],
+        "strategic_signatures": [],
+    }
+
+    def gate_for(name: str):
+        def gate(_root: Path, checked_at: str, _budget: IntegrityBudget,
+                 *, dry_run: bool = False) -> IntegrityGateResult:
+            calls[name].append(dry_run)
+            return IntegrityGateResult(name, "ok", "planned" if dry_run else "verified", [], checked_at)
+        return gate
+
+    monkeypatch.setattr(controller, "_gate_snapshot_signatures",
+        gate_for("attestation_snapshot_signatures"))
+    monkeypatch.setattr(controller, "_gate_rollup_signatures",
+        gate_for("rollup_signatures"))
+    monkeypatch.setattr(controller, "_gate_strategic_signatures",
+        gate_for("strategic_signatures"))
+
+    results = controller._verification_budgeted_gates(
+        tmp_path, "2026-10-12T00:00:00Z",
+        IntegrityBudget(1, 10, 6, 6, 1),
+    )
+
+    by_name = {result.name: result for result in results}
+    assert by_name["attestation_snapshot_signatures"].reason == "skipped_budget_exhausted"
+    assert by_name["rollup_signatures"].reason == "skipped_budget_exhausted"
+    assert by_name["strategic_signatures"].reason == "verified"
+    assert calls == {
+        "attestation_snapshot_signatures": [True],
+        "rollup_signatures": [True],
+        "strategic_signatures": [True, False],
+    }
 
 
 def test_orchestrator_writes_integrity_artifacts(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]

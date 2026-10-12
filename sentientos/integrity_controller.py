@@ -215,17 +215,27 @@ def _verification_budgeted_gates(root: Path, checked_at: str, budget: IntegrityB
         ("rollup_signatures", _gate_rollup_signatures),
         ("strategic_signatures", _gate_strategic_signatures),
     ]
-    active = [name for name, fn in plans if fn(root, checked_at, budget, dry_run=True) is not None]
+    planned = {
+        name: fn(root, checked_at, budget, dry_run=True)
+        for name, fn in plans
+    }
+    active = [name for name, _fn in plans if planned[name] is not None]
     priority = {"attestation_snapshot_signatures": 1, "rollup_signatures": 2, "strategic_signatures": 3}
     allowed = set(sorted(active, key=lambda name: priority[name], reverse=True)[: budget.max_verify_streams_per_tick])
 
     results: list[IntegrityGateResult] = []
     for name, fn in plans:
-        gate = fn(root, checked_at, budget, dry_run=False)
-        if gate is None:
+        if planned[name] is None:
             continue
         if name not in allowed:
             results.append(IntegrityGateResult(name=name, status="skipped", reason="skipped_budget_exhausted", evidence_paths=[], checked_at=checked_at))
+            continue
+        gate = fn(root, checked_at, budget, dry_run=False)
+        if gate is None:
+            # Configuration may be changed by the environment between the
+            # planning and execution phases. Preserve the coverage gap rather
+            # than silently presenting an absent gate as a completed check.
+            results.append(IntegrityGateResult(name=name, status="skipped", reason="disabled_before_verification", evidence_paths=[], checked_at=checked_at))
             continue
         results.append(gate)
     return results
