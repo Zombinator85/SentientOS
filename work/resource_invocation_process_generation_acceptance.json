@@ -1,0 +1,37 @@
+{
+  "changed_files": {
+    "tests/test_local_model_serving_inference.py": {
+      "bytes": 10032,
+      "sha256": "a20ca9a9199869a93302b8a2a1e21907e576ea1afe6127826f37cbe5c9b6a586"
+    },
+    "tests/test_resource_invocation_process_generation_integration.py": {
+      "bytes": 9648,
+      "sha256": "33c99f5d09b84c829a56a41944beca8ede090aefb1804f5d3c60ef3625197c74"
+    }
+  },
+  "checks": {
+    "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q tests/test_resource_invocation_process_generation_integration.py tests/test_local_model_serving_inference.py tests/test_local_model_chat_runtime_startup.py",
+    "compile": "python -m py_compile tests/test_local_model_serving_inference.py tests/test_resource_invocation_process_generation_integration.py",
+    "diff_check": "git diff --check passed",
+    "result": "28 passed"
+  },
+  "fixture_limits": [
+    "Model backend is a deterministic test fixture, not a real local model.",
+    "No provider, production activation, host actuation, or real resource measurement.",
+    "No actual learning or performance improvement demonstrated."
+  ],
+  "observed_path": [
+    "Actual LocalModelChatServiceAdapter subprocess launch publishes installation-scoped process/source handoff.",
+    "Child verifies current handoff and uses the existing provisioned governed allocation with fixture-backed locally admitted inference.",
+    "Parent read-only ProductionChatResourceObservationOwner verifies invocation and handoff receipts.",
+    "RuntimeMaintenanceSurfaces projects exact invocation/process-generation and causal consumption facts into World-State.",
+    "Shared host CPU/GPU attribution remains unknown without independent observation; effect claim/proof and authority remain false."
+  ],
+  "schema_version": 1,
+  "source_parent": {
+    "commit": "0868de97f85643c32916f91099bda9379347257f",
+    "tree": "8ca06719ce33577576f4c49d4cc7b730d614d7db"
+  },
+  "source_workspace_note": "The isolated local Git object database did not contain this remote commit. Only the remote base blob for tests/test_local_model_serving_inference.py was compared directly; remaining source was read from exact-ref owners or established existing staged blobs. Publication is built against the verified remote tree, not the local write-tree.",
+  "status": "focused_parent_child_resource_and_world_state_composition_passed; production_unverified"
+}

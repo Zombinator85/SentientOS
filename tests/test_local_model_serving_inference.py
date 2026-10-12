@@ -47,7 +47,9 @@ class Model:
 
 
 def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None,
-          installation_identity="install-1"):
+          installation_identity="install-1", runtime_handoff_id=None, state_root=None,
+          serving_operation_id="serve-1"):
+    tmp_path.mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "exact.gguf"; artifact.write_bytes(b"tiny-model")
     load = {"n_ctx": 512, "n_gpu_layers": 0}
     config = ModelConfig([ModelCandidate(artifact, "llama_cpp", "catalog-model", {"gpu_layers": 0})],
@@ -74,13 +76,14 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
         "catalog_proof": {"proof_semantic_digest": "proof-digest"}}
     current = [evidence]
     monkeypatch.setattr("sentientos.local_model_production_serving.verify_current_activation", lambda *a, **k: current[0])
-    handle = InstallationStateRegistry(tmp_path / "state", _test_only=True).open(
+    handle = InstallationStateRegistry(state_root or (tmp_path / "state"), _test_only=True).open(
         InstallationIdentity.parse(installation_identity), create=True)
     kernel, model = Kernel(inference), Model(identity, on_generate)
     serving = ProductionServingController(handle, kernel, model_factory=lambda c, l: model)
     monkeypatch.setattr(serving, "_commissioning_identity", lambda s: identity.to_dict())
-    session = serving.establish(operation_id="serve-1")
-    return ProductionServingInferenceController(serving), serving, session, model, kernel, current
+    session = serving.establish(operation_id=serving_operation_id)
+    return ProductionServingInferenceController(
+        serving, runtime_handoff_id=runtime_handoff_id), serving, session, model, kernel, current
 
 
 def test_exact_serving_backed_generation_has_independent_admission_and_linkage(monkeypatch, tmp_path):

@@ -82,6 +82,14 @@
       "sequence": 9,
       "sha256": "527085a34d7a1021c61ba1f76c12fdf238272b8a7ab1dda608f460c029e8cfd0",
       "source_commit": "34771ff675c0d6b20990eda76cb9d29cddab96ea"
+    },
+    {
+      "bytes": 2008,
+      "path": "work/construction/segments/0010-resource-process-world-state.md",
+      "predecessor": "segment-sha256:527085a34d7a1021c61ba1f76c12fdf238272b8a7ab1dda608f460c029e8cfd0",
+      "sequence": 10,
+      "sha256": "1a2d5458dfdacfbaede406497f26bfa892b4971164ffb2a6808d7c9a9bf0b301",
+      "source_commit": "0868de97f85643c32916f91099bda9379347257f"
     }
   ],
   "workspace_reconciliation": {
