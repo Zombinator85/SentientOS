@@ -1,0 +1,21 @@
+{
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "forge_index_linkage_observatory_and_quarantine_custody": "53 passed with -m legacy",
+    "git_diff_check": "passed"
+  },
+  "invalid_custody_projection": {
+    "effective_toggles": "forge mutation, publication, and automerge remain disallowed",
+    "internal_policy": "restrictive synthetic state for throughput/risk projections only; no default inactive value",
+    "quarantine_active": null,
+    "quarantine_custody_status": "invalid:<typed custody code>",
+    "quarantine_incident_custody": "custody_invalid with exact reason; no incident identity inferred"
+  },
+  "limits": [
+    "The index is a read-only status projection; the daemon's real pre-effector rejection remains the enforcement boundary.",
+    "No attack or defensive consequence is inferred from damaged custody.",
+    "Local fixtures do not establish production operation; construction remains unverified for production."
+  ],
+  "scope": "maintain truthful Forge observability when protective quarantine custody cannot be established",
+  "status": "focused_hermetic_custody_projection_verified_not_production_acceptance"
+}

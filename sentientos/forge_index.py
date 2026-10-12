@@ -13,7 +13,9 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
-from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.integrity_quarantine import (
+    QuarantineState, QuarantineStateError, load_state_with_status as load_quarantine_state_with_status,
+)
 from sentientos.integrity_pressure import compute_integrity_pressure, load_pressure_state
 from sentientos.integrity_incident import inspect_quarantine_incident_custody
 from sentientos.recovery_tasks import backlog_count
@@ -93,15 +95,33 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     federation_integrity = federation_integrity_gate(root, context="forge_index")
     witness_status = _load_json(root / "glow/federation/anchor_witness_status.json")
     strategic_witness_status = _load_json(root / "glow/federation/strategic_witness_status.json")
-    quarantine = load_quarantine_state(root)
-    quarantine_incident_custody = (
-        inspect_quarantine_incident_custody(
-            root, incident_id=quarantine.last_incident_id, activated_at=quarantine.activated_at,
+    try:
+        quarantine_load = load_quarantine_state_with_status(root)
+    except QuarantineStateError as exc:
+        # Keep observability available while preserving the unknown state. The
+        # internal projection is restrictive; public identity remains null.
+        quarantine = QuarantineState(
+            active=True, freeze_forge=True, allow_automerge=False,
+            allow_publish=False, allow_federation_sync=False, notes=[],
         )
-        if quarantine.active
-        else {"status": "not_active", "attack_established": False,
-              "defensive_consequence_established": False}
-    )
+        quarantine_active: bool | None = None
+        quarantine_custody_status = "invalid:" + exc.code
+        quarantine_incident_custody: dict[str, object] = {
+            "status": "custody_invalid", "reason": exc.code,
+            "attack_established": False, "defensive_consequence_established": False,
+        }
+    else:
+        quarantine = quarantine_load.state
+        quarantine_active = quarantine.active
+        quarantine_custody_status = quarantine_load.custody_status.value
+        quarantine_incident_custody = (
+            inspect_quarantine_incident_custody(
+                root, incident_id=quarantine.last_incident_id, activated_at=quarantine.activated_at,
+            )
+            if quarantine.active
+            else {"status": "not_active", "attack_established": False,
+                  "defensive_consequence_established": False}
+        )
     pressure_snapshot = compute_integrity_pressure(root)
     pressure_state = load_pressure_state(root)
     throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
@@ -111,7 +131,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         posture=posture.posture,
         pressure_level=pressure_snapshot.level,
         operating_mode=throughput.mode,
-        quarantine_active=quarantine.active,
+        quarantine_active=True if quarantine_active is None else quarantine_active,
     )
     posture_thresholds = derived_thresholds(posture, warn_base=3, enforce_base=7, critical_base=12)
     incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
@@ -193,7 +213,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         last_remediation_run_summary = json.dumps(run_summary, sort_keys=True)[:240]
 
     quarantine_requires_remediation = os.getenv("SENTIENTOS_QUARANTINE_REQUIRE_REMEDIATION", "0") == "1"
-    quarantine_incident_id = quarantine.last_incident_id
+    quarantine_incident_id = quarantine.last_incident_id if quarantine_active is True else None
     quarantine_trace_id = (
         _optional_str(quarantine_incident_custody.get("incident_governance_trace_id"))
         if quarantine.active and quarantine_incident_custody.get("artifact_status") == "valid"
@@ -319,9 +339,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "artifact_catalog_status": _artifact_catalog_status(root),
         "artifact_catalog_last_entry_at": _artifact_catalog_last_entry_at(root),
         "artifact_catalog_size_estimate": _artifact_catalog_size_estimate(root),
-        "quarantine_active": quarantine.active,
-        "quarantine_activated_at": quarantine.activated_at,
-        "quarantine_last_incident_id": quarantine.last_incident_id,
+        "quarantine_active": quarantine_active,
+        "quarantine_custody_status": quarantine_custody_status,
+        "quarantine_activated_at": quarantine.activated_at if quarantine_active is True else None,
+        "quarantine_last_incident_id": quarantine.last_incident_id if quarantine_active is True else None,
         "quarantine_incident_custody": quarantine_incident_custody,
         "last_incident_summary": _incident_summary(latest_incident),
         "incident_count_last_24h": _incident_count_last_24h(incident_rows),

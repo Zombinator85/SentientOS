@@ -43,3 +43,23 @@ def test_index_does_not_assign_latest_unrelated_trace_pack_to_active_quarantine(
     assert index["last_trace_remediation_pack_id"] == "unrelated-pack"
     assert index["last_quarantine_remediation_pack_id"] is None
     assert index["last_quarantine_remediation_status"] == "missing"
+
+
+def test_index_reports_invalid_quarantine_as_unknown_and_restrictive(tmp_path: Path) -> None:
+    target = tmp_path / "glow/forge/quarantine.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("{truncated", encoding="utf-8")
+
+    index = rebuild_index(tmp_path)
+
+    assert index["quarantine_active"] is None
+    assert index["quarantine_custody_status"] == "invalid:quarantine_json_invalid"
+    assert index["quarantine_incident_custody"] == {
+        "status": "custody_invalid",
+        "reason": "quarantine_json_invalid",
+        "attack_established": False,
+        "defensive_consequence_established": False,
+    }
+    assert index["mode_effective_toggles"]["allow_forge_mutation"] is False
+    assert index["mode_effective_toggles"]["allow_publish"] is False
+    assert index["mode_effective_toggles"]["allow_automerge"] is False
