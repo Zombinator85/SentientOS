@@ -130,6 +130,14 @@
       "sha256": "00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
       "bytes": 1878,
       "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca"
+    },
+    {
+      "sequence": 16,
+      "path": "work/construction/segments/0016-source-semantic-reconciliation.md",
+      "predecessor": "segment-sha256:00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
+      "sha256": "8391d4923e4b2b34b9f9c4d40bd3b0438c3a4f672e2f4eedc011b24b0716abd3",
+      "bytes": 2501,
+      "source_commit": "fedbb5fe27a72c714f6aee3a6e468c3367f4d65e"
     }
   ],
   "workspace_reconciliation": {
