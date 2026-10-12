@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "b3dfa6c81b4d78150673bd3a388b453c87645583229d8794be9cca69ac5698f7",
-    "latest_segment_sequence": 48,
-    "latest_segment_sha256": "fcff433068c85015386a897b46aa7027ef847621e59adf82fa4a7a334f045b45",
-    "source_commit": "e433a84a08dd0241afe1f198701df02483d0c213",
-    "source_tree": "a134b4ef9adb97016d900553a9a8eb115debd47c"
+    "checkpoint_sha256": "bfe00ef8845e0932ee6a477cc64087fd9a576897c6103b01b92f3a7b99971187",
+    "latest_segment_sequence": 49,
+    "latest_segment_sha256": "72c8aff67133333f80573be09be0f3b09d67f8388eb606aa13cd846b60eb4afe",
+    "source_commit": "4f653e68a420423c13a092e14bce095e82488fb3",
+    "source_tree": "328b9d730a644df0d49edf3b95fc6e4a236c98e7"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -428,6 +428,15 @@
       "sha256": "fcff433068c85015386a897b46aa7027ef847621e59adf82fa4a7a334f045b45",
       "source_commit": "e433a84a08dd0241afe1f198701df02483d0c213",
       "source_tree": "a134b4ef9adb97016d900553a9a8eb115debd47c"
+    },
+    {
+      "bytes": 1775,
+      "path": "work/construction/segments/0049-history-intervention-and-resource-claim-review.md",
+      "predecessor": "segment-sha256:fcff433068c85015386a897b46aa7027ef847621e59adf82fa4a7a334f045b45",
+      "sequence": 49,
+      "sha256": "72c8aff67133333f80573be09be0f3b09d67f8388eb606aa13cd846b60eb4afe",
+      "source_commit": "4f653e68a420423c13a092e14bce095e82488fb3",
+      "source_tree": "328b9d730a644df0d49edf3b95fc6e4a236c98e7"
     }
   ],
   "source_acquisition": {

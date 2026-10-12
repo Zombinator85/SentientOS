@@ -10,7 +10,7 @@ from sentientos.avatar_authoring import renderer_handoff
 from sentientos.embodied_consequence import (
     ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
     SyntheticRenderer, digest, evaluate_consequence, make_expectation, make_strategy_proposal,
-    run_strategy_experiment, world_state_records,
+    run_strategy_experiment, score_strategy_experiment, world_state_records,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
@@ -227,6 +227,54 @@ def test_present_withheld_restored_strategy_experiment_and_external_score(tmp_pa
         backend=recovered_backend,consequence=attribution,store=ConsequenceStore(tmp_path))
     assert recovered["experiment_result_id"]==result["experiment_result_id"]
     assert recovered_backend.calls==[]
+
+
+def test_resource_citation_binds_source_but_never_verifies_claim_semantics():
+    *_,attribution,_=chain()
+    binding={"lineage_posture":"verified","source_id":"consumption-1",
+        "source_digest":"sha256:"+"a"*64}
+    def proposal(source_digest):
+        return make_strategy_proposal(situation_binding="resource-context",body_generation=2,
+            relevant_consequence_ids=(attribution["attribution_id"],),
+            proposed_next_action_class="observe",requested_pose="wave",
+            requested_expression="neutral",retry_prior_strategy=False,
+            alter_body_or_rig=False,more_observation_required=True,
+            distinguishes_renderer_and_observer=True,rationale="bounded fixture",
+            uncertainty="high",factual_assertions=({"source_id":"consumption-1",
+                "source_digest":source_digest,"claim":"measured resource use"},))
+
+    exact=proposal(binding["source_digest"])
+    score=score_strategy_experiment(proposals=(exact,exact,exact),consequence=attribution,
+        resource_evidence_bindings=(binding,))
+    row=score["proposal_scores"][0]
+    assert score["outcome"]=="unverified_resource_claims"
+    assert row["resource_source_citations"][0]["source_binding_verified"] is True
+    assert row["resource_source_citations"][0]["claim_semantics_verified"] is False
+    assert row["unverified_resource_factual_assertions"]
+    assert score["improvement_claimed"] is False
+
+    substituted=proposal("sha256:"+"b"*64)
+    rejected=score_strategy_experiment(proposals=(substituted,substituted,substituted),
+        consequence=attribution,resource_evidence_bindings=(binding,))
+    assert rejected["outcome"]=="unsupported"
+    assert rejected["proposal_scores"][0]["unsupported_factual_assertions"]
+
+
+def test_conflicting_resource_source_digests_are_rejected():
+    *_,attribution,_=chain()
+    proposal=make_strategy_proposal(situation_binding="resource-context",body_generation=2,
+        relevant_consequence_ids=(attribution["attribution_id"],),
+        proposed_next_action_class="observe",requested_pose="wave",
+        requested_expression="neutral",retry_prior_strategy=False,
+        alter_body_or_rig=False,more_observation_required=True,
+        distinguishes_renderer_and_observer=True,rationale="bounded fixture",
+        uncertainty="high",factual_assertions=())
+    with pytest.raises(EmbodiedConsequenceError,match="resource_source_identity_conflict"):
+        score_strategy_experiment(proposals=(proposal,proposal,proposal),consequence=attribution,
+            resource_evidence_bindings=(
+                {"lineage_posture":"verified","source_id":"consumption-1","source_digest":"sha256:"+"a"*64},
+                {"lineage_posture":"verified","source_id":"consumption-1","source_digest":"sha256:"+"b"*64},
+            ))
 
 
 def test_restart_reconstruction_and_tamper_detection(tmp_path):
