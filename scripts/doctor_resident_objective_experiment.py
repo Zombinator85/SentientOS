@@ -19,6 +19,13 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sentientos.local_model_commissioning import inspect_artifact
+from sentientos.installation_state import (
+    InstallationIdentity, InstallationStateError, InstallationStateRegistry,
+)
+from sentientos.resident_cognitive_model_serving import (
+    ResidentCognitiveModelServingError,
+    load_config as load_serving_config,
+)
 from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError,
     load_config as load_cognition_config,
@@ -99,7 +106,9 @@ def inspect_host_runtime() -> dict[str, Any]:
 
 
 def inspect_readiness(config_path: Path, model_path: Path,
-                      allowed_root: Path) -> dict[str, Any]:
+                      allowed_root: Path, *, serving_config_path: Path | None = None,
+                      installation_registry: InstallationStateRegistry | None = None
+                      ) -> dict[str, Any]:
     host_runtime = inspect_host_runtime()
     findings: dict[str, Any] = {
         "schema_version": "sentientos.resident_objective_experiment_readiness:v1",
@@ -108,6 +117,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
             "resident_configuration": "sentientos.resident_developmental_cognition_config",
             "history_custody": "DevelopmentalHistoryStore.records",
             "artifact_inspection": "sentientos.local_model_commissioning.inspect_artifact",
+            "serving_installation": "InstallationStateRegistry.open_read_only",
         },
         "authority_effect_posture": {
             "model_generation": False, "model_download": False,
@@ -122,6 +132,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
             "per_call_local_model_inference_admission_not_requested",
             "objective_task_history_and_current_context_contamination_review_required",
             "effective_generation_budget_not_observed_at_daemon_runtime",
+            "current_resident_serving_session_not_observed",
         ],
     }
     try:
@@ -163,6 +174,39 @@ def inspect_readiness(config_path: Path, model_path: Path,
                 else "required_posix_custody_primitive_missing")),
         "filesystem_durability": "not_observed",
     }
+    if serving_config_path is None:
+        findings["findings"]["serving_installation"] = {
+            "status": "awaiting_explicit_serving_configuration",
+            "reason_code": "serving_configuration_not_supplied",
+            "active_session_status": "not_observed",
+        }
+    else:
+        try:
+            serving = load_serving_config(str(serving_config_path))
+            if not serving.enabled or not serving.installation_identity:
+                findings["findings"]["serving_installation"] = {
+                    "status": "disabled", "reason_code": "serving_configuration_disabled",
+                    "active_session_status": "not_observed",
+                }
+            else:
+                identity = InstallationIdentity.parse(serving.installation_identity)
+                registry = installation_registry or InstallationStateRegistry.system()
+                registry.open_read_only(identity)
+                findings["findings"]["serving_installation"] = {
+                    "status": "installation_root_verified_read_only",
+                    "installation_identity": identity.value,
+                    "configuration_digest": serving.config_digest,
+                    "active_session_status": "not_observed",
+                    "inference_admission_status": "not_observed",
+                }
+        except (ResidentCognitiveModelServingError, InstallationStateError,
+                OSError, TypeError, ValueError) as exc:
+            code = str(getattr(exc, "code", "") or str(exc))[:160]
+            findings["findings"]["serving_installation"] = {
+                "status": "invalid_or_unavailable",
+                "reason_code": code,
+                "active_session_status": "not_observed",
+            }
     try:
         artifact = inspect_artifact(model_path, allowed_root=allowed_root)
         findings["findings"]["explicit_model_artifact"] = {
@@ -191,7 +235,9 @@ def inspect_readiness(config_path: Path, model_path: Path,
     history_ready = observed.get("developmental_history", {}).get("status") == "eligible_history_present"
     artifact_ready = observed.get("explicit_model_artifact", {}).get("status") == "verified_local_candidate"
     platform_ready = observed["request_custody_platform"]["status"] == "required_primitives_available"
-    if not config_ready or not history_ready or not platform_ready:
+    installation_ready = observed.get("serving_installation", {}).get("status") == \
+        "installation_root_verified_read_only"
+    if not config_ready or not history_ready or not platform_ready or not installation_ready:
         status = "preflight_blocked"
     elif not artifact_ready:
         status = observed.get("explicit_model_artifact", {}).get("status", "awaiting_artifact")
@@ -210,8 +256,11 @@ def main() -> int:
         help="one exact operator-selected local GGUF file")
     parser.add_argument("--allowed-root", required=True, type=Path,
         help="explicit root authorized for the selected artifact")
+    parser.add_argument("--serving-config", type=Path,
+        help="explicit serving config used to validate the installation identity/root")
     args = parser.parse_args()
-    result = inspect_readiness(args.config, args.model_path, args.allowed_root)
+    result = inspect_readiness(args.config, args.model_path, args.allowed_root,
+        serving_config_path=args.serving_config)
     print(json.dumps(result, sort_keys=True, ensure_ascii=False))
     return 0 if result["status"] == "ready_for_operator_review" else 2
 

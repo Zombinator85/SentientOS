@@ -169,6 +169,7 @@ explicitly selected model file:
 ```sh
 python scripts/doctor_resident_objective_experiment.py \
   --config <resident-cognition-config.json> \
+  --serving-config <resident-model-serving-config.json> \
   --model-path <operator-selected-model.gguf> \
   --allowed-root <narrow-authorized-model-root>
 ```
@@ -183,7 +184,13 @@ primitives used by existing custody owners. The WSL field is only a host-marker
 observation. GPU offload, filesystem crash durability, daemon identity, serving,
 and inference admission remain explicitly unobserved; a listed primitive does
 not prove that a particular mount implements the required durability.
-`ready_for_operator_review` means only that these preflight observations passed.
+When an explicit serving configuration is supplied, the doctor resolves its
+installation identity through `InstallationStateRegistry.open_read_only` and
+checks that exact installation root without constructing a serving controller
+or scanning alternate roots. `ready_for_operator_review` means only that these
+preflight observations passed. If the explicit serving configuration is
+omitted or its installation root is unavailable, the doctor returns an
+actionable blocked finding rather than suggesting staging is ready.
 The report always sets `trial_execution_ready` false because this separate
 process cannot observe the daemon's World-State tick, its actual loaded model
 identity, task-specific history/current-context contamination, or the effective
@@ -229,6 +236,7 @@ the exact configured file/root and operator-selected model path:
 ```sh
 python scripts/doctor_resident_objective_experiment.py \
   --config <resident-cognition-config.json> \
+  --serving-config <resident-model-serving-config.json> \
   --model-path <selected-model.gguf> \
   --allowed-root <narrow-model-root>
 

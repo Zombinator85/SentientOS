@@ -8,6 +8,8 @@ from pathlib import Path
 
 import scripts.doctor_resident_objective_experiment as readiness
 import pytest
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.resident_cognitive_model_serving import CONFIG_SCHEMA as SERVING_CONFIG_SCHEMA
 from sentientos.resident_developmental_writeback import DevelopmentalHistoryStore, DevelopmentalRecord, _identity
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -25,6 +27,22 @@ def _config(path: Path, root: Path) -> Path:
         "comparison_enabled": True,
     }))
     return path
+
+
+def _serving(path: Path, registry_root: Path, *, create_installation: bool
+        ) -> tuple[Path, InstallationStateRegistry]:
+    identity = InstallationIdentity("install-1")
+    registry = InstallationStateRegistry._for_testing(registry_root)
+    if create_installation:
+        registry.state_root_for(identity).mkdir(parents=True)
+    path.write_text(json.dumps({
+        "schema_version": SERVING_CONFIG_SCHEMA,
+        "enabled": True,
+        "installation_identity": identity.value,
+        "serving_operation_id": "readiness-doctor-check",
+        "expected_activation_state_digest": "a" * 64,
+    }))
+    return path, registry
 
 
 def test_readiness_is_explicitly_preflight_only_and_does_not_mutate(tmp_path: Path) -> None:
@@ -105,6 +123,8 @@ def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
     store.append(DevelopmentalRecord(record_id, record_digest, record.candidate,
         record.admission_id, record.admission_binding_digest, record.principal,
         record.operation_id, record.correlation_id, record.created_at))
+    serving_path, registry = _serving(tmp_path / "serving.json",
+        tmp_path / "installation-state", create_installation=True)
     monkeypatch.setattr(readiness, "inspect_artifact", lambda *args, **kwargs: {
         "artifact_size_bytes": 123, "model_content_sha256": "a" * 64,
         "semantic_artifact_identity": "sha256:" + "b" * 64,
@@ -112,13 +132,49 @@ def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
         "llama_cpp_dependency_available": True,
     })
 
-    report = readiness.inspect_readiness(config, tmp_path / "selected.gguf", tmp_path)
+    report = readiness.inspect_readiness(config, tmp_path / "selected.gguf", tmp_path,
+        serving_config_path=serving_path, installation_registry=registry)
 
     assert report["status"] == "ready_for_operator_review"
     assert report["trial_execution_ready"] is False
     assert report["findings"]["developmental_history"]["verified_record_count"] == 1
     assert report["findings"]["explicit_model_artifact"]["identity_scope"] == \
         "operator_selected_file_not_resident_loaded_model"
+    assert report["findings"]["serving_installation"]["status"] == \
+        "installation_root_verified_read_only"
+    assert report["findings"]["serving_installation"]["active_session_status"] == "not_observed"
+
+
+def test_readiness_rejects_missing_configured_installation_root(tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "runtime"
+    root.mkdir()
+    config = _config(tmp_path / "cognition.json", root)
+    serving_path, registry = _serving(tmp_path / "serving.json",
+        tmp_path / "installation-state", create_installation=False)
+    store = DevelopmentalHistoryStore(root / "history")
+    record = DevelopmentalRecord("", "", {"interpretation": "fixture only"},
+        "admission-fixture", "binding-fixture", "principal-fixture", "operation-fixture",
+        "tick-fixture", "2026-10-13T00:00:00Z")
+    record_id, record_digest = _identity("devrec", record.semantic_payload())
+    store.append(DevelopmentalRecord(record_id, record_digest, record.candidate,
+        record.admission_id, record.admission_binding_digest, record.principal,
+        record.operation_id, record.correlation_id, record.created_at))
+    monkeypatch.setattr(readiness, "inspect_artifact", lambda *args, **kwargs: {
+        "artifact_size_bytes": 123, "model_content_sha256": "a" * 64,
+        "semantic_artifact_identity": "sha256:" + "b" * 64,
+        "configuration_digest": "sha256:" + "c" * 64,
+        "llama_cpp_dependency_available": True,
+    })
+
+    report = readiness.inspect_readiness(config, tmp_path / "selected.gguf", tmp_path,
+        serving_config_path=serving_path, installation_registry=registry)
+
+    assert report["status"] == "preflight_blocked"
+    assert report["findings"]["serving_installation"]["status"] == "invalid_or_unavailable"
+    assert report["findings"]["serving_installation"]["reason_code"] == \
+        "installation_state_root_missing"
+    assert report["findings"]["serving_installation"]["active_session_status"] == "not_observed"
 
 
 def test_host_runtime_report_is_observational_and_does_not_infer_gpu_or_admission() -> None:
