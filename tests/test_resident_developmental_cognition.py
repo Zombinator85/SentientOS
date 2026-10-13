@@ -557,6 +557,33 @@ def test_recovered_one_shot_score_is_returned_without_replaying_inference(
     assert len(outcome["conditions"]) == 3
     assert len(fake.requests) == calls_at_interruption
 
+    from scripts.inspect_resident_objective_result import inspect_result
+    cognition_config = tmp_path / "cognition-config.json"
+    cognition_config.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry"], "max_selected_facts": 1,
+        "max_retrieved_records": 4, "comparison_enabled": True}), encoding="utf-8")
+    serving_config = tmp_path / "serving-config.json"
+    serving_config.write_text(json.dumps({"schema_version": "sentientos.resident_cognitive_model_serving_config:v1",
+        "enabled": True, "installation_identity": "install-1", "serving_operation_id": "inspect-operation",
+        "expected_activation_state_digest": "a" * 64}), encoding="utf-8")
+    from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+    registry = InstallationStateRegistry._for_testing(tmp_path / "installation-state")
+    registry.open(InstallationIdentity("install-1"), create=True)
+    before = {path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*") if path.is_file()}
+    inspected = inspect_result(cognition_config_path=cognition_config,
+        serving_config_path=serving_config, request_id=request["request_id"],
+        request_digest=request["request_digest"], installation_registry=registry)
+    after = {path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*") if path.is_file()}
+    assert inspected["status"] == "verified_objective_measurement"
+    assert inspected["measurement_digest"] == outcome["measurement_digest"]
+    assert inspected["recovery_posture"] == "completed_run_loaded_without_inference_replay"
+    assert inspected["actual_nonsynthetic_inference_verified"] is False
+    assert after == before
+    assert len(fake.requests) == calls_at_interruption
+
 
 def test_read_only_objective_result_inspection_reconciles_existing_custody(tmp_path: Path) -> None:
     from scripts.inspect_resident_objective_result import inspect_result
