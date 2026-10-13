@@ -14,10 +14,40 @@ from sentientos.developmental_model_replacement_experiment import ObjectivePredi
 from sentientos.resident_developmental_cognition import (
     CONFIG_ENV,
     ResidentDevelopmentalCognitionError,
+    inspect_checkpointed_history_record_refs,
     load_config,
     objective_request_payload,
     stage_objective_request,
 )
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
+)
+from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionVerifier
+
+
+def stage_request(*, config_path: str | Path, request_id: str,
+        task: ObjectivePredictionTask) -> tuple[Path, dict[str, object], int]:
+    """Stage only after read-only verification of committed eligible history."""
+    config = load_config(config_path)
+    if not config.enabled or not config.comparison_enabled:
+        raise ResidentDevelopmentalCognitionError("history_comparison_not_enabled")
+    ledger = AdmissionLedger(config.state_root / "runtime_admissions.json")
+    writeback = ResidentDevelopmentalWritebackController(
+        history_root=config.history_root,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions={RESIDENT_DEVELOPMENTAL_WRITEBACK:
+                RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}, ledger=ledger),
+        current_sequence=ledger.current_sequence)
+    refs = inspect_checkpointed_history_record_refs(
+        config.state_root / "composition_state.json", writeback=writeback,
+        limit=config.max_retrieved_records)
+    if not refs:
+        raise ResidentDevelopmentalCognitionError(
+            "objective_intervention_requires_checkpointed_history")
+    payload = objective_request_payload(request_id=request_id, task=task)
+    path = stage_objective_request(config.state_root, request_id=request_id, task=task)
+    return path, dict(payload), len(refs)
 
 
 def main() -> int:
@@ -40,16 +70,15 @@ def main() -> int:
     task = ObjectivePredictionTask(args.multiplier, args.offset, args.probe[0],
         tuple(args.probe[1:]))
     try:
-        config = load_config(args.config)
-        if not config.enabled or not config.comparison_enabled:
-            raise ResidentDevelopmentalCognitionError("history_comparison_not_enabled")
-        payload = objective_request_payload(request_id=args.request_id, task=task)
-        path = stage_objective_request(config.state_root, request_id=args.request_id, task=task)
+        path, payload, history_record_count = stage_request(
+            config_path=args.config, request_id=args.request_id, task=task)
     except (ResidentDevelopmentalCognitionError, OSError, ValueError) as exc:
         parser.exit(2, f"blocked: {exc}\n")
     print(json.dumps({"status": "staged_not_authorized", "path": str(path),
         "request_id": args.request_id, "request_digest": payload["request_digest"],
-        "task_descriptor": payload["task_descriptor"], "model_invoked": False,
+        "task_descriptor": payload["task_descriptor"],
+        "verified_checkpointed_history_record_count": history_record_count,
+        "model_invoked": False,
         "serving_activated": False, "authority_granted": False}, sort_keys=True))
     return 0
 

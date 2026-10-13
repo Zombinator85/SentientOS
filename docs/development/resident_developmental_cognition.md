@@ -89,8 +89,12 @@ python scripts/stage_resident_objective_intervention.py \
 The command uses `SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG` (or an
 explicit `--config`) and only writes
 `pending_objective_intervention.json` under that configuration's state root.
-Its output says `staged_not_authorized`: it does not load a model, admit a call,
-or grant serving authority. On the next daemon tick with an exact World-State
+Before writing, it read-only verifies that a completed cognition checkpoint
+names at least one record whose writeback admission and receipt still verify;
+uncheckpointed or interrupted record publication is not treated as eligible,
+and staging is refused when no such history exists. The check never repairs
+composition or history custody. Its output says `staged_not_authorized`: it
+does not load a model, admit a call, or grant serving authority. On the next daemon tick with an exact World-State
 snapshot, the configured resident owner reads the request through bounded
 no-follow file custody on POSIX. The current private publication and cognition
 state owners remain unsupported on Windows; the staging command reports that

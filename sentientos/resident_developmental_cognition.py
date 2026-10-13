@@ -338,6 +338,79 @@ def stored_objective_request_record(state_root: str | Path, *,
         "authority": False}
 
 
+def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
+        writeback: ResidentDevelopmentalWritebackController,
+        limit: int = MAX_HISTORY) -> tuple[tuple[str, str], ...]:
+    """Return admitted history named by completed cognition ticks, without repair.
+
+    A valid record/receipt pair that has not yet been committed into the
+    composition checkpoint is not eligible for a staged history intervention.
+    The ordinary resident owner's recovery path may reconcile it later; this
+    operator-side inspection never does so.
+    """
+    if type(limit) is not int or not 1 <= limit <= MAX_HISTORY:
+        raise ResidentDevelopmentalCognitionError("checkpointed_history_limit_invalid")
+    try:
+        raw = read_explicit_file(Path(state_path), max_bytes=MAX_COMPOSITION_STATE_BYTES)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) == "explicit_file_missing":
+            return ()
+        raise ResidentDevelopmentalCognitionError(
+            "checkpointed_history_state_unavailable") from exc
+    try:
+        state = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+        if (not isinstance(state, dict)
+                or json.dumps(state, indent=2, sort_keys=True).encode("utf-8") + b"\n" != raw):
+            raise ValueError("noncanonical")
+        semantic = dict(state)
+        claimed = semantic.pop("state_digest")
+        completed = semantic.get("completed_ticks")
+        incomplete = semantic.get("incomplete_ticks", [])
+        processed = semantic.get("processed_selection_ids")
+        if (semantic.get("schema") not in {STATE_SCHEMA, LEGACY_STATE_SCHEMA}
+                or claimed != _digest(semantic)
+                or not isinstance(completed, list)
+                or not isinstance(incomplete, list)
+                or not isinstance(processed, list)
+                or any(not isinstance(row, dict) for row in completed + incomplete)
+                or any(not isinstance(item, str) for item in processed)
+                or len(completed) + len(incomplete) > MAX_RECOVERED_TICKS
+                or len(processed) > MAX_RECOVERED_FACT_IDS):
+            raise ValueError("state binding")
+    except (UnicodeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
+        raise ResidentDevelopmentalCognitionError(
+            "checkpointed_history_state_invalid") from exc
+
+    try:
+        verified = writeback.inspect_completed_records()
+    except Exception as exc:
+        raise ResidentDevelopmentalCognitionError(
+            "checkpointed_history_admission_unavailable") from exc
+    verified_by_id = {record.record_id: (record, receipt)
+        for record, receipt in verified}
+    if len(verified_by_id) != len(verified):
+        raise ResidentDevelopmentalCognitionError(
+            "checkpointed_history_identity_conflict")
+    refs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for row in completed:
+        record_id, receipt_id = row.get("record_id"), row.get("receipt_id")
+        if record_id is None and receipt_id is None:
+            continue
+        if (not isinstance(record_id, str) or not record_id
+                or not isinstance(receipt_id, str) or not receipt_id
+                or record_id in seen):
+            raise ResidentDevelopmentalCognitionError(
+                "checkpointed_history_reference_invalid")
+        pair = verified_by_id.get(record_id)
+        if pair is None or pair[1].receipt_id != receipt_id:
+            raise ResidentDevelopmentalCognitionError(
+                "checkpointed_history_reference_unverified")
+        seen.add(record_id)
+        refs.append((record_id, pair[0].record_digest))
+    return tuple(refs[-limit:])
+
+
 def objective_task_for_request(request: Mapping[str, Any]) -> Any:
     """Return a task object only after validating the complete staged request."""
     request_id = request.get("request_id") if isinstance(request, Mapping) else None

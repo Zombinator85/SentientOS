@@ -1,0 +1,93 @@
+{
+  "acceptance": {
+    "cognition_and_experiment_tests": {
+      "failed": 0,
+      "passed": 91
+    },
+    "commands": [
+      "python -m py_compile sentientos/resident_developmental_cognition.py scripts/stage_resident_objective_intervention.py tests/test_resident_developmental_cognition.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_sentientosd_runtime_closure.py"
+    ],
+    "daemon_runtime_closure_tests": {
+      "failed": 0,
+      "passed": 28
+    },
+    "new_regression_cases": [
+      "no checkpointed history refuses without creating request",
+      "admitted checkpoint allows staging",
+      "malformed state refuses without request publication",
+      "receipt substitution refuses without request publication",
+      "staging preserves checkpoint, records, and writeback receipts"
+    ],
+    "python": "CPython 3.12 in isolated local source workspace",
+    "source_behavior": "fixture invokers; no real model or host observations"
+  },
+  "changed_files": {
+    "docs/development/resident_developmental_cognition.md": {
+      "bytes": 18764,
+      "git_blob": "996a3133210e532de923dc34e4cffad636e24b8d",
+      "sha256": "1cbce37cff3071e8dff0a27fbd7e5b719c9b04cf077acd1618cec1053f545fdf"
+    },
+    "scripts/stage_resident_objective_intervention.py": {
+      "bytes": 4114,
+      "git_blob": "fe24b9d1a8d1982f3005c1d607d979415a8562f4",
+      "sha256": "0c030d97f63bd4425255ffabb40442c97882f70abcf5282d3044b60178337695"
+    },
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 226275,
+      "git_blob": "49f3ea777fbbeccf301ae054a90e077666588ce7",
+      "sha256": "a218f8273e7f1a4aef7c3fc93771bd59888894c373f651df128e7e7e8dfcfbf8"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 184081,
+      "git_blob": "88bf4814c18d1dd1efd347a6452ef36fc6db2930",
+      "sha256": "1539585a5ea9ab6790817234b88eab8aef0649d703bbbb6623777f5f749b8808"
+    }
+  },
+  "existing_first_experience_path": {
+    "configured_world_state_fact_to_governed_writeback": true,
+    "later_tick_history_retrieval": true,
+    "test_scope": "fixture-backed source and invokers; no real user-host event or model learning evidence"
+  },
+  "hosted_checks_seq124": {
+    "docs": "failure_docs_build_invokes_protected_administrator_gate",
+    "helm_kubernetes_smoke": "success",
+    "invariants": "failure_protected_prompt_assembler_administrator_gate_at_collection",
+    "self_check": "failure_runner_lacks_glow_roots_and_protected_forge_ci_gate",
+    "source_validation": "success"
+  },
+  "implementation": {
+    "digest_and_canonical_bytes_required": true,
+    "exact_record_receipt_reconciled_against_writeback_admission": true,
+    "history_or_admission_repair": false,
+    "inference_or_authority_added": false,
+    "missing_or_malformed_or_substituted_history_blocks_staging": true,
+    "read_only_composition_checkpoint_verification": true
+  },
+  "next_dependency": "operator-side genuine POSIX-host experience event, exact configured daemon/serving binding, existing per-call inference admission, and cold-process verified held-out transfer",
+  "previous_segment_sha256": "e466658264edd93bdf47edcce858a22c3930782d7a49f8974886489d0486332b",
+  "publication_limits": {
+    "authority_expanded": false,
+    "production_verified": false,
+    "provider_egress": false,
+    "real_model_invoked": false,
+    "windows_or_wsl_verified": false
+  },
+  "schema_version": 1,
+  "sequence": 125,
+  "source_commit": "595deea9c2eeaa2fdc44cccb31b8ee25334a9eab",
+  "source_finding": "staging without checkpointed admitted history could durably consume a one-shot request that the resident owner then terminally blocked",
+  "source_review": {
+    "git_diff_check": "unavailable because isolated source workspace has no .git directory",
+    "trailing_whitespace": "none in changed files",
+    "utf8_decode": "passed"
+  },
+  "source_tree": "ed9eb60f8d4ee5a393baca906a662d27eebf0383",
+  "typing": {
+    "command": ".venv/bin/mypy sentientos/resident_developmental_cognition.py scripts/stage_resident_objective_intervention.py --follow-imports=silent",
+    "errors": 15,
+    "exit_code": 1,
+    "interpretation": "pre-existing diagnostics in the large cognition owner; no errors in new helper or script ranges"
+  }
+}

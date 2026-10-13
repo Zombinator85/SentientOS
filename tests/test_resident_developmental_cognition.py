@@ -1036,7 +1036,6 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert projected[0]["payload"]["objective_evaluation"] == run["objective_evaluation"]
     assert "output_text" not in json.dumps(projected)
     assert len(fake.requests) == request_count
-
     state = restarted._state()
     intent = next(row for row in state["incomplete_ticks"]
         if row.get("tick_id") == "final-score-recovery-trial")
@@ -1047,6 +1046,76 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         restarted.run_tick(snapshot=snapshot(), tick_id="final-score-recovery-trial")
     assert len(fake.requests) == request_count
 
+
+def test_operator_staging_requires_read_only_checkpointed_admitted_history(tmp_path: Path) -> None:
+    from scripts.stage_resident_objective_intervention import stage_request
+
+    config_path = tmp_path / "resident-cognition.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry"], "max_selected_facts": 1,
+        "max_retrieved_records": 4, "comparison_enabled": True}), encoding="utf-8")
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    request_path = tmp_path / "state" / "pending_objective_intervention.json"
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="objective_intervention_requires_checkpointed_history"):
+        stage_request(config_path=config_path, request_id="history-not-yet-committed", task=task)
+    assert not request_path.exists()
+
+    cognition, _ = owner(tmp_path, comparison=True)
+    first = cognition.run_tick(snapshot=snapshot(), tick_id="stage-preflight-history-seed")
+    assert first.written_record_id and first.writeback_receipt_id
+    state_before = cognition.state_path.read_bytes()
+    record_ids_before = tuple(sorted(path.name for path in cognition.writeback.store.records_root.glob("*.json")))
+    receipt_ids_before = tuple(sorted(path.name for path in cognition.writeback.store.receipts_root.glob("*.json")))
+    staged_path, payload, verified_count = stage_request(
+        config_path=config_path, request_id="history-now-committed", task=task)
+    assert staged_path == request_path and verified_count == 1
+    assert payload["request_id"] == "history-now-committed"
+    assert load_objective_request(tmp_path / "state")["request_digest"] == payload["request_digest"]
+    assert cognition.state_path.read_bytes() == state_before
+    assert tuple(sorted(path.name for path in cognition.writeback.store.records_root.glob("*.json"))) == record_ids_before
+    assert tuple(sorted(path.name for path in cognition.writeback.store.receipts_root.glob("*.json"))) == receipt_ids_before
+
+    malformed_root = tmp_path / "malformed"
+    malformed_root.mkdir()
+    malformed_config = tmp_path / "malformed-config.json"
+    malformed_config.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(malformed_root / "history"),
+        "state_root": str(malformed_root / "state"),
+        "allowed_source_kinds": ["capability_registry"], "max_selected_facts": 1,
+        "max_retrieved_records": 4, "comparison_enabled": True}), encoding="utf-8")
+    (malformed_root / "state").mkdir()
+    (malformed_root / "state" / "composition_state.json").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="checkpointed_history_state_invalid"):
+        stage_request(config_path=malformed_config,
+            request_id="malformed-checkpoint", task=task)
+    assert not (malformed_root / "state" / "pending_objective_intervention.json").exists()
+
+    conflict_root = tmp_path / "receipt-conflict"
+    conflict_config = tmp_path / "receipt-conflict-config.json"
+    conflict_config.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(conflict_root / "history"),
+        "state_root": str(conflict_root / "state"),
+        "allowed_source_kinds": ["capability_registry"], "max_selected_facts": 1,
+        "max_retrieved_records": 4, "comparison_enabled": True}), encoding="utf-8")
+    conflict_owner, _ = owner(conflict_root, comparison=True)
+    assert conflict_owner.run_tick(snapshot=snapshot(),
+        tick_id="receipt-conflict-seed").written_record_id
+    state_path = conflict_owner.state_path
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    semantic = dict(state)
+    semantic.pop("state_digest")
+    semantic["completed_ticks"][0]["receipt_id"] = "substituted-receipt"
+    state["completed_ticks"] = semantic["completed_ticks"]
+    state["state_digest"] = "sha256:" + digest_payload(semantic)
+    state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="checkpointed_history_reference_unverified"):
+        stage_request(config_path=conflict_config,
+            request_id="substituted-receipt", task=task)
+    assert not (conflict_root / "state" / "pending_objective_intervention.json").exists()
 
 def test_missing_final_score_keeps_interrupted_trial_unfinalized(tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch) -> None:
