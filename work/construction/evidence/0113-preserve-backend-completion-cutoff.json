@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "source_commit": "e3026d7e1ad2b168866b9e2bbe7aef867c1908a1",
+  "source_tree": "0047818010033c909aafd485f8dfe103163b4478",
+  "parent_commit": "ab59e452b354d1f4deaa3b7ec895b63c43b32cef",
+  "parent_tree": "7ffd0ec164eb5bb3ec0e5f164b704f5336006a93",
+  "changed_files": {
+    "sentientos/local_model.py": {
+      "git_blob": "1b8de3da5457d5d55f585139467dfa5ad8167a27",
+      "sha256": "ea275295713d47438273fb4818405f8d044c3fb8d0eed8d0edd90cfab5aefbf3"
+    },
+    "sentientos/governed_local_model_invocation.py": {
+      "git_blob": "8fe4eaba015901fea9aa91489ba6c710f1fef4d6",
+      "sha256": "5d33410b953476cc4f27285ce3f532edc6b36b508fedc856e737204157fc99cb"
+    },
+    "sentientos/host_resource_runtime.py": {
+      "git_blob": "e56110aec1b0a7957e9b137f4ef353badd54ae34",
+      "sha256": "59f60fcb2a2d1db03dbe58d9a0f9b0c7bac2d6a6b17f3cb63019aa8c011d2db6"
+    },
+    "sentientos/resident_developmental_cognition.py": {
+      "git_blob": "ff011ba7e288679b46a5b46a683a33cd697f3dd8",
+      "sha256": "6e8a289da2577595065b760f8767bbaf10030c244409f9032ae07c690b9b9c0c"
+    },
+    "tests/test_local_model.py": {
+      "git_blob": "9f096da1b16e0adb5449b77f3655f7078f23736f",
+      "sha256": "699642e43267065d59464d453732170d16a6fdce50555bf79d24839819d95d7c"
+    },
+    "tests/test_governed_local_model_invocation.py": {
+      "git_blob": "e08de952033b7334cb81a486c629eab4f84533e4",
+      "sha256": "9fc30320917123b21029e4f3e467174f623312f454911b648bcb6021541447af"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "git_blob": "7227d7a0dcc87a651e4e672d5049c72f9bd37862",
+      "sha256": "d8f0167a312caee64f6abee84f5f53fae50f2e2ed305eaa375997077fd66ec7f"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "git_blob": "974ac745582a72342ed53aa96adee477ed75e9d0",
+      "sha256": "c5acb1c78cf0ae9e46ca124aae02e91a58013698754ac36b85ee0923aba291ee"
+    }
+  },
+  "validation": {
+    "focused_suite_1": {
+      "passed": 133,
+      "failed": 0,
+      "skipped": 0,
+      "modules": [
+        "local model",
+        "governed invocation",
+        "resident developmental cognition",
+        "history intervention",
+        "objective scoring",
+        "host resource runtime"
+      ]
+    },
+    "focused_suite_2": {
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0,
+      "modules": [
+        "resident cognitive serving",
+        "local-model serving inference",
+        "governed resource invocation composition",
+        "host resource runtime"
+      ],
+      "overlap": "host resource runtime also appears in suite 1; totals are not additive"
+    },
+    "py_compile": "passed for changed Python modules and tests",
+    "whitespace": "passed after removing one existing trailing-space line in edited module",
+    "llama_backend_behavior": "mocked create_chat_completion reported finish_reason=length and bounded token usage; governed v3 receipt validated and downstream objective score became unscoreable",
+    "actual_model_loaded": false,
+    "actual_nonsynthetic_inference": false,
+    "production_verified": false,
+    "remote_branch_cas": {
+      "expected": "ab59e452b354d1f4deaa3b7ec895b63c43b32cef",
+      "published": "e3026d7e1ad2b168866b9e2bbe7aef867c1908a1",
+      "succeeded": true
+    },
+    "remote_file_blobs": "all eight changed file blobs independently matched",
+    "hosted_statuses": [],
+    "hosted_workflow_runs": []
+  },
+  "boundaries": {
+    "provider_invocation": false,
+    "production_activation": false,
+    "new_authority": false,
+    "backend_stop_reason_independently_attested": false
+  }
+}

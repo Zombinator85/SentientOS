@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Last independently verified implementation commit `f3b8e80b1d54ef56fcfadba1fc86b848d9dfa748`, tree `564b197bd26d4c08df25b00f5604ff44fb04b7ec`. Sequence 112 binds invocation generation configuration back to verified receipts and exposes the effective token ceiling in read-only outcome summaries.
+Last independently verified implementation commit `e3026d7e1ad2b168866b9e2bbe7aef867c1908a1`, tree `0047818010033c909aafd485f8dfe103163b4478`. Sequence 113 adds digest-bound, versioned llama.cpp completion metadata and makes token-limit-reported outputs unscoreable.
 
-Latest segment: `work/construction/segments/0112-bind-effective-generation-ceilings.md`
-SHA-256: `0e54a94a2dc3300e05c0f72257632e709c4b86d1a41e55899517e8bba4bc38a2`
-Evidence: `work/construction/evidence/0112-bind-effective-generation-ceilings.json`
-Evidence SHA-256: `cc33b6ff05b3403f17eed60143bba13f5d16eca49f55a92e55d7f7c659c87ec5`
-Sequence: 112
+Latest segment: `work/construction/segments/0113-preserve-backend-completion-cutoff.md`
+SHA-256: `f95f7aa8f7fd5c750c63ba4f60af244e91a1496a7aac8e83e0ebbe9e4a5d3843`
+Evidence: `work/construction/evidence/0113-preserve-backend-completion-cutoff.json`
+Evidence SHA-256: `7befbad862cf29aaae15d29ae09b79c8df9f93b61cc45e49430bf04107b4fe74`
+Sequence: 113
 
-Focused acceptance: 117 passed; 0 failed; 0 skipped. Changed Python compiled. Fixture runs remain synthetic; actual model, backend completion reason, and production are unverified.
+Focused acceptance: 133 passed, then 27 passed in serving/resource consumers (host-resource suite overlaps). Changed Python compiled and whitespace checks passed. Backend response evidence came from a fake. No actual model or production behavior was exercised.
 
-Next dependency: determine whether the existing local backend can provide a bounded completion-stop/token observation through authenticated receipt custody without changing historical receipt meaning. Otherwise continue the exact external Windows/CUDA prerequisites and operator handoff; do not treat absent stop metadata or host observation as proof.
+Next dependency: reconcile exact local artifact, runtime, commissioned identity, serving and inference admission prerequisites with the current operator readiness/staging/result commands, and verify the supported host boundary. The repository artifact is still an LFS pointer and the external Windows/CUDA machine is not observable here. Do not initiate real inference until existing authorization and authentic custody are evidenced.
