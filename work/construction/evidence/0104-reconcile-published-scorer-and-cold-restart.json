@@ -1,0 +1,77 @@
+{
+  "actual_model_invoked": false,
+  "base_commit": "b9ce905af905920d0c21e260eef73de6a9708ac5",
+  "base_tree": "deb351e76e9cf50b4720c66bbbd25bd6a521914b",
+  "changed_runtime_source": false,
+  "cold_restart": {
+    "fresh_interpreter": true,
+    "reconstructed_from_installation_and_durable_owner_custody": true,
+    "serialized_world_state_surrogate": false,
+    "epistemic_state_and_self_model_reconstructed": true,
+    "later_tick_cognition_consumed_history": true,
+    "test": "tests/test_developmental_model_replacement_resource_lineage_integration.py"
+  },
+  "focused_test_run": {
+    "collected": 124,
+    "failed": 0,
+    "passed": 124,
+    "skipped": 0,
+    "modules": [
+      "tests/test_developmental_objective_scoring.py",
+      "tests/test_developmental_model_replacement_experiment.py",
+      "tests/test_developmental_history_intervention_experiment.py",
+      "tests/test_developmental_model_replacement_resource_lineage_integration.py",
+      "tests/test_resident_developmental_cognition.py"
+    ],
+    "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-v5-full-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-v5-full-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-v5-full-kernel SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-v5-full-runtime SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact .venv/bin/python -m pytest -q tests/test_developmental_objective_scoring.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_resource_lineage_integration.py tests/test_resident_developmental_cognition.py --tb=short"
+  },
+  "source_compile": {
+    "status": "passed",
+    "files": [
+      "sentientos/developmental_model_replacement_experiment.py",
+      "sentientos/developmental_history_intervention_experiment.py",
+      "sentientos/production_chat_resource_observation.py",
+      "sentientos/host_resource_runtime.py",
+      "sentientos/resident_developmental_cognition.py",
+      "sentientos/resident_developmental_writeback.py"
+    ]
+  },
+  "targeted_mypy": {
+    "status": "passed",
+    "files": [
+      "sentientos/developmental_model_replacement_experiment.py",
+      "sentientos/developmental_history_intervention_experiment.py"
+    ],
+    "follow_imports": "skip"
+  },
+  "ordinary_repository_mypy": {
+    "status": "non_clean",
+    "diagnostics": 507,
+    "files": 87,
+    "source": "sequence 103 evidence; not rerun"
+  },
+  "hosted_checks": {
+    "commit": "b9ce905af905920d0c21e260eef73de6a9708ac5",
+    "checks": [
+      {"name": "Source validation (unprivileged)", "status": "completed", "conclusion": "success", "check_run_id": 115084464671},
+      {"name": "helm-k8s-test", "status": "completed", "conclusion": "success", "check_run_id": 115084464654},
+      {"name": "docs", "status": "completed", "conclusion": "failure", "check_run_id": 115084464786},
+      {"name": "self-check", "status": "completed", "conclusion": "failure", "check_run_id": 115084464494},
+      {"name": "invariants", "status": "completed", "conclusion": "failure", "check_run_id": 115084464298}
+    ],
+    "rerun": false
+  },
+  "real_model_transfer": {
+    "status": "blocked_on_external_authorized_prerequisites",
+    "required": [
+      "operator-commissioned model artifact",
+      "authenticated model-development provenance",
+      "explicitly admitted local serving and inference route",
+      "actual receipt-backed local inference"
+    ]
+  },
+  "loaded_code_identity": "not_independently_attested",
+  "production_verified": false,
+  "provider_egress": false,
+  "schema_version": 1
+}

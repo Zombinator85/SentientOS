@@ -1,11 +1,13 @@
 # Active construction checkpoint
 
-Last independently verified remote HEAD `da44db5c4f847f32855115a81a37e9d27435b69f`, tree `4a28e970d9b28c0355113fb923164109e7c43148`. Sequence 103 clears the focused mypy diagnostics in the digest-only objective-score and history-intervention owners. The exact modules now pass with imports skipped; the ordinary transitive repository check remains non-clean at 507 findings across 87 files.
+Last independently verified remote HEAD `b9ce905af905920d0c21e260eef73de6a9708ac5`, tree `deb351e76e9cf50b4720c66bbbd25bd6a521914b`. Sequence 104 reconfirms that the scorer is already published, records terminal hosted check status, and verifies cold-restart reconstruction through real owner custody.
 
-Latest segment: work/construction/segments/0103-clean-targeted-experiment-types.md
-SHA-256: b1f6b32ab8d0526a2b6d7e0575612222c48c017157dd6ad138bf43156e19cfe8
-Sequence: 103
+Latest segment: work/construction/segments/0104-reconcile-published-scorer-and-cold-restart.md
+SHA-256: b475c890e11766505ff3840341501166baba254a4260a4288c33b80d76f10503
+Evidence: work/construction/evidence/0104-reconcile-published-scorer-and-cold-restart.json
+Evidence SHA-256: 1fb13006248cc3ffefe8fba08ebba5fae3138d6253f33b2a3e47db47393dac71
+Sequence: 104
 
-Focused tests selected: 5 passed; both changed modules compile. No runtime behavior changed, no model/provider was invoked, and no production verification occurred.
+Focused experiment/recovery run: 124 passed, 0 failed, 0 skipped. Six source owners compile; focused mypy on the two experiment modules passes. No model/provider invocation or production verification occurred.
 
-Next exact dependency: observe the final hosted status for sequence 102 without rerunning protected jobs, then inspect the next source-backed experimental attribution dependency. Real-model transfer still requires commissioned artifacts, receipts, and explicit approval.
+Next dependency: the operator must supply a commissioned model artifact with authenticated development provenance and explicit local serving/inference admission before a real-model objective trial can run. Until then, only source-backed readiness work that does not claim model effects is supportable.
