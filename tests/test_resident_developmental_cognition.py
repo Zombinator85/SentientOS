@@ -546,6 +546,85 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert recovered["objective_evaluation"]["restoration_correct_probe_delta"] == 0
 
 
+def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
+        tmp_path: Path) -> None:
+    """A fixture progression reports exact episodes and never claims learning."""
+    from scripts.stage_resident_objective_intervention import stage_request
+
+    fake = SessionBoundFakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    acquisition = cognition.run_tick(snapshot=snapshot(), tick_id="progression-history-seed")
+    assert acquisition.written_record_id
+    config_path = tmp_path / "progression-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    requests: list[tuple[str, str]] = []
+    for index, probes in enumerate(((7, 8, 9), (10, 11, 12)), start=1):
+        task = ObjectivePredictionTask(3, 2, probes[0], probes[1:],
+            task_family_id="integer_affine_prediction")
+        request_id = f"progression-episode-{index}"
+        stage_request(config_path=config_path, request_id=request_id, task=task)
+        request = load_objective_request(tmp_path / "state")
+        assert request is not None
+        result = cognition.run_objective_intervention_once(snapshot=snapshot(),
+            tick_id=f"progression-tick-{index}", objective_task=objective_task_for_request(request),
+            request_id=request["request_id"], request_digest=request["request_digest"])
+        assert result.changed_cognition_measurement_id
+        requests.append((request_id, request["request_digest"]))
+
+    progression = cognition.verified_objective_task_family_progression(
+        request_refs=tuple(reversed(requests)))
+    assert progression["status"] == "comparable_scored_episodes"
+    assert progression["task_family_id"] == "integer_affine_prediction"
+    assert progression["episode_count"] == 2
+    assert [episode["tick_id"] for episode in progression["episodes"]] == [
+        "progression-tick-1", "progression-tick-2"]
+    assert progression["same_model_generation_controls"] is True
+    assert progression["distinct_task_instances"] is True
+    assert progression["distinct_probe_sets"] is True
+    assert progression["actual_nonsynthetic_inference_verified"] is False
+    assert progression["learning_established"] is False
+    assert progression["performance_improvement_established"] is False
+    assert all("multiplier" not in json.dumps(episode)
+        for episode in progression["episodes"])
+    before = len(fake.requests)
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    recovered = restarted.verified_objective_task_family_progression(request_refs=tuple(requests))
+    assert recovered == progression
+    assert len(fake.requests) == before
+    # A changed effective generation ceiling must split the trajectory rather
+    # than being averaged into a same-model progression claim.
+    fake.effective_generation_ceiling = 128
+    third_task = ObjectivePredictionTask(3, 2, 13, (14, 15),
+        task_family_id="integer_affine_prediction")
+    stage_request(config_path=config_path, request_id="progression-episode-3", task=third_task)
+    third_request = load_objective_request(tmp_path / "state")
+    assert third_request is not None
+    third_result = restarted.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="progression-tick-3", objective_task=objective_task_for_request(third_request),
+        request_id=third_request["request_id"], request_digest=third_request["request_digest"])
+    assert third_result.changed_cognition_measurement_id
+    changed = restarted.verified_objective_task_family_progression(
+        request_refs=(*requests, (third_request["request_id"], third_request["request_digest"])))
+    assert changed["status"] == "descriptive_episodes_not_comparable"
+    assert changed["same_model_generation_controls"] is False
+    assert changed["actual_nonsynthetic_inference_verified"] is False
+    assert changed["performance_improvement_established"] is False
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="objective_progression_episode_count_invalid"):
+        restarted.verified_objective_task_family_progression(request_refs=tuple(requests) * 9)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="objective_progression_duplicate_request"):
+        restarted.verified_objective_task_family_progression(request_refs=(requests[0], requests[0]))
+
+
 @pytest.mark.parametrize("mode,delta,stable,assessment", [
     ("derive_from_history", 1, True, "single_preregistered_task_scored"),
     ("no_difference", 0, True, "single_preregistered_task_scored"),

@@ -1,0 +1,47 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "commands": [
+      "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest --override-ini addopts= -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixture_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 163,
+    "production_acceptance": "deferred",
+    "tests": [
+      "task-family acquisition through ordinary writeback and transfer",
+      "multi-episode progression chronology is independent of request order",
+      "same model/generation profile permits descriptive comparability",
+      "changed effective generation ceiling prevents comparability",
+      "restarted owner reconstructs identical report without additional invocation",
+      "duplicate and over-limit reference rejection"
+    ]
+  },
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 246485,
+      "git_blob": "6453f45de8264b1ab768b729a8e3d1808a75712e",
+      "sha256": "2a59caa76bab535f8dc34e524dcabe739c5510666afa53883020e486a666e6b0"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 197032,
+      "git_blob": "c03173efb8a3804a33f5e8bef8f991be3a3d65ec",
+      "sha256": "e622017332c98edcd523ca87fc492586675b2ac1ffa433a1d1eb5e28487d52d9"
+    }
+  },
+  "implementation": {
+    "chronology": "Digest-verified completed_ticks order; never caller order or recovery wall time.",
+    "claim_boundary": "Score progression remains descriptive task correctness. Fixture inference is marked non-synthetic-inference-verified=false; performance improvement and learning are always false.",
+    "controls": "Per-condition model ID, artifact digest, active serving identity, generation-configuration digest, and aggregate profile digest are bound into each bounded episode.",
+    "metric": "Correct probe counts with exact denominator per history-present, withheld, and restored condition; task instance and probe-set identities must be distinct for comparability.",
+    "owner": "ResidentDevelopmentalCognitionOwner.verified_objective_task_family_progression",
+    "recovery": "Read-only reconstruction from completed request custody; reports no inference replay. Incomplete referenced episodes return explicit incomplete status.",
+    "verification": "Reconstructs exact requests, completed cognition checkpoints, experiment runs, objective scores, and each governed invocation receipt using existing owner verifiers."
+  },
+  "objective": "Report a bounded chronology of verified family-task episodes with exact model/generation controls and explicit non-learning semantics.",
+  "schema_version": 1,
+  "sequence": 128,
+  "source_commit": "f7045aeeae311d2afeb3841f86bdfa5f66248f69",
+  "source_tree": "c13f46be0fe3164c9946f446ddca5b5db520ca3a"
+}

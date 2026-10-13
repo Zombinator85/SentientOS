@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping, cast
+from typing import Any, Callable, Iterator, Mapping, Sequence, cast
 
 from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -1458,6 +1458,21 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             and dict(observed_generation) == dict(verified_generation))
         actual_parameters = (verified_generation.get("actual_generation_parameters")
             if generation_binding_verified else None)
+        active_model_identity = observation.get("active_model_identity")
+        model_profile = None
+        if (generation_binding_verified and isinstance(active_model_identity, Mapping)
+                and isinstance(observation.get("model_id"), str)
+                and (observation.get("model_artifact_digest") is None
+                    or isinstance(observation.get("model_artifact_digest"), str))):
+            exact_profile = {"model_id": observation.get("model_id"),
+                "model_artifact_digest": observation.get("model_artifact_digest"),
+                "active_model_identity": dict(active_model_identity),
+                "generation_config": dict(verified_generation)}
+            model_profile = {"model_id": exact_profile["model_id"],
+                "model_artifact_digest": exact_profile["model_artifact_digest"],
+                "active_model_identity": exact_profile["active_model_identity"],
+                "generation_config_digest": _digest(exact_profile["generation_config"]),
+                "profile_digest": _digest(exact_profile)}
         effective_tokens = (actual_parameters.get("max_new_tokens")
             if isinstance(actual_parameters, Mapping) else None)
         if type(effective_tokens) is int and type(requested_tokens) is int:
@@ -1491,6 +1506,7 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
         if not isinstance(score, Mapping):
             raise ResidentDevelopmentalCognitionError("objective_outcome_score_invalid")
         outputs.append({"condition_id": condition, "receipt_status": receipt_status,
+            "model_generation_profile": model_profile,
             "inference_receipt_id": observation.get("inference_receipt_id"),
             "inference_receipt_digest": observation.get("inference_receipt_digest"),
             "output_digest": observation.get("output_digest"),
@@ -1511,11 +1527,23 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
                 "output_truncated": wrapper.get("output_truncated", False),
                 "backend_completion_reason_verified": False,
             }})
+    descriptor = dict(request["task_descriptor"])
+    task_specification = dict(request["task"])
+    task_family = None
+    if task_specification.get("schema_version") == (
+            "sentientos.affine_prediction_task_family_suite:v3"):
+        task_family = {"task_family_id": descriptor.get("task_family_id"),
+            "family_posture": descriptor.get("family_posture"),
+            "probe_inputs": list(descriptor.get("probe_inputs", ())),
+            "probe_count": descriptor.get("probe_count"),
+            "task_digest": descriptor.get("task_digest"),
+            "requires_task_family_history": descriptor.get("requires_task_family_history")}
     return {"status": "verified_objective_measurement", "measurement_id": measurement_id,
         "measurement_digest": run.get("run_digest"), "request_id": request["request_id"],
         "request_digest": request["request_digest"], "protocol_id": protocol.protocol_id,
         "protocol_digest": protocol.protocol_digest,
         "objective_task_plan_digest": plan.get("plan_digest"),
+        "task_family": task_family,
         "objective_evaluation": dict(evaluation), "conditions": outputs,
         "contamination_assessment": run.get("contamination_assessment", {
             "schema_version": "sentientos.objective_task_contamination_assessment:v1",
@@ -2101,6 +2129,148 @@ class ResidentDevelopmentalCognitionOwner:
         result["recovery_posture"] = ("completed_run_loaded_without_inference_replay"
             if not completed else "completed_run_loaded")
         return result
+
+    def verified_objective_task_family_progression(self, *,
+            request_refs: Sequence[tuple[str, str]]) -> Mapping[str, Any]:
+        """Build a bounded, read-only chronology from receipt-verified family runs.
+
+        This describes scored episodes and exact execution controls; it is not
+        a learning or general-capability claim.  The completed-tick journal,
+        not caller order or wall-clock reconstruction time, defines chronology.
+        """
+        if (not isinstance(request_refs, Sequence) or isinstance(request_refs, (str, bytes))
+                or not 2 <= len(request_refs) <= 16):
+            raise ResidentDevelopmentalCognitionError(
+                "objective_progression_episode_count_invalid")
+        refs: dict[str, str] = {}
+        for reference in request_refs:
+            if (not isinstance(reference, (tuple, list)) or len(reference) != 2
+                    or not all(isinstance(value, str) and value and len(value) <= 256
+                        for value in reference)):
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_reference_invalid")
+            request_id, request_digest = reference
+            prior = refs.get(request_id)
+            if prior is not None:
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_duplicate_request")
+            refs[request_id] = request_digest
+
+        state = self._state()
+        completed = state["completed_ticks"]
+        incomplete = state["incomplete_ticks"]
+        rows_by_request: dict[str, list[tuple[str, Mapping[str, Any]]]] = {}
+        for posture, rows in (("completed", completed), ("incomplete", incomplete)):
+            for row in rows:
+                request_id = row.get("objective_request_id")
+                if request_id in refs:
+                    rows_by_request.setdefault(str(request_id), []).append((posture, row))
+        for request_id, expected_digest in refs.items():
+            rows = rows_by_request.get(request_id, [])
+            if len(rows) != 1 or rows[0][1].get("objective_request_digest") != expected_digest:
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_checkpoint_identity_conflict")
+            if rows[0][0] != "completed":
+                return {"schema_version": "sentientos.objective_task_family_progression:v1",
+                    "status": "incomplete_episode_present",
+                    "incomplete_request_id": request_id,
+                    "incomplete_request_digest": expected_digest,
+                    "tick_id": rows[0][1].get("tick_id"),
+                    "recovery_posture": rows[0][1].get("status", "incomplete"),
+                    "inference_replayed": False, "authority": False}
+
+        episodes: list[dict[str, Any]] = []
+        for row in completed:
+            request_id = row.get("objective_request_id")
+            if request_id not in refs:
+                continue
+            verified = self.verified_objective_measurement_for_request(
+                request_id=str(request_id), request_digest=refs[str(request_id)])
+            if (verified.get("status") != "verified_objective_measurement"
+                    or not isinstance(verified.get("measurement_digest"), str)):
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_measurement_unverified")
+            family = verified.get("task_family")
+            if (not isinstance(family, Mapping)
+                    or not isinstance(family.get("task_family_id"), str)
+                    or not isinstance(family.get("task_digest"), str)
+                    or not isinstance(family.get("probe_inputs"), list)
+                    or type(family.get("probe_count")) is not int
+                    or family.get("probe_count") != len(family["probe_inputs"])):
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_task_family_required")
+            conditions = verified.get("conditions")
+            if (not isinstance(conditions, list) or len(conditions) != len(CONDITION_ORDER)
+                    or tuple(item.get("condition_id") for item in conditions
+                        if isinstance(item, Mapping)) != CONDITION_ORDER):
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_condition_set_invalid")
+            profiles = [item.get("model_generation_profile") for item in conditions]
+            profile_digests = [profile.get("profile_digest")
+                if isinstance(profile, Mapping) else None for profile in profiles]
+            score_rows = []
+            for item in conditions:
+                assert isinstance(item, Mapping)
+                count = item.get("correct_count")
+                score_rows.append({"condition_id": item.get("condition_id"),
+                    "correct_count": count if type(count) is int else None,
+                    "probe_count": family["probe_count"],
+                    "scoreable": type(count) is int,
+                    "score_digest": item.get("score_digest"),
+                    "output_digest": item.get("output_digest"),
+                    "inference_receipt_id": item.get("inference_receipt_id"),
+                    "inference_receipt_digest": item.get("inference_receipt_digest")})
+            semantic = {"request_id": request_id,
+                "request_digest": refs[str(request_id)],
+                "episode_ordinal": len(episodes) + 1,
+                "tick_id": row.get("tick_id"),
+                "measurement_id": verified.get("measurement_id"),
+                "measurement_digest": verified.get("measurement_digest"),
+                "task_family": dict(family),
+                "model_generation_profiles": [dict(profile)
+                    if isinstance(profile, Mapping) else None for profile in profiles],
+                "model_generation_profile_digests": profile_digests,
+                "scoreable": all(item["scoreable"] for item in score_rows),
+                "conditions": score_rows,
+                "actual_nonsynthetic_inference_verified":
+                    verified.get("actual_nonsynthetic_inference_verified") is True}
+            episodes.append(semantic)
+        if len(episodes) != len(refs):
+            raise ResidentDevelopmentalCognitionError(
+                "objective_progression_checkpoint_missing")
+        family_ids = {episode["task_family"]["task_family_id"] for episode in episodes}
+        task_digests = [episode["task_family"]["task_digest"] for episode in episodes]
+        probe_keys = [_digest(episode["task_family"]["probe_inputs"]) for episode in episodes]
+        profiles_comparable = all(
+            episode["model_generation_profile_digests"]
+                and None not in episode["model_generation_profile_digests"]
+            for episode in episodes)
+        profile_vectors = [tuple(episode["model_generation_profile_digests"])
+            for episode in episodes]
+        same_profile = profiles_comparable and len(set(profile_vectors)) == 1
+        distinct_tasks = len(set(task_digests)) == len(task_digests)
+        distinct_probes = len(set(probe_keys)) == len(probe_keys)
+        scored = all(episode["scoreable"] for episode in episodes)
+        comparable = (len(family_ids) == 1 and distinct_tasks and distinct_probes
+            and same_profile and scored)
+        semantic = {"schema_version": "sentientos.objective_task_family_progression:v1",
+            "status": "comparable_scored_episodes" if comparable else
+                "descriptive_episodes_not_comparable",
+            "task_family_id": next(iter(family_ids)) if len(family_ids) == 1 else None,
+            "episode_count": len(episodes), "episodes": episodes,
+            "same_model_generation_controls": same_profile,
+            "distinct_task_instances": distinct_tasks,
+            "distinct_probe_sets": distinct_probes,
+            "all_episodes_scoreable": scored,
+            "actual_nonsynthetic_inference_verified": all(
+                episode["actual_nonsynthetic_inference_verified"] for episode in episodes),
+            "interpretation": "descriptive_task_correctness_only",
+            "performance_improvement_established": False,
+            "learning_established": False, "authority": False,
+            "canonical_explicit_user_retention": False,
+            "inference_replayed": False}
+        return {**semantic, "progression_id": "objective-progression-" +
+            _digest(semantic)[7:31], "progression_digest": _digest(semantic)}
 
     def _verify_observation_invocation(self, observation: Mapping[str, Any]) -> Mapping[str, Any] | None:
         """Reconcile a session-bound cognition row to its exact governed receipt."""
