@@ -163,6 +163,24 @@ class FakeInvoker:
                     multiplier = (y2 - y1) // (x2 - x1)
                     offset = y1 - multiplier * x1
                     answers = [multiplier * probe + offset for probe in probes]
+            elif self.objective_mode == "derive_from_admitted_family":
+                examples = []
+                for packet in history:
+                    for experience in packet.get("task_relevant_experience", ()):
+                        if (isinstance(experience, Mapping)
+                                and experience.get("task_family_id") == descriptor.get("task_family_id")
+                                and experience.get("event_scope") ==
+                                    "scored_benchmark_outcome_not_external_environmental_event"):
+                            examples.extend((int(item["probe_input"]), int(item["observed_answer"]))
+                                for item in experience.get("examples", ())
+                                if isinstance(item, Mapping)
+                                and type(item.get("probe_input")) is int
+                                and type(item.get("observed_answer")) is int)
+                if len(examples) >= 2:
+                    (x1, y1), (x2, y2) = examples[:2]
+                    multiplier = (y2 - y1) // (x2 - x1)
+                    offset = y1 - multiplier * x1
+                    answers = [multiplier * probe + offset for probe in probes]
             elif self.objective_mode == "no_difference":
                 answers = [23 for _ in probes]
             elif self.objective_mode == "degrade":
@@ -1412,6 +1430,116 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert transfer_retrieval["history_present"] == [retained.record_id]
     assert transfer_retrieval["history_withheld"] == []
     assert transfer_retrieval["history_restored"] == [retained.record_id]
+
+
+def test_admitted_family_example_supports_second_heldout_episode_after_restart(
+        tmp_path: Path) -> None:
+    """Fixture-only episode chain: acquired examples are reused after owner reconstruction."""
+    from scripts.stage_resident_objective_intervention import stage_request
+
+    fake = SessionBoundFakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    config_path = tmp_path / "objective-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="episode-seed").written_record_id
+
+    acquisition_task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="integer_affine_prediction")
+    _, acquisition_request, _ = stage_request(config_path=config_path,
+        request_id="episode-acquisition", task=acquisition_task)
+    acquisition = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="episode-acquisition", objective_task=acquisition_task,
+        request_id="episode-acquisition", request_digest=str(acquisition_request["request_digest"]))
+    acquisition_run = cognition.experiments.load_run(
+        str(acquisition.changed_cognition_measurement_id))
+    source_world = WorldStateBoardBuilder().build(cognition.experiments.world_state_records(
+        run_refs=((acquisition_run["run_id"], acquisition_run["run_digest"]),)))
+    feedback = cognition.run_tick(snapshot=source_world, tick_id="episode-acquisition-feedback")
+    assert feedback.written_record_id
+    admitted = cognition.writeback.store.get(feedback.written_record_id)
+    family_fact = next(fact for fact in admitted.candidate["selected_facts"]
+        if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
+    assert family_fact["payload"]["acquisition_examples"]
+    from sentientos.resident_developmental_cognition import _task_family_history_examples
+    projected_examples = _task_family_history_examples(admitted.candidate,
+        task_family_id="integer_affine_prediction")
+    assert len(projected_examples) == 1
+    assert projected_examples[0]["source_fact_id"] == family_fact["fact_id"]
+    assert projected_examples[0]["examples"] == [{
+        "probe_input": row["probe_input"], "observed_answer": row["observed_answer"],
+        "evaluator_correct": row["evaluator_correct"]}
+        for row in family_fact["payload"]["acquisition_examples"]]
+    assert _task_family_history_examples(admitted.candidate,
+        task_family_id="unrelated_family") == []
+    assert "multiplier" not in json.dumps(projected_examples)
+    assert "offset" not in json.dumps(projected_examples)
+
+    # Reconstruct a fresh composition owner from durable checkpoint/history.
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    heldout_task = ObjectivePredictionTask(3, 2, 10, (11, 12),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, heldout_request, eligible_count = stage_request(config_path=config_path,
+        request_id="episode-heldout-after-restart", task=heldout_task)
+    assert eligible_count >= 1
+    fake.objective_mode = "derive_from_admitted_family"
+    heldout_snapshot = snapshot()
+    heldout = restarted.run_objective_intervention_once(snapshot=heldout_snapshot,
+        tick_id="episode-heldout-after-restart", objective_task=heldout_task,
+        request_id="episode-heldout-after-restart",
+        request_digest=str(heldout_request["request_digest"]))
+    heldout_run = restarted.experiments.load_run(str(heldout.changed_cognition_measurement_id))
+    present, withheld, restored = heldout_run["conditions"]
+    assert feedback.written_record_id in present["retrieved_record_ids"]
+    assert withheld["retrieved_record_ids"] == []
+    assert feedback.written_record_id in restored["retrieved_record_ids"]
+    scores = {row["condition_id"]: row["score"]
+        for row in heldout_run["objective_scores"]}
+    assert scores["history_present"]["correct_count"] == 3
+    assert scores["history_withheld"]["correct_count"] == 0
+    assert scores["history_restored"]["correct_count"] == 3
+    # Exact request correlation binds each control to this held-out tick.
+    heldout_prompts = {request.correlation_id.rsplit(":", 1)[-1]: request.prompt
+        for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and request.correlation_id.startswith("episode-heldout-after-restart:")
+        and request.prompt.lstrip().startswith("{")}
+    for condition_id, prompt in heldout_prompts.items():
+        body = json.loads(prompt)
+        assert not any("task_relevant_experience" in fact
+            for fact in body["current_evidence"]["facts"])
+        if condition_id in {"history_present", "history_restored"}:
+            assert "task_relevant_experience" in json.dumps(body["developmental_history"])
+        else:
+            assert "task_relevant_experience" not in json.dumps(body["developmental_history"])
+    assert "multiplier" not in json.dumps(heldout_prompts)
+    assert "offset" not in json.dumps(heldout_prompts)
+    assert "learning_established" not in heldout_run["objective_evaluation"]
+    assert heldout_run["objective_evaluation"]["scope"] == \
+        "same_model_task_correctness_not_general_learning_or_weight_change"
+    progression = restarted.verified_objective_task_family_progression(request_refs=(
+        ("episode-acquisition", str(acquisition_request["request_digest"])),
+        ("episode-heldout-after-restart", str(heldout_request["request_digest"]))))
+    assert progression["episode_count"] == 2
+    assert progression["distinct_task_instances"] is True
+    assert progression["distinct_probe_sets"] is True
+    second_episode = progression["episodes"][1]
+    assert second_episode["task_family_history_record_ids"] == [feedback.written_record_id]
+    assert second_episode["conditions"][0]["task_family_retrieved_record_ids"] == [
+        feedback.written_record_id]
+    assert second_episode["conditions"][1]["task_family_retrieved_record_ids"] == []
+    assert second_episode["conditions"][2]["task_family_retrieved_record_ids"] == [
+        feedback.written_record_id]
+    assert progression["actual_nonsynthetic_inference_verified"] is False
+    assert progression["learning_established"] is False
+    assert progression["performance_improvement_established"] is False
 
 
 def test_legacy_oracle_hashes_are_excluded_from_current_cognition(tmp_path: Path) -> None:

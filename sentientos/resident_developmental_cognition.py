@@ -1037,9 +1037,109 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
     return sorted(summaries, key=lambda item: str(item["fact_id"]))
 
 
+def _task_family_history_examples(candidate: Mapping[str, Any], *,
+        task_family_id: str | None) -> list[dict[str, Any]]:
+    """Project only admitted, score-bound examples matching the requested family."""
+    if not isinstance(task_family_id, str) or not task_family_id:
+        return []
+    facts = candidate.get("selected_facts", ())
+    sources = candidate.get("selected_sources", ())
+    if not isinstance(facts, (list, tuple)) or not isinstance(sources, (list, tuple)):
+        return []
+    source_by_id = {str(source.get("source_id")): source for source in sources
+        if isinstance(source, Mapping) and isinstance(source.get("source_id"), str)}
+    projected: list[dict[str, Any]] = []
+    for fact in facts[:MAX_FACTS]:
+        if not isinstance(fact, Mapping):
+            continue
+        payload = fact.get("payload")
+        subject = fact.get("subject")
+        source = fact.get("source")
+        if (not isinstance(payload, Mapping) or not isinstance(subject, Mapping)
+                or not isinstance(source, Mapping)
+                or subject.get("subject_kind")
+                    != "developmental_history_intervention_experiment"
+                or payload.get("objective_task_family") != task_family_id
+                or payload.get("task_family_posture") != "operator_declared_protocol_bound"
+                or payload.get("objective_task_commitment_posture")
+                    != "salted_private_oracle_commitment:v1"):
+            continue
+        descriptor = payload.get("objective_task_descriptor")
+        run_id, run_digest = payload.get("run_id"), payload.get("run_digest")
+        source_id = source.get("source_id")
+        source_digest = source.get("digest")
+        if (not isinstance(descriptor, Mapping)
+                or descriptor.get("task_family_id") != task_family_id
+                or descriptor.get("task_digest_posture")
+                    != "salted_private_oracle_commitment:v1"
+                or not isinstance(descriptor.get("task_digest"), str)
+                or len(descriptor["task_digest"]) != 71
+                or not descriptor["task_digest"].startswith("sha256:")
+                or not isinstance(run_id, str) or not run_id
+                or not isinstance(run_digest, str) or not run_digest.startswith("sha256:")
+                or source_id != "developmental-history-run:" + run_id
+                or subject.get("subject_id") != run_id
+                or source.get("kind") != "embodiment"
+                or not isinstance(source_digest, str) or len(source_digest) != 64
+                or any(character not in "0123456789abcdef" for character in source_digest)
+                or source_by_id.get(str(source_id), {}).get("digest") != source_digest):
+            continue
+        score_rows = payload.get("objective_scores")
+        examples = payload.get("acquisition_examples")
+        if not isinstance(score_rows, (list, tuple)) or not isinstance(examples, (list, tuple)):
+            continue
+        score = next((item for item in score_rows if isinstance(item, Mapping)
+            and item.get("condition_id") == "history_present"), None)
+        if (not isinstance(score, Mapping)
+                or score.get("schema_version") != "sentientos.objective_task_score:v3"
+                or score.get("task_digest") != descriptor.get("task_digest")
+                or score.get("evaluator") != "deterministic_exact_integer_suite_oracle_v2"
+                or not isinstance(score.get("score_digest"), str)
+                or len(score["score_digest"]) != 71
+                or not score["score_digest"].startswith("sha256:")
+                or not 1 <= len(examples) <= 16):
+            continue
+        rows: list[dict[str, Any]] = []
+        valid = True
+        for example in examples:
+            if (not isinstance(example, Mapping)
+                    or set(example) != {"probe_input", "observed_answer", "evaluator_correct",
+                        "source_score_digest", "source_condition"}
+                    or type(example.get("probe_input")) is not int
+                    or type(example.get("observed_answer")) is not int
+                    or type(example.get("evaluator_correct")) is not bool
+                    or example.get("source_score_digest") != score.get("score_digest")
+                    or example.get("source_condition") != "history_present"):
+                valid = False
+                break
+            rows.append({key: example[key] for key in (
+                "probe_input", "observed_answer", "evaluator_correct")})
+        if not valid:
+            continue
+        projected.append({
+            "schema_version": "sentientos.task_family_history_examples:v1",
+            "task_family_id": task_family_id,
+            "task_family_posture": "operator_declared_protocol_bound",
+            "source_fact_id": fact.get("fact_id"),
+            "source_binding": {key: source.get(key) for key in (
+                "source_id", "kind", "digest")},
+            "source_run_id": run_id, "source_run_digest": run_digest,
+            "source_task_digest": descriptor["task_digest"],
+            "source_score_digest": score["score_digest"],
+            "evaluator": score["evaluator"],
+            "event_scope": "scored_benchmark_outcome_not_external_environmental_event",
+            "examples": rows,
+            "historical_only": True, "current_truth": False, "authority": False,
+        })
+        if len(projected) >= 4:
+            break
+    return projected
+
+
 def _history_context_packet(record: Mapping[str, Any], *,
         include_source_evidence_context: bool = True,
-        compact_for_input_budget: bool = False) -> dict[str, Any]:
+        compact_for_input_budget: bool = False,
+        task_family_id: str | None = None) -> dict[str, Any]:
     """Project a verified durable record to the bounded semantics cognition needs.
 
     Durable writeback retains the full source request/output for recovery and
@@ -1067,6 +1167,10 @@ def _history_context_packet(record: Mapping[str, Any], *,
         "epistemic_posture": record.get("epistemic_posture"),
         "current_truth": False, "authority": False, "policy": False,
     }
+    task_examples = _task_family_history_examples(candidate,
+        task_family_id=task_family_id)
+    if task_examples:
+        packet["task_relevant_experience"] = task_examples
     if compact_for_input_budget:
         interpretation = candidate.get("interpretation")
         if isinstance(interpretation, str) and len(interpretation) > 1200:
@@ -1123,8 +1227,10 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         ) -> tuple[dict[str, Any], dict[str, Any], str, tuple[str, ...], tuple[str, ...]]:
     """Fit whole recent history packets and epistemic packets to one input bound."""
     packet_modes = ((True, False), (False, False), (False, True))
+    task_family_id = context.get("developmental_history_task_family_id")
     packets_by_mode = {mode: tuple(_history_context_packet(record,
-        include_source_evidence_context=mode[0], compact_for_input_budget=mode[1])
+        include_source_evidence_context=mode[0], compact_for_input_budget=mode[1],
+        task_family_id=task_family_id if isinstance(task_family_id, str) else None)
         for record in records) for mode in packet_modes}
     full_packets = packets_by_mode[packet_modes[0]]
     available = tuple({"record_id": packet["record_id"],
@@ -1146,7 +1252,6 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 "inference_input_budget" if omitted else None)
             retrieval_policy = context.get("developmental_history_retrieval_policy_id",
                 "completed_tick_recency_suffix:v1")
-            task_family_id = context.get("developmental_history_task_family_id")
             custody_selection = {"schema_version": "sentientos.developmental_history_selection:v1",
                 "policy": "most_recent_complete_record_suffix:v1",
                 "retrieval_policy_id": retrieval_policy,
