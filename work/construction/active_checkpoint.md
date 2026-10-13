@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Task-family developmental examples now preserve the experiment owner's bounded execution-evidence posture through admitted history and later cognition. Exact receipt digests remain linked to the corresponding condition receipt identities. Historical evidence lacking this field remains explicitly unavailable rather than being upgraded during reconstruction. This path is exercised with fixture-only simulated receipts.
+Task-family history is selected by exact public-probe overlap and checkpoint recency, with adverse outcomes retained. The experiment preregisters the exact complete history packets admitted by bounded inference context, while binding the full available set, omitted identities, omission reason, and selection manifest. Strict condition drift checks remain in force. Current validation is fixture based.
 
-Latest source commit: cabb61b31de94c50b5375e2eedee70cd2e099069
-Latest source tree: 49564edd7381f823a5836c3784147851db637d25
-Latest segment: work/construction/segments/0171-task-family-execution-posture.md
-Segment SHA-256: 61bd62d0c49a76b6678384ae89812af0fc83bd6ceaf1cf2a68ff9eb7131d3573
-Evidence: work/construction/evidence/0171-task-family-execution-posture.json
-Evidence SHA-256: 89dcab7eb11c93ee9bef8061be8cacd30b3c34629ade953ad6ce2dd54e4bb114
-Sequence: 171
+Latest source commit: 32c1291a481416b207a8f6947f3f959df8982970
+Latest source tree: 615c8439fc9607690c4498b982ed9973d0421059
+Latest segment: work/construction/segments/0172-bounded-task-relevance-and-protocol-identity.md
+Segment SHA-256: 54cd1eb808dec1d9377e8bb85e4ee53daa53e88c293a0b47d06772083146c76c
+Evidence: work/construction/evidence/0172-bounded-task-relevance-and-protocol-identity.json
+Evidence SHA-256: ead34c37a6e5819cd54d68dcc15b9355b5e7b48a61cc54566557d5ab599fae6f
+Sequence: 172
 
-Next: implement bounded source/task relevance selection and preserve adverse as well as positive experience across another later episode. A real-model acquisition/transfer run still requires an actual configured model artifact and existing serving authorization; no provider or model activation is permitted here.
+Next: adversarially validate bounded selection under a saturated prompt with competing positive and adverse task-family records, stable tie-breaking, omission evidence, and downstream outcome lineage. A real-model transfer run remains unmeasured; no model activation or production authority was used.
