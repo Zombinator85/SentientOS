@@ -515,17 +515,73 @@ def test_interrupted_scored_family_run_recovers_into_later_world_state_without_r
     issued_count = len(fake.requests)
     assert sum(1 for item in fake.requests[before:]
         if "objective_task_plan_digest" in item.upstream_evidence) == 3
+    assert cognition.inspect_completed_objective_experiment_run_refs() == ()
+    receipt_path = tmp_path / "interrupted-fixture-receipts.json"
+    receipt_path.write_text(json.dumps({receipt_id: receipt.to_dict()
+        for receipt_id, receipt in fake.receipts.items()}, sort_keys=True), encoding="utf-8")
+    child_code = r'''
+import json, sys
+from pathlib import Path
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION)
+from sentientos.resident_developmental_cognition import (
+    ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner)
+from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 
-    # The read-only observer does not repair the interrupted intent. The
-    # ordinary recovery accessor reconstructs the completed run from scores.
+root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
+receipts = json.loads(receipt_path.read_text(encoding="utf-8"))
+class PersistedFixtureReceiptVerifier:
+    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+        value = receipts[receipt_id]
+        assert value["receipt_id"] == receipt_id and value["receipt_digest"] == receipt_digest
+        request = value["request"]
+        assert request["request_id"] == expected["expected_request_id"]
+        assert request["request_digest"] == expected["expected_request_digest"]
+        assert request["active_model_identity"] == expected["expected_active_model_identity"]
+        serving = request["linkage"]["resident_cognitive_serving"]
+        assert serving["session_id"] == expected["expected_session_id"]
+        assert serving["activation_state_semantic_digest"] == expected[
+            "expected_session_binding"]["activation_state_semantic_digest"]
+        return value
+ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
+definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+def sequence(): return ledger.current_sequence()
+writeback = ResidentDevelopmentalWritebackController(
+    history_root=root / "history",
+    admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+    current_sequence=sequence)
+owner = ResidentDevelopmentalCognitionOwner(
+    config=ResidentDevelopmentalCognitionConfig(root / "history", root / "state",
+        ("capability_registry", "embodiment"), 16, 4, True),
+    writeback=writeback,
+    admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+    invoker=PersistedFixtureReceiptVerifier(), current_sequence=sequence)
+refs = owner.recovered_objective_experiment_run_refs()
+projectable = owner.inspect_completed_objective_experiment_run_refs()
+outcome = owner.verified_objective_measurement_for_request(
+    request_id="interrupted-family-run",
+    request_digest=json.loads((root / "state" / "pending_objective_intervention.json").read_text())[
+        "request_digest"])
+print(json.dumps({"refs": refs, "projectable": projectable,
+    "status": outcome["status"],
+    "measurement_digest": outcome["measurement_digest"],
+    "actual_nonsynthetic_inference_verified":
+        outcome["actual_nonsynthetic_inference_verified"]}, sort_keys=True))
+'''
+    child = subprocess.run([sys.executable, "-c", child_code, str(tmp_path), str(receipt_path)],
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=True)
+    child_result = json.loads(child.stdout.strip().splitlines()[-1])
+    assert child_result["status"] == "verified_objective_measurement"
+    assert child_result["actual_nonsynthetic_inference_verified"] is True
+    assert len(child_result["refs"]) == 1 and child_result["projectable"] == child_result["refs"]
+
+    # The independent parent owner sees the run recovered by the child and
+    # does not issue another inference or change its identity.
     restarted, _ = owner(tmp_path, comparison=True, invoker=fake,
         allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
-    assert restarted.inspect_completed_objective_experiment_run_refs() == ()
-    checkpoint_before_inspection = restarted.state_path.read_bytes()
-    incomplete_report = restarted.verified_objective_task_family_progression(
-        request_refs=((staged["request_id"], staged["request_digest"]),))
-    assert incomplete_report["status"] == "incomplete_episode_present"
-    assert restarted.state_path.read_bytes() == checkpoint_before_inspection
+    assert restarted.inspect_completed_objective_experiment_run_refs() == tuple(
+        tuple(item) for item in child_result["refs"])
     recovered_refs = restarted.recovered_objective_experiment_run_refs()
     assert len(recovered_refs) == 1
     run_id, run_digest = recovered_refs[0]
