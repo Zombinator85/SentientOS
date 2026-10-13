@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `cce384313f81b0745bdfd47c8c9d948dfdd90ebf`, tree `fce3a67ff4f39ad31594f8b44e1583e4d6ab075a`. Sequence 98 recovers a fully score-checkpointed interrupted history intervention as a verified, source-selectable run without repeating inference; missing score custody remains incomplete. Three affected modules passed 101 focused tests. Mypy remains unverified due repository import/config diagnostics; production remains unverified.
+Last independently verified remote HEAD `a54d7b59e392bbe0a6cac440a83ab4c3a4ef0f45`, tree `08cfebba40eb9aea8fb59c62e7041109d745b273`. Sequence 99 records the launcher/source-bound process evidence and its explicit `not_independently_attested` loaded-code limit. Three real-governed-invocation cognition tests now isolate their governance owner roots; the four focused objective/history/cognition modules passed 122/122 on the exact source tree with canonical test installation and bounded runtime roots. The launcher/process owner suites passed 17 with one legacy-marked case skipped by policy. Changed test code compiled. All results are fixture-only; production and actual-model execution remain unverified.
 
-Latest segment: work/construction/segments/0098-recover-checkpointed-objective-run.md
-SHA-256: 8ea34f9560f1f742e9227159ee5c765a497e05add4c6b9ce90eaea727ded0111
-Sequence: 98
+Latest segment: work/construction/segments/0099-loaded-code-boundary-and-test-custody.md
+SHA-256: 5087097211ad7eed034abce87a380c18dd06ecd9e2b5fc748f0a178993a6a9e9
+Sequence: 99
 
-Actual model execution remains blocked by missing local payload, commissioned identity, independent serving admission, and exact operator approval. Loaded-code identity remains `not_independently_attested`.
+Actual commissioned-model execution remains blocked by missing artifact bytes/runtime receipt, exact preregistered model protocol, operator approval, and independent serving/per-inference admission. Loaded-code identity remains `not_independently_attested` because no external loaded-image observer/issuer exists in the current owner graph.
 
-Next: inspect the runtime-generation observation boundary against launcher and installation source owners, then continue to the next concrete causal integration gap.
+Next: continue with the next source-supported readiness/recovery dependency without treating launcher generation as loaded-image proof. Retain the explicit real-model prerequisites and do not replay or simulate an approved trial.

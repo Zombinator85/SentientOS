@@ -5,6 +5,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from collections.abc import Iterator
 
 import pytest
 
@@ -35,6 +36,9 @@ from sentientos.resident_developmental_writeback import (
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.runtime_governor import reset_runtime_governor
+from sentientos.federated_governance import reset_controller as reset_federated_governance
+from sentientos.pulse_trust_epoch import reset_manager as reset_pulse_trust_epoch
+from sentientos.trust_ledger import reset_trust_ledger
 from sentientos.integrity_quarantine import QuarantineState, save_state
 from sentientos.integrity_incident import build_incident, write_incident
 from sentientos.world_state_board import WorldStateBoardBuilder
@@ -2316,7 +2320,34 @@ def governed_owner(root: Path, *, backend: HermeticCognitionBackend, comparison:
     return owner_value, invoker
 
 
-def test_real_governed_invocation_output_is_retained_without_a_lesson_only_call(tmp_path: Path) -> None:
+@pytest.fixture
+def isolated_governed_runtime_roots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[None]:
+    """Keep real local-invocation admission custody inside each hermetic test."""
+    roots = {
+        "SENTIENTOS_GOVERNOR_ROOT": tmp_path / "governor",
+        "SENTIENTOS_FEDERATION_ROOT": tmp_path / "federation",
+        "SENTIENTOS_CONTROL_KERNEL_ROOT": tmp_path / "kernel",
+        "PULSE_TRUST_EPOCH_ROOT": tmp_path / "pulse-trust",
+    }
+    for name, path in roots.items():
+        monkeypatch.setenv(name, str(path))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(roots["PULSE_TRUST_EPOCH_ROOT"] / "state.json"))
+    def reset_governance_owners() -> None:
+        reset_runtime_governor()
+        reset_federated_governance()
+        reset_pulse_trust_epoch()
+        reset_trust_ledger()
+
+    reset_governance_owners()
+    yield
+    reset_governance_owners()
+
+
+def test_real_governed_invocation_output_is_retained_without_a_lesson_only_call(
+    tmp_path: Path, isolated_governed_runtime_roots: None,
+) -> None:
     backend = HermeticCognitionBackend("keep the observation's original scope")
     composition, invoker = governed_owner(tmp_path, backend=backend)
     composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
@@ -2337,7 +2368,9 @@ def test_real_governed_invocation_output_is_retained_without_a_lesson_only_call(
     assert result.cognition_observation_ids == (provenance["observation_id"],)
 
 
-def test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them(tmp_path: Path) -> None:
+def test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them(
+    tmp_path: Path, isolated_governed_runtime_roots: None,
+) -> None:
     backend = HermeticCognitionBackend("lesson A")
     composition, _invoker = governed_owner(tmp_path, backend=backend)
     composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
@@ -2360,7 +2393,9 @@ def test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them(tmp_pat
     assert any(second_record.record_id in prompt for prompt in later_backend.calls)
 
 
-def test_real_invoker_null_candidate_does_not_turn_the_conclusion_into_a_lesson(tmp_path: Path) -> None:
+def test_real_invoker_null_candidate_does_not_turn_the_conclusion_into_a_lesson(
+    tmp_path: Path, isolated_governed_runtime_roots: None,
+) -> None:
     backend = HermeticCognitionBackend("conclusion with no scoped lesson")
     backend.no_lesson = True
     composition, _ = governed_owner(tmp_path, backend=backend)
