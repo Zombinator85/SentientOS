@@ -1211,6 +1211,16 @@ print(json.dumps({"context_id": context["context_id"],
             "task_family_retrieved_record_ids"] == []
         assert conditions_by_id["history_restored"][
             "task_family_retrieved_record_ids"] == relevant
+    for episode in progression["episodes"]:
+        counts = {condition["condition_id"]: condition["correct_count"]
+            for condition in episode["conditions"]}
+        contrast = episode["score_contrasts"]
+        assert contrast["probe_denominator"] == len(episode["task_family"]["probe_inputs"])
+        assert contrast["history_present_minus_withheld_correct_count"] == (
+            counts["history_present"] - counts["history_withheld"])
+        assert contrast["history_restored_minus_present_correct_count"] == (
+            counts["history_restored"] - counts["history_present"])
+        assert contrast["learning_established"] is False
     assert progression["actual_nonsynthetic_inference_verified"] is False
     assert progression["learning_established"] is False
     cost = progression["execution_cost_summary"]
@@ -1355,6 +1365,12 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         "no_matching_admitted_task_family_history"
     assert transfer_episode["task_family_history_record_ids"] == [retained.record_id]
     assert transfer_episode["task_family_history_record_digests"] == [retained.record_digest]
+    assert transfer_episode["score_contrasts"][
+        "history_present_minus_withheld_correct_count"] == -2
+    assert transfer_episode["score_contrasts"][
+        "history_restored_minus_present_correct_count"] == 0
+    assert transfer_episode["score_contrasts"]["probe_denominator"] == 2
+    assert transfer_episode["score_contrasts"]["learning_established"] is False
     transfer_retrieval = {condition["condition_id"]:
         condition["task_family_retrieved_record_ids"]
         for condition in transfer_episode["conditions"]}
@@ -1536,6 +1552,7 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
     # A changed effective generation ceiling must split the trajectory rather
     # than being averaged into a same-model progression claim.
     fake.effective_generation_ceiling = 128
+    fake.truncate_objective_output = True
     third_task = ObjectivePredictionTask(3, 2, 13, (14, 15),
         task_family_id="integer_affine_prediction")
     stage_request(config_path=config_path, request_id="progression-episode-3", task=third_task)
@@ -1549,6 +1566,16 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
         request_refs=(*requests, (third_request["request_id"], third_request["request_digest"])))
     assert changed["status"] == "descriptive_episodes_not_comparable"
     assert changed["same_model_generation_controls"] is False
+    assert changed["episodes"][2]["scoreable"] is False
+    assert changed["episodes"][2]["score_contrasts"] == {
+        "schema_version": "sentientos.task_family_episode_score_contrast:v1",
+        "probe_denominator": 3,
+        "history_present_minus_withheld_correct_count": None,
+        "history_restored_minus_present_correct_count": None,
+        "posture": "unscoreable_condition_prevents_complete_contrast",
+        "learning_established": False,
+        "performance_improvement_established": False,
+    }
     assert changed["actual_nonsynthetic_inference_verified"] is False
     assert changed["performance_improvement_established"] is False
     from scripts import inspect_resident_objective_result as objective_inspector

@@ -2555,6 +2555,27 @@ class ResidentDevelopmentalCognitionOwner:
                         "matching_admitted_task_family_history_retrieved"
                         if matching_retrieved else "no_matching_admitted_task_family_history_retrieved"),
                     "history_selection_digest": item.get("history_selection_digest")})
+            correct_counts = {str(item["condition_id"]): item["correct_count"]
+                for item in score_rows}
+            present_count = correct_counts.get("history_present")
+            withheld_count = correct_counts.get("history_withheld")
+            restored_count = correct_counts.get("history_restored")
+            contrasts_scoreable = all(type(value) is int for value in (
+                present_count, withheld_count, restored_count))
+            score_contrasts = {
+                "schema_version": "sentientos.task_family_episode_score_contrast:v1",
+                "probe_denominator": family["probe_count"],
+                "history_present_minus_withheld_correct_count": (
+                    present_count - withheld_count if type(present_count) is int
+                        and type(withheld_count) is int else None),
+                "history_restored_minus_present_correct_count": (
+                    restored_count - present_count if type(restored_count) is int
+                        and type(present_count) is int else None),
+                "posture": ("score_count_difference_only" if contrasts_scoreable
+                    else "unscoreable_condition_prevents_complete_contrast"),
+                "learning_established": False,
+                "performance_improvement_established": False,
+            }
             semantic = {"request_id": request_id,
                 "request_digest": refs[str(request_id)],
                 "episode_ordinal": len(episodes) + 1,
@@ -2574,6 +2595,7 @@ class ResidentDevelopmentalCognitionOwner:
                     if isinstance(profile, Mapping) else None for profile in profiles],
                 "model_generation_profile_digests": profile_digests,
                 "scoreable": all(item["scoreable"] for item in score_rows),
+                "score_contrasts": score_contrasts,
                 "conditions": score_rows,
                 "actual_nonsynthetic_inference_verified":
                     verified.get("actual_nonsynthetic_inference_verified") is True}
