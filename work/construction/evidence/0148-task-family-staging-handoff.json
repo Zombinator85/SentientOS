@@ -1,0 +1,57 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 148,
+  "title": "task-family relevance option in host staging command",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "c506037c8bc58ae79d07b71836f9b08643d23fc8",
+    "tree": "3c8b510f9f68288b34eb197fe8c66e8f228addb9"
+  },
+  "base": {
+    "commit": "35cac696da1fc50c05fe316518df77a4ce6a952b",
+    "tree": "7bd247ec0bde593c1ffda0c34b0755ee43a56b2f"
+  },
+  "implementation": "Exposed existing required task-family history selection through the CLI and documented explicit matching-history requirement; default invocation remains unchanged",
+  "positive_control": "Exact family-bound admitted evidence can proceed through staged task acquisition/transfer and three-episode fixture progression",
+  "negative_controls": [
+    "missing required family id rejected",
+    "nonmatching admitted task-family experience blocks staging",
+    "incorrect scored family experience remains adverse"
+  ],
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "scripts/stage_resident_objective_intervention.py",
+        "tests/test_resident_developmental_cognition.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "passed": 4,
+      "duration_seconds": 72.35,
+      "nodes": [
+        "tests/test_resident_developmental_cognition.py::test_objective_staging_arguments_can_require_exact_task_family_history",
+        "tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+        "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer",
+        "tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only"
+      ]
+    },
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "real_model_behavior": "not_observed",
+    "production_verification": "not_performed"
+  },
+  "limitations": [
+    "benchmark examples are deterministically evaluator-scored task outcomes; no physical environmental event is established",
+    "fixture endpoint results establish that the controlled experiment can express and measure history effects, not that a real model acquired competence",
+    "real operator-host inference, GPU path, model custody, runtime session, and admission remain unobserved"
+  ],
+  "next_dependency": "extend the read-only doctor with an optional exact task-family preflight that reports matching admitted record identities and digests, without staging or repairing custody",
+  "publication": {
+    "expected_head": "35cac696da1fc50c05fe316518df77a4ce6a952b",
+    "commit": "c506037c8bc58ae79d07b71836f9b08643d23fc8",
+    "tree": "3c8b510f9f68288b34eb197fe8c66e8f228addb9",
+    "remote_readback": "branch commit, tree, and changed source/test/documentation blobs verified"
+  }
+}
