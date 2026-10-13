@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 144 continues from source commit e075177b793a956f339bb9adbca6b8123f5f943c, tree 2ae475197dbbe11ef9cc3ccfdff483bec643cb06. Reconciled invocation resource evidence now carries the exact developmental experiment condition score identity and compact correctness/count fields. The authorized writeback projection rejects receipt substitution. Oracle answers remain excluded and no causal or learning claim is made.
+Sequence 145 continues from source commit fd7eb7f25ea33880e8bc576076b7d54245358b57, tree 3674dec18217274d9e13b47551984e3d6915cca6. Verified task-family progression now includes the exact prior history record IDs/digests and condition-level retrieved-history identities next to receipt-bound score measures. Present/restored and withheld provenance is explicit. The canonical synthetic A/B rehearsal scored 6/6 probes across two trials per condition and observed zero history effect in both models; no acquisition or learning is demonstrated.
 
-Compilation passed. The resource-lineage integration and resident writeback suites passed (24 passed). No typing, hosted CI, production, or real-model performance evidence was obtained. Construction remains unverified for production.
+Focused family transfer and restart-read-only progression tests passed (2 passed); changed Python compiled. No mypy, hosted CI, production, or real-model performance evidence. Construction remains unverified for production.
 
-Latest segment: work/construction/segments/0144-resource-score-binding.md
-SHA-256: 3745a31fd5a7587d11ec677bd4b502ddbd249faadabfaf7c5ea818691305a424
-Evidence: work/construction/evidence/0144-resource-score-binding.json
-Evidence SHA-256: 4cfc8deb7b42fd04a371a3560a853595c07837cffe7bc496a680ac2c8210b99e
-Sequence: 144
+Latest segment: work/construction/segments/0145-progression-history-identity.md
+SHA-256: 3004d7fdd329f00508025df68632991954232258b9d8d4b1eece31be49c55781
+Evidence: work/construction/evidence/0145-progression-history-identity.json
+Evidence SHA-256: 1f8cde79d3316b51ce255449388136d01c90e75da1922323fead6251baabd160
+Sequence: 145
 
-Next: verify succession can reuse the same scored family evidence under distinct model identities without mixing model and resource lineages; then continue into completed family progression.
+Next: inspect the exact host one-shot workflow and whether A/B succession can consume an identical admitted-history set without manual internal artifacts; then address the smallest supported operator path.

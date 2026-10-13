@@ -1,0 +1,84 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 145,
+  "title": "exact history identity in objective progression",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "fd7eb7f25ea33880e8bc576076b7d54245358b57",
+    "tree": "3674dec18217274d9e13b47551984e3d6915cca6"
+  },
+  "base": {
+    "commit": "1fac6dc37ece58a465459b01ba9f9a53ddc3acfc",
+    "tree": "bdd0c6b762207e2c61904b6d28310b46df219444"
+  },
+  "integrations": [
+    "verified objective outcomes expose the exact protocol history IDs/digests and each condition's retrieved history IDs/digests and selection digest",
+    "task-family progression carries history identities alongside exact per-condition score and invocation receipt identities",
+    "existing objective scorer and retrieval policy unchanged"
+  ],
+  "focused_tests": {
+    "status": "passed",
+    "passed": 2,
+    "tests": [
+      "test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only"
+    ]
+  },
+  "canonical_model_replacement_rehearsal": {
+    "status": "valid_completed_replication_campaign",
+    "synthetic_only": true,
+    "objective_scored": true,
+    "trial_count": 2,
+    "history_effect_model_a_observed_count": 0,
+    "history_effect_model_b_observed_count": 0,
+    "model_a_restoration_stable_count": 2,
+    "real_model_performance": "not_observed",
+    "interpretation": "synthetic fixture report found no history effect; no learning or performance-improvement claim",
+    "condition_correct_probe_counts_across_two_trials": {
+      "model_a_history_present": 6,
+      "model_a_history_withheld": 6,
+      "model_a_history_restored": 6,
+      "model_b_history_present": 6,
+      "model_b_history_withheld": 6
+    },
+    "condition_scored_probe_counts_across_two_trials": {
+      "model_a_history_present": 6,
+      "model_a_history_withheld": 6,
+      "model_a_history_restored": 6,
+      "model_b_history_present": 6,
+      "model_b_history_withheld": 6
+    },
+    "fully_correct_trial_counts": {
+      "model_a_history_present": 2,
+      "model_a_history_withheld": 2,
+      "model_a_history_restored": 2,
+      "model_b_history_present": 2,
+      "model_b_history_withheld": 2
+    },
+    "probes_per_trial": 3
+  },
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "sentientos/resident_developmental_cognition.py",
+        "tests/test_resident_developmental_cognition.py"
+      ]
+    },
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "production_verification": "not_performed"
+  },
+  "limitations": [
+    "all behavior comparisons are deterministic synthetic fixtures",
+    "the canonical rehearsal observed no history effect under A or B",
+    "the rehearsal does not exercise actual model serving or prove acquired competence"
+  ],
+  "next_dependency": "inspect whether the staged one-shot host workflow and A/B succession can consume this exact admitted history record set without operator-forged artifacts; then continue into source-backed repeated-episode and genuine-local-model prerequisites",
+  "publication": {
+    "expected_head": "1fac6dc37ece58a465459b01ba9f9a53ddc3acfc",
+    "commit": "fd7eb7f25ea33880e8bc576076b7d54245358b57",
+    "tree": "3674dec18217274d9e13b47551984e3d6915cca6",
+    "remote_readback": "commit, tree, and changed blobs independently verified"
+  }
+}

@@ -1,0 +1,11 @@
+# Sequence 145 — Report exact retrieved history in task-family progression
+
+Verified source commit `fd7eb7f25ea33880e8bc576076b7d54245358b57`, tree `3674dec18217274d9e13b47551984e3d6915cca6`, published by expected-HEAD CAS from `1fac6dc37ece58a465459b01ba9f9a53ddc3acfc`. Current branch, commit/tree, and changed blobs were independently read back.
+
+The read-only verified objective summary now exposes the exact protocol history record IDs, digests, and set digest, plus each condition's retrieved record IDs/digests and history-selection digest. The bounded multi-episode progression carries those identities per episode. Its existing experiment verifier already proves the expected present/withheld/restored selection; this change makes that evidence visible in the result so score deltas cannot be read without seeing which historical records were supplied. Oracle contents remain excluded.
+
+The family-acquisition/transfer/continued-transfer owner test and the receipt-bound, bounded, restart-read-only progression test both pass: **2 passed**. Each condition in the tests is tied to exact retained history (present and restored) or the empty withheld set. These remain deterministic fixture endpoint experiments, not real-model behavior.
+
+Before this code change, the canonical model-replacement rehearsal was run in synthetic-only objective-scored mode using its documented CLI. The first two attempts exposed environment setup only (missing `PYTHONPATH`, then default read-only `/glow` custody); the rehearsal was restarted in a fresh `/tmp` root with isolated governor/runtime/federation/kernel/trust roots. It completed two trials and verified as `valid_completed_replication_campaign`; all five condition profiles scored 6/6 probes across the two trials (3/3 probes per trial, with 2/2 trials fully correct), restoration was stable in both trials, and the report observed **zero** history effect under either model. The rehearsal explicitly claims no learning or real model transition. This negative result is preserved as such.
+
+Compilation passed for the two changed Python files. No mypy, hosted CI, production operation, or real-model performance evidence was obtained. Construction remains unverified for production.

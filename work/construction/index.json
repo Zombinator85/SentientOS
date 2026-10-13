@@ -1368,6 +1368,18 @@
       "sha256": "3745a31fd5a7587d11ec677bd4b502ddbd249faadabfaf7c5ea818691305a424",
       "source_commit": "e075177b793a956f339bb9adbca6b8123f5f943c",
       "source_tree": "2ae475197dbbe11ef9cc3ccfdff483bec643cb06"
+    },
+    {
+      "bytes": 2235,
+      "evidence_bytes": 3471,
+      "evidence_path": "work/construction/evidence/0145-progression-history-identity.json",
+      "evidence_sha256": "6fa9c3181626e73165fa78379e5bc45eab90756aa7bfd0624ceeda0374bb4029",
+      "path": "work/construction/segments/0145-progression-history-identity.md",
+      "predecessor": "segment-sha256:3745a31fd5a7587d11ec677bd4b502ddbd249faadabfaf7c5ea818691305a424",
+      "sequence": 145,
+      "sha256": "df59013f77af5c7eb7fe2b9032411757dc468b417431ee92e0711ed1b7d5dcdf",
+      "source_commit": "fd7eb7f25ea33880e8bc576076b7d54245358b57",
+      "source_tree": "3674dec18217274d9e13b47551984e3d6915cca6"
     }
   ],
   "source_acquisition": {
