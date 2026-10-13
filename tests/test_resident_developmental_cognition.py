@@ -1034,6 +1034,32 @@ print(json.dumps({"context_id": context["context_id"],
         if fact["payload"].get("objective_score_contract") is not None)
     assert scored_fact["payload"]["objective_score_contract"] == score_contract
     assert scored_fact["payload"].get("current_truth") is False
+    recovered_cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    prior_request_count = len(fake.requests)
+    later_trigger = WorldStateBoardBuilder().build([{
+        "source_id": "score-recovery-later-trigger", "source_kind": "capability_registry",
+        "subject_id": "later-trigger", "stage": "observation", "disposition": "recorded",
+        "observed_at": "2026-10-13T00:00:00+00:00", "payload": {"value": 2}}])
+    recovered_tick = recovered_cognition.run_tick(snapshot=later_trigger,
+        tick_id="family-model-replacement-score-recovered-cognition")
+    assert scored_tick.written_record_id in recovered_tick.prior_record_ids
+    recovered_packet = None
+    for invocation_request in fake.requests[prior_request_count:]:
+        try:
+            recovered_context = json.loads(invocation_request.prompt)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        for packet in recovered_context.get("developmental_history", ()):
+            if packet.get("record_id") == scored_tick.written_record_id:
+                recovered_packet = packet
+    assert recovered_packet is not None
+    assert scored_fact["fact_id"] in recovered_packet["selected_fact_ids"]
+    assert recovered_packet["source_bindings"] == [{
+        "digest": scored_records[0]["digest"],
+        "kind": "embodiment", "source_id": scored_records[0]["source_id"]}]
+    assert recovered_packet["current_truth"] is False
+    assert recovered_packet["authority"] is False
 
     # A relevant example older than the prior 64-tick search window must not
     # be hidden by newer unrelated, otherwise valid developmental history.
