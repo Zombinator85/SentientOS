@@ -1194,6 +1194,23 @@ print(json.dumps({"context_id": context["context_id"],
     assert progression["same_model_generation_controls"] is True
     assert progression["distinct_task_instances"] is True
     assert progression["distinct_probe_sets"] is True
+    assert progression["episodes_with_admitted_task_family_history"] == 2
+    assert progression["matching_task_family_history_retrieved_for_all_episodes"] is False
+    assert progression["episodes"][0]["task_family_history_record_ids"] == []
+    assert progression["episodes"][1]["task_family_history_record_ids"] == [
+        later.written_record_id]
+    assert set(progression["episodes"][2]["task_family_history_record_ids"]) == {
+        later.written_record_id, feedback.written_record_id}
+    for episode in progression["episodes"][1:]:
+        relevant = episode["task_family_history_record_ids"]
+        conditions_by_id = {condition["condition_id"]: condition
+            for condition in episode["conditions"]}
+        assert conditions_by_id["history_present"][
+            "task_family_retrieved_record_ids"] == relevant
+        assert conditions_by_id["history_withheld"][
+            "task_family_retrieved_record_ids"] == []
+        assert conditions_by_id["history_restored"][
+            "task_family_retrieved_record_ids"] == relevant
     assert progression["actual_nonsynthetic_inference_verified"] is False
     assert progression["learning_established"] is False
     cost = progression["execution_cost_summary"]
@@ -1214,6 +1231,16 @@ print(json.dumps({"context_id": context["context_id"],
             episode["history_record_digests"]
         assert episode["conditions"][2]["retrieved_record_digests"] == \
             episode["history_record_digests"]
+    invocation_count_before_reconstruction = len(fake.requests)
+    recovered_owner, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    recovered_progression = recovered_owner.verified_objective_task_family_progression(
+        request_refs=(
+            ("family-acquisition", request["request_digest"]),
+            ("family-transfer", staged["request_digest"]),
+            ("family-continued-transfer", continued_request["request_digest"])))
+    assert recovered_progression == progression
+    assert len(fake.requests) == invocation_count_before_reconstruction
 
 
 def test_objective_staging_arguments_can_require_exact_task_family_history() -> None:
