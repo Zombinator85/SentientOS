@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Last independently verified implementation commit `c54926e3a5befb03905367ba04f7f1613c645322`, tree `c801f754d5f0bf25b7774285df412f5acafb4b4c`. Sequence 107 connects an explicitly staged, single-use objective task to the configured resident cognition owner without recurring objective configuration or developmental writeback.
+Last independently verified implementation commit `344be902824b3f9b1cfc56362b5e53598a001051`, tree `ed2b5bdd12a839b205e94951d61d5527c66d6d00`. Sequence 108 adds truthful preflight and scorer-budget semantics for the first one-model experiment.
 
-Latest segment: `work/construction/segments/0107-stage-one-shot-objective-intervention.md`
-SHA-256: `6046c641c753d3380f3ab689fef1964e1c8b83ef895b77dd95401ef96d15d14d
-Evidence: `work/construction/evidence/0107-stage-one-shot-objective-intervention.json`
-Evidence SHA-256: `18b4ed7900d6aede8becce7e2455f41afc22463d293decd8fd7728257a9c13e9
-Sequence: 107
+Latest segment: `work/construction/segments/0108-local-objective-readiness-and-budget.md`
+SHA-256: `95de75d38bb314540cf674ba6bee1462927ab84e7a90f4334a3ed28372d2026c`
+Evidence: `work/construction/evidence/0108-local-objective-readiness-and-budget.json`
+Evidence SHA-256: `ca02a709c1adc5c848f297daa90322812f55dcb6b922471868427c9e60796d31`
+Sequence: 108
 
-Focused acceptance: 110 passed; 0 failed; 0 skipped. Changed Python compilation and staging CLI help passed. Targeted mypy produced no diagnostics in changed code ranges; existing file diagnostics remain. This is fixture-only evidence, not actual local-model execution or production verification.
+Focused acceptance: 85 replacement/commissioning/readiness tests and 110 resident-cognition/scoring tests passed. Changed Python compilation and targeted mypy passed. No real model loaded or invoked. The explicit repository GGUF candidate is a 127-byte Git LFS pointer; this is cloud-workspace evidence only.
 
-The staging/private cognition publisher is POSIX-only. No actual model payload or approved serving/inference action was accessed in this environment. These limits do not describe an external Windows/CUDA host.
+Hosted parent checks on `cdabb393...`: Source Validation and Helm smoke succeeded; docs, self-check, and invariants failed. New commit checks must be read independently.
 
-Next dependency: inspect the existing local-model commissioning/readiness doctor and compose an exact read-only one-model readiness/handoff without conflating artifact, backend, catalog/acquisition, commissioning, operator approval, serving admission, inference admission, and actual inference. Preserve the Windows read-only custody boundary.
+Next dependency: implement a bounded read-only retrieval/reconciliation view for a staged objective intervention, binding its request, completed/interrupted tick, verified run, and score without replay. Then continue the operator-handoff review.
