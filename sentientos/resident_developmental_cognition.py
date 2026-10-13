@@ -1116,6 +1116,92 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 "probe_input", "observed_answer", "evaluator_correct")})
         if not valid:
             continue
+        # Keep the execution posture attached to the acquired examples when
+        # they are retrieved later.  A deterministic task score establishes
+        # correctness relative to its oracle; it does not independently prove
+        # that a model backend ran.  Older admitted records predate this
+        # projection, so retain their examples with an explicit unknown
+        # posture rather than retroactively manufacturing execution evidence.
+        execution_fields = {
+            "execution_evidence_conditions", "execution_evidence_posture",
+            "execution_evidence_scope", "independent_backend_observation",
+        }
+        present_execution_fields = execution_fields.intersection(payload)
+        execution_conditions: list[dict[str, Any]] = []
+        if not present_execution_fields:
+            execution_scope = "historical_receipt_posture_not_retained"
+            execution_posture = "execution_evidence_unavailable"
+            independent_backend_observation: bool | None = None
+        else:
+            raw_conditions = payload.get("execution_evidence_conditions")
+            receipt_conditions = payload.get("conditions")
+            raw_posture = payload.get("execution_evidence_posture")
+            if (present_execution_fields != execution_fields
+                    or payload.get("execution_evidence_scope") != (
+                        "authenticated_owner_receipt_not_independent_backend_observation")
+                    or payload.get("independent_backend_observation") is not False
+                    or not isinstance(raw_conditions, (list, tuple))
+                    or len(raw_conditions) != 3
+                    or not isinstance(receipt_conditions, (list, tuple))
+                    or len(receipt_conditions) != 3):
+                continue
+            allowed_condition_postures = {
+                "receipt_reports_simulation_or_no_backend_entry",
+                "verified_owner_receipt_reports_backend_entry",
+                "receipt_does_not_establish_backend_entry",
+            }
+            expected_conditions = ("history_present", "history_withheld", "history_restored")
+            for expected_condition, item, receipt_condition in zip(
+                    expected_conditions, raw_conditions, receipt_conditions):
+                if (not isinstance(item, Mapping)
+                        or not isinstance(receipt_condition, Mapping)
+                        or item.get("condition_id") != expected_condition
+                        or receipt_condition.get("condition_id") != expected_condition
+                        or item.get("receipt_identity_verified") is not True
+                        or item.get("invocation_receipt_digest")
+                            != receipt_condition.get("inference_receipt_digest")
+                        or item.get("posture") not in allowed_condition_postures
+                        or not isinstance(receipt_condition.get("inference_receipt_id"), str)
+                        or not receipt_condition.get("inference_receipt_id")
+                        or not isinstance(receipt_condition.get("inference_receipt_digest"), str)
+                        or len(receipt_condition["inference_receipt_digest"]) not in {64, 71}
+                        or (len(receipt_condition["inference_receipt_digest"]) == 71
+                            and not receipt_condition["inference_receipt_digest"].startswith("sha256:"))
+                        or any(character not in "0123456789abcdef"
+                            for character in (receipt_condition["inference_receipt_digest"][7:]
+                                if len(receipt_condition["inference_receipt_digest"]) == 71
+                                else receipt_condition["inference_receipt_digest"]))
+                        or not isinstance(item.get("receipt_status"), str)
+                        or (item.get("local_model_inference_effect") is not None
+                            and type(item.get("local_model_inference_effect")) is not bool)
+                        or (item.get("fallback_occurred") is not None
+                            and type(item.get("fallback_occurred")) is not bool)
+                        or item.get("independent_backend_observation") is not False):
+                    valid = False
+                    break
+                execution_conditions.append({
+                    "condition_id": item.get("condition_id"),
+                    "invocation_receipt_id": receipt_condition.get("inference_receipt_id"),
+                    "invocation_receipt_digest": receipt_condition.get("inference_receipt_digest"),
+                    **{key: item.get(key) for key in (
+                        "receipt_status", "local_model_inference_effect",
+                        "fallback_occurred", "posture")}
+                })
+            if not valid:
+                continue
+            derived_posture = (
+                "all_owner_receipts_report_backend_entry"
+                if all(item["posture"] == "verified_owner_receipt_reports_backend_entry"
+                    for item in execution_conditions)
+                else "one_or_more_conditions_simulated_or_no_backend_entry"
+                if any(item["posture"] == "receipt_reports_simulation_or_no_backend_entry"
+                    for item in execution_conditions)
+                else "one_or_more_receipts_do_not_establish_backend_entry")
+            if raw_posture != derived_posture:
+                continue
+            execution_scope = str(payload["execution_evidence_scope"])
+            execution_posture = derived_posture
+            independent_backend_observation = False
         projected.append({
             "schema_version": "sentientos.task_family_history_examples:v1",
             "task_family_id": task_family_id,
@@ -1129,6 +1215,10 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             "evaluator": score["evaluator"],
             "event_scope": "scored_benchmark_outcome_not_external_environmental_event",
             "examples": rows,
+            "execution_evidence_scope": execution_scope,
+            "execution_evidence_posture": execution_posture,
+            "execution_evidence_conditions": execution_conditions,
+            "independent_backend_observation": independent_backend_observation,
             "historical_only": True, "current_truth": False, "authority": False,
         })
         if len(projected) >= 4:

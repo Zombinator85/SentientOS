@@ -50,7 +50,7 @@ MAX_MODEL_REPLACEMENT_SELECTED_EVIDENCE_BYTES = 8192
 # A completed three-condition history-intervention run carries a bounded set
 # of invocation and score identities. Keep its writeback allowance narrow to
 # one explicitly projected experiment fact.
-MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES = 9216
+MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES = 10_240
 MAX_RETRIEVAL_RECORDS = 16
 MAX_INTERPRETATION_CHARS = 4000
 MAX_DURABLE_RECORDS = 4096
@@ -1312,6 +1312,88 @@ def _developmental_history_interpretation_projection(
         "current_truth": False, "authority": False,
         "learning_established": False, "reconstruction_time_is_event_time": False,
     }
+    # Retain the experiment owner's bounded invocation-receipt posture beside
+    # the scored examples. This preserves whether an example came from a
+    # simulation, a receipt-reported backend entry, or an unresolved receipt;
+    # it never upgrades the owner's receipt into an independent backend
+    # observation. Historical runs without these fields remain readable with
+    # their execution posture explicitly unavailable downstream.
+    execution_keys = {
+        "execution_evidence_conditions", "execution_evidence_posture",
+        "execution_evidence_scope", "independent_backend_observation",
+    }
+    execution_present = execution_keys.intersection(original)
+    if execution_present:
+        execution_conditions = original.get("execution_evidence_conditions")
+        expected_conditions = ("history_present", "history_withheld", "history_restored")
+        allowed_postures = {
+            "receipt_reports_simulation_or_no_backend_entry",
+            "verified_owner_receipt_reports_backend_entry",
+            "receipt_does_not_establish_backend_entry",
+        }
+        if (execution_present != execution_keys
+                or original.get("execution_evidence_scope") != (
+                    "authenticated_owner_receipt_not_independent_backend_observation")
+                or original.get("independent_backend_observation") is not False
+                or not isinstance(execution_conditions, (list, tuple))
+                or len(execution_conditions) != len(expected_conditions)):
+            raise DevelopmentalWritebackError(
+                "developmental_history_execution_evidence_shape_invalid")
+        execution_summary: list[dict[str, Any]] = []
+        for expected_condition, item in zip(expected_conditions, execution_conditions):
+            receipt_condition = next((row for row in selected_conditions
+                if row.get("condition_id") == expected_condition), None)
+            if (not isinstance(item, Mapping)
+                    or item.get("condition_id") != expected_condition
+                    or item.get("receipt_identity_verified") is not True
+                    or item.get("posture") not in allowed_postures
+                    or not isinstance(receipt_condition, Mapping)
+                    or item.get("invocation_receipt_id")
+                        != receipt_condition.get("inference_receipt_id")
+                    or item.get("invocation_receipt_digest")
+                        != receipt_condition.get("inference_receipt_digest")
+                    or not isinstance(receipt_condition.get("inference_receipt_id"), str)
+                    or not receipt_condition.get("inference_receipt_id")
+                    or not isinstance(receipt_condition.get("inference_receipt_digest"), str)
+                    or len(receipt_condition["inference_receipt_digest"]) not in {64, 71}
+                    or (len(receipt_condition["inference_receipt_digest"]) == 71
+                        and not receipt_condition["inference_receipt_digest"].startswith("sha256:"))
+                    or any(character not in "0123456789abcdef"
+                        for character in (receipt_condition["inference_receipt_digest"][7:]
+                            if len(receipt_condition["inference_receipt_digest"]) == 71
+                            else receipt_condition["inference_receipt_digest"]))
+                    or not isinstance(item.get("receipt_status"), str)
+                    or (item.get("local_model_inference_effect") is not None
+                        and type(item.get("local_model_inference_effect")) is not bool)
+                    or (item.get("fallback_occurred") is not None
+                        and type(item.get("fallback_occurred")) is not bool)
+                    or item.get("independent_backend_observation") is not False):
+                    raise DevelopmentalWritebackError(
+                        "developmental_history_execution_condition_invalid")
+            execution_summary.append({key: item.get(key) for key in (
+                "condition_id", "receipt_identity_verified", "receipt_status",
+                "local_model_inference_effect", "fallback_occurred", "posture",
+                "independent_backend_observation")}
+                | {"invocation_receipt_digest": receipt_condition[
+                    "inference_receipt_digest"]})
+        expected_execution_posture = (
+            "all_owner_receipts_report_backend_entry"
+            if all(item["posture"] == "verified_owner_receipt_reports_backend_entry"
+                for item in execution_summary)
+            else "one_or_more_conditions_simulated_or_no_backend_entry"
+            if any(item["posture"] == "receipt_reports_simulation_or_no_backend_entry"
+                for item in execution_summary)
+            else "one_or_more_receipts_do_not_establish_backend_entry")
+        if original.get("execution_evidence_posture") != expected_execution_posture:
+            raise DevelopmentalWritebackError(
+                "developmental_history_execution_posture_invalid")
+        summary.update({
+            "execution_evidence_conditions": execution_summary,
+            "execution_evidence_posture": expected_execution_posture,
+            "execution_evidence_scope": (
+                "authenticated_owner_receipt_not_independent_backend_observation"),
+            "independent_backend_observation": False,
+        })
     if (original.get("objective_task_commitment_posture")
             == "salted_private_oracle_commitment:v1"):
         summary["objective_task_commitment_posture"] = (

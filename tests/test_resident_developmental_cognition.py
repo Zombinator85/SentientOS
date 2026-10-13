@@ -1580,6 +1580,22 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "probe_input": row["probe_input"], "observed_answer": row["observed_answer"],
         "evaluator_correct": row["evaluator_correct"]}
         for row in family_fact["payload"]["acquisition_examples"]]
+    assert projected_examples[0]["execution_evidence_scope"] == (
+        "authenticated_owner_receipt_not_independent_backend_observation")
+    assert projected_examples[0]["execution_evidence_posture"] == (
+        "one_or_more_conditions_simulated_or_no_backend_entry")
+    assert projected_examples[0]["independent_backend_observation"] is False
+    assert [item["condition_id"] for item in
+        projected_examples[0]["execution_evidence_conditions"]] == [
+            "history_present", "history_withheld", "history_restored"]
+    assert [item["invocation_receipt_id"] for item in
+        projected_examples[0]["execution_evidence_conditions"]] == [
+            item["inference_receipt_id"] for item in family_fact["payload"]["conditions"]]
+    assert [item["invocation_receipt_digest"] for item in
+        projected_examples[0]["execution_evidence_conditions"]] == [
+            item["inference_receipt_digest"] for item in family_fact["payload"]["conditions"]]
+    assert all(item["posture"] == "receipt_reports_simulation_or_no_backend_entry"
+        for item in projected_examples[0]["execution_evidence_conditions"])
     # Contradictory lineage must not survive as a cognition packet even if the
     # surrounding task-family label and example values still look plausible.
     import copy
@@ -1589,6 +1605,18 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     mismatched_family_fact["payload"]["acquisition_examples"][0][
         "source_score_digest"] = "sha256:" + "f" * 64
     assert _task_family_history_examples(mismatched_score,
+        task_family_id="integer_affine_prediction") == []
+    substituted_receipt = copy.deepcopy(admitted.candidate)
+    substituted_fact = next(fact for fact in substituted_receipt["selected_facts"]
+        if fact["fact_id"] == family_fact["fact_id"])
+    substituted_fact["payload"]["conditions"][0]["inference_receipt_digest"] = "f" * 64
+    assert _task_family_history_examples(substituted_receipt,
+        task_family_id="integer_affine_prediction") == []
+    overstated_backend = copy.deepcopy(admitted.candidate)
+    overstated_fact = next(fact for fact in overstated_backend["selected_facts"]
+        if fact["fact_id"] == family_fact["fact_id"])
+    overstated_fact["payload"]["independent_backend_observation"] = True
+    assert _task_family_history_examples(overstated_backend,
         task_family_id="integer_affine_prediction") == []
     substituted_source = copy.deepcopy(admitted.candidate)
     substituted_family_fact = next(fact for fact in substituted_source["selected_facts"]
@@ -1632,6 +1660,13 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
             for fact in body["current_evidence"]["facts"])
         if condition_id in {"history_present", "history_restored"}:
             assert "task_relevant_experience" in json.dumps(body["developmental_history"])
+            historical_examples = [item for record in body["developmental_history"]
+                for item in record.get("task_relevant_experience", [])]
+            assert historical_examples
+            assert historical_examples[0]["execution_evidence_posture"] == (
+                "one_or_more_conditions_simulated_or_no_backend_entry")
+            assert historical_examples[0]["independent_backend_observation"] is False
+            assert len(historical_examples[0]["execution_evidence_conditions"]) == 3
         else:
             assert "task_relevant_experience" not in json.dumps(body["developmental_history"])
     assert "multiplier" not in json.dumps(heldout_prompts)
