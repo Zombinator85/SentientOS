@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Last independently verified source `e7fe68610bc9cc53948263f0360e9cac228f73ee`, tree `e3a7348ae05f757fdb96d1467a5437290fc95711`. Sequence 117 adds a read-only installation-root check bound to the explicitly selected serving configuration. Exact-node tests, target typing, compilation, CLI help, and whitespace checks passed. Sequence 116 remote custody and hosted Source Validation/Helm successes are verified; its invariants, self-check, and docs jobs failed for recorded upstream gate conditions.
+Sequence 118 continues from exact remote source parent `63c6c8932618478afc4b594115c61524e729054e`, tree `64c69636e297dd1a4532121d7d14fb5ccfbc7623`. The objective-experiment readiness doctor now requires exact durable record/writeback-receipt linkage and reports missing receipts without repairing custody. Nine focused readiness cases passed; changed Python compiled, targeted mypy passed, and changed-file whitespace scan was clean. The check uses fixtures; it demonstrates no real model behavior or independently sourced task outcome.
 
-Latest segment: `work/construction/segments/0117-read-only-serving-installation-preflight.md`
-SHA-256: `0f8e2988cb9772c67a37eb673ccd93d7aaa2e88f10032d9c9d99160315a23874`
-Evidence: `work/construction/evidence/0117-read-only-serving-installation-preflight.json`
-Evidence SHA-256: `434464dc3b301cfad1c3717dc42d1a127f2c17259e21434b6c8a10ba5d54a817`
-Sequence: 117
+Latest segment: `work/construction/segments/0118-reconcile-receipt-linked-history-readiness.md`
+SHA-256: `c019a5a26be9be9d3a7eb9d8b3fc2077d62f63f643a003ef4d3f43989aebfc4a`
+Evidence: `work/construction/evidence/0118-reconcile-receipt-linked-history-readiness.json`
+Evidence SHA-256: `72d376e6416532b67f07119f34f04ff282efcc5ec4af10ae536ff5900891a8a5`
+Sequence: 118
 
-No actual model or production behavior was exercised. Native Windows/WSL behavior remains unverified.
+This checkpoint has not yet been independently verified as the remote branch head. Construction is unverified for production. No model was loaded, request staged, inference admitted, or authority expanded.
 
-Next dependency: bind a genuine earlier task/consequence and independent outcome from an existing source owner into developmental-history acquisition and later held-out transfer; do not fabricate a source event.
+Next: determine whether the canonical developmental-history recovery validator can expose a truly read-only readiness operation, without receipt repair or weaker validation. The genuine earlier task/outcome source still requires an independently evidenced owner event; keep that boundary explicit and advance other source-backed work if no such owner exists.

@@ -31,6 +31,7 @@ from sentientos.resident_developmental_cognition import (
     load_config as load_cognition_config,
 )
 from sentientos.resident_developmental_writeback import DevelopmentalHistoryStore
+from sentientos.resident_developmental_writeback import WritebackReceipt, _identity
 from sentientos.platform_fcntl import FLOCK_SUPPORTED
 
 
@@ -40,6 +41,43 @@ def _custody_status(os_name: str, primitives: dict[str, bool]) -> str:
     if all(primitives.values()):
         return "required_posix_primitives_available_filesystem_unverified"
     return "required_posix_primitive_missing"
+
+
+def _receipt_linked_history(store: DevelopmentalHistoryStore) -> tuple[Any, ...]:
+    """Read records and receipts without repairing an interrupted publication.
+
+    A content-valid record alone is not evidence that its separate writeback
+    receipt reached durable custody. The cognition owner can recover that
+    publication, but this preflight must remain read-only and must not predict
+    that recovery will succeed.
+    """
+    records = store.records()
+    receipts = store.receipts()
+    records_by_id = {record.record_id: record for record in records}
+    if len(records_by_id) != len(records):
+        raise ValueError("durable_record_identity_collision")
+    receipts_by_record: dict[str, Any] = {}
+    for receipt in receipts:
+        record = records_by_id.get(receipt.record_id)
+        if record is None:
+            raise ValueError("durable_receipt_orphaned")
+        candidate_id = record.candidate.get("candidate_id")
+        candidate_digest = record.candidate.get("candidate_digest")
+        if not isinstance(candidate_id, str) or not isinstance(candidate_digest, str):
+            raise ValueError("durable_receipt_candidate_identity_invalid")
+        expected = WritebackReceipt("", "", record.record_id, record.record_digest,
+            candidate_id, candidate_digest, record.admission_id,
+            record.admission_binding_digest, record.principal, record.operation_id, True)
+        receipt_id, receipt_digest = _identity("devreceipt", expected.semantic_payload())
+        expected = WritebackReceipt(receipt_id, receipt_digest, record.record_id,
+            record.record_digest, candidate_id, candidate_digest, record.admission_id,
+            record.admission_binding_digest, record.principal, record.operation_id, True)
+        if receipt != expected or record.record_id in receipts_by_record:
+            raise ValueError("durable_receipt_record_lineage_mismatch")
+        receipts_by_record[record.record_id] = receipt
+    if records and len(receipts_by_record) != len(records):
+        raise ValueError("durable_history_receipt_recovery_required")
+    return records
 
 
 def inspect_host_runtime() -> dict[str, Any]:
@@ -146,7 +184,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
         if not config.enabled or not config.comparison_enabled:
             findings["findings"]["resident_configuration"]["reason_code"] = "history_comparison_not_enabled"
         try:
-            records = DevelopmentalHistoryStore(config.history_root).records()
+            records = _receipt_linked_history(DevelopmentalHistoryStore(config.history_root))
             history_status = "eligible_history_present" if records else "awaiting_eligible_history"
             findings["findings"]["developmental_history"] = {
                 "status": history_status, "verified_record_count": len(records),

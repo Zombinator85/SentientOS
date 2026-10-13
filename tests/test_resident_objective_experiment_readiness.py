@@ -10,7 +10,9 @@ import scripts.doctor_resident_objective_experiment as readiness
 import pytest
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import CONFIG_SCHEMA as SERVING_CONFIG_SCHEMA
-from sentientos.resident_developmental_writeback import DevelopmentalHistoryStore, DevelopmentalRecord, _identity
+from sentientos.resident_developmental_writeback import (
+    DevelopmentalHistoryStore, DevelopmentalRecord, WritebackReceipt, _identity,
+)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -43,6 +45,29 @@ def _serving(path: Path, registry_root: Path, *, create_installation: bool
         "expected_activation_state_digest": "a" * 64,
     }))
     return path, registry
+
+
+def _append_record(store: DevelopmentalHistoryStore, *, with_receipt: bool,
+        receipt_candidate_id: str = "candidate-fixture") -> DevelopmentalRecord:
+    record = DevelopmentalRecord("", "", {"candidate_id": "candidate-fixture",
+        "candidate_digest": "candidate-digest-fixture"}, "admission-fixture",
+        "binding-fixture", "principal-fixture", "operation-fixture",
+        "tick-fixture", "2026-10-13T00:00:00Z")
+    record_id, record_digest = _identity("devrec", record.semantic_payload())
+    record = DevelopmentalRecord(record_id, record_digest, record.candidate,
+        record.admission_id, record.admission_binding_digest, record.principal,
+        record.operation_id, record.correlation_id, record.created_at)
+    store.append(record)
+    if with_receipt:
+        receipt = WritebackReceipt("", "", record.record_id, record.record_digest,
+            receipt_candidate_id, "candidate-digest-fixture", record.admission_id,
+            record.admission_binding_digest, record.principal, record.operation_id, True)
+        receipt_id, receipt_digest = _identity("devreceipt", receipt.semantic_payload())
+        store.write_receipt(WritebackReceipt(receipt_id, receipt_digest,
+            record.record_id, record.record_digest, receipt_candidate_id,
+            "candidate-digest-fixture", record.admission_id,
+            record.admission_binding_digest, record.principal, record.operation_id, True))
+    return record
 
 
 def test_readiness_is_explicitly_preflight_only_and_does_not_mutate(tmp_path: Path) -> None:
@@ -116,13 +141,7 @@ def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
     root.mkdir()
     config = _config(tmp_path / "cognition.json", root)
     store = DevelopmentalHistoryStore(root / "history")
-    record = DevelopmentalRecord("", "", {"interpretation": "fixture only"},
-        "admission-fixture", "binding-fixture", "principal-fixture", "operation-fixture",
-        "tick-fixture", "2026-10-13T00:00:00Z")
-    record_id, record_digest = _identity("devrec", record.semantic_payload())
-    store.append(DevelopmentalRecord(record_id, record_digest, record.candidate,
-        record.admission_id, record.admission_binding_digest, record.principal,
-        record.operation_id, record.correlation_id, record.created_at))
+    _append_record(store, with_receipt=True)
     serving_path, registry = _serving(tmp_path / "serving.json",
         tmp_path / "installation-state", create_installation=True)
     monkeypatch.setattr(readiness, "inspect_artifact", lambda *args, **kwargs: {
@@ -143,6 +162,57 @@ def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
     assert report["findings"]["serving_installation"]["status"] == \
         "installation_root_verified_read_only"
     assert report["findings"]["serving_installation"]["active_session_status"] == "not_observed"
+
+
+def test_readiness_does_not_treat_unreceipted_record_as_eligible(tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "runtime"
+    root.mkdir()
+    config = _config(tmp_path / "cognition.json", root)
+    store = DevelopmentalHistoryStore(root / "history")
+    _append_record(store, with_receipt=False)
+    serving_path, registry = _serving(tmp_path / "serving.json",
+        tmp_path / "installation-state", create_installation=True)
+    monkeypatch.setattr(readiness, "inspect_artifact", lambda *args, **kwargs: {
+        "artifact_size_bytes": 123, "model_content_sha256": "a" * 64,
+        "semantic_artifact_identity": "sha256:" + "b" * 64,
+        "configuration_digest": "sha256:" + "c" * 64,
+        "llama_cpp_dependency_available": True,
+    })
+
+    report = readiness.inspect_readiness(config, tmp_path / "selected.gguf", tmp_path,
+        serving_config_path=serving_path, installation_registry=registry)
+
+    history = report["findings"]["developmental_history"]
+    assert history["status"] == "invalid_custody"
+    assert history["reason_code"] == "durable_history_receipt_recovery_required"
+    assert report["status"] == "preflight_blocked"
+    assert not list((root / "history" / "receipts").glob("*.json"))
+
+
+def test_readiness_rejects_conflicting_writeback_receipt_lineage(tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "runtime"
+    root.mkdir()
+    config = _config(tmp_path / "cognition.json", root)
+    store = DevelopmentalHistoryStore(root / "history")
+    _append_record(store, with_receipt=True, receipt_candidate_id="substituted-candidate")
+    serving_path, registry = _serving(tmp_path / "serving.json",
+        tmp_path / "installation-state", create_installation=True)
+    monkeypatch.setattr(readiness, "inspect_artifact", lambda *args, **kwargs: {
+        "artifact_size_bytes": 123, "model_content_sha256": "a" * 64,
+        "semantic_artifact_identity": "sha256:" + "b" * 64,
+        "configuration_digest": "sha256:" + "c" * 64,
+        "llama_cpp_dependency_available": True,
+    })
+
+    report = readiness.inspect_readiness(config, tmp_path / "selected.gguf", tmp_path,
+        serving_config_path=serving_path, installation_registry=registry)
+
+    history = report["findings"]["developmental_history"]
+    assert history["status"] == "invalid_custody"
+    assert history["reason_code"] == "durable_receipt_record_lineage_mismatch"
+    assert report["status"] == "preflight_blocked"
 
 
 def test_readiness_rejects_missing_configured_installation_root(tmp_path: Path,

@@ -175,7 +175,13 @@ python scripts/doctor_resident_objective_experiment.py \
 ```
 
 The doctor reads the configured developmental-history collection through its
-existing verifier and checks the selected artifact through
+existing verifier and requires each stored record to have its matching durable
+writeback receipt. It does not repair a missing receipt: an interrupted
+record/receipt publication is reported as invalid or unavailable until the
+existing cognition owner performs its normal recovery. A receipt-linked record
+is still only a preflight indication; the doctor does not run the full
+developmental recovery path or prove that a later task will retrieve it. It
+also checks the selected artifact through
 `local_model_commissioning.inspect_artifact`; it never searches model roots.
 It also reports the current Python executable/version, operating-system and
 architecture identifiers, whether the `llama_cpp` package is discoverable, and
