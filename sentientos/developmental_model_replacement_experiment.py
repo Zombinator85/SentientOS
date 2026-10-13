@@ -1477,6 +1477,43 @@ class ModelReplacementArtifactStore:
             else:
                 differences = None
                 classification = "experiment_contradictory" if completion == "contradictory" else "experiment_incomplete"
+            objective_score_contract = None
+            objective_evaluation = run.get("objective_evaluation")
+            score_rows = [raw.get("objective_task_score") for raw in raw_observations
+                if isinstance(raw, Mapping)]
+            if isinstance(objective_evaluation, Mapping) and len(score_rows) == len(CONDITION_ORDER):
+                score_signatures = [{key: row.get(key) for key in (
+                    "schema_version", "plan_digest", "task_digest", "evaluator")}
+                    if isinstance(row, Mapping) else None for row in score_rows]
+                score_digests = [row.get("score_digest")
+                    if isinstance(row, Mapping) else None for row in score_rows]
+                first_signature = score_signatures[0]
+                evaluation_digests = objective_evaluation.get("condition_score_digests")
+                def valid_score_digest(value: Any) -> bool:
+                    return (isinstance(value, str) and len(value) == 71
+                        and value.startswith("sha256:")
+                        and all(character in "0123456789abcdef" for character in value[7:]))
+
+                if (isinstance(first_signature, Mapping)
+                        and all(signature == first_signature for signature in score_signatures)
+                        and objective_evaluation.get("plan_digest") == first_signature.get("plan_digest")
+                        and evaluation_digests == score_digests
+                        and first_signature.get("schema_version") == "sentientos.objective_task_score:v3"
+                        and valid_score_digest(first_signature.get("plan_digest"))
+                        and valid_score_digest(first_signature.get("task_digest"))
+                        and first_signature.get("evaluator") ==
+                            "deterministic_exact_integer_suite_oracle_v2"
+                        and all(valid_score_digest(value) for value in score_digests)):
+                    contract_semantic = {
+                        "schema_version": "sentientos.model_replacement_objective_score_contract:v1",
+                        "task_plan_digest": first_signature["plan_digest"],
+                        "task_digest": first_signature["task_digest"],
+                        "score_schema_version": first_signature["schema_version"],
+                        "evaluator": first_signature["evaluator"],
+                        "condition_score_digests": score_digests,
+                    }
+                    objective_score_contract = {**contract_semantic,
+                        "contract_digest": _digest(contract_semantic)}
             if run.get("differences") != differences or run.get("classification") != classification:
                 raise DevelopmentalModelReplacementError("run_projection_comparison_binding_invalid")
             continuity_assessment = {
@@ -1537,6 +1574,8 @@ class ModelReplacementArtifactStore:
             }
             if "objective_evaluation" in run:
                 payload["objective_evaluation"] = run["objective_evaluation"]
+            if objective_score_contract is not None:
+                payload["objective_score_contract"] = objective_score_contract
             if (run.get("claims_posture") != "bounded_digest_level_observed_association_only"
                     or run.get("non_claims") != list(NON_CLAIMS)
                     or len(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()) > 32_768):

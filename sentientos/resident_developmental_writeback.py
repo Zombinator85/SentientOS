@@ -699,6 +699,46 @@ def _model_replacement_interpretation_projection(
         else:
             omitted = True
             summary["objective_evaluation_posture"] = "invalid_bounded_score_source"
+    score_contract = original.get("objective_score_contract")
+    if score_contract is not None:
+        valid_contract = False
+        if isinstance(score_contract, Mapping):
+            def valid_contract_digest(value: Any) -> bool:
+                return (isinstance(value, str) and len(value) == 71
+                    and value.startswith("sha256:")
+                    and all(character in "0123456789abcdef" for character in value[7:]))
+
+            semantic = {key: score_contract.get(key) for key in (
+                "schema_version", "task_plan_digest", "task_digest",
+                "score_schema_version", "evaluator", "condition_score_digests")}
+            contract_digests = semantic.get("condition_score_digests")
+            score_summary = summary.get("objective_evaluation")
+            valid_contract = (
+                set(score_contract) == (set(semantic) | {"contract_digest"})
+                and semantic.get("schema_version") ==
+                    "sentientos.model_replacement_objective_score_contract:v1"
+                and valid_contract_digest(semantic.get("task_plan_digest"))
+                and valid_contract_digest(semantic.get("task_digest"))
+                and semantic.get("score_schema_version") in {
+                    "sentientos.objective_task_score:v1",
+                    "sentientos.objective_task_score:v2",
+                    "sentientos.objective_task_score:v3"}
+                and semantic.get("evaluator") in {
+                    "deterministic_exact_integer_oracle_v1",
+                    "deterministic_exact_integer_suite_oracle_v2"}
+                and isinstance(contract_digests, list)
+                and len(contract_digests) == 5
+                and all(valid_contract_digest(value) for value in contract_digests)
+                and isinstance(score_summary, Mapping)
+                and semantic.get("task_plan_digest") == score_summary.get("plan_digest")
+                and [compact_sha256(value) for value in contract_digests]
+                    == score_summary.get("condition_score_digests")
+                and score_contract.get("contract_digest") == "sha256:" + digest(semantic))
+        if valid_contract:
+            summary["objective_score_contract"] = dict(score_contract)
+        else:
+            omitted = True
+            summary["objective_score_contract_posture"] = "invalid_or_inconsistent"
     projection_binding = {
         "schema_version": "sentientos.model_replacement_interpretation_projection:v2",
         "source_fact_id": str(fact.get("fact_id", "")),

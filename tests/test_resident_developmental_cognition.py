@@ -948,6 +948,68 @@ print(json.dumps({"context_id": context["context_id"],
     assert recovered_context["history_record_digests"] == [
         succession_context.history_record_digests[0]]
 
+    # Score provenance must survive the model-replacement -> World-State ->
+    # epistemic projection path. These endpoints are deterministic test
+    # fixtures; their output is not evidence of learned model behavior.
+    class ScoredReplacementFixture(ReplacementFixtureEndpoint):
+        def infer(self, **kwargs: Any) -> Mapping[str, Any]:
+            self.calls.append(kwargs)
+            body = json.loads(kwargs["prompt"])
+            descriptor = body["objective_task"]
+            examples = []
+            for record in body["developmental_history"]:
+                for fact in record["candidate"]["selected_facts"]:
+                    if fact["payload"].get("objective_task_family") == "integer_affine_prediction":
+                        examples = fact["payload"].get("acquisition_examples", [])
+            answers = [0 for _ in descriptor["probe_inputs"]]
+            if self.history_effect and len(examples) >= 2:
+                left, right = examples[:2]
+                slope = ((right["observed_answer"] - left["observed_answer"])
+                    // (right["probe_input"] - left["probe_input"]))
+                offset = left["observed_answer"] - slope * left["probe_input"]
+                answers = [slope * value + offset for value in descriptor["probe_inputs"]]
+            output_text = json.dumps({"answers": answers}, sort_keys=True, separators=(",", ":"))
+            output_digest = experiment_digest({"output": output_text})
+            number = len(self.calls)
+            return {"status": "admitted_completed", "fallback_occurred": False,
+                "request_id": f"request-{self.identity.model_id}-{number}",
+                "request_digest": experiment_digest({"request": self.identity.model_id,
+                    "number": number}),
+                "inference_receipt_id": f"receipt-{self.identity.model_id}-{number}",
+                "inference_receipt_digest": experiment_digest({"receipt": self.identity.model_id,
+                    "number": number}), "output_digest": output_digest,
+                "output_text": output_text, "output_truncated": False,
+                "actual_generation_parameters": {"temperature": 0,
+                    "max_new_tokens": kwargs["budget"]["max_new_tokens"]}}
+
+    scored_a = ScoredReplacementFixture(replacement_identity("scored-family-a"))
+    scored_b = ScoredReplacementFixture(replacement_identity("scored-family-b"),
+        history_effect=False)
+    scored_experiment = DevelopmentalModelReplacementExperiment(
+        context=succession_context, model_a=scored_a, model_b=scored_b,
+        artifact_root=tmp_path / "family-model-replacement-scored",
+        objective_task=ObjectivePredictionTask(3, 2, 10, (11, 12),
+            task_family_id="integer_affine_prediction", requires_task_family_history=True))
+    scored_run = scored_experiment.run(trial_id="family-score-contract")
+    scored_records = scored_experiment.store.world_state_records(
+        run_refs=((scored_run["run_id"], scored_run["run_digest"]),))
+    score_contract = scored_records[0]["payload"].get("objective_score_contract")
+    assert score_contract is not None
+    assert score_contract["evaluator"] == "deterministic_exact_integer_suite_oracle_v2"
+    assert score_contract["task_digest"] == scored_experiment.objective_plan[
+        "task_descriptor"]["task_digest"]
+    assert "multiplier" not in json.dumps(scored_records[0]["payload"])
+    assert "offset" not in json.dumps(scored_records[0]["payload"])
+    scored_world = WorldStateBoardBuilder().build(scored_records)
+    scored_tick = cognition.run_tick(snapshot=scored_world,
+        tick_id="family-model-replacement-score-writeback")
+    assert scored_tick.written_record_id
+    scored_admitted = cognition.writeback.store.get(scored_tick.written_record_id)
+    scored_fact = next(fact for fact in scored_admitted.candidate["selected_facts"]
+        if fact["payload"].get("objective_score_contract") is not None)
+    assert scored_fact["payload"]["objective_score_contract"] == score_contract
+    assert scored_fact["payload"].get("current_truth") is False
+
     # A relevant example older than the prior 64-tick search window must not
     # be hidden by newer unrelated, otherwise valid developmental history.
     unrelated_owner, _ = owner(tmp_path, comparison=False, invoker=fake,
