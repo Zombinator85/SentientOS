@@ -1414,6 +1414,32 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert transfer_retrieval["history_restored"] == [retained.record_id]
 
 
+def test_legacy_oracle_hashes_are_excluded_from_current_cognition(tmp_path: Path) -> None:
+    cognition, _ = owner(tmp_path, comparison=False,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=8)
+    world = WorldStateBoardBuilder().build([
+        {"source_id": "legacy-objective", "source_kind": "embodiment",
+            "subject_id": "legacy-run", "subject_kind": "fixture_observation",
+            "stage": "observation", "disposition": "recorded", "observed_at": None,
+            "payload": {"objective_task_descriptor": {"task_digest": "sha256:" + "1" * 64}}},
+        {"source_id": "legacy-ab-score", "source_kind": "embodiment",
+            "subject_id": "legacy-ab-run", "subject_kind": "fixture_observation",
+            "stage": "observation", "disposition": "recorded", "observed_at": None,
+            "payload": {"objective_score_contract": {"task_digest": "sha256:" + "2" * 64}}},
+        {"source_id": "safe-objective", "source_kind": "embodiment",
+            "subject_id": "safe-run", "subject_kind": "fixture_observation",
+            "stage": "observation", "disposition": "recorded", "observed_at": None,
+            "payload": {"objective_task_descriptor": {
+                "task_digest": "sha256:" + "3" * 64,
+                "task_digest_posture": "salted_private_oracle_commitment:v1"}}},
+    ])
+    projection = cognition._current_projection(world)
+    projected_ids = {str(fact["source"]["source_id"]) for fact in projection.facts}
+    assert projected_ids == {"safe-objective"}
+    selected = cognition._select_fact_ids(world, set())
+    assert len(selected) == 1
+
+
 def test_admitted_resident_history_is_shared_with_predecessor_and_successor_models(
         tmp_path: Path) -> None:
     """Model-replacement controls receive the same ordinary admitted record."""

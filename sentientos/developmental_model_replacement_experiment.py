@@ -1370,6 +1370,20 @@ class ModelReplacementArtifactStore:
             normalized_protocol = json.loads(json.dumps(asdict(protocol), sort_keys=True))
             if normalized_protocol != dict(protocol_value):
                 raise DevelopmentalModelReplacementError("run_projection_protocol_binding_mismatch")
+            raw_observations = run.get("observations", ())
+            scored = (run.get("objective_evaluation") is not None
+                or any(isinstance(item, Mapping)
+                    and "objective_task_score" in item for item in raw_observations))
+            if scored:
+                objective_plan = self.verify_objective_plan(protocol)
+                descriptor = objective_plan.get("task_descriptor")
+                if (not isinstance(descriptor, Mapping)
+                        or descriptor.get("task_digest_posture")
+                            != "salted_private_oracle_commitment:v1"):
+                    # Keep historical v1 artifacts verifiable in the owner store,
+                    # but do not project their brute-forceable oracle hashes into
+                    # the current World-State/cognition channel.
+                    continue
             projection_context: Mapping[str, Any] | None = None
             if run.get("context_lineage_posture") == "verified_persisted_frozen_context":
                 projection_context = self.load_verified_context(protocol.causal_context_id,
@@ -1589,8 +1603,13 @@ class ModelReplacementArtifactStore:
             }
             if "objective_evaluation" in run:
                 payload["objective_evaluation"] = run["objective_evaluation"]
+                if scored and isinstance(descriptor, Mapping):
+                    payload["objective_task_commitment_posture"] = (
+                        descriptor.get("task_digest_posture"))
             if objective_score_contract is not None:
                 payload["objective_score_contract"] = objective_score_contract
+                payload["objective_task_commitment_posture"] = (
+                    "salted_private_oracle_commitment:v1")
             if (run.get("claims_posture") != "bounded_digest_level_observed_association_only"
                     or run.get("non_claims") != list(NON_CLAIMS)
                     or len(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()) > 32_768):
@@ -2326,6 +2345,14 @@ class DevelopmentalModelReplacementExperiment:
         if (not isinstance(trial_id, str) or not trial_id or len(trial_id) > MAX_TRIAL_ID_LENGTH
                 or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for character in trial_id)):
             raise DevelopmentalModelReplacementError("trial_id_invalid")
+        if (self.objective_plan is not None
+                and (not isinstance(self.objective_plan.get("task_descriptor"), Mapping)
+                    or self.objective_plan["task_descriptor"].get("task_digest_posture")
+                        != "salted_private_oracle_commitment:v1")):
+            # Legacy plans remain readable for historical verification, but
+            # are never resumed as a new cognition-facing inference campaign.
+            raise DevelopmentalModelReplacementError(
+                "objective_task_legacy_unkeyed_commitment_not_runnable")
         # All metadata and the complete immutable protocol exist before inference one.
         self.store.persist_provenance(self.provenance_a)
         self.store.persist_provenance(self.provenance_b)

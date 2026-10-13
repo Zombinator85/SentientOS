@@ -682,6 +682,9 @@ def _model_replacement_interpretation_projection(
         summary["condition_statuses"] = statuses
     objective = original.get("objective_evaluation")
     if objective is not None:
+        objective_commitment_safe = (original.get(
+            "objective_task_commitment_posture")
+            == "salted_private_oracle_commitment:v1")
         valid_deltas = {-1, 0, 1}
         suite_assessment = (isinstance(objective, Mapping)
             and objective.get("assessment") == "preregistered_probe_suite_scored")
@@ -709,7 +712,7 @@ def _model_replacement_interpretation_projection(
             or (not suite_assessment and isinstance(objective, Mapping)
                 and not suite_fields.intersection(objective)))
 
-        if (isinstance(objective, Mapping)
+        if (objective_commitment_safe and isinstance(objective, Mapping)
                 and isinstance(objective.get("plan_digest"), str)
                 and len(objective["plan_digest"]) == 71
                 and objective["plan_digest"].startswith("sha256:")
@@ -734,11 +737,15 @@ def _model_replacement_interpretation_projection(
                 "assessment": objective["assessment"], "scope": objective["scope"],
                 "model_behavior_posture": objective["model_behavior_posture"],
             }
+            summary["objective_task_commitment_posture"] = (
+                "salted_private_oracle_commitment:v1")
             if suite_assessment:
                 summary["objective_evaluation"].update({key: objective[key] for key in suite_fields})
         else:
             omitted = True
-            summary["objective_evaluation_posture"] = "invalid_bounded_score_source"
+            summary["objective_evaluation_posture"] = (
+                "legacy_oracle_commitment_redacted" if not objective_commitment_safe
+                else "invalid_bounded_score_source")
     score_contract = original.get("objective_score_contract")
     if score_contract is not None:
         valid_contract = False
@@ -759,10 +766,8 @@ def _model_replacement_interpretation_projection(
                     "sentientos.model_replacement_objective_score_contract:v1"
                 and valid_contract_digest(semantic.get("task_plan_digest"))
                 and valid_contract_digest(semantic.get("task_digest"))
-                and semantic.get("score_schema_version") in {
-                    "sentientos.objective_task_score:v1",
-                    "sentientos.objective_task_score:v2",
-                    "sentientos.objective_task_score:v3"}
+                and semantic.get("score_schema_version") ==
+                    "sentientos.objective_task_score:v3"
                 and semantic.get("evaluator") in {
                     "deterministic_exact_integer_oracle_v1",
                     "deterministic_exact_integer_suite_oracle_v2"}
@@ -770,12 +775,16 @@ def _model_replacement_interpretation_projection(
                 and len(contract_digests) == 5
                 and all(valid_contract_digest(value) for value in contract_digests)
                 and isinstance(score_summary, Mapping)
+                and original.get("objective_task_commitment_posture") ==
+                    "salted_private_oracle_commitment:v1"
                 and semantic.get("task_plan_digest") == score_summary.get("plan_digest")
                 and [compact_sha256(value) for value in contract_digests]
                     == score_summary.get("condition_score_digests")
                 and score_contract.get("contract_digest") == "sha256:" + digest(semantic))
         if valid_contract:
             summary["objective_score_contract"] = dict(score_contract)
+            summary["objective_task_commitment_posture"] = (
+                "salted_private_oracle_commitment:v1")
         else:
             omitted = True
             summary["objective_score_contract_posture"] = "invalid_or_inconsistent"
@@ -1230,6 +1239,13 @@ def _developmental_history_interpretation_projection(
         raise DevelopmentalWritebackError("developmental_history_conditions_invalid")
     selected_conditions: list[dict[str, Any]] = []
     family_projection = original.get("objective_task_family") is not None
+    if family_projection:
+        descriptor = original.get("objective_task_descriptor")
+        if (not isinstance(descriptor, Mapping)
+                or descriptor.get("task_digest_posture")
+                    != "salted_private_oracle_commitment:v1"):
+            raise DevelopmentalWritebackError(
+                "developmental_history_legacy_oracle_commitment_not_admissible")
     condition_fields: tuple[str, ...] = (
         "condition_id", "observation_id", "observation_digest", "output_digest",
         "request_id", "request_digest", "inference_receipt_id",
@@ -1296,9 +1312,15 @@ def _developmental_history_interpretation_projection(
         "current_truth": False, "authority": False,
         "learning_established": False, "reconstruction_time_is_event_time": False,
     }
+    if (original.get("objective_task_commitment_posture")
+            == "salted_private_oracle_commitment:v1"):
+        summary["objective_task_commitment_posture"] = (
+            "salted_private_oracle_commitment:v1")
     family_id = original.get("objective_task_family")
     if family_id is not None:
         descriptor = original.get("objective_task_descriptor")
+        summary["objective_task_commitment_posture"] = (
+            "salted_private_oracle_commitment:v1")
         score_rows = original.get("objective_scores")
         history_score = (next((row for row in score_rows if isinstance(row, Mapping)
             and row.get("condition_id") == "history_present"), None)

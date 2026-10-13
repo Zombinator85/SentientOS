@@ -637,6 +637,14 @@ class DevelopmentalExperimentStore:
             protocol = self.load_protocol(str(protocol_value.get("protocol_id") or ""))
             if json.loads(json.dumps(asdict(protocol), sort_keys=True)) != dict(protocol_value):
                 raise DevelopmentalHistoryInterventionError("run_projection_protocol_binding_mismatch")
+            if (isinstance(protocol.objective_task_descriptor, Mapping)
+                    and protocol.objective_task_descriptor.get("task_digest")
+                    and protocol.objective_task_descriptor.get("task_digest_posture")
+                        != "salted_private_oracle_commitment:v1"):
+                # Historical v3 identities remain readable by the custody
+                # owner, but their plain oracle hashes must not re-enter a
+                # current cognition context through World-State.
+                continue
             conditions = run.get("conditions")
             if (not isinstance(conditions, list) or len(conditions) != len(CONDITION_ORDER)
                     or tuple(item.get("condition_id") for item in conditions
@@ -737,6 +745,9 @@ class DevelopmentalExperimentStore:
                 "objective_scores": score_projection,
                 "objective_evaluation": objective_evaluation,
                 "objective_task_descriptor": task_descriptor,
+                "objective_task_commitment_posture": (
+                    task_descriptor.get("task_digest_posture")
+                    if isinstance(task_descriptor, Mapping) else None),
                 "acquisition_examples": acquisition_examples,
                 "objective_task_family_id": (protocol.objective_task_descriptor.get("task_family_id")
                     if isinstance(protocol.objective_task_descriptor, Mapping) else None),

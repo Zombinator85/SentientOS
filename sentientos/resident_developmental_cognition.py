@@ -1600,6 +1600,11 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
     if (protocol.schema_version not in OBJECTIVE_SCHEMAS
             or plan.get("task_descriptor") != dict(request["task_descriptor"])):
         raise ResidentDevelopmentalCognitionError("objective_outcome_request_plan_mismatch")
+    if (not isinstance(plan.get("task_descriptor"), Mapping)
+            or plan["task_descriptor"].get("task_digest_posture")
+                != "salted_private_oracle_commitment:v1"):
+        raise ResidentDevelopmentalCognitionError(
+            "objective_outcome_legacy_oracle_commitment_unavailable")
     conditions = run.get("conditions")
     score_rows = run.get("objective_scores")
     evaluation = run.get("objective_evaluation")
@@ -1821,6 +1826,27 @@ def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
     return ResidentDevelopmentalCognitionConfig(history_root, state_root, tuple(sorted(kinds)), maximum,
         history_maximum, payload["comparison_enabled"], payload["enabled"],
         artifact_root)
+
+
+def _unsafe_legacy_objective_cognition_fact(fact: Any) -> bool:
+    """Identify historical oracle hashes that are verifiable but unsafe to republish."""
+    if not isinstance(fact, Mapping):
+        return False
+    nested_payload = fact.get("payload")
+    payload = nested_payload if isinstance(nested_payload, Mapping) else fact
+    descriptor = payload.get("objective_task_descriptor")
+    if (isinstance(descriptor, Mapping) and descriptor.get("task_digest")
+            and descriptor.get("task_digest_posture")
+                != "salted_private_oracle_commitment:v1"):
+        return True
+    if (isinstance(payload.get("objective_evaluation"), Mapping)
+            and payload.get("objective_task_commitment_posture")
+                != "salted_private_oracle_commitment:v1"):
+        return True
+    score_contract = payload.get("objective_score_contract")
+    return (isinstance(score_contract, Mapping)
+        and payload.get("objective_task_commitment_posture")
+            != "salted_private_oracle_commitment:v1")
 
 
 class ResidentDevelopmentalCognitionOwner:
@@ -3147,6 +3173,20 @@ class ResidentDevelopmentalCognitionOwner:
         # reached completed_ticks while this projection is captured.
         ids = [str(completed["record_id"]) for completed in state["completed_ticks"]
                if completed.get("tick_id") != tick_id and completed.get("record_id")]
+        # Older admitted records remain durably verifiable, but a legacy
+        # low-entropy oracle hash must not return through retained cognition.
+        safe_ids: list[str] = []
+        for record_id in ids:
+            try:
+                stored = self.writeback.store.get(record_id)
+            except Exception as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "developmental_history_recovery_failed") from exc
+            candidate = stored.candidate
+            facts = candidate.get("selected_facts", ()) if isinstance(candidate, Mapping) else ()
+            if not any(_unsafe_legacy_objective_cognition_fact(fact) for fact in facts):
+                safe_ids.append(record_id)
+        ids = safe_ids
         family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
             if self.objective_task is not None else None)
         if isinstance(family, str):
@@ -3189,7 +3229,9 @@ class ResidentDevelopmentalCognitionOwner:
         allowed = set(self.config.allowed_source_kinds)
         source_kinds = {source.source_id: source.kind for source in snapshot.sources}
         candidates = sorted(
-            (fact for fact in snapshot.facts if source_kinds.get(fact.source.source_id) in allowed),
+            (fact for fact in snapshot.facts
+                if source_kinds.get(fact.source.source_id) in allowed
+                and not _unsafe_legacy_objective_cognition_fact(fact.payload)),
             key=lambda fact: self._fact_selection_key(fact, source_kinds[fact.source.source_id]),
         )
         selected: list[str] = []
@@ -3504,7 +3546,9 @@ class ResidentDevelopmentalCognitionOwner:
         """Select current context independently of developmental-writeback deduplication."""
         allowed = set(self.config.allowed_source_kinds)
         source_kinds = {source.source_id: source.kind for source in snapshot.sources}
-        facts = sorted((fact for fact in snapshot.facts if source_kinds.get(fact.source.source_id) in allowed),
+        facts = sorted((fact for fact in snapshot.facts
+            if source_kinds.get(fact.source.source_id) in allowed
+            and not _unsafe_legacy_objective_cognition_fact(fact.payload)),
                        key=lambda fact: self._fact_selection_key(fact, source_kinds[fact.source.source_id]))[:self.config.max_selected_facts]
         selected = (self.writeback.select_evidence(snapshot, fact_ids=tuple(f.fact_id for f in facts))
             if facts else self.writeback.empty_selection(snapshot_id=snapshot.snapshot_id,

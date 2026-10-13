@@ -197,6 +197,17 @@ def test_historical_oracle_bearing_plan_remains_verifiable(tmp_path):
     assert store.verify_objective_task_plan(protocol) == plan
 
 
+def test_legacy_oracle_plan_cannot_start_a_new_model_replacement_campaign(tmp_path):
+    from sentientos.developmental_model_replacement_experiment import _legacy_objective_plan
+    task = ObjectivePredictionTask(3, 2, 7)
+    owner, model_a, model_b = experiment(tmp_path, task=task)
+    owner.objective_plan = _legacy_objective_plan(task, owner.protocol)
+    with pytest.raises(DevelopmentalModelReplacementError,
+            match="objective_task_legacy_unkeyed_commitment_not_runnable"):
+        owner.run()
+    assert not model_a.calls and not model_b.calls
+
+
 def test_pending_legacy_request_recovers_privately_and_new_request_round_trips():
     from sentientos.resident_developmental_cognition import (
         LEGACY_OBJECTIVE_REQUEST_SCHEMA, _digest as request_digest,
