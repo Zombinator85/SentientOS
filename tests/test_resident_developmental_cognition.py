@@ -871,6 +871,64 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert any(fact["payload"].get("objective_task_family") == "integer_affine_prediction"
         for fact in admitted.candidate["selected_facts"])
 
+    # The same admitted family experience can be frozen into the existing A/B
+    # replacement context through its real history owner, then reconstructed
+    # read-only after restart without carrying it into current evidence.
+    from dataclasses import asdict
+    from tests.test_developmental_model_replacement_experiment import (
+        FakeEndpoint as ReplacementFixtureEndpoint,
+        context as replacement_context,
+        identity as replacement_identity,
+    )
+    from sentientos.developmental_model_replacement_experiment import (
+        DevelopmentalModelReplacementExperiment, FrozenCausalContext,
+    )
+    context_fields = asdict(replacement_context())
+    for field in ("context_id", "context_digest", "history_record_ids",
+            "history_record_digests", "history_record_set_digest",
+            "history_projection_payload"):
+        context_fields.pop(field)
+    succession_context = FrozenCausalContext.create_from_admitted_history(
+        writeback=cognition.writeback, history_record_ids=(later.written_record_id,),
+        **context_fields)
+    assert succession_context.history_record_ids == (later.written_record_id,)
+    record_facts = succession_context.history_projection_payload[0]["candidate"][
+        "selected_facts"]
+    family_history_fact = next(fact for fact in record_facts
+        if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
+    family_history_score = family_history_fact["payload"]["objective_scores"][0]
+    assert family_history_score["evaluator"] == \
+        "deterministic_exact_integer_suite_oracle_v2"
+    replacement_a = ReplacementFixtureEndpoint(replacement_identity("family-a"))
+    replacement_b = ReplacementFixtureEndpoint(replacement_identity("family-b"))
+    replacement_root = tmp_path / "family-model-replacement"
+    replacement = DevelopmentalModelReplacementExperiment(
+        context=succession_context, model_a=replacement_a, model_b=replacement_b,
+        artifact_root=replacement_root)
+    replacement_run = replacement.run(trial_id="family-history-succession")
+    history_prompts = [replacement_a.calls[0]["prompt"],
+        replacement_b.calls[0]["prompt"], replacement_a.calls[2]["prompt"]]
+    for prompt in history_prompts:
+        body = json.loads(prompt)
+        assert family_history_fact in body["developmental_history"][0]["candidate"][
+            "selected_facts"]
+        assert body["current_evidence"] == succession_context.current_projection_payload
+    assert json.loads(replacement_a.calls[1]["prompt"])["developmental_history"] == []
+    assert json.loads(replacement_b.calls[1]["prompt"])["developmental_history"] == []
+    call_counts = (len(replacement_a.calls), len(replacement_b.calls))
+    restarted_replacement = DevelopmentalModelReplacementExperiment(
+        context=succession_context, model_a=replacement_a, model_b=replacement_b,
+        artifact_root=replacement_root)
+    recovered_replacement_run = restarted_replacement.run(
+        trial_id="family-history-succession")
+    assert recovered_replacement_run["run_id"] == replacement_run["run_id"]
+    assert (len(replacement_a.calls), len(replacement_b.calls)) == call_counts
+    recovered_context = restarted_replacement.store.load_verified_context(
+        succession_context.context_id, succession_context.context_digest)
+    assert recovered_context["history_record_ids"] == [later.written_record_id]
+    assert recovered_context["history_record_digests"] == [
+        succession_context.history_record_digests[0]]
+
     # A relevant example older than the prior 64-tick search window must not
     # be hidden by newer unrelated, otherwise valid developmental history.
     unrelated_owner, _ = owner(tmp_path, comparison=False, invoker=fake,
