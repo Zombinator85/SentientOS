@@ -1551,8 +1551,20 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         request_id="episode-acquisition", request_digest=str(acquisition_request["request_digest"]))
     acquisition_run = cognition.experiments.load_run(
         str(acquisition.changed_cognition_measurement_id))
-    source_world = WorldStateBoardBuilder().build(cognition.experiments.world_state_records(
-        run_refs=((acquisition_run["run_id"], acquisition_run["run_digest"]),)))
+    source_records = cognition.experiments.world_state_records(
+        run_refs=((acquisition_run["run_id"], acquisition_run["run_digest"]),))
+    source_world = WorldStateBoardBuilder().build(source_records)
+    execution_evidence = source_records[0]["payload"]
+    assert execution_evidence["execution_evidence_posture"] == (
+        "one_or_more_conditions_simulated_or_no_backend_entry")
+    assert execution_evidence["execution_evidence_scope"] == (
+        "authenticated_owner_receipt_not_independent_backend_observation")
+    assert execution_evidence["independent_backend_observation"] is False
+    assert len(execution_evidence["execution_evidence_conditions"]) == 3
+    assert all(item["receipt_identity_verified"] is True for item in
+        execution_evidence["execution_evidence_conditions"])
+    assert all(item["posture"] == "receipt_reports_simulation_or_no_backend_entry"
+        for item in execution_evidence["execution_evidence_conditions"])
     feedback = cognition.run_tick(snapshot=source_world, tick_id="episode-acquisition-feedback")
     assert feedback.written_record_id
     admitted = cognition.writeback.store.get(feedback.written_record_id)

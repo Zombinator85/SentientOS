@@ -652,11 +652,53 @@ class DevelopmentalExperimentStore:
                 raise DevelopmentalHistoryInterventionError("run_projection_conditions_invalid")
             event_times: list[str | None] = []
             all_receipt_times_verified = callable(self._invocation_verifier)
+            execution_evidence_conditions: list[dict[str, Any]] = []
             for condition in conditions:
                 if not isinstance(condition, Mapping):
                     raise DevelopmentalHistoryInterventionError("run_projection_condition_invalid")
                 observed_at = condition.get("observed_at")
                 event_times.append(observed_at if isinstance(observed_at, str) else None)
+                verified_receipt = None
+                if condition.get("serving_session_id") is not None and callable(
+                        self._invocation_verifier):
+                    try:
+                        verified_receipt = self._invocation_verifier(condition)
+                    except Exception as exc:
+                        raise DevelopmentalHistoryInterventionError(
+                            "run_projection_invocation_receipt_invalid") from exc
+                receipt_matches = (isinstance(verified_receipt, Mapping)
+                    and verified_receipt.get("receipt_id")
+                        == condition.get("inference_receipt_id")
+                    and verified_receipt.get("receipt_digest")
+                        == condition.get("inference_receipt_digest"))
+                effects = (verified_receipt.get("effects")
+                    if isinstance(verified_receipt, Mapping) else None)
+                receipt_status = (verified_receipt.get("status")
+                    if isinstance(verified_receipt, Mapping) else None)
+                fallback = (verified_receipt.get("fallback_occurred")
+                    if isinstance(verified_receipt, Mapping) else None)
+                inference_effect = (effects.get("local_model_inference")
+                    if isinstance(effects, Mapping) else None)
+                if not receipt_matches:
+                    execution_posture = "receipt_unbound_or_identity_mismatch"
+                elif receipt_status == "admitted_simulation" or inference_effect is False:
+                    execution_posture = "receipt_reports_simulation_or_no_backend_entry"
+                elif (receipt_status == "admitted_completed" and fallback is False
+                        and inference_effect is True):
+                    execution_posture = "verified_owner_receipt_reports_backend_entry"
+                else:
+                    execution_posture = "receipt_does_not_establish_backend_entry"
+                execution_evidence_conditions.append({
+                    "condition_id": condition.get("condition_id"),
+                    "invocation_receipt_id": condition.get("inference_receipt_id"),
+                    "invocation_receipt_digest": condition.get("inference_receipt_digest"),
+                    "receipt_identity_verified": bool(receipt_matches),
+                    "receipt_status": receipt_status,
+                    "local_model_inference_effect": inference_effect,
+                    "fallback_occurred": fallback,
+                    "posture": execution_posture,
+                    "independent_backend_observation": False,
+                })
                 if (condition.get("serving_session_id") is None
                         or not isinstance(observed_at, str)):
                     all_receipt_times_verified = False
@@ -673,6 +715,18 @@ class DevelopmentalExperimentStore:
                     for value in event_times if value is not None]
                 if len(parsed_times) == len(CONDITION_ORDER):
                     world_state_event_time = max(parsed_times).isoformat()
+            if (len(execution_evidence_conditions) != len(CONDITION_ORDER)
+                    or any(item["receipt_identity_verified"] is not True
+                        for item in execution_evidence_conditions)):
+                execution_evidence_posture = "incomplete_or_unverified_condition_receipts"
+            elif all(item["posture"] == "verified_owner_receipt_reports_backend_entry"
+                    for item in execution_evidence_conditions):
+                execution_evidence_posture = "all_owner_receipts_report_backend_entry"
+            elif any(item["posture"] == "receipt_reports_simulation_or_no_backend_entry"
+                    for item in execution_evidence_conditions):
+                execution_evidence_posture = "one_or_more_conditions_simulated_or_no_backend_entry"
+            else:
+                execution_evidence_posture = "one_or_more_receipts_do_not_establish_backend_entry"
             objective_scores = run.get("objective_scores")
             objective_evaluation = run.get("objective_evaluation")
             task_descriptor = (dict(protocol.objective_task_descriptor)
@@ -741,6 +795,11 @@ class DevelopmentalExperimentStore:
                 "event_time_posture": ("all_condition_invocation_receipt_times_verified"
                     if all_receipt_times_verified and world_state_event_time is not None
                     else "historical_event_time_unverified_or_incomplete"),
+                "execution_evidence_conditions": execution_evidence_conditions,
+                "execution_evidence_posture": execution_evidence_posture,
+                "execution_evidence_scope": (
+                    "authenticated_owner_receipt_not_independent_backend_observation"),
+                "independent_backend_observation": False,
                 "history_intervention_summary": run["summary"],
                 "objective_scores": score_projection,
                 "objective_evaluation": objective_evaluation,
