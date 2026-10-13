@@ -1,0 +1,63 @@
+{
+  "acceptance": {
+    "cognition_and_experiment_tests": {
+      "failed": 0,
+      "passed": 91
+    },
+    "commands": [
+      "python -m py_compile sentientos/resident_developmental_cognition.py scripts/stage_resident_objective_intervention.py tests/test_resident_developmental_cognition.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_sentientosd_runtime_closure.py"
+    ],
+    "daemon_runtime_closure_tests": {
+      "failed": 0,
+      "passed": 28
+    },
+    "new_adversarial_cases": [
+      "malformed composition checkpoint",
+      "checkpoint receipt substitution",
+      "digest-recomputed tick relabelling",
+      "history absence does not publish request"
+    ],
+    "new_positive_case": "valid checkpointed admitted history permits staging without modifying history or composition checkpoint",
+    "python": "CPython 3.12 isolated source workspace; fixture invokers only"
+  },
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 227070,
+      "git_blob": "aa355f00545adb5a63ced8aed5cca1da42e8b5b5",
+      "sha256": "a836b7ab607d96dba6a527f9ebd4c14118c756131d601bc2d32189c7c662334c"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 184924,
+      "git_blob": "cbdf32bca3f1e641a31e72a6e648a458a2d2cecd",
+      "sha256": "135d76dfe7478799fefea60076af1df395025c73f48be0cb5660ace1aa5d8c63"
+    }
+  },
+  "hosted_seq125": {
+    "docs": "failure_protected_admin_gate",
+    "helm_kubernetes_smoke": "success",
+    "invariants": "failure_protected_prompt_assembler_admin_gate",
+    "self_check": "failure_runner_root_and_protected_forge_ci_gates",
+    "source_validation": "success"
+  },
+  "implementation": {
+    "admitted_record_and_receipt_identity_required": true,
+    "authority_or_inference_added": false,
+    "duplicate_tick_and_record_references_rejected": true,
+    "filesystem_recovery_or_mutation": false,
+    "snapshot_id_and_digest_must_match_candidate": true,
+    "tick_id_must_match_deterministic_writeback_operation": true
+  },
+  "previous_segment_sha256": "bfeabfac0a813a68c44bb9f90d15a13b90ca1ba8685f42d217714abda6d6cc2c",
+  "publication_limits": {
+    "production_verified": false,
+    "real_model_invoked": false,
+    "windows_or_wsl_verified": false
+  },
+  "schema_version": 1,
+  "sequence": 126,
+  "source_commit": "1791d112175cebd0db9b465eb90f8d2643f02633",
+  "source_finding": "read-only preflight verified record/receipt identity but did not yet bind a checkpointed record to its exact original tick and snapshot operation lineage",
+  "source_tree": "2b284c19d205613d192f64f341b5621d61f2144f"
+}

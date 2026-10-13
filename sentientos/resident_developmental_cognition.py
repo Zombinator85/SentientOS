@@ -393,20 +393,34 @@ def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
             "checkpointed_history_identity_conflict")
     refs: list[tuple[str, str]] = []
     seen: set[str] = set()
+    seen_ticks: set[str] = set()
     for row in completed:
         record_id, receipt_id = row.get("record_id"), row.get("receipt_id")
         if record_id is None and receipt_id is None:
             continue
+        tick_id = row.get("tick_id")
         if (not isinstance(record_id, str) or not record_id
                 or not isinstance(receipt_id, str) or not receipt_id
-                or record_id in seen):
+                or not isinstance(tick_id, str) or not tick_id
+                or record_id in seen or tick_id in seen_ticks):
             raise ResidentDevelopmentalCognitionError(
                 "checkpointed_history_reference_invalid")
         pair = verified_by_id.get(record_id)
         if pair is None or pair[1].receipt_id != receipt_id:
             raise ResidentDevelopmentalCognitionError(
                 "checkpointed_history_reference_unverified")
+        candidate = pair[0].candidate
+        expected_operation_id = (
+            f"resident-developmental-writeback:{tick_id}:{candidate.get('candidate_id')}"
+            if isinstance(candidate, Mapping) else None)
+        if (not isinstance(candidate, Mapping)
+                or row.get("snapshot_id") != candidate.get("snapshot_id")
+                or row.get("snapshot_digest") != candidate.get("snapshot_digest")
+                or pair[0].operation_id != expected_operation_id):
+            raise ResidentDevelopmentalCognitionError(
+                "checkpointed_history_tick_binding_invalid")
         seen.add(record_id)
+        seen_ticks.add(tick_id)
         refs.append((record_id, pair[0].record_digest))
     return tuple(refs[-limit:])
 

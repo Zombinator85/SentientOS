@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 125 continues from verified remote commit `595deea9c2eeaa2fdc44cccb31b8ee25334a9eab`, tree `ed9eb60f8d4ee5a393baca906a662d27eebf0383`. The operator staging CLI now read-only verifies that exact admitted history is committed in the cognition tick ledger before publishing a one-shot task; absent or contradictory custody leaves the request slot untouched. Focused cognition/experiment suites passed 91 cases, and daemon runtime closure passed 28 cases on local CPython 3.12 fixtures. Existing ordinary ticks already support first-history writeback from eligible World-State; no real host event/model behavior was observed.
+Sequence 126 continues from verified remote commit `1791d112175cebd0db9b465eb90f8d2643f02633`, tree `2b284c19d205613d192f64f341b5621d61f2144f`. Objective staging now requires read-only proof that the exact admitted record and receipt belong to the sealed completed tick, candidate snapshot, and deterministic operation identity. Sequence-126 focused cognition/experiment suites passed 91 cases and daemon runtime closure passed 28 cases; changed Python compiled. All tests used local fixtures, not a live model.
 
-Latest segment: `work/construction/segments/0125-readonly-experiment-staging-preflight.md`
-SHA-256: `bfeabfac0a813a68c44bb9f90d15a13b90ca1ba8685f42d217714abda6d6cc2c`
-Evidence: `work/construction/evidence/0125-readonly-experiment-staging-preflight.json`
-Evidence SHA-256: `6aaf42a79b56950eac1982475cfca247e85a7793056b8b33fd18f62093f40439`
-Sequence: 125
+Latest segment: `work/construction/segments/0126-bind-staged-history-to-owner-tick.md`
+SHA-256: `8f903425f96f1e561f9e168dedbdabd548e66e4327346297bedd281624cbcfc4`
+Evidence: `work/construction/evidence/0126-bind-staged-history-to-owner-tick.json`
+Evidence SHA-256: `afcdf0ad77c390007fae1afa09672ff9863f70371f50baf6d683207df5deaa2e`
+Sequence: 126
 
-Construction remains unverified for production. GitHub source validation and Helm smoke passed for seq124; invariants, self-check, and docs failed at protected administrator/root gates. Next: await exact operator POSIX runtime/model/source custody, then measure a real history-present/withheld/restored transfer and cold-process recovery.
+Seq125 hosted Source validation and Helm smoke passed. Invariants, self-check, and docs failed at protected administrator/root gates. No real POSIX user host, running model, GPU, or production execution has been evidenced. Next: prepare and execute a real source-backed acquisition/transfer only when the exact operator-host event, daemon identity, model custody, and existing per-call admission are available; do not reconstruct or duplicate empty-history writeback.

@@ -1104,7 +1104,8 @@ def test_operator_staging_requires_read_only_checkpointed_admitted_history(tmp_p
     assert conflict_owner.run_tick(snapshot=snapshot(),
         tick_id="receipt-conflict-seed").written_record_id
     state_path = conflict_owner.state_path
-    state = json.loads(state_path.read_text(encoding="utf-8"))
+    valid_state = json.loads(state_path.read_text(encoding="utf-8"))
+    state = json.loads(json.dumps(valid_state))
     semantic = dict(state)
     semantic.pop("state_digest")
     semantic["completed_ticks"][0]["receipt_id"] = "substituted-receipt"
@@ -1115,6 +1116,20 @@ def test_operator_staging_requires_read_only_checkpointed_admitted_history(tmp_p
             match="checkpointed_history_reference_unverified"):
         stage_request(config_path=conflict_config,
             request_id="substituted-receipt", task=task)
+    assert not (conflict_root / "state" / "pending_objective_intervention.json").exists()
+
+    state = json.loads(json.dumps(valid_state))
+    semantic = dict(state)
+    semantic.pop("state_digest")
+    semantic["completed_ticks"] = [dict(semantic["completed_ticks"][0])]
+    semantic["completed_ticks"][0]["tick_id"] = "relabelled-tick"
+    state["completed_ticks"] = semantic["completed_ticks"]
+    state["state_digest"] = "sha256:" + digest_payload(semantic)
+    state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="checkpointed_history_tick_binding_invalid"):
+        stage_request(config_path=conflict_config,
+            request_id="relabelled-history", task=task)
     assert not (conflict_root / "state" / "pending_objective_intervention.json").exists()
 
 def test_missing_final_score_keeps_interrupted_trial_unfinalized(tmp_path: Path,
