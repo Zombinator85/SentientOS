@@ -1392,6 +1392,18 @@
       "sha256": "84b9b3a4ebb87c331ed3d9b51893131f399b8a63f34d5420741f9a906a9cb71c",
       "source_commit": "2636c913b24dc8e573caf8b9aad47207d1accafe",
       "source_tree": "25606702f7b5913cb6eb826f91d3291e146d6f8f"
+    },
+    {
+      "bytes": 1563,
+      "evidence_bytes": 3144,
+      "evidence_path": "work/construction/evidence/0147-admitted-history-model-replacement.json",
+      "evidence_sha256": "068b63b493da0adf67ffd86351df7a6a9bcd335448080bb67fce457976c62e64",
+      "path": "work/construction/segments/0147-admitted-history-model-replacement.md",
+      "predecessor": "segment-sha256:84b9b3a4ebb87c331ed3d9b51893131f399b8a63f34d5420741f9a906a9cb71c",
+      "sequence": 147,
+      "sha256": "bac5d904c40bea1d3674d88fb9d6377b2f5b315abb1fb435de89e79df4fde5cc",
+      "source_commit": "ce7c9fbd7536f93073b4bd2f004eb1f9f72a2369",
+      "source_tree": "d997a284e2c35686b5923c6fc4304f7b27a881e3"
     }
   ],
   "source_acquisition": {
