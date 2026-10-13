@@ -185,10 +185,13 @@ def inspect_readiness(config_path: Path, model_path: Path,
             findings["findings"]["resident_configuration"]["reason_code"] = "history_comparison_not_enabled"
         try:
             records = _receipt_linked_history(DevelopmentalHistoryStore(config.history_root))
-            history_status = "eligible_history_present" if records else "awaiting_eligible_history"
+            history_status = ("record_receipt_linked_admission_not_revalidated"
+                if records else "awaiting_eligible_history")
             findings["findings"]["developmental_history"] = {
                 "status": history_status, "verified_record_count": len(records),
                 "maximum_reported_records": min(len(records), config.max_retrieved_records),
+                "admission_validation": "not_performed_by_read_only_preflight",
+                "runtime_recovery_validation": "not_performed_by_read_only_preflight",
                 "reason_code": None if records else "no_verified_developmental_history_records",
             }
         except Exception as exc:
@@ -270,7 +273,8 @@ def inspect_readiness(config_path: Path, model_path: Path,
 
     observed = findings["findings"]
     config_ready = observed.get("resident_configuration", {}).get("status") == "enabled"
-    history_ready = observed.get("developmental_history", {}).get("status") == "eligible_history_present"
+    history_ready = observed.get("developmental_history", {}).get("status") == \
+        "record_receipt_linked_admission_not_revalidated"
     artifact_ready = observed.get("explicit_model_artifact", {}).get("status") == "verified_local_candidate"
     platform_ready = observed["request_custody_platform"]["status"] == "required_primitives_available"
     installation_ready = observed.get("serving_installation", {}).get("status") == \

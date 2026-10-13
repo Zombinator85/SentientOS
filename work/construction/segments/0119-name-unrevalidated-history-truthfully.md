@@ -1,0 +1,7 @@
+# 0119 — keep receipt linkage distinct from admission eligibility
+
+- Continued from remote source `2da7a58b10c0884d0abdc0fd2e4a2454135ee252`, tree `fad0160098abcf69e372807e9a97bce77ed0204c`.
+- The canonical recovery owner validates `RuntimeAdmissionVerifier.recorded_admission()` and re-verifies the exact capability/effect/subject/configuration bindings before accepting recovered developmental records. The read-only readiness doctor has no injected admission verifier, so receipt linkage cannot honestly be called fully eligible history.
+- Renamed the finding to `record_receipt_linked_admission_not_revalidated` and explicitly reports both admission and full recovery validation as not performed. It still permits only operator review after its limited custody checks; the resident daemon retains its full runtime gates. Updated the handoff documentation and strengthened the positive case to assert the non-claim.
+- Readiness test module: **9 passed**. Changed Python compiled; targeted mypy passed; changed-file whitespace scan is clean. These checks are hermetic and do not prove admission validity, task outcome authenticity, real inference, or model learning.
+- Next: assess whether the read-only preflight should accept an explicitly injected existing admission-verifier owner, or remain intentionally limited. Do not build a duplicate verifier or load mutable authority from ambient paths. Continue with a separate operability dependency if no safe injection contract exists.

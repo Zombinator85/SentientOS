@@ -157,6 +157,10 @@ def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
     assert report["status"] == "ready_for_operator_review"
     assert report["trial_execution_ready"] is False
     assert report["findings"]["developmental_history"]["verified_record_count"] == 1
+    assert report["findings"]["developmental_history"]["status"] == \
+        "record_receipt_linked_admission_not_revalidated"
+    assert report["findings"]["developmental_history"]["admission_validation"] == \
+        "not_performed_by_read_only_preflight"
     assert report["findings"]["explicit_model_artifact"]["identity_scope"] == \
         "operator_selected_file_not_resident_loaded_model"
     assert report["findings"]["serving_installation"]["status"] == \
