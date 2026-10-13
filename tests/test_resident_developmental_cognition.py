@@ -916,6 +916,25 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert json.loads(replacement_a.calls[1]["prompt"])["developmental_history"] == []
     assert json.loads(replacement_b.calls[1]["prompt"])["developmental_history"] == []
     call_counts = (len(replacement_a.calls), len(replacement_b.calls))
+    child = subprocess.run([sys.executable, "-c", """
+import json, sys
+from pathlib import Path
+from sentientos.developmental_model_replacement_experiment import ModelReplacementArtifactStore
+store = ModelReplacementArtifactStore(Path(sys.argv[1]), read_only=True)
+context = store.load_verified_context(sys.argv[2], sys.argv[3])
+print(json.dumps({"context_id": context["context_id"],
+    "context_digest": context["context_digest"],
+    "history_record_ids": context["history_record_ids"],
+    "history_record_digests": context["history_record_digests"]}, sort_keys=True))
+""", str(replacement_root), succession_context.context_id,
+        succession_context.context_digest], cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, check=True)
+    child_context = json.loads(child.stdout.strip().splitlines()[-1])
+    assert child_context["context_id"] == succession_context.context_id
+    assert child_context["context_digest"] == succession_context.context_digest
+    assert child_context["history_record_ids"] == [later.written_record_id]
+    assert child_context["history_record_digests"] == [
+        succession_context.history_record_digests[0]]
     restarted_replacement = DevelopmentalModelReplacementExperiment(
         context=succession_context, model_a=replacement_a, model_b=replacement_b,
         artifact_root=replacement_root)
