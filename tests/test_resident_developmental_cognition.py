@@ -1317,6 +1317,23 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         for condition in transfer["conditions"])
     assert transfer["objective_evaluation"]["scope"] == (
         "same_model_task_correctness_not_general_learning_or_weight_change")
+    progression = cognition.verified_objective_task_family_progression(request_refs=(
+        (staged["request_id"], staged["request_digest"]),
+        (later_request["request_id"], later_request["request_digest"])))
+    assert progression["episodes_with_admitted_task_family_history"] == 1
+    assert progression["matching_task_family_history_retrieved_for_all_episodes"] is False
+    acquisition_episode, transfer_episode = progression["episodes"]
+    assert acquisition_episode["task_family_history_record_ids"] == []
+    assert acquisition_episode["task_family_history_relevance_posture"] == \
+        "no_matching_admitted_task_family_history"
+    assert transfer_episode["task_family_history_record_ids"] == [retained.record_id]
+    assert transfer_episode["task_family_history_record_digests"] == [retained.record_digest]
+    transfer_retrieval = {condition["condition_id"]:
+        condition["task_family_retrieved_record_ids"]
+        for condition in transfer_episode["conditions"]}
+    assert transfer_retrieval["history_present"] == [retained.record_id]
+    assert transfer_retrieval["history_withheld"] == []
+    assert transfer_retrieval["history_restored"] == [retained.record_id]
 
 
 def test_admitted_resident_history_is_shared_with_predecessor_and_successor_models(
@@ -1463,6 +1480,8 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
     assert progression["status"] == "comparable_scored_episodes"
     assert progression["task_family_id"] == "integer_affine_prediction"
     assert progression["episode_count"] == 2
+    assert progression["episodes_with_admitted_task_family_history"] == 0
+    assert progression["matching_task_family_history_retrieved_for_all_episodes"] is False
     assert [episode["tick_id"] for episode in progression["episodes"]] == [
         "progression-tick-1", "progression-tick-2"]
     assert progression["same_model_generation_controls"] is True
@@ -1472,7 +1491,11 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
     assert progression["learning_established"] is False
     assert progression["performance_improvement_established"] is False
     for episode in progression["episodes"]:
+        assert episode["task_family_history_record_ids"] == []
+        assert episode["task_family_history_relevance_posture"] == \
+            "no_matching_admitted_task_family_history"
         assert episode["conditions"][0]["retrieved_record_ids"] == episode["history_record_ids"]
+        assert episode["conditions"][0]["task_family_retrieved_record_ids"] == []
         assert episode["conditions"][1]["retrieved_record_ids"] == []
         assert episode["conditions"][2]["retrieved_record_ids"] == episode["history_record_ids"]
     assert all("multiplier" not in json.dumps(episode)

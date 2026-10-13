@@ -2433,6 +2433,7 @@ class ResidentDevelopmentalCognitionOwner:
                 "inference_replayed": False, "authority": False}
 
         episodes: list[dict[str, Any]] = []
+        durable_history: dict[str, tuple[Mapping[str, Any], Mapping[str, Any]]] | None = None
         for row in completed:
             request_id = row.get("objective_request_id")
             if request_id not in refs:
@@ -2462,6 +2463,42 @@ class ResidentDevelopmentalCognitionOwner:
                     or family.get("probe_count") != len(family["probe_inputs"])):
                 raise ResidentDevelopmentalCognitionError(
                     "objective_progression_task_family_required")
+            history_ids = verified.get("history_record_ids", ())
+            history_digests = verified.get("history_record_digests", ())
+            if (not isinstance(history_ids, (list, tuple))
+                    or not isinstance(history_digests, (list, tuple))
+                    or len(history_ids) != len(history_digests)
+                    or len(history_ids) > MAX_HISTORY
+                    or any(not isinstance(value, str) or not value for value in history_ids)
+                    or len(set(history_ids)) != len(history_ids)
+                    or any(not isinstance(value, str) or not value.startswith("sha256:")
+                        for value in history_digests)):
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_history_identity_invalid")
+            if durable_history is None:
+                try:
+                    durable_history = {
+                        record.record_id: (asdict(record), asdict(receipt))
+                        for record, receipt in self.writeback.inspect_completed_records()}
+                except DevelopmentalWritebackError as exc:
+                    raise ResidentDevelopmentalCognitionError(
+                        "objective_progression_history_recovery_failed") from exc
+            family_history_ids: list[str] = []
+            family_history_digests: list[str] = []
+            for record_id, expected_digest in zip(history_ids, history_digests):
+                stored = durable_history.get(record_id)
+                if stored is None or stored[0].get("record_digest") != expected_digest:
+                    raise ResidentDevelopmentalCognitionError(
+                        "objective_progression_history_record_unverified")
+                candidate = stored[0].get("candidate")
+                facts = candidate.get("selected_facts", ()) if isinstance(candidate, Mapping) else ()
+                if any(isinstance(fact, Mapping)
+                        and isinstance(fact.get("payload"), Mapping)
+                        and fact["payload"].get("objective_task_family")
+                            == family.get("task_family_id")
+                        for fact in facts):
+                    family_history_ids.append(record_id)
+                    family_history_digests.append(expected_digest)
             conditions = verified.get("conditions")
             if (not isinstance(conditions, list) or len(conditions) != len(CONDITION_ORDER)
                     or tuple(item.get("condition_id") for item in conditions
@@ -2474,6 +2511,24 @@ class ResidentDevelopmentalCognitionOwner:
             score_rows = []
             for item in conditions:
                 assert isinstance(item, Mapping)
+                retrieved_ids = item.get("retrieved_record_ids", ())
+                retrieved_digests = item.get("retrieved_record_digests", ())
+                if (not isinstance(retrieved_ids, (list, tuple))
+                        or not isinstance(retrieved_digests, (list, tuple))
+                        or len(retrieved_ids) != len(retrieved_digests)
+                        or any(not isinstance(value, str) or not value
+                            for value in retrieved_ids)
+                        or len(set(retrieved_ids)) != len(retrieved_ids)):
+                    raise ResidentDevelopmentalCognitionError(
+                        "objective_progression_retrieval_identity_invalid")
+                for retrieved_id, retrieved_digest in zip(retrieved_ids, retrieved_digests):
+                    stored = durable_history.get(retrieved_id) if durable_history is not None else None
+                    if (stored is None
+                            or stored[0].get("record_digest") != retrieved_digest):
+                        raise ResidentDevelopmentalCognitionError(
+                            "objective_progression_retrieved_history_unverified")
+                matching_retrieved = [record_id for record_id in family_history_ids
+                    if record_id in retrieved_ids]
                 count = item.get("correct_count")
                 score_rows.append({"condition_id": item.get("condition_id"),
                     "correct_count": count if type(count) is int else None,
@@ -2495,6 +2550,10 @@ class ResidentDevelopmentalCognitionOwner:
                     "retrieved_record_ids": list(item.get("retrieved_record_ids", ())),
                     "retrieved_record_digests": list(item.get(
                         "retrieved_record_digests", ())),
+                    "task_family_retrieved_record_ids": matching_retrieved,
+                    "task_family_retrieval_posture": (
+                        "matching_admitted_task_family_history_retrieved"
+                        if matching_retrieved else "no_matching_admitted_task_family_history_retrieved"),
                     "history_selection_digest": item.get("history_selection_digest")})
             semantic = {"request_id": request_id,
                 "request_digest": refs[str(request_id)],
@@ -2506,6 +2565,11 @@ class ResidentDevelopmentalCognitionOwner:
                 "history_record_ids": list(verified.get("history_record_ids", ())),
                 "history_record_digests": list(verified.get("history_record_digests", ())),
                 "history_record_set_digest": verified.get("history_record_set_digest"),
+                "task_family_history_record_ids": family_history_ids,
+                "task_family_history_record_digests": family_history_digests,
+                "task_family_history_relevance_posture": (
+                    "matching_admitted_task_family_history_available"
+                    if family_history_ids else "no_matching_admitted_task_family_history"),
                 "model_generation_profiles": [dict(profile)
                     if isinstance(profile, Mapping) else None for profile in profiles],
                 "model_generation_profile_digests": profile_digests,
@@ -2567,6 +2631,18 @@ class ResidentDevelopmentalCognitionOwner:
                 "descriptive_episodes_not_comparable",
             "task_family_id": next(iter(family_ids)) if len(family_ids) == 1 else None,
             "episode_count": len(episodes), "episodes": episodes,
+            "episodes_with_admitted_task_family_history": sum(
+                bool(episode["task_family_history_record_ids"]) for episode in episodes),
+            "matching_task_family_history_retrieved_for_all_episodes": bool(episodes) and all(
+                bool(episode["task_family_history_record_ids"])
+                and all(condition["task_family_retrieval_posture"]
+                    == "matching_admitted_task_family_history_retrieved"
+                    for condition in episode["conditions"]
+                    if condition["condition_id"] in {"history_present", "history_restored"})
+                and not any(condition["task_family_retrieved_record_ids"]
+                    for condition in episode["conditions"]
+                    if condition["condition_id"] == "history_withheld")
+                for episode in episodes),
             "same_model_generation_controls": same_profile,
             "distinct_task_instances": distinct_tasks,
             "distinct_probe_sets": distinct_probes,
