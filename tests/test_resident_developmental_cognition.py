@@ -577,6 +577,9 @@ def test_interrupted_scored_family_run_recovers_into_later_world_state_without_r
     installation_files_before_recovery = {
         path.relative_to(installation_handle.root).as_posix(): path.read_bytes()
         for path in installation_handle.root.rglob("*") if path.is_file()}
+    history_files_before_projection = {
+        path.relative_to(tmp_path / "history").as_posix(): path.read_bytes()
+        for path in (tmp_path / "history").rglob("*") if path.is_file()}
     child_code = r'''
 import json, sys
 from pathlib import Path
@@ -587,6 +590,7 @@ from sentientos.resident_developmental_cognition import (
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import ResidentCognitiveInvocationReceiptReader
+from sentientos.governed_local_model_invocation import digest_payload
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 
 root, installation_root = Path(sys.argv[1]), Path(sys.argv[2])
@@ -612,19 +616,47 @@ outcome = owner.verified_objective_measurement_for_request(
     request_id="interrupted-family-run",
     request_digest=json.loads((root / "state" / "pending_objective_intervention.json").read_text())[
         "request_digest"])
+from sentientosd import RuntimeMaintenanceSurfaces
+surfaces = RuntimeMaintenanceSurfaces(root, runtime_state_root=root / "runtime",
+    resident_developmental_owner=owner)
+surfaces.build_world_state_board(tick_id=sys.argv[3])
+world = surfaces.current_world_state_snapshot
+fact = next(row for row in world.facts
+    if row.source.source_id == "developmental-history-run:" + refs[0][0])
 print(json.dumps({"refs": refs, "projectable": projectable,
     "status": outcome["status"],
     "measurement_digest": outcome["measurement_digest"],
+    "projected_source_id": fact.source.source_id,
+    "projected_source_digest": fact.source.digest,
+    "projected_fact_id": fact.fact_id,
+    "projected_payload_digest": digest_payload({"payload": fact.payload}),
     "actual_nonsynthetic_inference_verified":
         outcome["actual_nonsynthetic_inference_verified"]}, sort_keys=True))
 '''
     child = subprocess.run([sys.executable, "-c", child_code, str(tmp_path),
-        str(tmp_path / "installation-custody")],
-        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=True)
+        str(tmp_path / "installation-custody"), "2026-01-02T00:00:01+00:00"],
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
+    assert child.returncode == 0, child.stderr[-4000:]
     child_result = json.loads(child.stdout.strip().splitlines()[-1])
     assert child_result["status"] == "verified_objective_measurement"
     assert child_result["actual_nonsynthetic_inference_verified"] is True
     assert len(child_result["refs"]) == 1 and child_result["projectable"] == child_result["refs"]
+    assert child_result["projected_source_id"] == "developmental-history-run:" + child_result["refs"][0][0]
+    assert child_result["projected_source_digest"]
+    repeat_projection = subprocess.run([sys.executable, "-c", child_code, str(tmp_path),
+        str(tmp_path / "installation-custody"), "2026-01-02T00:00:02+00:00"],
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=True)
+    repeat_result = json.loads(repeat_projection.stdout.strip().splitlines()[-1])
+    for field in ("refs", "measurement_digest", "projected_source_id",
+            "projected_source_digest", "projected_fact_id", "projected_payload_digest"):
+        assert repeat_result[field] == child_result[field]
+    latest_world_state = tmp_path / "runtime" / "world_state_board" / "latest.json"
+    assert latest_world_state.is_file()
+    latest_projection = json.loads(latest_world_state.read_text(encoding="utf-8"))
+    assert child_result["projected_source_id"] in json.dumps(latest_projection)
+    assert history_files_before_projection == {
+        path.relative_to(tmp_path / "history").as_posix(): path.read_bytes()
+        for path in (tmp_path / "history").rglob("*") if path.is_file()}
     assert installation_files_before_recovery == {
         path.relative_to(installation_handle.root).as_posix(): path.read_bytes()
         for path in installation_handle.root.rglob("*") if path.is_file()}
@@ -647,7 +679,8 @@ print(json.dumps({"refs": refs, "projectable": projectable,
         'except Exception as exc:\n    print(json.dumps({"status": "rejected", "reason": str(exc)}))\n'
         '    raise SystemExit(0)')
     rejected = subprocess.run([sys.executable, "-c", child_code_reject, str(tmp_path),
-        str(tmp_path / "installation-custody")], cwd=Path(__file__).resolve().parents[1],
+        str(tmp_path / "installation-custody"), "2026-01-02T00:00:03+00:00"],
+        cwd=Path(__file__).resolve().parents[1],
         capture_output=True, text=True, check=True)
     rejection = json.loads(rejected.stdout.strip().splitlines()[-1])
     assert rejection == {"status": "rejected",

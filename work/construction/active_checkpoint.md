@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 135 continues from verified remote source `93441a4bc6632ea08110d3e8d9a4c3b4d60a59ab`, tree `e4e670268955f08ac47604fac3ebfd8484eb6e44`. The interrupted task-family run now reconstructs in a child process through the actual installation-scoped read-only invocation receipt reader and serving-session witness contract. A substituted persisted request digest is rejected; read-only recovery does not alter installation custody or replay inference. Focused developmental suites passed 164 tests. All inference and serving receipts in this case are fixtures; actual model behavior and production acceptance remain unverified.
+Sequence 136 continues from verified source `5da42b0e69a51a7c7f26e38ad10b4cbeb16591f9`, tree `eb870d4679fe9b6a354a557a8d7fae6f8c7665b7`. An interrupted scored run now reconstructs through the installation-bound invocation verifier, projects through the actual daemon World-State builder in separate processes, and survives projection-before-writeback interruption with stable source and fact identities. The projected record is persisted, while history remains unchanged until the parent resumes normal admitted writeback. Focused developmental suites passed 164 tests. Model and serving evidence are fixture-only; actual acquisition and production behavior remain unverified.
 
-Latest segment: `work/construction/segments/0135-child-process-canonical-receipt-verification.md`
-SHA-256: `6acc083fc80819a948739a9928f7c28be0429ab34e704e58ff3334bde43e9683`
-Evidence: `work/construction/evidence/0135-child-process-canonical-receipt-verification.json`
-Evidence SHA-256: `522932f06149aef0d3032956185a46c324c6b7418c0cf6e2e5ba28d28868418c`
-Sequence: 135
+Latest segment: `work/construction/segments/0136-world-state-reprojection-after-restart.md`
+SHA-256: `0af153bf2757707aee33058fdedb7dc3351cf50539d15990bb3809822691cfbd`
+Evidence: `work/construction/evidence/0136-world-state-reprojection-after-restart.json`
+Evidence SHA-256: `be62314b3f67c256c3c5baca8aff2a9854b1bc47b3d52eee31292a4260501038`
+Sequence: 136
 
-Next: exercise the crash boundary after a recovered objective run is durably available but before its World-State projection is consumed by normal developmental writeback; verify repeat projection and post-restart admission remain idempotent and answer-safe. Actual model evaluation still requires a supported host, genuine model artifact, and existing serving authorization.
+Next: interrupt after the authorized developmental record/receipt is durably published but before its composition checkpoint, then verify restart recovers exactly one admitted record and only later ticks can consume it. Continue afterward into remaining relevant retrieval-policy comparisons; actual local-model measurement still needs an available supported host, genuine artifact, and existing authorization.

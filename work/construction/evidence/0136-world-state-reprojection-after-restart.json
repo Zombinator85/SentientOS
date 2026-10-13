@@ -1,0 +1,32 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "commands": [
+      "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py scripts/inspect_resident_objective_result.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixture_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 164,
+    "production_acceptance": "deferred"
+  },
+  "changed_files": {
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 224497,
+      "git_blob": "6e08db43de9af56e285d4873bf41a955e941c2c0",
+      "sha256": "9eca4c852b0d929ee1bdb7647251c7d19871bea9d54bc767912231199bec3702"
+    }
+  },
+  "implementation": {
+    "continuity": "The parent process restarts the owner, builds the same canonical source, and writes through the existing ordinary writeback and admission owner. Earlier receipt-substitution rejection remains covered.",
+    "interruption": "The child exits after publishing latest.json and before cognition/writeback. A second process at a later tick reconstructs the same run and reprojects identical source ID, source digest, fact ID, and payload digest.",
+    "no_promotion": "Developmental-history bytes remain unchanged across both projection processes; the persisted World-State record carries no admission authority.",
+    "projection": "A fresh child process reconstructs exact invocation and serving receipt custody, recovers the aggregate run, and invokes the daemon\u2019s normal RuntimeMaintenanceSurfaces World-State builder.",
+    "scope": "Invocation outputs and source receipts are fixtures. This verifies projection/recovery composition, not model behavior, physical observation, or acquired real-world competence."
+  },
+  "objective": "Exercise a process interruption after completed objective-run recovery and durable World-State publication but before developmental writeback.",
+  "schema_version": 1,
+  "sequence": 136,
+  "source_commit": "5da42b0e69a51a7c7f26e38ad10b4cbeb16591f9",
+  "source_tree": "eb870d4679fe9b6a354a557a8d7fae6f8c7665b7"
+}
