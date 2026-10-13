@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "2038e112ff99f1e048ca13c25c929bf7adbaa3e33066f6dc90f250cafdfa1a15",
-    "latest_segment_sequence": 160,
-    "latest_segment_sha256": "b1890e5e88baee46b02fb36e257761fb5e11c8c84d4db22a433832c6818bab47",
-    "source_commit": "dffb2a4ed3d3d90abc79dc73e32b561424ef93b1",
-    "source_tree": "6bd53110703169a5a25489bfd0586b7c55611130"
+    "checkpoint_sha256": "613f42de66ba93ff674ae9747017b3b08ffbc0450208728cf6744a3dd88c5d37",
+    "latest_segment_sequence": 161,
+    "latest_segment_sha256": "2b590fdad6aa00c6a2ef96d1a228f099775dfe0a12fa65b95c002b4c7d327976",
+    "source_commit": "1d23b1eea68127f01910e905ce5618b6f57e6f18",
+    "source_tree": "f0b1b560a617451a39eb248fae995b68fbe45e3a"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -1560,6 +1560,14 @@
       "evidence_path": "work/construction/evidence/0160-child-process-acquired-progression.json",
       "evidence_bytes": 1825,
       "evidence_sha256": "2b9e98cce408ef81cbd27c9b7635c5abd0e5cdacaa149f4a212b2325b50c24a6"
+    },
+    {
+      "sequence": 161,
+      "path": "work/construction/segments/0161-source-identity-binding.md",
+      "bytes": 1318,
+      "sha256": "2b590fdad6aa00c6a2ef96d1a228f099775dfe0a12fa65b95c002b4c7d327976",
+      "predecessor": "segment-sha256:b1890e5e88baee46b02fb36e257761fb5e11c8c84d4db22a433832c6818bab47",
+      "source_commit": "1d23b1eea68127f01910e905ce5618b6f57e6f18"
     }
   ],
   "source_acquisition": {
