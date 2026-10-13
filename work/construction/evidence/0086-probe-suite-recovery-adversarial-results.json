@@ -1,0 +1,32 @@
+{
+  "claims": [
+    "Probe-suite identity collision and receipt/output substitution fail closed without replay.",
+    "Hosted Source Validation succeeded; unrelated invariant/docs/self-check jobs failed at existing privilege, path/install and protected CI boundaries. Helm status was still in progress when captured."
+  ],
+  "details": "Added suite-specific tampered-plan and answer/output-digest substitution controls. Tampered plan identity is rejected before any extra inference; a contradictory output receipt produces a contradictory run and recovery does not replay inference. Exact hosted seq85 status is recorded separately; Source Validation passed and Helm remained in progress at capture time.",
+  "failed": 0,
+  "git_diff_check": "passed",
+  "hosted_checks_path": "work/construction/evidence/0086-hosted-checks-seq85.json",
+  "junit": {
+    "bytes": 3656,
+    "path": "work/construction/evidence/0086-probe-suite-recovery-adversarial-junit.xml",
+    "sha256": "cbbce7401f75e14dd22f6eadabaed1c0474be813591f2426779ddbed3f3b0339",
+    "testsuite": {
+      "errors": null,
+      "failures": null,
+      "hostname": null,
+      "name": "pytest tests",
+      "skipped": null,
+      "tests": null,
+      "time": null,
+      "timestamp": null
+    }
+  },
+  "passed": 22,
+  "python_compilation": "passed",
+  "sequence": 86,
+  "skipped": 0,
+  "source_baseline_commit": "6a8502675074eb9c116ded9b0d36eab67495c1f6",
+  "source_baseline_tree": "0e220c690112b654c0e9dd42f779f6d5edb39c41",
+  "status": "construction_tested_unverified_for_production"
+}

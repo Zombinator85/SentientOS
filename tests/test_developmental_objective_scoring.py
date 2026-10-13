@@ -353,3 +353,28 @@ def test_probe_suite_malformed_answer_is_scored_as_failure_not_success(tmp_path)
     assert all(item['objective_task_score']['status'] == 'invalid_answer'
         and item['objective_task_score']['correct'] is False
         for item in run['observations'])
+
+
+def test_probe_suite_plan_tampering_fails_closed_without_replay(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    owner, a, b = experiment(tmp_path, task=task)
+    run = owner.run()
+    calls = (len(a.calls), len(b.calls))
+    path = next(owner.store.protocols.glob('objective-task-plan-*.json'))
+    value = json.loads(path.read_text())
+    value['task']['offset'] += 1
+    path.write_text(json.dumps(value, sort_keys=True, separators=(',', ':')))
+    with pytest.raises(DevelopmentalModelReplacementError, match='objective_plan_binding_invalid'):
+        owner.store.verify_objective_plan(owner.protocol, owner.objective_plan)
+    assert (len(a.calls), len(b.calls)) == calls
+
+
+def test_probe_suite_output_substitution_is_incomplete_and_never_replayed(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    owner, a, b = experiment(tmp_path, 'substitute', task=task)
+    run = owner.run()
+    assert run['experiment_completion_posture'] == 'contradictory'
+    assert len(a.calls) == 1 and not b.calls
+    recovered, a2, b2 = experiment(tmp_path, 'derive', task=task)
+    assert recovered.run() == run
+    assert a2.calls == b2.calls == []
