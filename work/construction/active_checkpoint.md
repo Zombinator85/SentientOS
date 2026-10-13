@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 159 adds per-episode task correctness contrasts to read-only progression inspection: correct-count difference for history-present versus withheld, restored versus present, and the exact held-out probe denominator. Missing/truncated output yields null deltas with an unscoreable posture. The report explicitly does not equate contrast with learning or improvement.
+Sequence 160 cold-reconstructs the positive three-episode acquired-history progression in a fresh Python interpreter. Persistent developmental state, writeback records/receipts, objective protocol/run custody, and serialized fixture-issued invocation receipts are read through normal verification owners. The child reproduces exact family record/digest attribution and episode contrasts without inference replay or inherited Python owner/invoker state.
 
-Focused positive, adverse, unscoreable, and acquired-history tests passed (3 passed in 67.82s); changed Python compiled. Fixture invokers only.
+Two focused hermetic tests passed (69.48s); the test module compiled. Fixture receipts only; no real model behavior, learning, performance improvement, or production operation.
 
-Latest source commit: 103b098be19b1d01c5f9890d6a29437d6d8e3ddd
-Latest source tree: 78f6e04de83811fa6e5e13aa95077e9d30bfa470
-Latest segment: work/construction/segments/0159-per-episode-score-contrasts.md
-Segment SHA-256: 713284696b5ce6c196521c03687b0b95e8f713b74d182aa4d1533c0e57f7e883
-Evidence: work/construction/evidence/0159-per-episode-score-contrasts.json
-Evidence SHA-256: 8fa35394abdfb78c2bbdcb90d9ad4e2879e59f286d6f6283b961cb870e3bb2d4
-Sequence: 159
+Latest source commit: dffb2a4ed3d3d90abc79dc73e32b561424ef93b1
+Latest source tree: 6bd53110703169a5a25489bfd0586b7c55611130
+Latest segment: work/construction/segments/0160-child-process-acquired-progression.md
+Segment SHA-256: b1890e5e88baee46b02fb36e257761fb5e11c8c84d4db22a433832c6818bab47
+Evidence: work/construction/evidence/0160-child-process-acquired-progression.json
+Evidence SHA-256: 2b9e98cce408ef81cbd27c9b7635c5abd0e5cdacaa149f4a212b2325b50c24a6
+Sequence: 160
 
-Next: perform a cold child-process reconstruction of the positive multi-episode acquired-history chain using canonical state and receipt custody, without inheriting Python model or owner objects or replaying inference.
+Next: adversarially verify source/task/outcome bindings and ensure the current-context/oracle firewall is complete across the multi-episode chain.
