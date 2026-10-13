@@ -1,0 +1,68 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 151,
+  "title": "retain task-family score provenance in developmental history",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "9a81227bbf3a6d8e84f4c3e553a7d62c163197bd",
+    "tree": "56cbfbee13729c736d130f9932fb23421742f55b"
+  },
+  "base": {
+    "commit": "fa888ad941f31a0eac95ab00872aa7e0c14d3bc8",
+    "tree": "6ef35411aabe513a1e08370b1ad4e1deeb7f533d"
+  },
+  "implementation": "For task-family experiments, preserve the verified history-present score schema, evaluator identity, plan/task digests, and output digest in the World-State row and admitted interpretation; verify exact task and invocation-output bindings during writeback. Do not duplicate lineage on every example.",
+  "positive_control": "Actual fixture-driven acquisition result projects evaluator/task/plan/output identity through World-State and authorized writeback; correct and adverse score rows remain distinct.",
+  "negative_control": "Writeback rejects substituted task digest or evaluator identity. Private task multiplier/offset/oracle remain absent from World-State projection. Generic non-family suite keeps its prior compact size.",
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "sentientos/developmental_history_intervention_experiment.py",
+        "sentientos/resident_developmental_writeback.py",
+        "tests/test_resident_developmental_cognition.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "groups": [
+        {
+          "passed": 2,
+          "duration_seconds": 59.26,
+          "nodes": [
+            "tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+            "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer"
+          ]
+        },
+        {
+          "passed": 1,
+          "nodes": [
+            "tests/test_resident_developmental_cognition.py::test_same_model_probe_suite_partial_scores_reach_later_cognition"
+          ]
+        },
+        {
+          "passed": 3,
+          "duration_seconds": 119.43,
+          "notes": "Bounded run passed family acquisition, adverse evidence, restart progression, and interrupted-result recovery; generic suite initially exposed a selected-evidence bound, fixed by limiting score metadata to relevant family rows."
+        }
+      ]
+    },
+    "source_hygiene": "Changed files decoded as UTF-8; no NUL bytes or trailing whitespace. `git diff --check` is unavailable in this isolated exact-source copy because it has no `.git` metadata.",
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "real_model_behavior": "not_observed",
+    "production_verification": "not_performed"
+  },
+  "limitations": [
+    "task family is operator-declared relevance metadata and does not prove the source outcome is useful or externally observed",
+    "fixture inference and deterministic evaluator do not demonstrate real-model acquisition or performance improvement",
+    "the result inspector still does not independently reconcile resource-ledger consumption"
+  ],
+  "next_dependency": "inspect whether exact evaluator and score lineage survive durable restart and later model-replacement context without gaining current-truth or capability semantics",
+  "publication": {
+    "expected_head": "fa888ad941f31a0eac95ab00872aa7e0c14d3bc8",
+    "commit": "9a81227bbf3a6d8e84f4c3e553a7d62c163197bd",
+    "tree": "56cbfbee13729c736d130f9932fb23421742f55b",
+    "remote_readback": "branch, tree, and changed source blobs verified"
+  }
+}

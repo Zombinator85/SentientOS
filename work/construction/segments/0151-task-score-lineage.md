@@ -1,0 +1,11 @@
+# Sequence 151 — Preserve benchmark score lineage through developmental writeback
+
+Base source: fa888ad941f31a0eac95ab00872aa7e0c14d3bc8, tree 6ef35411aabe513a1e08370b1ad4e1deeb7f533d. Tested source: 9a81227bbf3a6d8e84f4c3e553a7d62c163197bd, tree 56cbfbee13729c736d130f9932fb23421742f55b; published by expected-HEAD CAS and independently read back with all changed blob identities.
+
+Source review found a lossy step in the acquired-example path: the verified task score included score schema, evaluator, plan/task digests, and output digest, but the World-State projection reduced it to score digest, status, correctness, and answers. For task-family runs, the history-present score row now retains those exact fields; the row is tied to the descriptor task digest and to the matching invocation output digest during writeback validation. Admitted developmental projection preserves the metadata with the score row. Each example still points to that row by its score digest, avoiding repeated identity fields that would inflate the bounded evidence.
+
+The writeback rejects substituted task/evaluator identities and malformed digest bindings. Existing adverse scores remain adverse. Private affine parameters/oracle stay absent, and family source facts remain excluded from later current evidence; the actual output answers are available only through the intended retained-history treatment.
+
+A first broad run exposed that adding these fields to every generic objective suite could exceed the selected-evidence bound. The final implementation limits this extra lineage to task-family acquisition rows. Final focused verification: two task-family positive/adverse owner tests passed (59.26s). The generic partial-score suite passed with the family-only restriction (1 passed); the restart/progression tests also passed in the preceding bounded run. All changed Python compiled; UTF-8, NUL, and trailing-whitespace checks passed. No typing, hosted CI, real model, or production behavior was verified.
+
+Next: continue through the cross-episode feedback path and inspect whether the exact evaluator/score lineage survives a process restart and subsequent model-replacement context without becoming current truth or a capability claim.
