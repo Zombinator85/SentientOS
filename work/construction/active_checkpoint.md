@@ -1,17 +1,15 @@
 # Active construction checkpoint
 
-New objective requests use nonce-salted task commitments. Immutable plan custody retains the nonce and oracle; cognition receives only safe descriptors and salted digests. Public plan hashes exclude the private task/nonce. Legacy protocol, plan, and request readers remain versioned. A/B replacement recovers its salt from its exact immutable plan.
+The resident developmental path now keeps legacy low-entropy objective-oracle digests out of cognition-facing data while preserving historical artifact verification. Verified salted posture is carried across World-State and the existing writeback path; missing posture fails closed for current context, new admission, and prior-history retrieval. Legacy unkeyed A/B plans cannot start new inference.
 
-The canonical A/B rehearsal identified and repaired loss of concrete currentness failure codes through the durable no-retry record.
+Focused owner suites passed after the final changes. The results are deterministic fixture behavior, not production acceptance or real-model learning. Details and exact blob IDs are in sequence 163.
 
-Focused evidence: 44 objective/history integration tests passed (84.68s), all 8 rehearsal and legacy-request checks passed (2.76s), and the currentness no-retry control passed (0.57s). Changed Python/test files compiled. Synthetic fixture results only; no actual model learning or production behavior.
+Latest source commit: 629805a99fdbdef5340eb2f96a3959720b0fd077
+Latest source tree: 3dfabb4bbe6b7682c92f9ecc5c10d5a50ab3d188
+Latest segment: work/construction/segments/0163-legacy-oracle-cognition-exclusion.md
+Segment SHA-256: 90bf389aff8975f40385b3388b8ee8dbb2997b7b1d8634b3a4f4da28b8d182b9
+Evidence: work/construction/evidence/0163-legacy-oracle-cognition-exclusion.json
+Evidence SHA-256: ea445c960693e340fe2612cb830c94cc5201a9b065e2eea23be26d863e49b533
+Sequence: 163
 
-Latest source commit: 710846a7708f0f1a6289187051c26286228f6115
-Latest source tree: 1e67c21c01470218fac24245c1aff670022732aa
-Latest segment: work/construction/segments/0162-salted-objective-commitments.md
-Segment SHA-256: 6be0d7f2c250aad3ced128bdab2c4792ebc1c0e88eb743092c6e1f76f31fa54f
-Evidence: work/construction/evidence/0162-salted-objective-commitments.json
-Evidence SHA-256: 3d90b952238bbeef868d263c3ec3f0bdadb5f757a32467750d3aca6db841bfab
-Sequence: 162
-
-Next: audit all remaining cognition-facing metadata and retrieval paths for oracle-derived identities, including A/B campaign/report projections, then continue to later-episode decision or strategy transfer beyond factual affine-example recall.
+Next: extend multi-episode transfer to a second distinct held-out task using the same admitted family history after restart, with recent irrelevant and adverse examples retained as controls. Keep task correctness, output changes, and real model learning claims separate.
