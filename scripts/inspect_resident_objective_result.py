@@ -19,9 +19,15 @@ from sentientos.resident_cognitive_model_serving import (
 )
 from sentientos.resident_developmental_cognition import (
     CONFIG_ENV as COGNITION_CONFIG_ENV, ResidentDevelopmentalCognitionError,
+    ResidentDevelopmentalCognitionOwner,
     load_config as load_cognition_config, load_objective_request_by_identity,
     stored_objective_request_record, verified_objective_measurement_summary,
 )
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
+)
+from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 
 
 def _verify_observation(reader: ResidentCognitiveInvocationReceiptReader,
@@ -91,21 +97,63 @@ def inspect_result(*, cognition_config_path: Path, serving_config_path: Path,
     return result
 
 
+def inspect_progression(*, cognition_config_path: Path, serving_config_path: Path,
+        request_refs: tuple[tuple[str, str], ...],
+        installation_registry: InstallationStateRegistry | None = None) -> dict[str, Any]:
+    """Read a bounded episode sequence through the configured receipt owner."""
+    config = load_cognition_config(cognition_config_path)
+    if not config.enabled or not config.comparison_enabled:
+        raise ResidentDevelopmentalCognitionError("history_comparison_not_enabled")
+    serving_config = load_serving_config(str(serving_config_path))
+    if not serving_config.enabled or not serving_config.installation_identity:
+        raise ValueError("resident_serving_configuration_disabled")
+    identity = InstallationIdentity.parse(serving_config.installation_identity)
+    registry = installation_registry or InstallationStateRegistry.system()
+    installation = registry.open_read_only(identity)
+    reader = ResidentCognitiveInvocationReceiptReader(installation)
+    ledger = AdmissionLedger(config.state_root / "runtime_admissions.json")
+    definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK:
+        RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+    writeback = ResidentDevelopmentalWritebackController(
+        history_root=config.history_root,
+        admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+        current_sequence=ledger.current_sequence)
+    owner = ResidentDevelopmentalCognitionOwner(config=config, writeback=writeback,
+        admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+        invoker=reader, current_sequence=ledger.current_sequence)
+    result = dict(owner.verified_objective_task_family_progression(
+        request_refs=request_refs))
+    result.update({"model_invoked": False, "write_performed": False})
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=os.environ.get(COGNITION_CONFIG_ENV),
         help="exact resident developmental-cognition config")
     parser.add_argument("--serving-config", default=os.environ.get(SERVING_CONFIG_ENV),
         help="exact resident model-serving config for historical receipt verification")
-    parser.add_argument("--request-id", required=True)
-    parser.add_argument("--request-digest", required=True)
+    parser.add_argument("--request-id")
+    parser.add_argument("--request-digest")
+    parser.add_argument("--request", action="append", nargs=2, metavar=("ID", "DIGEST"),
+        help="inspect a bounded task-family progression; repeat with exact request identities")
     args = parser.parse_args()
     if not args.config or not args.serving_config:
         parser.error(f"--config or {COGNITION_CONFIG_ENV}, and --serving-config or {SERVING_CONFIG_ENV} are required")
     try:
-        result = inspect_result(cognition_config_path=Path(args.config),
-            serving_config_path=Path(args.serving_config), request_id=args.request_id,
-            request_digest=args.request_digest)
+        if args.request:
+            if args.request_id is not None or args.request_digest is not None:
+                parser.error("use either repeated --request ID DIGEST or the single-request options")
+            refs = tuple((str(request_id), str(request_digest))
+                for request_id, request_digest in args.request)
+            result = inspect_progression(cognition_config_path=Path(args.config),
+                serving_config_path=Path(args.serving_config), request_refs=refs)
+        else:
+            if not args.request_id or not args.request_digest:
+                parser.error("--request-id and --request-digest are required unless --request is used")
+            result = inspect_result(cognition_config_path=Path(args.config),
+                serving_config_path=Path(args.serving_config), request_id=args.request_id,
+                request_digest=args.request_digest)
     except Exception as exc:
         result = {"status": "outcome_verification_unavailable",
             "reason_code": f"{type(exc).__name__}:{exc}"[:192],
@@ -115,7 +163,9 @@ def main() -> int:
         return 2
     print(json.dumps(result, sort_keys=True, ensure_ascii=False))
     return 0 if result.get("status") in {
-        "verified_objective_measurement", "objective_request_not_recorded"} else 2
+        "verified_objective_measurement", "objective_request_not_recorded",
+        "comparable_scored_episodes", "descriptive_episodes_not_comparable",
+        "insufficient_episode_count"} else 2
 
 
 if __name__ == "__main__":

@@ -711,7 +711,7 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
 
 
 def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
-        tmp_path: Path) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A fixture progression reports exact episodes and never claims learning."""
     from scripts.stage_resident_objective_intervention import stage_request
 
@@ -783,6 +783,28 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
     assert changed["same_model_generation_controls"] is False
     assert changed["actual_nonsynthetic_inference_verified"] is False
     assert changed["performance_improvement_established"] is False
+    from scripts import inspect_resident_objective_result as objective_inspector
+    from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+    serving_config = tmp_path / "progression-serving-config.json"
+    serving_config.write_text(json.dumps({
+        "schema_version": "sentientos.resident_cognitive_model_serving_config:v1",
+        "enabled": True, "installation_identity": "progression-installation",
+        "serving_operation_id": "progression-inspection", "expected_activation_state_digest": "d" * 64,
+    }), encoding="utf-8")
+    registry = InstallationStateRegistry._for_testing(tmp_path / "progression-installations")
+    registry.open(InstallationIdentity("progression-installation"), create=True)
+    monkeypatch.setattr(objective_inspector, "ResidentCognitiveInvocationReceiptReader",
+        lambda _installation: fake)
+    before_inspection = {path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*") if path.is_file()}
+    inspected = objective_inspector.inspect_progression(cognition_config_path=config_path,
+        serving_config_path=serving_config, request_refs=tuple(requests) + (
+            (third_request["request_id"], third_request["request_digest"]),),
+        installation_registry=registry)
+    after_inspection = {path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*") if path.is_file()}
+    assert inspected == {**changed, "model_invoked": False, "write_performed": False}
+    assert after_inspection == before_inspection
     # Reconstruct the same report in a new interpreter from the durable
     # cognition/experiment custody plus serialized fixture-issued receipts.
     # This checks restart reading, not model behavior or production custody.
