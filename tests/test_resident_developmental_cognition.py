@@ -1638,6 +1638,45 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert progression["performance_improvement_established"] is False
     assert episode["fresh_process"] is True
     assert episode["fixture_only"] is True
+
+    # Carry the child-completed episode back through its real World-State and
+    # ordinary developmental writeback owners, then stage a third distinct
+    # episode for another fresh interpreter.
+    second_world = WorldStateBoardBuilder().build(cognition.experiments.world_state_records(
+        run_refs=((heldout_run["run_id"], heldout_run["run_digest"]),)))
+    second_feedback = cognition.run_tick(snapshot=second_world,
+        tick_id="episode-heldout-feedback")
+    assert second_feedback.written_record_id
+    second_admitted = cognition.writeback.store.get(second_feedback.written_record_id)
+    second_family_fact = next(fact for fact in second_admitted.candidate["selected_facts"]
+        if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
+    assert second_family_fact["payload"]["acquisition_examples"]
+    third_task = ObjectivePredictionTask(3, 2, 16, (17, 18),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, third_request, third_eligible = stage_request(config_path=config_path,
+        request_id="episode-third-after-recovered-feedback", task=third_task)
+    assert third_eligible >= 1
+    third_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="episode-third-after-recovered-feedback",
+        request_digest=str(third_request["request_digest"]),
+        prior_request_refs=(
+            ("episode-acquisition", str(acquisition_request["request_digest"])),
+            ("episode-heldout-after-restart", str(heldout_request["request_digest"]))))
+    third_run = third_episode["run"]
+    third_scores = {row["condition_id"]: row["score"]
+        for row in third_run["objective_scores"]}
+    assert third_scores["history_present"]["correct_count"] == 3
+    assert third_scores["history_withheld"]["correct_count"] == 0
+    assert third_scores["history_restored"]["correct_count"] == 3
+    third_progression = third_episode["progression"]
+    assert third_progression["episode_count"] == 3
+    assert third_progression["episodes"][2]["task_family_history_record_ids"]
+    assert second_feedback.written_record_id in third_progression["episodes"][2][
+        "task_family_history_record_ids"]
+    assert third_progression["learning_established"] is False
+    assert third_progression["performance_improvement_established"] is False
+
     tampered_receipt = next(receipt.receipt_id for receipt in fake.receipts.values()
         if receipt.purpose == "resident_developmental_history_intervention_experiment"
         and "objective_task_plan_digest" in receipt.request.get("upstream_evidence", {}))
@@ -2763,6 +2802,7 @@ print(json.dumps(owner.verified_objective_task_family_progression(
 
 def _run_family_episode_in_child(root: Path, *, acquisition_request_digest: str,
         request_id: str, request_digest: str,
+        prior_request_refs: tuple[tuple[str, str], ...] = (),
         tamper_receipt_id: str | None = None) -> Mapping[str, Any]:
     """Run transfer in a fresh process through installation-scoped production readers.
 
@@ -2791,6 +2831,7 @@ from pathlib import Path
 
 root, installation_root = Path(sys.argv[1]), Path(sys.argv[2])
 request_id, request_digest = sys.argv[3:5]
+prior_request_refs = json.loads(sys.argv[5])
 test_path = Path.cwd() / "tests" / "test_resident_developmental_cognition.py"
 spec = importlib.util.spec_from_file_location("fixture_cognition_tests", test_path)
 module = importlib.util.module_from_spec(spec)
@@ -2822,14 +2863,15 @@ prompts = {request.correlation_id.rsplit(":", 1)[-1]: request.prompt
     and request.correlation_id.startswith(request_id + ":")
     and request.prompt.lstrip().startswith("{")}
 progression = owner.verified_objective_task_family_progression(request_refs=(
-    ("episode-acquisition", sys.argv[5]), (request_id, request_digest)))
+    *(tuple(item) for item in prior_request_refs), (request_id, request_digest)))
 print(json.dumps({"fresh_process": True, "fixture_only": True,
     "run": run, "progression": progression, "prompts": prompts}, sort_keys=True))
 '''
     try:
         child = subprocess.run([sys.executable, "-c", child_code, str(root),
             str(installation_root), request_id, request_digest,
-            acquisition_request_digest], cwd=Path(__file__).resolve().parents[1],
+            json.dumps(prior_request_refs or (("episode-acquisition",
+                acquisition_request_digest),))], cwd=Path(__file__).resolve().parents[1],
             capture_output=True, text=True)
         if child.returncode != 0:
             raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
