@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote HEAD `a54d7b59e392bbe0a6cac440a83ab4c3a4ef0f45`, tree `08cfebba40eb9aea8fb59c62e7041109d745b273`. Sequence 99 records the launcher/source-bound process evidence and its explicit `not_independently_attested` loaded-code limit. Three real-governed-invocation cognition tests now isolate their governance owner roots; the four focused objective/history/cognition modules passed 122/122 on the exact source tree with canonical test installation and bounded runtime roots. The launcher/process owner suites passed 17 with one legacy-marked case skipped by policy. Changed test code compiled. All results are fixture-only; production and actual-model execution remain unverified.
+Last independently verified remote HEAD `b0f01d221a028f24a8ac27a3ae83777fa1c3ae98`, tree `2a893d45313f4f9d92ecb975f4096e1e10f5c30b`. Sequence 99 added a test-only fixture isolation repair and documented why the existing launch/source handoff cannot attest loaded Python images. Exact-source focused tests passed: 122 experiment/history/cognition tests; 17 launcher/process tests passed and one pre-existing legacy test stayed skipped by policy. Three isolated governed-invocation cases passed without ambient `/glow` roots. Unprivileged Source Validation and Helm smoke passed on seq99; self-check/docs/invariants remained blocked by administrator-only policy/memory gates. Targeted mypy was not clean (1,092 diagnostics across 144 files).
 
-Latest segment: work/construction/segments/0099-loaded-code-boundary-and-test-custody.md
-SHA-256: 5087097211ad7eed034abce87a380c18dd06ecd9e2b5fc748f0a178993a6a9e9
-Sequence: 99
+Latest segment: work/construction/segments/0100-hosted-checks-and-external-prerequisites.md
+SHA-256: ad70955ed9b0481e99f46652eb88e3daaf82e823ce0eb3b791af345fb37768fc
+Sequence: 100
 
-Actual commissioned-model execution remains blocked by missing artifact bytes/runtime receipt, exact preregistered model protocol, operator approval, and independent serving/per-inference admission. Loaded-code identity remains `not_independently_attested` because no external loaded-image observer/issuer exists in the current owner graph.
+Actual local-model acquisition/transfer remains blocked by missing commissioned artifact bytes and runtime receipt, exact preregistered two-model protocol, exact operator approval, and independent serving/per-inference admission. Loaded-code identity remains `not_independently_attested`: no independent process-instance-bound loaded-image observer/issuer exists in the current owner graph. No model, provider, production activation, or external effect was invoked.
 
-Next: continue with the next source-supported readiness/recovery dependency without treating launcher generation as loaded-image proof. Retain the explicit real-model prerequisites and do not replay or simulate an approved trial.
+Next exact dependency: obtain the missing commissioned model/receipt/protocol/approval through existing authorized owners, or continue with any separate source-backed dependency that can be implemented without those prerequisites. Do not fabricate runtime evidence or infer loaded code from source or serving identity.
