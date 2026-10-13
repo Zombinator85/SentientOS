@@ -1,17 +1,15 @@
 # Active construction checkpoint
 
-Sequence 153 carries model-replacement score provenance through World-State and normal resident writeback.
+Sequence 154 verifies read-only recovery/idempotency of the scored model-replacement evidence path. A newly constructed experiment owner reconstructs the completed scored run with unchanged run ID/digest; the reprojected World-State records are byte-identical and fixture endpoint call counts do not increase. A substituted score task digest is omitted as invalid rather than admitted.
 
-The verified model-replacement owner emits a bounded task/evaluator/plan/score-digest contract only for the consistent five-row v3 family-suite case. The resident writeback owner validates the contract against the selected score evaluation and preserves it as historical evidence. A prefixed-digest comparison mismatch that dropped valid contracts is corrected.
+The integrated family-history cognition fixture passed (1 test, 101.14s); changed Python compiled. No real model was invoked, and this does not demonstrate learning, acquisition/transfer, performance improvement, or production operation. No hosted CI or typing check was run.
 
-The integrated fixture answers a later A/B task from admitted examples and verifies the contract is retained without current-truth promotion or oracle-parameter leakage. **One focused test passed; changed Python compiled.** This is deterministic test-fixture composition only, not actual acquisition, transfer, model improvement, production execution, hosted CI, or typing verification.
+Latest source commit: 41bf0616a92362e77ec691bdc546451945a3211a
+Latest source tree: 632a660dfa0dad680e1c15d628f5272e37cb8f3a
+Latest segment: work/construction/segments/0154-scored-run-recovery.md
+Segment SHA-256: af02724ec4f6810be3fc70b22340c90022f861e36946339c282c6986cbaab04f
+Evidence: work/construction/evidence/0154-scored-run-recovery.json
+Evidence SHA-256: f51edb1f036de07c8cb8f6f576b42db7610d4bfb705175abfaf74fa4fd5c1d2b
+Sequence: 154
 
-Latest source commit: 0c51ac677b4a3b077bc22a7d30cccedc7a870a1a
-Latest source tree: a35220fcc7d7462bfdac2b14233f53546e70f6cb
-Latest segment: work/construction/segments/0153-model-replacement-score-history.md
-Segment SHA-256: 293a38442a00ecc685265c6c2799666ad908e7d77c29b689d95803deaac2d5eb
-Evidence: work/construction/evidence/0153-model-replacement-score-history.json
-Evidence SHA-256: 6fc9b6cb5b081ba66c8b11b91f28915eefbb226ab1d389163c8b2a2c3d36a483
-Sequence: 153
-
-Next: test read-only restart reconstruction and idempotent World-State projection of scored model-replacement runs, then confirm the recovered contract remains historical and usable by later cognition. Real model files and already-governed host inference remain unavailable external prerequisites.
+Next: test retrieval of a recovered score projection by a newly instantiated resident cognition owner on a later tick. Preserve source event/history identity and verify reconstruction does not refresh or duplicate the evidence. Real model files and already-governed host inference remain unavailable external prerequisites.
