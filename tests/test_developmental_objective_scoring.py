@@ -62,6 +62,8 @@ class TaskEndpoint(FakeEndpoint):
             offset = a['output'] - multiplier * a['input']
             answers = [multiplier * probe + offset for probe in probes]
         if self.mode == 'ignore': answers = [0 for _ in probes]
+        if self.mode == 'partial': answers = ([*answers[:2], *([0] * max(0, len(answers) - 2))]
+            if history else [0 for _ in probes])
         if self.mode == 'degrade': answers = ([0 for _ in probes] if history
             else [23] if not suite else [0 for _ in probes])
         if self.mode == 'unstable' and len(self.calls) == 3: answers = [0 for _ in probes]
@@ -328,6 +330,9 @@ def test_preregistered_probe_suite_scores_transfer_and_recovers_without_replay(t
     assert packet['objective_evaluation']['assessment'] == 'preregistered_probe_suite_scored'
     assert packet['objective_evaluation']['model_a_history_accuracy_delta'] == 1
     assert packet['objective_evaluation']['model_b_history_accuracy_delta'] == 0
+    assert packet['objective_evaluation']['probe_count'] == 4
+    assert packet['objective_evaluation']['model_a_history_correct_probe_delta'] == 4
+    assert packet['objective_evaluation']['model_b_history_correct_probe_delta'] == 0
     assert len(packet['objective_evaluation']['condition_score_digests']) == 5
     later_owner, invoker = developmental_owner(cognition_root,
         allowed_source_kinds=('embodiment',), max_selected_facts=1)
@@ -367,6 +372,19 @@ def test_probe_suite_plan_tampering_fails_closed_without_replay(tmp_path):
     with pytest.raises(DevelopmentalModelReplacementError, match='objective_plan_binding_invalid'):
         owner.store.verify_objective_plan(owner.protocol, owner.objective_plan)
     assert (len(a.calls), len(b.calls)) == calls
+
+
+def test_probe_suite_retains_partial_correctness_instead_of_collapsing_to_boolean(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9, 10))
+    owner, _, _ = experiment(tmp_path, 'partial', model_b_mode='ignore', task=task)
+    run = owner.run()
+    evaluation = run['objective_evaluation']
+    assert evaluation['assessment'] == 'preregistered_probe_suite_scored'
+    assert evaluation['model_a_history_accuracy_delta'] == 0
+    assert evaluation['model_a_history_correct_probe_delta'] == 2
+    assert evaluation['model_b_history_correct_probe_delta'] == 0
+    assert run['observations'][0]['objective_task_score']['correct_count'] == 2
+    assert run['observations'][0]['objective_task_score']['probe_count'] == 4
 
 
 def test_probe_suite_output_substitution_is_incomplete_and_never_replayed(tmp_path):

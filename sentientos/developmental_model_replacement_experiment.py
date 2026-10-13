@@ -1532,6 +1532,7 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
     else:
         expected = task["multiplier"] * task["probe_input"] + task["offset"]
     status, answer, correct = "output_unavailable", None, None
+    correct_count: int | None = None
     if output is not None:
         if not isinstance(output, str) or len(output.encode("utf-8")) > (1024 if is_suite else 256):
             raise DevelopmentalModelReplacementError("objective_output_size_or_type_invalid")
@@ -1561,6 +1562,8 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
                 raise ValueError("answer_encoding_not_canonical")
             correct = answer == expected
             status = "correct" if correct else "incorrect"
+            if is_suite:
+                correct_count = sum(actual == target for actual, target in zip(answer, expected))
         except (ValueError, TypeError):
             status, correct = "invalid_answer", False
     semantic = {"plan_digest": plan["plan_digest"],
@@ -1569,6 +1572,11 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         "status": status, "answer": answer, "correct": correct,
         "evaluator": ("deterministic_exact_integer_suite_oracle_v2" if is_suite
             else "deterministic_exact_integer_oracle_v1")}
+    if is_suite:
+        semantic["probe_count"] = len(expected)
+        semantic["correct_count"] = correct_count if correct_count is not None else 0
+        if status == "output_unavailable":
+            semantic["correct_count"] = None
     return {**semantic, "score_digest": _digest(semantic)}
 
 
@@ -1576,7 +1584,7 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
     scores = [item["objective_task_score"] for item in observations]
     correctness = [score["correct"] for score in scores]
     complete = len(scores) == 5 and all(type(value) is bool for value in correctness)
-    return {"plan_digest": plan["plan_digest"],
+    evaluation = {"plan_digest": plan["plan_digest"],
         "condition_score_digests": [score["score_digest"] for score in scores],
         "model_a_history_accuracy_delta": int(correctness[0]) - int(correctness[1]) if complete else None,
         "model_b_history_accuracy_delta": int(correctness[2]) - int(correctness[3]) if complete else None,
@@ -1588,6 +1596,16 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
             else "unscoreable_missing_output"),
         "scope": "task_correctness_not_general_learning_or_weight_change",
         "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation"}
+    if plan["task"].get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+        counts = [score.get("correct_count") for score in scores]
+        count_complete = len(counts) == 5 and all(type(value) is int for value in counts)
+        evaluation.update({
+            "probe_count": len(plan["task"]["probe_inputs"]),
+            "model_a_history_correct_probe_delta": counts[0] - counts[1] if count_complete else None,
+            "model_b_history_correct_probe_delta": counts[2] - counts[3] if count_complete else None,
+            "restoration_correct_probe_delta": counts[0] - counts[4] if count_complete else None,
+        })
+    return evaluation
 
 
 class DevelopmentalModelReplacementExperiment:

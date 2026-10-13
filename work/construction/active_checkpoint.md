@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `6a8502675074eb9c116ded9b0d36eab67495c1f6`, tree `0e220c690112b654c0e9dd42f779f6d5edb39c41`. Sequences 84–86 add and adversarially validate a bounded preregistered probe-suite scorer through model replacement, World-State, durable developmental history, and later cognition. Local fixture suites pass; production and real-model behavior remain unverified.
+Last independently verified remote baseline `59e12375217064d4080e640e712a615965942abe`, tree `76ff595a04cea9bba6eb18ef8eb1d0ee14227c64`. Sequences 84–87 extend the existing model-replacement objective scorer with bounded preregistered probe suites, per-probe correct counts, adversarial plan/receipt controls, and durable later-tick history retrieval. The 119-test focused developmental/cognition set passed; production remains unverified.
 
-Latest segment: work/construction/segments/0086-probe-suite-recovery-adversarial.md
-SHA-256: 943909fcbe779b21a7687a53c8ac750d0ab53b1b8b8026f671ff69e1b026dbc1
-Sequence: 86
+Latest segment: work/construction/segments/0087-retain-partial-probe-correctness.md
+SHA-256: c5fa6572575223d181ccf0a64c9f2c4fb7bb27caddef0c715351927bbc1a3fc0
+Sequence: 87
 
-Loaded-code identity remains `not_independently_attested`. No local model payload/commissioning receipt/exact approval is available. Hosted seq85 Source Validation passed; Helm was still running at evidence capture. Other hosted jobs failed at existing access boundaries/environment setup; no authority gate was bypassed.
+Loaded-code identity remains `not_independently_attested`. No local model payload/commissioning receipt/exact approval is available. Seq86 Source Validation passed; hosted Helm remained in progress at capture, while invariant/docs/self-check failures remain bound to existing access/environment limits.
 
-Next: confirm seq85 terminal hosted checks, then identify and close a concrete adjacent developmental behavior/recovery gap if available. Actual-model activation remains blocked on existing commissioning custody and operator authorization.
+Next: inspect exact persisted suite recovery compatibility, then advance to the next independently implementable causal-developmental path without treating test success as real-model performance.

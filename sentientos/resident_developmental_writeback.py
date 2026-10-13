@@ -628,6 +628,9 @@ def _model_replacement_interpretation_projection(
     objective = original.get("objective_evaluation")
     if objective is not None:
         valid_deltas = {-1, 0, 1}
+        suite_assessment = (isinstance(objective, Mapping)
+            and objective.get("assessment") == "preregistered_probe_suite_scored")
+        probe_count = objective.get("probe_count") if isinstance(objective, Mapping) else None
         score_digests = objective.get("condition_score_digests") if isinstance(objective, Mapping) else None
         digests_valid = (isinstance(score_digests, (list, tuple)) and len(score_digests) <= 5
             and all(isinstance(item, str) and len(item) == 71 and item.startswith("sha256:")
@@ -635,6 +638,21 @@ def _model_replacement_interpretation_projection(
                 for item in score_digests))
         def delta_valid(item: Any) -> bool:
             return item is None or (type(item) is int and item in valid_deltas)
+
+        def probe_delta_valid(item: Any) -> bool:
+            return item is None or (type(item) is int and type(probe_count) is int
+                and 2 <= probe_count <= 16 and -probe_count <= item <= probe_count)
+
+        suite_fields = {"probe_count", "model_a_history_correct_probe_delta",
+            "model_b_history_correct_probe_delta", "restoration_correct_probe_delta"}
+        suite_projection_valid = (
+            (suite_assessment and type(probe_count) is int and 2 <= probe_count <= 16
+                and suite_fields.issubset(objective)
+                and all(probe_delta_valid(objective.get(key)) for key in (
+                    "model_a_history_correct_probe_delta", "model_b_history_correct_probe_delta",
+                    "restoration_correct_probe_delta")))
+            or (not suite_assessment and isinstance(objective, Mapping)
+                and not suite_fields.intersection(objective)))
 
         if (isinstance(objective, Mapping)
                 and isinstance(objective.get("plan_digest"), str)
@@ -645,6 +663,7 @@ def _model_replacement_interpretation_projection(
                 and delta_valid(objective.get("model_a_history_accuracy_delta"))
                 and delta_valid(objective.get("model_b_history_accuracy_delta"))
                 and type(objective.get("restoration_correctness_stable")) in {bool, type(None)}
+                and suite_projection_valid
                 and objective.get("assessment") in {"single_preregistered_task_scored",
                     "preregistered_probe_suite_scored",
                     "unscoreable_missing_output"}
@@ -660,6 +679,8 @@ def _model_replacement_interpretation_projection(
                 "assessment": objective["assessment"], "scope": objective["scope"],
                 "model_behavior_posture": objective["model_behavior_posture"],
             }
+            if suite_assessment:
+                summary["objective_evaluation"].update({key: objective[key] for key in suite_fields})
         else:
             omitted = True
             summary["objective_evaluation_posture"] = "invalid_bounded_score_source"
