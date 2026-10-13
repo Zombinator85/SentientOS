@@ -1,0 +1,9 @@
+# 0140 — bind selected and withheld history to durable cognition
+
+- Continues from verified source `ff3cf897e9c52f3f3bb6b66928c50632e64ad8e4`, tree `c860533b1ddeff23a516c2b8b802845dc1301ea6`.
+- Added a versioned v6 cognition observation binding for the exact bounded retrieval policy, optional task family, available records, selected and omitted record IDs/digests, omission reason, and canonical selection digest. The same binding travels in invocation upstream evidence and the durable observation; writeback candidate provenance carries it forward.
+- Withheld history remains absent from the model prompt, while its identity is preserved only in owner custody metadata. Restart validates the selection and, for session-bound operations, reconciles it against the persisted invocation receipt. Historical v2–v5 identity shapes remain accepted without adding the v6 field to their digest.
+- The canonical history experiment consumer now accepts v6. Regression controls cover present/withheld/restored identities, prompt non-disclosure, substitution rejection after recomputing local digests, and pre-v6 recovery.
+- Seven focused owner suites: **168 passed, 10 skipped**. Changed Python compiled. Targeted mypy reported 23 existing diagnostics across cognition/writeback modules; no v6-specific diagnostic remained. No live model performance or production acceptance is established.
+- Evidence: `work/construction/evidence/0140-durable-history-selection-binding.json` (SHA-256 `1b7617c0ba3b986b2e79682ca697c2d029cd37541e376e543d40f42904b459e2`).
+- Next: finish source review of the supported host experiment handoff, then continue the adjacent acquisition/transfer evidence path. A live local-model episode remains blocked on an operator-selected model artifact and the already-authorized POSIX serving installation; do not infer it from this fixture run.

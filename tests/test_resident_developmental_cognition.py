@@ -3094,7 +3094,8 @@ def test_all_four_substrates_reach_ordinary_cognition_when_comparison_disabled(t
 
 def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp_path: Path) -> None:
     first, _ = owner(tmp_path / "cognition")
-    first.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    acquired = first.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    source_record = first.writeback.store.get(acquired.written_record_id)
     epistemic, _, _ = epistemic_projection(tmp_path / "epistemic")
     self_model = self_model_projection(tmp_path / "self-model")
     restarted, fake = owner(tmp_path / "cognition", comparison=True)
@@ -3110,6 +3111,27 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
         self_model.projection_digest}
     assert {request.upstream_evidence["epistemic_projection_digest"] for request in cognition} == {
         epistemic.projection_digest}
+    selections = [request.upstream_evidence["developmental_history_selection"]
+        for request in cognition]
+    assert all(selection["schema_version"] == "sentientos.developmental_history_selection:v1"
+        for selection in selections)
+    assert all(selection["selection_digest"] == "sha256:" + digest_payload({
+        key: value for key, value in selection.items() if key != "selection_digest"})
+        for selection in selections)
+    assert selections[0]["selected_records"] == [{"record_id": source_record.record_id,
+        "record_digest": source_record.record_digest}]
+    assert selections[1]["treatment"] == "withheld"
+    assert selections[1]["selected_records"] == []
+    assert selections[1]["omitted_records"] == [{"record_id": source_record.record_id,
+        "record_digest": source_record.record_digest}]
+    assert source_record.record_id not in cognition[1].prompt
+    durable = [json.loads(path.read_text(encoding="utf-8"))
+        for path in restarted.observations_root.glob("*.json")]
+    by_request = {row["request_id"]: row for row in durable}
+    assert all(by_request[request.request_id]["schema_version"].endswith(":v6")
+        and by_request[request.request_id]["developmental_history_selection"]
+            == request.upstream_evidence["developmental_history_selection"]
+        for request in cognition)
     assert result.changed_cognition_measurement_id is not None
 
 
@@ -3643,6 +3665,62 @@ def test_recovered_candidate_requires_its_exact_durable_cognition_observation(tm
     restarted, _ = owner(tmp_path)
     with pytest.raises(ResidentDevelopmentalCognitionError, match="cognition_observation"):
         restarted._state()
+
+
+def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path: Path) -> None:
+    composition, _fake = owner(tmp_path)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    path = next(composition.observations_root.glob("*.json"))
+    value = json.loads(path.read_text(encoding="utf-8"))
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v6"
+    value.pop("observation_id")
+    value.pop("observation_digest")
+    value.pop("developmental_history_selection")
+    value["schema_version"] = "sentientos.resident_cognition_observation:v5"
+    digest = "sha256:" + digest_payload(value)
+    observation_id = "devcog-" + digest[7:31]
+    value["observation_id"] = observation_id
+    value["observation_digest"] = digest
+    migrated_path = path.with_name(observation_id + ".json")
+    migrated_path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    path.unlink()
+
+    restarted, _ = owner(tmp_path)
+    recovered = restarted._recover_observation_ticks(include_records=True)
+    assert recovered[observation_id]["schema_version"] == \
+        "sentientos.resident_cognition_observation:v5"
+    assert "developmental_history_selection" not in recovered[observation_id]
+
+
+def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_path: Path) -> None:
+    invoker = SessionBoundFakeInvoker()
+    composition, _ = owner(tmp_path, comparison=True, invoker=invoker)
+    composition.run_tick(snapshot=snapshot(), tick_id="tick-1")
+    composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
+    path = next(composition.observations_root.glob("*.json"))
+    value = json.loads(path.read_text(encoding="utf-8"))
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v6"
+    value.pop("observation_id")
+    value.pop("observation_digest")
+    selection = value["developmental_history_selection"]
+    selection["retrieval_policy_id"] = "task_family_relevant_then_recency_fill:v1"
+    selection_semantic = {key: item for key, item in selection.items()
+        if key != "selection_digest"}
+    selection["selection_digest"] = "sha256:" + digest_payload(selection_semantic)
+    digest = "sha256:" + digest_payload(value)
+    observation_id = "devcog-" + digest[7:31]
+    value["observation_id"] = observation_id
+    value["observation_digest"] = digest
+    substituted_path = path.with_name(observation_id + ".json")
+    substituted_path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    path.unlink()
+
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="cognition_history_selection_invocation_binding_mismatch"):
+        composition._recover_observation_ticks(include_records=True)
 
 
 def test_experimental_history_arms_do_not_retain_cognition_lessons(tmp_path: Path) -> None:

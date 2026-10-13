@@ -124,6 +124,7 @@ COGNITION_OBSERVATION_SCHEMA_V2 = "sentientos.resident_cognition_observation:v2"
 COGNITION_OBSERVATION_SCHEMA_V3 = "sentientos.resident_cognition_observation:v3"
 COGNITION_OBSERVATION_SCHEMA_V4 = "sentientos.resident_cognition_observation:v4"
 COGNITION_OBSERVATION_SCHEMA_V5 = "sentientos.resident_cognition_observation:v5"
+COGNITION_OBSERVATION_SCHEMA_V6 = "sentientos.resident_cognition_observation:v6"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
@@ -1042,7 +1043,8 @@ def _history_context_packet(record: Mapping[str, Any], *,
 
 def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         records: tuple[Mapping[str, Any], ...],
-        projection: EpistemicCognitiveProjection | None
+        projection: EpistemicCognitiveProjection | None,
+        history_present: bool = True,
         ) -> tuple[dict[str, Any], dict[str, Any], str, tuple[str, ...], tuple[str, ...]]:
     """Fit whole recent history packets and epistemic packets to one input bound."""
     packet_modes = ((True, False), (False, False), (False, True))
@@ -1055,7 +1057,8 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     # Keep the largest recent complete suffix first. For a fixed suffix size,
     # prefer its richest evidence packet and degrade context only when needed
     # to keep that history available under the cognition input bound.
-    for count in range(len(records), -1, -1):
+    counts = range(len(records), -1, -1) if history_present else (0,)
+    for count in counts:
         for mode in packet_modes:
             packets = packets_by_mode[mode]
             selected = packets[len(packets) - count:] if count else ()
@@ -1064,14 +1067,41 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 "record_digest": packet["record_digest"]} for packet in selected)
             omitted_refs = tuple({"record_id": packet["record_id"],
                 "record_digest": packet["record_digest"]} for packet in omitted)
-            selection = {"schema_version": "sentientos.developmental_history_prompt_selection:v1",
+            omission_reason = ("history_withheld_control" if omitted and not history_present else
+                "inference_input_budget" if omitted else None)
+            retrieval_policy = context.get("developmental_history_retrieval_policy_id",
+                "completed_tick_recency_suffix:v1")
+            task_family_id = context.get("developmental_history_task_family_id")
+            custody_selection = {"schema_version": "sentientos.developmental_history_selection:v1",
                 "policy": "most_recent_complete_record_suffix:v1",
-                "available_records": list(available), "selected_records": list(selected_refs),
+                "retrieval_policy_id": retrieval_policy,
+                "task_family_id": task_family_id,
+                "treatment": "present" if history_present else "withheld",
+                "available_records": list(available),
+                "selected_records": list(selected_refs),
                 "omitted_records": list(omitted_refs),
                 "omitted_records_digest": _digest(list(omitted_refs)),
-                "omission_reason": "inference_input_budget" if omitted else None}
+                "omission_reason": omission_reason}
+            custody_selection["selection_digest"] = _digest(custody_selection)
+            # The observation retains full omitted identities for recovery.
+            # A withheld condition's model prompt receives no record IDs or
+            # digests, so the control does not leak the withheld history set.
+            prompt_available = list(available) if history_present else []
+            prompt_omitted = list(omitted_refs) if history_present else []
+            prompt_selection = {"schema_version": "sentientos.developmental_history_prompt_selection:v2",
+                "policy": "most_recent_complete_record_suffix:v1",
+                "retrieval_policy_id": retrieval_policy,
+                "task_family_id": task_family_id,
+                "treatment": "present" if history_present else "withheld",
+                "available_records": prompt_available,
+                "selected_records": list(selected_refs),
+                "omitted_records": prompt_omitted,
+                "omitted_records_digest": _digest(prompt_omitted),
+                "omission_reason": ("inference_input_budget" if omitted else None)
+                    if history_present else None}
+            prompt_selection["selection_digest"] = _digest(prompt_selection)
             candidate = {**dict(context), "developmental_history": list(selected),
-                "developmental_history_selection": selection}
+                "developmental_history_selection": prompt_selection}
             try:
                 bound, metadata, prompt = _bind_epistemic_context(
                     context=candidate, projection=projection)
@@ -1081,6 +1111,8 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 continue
             ids = tuple(str(item["record_id"]) for item in selected_refs)
             digests = tuple(str(item["record_digest"]) for item in selected_refs)
+            metadata = {**metadata,
+                "developmental_history_selection": custody_selection}
             return bound, metadata, prompt, ids, digests
     raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
 
@@ -1094,7 +1126,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
         if len(prompt) > MAX_RESIDENT_COGNITION_INPUT_CHARS:
             raise ResidentDevelopmentalCognitionError("cognition_input_budget_exceeded")
-        metadata = {"epistemic_projection_schema": None,
+        metadata: dict[str, Any] = {"epistemic_projection_schema": None,
             "epistemic_semantic_status": "not_present", "epistemic_owner_packet_count": 0,
             "epistemic_consumed_packet_ids": [], "epistemic_consumed_packet_digests": [],
             "epistemic_omitted_packets": [], "epistemic_omitted_packets_digest": _digest([]),
@@ -1288,6 +1320,61 @@ def _validate_epistemic_observation_binding(value: Mapping[str, Any]) -> None:
         raise ResidentDevelopmentalCognitionError("cognition_epistemic_schema_unsupported")
 
 
+def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
+    """Validate the durable identity of selected and omitted history packets."""
+    selection = value.get("developmental_history_selection")
+    expected = {"schema_version", "policy", "retrieval_policy_id", "task_family_id",
+        "treatment", "available_records", "selected_records", "omitted_records",
+        "omitted_records_digest", "omission_reason", "selection_digest"}
+    if not isinstance(selection, Mapping) or set(selection) != expected:
+        raise ResidentDevelopmentalCognitionError("developmental_history_selection_invalid")
+    semantic = dict(selection)
+    claimed = semantic.pop("selection_digest")
+    if (selection.get("schema_version") != "sentientos.developmental_history_selection:v1"
+            or selection.get("policy") != "most_recent_complete_record_suffix:v1"
+            or selection.get("retrieval_policy_id") not in {
+                "completed_tick_recency_suffix:v1",
+                "task_family_relevant_then_recency_fill:v1"}
+            or selection.get("treatment") not in {"present", "withheld"}
+            or claimed != _digest(semantic)):
+        raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
+    family = selection.get("task_family_id")
+    if family is not None and (not isinstance(family, str) or not family or len(family) > 96):
+        raise ResidentDevelopmentalCognitionError("developmental_history_selection_family_invalid")
+    collections = []
+    for field_name in ("available_records", "selected_records", "omitted_records"):
+        rows = selection.get(field_name)
+        if (not isinstance(rows, (list, tuple)) or len(rows) > MAX_HISTORY
+                or any(not isinstance(row, Mapping) or set(row) != {"record_id", "record_digest"}
+                    or not isinstance(row.get("record_id"), str) or not row.get("record_id")
+                    or len(row["record_id"]) > 256
+                    or not isinstance(row.get("record_digest"), str)
+                    or len(row["record_digest"]) != 71
+                    or not row["record_digest"].startswith("sha256:")
+                    or any(character not in "0123456789abcdef"
+                        for character in row["record_digest"][7:]) for row in rows)
+                or len({row["record_id"] for row in rows}) != len(rows)):
+            raise ResidentDevelopmentalCognitionError("developmental_history_selection_records_invalid")
+        collections.append([dict(row) for row in rows])
+    available, selected, omitted = collections
+    if (omitted + selected != available
+            or selection.get("omitted_records_digest") != _digest(omitted)
+            or tuple(row["record_id"] for row in selected)
+                != tuple(value.get("retrieved_record_ids", ()))
+            or tuple(row["record_digest"] for row in selected)
+                != tuple(value.get("retrieved_record_digests", ()))):
+        raise ResidentDevelopmentalCognitionError("developmental_history_selection_binding_mismatch")
+    reason = selection.get("omission_reason")
+    if selection.get("treatment") == "withheld":
+        valid_omission = (not selected and omitted == available
+            and reason == ("history_withheld_control" if available else None))
+    else:
+        valid_omission = (reason in {None, "inference_input_budget"}
+            and (reason == "inference_input_budget") == bool(omitted))
+    if not valid_omission:
+        raise ResidentDevelopmentalCognitionError("developmental_history_selection_omission_invalid")
+
+
 @dataclass(frozen=True)
 class ResidentDevelopmentalCognitionConfig:
     history_root: Path
@@ -1360,6 +1447,7 @@ class ResidentCognitionObservation:
     epistemic_projection_context_digest: str | None = None
     epistemic_prompt_digest: str | None = None
     epistemic_consumed_content_digest: str | None = None
+    developmental_history_selection: Mapping[str, Any] | None = None
     serving_session_id: str | None = None
     serving_session_binding: Mapping[str, Any] | None = None
     serving_session_receipt_id: str | None = None
@@ -1703,7 +1791,8 @@ class ResidentDevelopmentalCognitionOwner:
                     "epistemic_consumed_packet_ids", "epistemic_consumed_packet_digests",
                     "epistemic_omitted_packets", "epistemic_omitted_packets_digest",
                     "epistemic_consumed_packets_digest", "epistemic_projection_context_digest",
-                    "epistemic_prompt_digest", "epistemic_consumed_content_digest"))):
+                    "epistemic_prompt_digest", "epistemic_consumed_content_digest",
+                    "developmental_history_selection"))):
             raise ResidentDevelopmentalCognitionError("recovered_cognition_candidate_context_mismatch")
 
     def _state(self) -> dict[str, Any]:
@@ -1945,10 +2034,18 @@ class ResidentDevelopmentalCognitionOwner:
             if missing_checkpoint:
                 continue
             try:
+                recovered_conditions: list[dict[str, Any]] = []
+                for observation_value in observation_values:
+                    payload = asdict(observation_value)
+                    if observation_value.schema_version != COGNITION_OBSERVATION_SCHEMA_V6:
+                        # Preserve the historical run digest/shape when
+                        # rebuilding interrupted pre-v6 experiments.
+                        payload.pop("developmental_history_selection", None)
+                    recovered_conditions.append(payload)
                 summary = summarize(protocol, observation_values)
                 evaluation = summarize_objective_task(plan, score_values)
                 run_payload = {"protocol": asdict(protocol),
-                    "conditions": [asdict(value) for value in observation_values],
+                    "conditions": recovered_conditions,
                     "summary": summary, "validity": "valid_controlled_observation",
                     "contamination_reasons": None, "objective_scores": score_values,
                     "objective_evaluation": evaluation,
@@ -2359,10 +2456,21 @@ class ResidentDevelopmentalCognitionOwner:
                 or request.get("model_artifact_digest") != observation.get("model_artifact_digest")
                 or request.get("active_model_identity") != observation.get("active_model_identity")
                 or receipt.get("output_digest") != observation.get("output_digest")
-                or (observation.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V5
+                or (observation.get("schema_version") in {
+                        COGNITION_OBSERVATION_SCHEMA_V5, COGNITION_OBSERVATION_SCHEMA_V6}
                     and receipt.get("observed_at") != observation.get("observed_at"))
                 or not isinstance(serving, Mapping) or dict(serving) != expected_serving):
             raise ResidentDevelopmentalCognitionError("cognition_invocation_receipt_binding_mismatch")
+        if observation.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V6:
+            upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
+            if (not isinstance(upstream, Mapping)
+                    or upstream.get("developmental_history_selection")
+                        != observation.get("developmental_history_selection")
+                    or upstream.get("record_ids") != list(observation.get("retrieved_record_ids", ()))
+                    or upstream.get("record_digests")
+                        != list(observation.get("retrieved_record_digests", ()))):
+                raise ResidentDevelopmentalCognitionError(
+                    "cognition_history_selection_invocation_binding_mismatch")
         return cast(Mapping[str, Any], receipt)
 
     def _recover_observation_ticks(self, *, include_records: bool = False) -> Any:
@@ -2460,12 +2568,14 @@ class ResidentDevelopmentalCognitionOwner:
                 "epistemic_omitted_packets_digest",
                 "epistemic_consumed_packets_digest", "epistemic_projection_context_digest",
                 "epistemic_prompt_digest", "epistemic_consumed_content_digest", "schema_version"}
+            history_selection_fields = {"developmental_history_selection"}
             session_fields = {"serving_session_id", "serving_session_binding"}
             session_receipt_fields = {"serving_session_receipt_id", "serving_session_receipt_digest"}
-            legacy_fields = expected_fields - semantic_fields - session_fields - session_receipt_fields - {"observed_at"}
-            v2_fields = expected_fields - session_fields - session_receipt_fields - {"observed_at"}
-            v3_fields = expected_fields - session_receipt_fields - {"observed_at"}
-            v4_fields = expected_fields - {"observed_at"}
+            legacy_fields = expected_fields - history_selection_fields - semantic_fields - session_fields - session_receipt_fields - {"observed_at"}
+            v2_fields = expected_fields - history_selection_fields - session_fields - session_receipt_fields - {"observed_at"}
+            v3_fields = expected_fields - history_selection_fields - session_receipt_fields - {"observed_at"}
+            v4_fields = expected_fields - history_selection_fields - {"observed_at"}
+            v5_fields = expected_fields - history_selection_fields
             legacy_observation = isinstance(value, dict) and set(value) == legacy_fields
             versioned_v2_observation = (isinstance(value, dict) and set(value) == v2_fields
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V2)
@@ -2473,10 +2583,13 @@ class ResidentDevelopmentalCognitionOwner:
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V3)
             versioned_v4_observation = (isinstance(value, dict) and set(value) == v4_fields
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V4)
-            versioned_v5_observation = (isinstance(value, dict) and set(value) == expected_fields
+            versioned_v5_observation = (isinstance(value, dict) and set(value) == v5_fields
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V5)
+            versioned_v6_observation = (isinstance(value, dict) and set(value) == expected_fields
+                and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V6)
             versioned_observation = (versioned_v2_observation or versioned_v3_observation
-                or versioned_v4_observation or versioned_v5_observation)
+                or versioned_v4_observation or versioned_v5_observation
+                or versioned_v6_observation)
             if (not (legacy_observation or versioned_observation)
                     or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
                     or observation_digest != _digest(value)
@@ -2485,7 +2598,9 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
             if versioned_observation:
                 _validate_epistemic_observation_binding(value)
-            if versioned_v3_observation or versioned_v4_observation or versioned_v5_observation:
+            if versioned_v6_observation:
+                _validate_developmental_history_selection(value)
+            if versioned_v3_observation or versioned_v4_observation or versioned_v5_observation or versioned_v6_observation:
                 session_id, session_binding = value.get("serving_session_id"), value.get("serving_session_binding")
                 absent = session_id is None and session_binding is None
                 activation_digest = (session_binding.get("activation_state_semantic_digest")
@@ -2503,7 +2618,7 @@ class ResidentDevelopmentalCognitionOwner:
                     and (activation_digest_raw or (versioned_v3_observation and activation_digest_legacy)))
                 if not (absent or present):
                     raise ResidentDevelopmentalCognitionError("cognition_observation_serving_session_binding_invalid")
-                if versioned_v4_observation or versioned_v5_observation:
+                if versioned_v4_observation or versioned_v5_observation or versioned_v6_observation:
                     receipt_id, receipt_digest = (value.get("serving_session_receipt_id"),
                         value.get("serving_session_receipt_digest"))
                     receipt_absent = absent and receipt_id is None and receipt_digest is None
@@ -2544,7 +2659,7 @@ class ResidentDevelopmentalCognitionOwner:
             verified_observation = {
                 **value, "observation_id": observation_id,
                 "observation_digest": observation_digest}
-            if versioned_v3_observation or versioned_v5_observation:
+            if versioned_v3_observation or versioned_v5_observation or versioned_v6_observation:
                 self._verify_observation_invocation(verified_observation)
             verified_records[observation_id] = verified_observation
         if include_records:
@@ -3143,7 +3258,9 @@ class ResidentDevelopmentalCognitionOwner:
                   condition_id: str, purpose: str = COGNITION_PURPOSE,
                   protocol: Any | None = None,
                   objective_plan: Mapping[str, Any] | None = None) -> ResidentCognitionObservation:
-        records = projection.records if with_history else ()
+        # Keep the full eligible set in custody metadata for withheld controls;
+        # only the bounded selected suffix is put into the model prompt.
+        records = projection.records
         record_ids = projection.requested_record_ids if with_history else ()
         record_digests = tuple(str(record["record_digest"]) for record in records)
         qualifies_for_lesson = (
@@ -3321,9 +3438,22 @@ class ResidentDevelopmentalCognitionOwner:
             # This preregistered public question is a task input, not current
             # World-State evidence or an authority-bearing instruction.
             context["objective_task"] = dict(objective_plan["task_descriptor"])
+        task_descriptor = (objective_plan.get("task_descriptor")
+            if isinstance(objective_plan, Mapping) else None)
+        if not isinstance(task_descriptor, Mapping):
+            configured_descriptor = getattr(getattr(self, "objective_task", None),
+                "public_descriptor", None)
+            task_descriptor = configured_descriptor() if callable(configured_descriptor) else None
+        task_family_id = (task_descriptor.get("task_family_id")
+            if isinstance(task_descriptor, Mapping) else None)
+        context["developmental_history_task_family_id"] = (
+            task_family_id if isinstance(task_family_id, str) else None)
+        context["developmental_history_retrieval_policy_id"] = (
+            "task_family_relevant_then_recency_fill:v1"
+            if isinstance(task_family_id, str) else "completed_tick_recency_suffix:v1")
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
-                projection=prior_epistemic_state))
+                projection=prior_epistemic_state, history_present=with_history))
         if with_history and not record_ids:
             raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
         correlation = f"{tick_id}:resident_developmental_cognition:{condition_id}"
@@ -3501,7 +3631,7 @@ class ResidentDevelopmentalCognitionOwner:
             "epistemic_generations": prior_epistemic_state.generations if prior_epistemic_state else (),
             "epistemic_evidence_set_digests": prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
             **epistemic_metadata,
-            "schema_version": COGNITION_OBSERVATION_SCHEMA_V5,
+            "schema_version": COGNITION_OBSERVATION_SCHEMA_V6,
             "serving_session_id": serving_session_id,
             "serving_session_binding": serving_session_binding,
             "serving_session_receipt_id": serving_session_receipt_id,
@@ -3537,7 +3667,7 @@ class ResidentDevelopmentalCognitionOwner:
             prior_epistemic_state.state_digests if prior_epistemic_state else (),
             prior_epistemic_state.generations if prior_epistemic_state else (),
             prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
-            schema_version=COGNITION_OBSERVATION_SCHEMA_V5,
+            schema_version=COGNITION_OBSERVATION_SCHEMA_V6,
             serving_session_id=serving_session_id,
             serving_session_binding=serving_session_binding,
             serving_session_receipt_id=serving_session_receipt_id,

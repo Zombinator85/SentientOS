@@ -1074,7 +1074,7 @@ def _developmental_history_interpretation_projection(
         raise DevelopmentalWritebackError("developmental_history_conditions_invalid")
     selected_conditions: list[dict[str, Any]] = []
     family_projection = original.get("objective_task_family") is not None
-    condition_fields = (
+    condition_fields: tuple[str, ...] = (
         "condition_id", "observation_id", "observation_digest", "output_digest",
         "request_id", "request_digest", "inference_receipt_id",
         "inference_receipt_digest", "serving_session_id", "observed_at",
@@ -1726,6 +1726,7 @@ class ResidentDevelopmentalWritebackController:
             "epistemic_projection_context_digest": observation.get("epistemic_projection_context_digest"),
             "epistemic_prompt_digest": observation.get("epistemic_prompt_digest"),
             "epistemic_consumed_content_digest": observation.get("epistemic_consumed_content_digest"),
+            "developmental_history_selection": observation.get("developmental_history_selection"),
         }
         if (not isinstance(upstream, Mapping)
                 or any(upstream.get(key) != value for key, value in exact_bindings.items())
@@ -1747,7 +1748,8 @@ class ResidentDevelopmentalWritebackController:
             "epistemic_consumed_packet_ids", "epistemic_consumed_packet_digests",
             "epistemic_omitted_packets", "epistemic_omitted_packets_digest",
             "epistemic_consumed_packets_digest", "epistemic_projection_context_digest",
-            "epistemic_prompt_digest", "epistemic_consumed_content_digest")
+            "epistemic_prompt_digest", "epistemic_consumed_content_digest",
+            "developmental_history_selection")
         context = {key: (list(observation.get(key, ()))
                          if isinstance(observation.get(key), (list, tuple))
                          else observation.get(key)) for key in context_fields}
@@ -2230,6 +2232,7 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
         "epistemic_projection_context_digest": "epistemic_projection_context_digest",
         "epistemic_prompt_digest": "epistemic_prompt_digest",
         "epistemic_consumed_content_digest": "epistemic_consumed_content_digest",
+        "developmental_history_selection": "developmental_history_selection",
     }
     expected_upstream = ({key: context.get(value) for key, value in upstream_context_keys.items()}
         if isinstance(context, Mapping) else {})

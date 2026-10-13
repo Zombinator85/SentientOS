@@ -761,6 +761,12 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
             observation_digest = semantic_observation.pop("observation_digest", None)
             calculated = _digest(semantic_observation)
             schema_version = semantic_observation.get("schema_version")
+            if schema_version != "sentientos.resident_cognition_observation:v6":
+                # The v6 history-selection binding is absent from older
+                # canonical observation identities, even though dataclass
+                # recovery now supplies its default value.
+                semantic_observation.pop("developmental_history_selection", None)
+                calculated = _digest(semantic_observation)
             if schema_version == "sentientos.resident_cognition_observation:v2":
                 semantic_observation.pop("serving_session_id", None)
                 semantic_observation.pop("serving_session_binding", None)
@@ -768,7 +774,8 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
             if (schema_version not in {"sentientos.resident_cognition_observation:v2",
                         "sentientos.resident_cognition_observation:v3",
                         "sentientos.resident_cognition_observation:v4",
-                        "sentientos.resident_cognition_observation:v5"}
+                        "sentientos.resident_cognition_observation:v5",
+                        "sentientos.resident_cognition_observation:v6"}
                     or observation_digest != calculated
                     or observation_id != "devcog-" + calculated[7:31]):
                 raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")

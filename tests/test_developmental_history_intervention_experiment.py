@@ -60,9 +60,11 @@ def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
             retrieved_record_digests=(("sha256:record",) if present else ()),
             developmental_projection_present=present,
             self_model_projection_present=False, epistemic_projection_present=False,
+            schema_version="sentientos.resident_cognition_observation:v5",
         )
         semantic = asdict(item)
         semantic.pop("observation_id"); semantic.pop("observation_digest")
+        semantic.pop("developmental_history_selection")
         digest = "sha256:" + digest_payload(semantic)
         return replace(item, observation_id="devcog-" + digest[7:31], observation_digest=digest)
 
