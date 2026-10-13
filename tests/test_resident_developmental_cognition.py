@@ -2156,6 +2156,14 @@ def test_readiness_accepts_history_after_actual_owner_admission_recovery_check(
     assert report["findings"]["developmental_history"]["admission_validation"] == "verified_read_only"
     assert report["findings"]["developmental_history"]["runtime_recovery_validation"] == \
         "verified_read_only_no_repair"
+    assert report["findings"]["resident_configuration"]["configured_history_root"] == \
+        str(root / "history")
+    assert report["findings"]["resident_configuration"]["configured_state_root"] == \
+        str(root / "state")
+    assert report["findings"]["serving_installation"]["installation_state_root"] == \
+        str(registry.state_root_for(identity))
+    assert any("Review task/history contamination" in action
+        for action in report["next_operator_actions"])
     assert report["trial_execution_ready"] is False
 
 

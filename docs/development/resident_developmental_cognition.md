@@ -198,7 +198,12 @@ checks that exact installation root without constructing a serving controller
 or scanning alternate roots. `ready_for_operator_review` means only that these
 preflight observations passed. If the explicit serving configuration is
 omitted or its installation root is unavailable, the doctor returns an
-actionable blocked finding rather than suggesting staging is ready.
+actionable blocked finding rather than suggesting staging is ready. Its JSON
+identifies the configured history and cognition-state roots separately from the
+exact installation identity/state root, and supplies a bounded
+`next_operator_actions` list. These paths are configuration observations; they
+do not prove that the running daemon loaded the same configuration or that the
+filesystem roots share an authenticated process lifetime.
 The report always sets `trial_execution_ready` false because this separate
 process cannot observe the daemon's World-State tick, its actual loaded model
 identity, task-specific history/current-context contamination, or the effective

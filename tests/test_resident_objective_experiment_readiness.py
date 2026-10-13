@@ -133,6 +133,7 @@ def test_readiness_cli_uses_only_explicit_paths_and_never_authorizes(tmp_path: P
     assert report["status"] == "preflight_blocked"
     assert report["authority_effect_posture"]["model_generation"] is False
     assert "resident_invoker_model_identity_not_observed" in report["unobserved_runtime_gates"]
+    assert any("--serving-config" in item for item in report["next_operator_actions"])
 
 
 def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
@@ -247,6 +248,9 @@ def test_readiness_rejects_missing_configured_installation_root(tmp_path: Path,
     assert report["findings"]["serving_installation"]["reason_code"] == \
         "installation_state_root_missing"
     assert report["findings"]["serving_installation"]["active_session_status"] == "not_observed"
+    assert report["findings"]["serving_installation"]["configured_installation_identity"] == "install-1"
+    assert report["findings"]["serving_installation"]["expected_installation_state_root"] == \
+        str(registry.state_root_for(InstallationIdentity("install-1")))
 
 
 def test_host_runtime_report_is_observational_and_does_not_infer_gpu_or_admission() -> None:

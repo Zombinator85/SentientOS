@@ -46,6 +46,33 @@ def _custody_status(os_name: str, primitives: dict[str, bool]) -> str:
     return "required_posix_primitive_missing"
 
 
+def _next_operator_actions(findings: dict[str, Any], status: str) -> list[str]:
+    """Return bounded actions that preserve the existing runtime gates."""
+    actions: list[str] = []
+    platform_finding = findings.get("request_custody_platform", {})
+    if platform_finding.get("status") != "required_primitives_available":
+        actions.append("Run the daemon and all experiment commands inside one supported POSIX installation; do not copy custody between Windows and WSL.")
+    config = findings.get("resident_configuration", {})
+    if config.get("status") != "enabled":
+        actions.append("Resolve the explicitly selected resident-cognition configuration before staging any objective request.")
+    history = findings.get("developmental_history", {})
+    if history.get("status") == "awaiting_eligible_history":
+        actions.append("Wait for an ordinary configured cognition tick to consume a real allowed World-State task/outcome fact; do not seed or hand-edit history.")
+    elif history.get("status") == "invalid_custody":
+        actions.append("Inspect the reported history custody reason; use only the existing owner recovery path for an interrupted write, and do not hand-edit records or receipts.")
+    serving = findings.get("serving_installation", {})
+    if serving.get("status") == "awaiting_explicit_serving_configuration":
+        actions.append("Rerun the doctor with --serving-config pointing to the exact serving configuration used by this installation.")
+    elif serving.get("status") != "installation_root_verified_read_only":
+        actions.append("Resolve the exact selected serving installation identity/root; do not infer it from another process or copy installation state.")
+    artifact = findings.get("explicit_model_artifact", {})
+    if artifact.get("status") in {"awaiting_artifact", "invalid_custody", "runtime_incompatible"}:
+        actions.append("Select an already available supported model artifact within the explicitly allowed root; the doctor will not download or load it.")
+    if status == "ready_for_operator_review":
+        actions.append("Review task/history contamination and the live tick, loaded model, generation budget, and per-call admission; only then consider the existing one-shot staging command under its independent gates.")
+    return actions
+
+
 def inspect_host_runtime() -> dict[str, Any]:
     """Report runtime prerequisites without importing or starting a model.
 
@@ -146,6 +173,8 @@ def inspect_readiness(config_path: Path, model_path: Path,
             "enabled": config.enabled,
             "history_comparison_enabled": config.comparison_enabled,
             "configured_source_kind_count": len(config.allowed_source_kinds),
+            "configured_history_root": str(config.history_root),
+            "configured_state_root": str(config.state_root),
         }
         if not config.enabled or not config.comparison_enabled:
             findings["findings"]["resident_configuration"]["reason_code"] = "history_comparison_not_enabled"
@@ -196,6 +225,8 @@ def inspect_readiness(config_path: Path, model_path: Path,
             "active_session_status": "not_observed",
         }
     else:
+        installation_identity: str | None = None
+        installation_state_root: Path | None = None
         try:
             serving = load_serving_config(str(serving_config_path))
             if not serving.enabled or not serving.installation_identity:
@@ -206,10 +237,14 @@ def inspect_readiness(config_path: Path, model_path: Path,
             else:
                 identity = InstallationIdentity.parse(serving.installation_identity)
                 registry = installation_registry or InstallationStateRegistry.system()
+                installation_identity = identity.value
+                installation_state_root = registry.state_root_for(identity)
                 registry.open_read_only(identity)
                 findings["findings"]["serving_installation"] = {
                     "status": "installation_root_verified_read_only",
                     "installation_identity": identity.value,
+                    "installation_state_root": str(installation_state_root),
+                    "installation_root_custody": "verified_read_only",
                     "configuration_digest": serving.config_digest,
                     "active_session_status": "not_observed",
                     "inference_admission_status": "not_observed",
@@ -221,6 +256,11 @@ def inspect_readiness(config_path: Path, model_path: Path,
                 "status": "invalid_or_unavailable",
                 "reason_code": code,
                 "active_session_status": "not_observed",
+                **({"configured_installation_identity": installation_identity}
+                    if installation_identity is not None else {}),
+                **({"expected_installation_state_root": str(installation_state_root),
+                    "installation_root_custody": "not_verified"}
+                    if installation_state_root is not None else {}),
             }
     try:
         artifact = inspect_artifact(model_path, allowed_root=allowed_root)
@@ -261,6 +301,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
         status = "ready_for_operator_review"
     findings["status"] = status
     findings["trial_execution_ready"] = False
+    findings["next_operator_actions"] = _next_operator_actions(observed, status)
     return findings
 
 
