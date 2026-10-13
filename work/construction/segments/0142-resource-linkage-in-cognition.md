@@ -1,0 +1,13 @@
+# Sequence 142 — Resource-linked invocation identity in developmental observations
+
+Verified source commit `4eab50f3fdf125fed9f51e743e7a8b7bfb498ae9`, tree `84127f9bbbc2fa764ccec029814ec456f3a3f3d0` (branch read back after expected-HEAD CAS from `d54324a28b12518dacbdaafe5be5bc3acf1faaf4`, tree `13ff7eb397ff4b9dcd22dbfe9ea54079035071cc`).
+
+Cognition observation schema v7 now binds the exact resource allocation digest, invocation attempt id, bounded consumption receipt digests, and authenticated resource-linkage digest carried by its governed invocation receipt. The existing inference receipt id/digest remains the effect-receipt identity. A linked observation requires the session-bound persisted invocation verifier at write and recovery; unlinked historical receipts retain their prior schemas and digest scopes. Experiment run conditions and the resulting World-State payload preserve the references when present, while legacy projections keep their old shape. The bridge records identities only; it does not infer CPU/GPU/energy/token use from calls, output size, or latency.
+
+Positive control: an actual `GovernedLocalModelInvoker` resource-backed completion and its actual measured/reconciled ledger rows project to the same allocation, attempt, consumption digests, and effect receipt. Adversarial control: substituting the consumption digest list without updating its linkage digest is rejected; resource-linked v7 evidence without a serving-session receipt verifier is rejected. Unlinked cognition remains accepted. Historical v5/v6 receipt recovery is exercised with its original field and digest scopes.
+
+Validation: compilation of all five changed Python files passed. The focused suites for resident developmental cognition, developmental history intervention, and governed local-model resource invocation composition passed: 107 passed. No mypy, complete repository validation, hosted CI, production operation, or real-model performance test was run. The original test invocation against default `/glow` failed before assertions due read-only filesystem; rerunning with isolated governance roots passed.
+
+Changed source/test blobs were independently read back from GitHub and match the tested local Git blob identities. Frozen legacy continuation journal remains unchanged.
+
+Next dependency: establish whether the already verified resource-ledger projection can be joined to objective experiment conditions by these exact receipt identities, exposing only ledger-supported measured fields and leaving absent or shared-host quantities unknown. Do not infer per-invocation physical usage or promote experiment scores to capability claims.

@@ -1,0 +1,55 @@
+{
+  "base": {
+    "commit": "d54324a28b12518dacbdaafe5be5bc3acf1faaf4",
+    "tree": "13ff7eb397ff4b9dcd22dbfe9ea54079035071cc"
+  },
+  "behavioral_evidence": {
+    "compatibility": "unlinked historical v5/v6 observations retain historical digest scopes; current unlinked observations remain valid",
+    "negative": [
+      "substituted consumption receipt digests with stale linkage digest rejected",
+      "resource-linked cognition observation without session-bound persisted receipt verification rejected"
+    ],
+    "positive": "actual governed local-model invocation links to actual resource allocation, attempt, measured and reconciled ledger receipt digests, and effect receipt digest"
+  },
+  "checks": {
+    "hosted_ci": "not_observed",
+    "mypy": "not_run",
+    "production_verification": "not_performed",
+    "pytest": {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-a54-campaign-check/governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-a54-campaign-check/federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-a54-campaign-check/kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-a54-campaign-check/pulse-trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-a54-campaign-check/pulse-trust/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_governed_local_model_resource_invocation_composition.py",
+      "failed": 0,
+      "passed": 107,
+      "status": "passed"
+    },
+    "python_compile": {
+      "files": [
+        "sentientos/resident_developmental_cognition.py",
+        "sentientos/developmental_history_intervention_experiment.py",
+        "tests/test_resident_developmental_cognition.py",
+        "tests/test_developmental_history_intervention_experiment.py",
+        "tests/test_governed_local_model_resource_invocation_composition.py"
+      ],
+      "status": "passed"
+    },
+    "real_model_performance": "not_observed"
+  },
+  "limitations": [
+    "resource identity linkage does not itself project resource measurements",
+    "no real-model acquisition or performance improvement was demonstrated",
+    "construction code remains unverified for production"
+  ],
+  "next_dependency": "join objective conditions to authenticated ledger measurements through exact invocation receipt identities without attributing shared host metrics or inventing absent measurements",
+  "publication": {
+    "cas_expected_head": "d54324a28b12518dacbdaafe5be5bc3acf1faaf4",
+    "published_head": "4eab50f3fdf125fed9f51e743e7a8b7bfb498ae9",
+    "remote_readback": "commit, tree and changed blobs independently verified"
+  },
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 142,
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "4eab50f3fdf125fed9f51e743e7a8b7bfb498ae9",
+    "tree": "84127f9bbbc2fa764ccec029814ec456f3a3f3d0"
+  },
+  "title": "resource-linked invocation identity in developmental observations"
+}
