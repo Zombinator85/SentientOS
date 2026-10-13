@@ -1278,10 +1278,17 @@ class LongitudinalSelfModelOwner:
         active_ids_by_key: dict[str, tuple[str, ...]] = {}
         conflict_fact_ids = {fid for conflict in snapshot.conflicts for fid in conflict.fact_ids}
         for key, items in sorted(candidates.items()):
-            grouped: dict[str, list[tuple[WorldStateFact, str, Any, str]]] = {}
+            grouped: dict[tuple[str, str], list[tuple[WorldStateFact, str, Any, str]]] = {}
+            value_identities: set[str] = set()
             for item in items:
-                grouped.setdefault(json.dumps(item[2], sort_keys=True, separators=(",", ":")), []).append(item)
-            contradicted = len(grouped) > 1 or any(item[0].fact_id in conflict_fact_ids for item in items)
+                value_identity = json.dumps(item[2], sort_keys=True, separators=(",", ":"))
+                value_identities.add(value_identity)
+                # Equal values can have different temporal semantics. Preserve
+                # current and historical support as separate claims instead of
+                # inheriting the first fact's category from iteration order.
+                grouped.setdefault((value_identity, item[3]), []).append(item)
+            contradicted = len(value_identities) > 1 or any(
+                item[0].fact_id in conflict_fact_ids for item in items)
             ids: list[str] = []
             for group in grouped.values():
                 facts = [item[0] for item in group]

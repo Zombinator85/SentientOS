@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `fbb8cd504beebc8304c6f4da1d92e8238e07aed5`, tree `2295ebe2858e355ca6670e13f8e4e369c613446a`. Sequence 93 aligns temporal scope with historical-interpretation category and preserves it through restarted N+1 self-model projection. Focused self-model modules passed 29 tests; production behavior remains unverified.
+Last independently verified remote baseline `0875133bb896cd78c3efbd6483e7cceca50fd254`, tree `5de3332642332c03569ed2a448aa76ab6a49b75d`. Sequence 94 keeps equal-valued current and historical support in separate provenance claims, without input-order category selection or false contradiction. Focused self-model modules passed 30 tests; production remains unverified.
 
-Latest segment: work/construction/segments/0093-historical-claim-temporal-scope.md
-SHA-256: deb45ce3fa78833cf904bba085b26788fc8d7f54a6a4ab9c835ea3a101468278
-Sequence: 93
+Latest segment: work/construction/segments/0094-preserve-current-and-historical-support.md
+SHA-256: 349c261dc6b504754f6f5718bc47a0af8c1a781017713ec3b8c773e474b0df92
+Sequence: 94
 
-Loaded-code identity remains `not_independently_attested`. Actual local model payload, commissioned identity, and exact time-bounded approval remain unavailable; no model was loaded or invoked.
+Loaded-code identity remains `not_independently_attested`. Real model execution remains blocked by absent payload, commissioning identity, and exact time-bounded approval; no model was loaded or invoked.
 
-Next: inspect how reconciliation groups identical claim values when current and historical sources coexist; prevent category selection from depending on input order or erasing evidence qualifications.
+Next: review value conflicts across current and historical source categories; preserve both source categories and contradiction state without latest-wins.

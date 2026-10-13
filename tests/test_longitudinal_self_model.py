@@ -160,6 +160,40 @@ def test_contradictory_evidence_is_preserved_without_latest_wins(tmp_path: Path)
     assert all(claim.status == "contradicted" and claim.contradiction_state == "contradicted" for claim in model_claims)
 
 
+def test_equal_current_and_historical_values_keep_separate_categories(tmp_path: Path) -> None:
+    current = record(source="runtime:current-source", subject="software-generation",
+        disposition="observed")
+    current["subject_kind"] = "observed_running_software_generation"
+    historical = record(source="runtime:historical-source", subject="software-generation",
+        disposition="observed")
+    historical.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "observed_running_software_generation"})
+    world_state = snapshot(current, historical)
+
+    forward = LongitudinalSelfModelOwner(tmp_path / "forward").reconcile(
+        world_state, tick_id="tick-forward")
+    reverse_state = snapshot(historical, current)
+    reverse = LongitudinalSelfModelOwner(tmp_path / "reverse").reconcile(
+        reverse_state, tick_id="tick-reverse")
+
+    def lifecycle_categories(result):
+        claims = [claim for claim in result.claims
+            if claim.predicate == "lifecycle.observation.disposition"]
+        assert len(claims) == 2
+        assert {claim.value for claim in claims} == {"observed"}
+        return {(claim.claim_category, claim.status, claim.source_evidence_ids)
+            for claim in claims}
+
+    expected = {
+        ("current_state", "current", ("runtime:current-source",)),
+        ("historical_interpretation", "historical", ("runtime:historical-source",)),
+    }
+    assert lifecycle_categories(forward) == expected
+    assert lifecycle_categories(reverse) == expected
+    assert not any(claim.status == "contradicted" for claim in forward.claims
+        if claim.predicate == "lifecycle.observation.disposition")
+
+
 def test_generation_and_model_transition_preserves_historical_claims(tmp_path: Path) -> None:
     owner = LongitudinalSelfModelOwner(tmp_path)
     first = owner.reconcile(snapshot(record(model="model-a", generation="software-a")), tick_id="tick-a")

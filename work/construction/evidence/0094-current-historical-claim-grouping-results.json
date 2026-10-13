@@ -1,0 +1,21 @@
+{
+  "failed": 0,
+  "finding": "same predicate/value with current and historical source categories now yields two separately attributable claims and is not misreported as contradictory.",
+  "focused_modules": [
+    "tests/test_longitudinal_self_model.py",
+    "tests/test_self_model_cognitive_consumption.py"
+  ],
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 4702,
+    "path": "work/construction/evidence/0094-current-historical-claim-grouping-junit.xml",
+    "sha256": "0dd52f741586f10d3b11fbba1ee9b5204cc0700d0d41006a61acd8d8472b27ff"
+  },
+  "passed": 30,
+  "python_compilation": "passed",
+  "sequence": 94,
+  "skipped": 0,
+  "source_baseline_commit": "0875133bb896cd78c3efbd6483e7cceca50fd254",
+  "source_baseline_tree": "5de3332642332c03569ed2a448aa76ab6a49b75d",
+  "status": "construction_tested_unverified_for_production"
+}
