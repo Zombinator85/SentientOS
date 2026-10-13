@@ -25,7 +25,7 @@ from sentientos.host_resource_runtime import (
 )
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, LocalModelInvocationReceipt,
-    FORBIDDEN_EFFECTS,
+    FORBIDDEN_EFFECTS, validate_receipt,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model_authority import digest_payload
@@ -1551,6 +1551,11 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert progression["performance_improvement_established"] is False
     assert episode["fresh_process"] is True
     assert episode["fixture_only"] is True
+    assert _run_family_episode_in_child(tmp_path, fake.receipts,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="episode-heldout-after-restart",
+        request_digest=str(heldout_request["request_digest"]),
+        tamper_receipt_custody=True)["rejected_before_owner_recovery"] is True
 
 
 def test_legacy_oracle_hashes_are_excluded_from_current_cognition(tmp_path: Path) -> None:
@@ -2612,9 +2617,12 @@ assert len(raw) <= 4 * 1024 * 1024
 assert hashlib.sha256(raw).hexdigest() == sys.argv[4]
 receipts = json.loads(raw.decode("utf-8"))
 assert json.dumps(receipts, sort_keys=True, separators=(",", ":")).encode("utf-8") == raw
+from sentientos.governed_local_model_invocation import validate_receipt
 class PersistedFixtureReceiptVerifier:
     def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
         value = receipts[receipt_id]
+        valid, reasons = validate_receipt(value)
+        assert valid, reasons
         assert value["receipt_id"] == receipt_id and value["receipt_digest"] == receipt_digest
         request = value["request"]
         assert request["request_id"] == expected["expected_request_id"]
@@ -2660,7 +2668,7 @@ print(json.dumps(owner.verified_objective_task_family_progression(
 
 def _run_family_episode_in_child(root: Path, receipts: Mapping[str, Any], *,
         acquisition_request_digest: str, request_id: str,
-        request_digest: str) -> Mapping[str, Any]:
+        request_digest: str, tamper_receipt_custody: bool = False) -> Mapping[str, Any]:
     """Run and score one staged task-family episode in an isolated interpreter.
 
     This exercises durable history/request custody and fresh-process composition
@@ -2678,6 +2686,7 @@ def _run_family_episode_in_child(root: Path, receipts: Mapping[str, Any], *,
 import hashlib, importlib.util, json, sys
 from pathlib import Path
 from types import SimpleNamespace
+from sentientos.governed_local_model_invocation import validate_receipt
 
 root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
 request_id, request_digest, custody_digest = sys.argv[3:6]
@@ -2686,6 +2695,9 @@ assert len(raw) <= 4 * 1024 * 1024
 assert hashlib.sha256(raw).hexdigest() == custody_digest
 receipt_values = json.loads(raw.decode("utf-8"))
 assert json.dumps(receipt_values, sort_keys=True, separators=(",", ":")).encode() == raw
+for receipt_id, value in receipt_values.items():
+    valid, reasons = validate_receipt(value)
+    assert valid, (receipt_id, reasons)
 test_path = Path.cwd() / "tests" / "test_resident_developmental_cognition.py"
 spec = importlib.util.spec_from_file_location("fixture_cognition_tests", test_path)
 module = importlib.util.module_from_spec(spec)
@@ -2728,12 +2740,21 @@ print(json.dumps({"fresh_process": True, "fixture_only": True,
     "run": run, "progression": progression, "prompts": prompts}, sort_keys=True))
 '''
     child_request_values = {"acquisition_digest": acquisition_request_digest}
+    if tamper_receipt_custody:
+        changed = b" " if receipt_bytes[-1:] != b" " else b"!"
+        receipt_path.write_bytes(receipt_bytes[:-1] + changed)
     child = subprocess.run([sys.executable, "-c", child_code, str(root), str(receipt_path),
         request_id, request_digest, receipt_digest,
         json.dumps(child_request_values, sort_keys=True)],
         cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
     if child.returncode != 0:
+        if tamper_receipt_custody:
+            assert "AssertionError" in child.stderr
+            assert "module.owner" not in child.stderr
+            return {"rejected_before_owner_recovery": True, "fixture_only": True}
         raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
+    if tamper_receipt_custody:
+        raise AssertionError("tampered fixture receipt custody was accepted")
     return json.loads(child.stdout.strip().splitlines()[-1])
 
 
