@@ -467,6 +467,98 @@ def test_completed_objective_run_is_read_only_projected_into_a_later_world_state
         cognition.inspect_completed_objective_experiment_run_refs()
 
 
+def test_interrupted_scored_family_run_recovers_into_later_world_state_without_replay(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        request: pytest.FixtureRequest) -> None:
+    """All durable condition scores survive interruption before aggregate publication."""
+    from scripts.stage_resident_objective_intervention import stage_request
+
+    class CompleteReceiptInvoker(SessionBoundFakeInvoker):
+        def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+            verified = dict(super().verify_persisted_invocation_receipt(
+                receipt_id, receipt_digest, **expected))
+            receipt = self.receipts[receipt_id]
+            verified["effects"] = dict(receipt.effects)
+            verified["fallback_occurred"] = receipt.fallback_occurred
+            return verified
+
+    fake = CompleteReceiptInvoker()
+    fake.objective_mode = "derive_from_history"
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    seed = cognition.run_tick(snapshot=snapshot(), tick_id="interrupted-family-seed")
+    assert seed.written_record_id
+    config_path = tmp_path / "interrupted-family-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    task = ObjectivePredictionTask(3, 2, 16, (17, 18),
+        task_family_id="integer_affine_prediction")
+    stage_request(config_path=config_path, request_id="interrupted-family-run", task=task)
+    staged = load_objective_request(tmp_path / "state")
+    assert staged is not None
+
+    def interrupt_after_all_scores(_payload):
+        raise OSError("fixture interruption before aggregate run publication")
+
+    monkeypatch.setattr(cognition.experiments, "persist_run", interrupt_after_all_scores)
+    before = len(fake.requests)
+    with pytest.raises(OSError, match="before aggregate run publication"):
+        cognition.run_objective_intervention_once(snapshot=snapshot(),
+            tick_id="interrupted-family-score-checkpoints",
+            objective_task=objective_task_for_request(staged),
+            request_id=staged["request_id"], request_digest=staged["request_digest"])
+    issued_count = len(fake.requests)
+    assert sum(1 for item in fake.requests[before:]
+        if "objective_task_plan_digest" in item.upstream_evidence) == 3
+
+    # The read-only observer does not repair the interrupted intent. The
+    # ordinary recovery accessor reconstructs the completed run from scores.
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    assert restarted.inspect_completed_objective_experiment_run_refs() == ()
+    recovered_refs = restarted.recovered_objective_experiment_run_refs()
+    assert len(recovered_refs) == 1
+    run_id, run_digest = recovered_refs[0]
+    recovered_run = restarted.experiments.load_run(run_id)
+    assert recovered_run["run_digest"] == run_digest
+    assert len(recovered_run["objective_scores"]) == 3
+    assert len(fake.requests) == issued_count
+    assert restarted.inspect_completed_objective_experiment_run_refs() == (recovered_refs[0],)
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "kernel"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "pulse-trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "pulse-trust" / "state.json"))
+    reset_runtime_governor(); reset_federated_governance(); reset_pulse_trust_epoch(); reset_trust_ledger()
+    from sentientos.control_plane_kernel import reset_control_plane_kernel
+    reset_control_plane_kernel()
+    request.addfinalizer(reset_runtime_governor)
+    request.addfinalizer(reset_federated_governance)
+    request.addfinalizer(reset_pulse_trust_epoch)
+    request.addfinalizer(reset_trust_ledger)
+    request.addfinalizer(reset_control_plane_kernel)
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=restarted)
+    surfaces.build_world_state_board(tick_id="2026-01-02T00:00:03+00:00")
+    world = surfaces.current_world_state_snapshot
+    assert world is not None
+    fact = next(row for row in world.facts
+        if row.source.source_id == "developmental-history-run:" + run_id)
+    assert fact.payload["objective_task_family"] == "integer_affine_prediction"
+    assert fact.payload["learning_established"] is False
+    assert "multiplier" not in json.dumps(fact.payload)
+    later = restarted.run_tick(snapshot=world, tick_id="interrupted-family-feedback-writeback")
+    assert later.written_record_id
+    assert len([item for item in fake.requests
+        if "objective_task_plan_digest" in item.upstream_evidence]) == 3
+
+
 def test_task_family_example_flows_through_admitted_history_and_is_not_current_context(
         tmp_path: Path) -> None:
     """Fixture composition only: evaluator-backed examples reach later task history."""
@@ -576,6 +668,41 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert later.written_record_id in restored["retrieved_record_ids"]
     assert recovered["objective_evaluation"]["history_correct_probe_delta"] == 3
     assert recovered["objective_evaluation"]["restoration_correct_probe_delta"] == 0
+
+    # The held-out score becomes a later World-State observation and ordinary
+    # developmental record; a third, disjoint probe set can then consume both
+    # admitted family records without receiving those answers as current facts.
+    transfer_records = cognition.experiments.world_state_records(run_refs=((
+        recovered["run_id"], recovered["run_digest"]),))
+    assert len(transfer_records) == 1
+    transfer_world = WorldStateBoardBuilder().build(transfer_records)
+    feedback = cognition.run_tick(snapshot=transfer_world, tick_id="family-transfer-feedback")
+    assert feedback.written_record_id
+    feedback_record = cognition.writeback.store.get(feedback.written_record_id)
+    assert any(fact["payload"].get("objective_task_family") == "integer_affine_prediction"
+        for fact in feedback_record.candidate["selected_facts"])
+    continued = ObjectivePredictionTask(3, 2, 13, (14, 15),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    staged_path, _, matching_count = stage_request(config_path=config_path,
+        request_id="family-continued-transfer", task=continued)
+    assert staged_path.exists() and matching_count >= 2
+    continued_request = load_objective_request(tmp_path / "state")
+    assert continued_request is not None
+    continued_result = cognition.run_objective_intervention_once(snapshot=transfer_world,
+        tick_id="family-continued-transfer-run",
+        objective_task=objective_task_for_request(continued_request),
+        request_id=continued_request["request_id"],
+        request_digest=continued_request["request_digest"])
+    continued_run = cognition.experiments.load_run(
+        continued_result.changed_cognition_measurement_id)
+    assert later.written_record_id in continued_run["protocol"]["record_ids"]
+    assert feedback.written_record_id in continued_run["protocol"]["record_ids"]
+    continuation_source_ids = {fact.fact_id for fact in transfer_world.facts
+        if fact.payload.get("objective_task_family") == "integer_affine_prediction"}
+    assert continuation_source_ids
+    assert all(not continuation_source_ids.intersection(condition["current_fact_ids"])
+        for condition in continued_run["conditions"])
+    assert continued_run["objective_evaluation"]["assessment"] == "preregistered_probe_suite_scored"
 
 
 def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(

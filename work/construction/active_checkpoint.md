@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 129 continues from verified remote source `41f40d835c5bc45e3f6a4d254bfd717fb3661bb8`, tree `a7efd9d5f64dc2feca45553d335c1890b7445e87`. The task-family score-feedback path now survives cognition-owner reconstruction, ordinary World-State projection and admitted developmental writeback, then reaches controlled later cognition. A separate Python process reconstructs a multi-episode progression report from durable owner custody and fixture-issued invocation receipts without replaying inference. The test deliberately preserves the fixture-only inference posture. Focused suites passed 163 cases. Construction remains unverified for production.
+Sequence 130 continues from verified remote source `d66b54ac96fd6fab3f786f2ca59bcb4771570b14`, tree `7f3018bfb90167d73dc20a5a466d2f352d81608c`. Interrupted task-family scoring now has focused coverage: after all condition scores are durable but before aggregate run publication, an owner restart reconstructs the scored result without re-inference, projects it to World-State, and admits the historical outcome through ordinary writeback. The test remains fixture-only. The broader focused suites passed 164 cases. Construction is unverified for production.
 
-Latest segment: `work/construction/segments/0129-restart-task-family-feedback.md`
-SHA-256: `8971be775ece191f25c2d8d17cff0c4897bd8ad9ca3c495cc3750e7f3c70fa5c`
-Evidence: `work/construction/evidence/0129-restart-task-family-feedback.json`
-Evidence SHA-256: `caed022ecdb99678063759a23e97f1316608dd743e943751f554422965c168f1`
-Sequence: 129
+Latest segment: `work/construction/segments/0130-interrupted-family-score-recovery.md`
+SHA-256: `b2424c5df71ea5e0b837bfc2a4b6f03d9fb2848c7ad66f12cb3c4fa405f7cb5c`
+Evidence: `work/construction/evidence/0130-interrupted-family-score-recovery.json`
+Evidence SHA-256: `3fdaf80ee3e268cb7349d4a930c909efdbca850a699f7ea9a70c79028a13ed23`
+Sequence: 130
 
-Next: test a second distinct task after retained score evidence without allowing the source answer into current context, then exercise interruption and recovery at the source-to-history boundaries. No actual model or host acceptance evidence is available in this workspace.
+Next: exercise earlier crash boundaries and a second distinct post-feedback task with answer-leakage controls. Operator-host model/runtime and actual model evidence remain unavailable here.
