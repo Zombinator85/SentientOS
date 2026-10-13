@@ -1,15 +1,17 @@
 # Active construction checkpoint
 
-Sequence 152 connects normally admitted task-family history to the existing A/B model-replacement context. The owner verifies the completed developmental record and receipts, freezes the same exact record content/IDs/digests for A and B, and keeps it out of current evidence and the history-withheld conditions. A read-only child process verifies the durable context identity; a reconstructed experiment owner recovers the completed fixture trial without additional inference calls.
+Sequence 153 carries model-replacement score provenance through World-State and normal resident writeback.
 
-One integrated task-family owner test passed and compiled. This remains fixture-only process/context continuity, not real model succession or performance. Production verification, real model behavior, typing, and hosted checks were not performed.
+The verified model-replacement owner emits a bounded task/evaluator/plan/score-digest contract only for the consistent five-row v3 family-suite case. The resident writeback owner validates the contract against the selected score evaluation and preserves it as historical evidence. A prefixed-digest comparison mismatch that dropped valid contracts is corrected.
 
-Latest source commit: 755fc80847edd6140849fa2aef64a3a9903a6de6
-Latest source tree: b9fd0584becbe72e432c360a27a420b3c42bd5b1
-Latest segment: work/construction/segments/0152-family-history-model-succession.md
-Segment SHA-256: fb0095a1919398fd5a5cf963f7027c2ec4e88f99af8973d50f4b23656c713edb
-Evidence: work/construction/evidence/0152-family-history-model-succession.json
-Evidence SHA-256: 5c458c767cccb751240cae49a3770038850c9391414f1956af23973a42aa66fe
-Sequence: 152
+The integrated fixture answers a later A/B task from admitted examples and verifies the contract is retained without current-truth promotion or oracle-parameter leakage. **One focused test passed; changed Python compiled.** This is deterministic test-fixture composition only, not actual acquisition, transfer, model improvement, production execution, hosted CI, or typing verification.
 
-Next: continue source-backed score feedback and retrieval closure; obtain real-model custody and already-governed serving/admission on the user's POSIX/WSL host before claiming an actual acquisition-and-transfer trial.
+Latest source commit: 0c51ac677b4a3b077bc22a7d30cccedc7a870a1a
+Latest source tree: a35220fcc7d7462bfdac2b14233f53546e70f6cb
+Latest segment: work/construction/segments/0153-model-replacement-score-history.md
+Segment SHA-256: 293a38442a00ecc685265c6c2799666ad908e7d77c29b689d95803deaac2d5eb
+Evidence: work/construction/evidence/0153-model-replacement-score-history.json
+Evidence SHA-256: 6fc9b6cb5b081ba66c8b11b91f28915eefbb226ab1d389163c8b2a2c3d36a483
+Sequence: 153
+
+Next: test read-only restart reconstruction and idempotent World-State projection of scored model-replacement runs, then confirm the recovered contract remains historical and usable by later cognition. Real model files and already-governed host inference remain unavailable external prerequisites.

@@ -1,1490 +1,62 @@
-{
-  "active_checkpoint": "work/construction/active_checkpoint.md",
-  "active_checkpoint_binding": {
-    "checkpoint_sha256": "90587ebd315f402de633b07d4ecd3396ef337426f3e65d4762e731699b8d8db4",
-    "latest_segment_sequence": 152,
-    "latest_segment_sha256": "fb0095a1919398fd5a5cf963f7027c2ec4e88f99af8973d50f4b23656c713edb",
-    "source_commit": "755fc80847edd6140849fa2aef64a3a9903a6de6",
-    "source_tree": "b9fd0584becbe72e432c360a27a420b3c42bd5b1"
-  },
-  "hosted_lifecycle_reconciliation": {
-    "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
-    "sha256": "2cd872916de6282f605d9a158044a2c849c6c403f1e3ba8c63821b7b67717010",
-    "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca",
-    "source_tree": "980b661290863b40a8735b554f1f636656174269"
-  },
-  "legacy_journal": {
-    "bytes": 586585,
-    "frozen": true,
-    "git_blob_sha": "5127025527ec6248a159b228b6929a196f1449d1",
-    "path": "work/sentientos_night_watch_continuation.md",
-    "sha256": "1e2ddf6bdf8de2851fb752c4189035d6d7a46e0653aa53bdec37ffcd972ef7dd",
-    "source_commit": "613a14b959451deff64442e5a2ed6145be3e7aac"
-  },
-  "protocol": "Append-only continuation segments. The index is navigation metadata, not authority to skip fresh remote verification.",
-  "recovery_acceptance": {
-    "path": "work/recovery_acceptance_reconciliation_20261012.json",
-    "sha256": "e16c1d9411673b4467cf4a48dca6aea4f0c17534a5688f86a23098db7f238e66",
-    "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448",
-    "source_tree": "7d66bf58808102cb9341973c666b745f2576b72d"
-  },
-  "schema_version": 1,
-  "segments": [
-    {
-      "bytes": 2655,
-      "path": "work/construction/segments/0001-remediation-run-custody.md",
-      "predecessor": "legacy-blob:5127025527ec6248a159b228b6929a196f1449d1",
-      "sequence": 1,
-      "sha256": "a8465f1ce1f569a1be95b25a18a494693f5d8f2ec1e52203ad55613f9647b717",
-      "source_candidate_commit": "9acb4ff7d29e1313c34b918131c90bf72df0ada4"
-    },
-    {
-      "bytes": 1399,
-      "path": "work/construction/segments/0002-construction-source-preflight.md",
-      "predecessor": "segment-sha256:a8465f1ce1f569a1be95b25a18a494693f5d8f2ec1e52203ad55613f9647b717",
-      "sequence": 2,
-      "sha256": "69ae90a123bcfa91c4ae660042b5bf23cf483d2a92cde535875e70c59ff2fbd4",
-      "source_commit": "898a638299312cfebe9cc7c89df5680a646e4742"
-    },
-    {
-      "bytes": 1215,
-      "path": "work/construction/segments/0003-remediation-run-intent.md",
-      "predecessor": "segment-sha256:69ae90a123bcfa91c4ae660042b5bf23cf483d2a92cde535875e70c59ff2fbd4",
-      "sequence": 3,
-      "sha256": "ac3f3199dd8dc04206adfdb3b4b9035cac85b3f0389f92c2c5de2d66a4eb5e8c",
-      "source_commit": "d6cf835e0c7861789f089f7012a15d5850796c01"
-    },
-    {
-      "bytes": 1054,
-      "path": "work/construction/segments/0004-forge-remediation-projection.md",
-      "predecessor": "segment-sha256:ac3f3199dd8dc04206adfdb3b4b9035cac85b3f0389f92c2c5de2d66a4eb5e8c",
-      "sequence": 4,
-      "sha256": "a3f77865fc059c4ccd77b0b0651c55ca93d1c17a263873e2b5e0450af83277ea",
-      "source_commit": "f47bed0a607b5e894dd6291ccf08cfdb603a0223"
-    },
-    {
-      "bytes": 964,
-      "path": "work/construction/segments/0005-hosted-lifecycle-reconciliation.md",
-      "predecessor": "segment-sha256:a3f77865fc059c4ccd77b0b0651c55ca93d1c17a263873e2b5e0450af83277ea",
-      "sequence": 5,
-      "sha256": "fd888999c5c7bebf66c9440becbabd1a14b6ddfefd5d9679d30d59e95decd5ef",
-      "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
-    },
-    {
-      "bytes": 1459,
-      "path": "work/construction/segments/0006-resource-observation-world-state.md",
-      "predecessor": "segment-sha256:fd888999c5c7bebf66c9440becbabd1a14b6ddfefd5d9679d30d59e95decd5ef",
-      "sequence": 6,
-      "sha256": "120f5e4c8aab27a9f8ff3ed16e3a73f1f45581dc1e69752a3a781ace27600d4e",
-      "source_commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7"
-    },
-    {
-      "bytes": 2278,
-      "path": "work/construction/segments/0007-resource-invocation-world-state.md",
-      "predecessor": "segment-sha256:120f5e4c8aab27a9f8ff3ed16e3a73f1f45581dc1e69752a3a781ace27600d4e",
-      "sequence": 7,
-      "sha256": "0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
-      "source_commit": "74cb9906756be7cd4b72bfbd8f0f0c1529c89492"
-    },
-    {
-      "bytes": 1824,
-      "path": "work/construction/segments/0008-chat-process-handoff.md",
-      "predecessor": "segment-sha256:0f2240f7c6175534f0a3bed9f0d6762bc70da3ca81384c6f82840ab36f090847",
-      "sequence": 8,
-      "sha256": "4f8ef3deaa65ea482396ba7ebd935154f2dd9f4afdf4433d1ad6c26b5613a2fc",
-      "source_commit": "b7b7f496d71368867f901b8022bee93b271ee057"
-    },
-    {
-      "bytes": 1753,
-      "path": "work/construction/segments/0009-developmental-recovery-qualification.md",
-      "predecessor": "segment-sha256:4f8ef3deaa65ea482396ba7ebd935154f2dd9f4afdf4433d1ad6c26b5613a2fc",
-      "sequence": 9,
-      "sha256": "527085a34d7a1021c61ba1f76c12fdf238272b8a7ab1dda608f460c029e8cfd0",
-      "source_commit": "34771ff675c0d6b20990eda76cb9d29cddab96ea"
-    },
-    {
-      "bytes": 2008,
-      "path": "work/construction/segments/0010-resource-process-world-state.md",
-      "predecessor": "segment-sha256:527085a34d7a1021c61ba1f76c12fdf238272b8a7ab1dda608f460c029e8cfd0",
-      "sequence": 10,
-      "sha256": "1a2d5458dfdacfbaede406497f26bfa892b4971164ffb2a6808d7c9a9bf0b301",
-      "source_commit": "0868de97f85643c32916f91099bda9379347257f"
-    },
-    {
-      "bytes": 1584,
-      "path": "work/construction/segments/0011-resource-epistemic-later-tick.md",
-      "predecessor": "segment-sha256:1a2d5458dfdacfbaede406497f26bfa892b4971164ffb2a6808d7c9a9bf0b301",
-      "sequence": 11,
-      "sha256": "517f401368bae34648c48179205f2ae3d11b05a3523099306bc3ef6aeb0845ef",
-      "source_commit": "5648051fcdc5d4b01e64da61c4c236af4f796062"
-    },
-    {
-      "bytes": 1627,
-      "path": "work/construction/segments/0012-remediation-interruption-replay.md",
-      "predecessor": "segment-sha256:517f401368bae34648c48179205f2ae3d11b05a3523099306bc3ef6aeb0845ef",
-      "sequence": 12,
-      "sha256": "f8a51d8cd3ccb98d7affa78755fc81de2bea04e8db97eb9b2788e9ffd5122052",
-      "source_commit": "6d5aaee90b8a283eb4adff704efdfd0114ec6661"
-    },
-    {
-      "bytes": 1485,
-      "path": "work/construction/segments/0013-unfetched-remote-preflight.md",
-      "predecessor": "segment-sha256:f8a51d8cd3ccb98d7affa78755fc81de2bea04e8db97eb9b2788e9ffd5122052",
-      "sequence": 13,
-      "sha256": "a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
-      "source_commit": "ada178bc412a9a2ebf82d225575947c7d959a568"
-    },
-    {
-      "bytes": 2130,
-      "path": "work/construction/segments/0014-workspace-reconciliation-current-remote.md",
-      "predecessor": "segment-sha256:a327cf8126013a6e2e8aa0c678f648272fad48cf10262437dfdc09dacb89e5ad",
-      "sequence": 14,
-      "sha256": "7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
-      "source_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451"
-    },
-    {
-      "bytes": 1878,
-      "path": "work/construction/segments/0015-current-hosted-lifecycle.md",
-      "predecessor": "segment-sha256:7f9929990de88db1875a367e84c6495ad0902f07c6167dd5c9b6dbed40fdf01f",
-      "sequence": 15,
-      "sha256": "00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
-      "source_commit": "a881ea43d7c188a4340fe445fb3e8b18774705ca"
-    },
-    {
-      "bytes": 2501,
-      "path": "work/construction/segments/0016-source-semantic-reconciliation.md",
-      "predecessor": "segment-sha256:00bd58711ca8c7f35c036f7bad10a64b4dcef6b828f4e7a5e8391d97eb091d61",
-      "sequence": 16,
-      "sha256": "8391d4923e4b2b34b9f9c4d40bd3b0438c3a4f672e2f4eedc011b24b0716abd3",
-      "source_commit": "fedbb5fe27a72c714f6aee3a6e468c3367f4d65e"
-    },
-    {
-      "bytes": 1804,
-      "path": "work/construction/segments/0017-detached-workspace-inventory.md",
-      "predecessor": "segment-sha256:8391d4923e4b2b34b9f9c4d40bd3b0438c3a4f672e2f4eedc011b24b0716abd3",
-      "sequence": 17,
-      "sha256": "1ce148b6a91a1b26d5a42a51705d6f06048a375c41d164de66dcc5b87de00ab6",
-      "source_commit": "c7f77156c1f4172be0b92336a4655beec23514ac"
-    },
-    {
-      "bytes": 1705,
-      "path": "work/construction/segments/0018-exact-source-acquisition-blocker.md",
-      "predecessor": "segment-sha256:1ce148b6a91a1b26d5a42a51705d6f06048a375c41d164de66dcc5b87de00ab6",
-      "sequence": 18,
-      "sha256": "a371984b6588a43a407ae1ac88adb9d48b4a8ac3d7223974494c05a496c879e0",
-      "source_commit": "5b9083c79d905337ae967b5d4762cbcee226df02"
-    },
-    {
-      "bytes": 2764,
-      "path": "work/construction/segments/0019-source-integrity-recovery.md",
-      "predecessor": "segment-sha256:a371984b6588a43a407ae1ac88adb9d48b4a8ac3d7223974494c05a496c879e0",
-      "sequence": 19,
-      "sha256": "0216eb665910a7b9439c2233f20dc1d413abc59a1494e4906adc99c4c9b7d266",
-      "source_commit": "8338bee9b666e203b72c04b558948f3251e0bf09"
-    },
-    {
-      "bytes": 2194,
-      "path": "work/construction/segments/0020-exact-source-reconstruction.md",
-      "predecessor": "segment-sha256:0216eb665910a7b9439c2233f20dc1d413abc59a1494e4906adc99c4c9b7d266",
-      "sequence": 20,
-      "sha256": "4fb9955d37c8c649e7d70c411fa46dcfae71b4036d696fb2412063f56f2defdf",
-      "source_commit": "208f861c4af940b8cf722b6d9ca4224004250a19"
-    },
-    {
-      "bytes": 3234,
-      "path": "work/construction/segments/0021-recovery-acceptance-reconciliation.md",
-      "predecessor": "segment-sha256:4fb9955d37c8c649e7d70c411fa46dcfae71b4036d696fb2412063f56f2defdf",
-      "sequence": 21,
-      "sha256": "9142aa5708aa2711156e3fc7cfaa5ebc9353bf1beeb6227da9e71e0eea4e1ede",
-      "source_commit": "92444b1877c2c3c23f8e8f398e3ba80753160448"
-    },
-    {
-      "bytes": 8275,
-      "path": "work/construction/segments/0022-recovery-acceptance-custody.md",
-      "predecessor": "segment-sha256:9142aa5708aa2711156e3fc7cfaa5ebc9353bf1beeb6227da9e71e0eea4e1ede",
-      "sequence": 22,
-      "sha256": "49e7f94a3925b77784dd29e03ab6d2fdf009c7fb8d5a8f4c6445a6ffda6f7478",
-      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
-    },
-    {
-      "bytes": 1381,
-      "path": "work/construction/segments/0023-continuation-custody-reconciliation.md",
-      "predecessor": "segment-sha256:49e7f94a3925b77784dd29e03ab6d2fdf009c7fb8d5a8f4c6445a6ffda6f7478",
-      "sequence": 23,
-      "sha256": "12253a52a56c54b941150281b2ec9affc2a37ee65d092932e2f0e8a4f66a0e21",
-      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
-    },
-    {
-      "bytes": 1219,
-      "path": "work/construction/segments/0024-reconciliation-focused-acceptance.md",
-      "predecessor": "segment-sha256:12253a52a56c54b941150281b2ec9affc2a37ee65d092932e2f0e8a4f66a0e21",
-      "sequence": 24,
-      "sha256": "c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
-      "source_commit": "226f50c543ae6e982c77390113844e2c6a23f390"
-    },
-    {
-      "bytes": 1045,
-      "path": "work/construction/segments/0025-smoke-workflow-gates.md",
-      "predecessor": "segment-sha256:c3d1dcecb62e4ca382097687e6768568374115247af5363aa0c90c2620aed8b1",
-      "sequence": 25,
-      "sha256": "cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
-      "source_commit": "5394c8595177ae920353c2ec2a1f1fd03dc34e0f"
-    },
-    {
-      "bytes": 2549,
-      "path": "work/construction/segments/0026-validation-provenance-integrity.md",
-      "predecessor": "segment-sha256:cfdfa4432d66f8cdc149caad11935ed36f373378ebfe10da61d0341751d3dd54",
-      "sequence": 26,
-      "sha256": "827f0db047c3c7e345e1e4674e79528666baf7b4602c8c05833e5a6c41c33ed0",
-      "source_commit": "5994788123743453e1f91942caa575e48d5c530c"
-    },
-    {
-      "bytes": 1659,
-      "path": "work/construction/segments/0027-exact-hosted-acceptance.md",
-      "predecessor": "segment-sha256:827f0db047c3c7e345e1e4674e79528666baf7b4602c8c05833e5a6c41c33ed0",
-      "sequence": 27,
-      "sha256": "5ad018209d9e8119b2b8992d2d17f8e70b94640446e7c516e70480ac2a45ebe3",
-      "source_commit": "9539fa4512e80c0121588872e5eefaa3783a6e91"
-    },
-    {
-      "bytes": 1515,
-      "path": "work/construction/segments/0028-task-acceptance-skip-denial.md",
-      "predecessor": "segment-sha256:5ad018209d9e8119b2b8992d2d17f8e70b94640446e7c516e70480ac2a45ebe3",
-      "sequence": 28,
-      "sha256": "873b6f85bf363752793e0324e8da04c70408182f19d35890476f59d2bb7433f8",
-      "source_commit": "56483692451e3b2bf72db579502a687eba2e77f3"
-    },
-    {
-      "bytes": 1872,
-      "path": "work/construction/segments/0029-world-state-supplemental-acceptance.md",
-      "predecessor": "segment-sha256:873b6f85bf363752793e0324e8da04c70408182f19d35890476f59d2bb7433f8",
-      "sequence": 29,
-      "sha256": "27cfab454dcf4c2d8ea19391ea1d86d4faea4e3c77d3c2bce046d08efe98ab30",
-      "source_commit": "46ad42e43a778d7bd2f9a816b947d2ce881172db"
-    },
-    {
-      "bytes": 2342,
-      "path": "work/construction/segments/0030-causal-chain-exact-acceptance.md",
-      "predecessor": "segment-sha256:27cfab454dcf4c2d8ea19391ea1d86d4faea4e3c77d3c2bce046d08efe98ab30",
-      "sequence": 30,
-      "sha256": "89fe65bd14a5e7cb095496f3851a5c24ba43a03caf1775a90b1287ecc4c6a41b",
-      "source_commit": "d5075ce4bfa6d22055839626af249d958f8f9fda"
-    },
-    {
-      "bytes": 4942,
-      "path": "work/construction/segments/0031-bootstrap-reliability-repair.md",
-      "predecessor": "segment-sha256:89fe65bd14a5e7cb095496f3851a5c24ba43a03caf1775a90b1287ecc4c6a41b",
-      "sequence": 31,
-      "sha256": "4d08268bb23d2c305a442128600869eee367f3fcf478dda9722d030d446ab5aa",
-      "source_commit": "cf59a4c61b58b87a100d903e2813ea46017a3ad9"
-    },
-    {
-      "bytes": 1356,
-      "path": "work/construction/segments/0032-bootstrap-repair-remote-custody.md",
-      "predecessor": "segment-sha256:4d08268bb23d2c305a442128600869eee367f3fcf478dda9722d030d446ab5aa",
-      "sequence": 32,
-      "sha256": "1d66d0913b834aad3698823170d244a23c4c04e69564b33786fb104b7583a774",
-      "source_commit": "dc3d7561d6a1d1a2b47f9c101a97d5d32de69cb9"
-    },
-    {
-      "bytes": 2624,
-      "path": "work/construction/segments/0033-resource-evidence-to-retained-cognition.md",
-      "predecessor": "segment-sha256:1d66d0913b834aad3698823170d244a23c4c04e69564b33786fb104b7583a774",
-      "sequence": 33,
-      "sha256": "eac7743a44398779022b9209c228e9d97b19913b980be917f53a1a028f1a5efe",
-      "source_commit": "bc25b7e45354f4f1d4e7f370ada2f91866951711"
-    },
-    {
-      "bytes": 5222,
-      "path": "work/construction/segments/0034-model-replacement-campaign-cas.md",
-      "predecessor": "segment-sha256:eac7743a44398779022b9209c228e9d97b19913b980be917f53a1a028f1a5efe",
-      "sequence": 34,
-      "sha256": "f85566c998ffe7da6c60d4d903607b4f3c143e48b4a6a966b169029b7ca4f24f",
-      "source_commit": "b5c0063b3e5c9cb4adc25d1dc1c36c56770b8078",
-      "source_tree": "06c7904f0d02ed5f259ba0f5e305ba5b1411ac1c"
-    },
-    {
-      "bytes": 3677,
-      "path": "work/construction/segments/0035-interrupted-trial-journal-recovery.md",
-      "predecessor": "segment-sha256:f85566c998ffe7da6c60d4d903607b4f3c143e48b4a6a966b169029b7ca4f24f",
-      "sequence": 35,
-      "sha256": "d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
-      "source_commit": "5c1f807ff5457cb29b3c54cb2f2e451796651584",
-      "source_tree": "b82860e2583b2ccb604ee5d8d3cd32504dd672b2"
-    },
-    {
-      "bytes": 3128,
-      "path": "work/construction/segments/0036-transition-token-and-boundary-recovery.md",
-      "predecessor": "segment-sha256:d6d7d24e80002d6d5e0ac66c0e59a76aeb648b74f5e8e4c6ef764f4fa545126c",
-      "sequence": 36,
-      "sha256": "5d60f844074c163a437b1265c2e3bf4485b4302ccb4152b5be1728b37623098b",
-      "source_commit": "b612ac0b598d1b14edecc5acd06bbbd7ffdc1f54",
-      "source_tree": "93d575b25a157d06ba261ffc5a92d0705a87e02c"
-    },
-    {
-      "bytes": 1777,
-      "path": "work/construction/segments/0037-quiescence-link-shape.md",
-      "predecessor": "segment-sha256:5d60f844074c163a437b1265c2e3bf4485b4302ccb4152b5be1728b37623098b",
-      "sequence": 37,
-      "sha256": "a257827f254cb292900964a4672be99ac9e8d8957e38a6b6f49a8729db73df81",
-      "source_commit": "d181f0ee86734ffe6d9b1c13d259bd386ba0b16a",
-      "source_tree": "af9e39e44c1fdb6a67e3510b5ed69a6fda85b42d"
-    },
-    {
-      "bytes": 1687,
-      "path": "work/construction/segments/0038-shared-quiescence-validation.md",
-      "predecessor": "segment-sha256:a257827f254cb292900964a4672be99ac9e8d8957e38a6b6f49a8729db73df81",
-      "sequence": 38,
-      "sha256": "f904f058f415cc70db09a32c362257fbea0ab94a66b0ec4b4cde6aab219a57a3",
-      "source_commit": "e32ae881ada418faf880bce7b27e3a3566148d75",
-      "source_tree": "d7846e698b8de6976174ed43e3a0a422de8fa6c1"
-    },
-    {
-      "bytes": 2273,
-      "path": "work/construction/segments/0039-historical-chat-session-disposition.md",
-      "predecessor": "segment-sha256:f904f058f415cc70db09a32c362257fbea0ab94a66b0ec4b4cde6aab219a57a3",
-      "sequence": 39,
-      "sha256": "b5521a12b42315c7537e74c04d89fd1f33378bdbab8c401e9ce1f4aaa5192587",
-      "source_commit": "5df255579b8ee82e26ff95893a3e74f3ff230068",
-      "source_tree": "ba6ab40c99deede9659e7c768f3cac45a9d5d4ad"
-    },
-    {
-      "bytes": 2091,
-      "path": "work/construction/segments/0040-resource-history-intervention-composition.md",
-      "predecessor": "segment-sha256:b5521a12b42315c7537e74c04d89fd1f33378bdbab8c401e9ce1f4aaa5192587",
-      "sequence": 40,
-      "sha256": "df0fbd983a4aa2830f305de2ddfb5506421b82e5b65e76d736c5fc4208a8c0b4",
-      "source_commit": "a88ecbc8df8a67e0deb72aafaa647b93c622c69f",
-      "source_tree": "51126da2ecd55a1336a767a328322a0947e59c57"
-    },
-    {
-      "bytes": 2228,
-      "path": "work/construction/segments/0041-resource-history-model-replacement-composition.md",
-      "predecessor": "segment-sha256:df0fbd983a4aa2830f305de2ddfb5506421b82e5b65e76d736c5fc4208a8c0b4",
-      "sequence": 41,
-      "sha256": "ab9a581e698a11c032b46fffb822adcd228063f8e2c7c8fe0227f6d0dc3e090a",
-      "source_commit": "289ace34013ef28e465aab7cc4f21b9253f0fcbd",
-      "source_tree": "6647a15b696b265c570f18bafddbd7484310689d"
-    },
-    {
-      "bytes": 1571,
-      "path": "work/construction/segments/0042-resource-replacement-interruption-recovery.md",
-      "predecessor": "segment-sha256:ab9a581e698a11c032b46fffb822adcd228063f8e2c7c8fe0227f6d0dc3e090a",
-      "sequence": 42,
-      "sha256": "37db22124fe1d0d6ec30e08453737001fede0a01bd589656ade5f75e0a333a1c",
-      "source_commit": "93cf858847a2c65bec351c54e1262044b23101e6",
-      "source_tree": "bdebe4a287c9663a733f6047d424bd84b1eb66e3"
-    },
-    {
-      "bytes": 3367,
-      "path": "work/construction/segments/0043-history-intervention-interruption-recovery.md",
-      "predecessor": "segment-sha256:37db22124fe1d0d6ec30e08453737001fede0a01bd589656ade5f75e0a333a1c",
-      "sequence": 43,
-      "sha256": "43f99c47ecb3b769b579b8b07ea73e2376f070d45d45f6c2c439c27054453d3f",
-      "source_commit": "e73e024ddd1b4c44586863e21a8ff767465dcc6d",
-      "source_tree": "a222a31ef175a5aeb1e73bdb652d91e7f6e81fbd"
-    },
-    {
-      "bytes": 3085,
-      "path": "work/construction/segments/0044-writeback-receipt-recovery.md",
-      "predecessor": "segment-sha256:43f99c47ecb3b769b579b8b07ea73e2376f070d45d45f6c2c439c27054453d3f",
-      "sequence": 44,
-      "sha256": "5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
-      "source_commit": "37551706fd3eefc4c539d57579f2a6ea337738be",
-      "source_tree": "f34432c7453146573f9152f19825f63b00654d17"
-    },
-    {
-      "bytes": 936,
-      "path": "work/construction/segments/0045-continuation-index-correction.md",
-      "predecessor": "segment-sha256:5c21654359d38c1aa83a7683a1eded3602146a56620be2b6fb7336f3ebea55fc",
-      "sequence": 45,
-      "sha256": "1cfa5155628aeaf90fc4f4371210eedc6a480162f90ae64f0446578bcf819caf",
-      "source_commit": "2c8fb64f8dd8b37bfde5b9887c53520131cdb032",
-      "source_tree": "b1f84f13f287a27b3fa1a246f14e48ce711f7d86"
-    },
-    {
-      "bytes": 2672,
-      "path": "work/construction/segments/0046-model-replacement-history-integration.md",
-      "predecessor": "segment-sha256:1cfa5155628aeaf90fc4f4371210eedc6a480162f90ae64f0446578bcf819caf",
-      "sequence": 46,
-      "sha256": "7581b8c86652a3442c7c54a1de9d31ca0dd94a1095eb90d43fe2e4715179e18f",
-      "source_commit": "bb6e30b489ba6fc0fc068739dc5830f9c49979e7",
-      "source_tree": "761aa397d905d34656088a8a5bf8ac2154245976"
-    },
-    {
-      "bytes": 2227,
-      "path": "work/construction/segments/0047-model-replacement-continuity-assessment.md",
-      "predecessor": "segment-sha256:7581b8c86652a3442c7c54a1de9d31ca0dd94a1095eb90d43fe2e4715179e18f",
-      "sequence": 47,
-      "sha256": "acc6ce66a776c0b730998c235386ac61ebaccbfed97b7ed94356134be91570d8",
-      "source_commit": "d4acafd1864194fd1c2eeae61ad400f5ab77323a",
-      "source_tree": "06aa8776e6fcb0ec7e0e432a0d0757b107205c3d"
-    },
-    {
-      "bytes": 2667,
-      "path": "work/construction/segments/0048-conversation-lineage-semantic-reconciliation.md",
-      "predecessor": "segment-sha256:acc6ce66a776c0b730998c235386ac61ebaccbfed97b7ed94356134be91570d8",
-      "sequence": 48,
-      "sha256": "fcff433068c85015386a897b46aa7027ef847621e59adf82fa4a7a334f045b45",
-      "source_commit": "e433a84a08dd0241afe1f198701df02483d0c213",
-      "source_tree": "a134b4ef9adb97016d900553a9a8eb115debd47c"
-    },
-    {
-      "bytes": 1775,
-      "path": "work/construction/segments/0049-history-intervention-and-resource-claim-review.md",
-      "predecessor": "segment-sha256:fcff433068c85015386a897b46aa7027ef847621e59adf82fa4a7a334f045b45",
-      "sequence": 49,
-      "sha256": "72c8aff67133333f80573be09be0f3b09d67f8388eb606aa13cd846b60eb4afe",
-      "source_commit": "4f653e68a420423c13a092e14bce095e82488fb3",
-      "source_tree": "328b9d730a644df0d49edf3b95fc6e4a236c98e7"
-    },
-    {
-      "bytes": 1446,
-      "path": "work/construction/segments/0050-embodied-boundary-review.md",
-      "predecessor": "segment-sha256:72c8aff67133333f80573be09be0f3b09d67f8388eb606aa13cd846b60eb4afe",
-      "sequence": 50,
-      "sha256": "1a67974a514d1a24e08f4c5ac9431b1ccaed642649aeec6a6440fad53b3559aa",
-      "source_commit": "6ec5d7dbf093b8b8d0692428f6b3ed86cf270134",
-      "source_tree": "c2df3c915d7f1142b73b8dd68472fdfd850971c0"
-    },
-    {
-      "bytes": 3242,
-      "path": "work/construction/segments/0051-longitudinal-resource-and-cognition-reconciliation.md",
-      "predecessor": "segment-sha256:1a67974a514d1a24e08f4c5ac9431b1ccaed642649aeec6a6440fad53b3559aa",
-      "sequence": 51,
-      "sha256": "c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
-      "source_commit": "fd96dc27426875e9e5d422a30722791da03e224e",
-      "source_tree": "c2dc8da70fe3567b3e29f04e7d88f01ef312172b"
-    },
-    {
-      "bytes": 3262,
-      "path": "work/construction/segments/0052-resource-world-state-cognition-handoff.md",
-      "predecessor": "segment-sha256:c42e916debfb04f9340da317fcec7bdb5234f2941d198f34c1a0ab630b5acff9",
-      "sequence": 52,
-      "sha256": "584d2713415c1d1d9fa9169c5a3dd4be3aa45992db112a661ede251df98bb85a",
-      "source_commit": "047ca6c0de4f1ceafb600542876adc5129f7854d",
-      "source_tree": "56ffd2196b9895dfc82edbe18d0d6c1363a526ce"
-    },
-    {
-      "bytes": 2887,
-      "path": "work/construction/segments/0053-resource-chain-child-fixture.md",
-      "predecessor": "segment-sha256:584d2713415c1d1d9fa9169c5a3dd4be3aa45992db112a661ede251df98bb85a",
-      "sequence": 53,
-      "sha256": "98355cdc671b9c32d0df735c582a4195a89ef4e8476d8775418d53fc56c28fe6",
-      "source_commit": "a3149fe6d1620fdc5834f5dbaf2cf20aa2fefd18",
-      "source_tree": "6f453e752a470c44be41fb08c3bcd415e38186e2"
-    },
-    {
-      "bytes": 2172,
-      "path": "work/construction/segments/0054-resource-receipt-substitution-negative-control.md",
-      "predecessor": "segment-sha256:98355cdc671b9c32d0df735c582a4195a89ef4e8476d8775418d53fc56c28fe6",
-      "sequence": 54,
-      "sha256": "3c9f2c6f6d5df72c769df2d28ac11e069a7c6c2662be067195133d6877b1082d",
-      "source_commit": "1c060a97f4b4d40e28dc686599c38a24d1be8d66",
-      "source_tree": "1f12a3c06634e257f24b3a9766103f5a200329f8"
-    },
-    {
-      "bytes": 1955,
-      "path": "work/construction/segments/0055-exact-resource-consumption-linkage.md",
-      "predecessor": "segment-sha256:3c9f2c6f6d5df72c769df2d28ac11e069a7c6c2662be067195133d6877b1082d",
-      "sequence": 55,
-      "sha256": "95f4a63801a3c19254f25c4ba6bf636c985f83072810f3ca76c601521776b8c4",
-      "source_commit": "4f3057644e695be4c7a90394a07604d170027b98",
-      "source_tree": "1b270e0a882e198ac59c0424daee6f5a07c3d346"
-    },
-    {
-      "bytes": 1434,
-      "path": "work/construction/segments/0056-large-source-blob-repair.md",
-      "predecessor": "segment-sha256:95f4a63801a3c19254f25c4ba6bf636c985f83072810f3ca76c601521776b8c4",
-      "sequence": 56,
-      "sha256": "eb884b2b56c0a6ace06f28360fc2f2e0d7bdf3c48b82e44f365c01fb1cffb326",
-      "source_commit": "e32a3a677c56a92a294ec301f6a4b0a284644e0b",
-      "source_tree": "9f006d0aa2881feb3454043db9082fb493683265"
-    },
-    {
-      "bytes": 1636,
-      "path": "work/construction/segments/0057-historical-resource-and-history-hunks.md",
-      "predecessor": "segment-sha256:eb884b2b56c0a6ace06f28360fc2f2e0d7bdf3c48b82e44f365c01fb1cffb326",
-      "sequence": 57,
-      "sha256": "a61b3c70ecffcc5fa2652c8bd6409bc5d58eb1a884488e3e2c9566db328112f7",
-      "source_commit": "ead58cbf7ee81974fc33954d0ab09c43fd33d8b3",
-      "source_tree": "d941548b51a5ee2568ee511f372707d4ca8ec6e4"
-    },
-    {
-      "bytes": 2616,
-      "path": "work/construction/segments/0058-governed-resource-strategy-proposal-join.md",
-      "predecessor": "segment-sha256:a61b3c70ecffcc5fa2652c8bd6409bc5d58eb1a884488e3e2c9566db328112f7",
-      "sequence": 58,
-      "sha256": "9ef547b5d2f7875f5413625663507b117caa4dc14d1134ddca3bf217f4739f5e",
-      "source_commit": "d3ad5130b0054b6f0d96df3312567f3f86d2e903",
-      "source_tree": "7d949d6546e26e055eb98de6674c77322815b3a0"
-    },
-    {
-      "bytes": 2029,
-      "path": "work/construction/segments/0059-model-replacement-event-time.md",
-      "predecessor": "segment-sha256:9ef547b5d2f7875f5413625663507b117caa4dc14d1134ddca3bf217f4739f5e",
-      "sequence": 59,
-      "sha256": "f157674eef57b78d7706049c8bb0e81554ad659a7932e35cedcc1ca5d7af7f6b",
-      "source_commit": "242d5ebf2fc0b9c82b2937daf8f08a96b2958232",
-      "source_tree": "0bf9890241f475ac728f8f5ce56120c7e49f3584"
-    },
-    {
-      "bytes": 2875,
-      "path": "work/construction/segments/0060-model-replacement-resource-lineage.md",
-      "predecessor": "segment-sha256:f157674eef57b78d7706049c8bb0e81554ad659a7932e35cedcc1ca5d7af7f6b",
-      "sequence": 60,
-      "sha256": "3b0048301a3bf17c5a04062814885a28286480dc0053cef194ef16ecb8332283",
-      "source_commit": "8fa87436599b0971694c74b06e2e4c5b5ea23220",
-      "source_tree": "8b0da571102dbf182fb65c7ea7c328f9aebda63d"
-    },
-    {
-      "bytes": 1701,
-      "path": "work/construction/segments/0061-model-identity-history-lineage.md",
-      "predecessor": "segment-sha256:3b0048301a3bf17c5a04062814885a28286480dc0053cef194ef16ecb8332283",
-      "sequence": 61,
-      "sha256": "b9e96a588f7c30c1e3e683a74f7d4c5cd48c6239b0cf572a3bf0d2ed5270d3b3",
-      "source_commit": "2e3b358317bc8e5d62f8970da28257896f2e4135",
-      "source_tree": "3b2fdbc2ab7e32485130aae5ede14c1303ceedea"
-    },
-    {
-      "bytes": 3012,
-      "path": "work/construction/segments/0062-model-resource-cognition.md",
-      "predecessor": "segment-sha256:b9e96a588f7c30c1e3e683a74f7d4c5cd48c6239b0cf572a3bf0d2ed5270d3b3",
-      "sequence": 62,
-      "sha256": "0f79c3ae78854ea83b463c4cf7ae863ada379357840211f35b0eb789ac33bb43",
-      "source_commit": "57f737904003db2581378689278e50df9256d341",
-      "source_tree": "9fc54e3372b666b73cf5c96388c341881df2c8a3"
-    },
-    {
-      "bytes": 3246,
-      "path": "work/construction/segments/0063-cognition-epistemic-hunk-dispositions.md",
-      "predecessor": "segment-sha256:0f79c3ae78854ea83b463c4cf7ae863ada379357840211f35b0eb789ac33bb43",
-      "sequence": 63,
-      "sha256": "7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
-      "source_commit": "f54d04bd69366300fc74ec45d026babe7168a54d",
-      "source_tree": "6a9d3d81801d939c1ed4692f873f98e26197e82e"
-    },
-    {
-      "bytes": 2432,
-      "path": "work/construction/segments/0064-longitudinal-resource-cognition.md",
-      "predecessor": "segment-sha256:7ba6a9325de563db6b5778e9ddb215461cf7307135ebbffa13d9182fcdd81a15",
-      "sequence": 64,
-      "sha256": "606f2678a9bc047d61d24655949cb3cd0f6c9dd7444c8377b3ee604dfc046dc8",
-      "source_commit": "f983c53ec69ae3389ede53c09291c767a729c6a3"
-    },
-    {
-      "bytes": 1582,
-      "path": "work/construction/segments/0065-epistemic-event-time-dispositions.md",
-      "predecessor": "segment-sha256:606f2678a9bc047d61d24655949cb3cd0f6c9dd7444c8377b3ee604dfc046dc8",
-      "sequence": 65,
-      "sha256": "c7ed951fe566244904faf2f0ef28e16e88a4f81ccda489c26a8e5d749c3ebdcb",
-      "source_commit": "8c620dc0672e77f036433ecc20b079aa9444da0e"
-    },
-    {
-      "bytes": 1594,
-      "path": "work/construction/segments/0066-embodied-source-integrity-repair.md",
-      "predecessor": "segment-sha256:c7ed951fe566244904faf2f0ef28e16e88a4f81ccda489c26a8e5d749c3ebdcb",
-      "sequence": 66,
-      "sha256": "fb0c6b838622e1e67e76d37ca5d7a37f47ca17720027c2a993cb458175fc29db",
-      "source_commit": "2eeeeb21c66cc2fb96daef4ccc340197ff21fc30"
-    },
-    {
-      "bytes": 1932,
-      "path": "work/construction/segments/0067-controlled-history-and-recovery.md",
-      "predecessor": "segment-sha256:fb0c6b838622e1e67e76d37ca5d7a37f47ca17720027c2a993cb458175fc29db",
-      "sequence": 67,
-      "sha256": "010d8f4270c024545351c744b7c7f9ff47545bae4096e2a81427b2c8cb1b391a",
-      "source_commit": "db45c915209dcfc0af23acf8787fcd268786dc3b"
-    },
-    {
-      "bytes": 1910,
-      "path": "work/construction/segments/0068-process-restart-cognition.md",
-      "predecessor": "segment-sha256:010d8f4270c024545351c744b7c7f9ff47545bae4096e2a81427b2c8cb1b391a",
-      "sequence": 68,
-      "sha256": "cb10becb51ad6fc1b3d69af9567333de49de00c1c7f33bf538f26e769e9a0448",
-      "source_commit": "f4370b6b68eacdd734c9542b126b042d53495b09"
-    },
-    {
-      "bytes": 2671,
-      "path": "work/construction/segments/0069-installation-observation-restart-cognition.md",
-      "predecessor": "segment-sha256:cb10becb51ad6fc1b3d69af9567333de49de00c1c7f33bf538f26e769e9a0448",
-      "sequence": 69,
-      "sha256": "7743a162dba4b3b86da02751089b98d02e8fe7b73c9a58ba33f0a0ad8c75f55c",
-      "source_commit": "067fbbf5b199caff3f9dca65aed76f3c8d92b756"
-    },
-    {
-      "bytes": 1776,
-      "path": "work/construction/segments/0070-controlled-history-succession-review.md",
-      "predecessor": "segment-sha256:7743a162dba4b3b86da02751089b98d02e8fe7b73c9a58ba33f0a0ad8c75f55c",
-      "sequence": 70,
-      "sha256": "e7c5718231cb5dc908b6c7c6db67b91f944a42a743a5364b351d0cd5a455214e",
-      "source_commit": "1203784583e1be47cc983841da37adc012614828"
-    },
-    {
-      "bytes": 1586,
-      "path": "work/construction/segments/0071-resource-history-task-attribution.md",
-      "predecessor": "segment-sha256:e7c5718231cb5dc908b6c7c6db67b91f944a42a743a5364b351d0cd5a455214e",
-      "sequence": 71,
-      "sha256": "d4270beaf16fb43dded4bd10dcb69b409d984146f96567253b4ea41296a6f9d0",
-      "source_commit": "e1677cade049a428cc28f3fd90e0643f9718843f"
-    },
-    {
-      "bytes": 2515,
-      "path": "work/construction/segments/0072-resource-generation-developmental-continuity.md",
-      "predecessor": "segment-sha256:d4270beaf16fb43dded4bd10dcb69b409d984146f96567253b4ea41296a6f9d0",
-      "sequence": 72,
-      "sha256": "c58753565e6bca44aef60d650762ac60d4c83b3b5188e695363ea55ea919ab53",
-      "source_commit": "e1677cade049a428cc28f3fd90e0643f9718843f"
-    },
-    {
-      "bytes": 6968,
-      "path": "work/construction/segments/0073-recovered-frozen-journal-suffix.md",
-      "predecessor": "segment-sha256:c58753565e6bca44aef60d650762ac60d4c83b3b5188e695363ea55ea919ab53",
-      "sequence": 73,
-      "sha256": "cc10c1c2deed99bc47d4c21c94c9ccb5b3ab49cd16bd4797fd5c9a16edad5fe1",
-      "source_commit": "00023a269a2f3a0ebb08334a53465a57e2849702"
-    },
-    {
-      "bytes": 1938,
-      "path": "work/construction/segments/0074-frozen-custody-publication-guard.md",
-      "predecessor": "segment-sha256:cc10c1c2deed99bc47d4c21c94c9ccb5b3ab49cd16bd4797fd5c9a16edad5fe1",
-      "sequence": 74,
-      "sha256": "4debe782bfc7ddbd4bc8ed508ee5c2cf116d80f157b3ed791305b514b43cc606",
-      "source_commit": "00023a269a2f3a0ebb08334a53465a57e2849702"
-    },
-    {
-      "bytes": 3420,
-      "path": "work/construction/segments/0075-objective-scoring-and-restart.md",
-      "predecessor": "segment-sha256:4debe782bfc7ddbd4bc8ed508ee5c2cf116d80f157b3ed791305b514b43cc606",
-      "sequence": 75,
-      "sha256": "bc1d3f2138781c613294187741f1e633bad03704a67acbe38c550554371a7b91",
-      "source_commit": "048165ac821d72134e304e3dfa889927d0a6b80a"
-    },
-    {
-      "bytes": 2859,
-      "path": "work/construction/segments/0076-score-history-projection.md",
-      "predecessor": "segment-sha256:bc1d3f2138781c613294187741f1e633bad03704a67acbe38c550554371a7b91",
-      "sequence": 76,
-      "sha256": "438d8a595787cabc8cc8c647a38013d9bd0fd1d3e32741a96dd65336e9097b18",
-      "source_commit": "b45e4b929ca55350c9bda1ac5dd79b1daa4f8312"
-    },
-    {
-      "bytes": 2210,
-      "path": "work/construction/segments/0077-objective-restart-process.md",
-      "predecessor": "segment-sha256:438d8a595787cabc8cc8c647a38013d9bd0fd1d3e32741a96dd65336e9097b18",
-      "sequence": 77,
-      "sha256": "cc6b1c7c3966b855124401c1031dea8b349b1dad5a004f5cbee3844f2982f79f",
-      "source_commit": "b882138149a4b048c1814df0fb02ec86479b82ed"
-    },
-    {
-      "bytes": 2021,
-      "path": "work/construction/segments/0078-resource-observer-restart-custody.md",
-      "predecessor": "segment-sha256:cc6b1c7c3966b855124401c1031dea8b349b1dad5a004f5cbee3844f2982f79f",
-      "sequence": 78,
-      "sha256": "f74bf66471a2c06add3f75a67c1fc6d6079923ebacda4a6baa4ec766a9f1d070",
-      "source_commit": "323a8f1d5d7873ac6b51daf1f93f42ab494f4996"
-    },
-    {
-      "bytes": 2371,
-      "path": "work/construction/segments/0079-same-model-objective-history.md",
-      "predecessor": "segment-sha256:f74bf66471a2c06add3f75a67c1fc6d6079923ebacda4a6baa4ec766a9f1d070",
-      "sequence": 79,
-      "sha256": "30a21da55b067bcb1a101712764147e8f2284824246864173b50fd83ce7dfee9",
-      "source_commit": "180b15e4f3bcf39d8813e54337509880c99817d5"
-    },
-    {
-      "bytes": 2517,
-      "path": "work/construction/segments/0080-objective-interrupted-score-recovery.md",
-      "predecessor": "segment-sha256:30a21da55b067bcb1a101712764147e8f2284824246864173b50fd83ce7dfee9",
-      "sequence": 80,
-      "sha256": "c128235306b5b06b8e4dfa55d68cefd98ba8b9fd957691d699e71301a6d209b7",
-      "source_commit": "7db78f57635aff2acdd06f808d4ca36ba5e0538d"
-    },
-    {
-      "bytes": 2233,
-      "path": "work/construction/segments/0081-history-worldstate-later-cognition.md",
-      "predecessor": "segment-sha256:c128235306b5b06b8e4dfa55d68cefd98ba8b9fd957691d699e71301a6d209b7",
-      "sequence": 81,
-      "sha256": "35fc44272f8a8663cf75c541f64304fad0e6684b0c83605a6d7134c65302bbb2",
-      "source_commit": "8ba5aa649e8ddf5c76dc3a328f7616fb6677a865"
-    },
-    {
-      "bytes": 2481,
-      "path": "work/construction/segments/0082-resource-cold-restart.md",
-      "predecessor": "segment-sha256:35fc44272f8a8663cf75c541f64304fad0e6684b0c83605a6d7134c65302bbb2",
-      "sequence": 82,
-      "sha256": "8b2dadd2cebb405b735bbbac3ea0c00fc6382d872dec32e9824da2843ebb8284",
-      "source_commit": "447acb068d28969e32c0e9c72aa2ae3f33b9eda4"
-    },
-    {
-      "bytes": 2123,
-      "path": "work/construction/segments/0083-model-specific-objective-later-cognition.md",
-      "predecessor": "segment-sha256:8b2dadd2cebb405b735bbbac3ea0c00fc6382d872dec32e9824da2843ebb8284",
-      "sequence": 83,
-      "sha256": "396c0f1a8ac9852a5ca1979398977171a00b7084c975bb2fc815a40155eea958",
-      "source_commit": "e6ede1f203b2f4dfdd39d6c503eb17d445093117"
-    },
-    {
-      "bytes": 3340,
-      "path": "work/construction/segments/0084-objective-probe-suite-and-loaded-code-boundary.md",
-      "predecessor": "segment-sha256:396c0f1a8ac9852a5ca1979398977171a00b7084c975bb2fc815a40155eea958",
-      "sequence": 84,
-      "sha256": "b71fca977678e4c26229bb32b8a989adb844846f4afb44b8be317c05ded65403",
-      "source_commit": "cb992dbef5a96712b5a256061701179dc6801f25"
-    },
-    {
-      "bytes": 1107,
-      "path": "work/construction/segments/0085-probe-suite-adversarial-control.md",
-      "predecessor": "segment-sha256:b71fca977678e4c26229bb32b8a989adb844846f4afb44b8be317c05ded65403",
-      "sequence": 85,
-      "sha256": "bb07e748ae13e529e8adfe8c9769eded90a7857860690cdcecf1ee28a4820730",
-      "source_commit": "1d3c0aaf8240424576f8fa2e42bd3d1ec124d7a8"
-    },
-    {
-      "bytes": 1645,
-      "path": "work/construction/segments/0086-probe-suite-recovery-adversarial.md",
-      "predecessor": "segment-sha256:bb07e748ae13e529e8adfe8c9769eded90a7857860690cdcecf1ee28a4820730",
-      "sequence": 86,
-      "sha256": "943909fcbe779b21a7687a53c8ac750d0ab53b1b8b8026f671ff69e1b026dbc1",
-      "source_commit": "6a8502675074eb9c116ded9b0d36eab67495c1f6"
-    },
-    {
-      "bytes": 2019,
-      "path": "work/construction/segments/0087-retain-partial-probe-correctness.md",
-      "predecessor": "segment-sha256:943909fcbe779b21a7687a53c8ac750d0ab53b1b8b8026f671ff69e1b026dbc1",
-      "sequence": 87,
-      "sha256": "c5fa6572575223d181ccf0a64c9f2c4fb7bb27caddef0c715351927bbc1a3fc0",
-      "source_commit": "59e12375217064d4080e640e712a615965942abe"
-    },
-    {
-      "bytes": 2314,
-      "path": "work/construction/segments/0088-same-model-probe-suite-continuity.md",
-      "predecessor": "segment-sha256:c5fa6572575223d181ccf0a64c9f2c4fb7bb27caddef0c715351927bbc1a3fc0",
-      "sequence": 88,
-      "sha256": "123dd878a2305ca40bc1f70fcebe60c4dc6b56c17ef152dae0b99e709e73b66d",
-      "source_commit": "331629c98b4ef560a2a570320712e7e511a6a13d"
-    },
-    {
-      "bytes": 1064,
-      "path": "work/construction/segments/0089-same-model-probe-suite-fresh-process.md",
-      "predecessor": "segment-sha256:123dd878a2305ca40bc1f70fcebe60c4dc6b56c17ef152dae0b99e709e73b66d",
-      "sequence": 89,
-      "sha256": "2761002456599786e73714a0c0cce8d2ede5de8fa63b783b267830675e921815",
-      "source_commit": "4c7288f818b3588888df3bd2e9487276e104a896"
-    },
-    {
-      "bytes": 1795,
-      "path": "work/construction/segments/0090-longitudinal-experiments-historical-classification.md",
-      "predecessor": "segment-sha256:2761002456599786e73714a0c0cce8d2ede5de8fa63b783b267830675e921815",
-      "sequence": 90,
-      "sha256": "f1656d87cf27e728bf0cf3a44a82bcc7cc3dc711fa7959933cbf1779df008c8b",
-      "source_commit": "113f44154e82c81338f1ec8035958e71d532989a"
-    },
-    {
-      "bytes": 1971,
-      "path": "work/construction/segments/0091-self-model-projection-historical-semantics.md",
-      "predecessor": "segment-sha256:f1656d87cf27e728bf0cf3a44a82bcc7cc3dc711fa7959933cbf1779df008c8b",
-      "sequence": 91,
-      "sha256": "eab3292cb0dc5fdd9bd56a2461f1ad075897ceb458e83fda4781e1d374837f4d",
-      "source_commit": "00ddc4b0f56ac9c991111a5cf4a870e855bef8fb"
-    },
-    {
-      "bytes": 1867,
-      "path": "work/construction/segments/0092-ordinary-cognition-self-model-qualifiers.md",
-      "predecessor": "segment-sha256:eab3292cb0dc5fdd9bd56a2461f1ad075897ceb458e83fda4781e1d374837f4d",
-      "sequence": 92,
-      "sha256": "814984ecfad1a4f2d17e1a29bd66c5f390c7fae7b45cf3bc77f12075c0a0a9ad",
-      "source_commit": "4d77a93f05815598642b1a0a9cdc923bc36e045b"
-    },
-    {
-      "bytes": 1516,
-      "path": "work/construction/segments/0093-historical-claim-temporal-scope.md",
-      "predecessor": "segment-sha256:814984ecfad1a4f2d17e1a29bd66c5f390c7fae7b45cf3bc77f12075c0a0a9ad",
-      "sequence": 93,
-      "sha256": "deb45ce3fa78833cf904bba085b26788fc8d7f54a6a4ab9c835ea3a101468278",
-      "source_commit": "fbb8cd504beebc8304c6f4da1d92e8238e07aed5"
-    },
-    {
-      "bytes": 1606,
-      "path": "work/construction/segments/0094-preserve-current-and-historical-support.md",
-      "predecessor": "segment-sha256:deb45ce3fa78833cf904bba085b26788fc8d7f54a6a4ab9c835ea3a101468278",
-      "sequence": 94,
-      "sha256": "349c261dc6b504754f6f5718bc47a0af8c1a781017713ec3b8c773e474b0df92",
-      "source_commit": "0875133bb896cd78c3efbd6483e7cceca50fd254"
-    },
-    {
-      "bytes": 1296,
-      "path": "work/construction/segments/0095-mixed-category-value-conflict.md",
-      "predecessor": "segment-sha256:349c261dc6b504754f6f5718bc47a0af8c1a781017713ec3b8c773e474b0df92",
-      "sequence": 95,
-      "sha256": "07987c7fa74dfa0390c57aa612d590642896e0b7fa3098bba19856b11bbd8e73",
-      "source_commit": "d0f25ec954e97cf4d40262ac5747069be9af1135"
-    },
-    {
-      "bytes": 1695,
-      "path": "work/construction/segments/0096-direct-claim-supersession.md",
-      "predecessor": "segment-sha256:07987c7fa74dfa0390c57aa612d590642896e0b7fa3098bba19856b11bbd8e73",
-      "sequence": 96,
-      "sha256": "839de64a690e16933d557478a8485f894dbc741d85073f5815bc4d7356ec9d5f",
-      "source_commit": "e7247044171958b2fd338d98fb4451e242822600"
-    },
-    {
-      "bytes": 1590,
-      "path": "work/construction/segments/0097-preserve-terminal-successions.md",
-      "predecessor": "segment-sha256:839de64a690e16933d557478a8485f894dbc741d85073f5815bc4d7356ec9d5f",
-      "sequence": 97,
-      "sha256": "25d40696b0eb149d54eced6d6053fe5b263c263a22d4e3e536e56f653e0f57af",
-      "source_commit": "ebe0d33ca7050ae0ab54ee144d426a5d4c65a02a"
-    },
-    {
-      "bytes": 2135,
-      "path": "work/construction/segments/0098-recover-checkpointed-objective-run.md",
-      "predecessor": "segment-sha256:25d40696b0eb149d54eced6d6053fe5b263c263a22d4e3e536e56f653e0f57af",
-      "sequence": 98,
-      "sha256": "8ea34f9560f1f742e9227159ee5c765a497e05add4c6b9ce90eaea727ded0111",
-      "source_commit": "cce384313f81b0745bdfd47c8c9d948dfdd90ebf"
-    },
-    {
-      "bytes": 3557,
-      "path": "work/construction/segments/0099-loaded-code-boundary-and-test-custody.md",
-      "predecessor": "segment-sha256:8ea34f9560f1f742e9227159ee5c765a497e05add4c6b9ce90eaea727ded0111",
-      "sequence": 99,
-      "sha256": "5087097211ad7eed034abce87a380c18dd06ecd9e2b5fc748f0a178993a6a9e9",
-      "source_commit": "a54d7b59e392bbe0a6cac440a83ab4c3a4ef0f45",
-      "source_tree": "08cfebba40eb9aea8fb59c62e7041109d745b273"
-    },
-    {
-      "bytes": 2800,
-      "path": "work/construction/segments/0100-hosted-checks-and-external-prerequisites.md",
-      "predecessor": "segment-sha256:5087097211ad7eed034abce87a380c18dd06ecd9e2b5fc748f0a178993a6a9e9",
-      "sequence": 100,
-      "sha256": "ad70955ed9b0481e99f46652eb88e3daaf82e823ce0eb3b791af345fb37768fc",
-      "source_commit": "b0f01d221a028f24a8ac27a3ae83777fa1c3ae98",
-      "source_tree": "2a893d45313f4f9d92ecb975f4096e1e10f5c30b"
-    },
-    {
-      "bytes": 3529,
-      "path": "work/construction/segments/0101-supervised-interpreter-observation.md",
-      "predecessor": "segment-sha256:ad70955ed9b0481e99f46652eb88e3daaf82e823ce0eb3b791af345fb37768fc",
-      "sequence": 101,
-      "sha256": "6709b7f52f2803e1d32e2798fa28b6af54d9250d0bbe3ad1b88d22e7034884d1",
-      "source_commit": "b8d87a1bea423ca5d5cb103c5002100fe04cf8b3",
-      "source_tree": "6fe42a64e32104a36aa1b99149652cf682998c6c"
-    },
-    {
-      "bytes": 4001,
-      "path": "work/construction/segments/0102-digest-only-objective-scores.md",
-      "predecessor": "segment-sha256:6709b7f52f2803e1d32e2798fa28b6af54d9250d0bbe3ad1b88d22e7034884d1",
-      "sequence": 102,
-      "sha256": "623856eb859910a2e0fa0f59f82c3a5d07cc7ce6cab32789d3fd670b3f789f31",
-      "source_commit": "3b11f26bc7d32c213945ffaa55f0425718bc14bb",
-      "source_tree": "adcc1a10562e82135b9c2e6c0e7c5a95d1c4c917"
-    },
-    {
-      "bytes": 2234,
-      "path": "work/construction/segments/0103-clean-targeted-experiment-types.md",
-      "predecessor": "segment-sha256:623856eb859910a2e0fa0f59f82c3a5d07cc7ce6cab32789d3fd670b3f789f31",
-      "sequence": 103,
-      "sha256": "b1f6b32ab8d0526a2b6d7e0575612222c48c017157dd6ad138bf43156e19cfe8",
-      "source_commit": "da44db5c4f847f32855115a81a37e9d27435b69f",
-      "source_tree": "4a28e970d9b28c0355113fb923164109e7c43148"
-    },
-    {
-      "bytes": 2989,
-      "evidence_path": "work/construction/evidence/0104-reconcile-published-scorer-and-cold-restart.json",
-      "evidence_sha256": "1fb13006248cc3ffefe8fba08ebba5fae3138d6253f33b2a3e47db47393dac71",
-      "path": "work/construction/segments/0104-reconcile-published-scorer-and-cold-restart.md",
-      "predecessor": "segment-sha256:b1f6b32ab8d0526a2b6d7e0575612222c48c017157dd6ad138bf43156e19cfe8",
-      "sequence": 104,
-      "sha256": "b475c890e11766505ff3840341501166baba254a4260a4288c33b80d76f10503",
-      "source_commit": "b9ce905af905920d0c21e260eef73de6a9708ac5",
-      "source_tree": "deb351e76e9cf50b4720c66bbbd25bd6a521914b"
-    },
-    {
-      "bytes": 3772,
-      "evidence_path": "work/construction/evidence/0105-bind-objective-scoring-to-real-serving.json",
-      "evidence_sha256": "a910eab5481c559d51221d79caf8b3142ab91ff8b4b652d38ce1c331d077691e",
-      "path": "work/construction/segments/0105-bind-objective-scoring-to-real-serving.md",
-      "predecessor": "segment-sha256:b475c890e11766505ff3840341501166baba254a4260a4288c33b80d76f10503",
-      "sequence": 105,
-      "sha256": "d367880b1761cc5fce2c5a138bba3a55cf82baa68caff3f32da4cf2d3a0fa12d",
-      "source_commit": "86516b5b7f44bee8821b74390ffc06e070659555",
-      "source_tree": "c3344fa9eb9e52b307705fc4683f7acd97124714"
-    },
-    {
-      "bytes": 3047,
-      "evidence_path": "work/construction/evidence/0106-recover-truncated-history-scores.json",
-      "evidence_sha256": "7f3dd9906c0554667680b47df95f9c3dfbb888cf5f8d6023f19d8814314b59e6",
-      "path": "work/construction/segments/0106-recover-truncated-history-scores.md",
-      "predecessor": "segment-sha256:d367880b1761cc5fce2c5a138bba3a55cf82baa68caff3f32da4cf2d3a0fa12d",
-      "sequence": 106,
-      "sha256": "29ecfada29d7485ac869d95b529c86bbfb54a411d02310480bf1a0c49c3806aa",
-      "source_commit": "14336df14a9dd9a5aebd6f1f2ef01879ad4bbdd3",
-      "source_tree": "912dc5e789f784988fbbcd5293783a84df7048b0"
-    },
-    {
-      "bytes": 3034,
-      "evidence_bytes": 2417,
-      "evidence_path": "work/construction/evidence/0107-stage-one-shot-objective-intervention.json",
-      "evidence_sha256": "18b4ed7900d6aede8becce7e2455f41afc22463d293decd8fd7728257a9c13e9",
-      "path": "work/construction/segments/0107-stage-one-shot-objective-intervention.md",
-      "predecessor": "segment-sha256:29ecfada29d7485ac869d95b529c86bbfb54a411d02310480bf1a0c49c3806aa",
-      "sequence": 107,
-      "sha256": "6046c641c753d3380f3ab689fef1964e1c8b83ef895b77dd95401ef96d15d14d",
-      "source_commit": "8d25daa7ab0a40375a01247ad6086b957a803fb1",
-      "source_tree": "7a50d9fd26198b81a7866b35fd44f059b3845f75"
-    },
-    {
-      "bytes": 3387,
-      "evidence_bytes": 3353,
-      "evidence_path": "work/construction/evidence/0108-local-objective-readiness-and-budget.json",
-      "evidence_sha256": "ca02a709c1adc5c848f297daa90322812f55dcb6b922471868427c9e60796d31",
-      "path": "work/construction/segments/0108-local-objective-readiness-and-budget.md",
-      "predecessor": "segment-sha256:6046c641c753d3380f3ab689fef1964e1c8b83ef895b77dd95401ef96d15d14d",
-      "sequence": 108,
-      "sha256": "95de75d38bb314540cf674ba6bee1462927ab84e7a90f4334a3ed28372d2026c",
-      "source_commit": "344be902824b3f9b1cfc56362b5e53598a001051",
-      "source_tree": "ed2b5bdd12a839b205e94951d61d5527c66d6d00"
-    },
-    {
-      "bytes": 2365,
-      "evidence_bytes": 2063,
-      "evidence_path": "work/construction/evidence/0109-recover-and-surface-objective-outcomes.json",
-      "evidence_sha256": "1cf9f89ea45b6bbc5a54b8f0d7af18413921b8a58f444b389233b11ccf7d5aaa",
-      "path": "work/construction/segments/0109-recover-and-surface-objective-outcomes.md",
-      "predecessor": "segment-sha256:95de75d38bb314540cf674ba6bee1462927ab84e7a90f4334a3ed28372d2026c",
-      "sequence": 109,
-      "sha256": "143814898d0ca5bcaa2fc49d1fff8b59ae23374f8e0b605acc712fe057afa177",
-      "source_commit": "ee3a4563063d34edb890cd200b40719df0e8f4f5",
-      "source_tree": "acd5ddea19f94b04328de0be588ed2ff6b190baf"
-    },
-    {
-      "bytes": 2503,
-      "evidence_bytes": 2618,
-      "evidence_path": "work/construction/evidence/0110-read-only-objective-result-inspection.json",
-      "evidence_sha256": "54a5dde75e5895d114e7693cda03cd01110324ce2dc8cce62781ddfe5ee2489e",
-      "path": "work/construction/segments/0110-read-only-objective-result-inspection.md",
-      "predecessor": "segment-sha256:143814898d0ca5bcaa2fc49d1fff8b59ae23374f8e0b605acc712fe057afa177",
-      "sequence": 110,
-      "sha256": "7dd368c758fc151e93a38899dd7de33dffa5efb682dd489f50ca02801139d049",
-      "source_commit": "e7a004e010d66f54149cbcc6a992157f00c9c94e",
-      "source_tree": "ec07c2688db3a06fc17a4d2a715655440c9d1fc1"
-    },
-    {
-      "bytes": 2976,
-      "evidence_bytes": 2319,
-      "evidence_path": "work/construction/evidence/0111-recoverable-outcome-contamination-posture.json",
-      "evidence_sha256": "cde19310b5c0311b87fc15b4f178e6efa9105041729f1f8d99f3bf811f133ae8",
-      "path": "work/construction/segments/0111-recoverable-outcome-contamination-posture.md",
-      "predecessor": "segment-sha256:7dd368c758fc151e93a38899dd7de33dffa5efb682dd489f50ca02801139d049",
-      "sequence": 111,
-      "sha256": "9a1e977e2bc1c2669f353ae0d9a131bd78db2a9b687efb9e2b16edab6efbe8f6",
-      "source_commit": "ac264e0b3860717a71551a752e036dff9494856a",
-      "source_tree": "29fa8b16400d03571069513bfe5f21748b92f8be"
-    },
-    {
-      "bytes": 3020,
-      "evidence_bytes": 2194,
-      "evidence_path": "work/construction/evidence/0112-bind-effective-generation-ceilings.json",
-      "evidence_sha256": "cc33b6ff05b3403f17eed60143bba13f5d16eca49f55a92e55d7f7c659c87ec5",
-      "path": "work/construction/segments/0112-bind-effective-generation-ceilings.md",
-      "predecessor": "segment-sha256:9a1e977e2bc1c2669f353ae0d9a131bd78db2a9b687efb9e2b16edab6efbe8f6",
-      "sequence": 112,
-      "sha256": "0e54a94a2dc3300e05c0f72257632e709c4b86d1a41e55899517e8bba4bc38a2",
-      "source_commit": "f3b8e80b1d54ef56fcfadba1fc86b848d9dfa748",
-      "source_tree": "564b197bd26d4c08df25b00f5604ff44fb04b7ec"
-    },
-    {
-      "bytes": 3037,
-      "evidence_bytes": 3584,
-      "evidence_path": "work/construction/evidence/0113-preserve-backend-completion-cutoff.json",
-      "evidence_sha256": "7befbad862cf29aaae15d29ae09b79c8df9f93b61cc45e49430bf04107b4fe74",
-      "path": "work/construction/segments/0113-preserve-backend-completion-cutoff.md",
-      "predecessor": "segment-sha256:0e54a94a2dc3300e05c0f72257632e709c4b86d1a41e55899517e8bba4bc38a2",
-      "sequence": 113,
-      "sha256": "f95f7aa8f7fd5c750c63ba4f60af244e91a1496a7aac8e83e0ebbe9e4a5d3843",
-      "source_commit": "e3026d7e1ad2b168866b9e2bbe7aef867c1908a1",
-      "source_tree": "0047818010033c909aafd485f8dfe103163b4478"
-    },
-    {
-      "bytes": 2174,
-      "evidence_bytes": 1897,
-      "evidence_path": "work/construction/evidence/0114-distinguish-contamination-unknown.json",
-      "evidence_sha256": "37cfdf02367e3c2b1dbd5dd06cbf9bd6dcc343b473abc9673eba252cd9754608",
-      "path": "work/construction/segments/0114-distinguish-contamination-unknown.md",
-      "predecessor": "segment-sha256:f95f7aa8f7fd5c750c63ba4f60af244e91a1496a7aac8e83e0ebbe9e4a5d3843",
-      "sequence": 114,
-      "sha256": "803a38d1bc93fd6c39255f151d7a643077b64a4449115118c2d0b5eb0e4f3450",
-      "source_commit": "9edc22313e6f111f3f82773f5f1479fba989fc0f",
-      "source_tree": "674cfdce1ccc9aab2c50b352ea978c6dc0bf6200"
-    },
-    {
-      "bytes": 2476,
-      "evidence_bytes": 1595,
-      "evidence_path": "work/construction/evidence/0115-exact-objective-operator-handoff.json",
-      "evidence_sha256": "b7f0b1d92d9a897f0c069e4f17cbb86df038f704a416683565184acdbed641ef",
-      "path": "work/construction/segments/0115-exact-objective-operator-handoff.md",
-      "predecessor": "segment-sha256:803a38d1bc93fd6c39255f151d7a643077b64a4449115118c2d0b5eb0e4f3450",
-      "sequence": 115,
-      "sha256": "2bbdd7aa3436b8a4125e9bf1ddd243551bf418dab0be63c4a8176d3790cef9d5",
-      "source_commit": "ced99339a345181f1d357f32f84e160ef7e87f4c",
-      "source_tree": "7c85facbfeec967cfd1bb47d016ceac581349ae5"
-    },
-    {
-      "bytes": 3268,
-      "evidence_bytes": 4790,
-      "evidence_path": "work/construction/evidence/0116-read-only-host-runtime-preflight.json",
-      "evidence_sha256": "9517b24f34c14a43283cf56b72ebfd5867aa973f27f95a85956cdf7d598d201e",
-      "path": "work/construction/segments/0116-read-only-host-runtime-preflight.md",
-      "predecessor": "segment-sha256:2bbdd7aa3436b8a4125e9bf1ddd243551bf418dab0be63c4a8176d3790cef9d5",
-      "sequence": 116,
-      "sha256": "df5ebc017f18c512ec071be2232134b7e68f47a6fd8b31a77a9181bf1a8e8f9e",
-      "source_commit": "b99f6175aba4fbf74be8b650a6818110890fb6b4",
-      "source_tree": "6a92eaf0637ac318a939e9ce6777a144781c0fb1"
-    },
-    {
-      "bytes": 2918,
-      "evidence_bytes": 5374,
-      "evidence_path": "work/construction/evidence/0117-read-only-serving-installation-preflight.json",
-      "evidence_sha256": "434464dc3b301cfad1c3717dc42d1a127f2c17259e21434b6c8a10ba5d54a817",
-      "path": "work/construction/segments/0117-read-only-serving-installation-preflight.md",
-      "predecessor": "segment-sha256:df5ebc017f18c512ec071be2232134b7e68f47a6fd8b31a77a9181bf1a8e8f9e",
-      "sequence": 117,
-      "sha256": "0f8e2988cb9772c67a37eb673ccd93d7aaa2e88f10032d9c9d99160315a23874",
-      "source_commit": "e7fe68610bc9cc53948263f0360e9cac228f73ee",
-      "source_tree": "e3a7348ae05f757fdb96d1467a5437290fc95711"
-    },
-    {
-      "bytes": 1615,
-      "evidence_bytes": 2009,
-      "evidence_path": "work/construction/evidence/0118-reconcile-receipt-linked-history-readiness.json",
-      "evidence_sha256": "72d376e6416532b67f07119f34f04ff282efcc5ec4af10ae536ff5900891a8a5",
-      "path": "work/construction/segments/0118-reconcile-receipt-linked-history-readiness.md",
-      "predecessor": "segment-sha256:0f8e2988cb9772c67a37eb673ccd93d7aaa2e88f10032d9c9d99160315a23874",
-      "sequence": 118,
-      "sha256": "c019a5a26be9be9d3a7eb9d8b3fc2077d62f63f643a003ef4d3f43989aebfc4a",
-      "source_commit": "63c6c8932618478afc4b594115c61524e729054e",
-      "source_tree": "64c69636e297dd1a4532121d7d14fb5ccfbc7623"
-    },
-    {
-      "bytes": 1489,
-      "evidence_bytes": 2139,
-      "evidence_path": "work/construction/evidence/0119-name-unrevalidated-history-truthfully.json",
-      "evidence_sha256": "109b75052bc74994451081cdc560b7ddb2640cc980b1a32d239777342c78ebf4",
-      "path": "work/construction/segments/0119-name-unrevalidated-history-truthfully.md",
-      "predecessor": "segment-sha256:c019a5a26be9be9d3a7eb9d8b3fc2077d62f63f643a003ef4d3f43989aebfc4a",
-      "sequence": 119,
-      "sha256": "6cf03cce2e3f1b2ec94ac26144f270fe5244ef1ffa99924a8ede3799351adb17",
-      "source_commit": "2da7a58b10c0884d0abdc0fd2e4a2454135ee252",
-      "source_tree": "fad0160098abcf69e372807e9a97bce77ed0204c"
-    },
-    {
-      "bytes": 1924,
-      "evidence_bytes": 3021,
-      "evidence_path": "work/construction/evidence/0120-read-only-full-history-admission-inspection.json",
-      "evidence_sha256": "8496a037469697cb2f8a05d99cdbb790ec82b74ef0fe2b914c2f38266c3a3683",
-      "path": "work/construction/segments/0120-read-only-full-history-admission-inspection.md",
-      "predecessor": "segment-sha256:6cf03cce2e3f1b2ec94ac26144f270fe5244ef1ffa99924a8ede3799351adb17",
-      "sequence": 120,
-      "sha256": "88fa986338a81a4267ca93990bd9862904c1cb28ffda7edf01bb80990b01d528",
-      "source_commit": "715843bd204927e188f483ece24adf8482324b10",
-      "source_tree": "75c49d91eb61d20dc76120d506bfc647f645c662"
-    },
-    {
-      "bytes": 1775,
-      "evidence_bytes": 2590,
-      "evidence_path": "work/construction/evidence/0121-identify-operator-roots-and-next-action.json",
-      "evidence_sha256": "f909c1f50b023bc47f0bbf8a8eaa392ec7c42c1b249e8943390f8b2f289621ad",
-      "path": "work/construction/segments/0121-identify-operator-roots-and-next-action.md",
-      "predecessor": "segment-sha256:88fa986338a81a4267ca93990bd9862904c1cb28ffda7edf01bb80990b01d528",
-      "sequence": 121,
-      "sha256": "2384741dda691ac5d4b0d13b2eee74a87aa4791dccf67490e970b15f0c94232a",
-      "source_commit": "b0964c791a050e106952361f08f83fabafa029e6",
-      "source_tree": "b041495528d6ba4ffe88b2c3b4ae63175041cbd7"
-    },
-    {
-      "bytes": 1429,
-      "evidence_bytes": 2395,
-      "evidence_path": "work/construction/evidence/0122-mark-daemon-config-binding-unobserved.json",
-      "evidence_sha256": "a2de3477f4f67b78b50507839a98ac67df40cf2e14ba56f71bd991d03c430730",
-      "path": "work/construction/segments/0122-mark-daemon-config-binding-unobserved.md",
-      "predecessor": "segment-sha256:2384741dda691ac5d4b0d13b2eee74a87aa4791dccf67490e970b15f0c94232a",
-      "sequence": 122,
-      "sha256": "5a2de258b14a5a9fe743e289764a6ebb51b9fea917ef8356dd49ff730ac40d66",
-      "source_commit": "f0231f8e65db4ed3d336b16bd0c119486439519e",
-      "source_tree": "afcb5ad9406bebc4442eae6169f448b6caa7cd6e"
-    },
-    {
-      "bytes": 2795,
-      "evidence_bytes": 3959,
-      "evidence_path": "work/construction/evidence/0123-project-verified-objective-runs-to-world-state.json",
-      "evidence_sha256": "4bfa1a2f6ee440fd731872371da46ffe05b12d74c78ac73bf6114eabc87be705",
-      "path": "work/construction/segments/0123-project-verified-objective-runs-to-world-state.md",
-      "predecessor": "segment-sha256:5a2de258b14a5a9fe743e289764a6ebb51b9fea917ef8356dd49ff730ac40d66",
-      "sequence": 123,
-      "sha256": "228785c626cb91759f4a2ad1de030b5e3020471dafe4fe128d49815a174488a9",
-      "source_commit": "ffe0e6c80146b078165776e8050aae801c9e717e",
-      "source_tree": "7758097d99d3c727e1588fa6043a107d451d51b5"
-    },
-    {
-      "bytes": 2019,
-      "path": "work/construction/segments/0124-exclude-unrequested-recovered-runs.md",
-      "predecessor": "segment-sha256:228785c626cb91759f4a2ad1de030b5e3020471dafe4fe128d49815a174488a9",
-      "sequence": 124,
-      "sha256": "e466658264edd93bdf47edcce858a22c3930782d7a49f8974886489d0486332b",
-      "source_commit": "38032b1f6dea0b68b7f47e0906e1552a429f1100",
-      "source_tree": "23b7384c142137e9da19d17dd77605f289951d34"
-    },
-    {
-      "bytes": 2821,
-      "path": "work/construction/segments/0125-readonly-experiment-staging-preflight.md",
-      "predecessor": "segment-sha256:e466658264edd93bdf47edcce858a22c3930782d7a49f8974886489d0486332b",
-      "sequence": 125,
-      "sha256": "bfeabfac0a813a68c44bb9f90d15a13b90ca1ba8685f42d217714abda6d6cc2c",
-      "source_commit": "595deea9c2eeaa2fdc44cccb31b8ee25334a9eab",
-      "source_tree": "ed9eb60f8d4ee5a393baca906a662d27eebf0383"
-    },
-    {
-      "bytes": 1824,
-      "path": "work/construction/segments/0126-bind-staged-history-to-owner-tick.md",
-      "predecessor": "segment-sha256:bfeabfac0a813a68c44bb9f90d15a13b90ca1ba8685f42d217714abda6d6cc2c",
-      "sequence": 126,
-      "sha256": "8f903425f96f1e561f9e168dedbdabd548e66e4327346297bedd281624cbcfc4",
-      "source_commit": "1791d112175cebd0db9b465eb90f8d2643f02633",
-      "source_tree": "2b284c19d205613d192f64f341b5621d61f2144f"
-    },
-    {
-      "bytes": 2400,
-      "evidence_bytes": 4891,
-      "evidence_path": "work/construction/evidence/0127-task-family-experience-transfer.json",
-      "evidence_sha256": "aa2da4caa5c32586d2a3b67312bf001214fc0ebcac997552b711ed5239166708",
-      "path": "work/construction/segments/0127-task-family-experience-transfer.md",
-      "predecessor": "segment-sha256:8f903425f96f1e561f9e168dedbdabd548e66e4327346297bedd281624cbcfc4",
-      "sequence": 127,
-      "sha256": "660d29b19dc353ec7e8fcb5498a309f267c8131dafe1625a6f5a4cf9689a1088",
-      "source_commit": "523e6a22cc2e478f18a79f323ce4381b5918ebc3",
-      "source_tree": "52b3dfec76d665c6085c4e746a912c386b6e54ae"
-    },
-    {
-      "bytes": 2103,
-      "evidence_bytes": 3383,
-      "evidence_path": "work/construction/evidence/0128-objective-task-family-progression.json",
-      "evidence_sha256": "d13f1e63a6fa494e33ae020169c5bf681030f0039eb1bcf67675996048dc211f",
-      "path": "work/construction/segments/0128-objective-task-family-progression.md",
-      "predecessor": "segment-sha256:660d29b19dc353ec7e8fcb5498a309f267c8131dafe1625a6f5a4cf9689a1088",
-      "sequence": 128,
-      "sha256": "f8bbebd257e29d441acf6980b6910ba726b4106418f85e1b54499c791a3b1c23",
-      "source_commit": "f7045aeeae311d2afeb3841f86bdfa5f66248f69",
-      "source_tree": "c13f46be0fe3164c9946f446ddca5b5db520ca3a"
-    },
-    {
-      "bytes": 1790,
-      "evidence_bytes": 2803,
-      "evidence_path": "work/construction/evidence/0129-restart-task-family-feedback.json",
-      "evidence_sha256": "caed022ecdb99678063759a23e97f1316608dd743e943751f554422965c168f1",
-      "path": "work/construction/segments/0129-restart-task-family-feedback.md",
-      "predecessor": "segment-sha256:f8bbebd257e29d441acf6980b6910ba726b4106418f85e1b54499c791a3b1c23",
-      "sequence": 129,
-      "sha256": "8971be775ece191f25c2d8d17cff0c4897bd8ad9ca3c495cc3750e7f3c70fa5c",
-      "source_commit": "41f40d835c5bc45e3f6a4d254bfd717fb3661bb8",
-      "source_tree": "a7efd9d5f64dc2feca45553d335c1890b7445e87"
-    },
-    {
-      "bytes": 1734,
-      "evidence_bytes": 2662,
-      "evidence_path": "work/construction/evidence/0130-interrupted-family-score-recovery.json",
-      "evidence_sha256": "3fdaf80ee3e268cb7349d4a930c909efdbca850a699f7ea9a70c79028a13ed23",
-      "path": "work/construction/segments/0130-interrupted-family-score-recovery.md",
-      "predecessor": "segment-sha256:8971be775ece191f25c2d8d17cff0c4897bd8ad9ca3c495cc3750e7f3c70fa5c",
-      "sequence": 130,
-      "sha256": "b2424c5df71ea5e0b837bfc2a4b6f03d9fb2848c7ad66f12cb3c4fa405f7cb5c",
-      "source_commit": "d66b54ac96fd6fab3f786f2ca59bcb4771570b14",
-      "source_tree": "7f3018bfb90167d73dc20a5a466d2f352d81608c"
-    },
-    {
-      "bytes": 1502,
-      "evidence_bytes": 2807,
-      "evidence_path": "work/construction/evidence/0131-read-only-progression-inspection.json",
-      "evidence_sha256": "bf43dd68b228d605defb503fc81382209b14fbb877f8dd59095e20b8cb970dbf",
-      "path": "work/construction/segments/0131-read-only-progression-inspection.md",
-      "predecessor": "segment-sha256:b2424c5df71ea5e0b837bfc2a4b6f03d9fb2848c7ad66f12cb3c4fa405f7cb5c",
-      "sequence": 131,
-      "sha256": "c1b2d1f4642e68b168ab98b0813332c65036bce2c3408b2e962e6698844b50b4",
-      "source_commit": "5a369cbe18b630e05e9c60302ce511480688f266",
-      "source_tree": "38d118ba2ea985fac7789869910fc783bc532ef7"
-    },
-    {
-      "bytes": 1501,
-      "evidence_bytes": 2942,
-      "evidence_path": "work/construction/evidence/0132-readonly-progression-cli.json",
-      "evidence_sha256": "818a4fdcbc80f0b5188861d02596277686da2b5ed8446bf734142a65a6fe8da9",
-      "path": "work/construction/segments/0132-readonly-progression-cli.md",
-      "predecessor": "segment-sha256:c1b2d1f4642e68b168ab98b0813332c65036bce2c3408b2e962e6698844b50b4",
-      "sequence": 132,
-      "sha256": "dee8ad3e30f4043f044a190aa84ef5b6a92ea35281f4750e61020a2a82659ab9",
-      "source_commit": "4d2a1bf88da809aa45a687cfe6d0256005c4a3e1",
-      "source_tree": "8c5dd1b200977bf0e9fc3c5444b09e2df695129c"
-    },
-    {
-      "bytes": 1707,
-      "evidence_bytes": 3084,
-      "evidence_path": "work/construction/evidence/0133-three-episode-task-family-loop.json",
-      "evidence_sha256": "c179967bf31537a2dabaf1473a109546e0e5ae44fc282bb6557ccfe40b85675f",
-      "path": "work/construction/segments/0133-three-episode-task-family-loop.md",
-      "predecessor": "segment-sha256:dee8ad3e30f4043f044a190aa84ef5b6a92ea35281f4750e61020a2a82659ab9",
-      "sequence": 133,
-      "sha256": "90d198168d3c76f79c86fb4c75507eb3fde2e78927a87e42d30fe7fe98444789",
-      "source_commit": "333a0cef3b0aaea70c22609f772a176427867803",
-      "source_tree": "77f1662acb9c0e70d49e60aff15f4dbbc814d9f4"
-    },
-    {
-      "bytes": 1698,
-      "evidence_bytes": 2292,
-      "evidence_path": "work/construction/evidence/0134-cross-process-scored-run-recovery.json",
-      "evidence_sha256": "eddbbb8db0b20aca63bab0ba5ccbf54d90fd53b0fb0d738b8a4ec3d017238391",
-      "path": "work/construction/segments/0134-cross-process-scored-run-recovery.md",
-      "predecessor": "segment-sha256:90d198168d3c76f79c86fb4c75507eb3fde2e78927a87e42d30fe7fe98444789",
-      "sequence": 134,
-      "sha256": "4604844b6562e317e1e313055b8455375ba84eec70c9f25c5e84076b307f9109",
-      "source_commit": "761ad22f30e5a0fb8dd3c6673b5f0c58682d4a11",
-      "source_tree": "7f68449a3e3e0b1063749d6034ba44479fb5323b"
-    },
-    {
-      "bytes": 1475,
-      "evidence_bytes": 2649,
-      "evidence_path": "work/construction/evidence/0135-child-process-canonical-receipt-verification.json",
-      "evidence_sha256": "522932f06149aef0d3032956185a46c324c6b7418c0cf6e2e5ba28d28868418c",
-      "path": "work/construction/segments/0135-child-process-canonical-receipt-verification.md",
-      "predecessor": "segment-sha256:4604844b6562e317e1e313055b8455375ba84eec70c9f25c5e84076b307f9109",
-      "sequence": 135,
-      "sha256": "6acc083fc80819a948739a9928f7c28be0429ab34e704e58ff3334bde43e9683",
-      "source_commit": "93441a4bc6632ea08110d3e8d9a4c3b4d60a59ab",
-      "source_tree": "e4e670268955f08ac47604fac3ebfd8484eb6e44"
-    },
-    {
-      "bytes": 1552,
-      "evidence_bytes": 2654,
-      "evidence_path": "work/construction/evidence/0136-world-state-reprojection-after-restart.json",
-      "evidence_sha256": "be62314b3f67c256c3c5baca8aff2a9854b1bc47b3d52eee31292a4260501038",
-      "path": "work/construction/segments/0136-world-state-reprojection-after-restart.md",
-      "predecessor": "segment-sha256:6acc083fc80819a948739a9928f7c28be0429ab34e704e58ff3334bde43e9683",
-      "sequence": 136,
-      "sha256": "0af153bf2757707aee33058fdedb7dc3351cf50539d15990bb3809822691cfbd",
-      "source_commit": "5da42b0e69a51a7c7f26e38ad10b4cbeb16591f9",
-      "source_tree": "eb870d4679fe9b6a354a557a8d7fae6f8c7665b7"
-    },
-    {
-      "bytes": 1556,
-      "evidence_bytes": 2689,
-      "evidence_path": "work/construction/evidence/0137-recovered-feedback-writeback-crash.json",
-      "evidence_sha256": "8685bac0d83e4a4a14a25d5cb51679ca2a7a3fa83ba4338244b1e2f8d2a9d449",
-      "path": "work/construction/segments/0137-recovered-feedback-writeback-crash.md",
-      "predecessor": "segment-sha256:0af153bf2757707aee33058fdedb7dc3351cf50539d15990bb3809822691cfbd",
-      "sequence": 137,
-      "sha256": "d05e87de1110b8a02e8a5b86af3c22b1b02bd3e92fc0955a9e7b2f3f9890c027",
-      "source_commit": "be495d7c5a98c049bb61dd6952f89939f1eca18d",
-      "source_tree": "ece9504dbb55596fbe0e856582ec653f260abfb7"
-    },
-    {
-      "bytes": 1999,
-      "evidence_bytes": 3186,
-      "evidence_path": "work/construction/evidence/0138-task-relevant-history-beyond-window.json",
-      "evidence_sha256": "137a8059f6bcf78c220b1e01adccf6a4a4964d5233f5182f5767dd80e3add8ad",
-      "path": "work/construction/segments/0138-task-relevant-history-beyond-window.md",
-      "predecessor": "segment-sha256:d05e87de1110b8a02e8a5b86af3c22b1b02bd3e92fc0955a9e7b2f3f9890c027",
-      "sequence": 138,
-      "sha256": "1f44311ccafb38dac21e4e1f9dd34d359b5dc6bb9851604ea24e6d48d5c8720b",
-      "source_commit": "d53dbee148dab81bc015f9a884298e754635d38f",
-      "source_tree": "2014669e6bd8eefb2d8264092f3af386cd742af1"
-    },
-    {
-      "bytes": 1566,
-      "evidence_bytes": 2290,
-      "evidence_path": "work/construction/evidence/0139-admitted-history-model-succession.json",
-      "evidence_sha256": "2d76ecf41af1d362a9ee965cea84e832f7d935a1953f8bcb4addc793eee65b5b",
-      "path": "work/construction/segments/0139-admitted-history-model-succession.md",
-      "predecessor": "segment-sha256:1f44311ccafb38dac21e4e1f9dd34d359b5dc6bb9851604ea24e6d48d5c8720b",
-      "sequence": 139,
-      "sha256": "9676f9f2a3d5fb59692eb1f348c8614d391c826bd1c2820714844be1a645eade",
-      "source_commit": "aea63e18d6d1ab53f4e2712d483c9bf3664b9d59",
-      "source_tree": "efecf7c08b0827fc8cb91d714701df37436f4a70"
-    },
-    {
-      "bytes": 1861,
-      "evidence_bytes": 4476,
-      "evidence_path": "work/construction/evidence/0140-durable-history-selection-binding.json",
-      "evidence_sha256": "1b7617c0ba3b986b2e79682ca697c2d029cd37541e376e543d40f42904b459e2",
-      "path": "work/construction/segments/0140-durable-history-selection-binding.md",
-      "predecessor": "segment-sha256:9676f9f2a3d5fb59692eb1f348c8614d391c826bd1c2820714844be1a645eade",
-      "sequence": 140,
-      "sha256": "f4bfe0504ec71cc18258a8305f003bf24a66a048b058aaad2a2ea4cc47b6ed0e",
-      "source_commit": "ff3cf897e9c52f3f3bb6b66928c50632e64ad8e4",
-      "source_tree": "c860533b1ddeff23a516c2b8b802845dc1301ea6"
-    },
-    {
-      "bytes": 1550,
-      "evidence_bytes": 4006,
-      "evidence_path": "work/construction/evidence/0141-history-policy-protocol-binding.json",
-      "evidence_sha256": "351cc0452677a1cb1dead437730a03c66dfb878cd498d5d2798a03c1d674b161",
-      "path": "work/construction/segments/0141-history-policy-protocol-binding.md",
-      "predecessor": "segment-sha256:f4bfe0504ec71cc18258a8305f003bf24a66a048b058aaad2a2ea4cc47b6ed0e",
-      "sequence": 141,
-      "sha256": "d84ea467029b216f91208001a4959b1a3d8e873649195748992502d8376ddf7b",
-      "source_commit": "4d58ea80244714fee5564f1a8b44be31e36b395b",
-      "source_tree": "3cb63df4aa7a97bc1b04e4253f224b38b6a39d28"
-    },
-    {
-      "bytes": 2659,
-      "evidence_bytes": 3025,
-      "evidence_path": "work/construction/evidence/0142-resource-linkage-in-cognition.json",
-      "evidence_sha256": "4f9e595f8d3451283ed1cf77c4365331e89db6eded5cb8574a2187a0cf709fa9",
-      "path": "work/construction/segments/0142-resource-linkage-in-cognition.md",
-      "predecessor": "segment-sha256:d84ea467029b216f91208001a4959b1a3d8e873649195748992502d8376ddf7b",
-      "sequence": 142,
-      "sha256": "cbb1a9c2e5fe86c51d4a743e8d082e8fe24c357ae01e5148c298be57c4a0df84",
-      "source_commit": "4eab50f3fdf125fed9f51e743e7a8b7bfb498ae9",
-      "source_tree": "84127f9bbbc2fa764ccec029814ec456f3a3f3d0"
-    },
-    {
-      "bytes": 2333,
-      "evidence_bytes": 3862,
-      "evidence_path": "work/construction/evidence/0143-developmental-resource-receipt-join.json",
-      "evidence_sha256": "f23214d50df63e638685da5b751b12c2052bc1fc0d6dd62ce394aaa2c4d23282",
-      "path": "work/construction/segments/0143-developmental-resource-receipt-join.md",
-      "predecessor": "segment-sha256:cbb1a9c2e5fe86c51d4a743e8d082e8fe24c357ae01e5148c298be57c4a0df84",
-      "sequence": 143,
-      "sha256": "dcc29b40fb866c1ecd22b98a90a6aaf1a1adf6dc5178c526c43755ba0e04eee3",
-      "source_commit": "f58446029817a03407f16ce0977b5702709561a7",
-      "source_tree": "bb1337c3db559fc0baeb6e45dc47bf6f7e4dd090"
-    },
-    {
-      "bytes": 1811,
-      "evidence_bytes": 3154,
-      "evidence_path": "work/construction/evidence/0144-resource-score-binding.json",
-      "evidence_sha256": "4cfc8deb7b42fd04a371a3560a853595c07837cffe7bc496a680ac2c8210b99e",
-      "path": "work/construction/segments/0144-resource-score-binding.md",
-      "predecessor": "segment-sha256:dcc29b40fb866c1ecd22b98a90a6aaf1a1adf6dc5178c526c43755ba0e04eee3",
-      "sequence": 144,
-      "sha256": "3745a31fd5a7587d11ec677bd4b502ddbd249faadabfaf7c5ea818691305a424",
-      "source_commit": "e075177b793a956f339bb9adbca6b8123f5f943c",
-      "source_tree": "2ae475197dbbe11ef9cc3ccfdff483bec643cb06"
-    },
-    {
-      "bytes": 2235,
-      "evidence_bytes": 3471,
-      "evidence_path": "work/construction/evidence/0145-progression-history-identity.json",
-      "evidence_sha256": "6fa9c3181626e73165fa78379e5bc45eab90756aa7bfd0624ceeda0374bb4029",
-      "path": "work/construction/segments/0145-progression-history-identity.md",
-      "predecessor": "segment-sha256:3745a31fd5a7587d11ec677bd4b502ddbd249faadabfaf7c5ea818691305a424",
-      "sequence": 145,
-      "sha256": "df59013f77af5c7eb7fe2b9032411757dc468b417431ee92e0711ed1b7d5dcdf",
-      "source_commit": "fd7eb7f25ea33880e8bc576076b7d54245358b57",
-      "source_tree": "3674dec18217274d9e13b47551984e3d6915cca6"
-    },
-    {
-      "bytes": 1898,
-      "evidence_bytes": 3617,
-      "evidence_path": "work/construction/evidence/0146-ab-resource-score-lineage.json",
-      "evidence_sha256": "febdb2d7e80f3542a112be5dbacbca3b2bf8b0c5b754a1d193006833869a72f9",
-      "path": "work/construction/segments/0146-ab-resource-score-lineage.md",
-      "predecessor": "segment-sha256:df59013f77af5c7eb7fe2b9032411757dc468b417431ee92e0711ed1b7d5dcdf",
-      "sequence": 146,
-      "sha256": "84b9b3a4ebb87c331ed3d9b51893131f399b8a63f34d5420741f9a906a9cb71c",
-      "source_commit": "2636c913b24dc8e573caf8b9aad47207d1accafe",
-      "source_tree": "25606702f7b5913cb6eb826f91d3291e146d6f8f"
-    },
-    {
-      "bytes": 1563,
-      "evidence_bytes": 3144,
-      "evidence_path": "work/construction/evidence/0147-admitted-history-model-replacement.json",
-      "evidence_sha256": "068b63b493da0adf67ffd86351df7a6a9bcd335448080bb67fce457976c62e64",
-      "path": "work/construction/segments/0147-admitted-history-model-replacement.md",
-      "predecessor": "segment-sha256:84b9b3a4ebb87c331ed3d9b51893131f399b8a63f34d5420741f9a906a9cb71c",
-      "sequence": 147,
-      "sha256": "bac5d904c40bea1d3674d88fb9d6377b2f5b315abb1fb435de89e79df4fde5cc",
-      "source_commit": "ce7c9fbd7536f93073b4bd2f004eb1f9f72a2369",
-      "source_tree": "d997a284e2c35686b5923c6fc4304f7b27a881e3"
-    },
-    {
-      "bytes": 2250,
-      "evidence_bytes": 2982,
-      "evidence_path": "work/construction/evidence/0148-task-family-staging-handoff.json",
-      "evidence_sha256": "3569835bd1fb1861658d9f90282df109772f2f9f868fa0aa030e9dd4c938e6bd",
-      "path": "work/construction/segments/0148-task-family-staging-handoff.md",
-      "predecessor": "segment-sha256:bac5d904c40bea1d3674d88fb9d6377b2f5b315abb1fb435de89e79df4fde5cc",
-      "sequence": 148,
-      "sha256": "ce09dace6d7940b55d97050c07b0f2e44bd62bb306770014cd4895801cfb9b84",
-      "source_commit": "c506037c8bc58ae79d07b71836f9b08643d23fc8",
-      "source_tree": "3c8b510f9f68288b34eb197fe8c66e8f228addb9"
-    },
-    {
-      "bytes": 2064,
-      "evidence_bytes": 2494,
-      "evidence_path": "work/construction/evidence/0149-task-family-doctor-preflight.json",
-      "evidence_sha256": "d9c86879023914aeddd98934ee031d59f221a2320d96311d3f8c669a69a0bdd0",
-      "path": "work/construction/segments/0149-task-family-doctor-preflight.md",
-      "predecessor": "segment-sha256:ce09dace6d7940b55d97050c07b0f2e44bd62bb306770014cd4895801cfb9b84",
-      "sequence": 149,
-      "sha256": "14c03bbf19c5cc1c4c021f92e91fabd41068ce140860547e423de37097b98cd8",
-      "source_commit": "d20cc8bafb162484f4e6d061e908b146ed4f6575",
-      "source_tree": "b1ec482c9da738f2ae4cc9b46f1c20b2932b9cdb"
-    },
-    {
-      "bytes": 1958,
-      "evidence_bytes": 3076,
-      "evidence_path": "work/construction/evidence/0150-objective-receipt-cost-posture.json",
-      "evidence_sha256": "202f162799b05ab22beaa35922d96a2075fec86b89dfdd6e3ab6d6bfa4ec5c17",
-      "path": "work/construction/segments/0150-objective-receipt-cost-posture.md",
-      "predecessor": "segment-sha256:14c03bbf19c5cc1c4c021f92e91fabd41068ce140860547e423de37097b98cd8",
-      "sequence": 150,
-      "sha256": "d501fba949227aba24c1bf1d42c1889f02948a749290ffbae5fbec130eee41ee",
-      "source_commit": "9e20c2fa2a906b7b18f97f791f2fadaae1c3e4f6",
-      "source_tree": "009ca1147ae0cb8a684f99a3c53c241f33f71100"
-    },
-    {
-      "bytes": 2233,
-      "evidence_bytes": 3735,
-      "evidence_path": "work/construction/evidence/0151-task-score-lineage.json",
-      "evidence_sha256": "a79c6545fe4ccfcd5e6e4217d9108bea84c007cc1abb90c974ab05c9a07c62e7",
-      "path": "work/construction/segments/0151-task-score-lineage.md",
-      "predecessor": "segment-sha256:d501fba949227aba24c1bf1d42c1889f02948a749290ffbae5fbec130eee41ee",
-      "sequence": 151,
-      "sha256": "cfcbe2a64352172959a552d18fcb7f69517326edf96f4f05b56a0af3a3cf3d14",
-      "source_commit": "9a81227bbf3a6d8e84f4c3e553a7d62c163197bd",
-      "source_tree": "56cbfbee13729c736d130f9932fb23421742f55b"
-    },
-    {
-      "bytes": 1898,
-      "evidence_bytes": 2876,
-      "evidence_path": "work/construction/evidence/0152-family-history-model-succession.json",
-      "evidence_sha256": "5c458c767cccb751240cae49a3770038850c9391414f1956af23973a42aa66fe",
-      "path": "work/construction/segments/0152-family-history-model-succession.md",
-      "predecessor": "segment-sha256:cfcbe2a64352172959a552d18fcb7f69517326edf96f4f05b56a0af3a3cf3d14",
-      "sequence": 152,
-      "sha256": "fb0095a1919398fd5a5cf963f7027c2ec4e88f99af8973d50f4b23656c713edb",
-      "source_commit": "755fc80847edd6140849fa2aef64a3a9903a6de6",
-      "source_tree": "b9fd0584becbe72e432c360a27a420b3c42bd5b1"
-    }
-  ],
-  "source_acquisition": {
-    "bytes": 3436,
-    "path": "work/source_acquisition_20261012.json",
-    "sha256": "bb703088c106cae69e37a682c2aee9e6e1557198ea9f14425b9927e925707f10",
-    "verified_remote_commit": "5b9083c79d905337ae967b5d4762cbcee226df02",
-    "verified_remote_tree": "f9d3db31a404619cf7ad75fadcb8cb3af848aad6"
-  },
-  "workspace_reconciliation": {
-    "path": "work/workspace_reconciliation_20261012-c7f7715.json",
-    "sha256": "23dd6d5217ed31a4de0d986ab8b088d9f34cdb906cbcc960e39c4692242201b2",
-    "verified_remote_commit": "c7f77156c1f4172be0b92336a4655beec23514ac",
-    "verified_remote_tree": "0c0a671543c88e484ec250bc9735d2ce10bf9cae"
-  },
-  "workspace_reconciliation_history": [
-    {
-      "path": "work/workspace_reconciliation_20261012-6ba0d6d.json",
-      "sha256": "08b7820ed97269bfb1e85858d4acc017ac232c6163362de442ec21f86e293a91",
-      "verified_remote_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
-      "verified_remote_tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef"
-    }
-  ]
-}
+iÀbΩÁ!y…)¢)Ì¬ä‰˝ '≤⁄Órÿ®üˆú∂+ﬁrúíö"ûŸùiÀbΩÁ!y…)¢)Ìn)›äxÖÁ$¶àß∂»Z€ûºÁŒyﬂù¥oç∏”Õù—›º˜›û{v∂{ŒÙyﬁ˜Ô_5˜Gx—∑ÙÎÜöw∂˚€ﬁªÎﬂej◊¨∂«†ôÈÌ±ÍÆzw◊ùÂj◊¨∂«†ôÈÌ≤∂Á≠Ω›≠¸„çö”GúsØ9€Æ\ÈÕª˜ﬁ∫Èß}”«ªwæ‹€÷˙Û◊}ÁÕ7uÊösgyyª(∫∑râ¶ä›ÁVúÎæ€·≠€”æ€smöÌ›Ùq«uŒ⁄ÛΩ’´(∫∑∂∑ûk~v€G‹s∑{„≠õ}÷úŸΩx€}ﬂÁ~xÈÓÙßÜã-yŸb}Á2rW´y 'r)bjÿ®ûñ≠á
++ì¯h≤◊ùñ'ﬁs'%z∑ú¢w"ñ&≠äâˆ”nµ”]öÛÕ^kàÏ¢{!knzŸ«|ÔouÈ◊∫€ÕüÎN]ı≠yÛN8kg<„◊:sç7W∑mØÎ6’æ€ÎæıÔMt≤ã´qÁ(öh≠kœ5yÆ7w∑5Û∆∏ﬂç{é9}ΩﬁÒΩ|Ôæ;”ó≤ã´qÎkyÔ|—æ∫◊otÛ≠€„FºÔ~[Áû’˛∑ÎÆz◊æ6ÎŸ^Åß2éã´ù©[ ◊¨ÁŒπÛóÎ£7ß∂ªûÇ+[ñÜÏÖÆu€Ω6ÁùªyŒ∂„∆µÁ÷ˆ€∆˙˜oZ◊ﬁü◊é=wZZ∂(ÆOÏz{bz{h≤x†Ü‹µ»\¢{bûÊ≠äâÊv»Z€ûµ{g]¶›«^€Œu}æ˘ŸŒ5Û›7ÂﬁùÌÆ:{Nπ›¶π›∑^s~ﬂ}«}ÔgüÌ◊l¢Í‹y &ö+z◊vµ·øy˜éuuÁﬂÎé8ŸÓZŸÁz◊é[{wªiß)Æãhrâ@¶óßvâÂ… '∂)Ójÿ®û«†ôÈÌ±8^äw^∆+'j¯†jÿ®ûg≠i÷≠jz-jÎa¢∏≠ ⁄,í*_≠Î!≠È®µÎﬁÆ'‚q´b¢zﬁrãﬁØ&úqÍmjw•´a¬ä‰˛∑ú¢˜´…ßzõZù«´y 'r)bjÿ®üm6Î]5⁄;(û»Z€ûû◊ß5wﬁ5◊Æ˜oé:Ì«¯kèqÆöyÆ—Õ{Á~ÁØ<Œö€}=Ò÷˚m¸{Æ¨¢Í‹y &ö+}€é8o_;ÌÕú›Õ∑«º|{v⁄ÛN˘ﬂ^¥„è,¢Í‹z⁄ﬁ{∑zÈ∑˘ÛÕ<◊Múo›¯◊ﬁ˜sÆ∫oæ9n{Èæˆv«!zfØzª"¢}lz	ûû€ ◊¨€Æy•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”Mkzgùâ´b¢zÓùÀ¨∂árô⁄ky◊úzÀ(ÆW†iÃõñÜ˘◊nÙ€ûvÌÁ:€è◊ü[€oÎ›Ωk_z^8ı›lz´ûù«µ≤∂Á¶º„Æ_’«µûΩkVﬁ˜ñˆÂ≠|kèxÎ›ﬂÂﬂŸÁ5{ù∂”vùÁûµ›ˇz„∂˚◊ª(∫∑q©›â÷≠y &ö+}i∆¯}˛›€◊µﬂ]‹ﬂÜ˝◊Õw’œtm˛ˆu˝uÆ ◊¨◊}•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”Mú¢{-ÆÁ-äâÏ¢Í‹zöﬁ~X†ÜŸù¶∑ùy«¨≤äÏz	ûû€!knzkŒ:Â˝\{W˘Î÷µmÔyonZ◊∆∏˜éΩ›˛]Ò˝ûsWπ€m7iﬁyÎ]ﬂ˜Æ;oΩ{±ÍÆzw⁄»Z€û∫ıßΩ—≠v›∑k›\·ß∫ÎM8Ÿæ[m‹è7wfΩŸ«^Á~|Ôóª—Œ}}˝ümﬁ,¢Í‹y &ö+|˜∆∫ﬂÕΩ˜}vq˜õ{◊Ìœ=u˛zÛF∫„ß∏Ôçõ ◊¨◊my•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”MÎzgùâ´b¢zÓû)Ìz{fvöﬁuÁ≤ +±Ë&z{lÖ≠πÎØZ{›◊m€qˆΩ’Œ{Æ¥”çõÂ∑ˆ›«¯Ûwvk›úuÓwÁŒ˘{ΩÁ◊ﬂŸˆ›‚«™πÈ‹{{!knziÕﬂﬂ_}uﬂsN6”¶ù}÷˜oÜ˝”~\iœ9owÙﬂœ_˜g6só^Ÿﬁ∫káõÂÔ≤ã´qÁ(öh≠wßÛ~^—Œ¸Î^¸ı˝<ı˛Ù◊fµÂﬁ|ÁN˝ÈÕ5o+^≥]9‚ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”M8~ä‡z∑¶yÿö∂*'¶∫#yÀb¢yù¶∑ùy«¨≤äÏz	ûû€!knziÕﬂﬂ_}uﬂsN6”¶ù}÷˜oÜ˝”~\iœ9owÙﬂœ_˜g6só^Ÿﬁ∫káõÂÔ±ÍÆzw‚»Z€ûö›˛˚ÛÆ_sN}sáwæ€—Ω:ÁW9Â∆Ω››\◊∂∂Î;›ÌõÂÌ8ÁFüÛ}ªÌÊ¨¢Í‹y &ö+_„∂ﬁwF∫”∂˘{œxuﬁ∂˜WO}÷˙”v¥€m€ ◊¨˜Æ)jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4”òh≤◊ùñ'ﬁs'%z∑ú¢w"ñ&≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈ≠ﬂÔø:Â˜4Á◊8q«{ÌΩ”Æusû\k››’Õ{kn∑ÛΩﬁŸæ^”étiˇ7€æﬁj«™πÈ‹{õ!knz}ﬂ<Ûﬂ}só;mÊﬂÎß=„çy∆⁄m›Z◊Ü˙u◊ﬁ}ﬁ]˜Æ˝w}Á◊ΩÂ◊úwóü≤ã´qÁ(öh≠·ÁuÓ6oá]m€yΩüw∑úuΩÙoM˙}Ø8È∑;o+^≥^9ˆñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”M:≠Î(∫∑°ªÆˆ≠äâ¢π]≤÷≠zgi≠Á^qÎ,¢ªÇgß∂»Z€ûüwœ<˜ﬂ\ÂŒ€y∑˙Èœx„Fﬁq∂õwVµ·æùu˜üwó}Îø]ﬂGyıÔyuÁÂÁÏz´ûù«∫≤∂Á≠v—˛^·œiΩªk◊¸}˝ﬁw^û›Æ˜W¯Áü5uÕ^Îﬁ˘Ÿ≠⁄ÔÕZqÌªÎM·Î(∫∑râ¶äﬁq∑^„f¯u◊ˆ›∑õŸ˜{y«[ﬂFÙﬂß⁄Ûéõs∂ÚµÎ6€ø)jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4”∫ﬁ≤ã´qËßæá∂*'¬äÂvÀZµÈù¶∑ùy«¨≤äÏz	ûû€!knz◊mÂÓÒ¶õ€∂Ω«ﬂ›ÁuÈÌ⁄ÔwıéyÛW\’ÓΩÔùö›Æ¸’ß€æ¥—ﬁ±ÍÆzwÓ»Z€û¥m∏—˛‹Î^˘Á~—≠€yﬂ_—ﬁªÎf‹ÔGZ›∆º◊8sß¸€Œ4iΩ˙OtÛéÏ¢Í‹y &ö+{·∆˝˜NªÁ¶ﬁÌ«xoΩõ}∑|GÙs^vıœ=„›õ ◊¨◊Õ∏•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”OÖ´iÆá≤»Zù⁄~gi≠Á^qÎ,¢ªÇgß∂»Z€û¥m∏—˛‹Î^˘Á~—≠€yﬂ_—ﬁªÎf‹ÔGZ›∆º◊8sß¸€Œ4iΩ˙OtÛéÏz´ûù«º≤∂ÁÆÒÁ˜uÊöÎóö„Õ∑˜¶⁄ÌÊ›˜~uÁáˆuﬂ_·ß›é7››Zwß6Èæz◊v∂}À(∫∑râ¶ä÷˚o∑¯˜ß{◊~ºÛÆﬂ˜M[ÛM∂mÁΩ›Ωª’Á¥Á∂ÚµÎ5ÔùÈjÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4”◊^ΩÈh¶gßµ©ky /zº™π©b~'∂*'ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁÆÒÁ˜uÊöÎóö„Õ∑˜¶⁄ÌÊ›˜~uÁáˆuﬂ_·ß›é7››Zwß6Èæz◊v∂}À™ÁßqÔlÖ≠πÎùª”ŒZﬂá{k]6’Œµm≠_Ôß5Ÿ˜_€6Ôf¸k∂õ’◊ZÎO„≠”o^Ò«›“ .≠«ú¢i¢∑~;ÔWﬂÎæ\—ﬁõ€O}—ÁZÔßı›Ωq◊Zoﬁûiº≠zÕ¥” Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM5“∑¨¢Í‹zöËqÎ,¬äÂvÀZµÈù¶∑ùy«¨≤äÏz	ûû€!knzÁnÙÛñ∑·ﬁ⁄◊Mµs≠[kW˚ÈÕv}◊ˆﬂÕªŸøÌ¶ıu÷∫”«¯ÎG4€◊ºq˜t±ÍÆzw◊K!knz’≠ùÁé|u˜Zqˆ⁄y◊∏”Æ=Ì˝∫mˆº˜f¯˜ΩuÎáﬂof∫ÛOÌœZı∑Ùo}5≤ã´qÁ(öh≠”ŒºuÔ{Œz„w7€›z›t˜÷›k›˚˜~;€ûﬂo+^≥^|‚ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”Mu≠Î(∫∑zò¨µÈ¢rV≠zªbrIù¶∑ùy«¨≤äÏz	ûû€!knz’≠ùÁé|u˜Zqˆ⁄y◊∏”Æ=Ì˝∫mˆº˜f¯˜ΩuÎáﬂof∫ÛOÌœZı∑Ùo}5±ÍÆzw◊[!knzÁ^ﬂ„MwÎ∆⁄{~:„«8Û^˝€N_Ÿß∑w][”ñ∑ÁmÙ˜›ÙÈ∑7y˛öyΩ<„óü≤ã´qÁ(öh≠ÁÆ<”ù_q◊9wÜÙ’Ó∏uÆµsá6ﬂ¶ü·˛˝ÎN∂o+^≥^∂Óñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”Mv≠Èûv&≠äâ‚û◊´ÆÍmäâÎzôZ gi≠Á^qÎ,¢ªÇgß∂»Z€ûπ◊∑¯”]˙Ò∂ûﬂé∏ÒŒ<◊øv”óˆiÌ›◊VÙÂ≠˘€}=˜}:mÕﬁ¶ûoO8ÂÁÏz´ûù«µ⁄»Z€ûüÒÆuw«›«˜«{i˜⁄ÔŒ˘Â˜<’◊∂mÊ¥·Ôoﬁﬁo÷ˆÔœı˜›Á]∂”ù¨¢Í‹y &ö+zwñöyÔto∆∂Ûwõ·ß_Ω8y˜_wMu·Á:Î≠[ ◊¨◊è9•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”]Óù˜≠rù≠È®µÍky˘bÇfvöﬁuÁ≤ +±Ë&z{lÖ≠πÈˇÁW|q›‹qø|w∂ü}Æ¸Ôû_sÕ]{fﬁkNÒ÷˝ÌÊ˝on¸ÒÔ_}ﬁu€m9⁄«™πÈ‹{]ÏÖ≠πÈ≠ˆÌ«¸◊n¥◊v∫{gºi≠ÎøÎè6Ôg⁄wè]6În7Ì◊›sO]i∆¸ıÓZv .≠«ú¢i¢µßZ◊øsçvk÷∂y∑¸Ÿ›∂Áû˘˜é‹ÌﬂyıÆzÒº≠zÕµﬂJZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM5„
++í ZqÍﬁrâ‹äXö∂*'rÍÎz{kzj-zgi≠Á^qÎ,¢ªÇgß∂»Z€ûöﬂn‹ÕvÎMwkß∂{∆ö—ŒªÒ˛∏Ûnˆ}ßxÒ«ı”n∂„~›}◊4ı÷úoœ^Âßlz´ûù«µ‚»Z€ûªﬂv˜ﬂtuÔ<uΩ|Ôñ∑Î∑º·Œ∏˜ñù”›6N‹Î^ªuﬁ\ıæùmÁx—˜_”WÏ¢Í‹y &ö+zm≠Èﬁ}ÒŒµıÕ∏q˜Z˜ûÙy˝\Ôﬂ∑8„ù[ ◊¨◊Œ¸•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”^\∫∫ﬁûÿh≤◊ùñ'ﬁs'%zgi≠Á^qÎ,¢ªÇgß∂»Z€ûªﬂv˜ﬂtuÔ<uΩ|Ôñ∑Î∑º·Œ∏˜ñù”›6N‹Î^ªuﬁ\ıæùmÁx—˜_”WÏz´ûù«µÊ»Z€û¥—∑yÛΩuqØÌ˝˘sM˙∂⁄w]ÎÜ¯u«üÈø6Ò˛ÌÆ^ÛuwﬁﬁoOuw≠l¢Í‹y &ö+ZÛÕ^kç›ÌÕ|ÒÆ7„Gﬁ„é_owºo_;ÔéÙÂ∆õ ◊¨€ù5•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”^¨¢Í‹z«¶j{br∑ú¢w"ñ&≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÎMwü;◊WÒŒﬂﬂó4ﬂß˚mßu—Æ∏oá\y˛õÛo·Ó⁄ÂÔ7˜W}ÌÊÙ˜Wz÷«™πÈ‹{^¨Ö≠πÎÕ˝’ﬁ=€w∏of˜·ø_ıŒ„F››Ω8ﬂ«7ká˙Ôg∂áûuÕ5’Ω∏oNıÈ¶›ﬁ .≠«ú¢i¢µ˜ùmæ_{n⁄Ôg;◊á˙iÁ∑kß∏Î«7ﬂÆﬂ·ﬁπyº≠zÕ|”äZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM5Ì◊≠i»^w
++í ZqËßΩÈÌ¢º¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÎÕ˝’ﬁ=€w∏of˜·ø_ıŒ„F››Ω8ﬂ«7ká˙Ôg∂áûuÕ5’Ω∏oNıÈ¶›ﬁ«™πÈ‹{^ÏÖ≠πÎW◊èÈØukVˆÈﬁZ„fπ◊Ω9wßÙÎN<k~˘sç]◊Æ{ÆùqŒ[Û∑^”FõÍ .≠«ú¢i¢µŒﬂÔΩyÈÕ_„^ˆmÌ˜m˜ÈÆ:ÁñﬁyÕ∑Á^qº≠zÕ{”öZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM5ÒÏZr€(∫∑i Æä»≠äâ€ñá$zπù¶∑ùy«¨≤äÏz	ûû€!knz’«µ„∆˙k›Z’Ω∫wñ∏ŸÆuÔN]È˝:”èﬂæ\„WuÎá^Îß\sñ¸Ì◊¥—¶˙±ÍÆzw◊À!knzk~ı˜ŒÎü<kç⁄„N⁄{VúÛ∆ùo◊xÒæÒß7wΩ∂ﬂﬁ¯„ﬁ”ñ∏˜ß<Ô◊¥≤ã´qÁ(öh≠ÂøtÛw;ıﬂtÁ}˚iÔzÌæ]„æ∂q∑{m∫u˝6o+^≥n˙‚ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”M}≤ã´qËßµË+ä‹´y /zº¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÈ≠˚◊ﬂ8oÆ|ÒÆ7kç;iÌZsœuø]„∆¯k∆ú›ﬁˆ€{„èxsNZ„ﬁúÛø^“«™πÈ‹{_lÖ≠πÎMµÈÊ˙Îüu—Æ€˜ç˝sm∑›˝¥uÕ]„]⁄mŒ}k^=·Ó=”¶ùsﬂ\·œ[Ì›∫Í .≠«ú¢i¢∑Õ˜Ò∑ûıæ∫ÈÌ¥›æˆsNÁü=„«˜€ù^—∑Ùıº≠zÕµ˜äZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM6—ÏZr€(∫∑≠Á(ûÀkπÀb¢yù¶∑ùy«¨≤äÏz	ûû€!knz”mzyæ∫Á›tk∂˝„\€m˜msWx◊võsüZ◊èx{ètÈß\˜◊8s÷˚wn∫±ÍÆzw€K!knz·ˆ˝˜û]ﬂ∑<sÆ={∑{—Œ5’ˆ∏È◊iÓıoç7ÈﬁΩÈˆˆ„]¥Îw˘È˝ùy˜_≤ã´qÁ(öh≠€OÛ≠\·ß˝„F¸q˛ˆŸæùı∆∏€n4”çπ—≠}o+^≥}∑‚ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”Mµ≠Á(ΩÍÚi«¶÷ßqÍﬁrâ‹äXö∂*'ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁÆoﬂyÂ›˚s«:„◊ªwΩ„]_kéùqˆûÔV¯”~ùÎﬁüon5€N∑ûüŸ◊üu˚™ÁßqÌµ≤∂ÁØu„föÁΩ<i≠ª◊]yÈÌﬂs∑iÆ^mœwÁvﬂ’∑ûo≠∂Ì÷Ω{Ω^—Áö·Ì^uÎ(∫∑râ¶äﬂv„é◊Œ˚sg7smﬂÒÔﬂﬂ›∂º”æw◊≠8„∆ÚµÎ<€æijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4€jﬁrãﬁØ&úqÍmjwrÎ-°‹¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÎ›xŸ¶πÔOknı◊^z{w‹Ì«⁄kóõs›˘›∑ımÁõÎmªuØ^ÔW¥yÊ∏{Wùz«™πÈ‹{m¨Ö≠πÎè^ÌˇxkvÂæ˚ÔŒwo^”võÈ›üu˝4ıŒﬂo«yk«¯sÆ8ÂÆü}÷∫æ;Ú .≠«ú¢i¢∑m∫ùÁç⁄{ßΩÛg;Ôt◊]¸„á∂s¶∂›˝˝—º≠zÕwÛZZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM6› '∂)Ójÿ®ùÀ¨∂ár≠Á(ù»•â´b¢yù¶∑ùy«¨≤äÏz	ûû€!knz„◊ªﬁﬂ›πoæ˚Ûá]€◊¥›¶˙wg›M=s∑€ÒﬁZÒ˛Îé9kßﬂuÆüÔé¸±ÍÆzw€{!knz◊mπ›ÆvkûúÁÜ˝„]y”o5ogúıßﬂsf∑ÌÁ∫Â›=€›ˆ{gÙ{∆∏Æö—Ìµ≤ã´qÁ(öh≠€nüÁG9„vûÈÔ|ŸŒ˚ﬂ›5◊8·ÌúÈ≠∑to+^≥]µˆñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”M∏≠Á(ù»•â´b¢wËrÎußzõZù«¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÎ]∂ÁvπŸÆzsû˜çuÁMº’Ωûs÷ü}Õöﬂ∑ûÎót˜owŸÌü—Ô·˛∫kG∂÷«™πÈ‹{n,Ö≠πÈÕ›’◊qæ∂{áﬂÕ¥˜æºÌÓªÎŒzÛ~¯◊^v„∂üÁ~∑i≠˜G6Îmyﬂ÷ .≠«ú¢i¢∑m∫ùÁç⁄{ßΩÛg;Ôt◊]¸„á∂s¶∂›˝˝—º≠zÕt„öZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM6Ê…®ëÏ(ÆGÂ£µÎ&vöﬁuÁ≤ +±Ë&z{lÖ≠πÈÕ›’◊qæ∂{áﬂÕ¥˜æºÌÓªÎŒzÛ~¯◊^v„∂üÁ~∑i≠˜G6Îmyﬂ÷«™πÈ‹{nlÖ≠πÈ«›}Æ8ﬂgzÈˇuÕxı∆öw]}ﬂóùﬂß˜Ô}˚ÒÊﬂ{]k≠]”~5Ôù]›◊y‚ .≠«ú¢i¢∑ù˝·œ9˜ù{ÌßΩ€M˘›ÕûsfµW›”w\ﬂá¥}º≠zÕπ„⁄Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM6Íˆ•â÷≠äâÈÆãﬁù©‹z)Ìz
+‚∑)ù¶∑ùy«¨≤äÏz	ûû€!knzq˜_ké7Ÿﬁ∫«s^=q¶ù◊_wÂÁwÈ˝˚ﬂ~¸y∑ﬁ◊GZÎWtﬂç{ÁWwuﬁx±ÍÆzw€´!knzÛnﬂ—÷Ù„∑7s∑∑„óµ{éª·Ó˝Áo:Î¶⁄∂¯ÎMúÒÕ9Û}ﬁÂÆú„W7›Át≤ã´qÁ(öh≠ÁﬂxÔœ5€~¯ﬂéw{W˝◊ﬁ6q¶πÔó∏Òﬁ\Á}o+^≥^πˆñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”Mª{ú∂,µÁZq«©µ©‹zgi≠Á^qÎ,¢ªÇgß∂»Z€ûº€∑ÙuΩ8ÌÕ‹ÌÌ¯ÂÌ^„Æ¯{øy€Œ∫È∂üÌæ:”g<sN|ﬂwπkß8’Õ˜y›,z´ûù«∂Ó»Z€ûπi›5Ûm=w◊º◊_[Ÿø=˜gvw^ﬂÒÓÙoﬁ:„N8ÈÓ‹Á^ûÔN<—ß6ké^mÌÏ¢Í‹y &ö+}Á_kéuŸÔ4sMv◊ü<ÛΩûÂÁüi≠˚Ûv∫{›[ ◊¨◊ùy•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”o-j…q«©µ©‹z…"•◊ßâ©fvöﬁuÁ≤ +±Ë&z{lÖ≠πÎñù”_6”◊}{ÕuıΩõÛﬂvwguÌˇÔF˝„Æ4„éûÌŒuÈÓÙ„Õsf∏ÂÊﬁﬁ«™πÈ‹{o,Ö≠πÎŒ˜oß¸Â∑˜Î~˘€øw{Mˆ·ÔkNÔN4Û_6_]ﬂü=”é˙ü]Ÿ∂˚„}ﬂÚ .≠«ú¢i¢∑û∏Û~Ω€éu{vˆm˛ˆuæ{˜ù6kØ;y∂∂{æﬂ›º≠zÕ|ÔjZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM6˜
++ï€-j◊¨∫öezgßµ©Zq«©µ©‹zgi≠Á^qÎ,¢ªÇgß∂»Z€ûºÔv˙Œ[~∑Ôùª˜w¥ﬂnÒ÷¥·ŒÙ„O5Ûgıı›˘Û›8Ôß˘ı›õoæ7›ˇ,z´ûù«∂ˆ»Z€û∂Ì«⁄oéxu«¯sg|y≠}ﬂ›^kW|ÈﬁiÊ∏{w;Ì›‹Ÿ∑”éù”«ü{ﬂo},¢Í‹y &ö+xÈßxŸÓ7kæ¸w∂›ŸˇZÛ^õ˜é›Ÿ«ºÛ]{Ÿ÷€ ◊¨€~6•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”}jÎï»Zäw±iÀZq«©µ©‹zgi≠Á^qÎ,¢ªÇgß∂»Z€û∂Ì«⁄oéxu«¯sg|y≠}ﬂ›^kW|ÈﬁiÊ∏{w;Ì›‹Ÿ∑”éù”«ü{ﬂo},z´ûù«∑“»Z€ûºı˜∫Â∑u·Æ^Ì∆Ù˜û=È˝¸ÁVπsnkç⁄”w^˚ÂØto]ºÌÁ·Œö„VÏ¢Í‹y &ö+]ÁN˘qÓ}Æù€m9ÁÕ˝Înön=wﬁ|«˝}÷õ ◊¨„ﬁ6•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”}[¢ãl∂∂©≠Èbi∏•ä‹´zñ¢Ægi≠Á^qÎ,¢ªÇgß∂»Z€ûºı˜∫Â∑u·Æ^Ì∆Ù˜û=È˝¸ÁVπsnkç⁄”w^˚ÂØto]ºÌÁ·Œö„VÏz´ûù«∑÷»Z€û∏wO6Î∆€€wvs}9ké6◊o:”O:ıÁûﬂÆﬂ›˜„øuØ{€gtﬂGx„¶õÂ¶¨¢Í‹y &ö+\üZ·ŒµoüÛ∂µ”G}”w∂Û]ﬁké¥◊∂∑iﬂ[ ◊¨◊~z•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”}õ¢ãl∂∂©≠ÍZä∫ﬁöã^rÎ-°‹¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÎátÛnºmΩ∑wg7”ñ∏„mvÛ≠4ÛØ^yÌ˙Ì˝ﬂq˛;Ò◊Z˜Ω∂wMÙwé:iæZj«™πÈ‹{}¨Ö≠πÎWzÈ›=◊v¸ﬂÜöw~ΩÛÕ∑◊Ω€é€w8sNÎﬁz·Ω˜ÔŒüo]8oæ|›Æ˚‚ .≠«ú¢i¢µ◊7wæz’ﬁö’›ZŸæ;◊5”VΩÌﬁ]ﬂg^Î◊ıº≠zÕ∫€äZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM7ﬁ∑¨¢Í‹yÎ‚uÈ‹z⁄+z÷¢ùÁ\¢	‚∂*'ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Á≠]Îßt˜]€Û~i›˙˜œ6ﬂ^Ùwn8km‹·Õ8{ØyÎÜ˜ﬂø:}Ωt·æ˘ÛvªÔã™ÁßqÌ˜≤∂Áßösæ¯›Æ8ﬂﬂ;Ô›6Ÿøv”◊6€«Ωwﬁ€◊ﬂu›ø|—∑Ω◊∑˘›≠Z”o’Æ^}Î(∫∑râ¶ä÷‹€ñ˚{éwÁá¯Wx{∑˜ÔFùkg˝◊Œ∫˜ù{◊VÚµÎ9€m©jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4ﬂâ®uÈkzôZqÈûû◊öñ¢Çw≤gi≠Á^qÎ,¢ªÇgß∂»Z€ûûiŒ˚„v∏„|Ôøt€f˝€O\€oıﬂ{o_}◊v˝ÛFﬁ˜^ﬂÁvµkMºVπy˜¨z´ûù«∑‚»Z€ûüÛûzÈœ}Ò˜ﬁÌ÷∫s≠·ﬂtﬂ≠;oá˜s^7{è·Æö˜Æõ◊Øt€÷˚qÆ€áÏ¢Í‹y &ö+[ÂÕ4Îv˜{ó=qæuÕπwW\’Õ˙sûªÔF¸”ø,¢Í‹z⁄ﬁ{NúÔ›8GtŸÁyn}m≠ÂÌÙÂ∂πo^5’ß5qº≠zÕ˙Ô∫Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM7Ê)Ìz∫Ó¶◊ù∂∏öñ:.Æv•≠Á(ΩÍÚô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áß¸Áû∫sﬂ|}˜ªuÆúÎGxw›7ÎN€·˝‹◊çﬁ„∆¯k¶ΩÎ¶ıÎ›6ıæ‹káˆ·˚™ÁßqÌ˘≤∂Áßzw∑v·Ô4”MùÈﬁ^—ß:ÈÕÁ÷ªÈßõÎèÔá˘{«∏sßüÔÆ·ˆπ„ùvÈÀ(∫∑râ¶äﬁ\’ˇ4Ì˜˘„û‹oo[›ŒxqΩüŸÓ9◊øzÎùyÛã(∫∑∂∑ûoÕºÎG∂ÁÕ€Ÿ«ÎN{ó|wwﬂnt·◊zÔfˆo+^≥}vÚñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”M˙∂∂ß≤+b¢{hëÈ⁄ù÷Ë∫wZØ*ﬁrãﬁØ)ù¶∑ùy«¨≤äÏz	ûû€!knzwß{wnÛM4ŸﬁùÂÌsÆú—Ó}kæöyæ∏Òæ¯óº{á:y˛˙·˛kû9◊nú±ÍÆzwﬂ´!knzÂﬁ¥Œ8”æ◊≠⁄„~€◊nπsg∑m˛8Ûñ¯ﬂMúqæ5Áf˘mÌ{€∆˜Ô≠∑”ﬂ≤ã´qÁ(öh≠o≠viÕÁﬂ’Ωxy◊úsñúwNõm∑{}˜\’˛x≤ã´qÎkyÔwwû˘onZ◊û›”¶⁄€≠_}ŒZ˜gtÔNZÛ∑¥Ÿ∆ÚµÎ5ÔæÈjÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4ﬂ∫ÆâÎzwñ)‰≤©zgi≠Á^qÎ,¢ªÇgß∂»Z€ûπw≠Ûé4Ôá5Îv∏ﬂ∂ı€Æ\ŸÌ€é<Âæ7”goçyŸæ[{^ˆÒΩ˚ÎmÙ˜∆Ïz´ûù«∑Ó»Z€ûö€û¸€∑ˆÁá€›Ω”Oz·Æ:Ôfﬁ˜÷úıÔÛﬁ{{Èæü„÷ºÔo]oΩ›Õl¢Í‹y &ö+]◊Õ_—ÁºÎΩ¯}˜∫w÷ıs]›€ü[w:m≠◊¶¨¢Í‹z⁄ﬁyß˝{^„á5}÷˙kÆﬁﬂùtoóùÎ÷∫}÷ºÂæ6uº≠zÕzÛ∫Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM7Ú»Z≠Áj∫'¨qÈ‹zˆ•â÷≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈ≠πÔÕªnxqΩΩ€›4˜Æ„ÆˆmÔ}iœ^Òﬂ=Á∑∑ÒÆõÈ˛=kŒˆı÷˚›◊¸÷«™πÈ‹{,Ö≠πÈˇt·˝9Ò˛5Â«;—÷Ùı≠ˆs~∂€ûﬂmÊ¥iøxkÆõ—Á8oá{¶öom}kû⁄ﬁ .≠«ú¢i¢µÌˆiÔ<’ßZ„_iˇ<—∑ÌΩª{v∑ÁÆµ„«{Ê .≠«≠≠ÁùÔŒ:{Ø|o«^Îﬁ˙◊æwçﬁ›≠„mù{«⁄ÈÕ[ ◊¨€n˜•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”aäÀhÆ'ï»Z∂«¨≤*'v+)¢»≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈˇt·˝9Ò˛5Â«;—÷Ùı≠ˆs~∂€ûﬂmÊ¥iøxkÆõ—Á8oá{¶öom}kû⁄ﬁ«™πÈ‹{lÖ≠πÈæy€VµŸæ6ﬂ^\Ôù˚{æ”á|ı˜u}˜Ô∆›m¶¸sç5{◊’˛iÆu˜n|Ó .≠«ú¢i¢∑ó_€ûyÔ÷¸yÔ6{nüﬁ|˜v∑{æ›˜ˆﬂM:Ú .≠«≠≠Áõk¶õ„G=ı◊ûuÔzÁ◊ªsæºwséZıﬁ]·ß[ ◊¨€Ou•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”ç+z .≠«°äÀhØ(ßµÍÔz{b¢w(öö,äÿ®ûgi≠Á^qÎ,¢ªÇgß∂»Z€ûõÁùµk]õ„mıÂŒ˘ﬂ∑ª·Õ8wœ_wW˜ﬂ~¸m÷⁄o«8”WΩqÌ_·¶öÁ_vÁŒÏz´ûù«∏“»Z€ûùG€wﬂ7kÜö€ÕÙ}9uÌùuˆ˘ÁN∏€V¸ŸÓ[ÎóªÈﬁ˜ÈŒ_sç¥ÒØ—æ,¢Í‹y &ö+ZÛ«úmœ∆∫ÌÌyæˆiß⁄kÆ;o›‹ÎmúÎ◊Ï¢Í‹z⁄ﬁ{ùu€ßZŸÁÁñµﬂ~öÔÆ⁄ﬂo7€f¥˜éﬁÁ◊9Ìº≠zÕ∂€ Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM8÷∑¨¢Í‹z¨∂äÚöá^ñ∑©ïßôÈÌrâ©¢»≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈ◊Ù}∑}Ûv∏i≠ºﬂG˜”ó^Ÿ◊_oûtÎçµoÕûÂæπ{æùÔ~úÂ˜8€OÒÕ‚«™πÈ‹{çlÖ≠πÈ¶˝kü5{Ø|k]\”}õ„ßﬂ}ø6Ÿß\wmº”≠ﬂÒÌúÌœ{M∂Ì˛ù—◊7{Otj .≠«ú¢i¢∑o=i«∑„Mwy˝º{éπi¶˚qŒ€V˝€ùﬂ—˜v .≠«≠≠Á∫Îé⁄◊ñ˙˜¶ˆÎó9ÔGıÒ∂üu÷›Ôè8ﬂ]:Û◊[ ◊¨◊ûı•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”ç´z .≠«´zôZqÈûûÿßµÍÎ∫õb¢zﬁrãﬁØ)ù¶∑ùy«¨≤äÏz	ûû€!knziøZÁÕ^Îﬂ◊W4ﬂf¯È˜ﬂoÕ∂i◊€o4Îw¸{g;s«ﬁ”mªßtuÕﬁ”›±ÍÆzw„k!knzﬂ∑[€mv·˜µwGzyÕÙ{O8Á~˜ÔM5}Á^—≠5mﬁ|˜Æzi◊πæ^—≠˜›≠\≤ã´qÁ(öh≠˜wÛü<„∂∂sÆ[yÕ˘’Œx{]∫€N8omı”W∫≤ã´qÎkyÊ›y∑∏ko;sﬁ∫›Æ˜›˛¥„∑x€Ü›ÛÜıyæ∫{vÚµÎ7ﬂÆÈjÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4„xb≤⁄+ )Ìzªﬁûÿ®û)Ìz∫Ó¶ÿ®û∑ú¢˜´ gi≠Á^qÎ,¢ªÇgß∂»Z€û∑Ì÷ˆ€]∏}Ì]—ﬁûs}”Œ9ﬂΩ˚”M_y◊¥kM[wü=ÎûöuÓ_Ôó¥k}˜kW,z´ûù«∏ﬁ»Z€û∏›ˇ}séﬁqΩ€ÔØ[Áø[ÒΩ;yÆ˜{m˚È˝;—ﬁ9wé_ÈÕú„\€Ω9„éwwwÏ¢Í‹y &ö+^Ôw¥€á]wV¯sé9ÛØ:›Ìµk«ﬂÔÆ¯Îó\sßl¢Í‹z⁄ﬁy≠∂Ÿ≠ıy˝{ÂÆZyΩ^Ôv›oÆvw›^Ì˛ûÛW€uº≠zÕÙÛöZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM8„
+‚µÊ⁄rJﬁqË©∂∑ú¢˜´ gi≠Á^qÎ,¢ªÇgß∂»Z€û∏›ˇ}séﬁqΩ€ÔØ[Áø[ÒΩ;yÆ˜{m˚È˝;—ﬁ9wé_ÈÕú„\€Ω9„éwwwÏz´ûù«∏‚»Z€ûπsmzÁç˘ı›¸sVöÛvªÎÕ⁄’Á^w~¥€^:kû∫€FﬁŸæüoΩ˜È˝ﬁmÊπÂ˜,¢Í‹y &ö+wÔûuÔNüwwû}ŒÁ]Áæ{ı˝öÈÊ∑ﬂæ˜Ò∑¨¢Í‹z⁄ﬁy˝¯„}úÔéw◊éπÔw˝◊ùü◊ﬂ6Â˛∑oM:ÁáuÌº≠zœwÍñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”N9râÌä{ö∂*'äw^≈ +≠Á-äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÎó6◊Æxﬂü]ﬂ«5iØ7kæº›≠^uÁwÎMµ„¶πÎ≠¥mÌõÈˆ˚ﬂ~ü›Êﬁkû_r«™πÈ‹{élÖ≠πÎWkùyÁ≠ºiÊü˜G‹·˛7Ô]µ—Áùs¶∏ÛMzŸˇtiÓ∏N8Îû¸m«¸◊◊~ .≠«ú¢i¢∑g<}æ∏«]ÒΩ˚m˜^Âø|Û∑9ﬂù¥◊}\uΩ7⁄ .≠«≠≠Áõ’ˇ8]ﬂ€Œ⁄€∂˜}≠Z€éü◊á∏Ò«ª◊W˚wŒõ ◊¨€Æˆ•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”é¶°◊•≠Íei«¶z{aäÀhØ(ßµË+jÿ®ûgi≠Á^qÎ,¢ªÇgß∂»Z€ûµqˆπ◊ûz€∆ûiˇt}Œ„~ı€]y◊:kè4◊≠ü˜FûÎáÙ„éπÔ∆‹Õ}qßÏz´ûù«∏Í»Z€ûªÁÕ[Òœ:Îùöﬂé6s∑9·≠]{◊w’∆¥uﬂxk]=ÂÊ˝—ﬁ7}Ìû„Ωy◊ø^◊«Ï¢Í‹y &ö+[oß∑—æ<ı∂∫}ÕsNºÔ]sü7—ˇ\„ﬂ{ıÓÏ¢Í‹z⁄ﬁ{æµi≠˝ÌﬂtÂ›¯Îû¥Û∆ºkñﬂÒß6◊û6„ü{Èº≠zÕ∂€∫Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM8ÓjzZﬁ¶Vúzgßµ '∂)Óä‹ö≤«¨≤gß∂gi≠Á^qÎ,¢ªÇgß∂»Z€ûªÁÕ[Òœ:Îùöﬂé6s∑9·≠]{◊w’∆¥uﬂxk]=ÂÊ˝—ﬁ7}Ìû„Ωy◊ø^◊«Ïz´ûù«∏Ó»Z€ûöqŒú{ÆöÔæú—æ˜”ﬂ|sm˘ﬂŒös≠^mßm˜ù˜∂˚yﬂxﬂûµﬂÜﬁ˜^{—ﬂ,¢Í‹y &ö+]·ß}›|Îç}·˜usgûiÓµiﬁ4—˛Zoæ˜€v¨¢Í‹z⁄ﬁ{NökŒ˚ÈÓüqΩs∑¥{çˆkGtÔû€◊Nˆ”ó7uº≠zÕ∫Î∫Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM8Ò 'ΩÍÏjÿ®ûXßy®±Èöûÿú≠Á(ù»•â´b¢yù¶∑ùy«¨≤äÏz	ûû€!knzi«:qÓ∫kæ˙sF˚ﬂO}ÒÕ∑Á:iŒµy∂úq∑ﬁwﬁ€ÌÁ}„~z◊~{›yÔG|±ÍÆzw„À!knz}«ﬂ„}ÙÎ«<ÁMyﬂŒöÛﬁ€„¶öÔMªyˇ8Ô≠µ{üZuˇ6}ÆÌ≠˜·˝8Âæ9≤ã´qÁ(öh≠{ç˜kŒ”«]”n5i˜µ_|ÔM]M∏Ûwtsmw≤ã´qÎkyÊµﬂÜ¯yˇZuø{”^ù˜M9ÁvΩk«õ◊^]y∑xÌ∆ÚµÎ5Ôæijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4„ÿb≤⁄+ )Ìzªﬁûÿ®ù©›≠Î(∫∑rV¢ö∑ØâÏ&vöﬁuÁ≤ +±Ë&z{lÖ≠πÈ˜ç˜”ØÛù5Á:kœ{oéökΩ6ÌÁ¸„æ∂’Ó}i◊¸Ÿˆ∏k∂∑ﬂáÙ„ñ¯Ê«™πÈ‹{èlÖ≠πÎΩúÒßﬂÎΩwﬂ}˜Õ9Ôvﬁ”÷ﬁ—˝€”◊zÌˇ7Û«õÎNök]‹wŒ:o≠oÜüz .≠«ú¢i¢∑á˙Áw∫ÒÆ6”ç∑s]⁄”›û◊Ü‹{Oy{Õ∏Û«€ﬁ .≠«≠≠Á∑€∆˝wΩÙkÆ8u˝„◊ùv˝Â˜:{Ü∂ﬂß=ÒÓ€ ◊¨◊é:•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”ùô∫âÁ[¢È›jº´z¯û¬gi≠Á^qÎ,¢ªÇgß∂»Z€ûªŸœ}˛ª◊}˜ﬂw¸”û˜mÌ=mÌ›Ω=wÆﬂÛ<yæ¥È¶µ›«|„¶˙—Ê¯i˜¨z´ûù«π“»Z€ûµkÆ˝ÔÜπ◊áukn”«¯sñú˜çıoWiÁz„n∏ıßûs¶∫„çiﬁwo~yı¶¨¢Í‹y &ö+zyŒ]Ì÷ﬂ”›€Òø”Øv„oÈΩﬁwŒúnÙ◊~,¢Í‹z⁄ﬁyÕùw=◊ó{]xŸæ˜o«]ÎŒ;Ÿ˜_wŒt˜Ω\—º≠zÕˆ„jZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM9÷Z'Ç+nv)⁄ñ∑¨¢Í‹y©›rà'äÿ®û∑ú¢w"ñ&≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÎV∫Ôﬁ¯kùxwV∂·Ì<á9iœxﬂVıq∆ûwÆ6ÎèZyÁ:kÆ8—ˆùÁv˜ÁüZj«™πÈ‹{ùlÖ≠πÈŒ6{›zuÊﬂoN˜~4u≠ıÌ˜s∂›où∑·˝Ω„Wu˜«˜·ÕZ—¶˙ﬂF˘i«ﬂˆ .≠«ú¢i¢µ˜}È◊6Ôç∫Ûæ^ıÓ]„möﬂNˆ€øuu≠7{m∏z .≠«≠≠ÁúŸ◊<uÆÙ}Ì˘Î∂˜{o_”áªwœ”Wüﬂ]µÔf€ ◊¨ﬂn∂•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”ù´z .≠«∞¢π]≤÷≠y  û+b¢xZù⁄~gi≠Á^qÎ,¢ªÇgß∂»Z€ûú„gΩ◊ß^mˆÙ·ˇw„GZﬂ^ﬂqÁ;m÷˘€~€ﬁ5w_|~’≠o≠Ùoñú}ˇlz´ûù«π⁄»Z€ûπÛávÔ]¯◊ó5wW}}ØuÎ◊9kw]·∑∑iÆ9˜›ùo]vkÆµy◊∂ÁW_˜∆€Ûñ¨¢Í‹y &ö+t„∑ÈÕ{áıqÊüo≠4ÁçºÔ¶ùsùvı˛¸Áál¢Í‹z⁄ﬁ{ûü}›µ˜¶˝Ûﬁ]}œ6y÷ﬁ◊«twß5ﬂ≠⁄Ánúyº≠zÕºÛ∫Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM9ﬁ∑¨¢Í‹y»Zäw!äW_ãn≠Èù¶∑ùy«¨≤äÏz	ûû€!knzÁŒ€Ωw„^\’›]ıˆΩ◊Ø\Â≠›wÜﬁ›¶∏ÁﬂvuΩuŸÆ∫’Á^€ù]ﬂoŒZ±ÍÆzwÁ{!knz˜Õ˘Â«\ÎΩ[ıÕˆwG_Ô~\ÁÕö„_ykœ^áº„æùÛæ˘„_Áw‹Áß6Ò˜∫≤ã´qÁ(öh≠k}xı˜∫w^∂—˜\ÁÕ¯ó[i˝úmkgﬁ}›|≤ã´qÎkyÓü„ùﬁÔùö„Ω„Üﬁ„W€”«7m«x◊ó∑Û_:{fÚµÎ6◊Ω©jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4Áäﬁ≤ã´qÍﬁqË©∂Àõ≤ÿ≠∫ÿ®ûw†jÿØy '∂∫%ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁØ|ﬂû\uŒª’ø\ﬂgtu˛˜ÂŒ|ŸÆ5˜ñºıÁ¯{Œ;Èﬂ;Ôû5Òﬁw}Œzso{´™ÁßqÓx≤∂Á≠‹ı˝úÈ˛ùÂ◊˚ŸŒ˙ı◊ˆwos]^”ØZÌŒú€Æ∂mÌ:Ô_y◊}›ÎŒ˚o]<Ÿ€(∫∑râ¶ä›\”≠˜∑¯oáx—ÌºuŒºÎü}s€áumÔÎ´(∫∑∂∑û’˝vkw4Î≠¯{n{n›Ø{Î≠t›˛Z€M7€◊¸o+^≥_yÊñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”Ny{ú∂∑¨¢Í‹y '≤È©∂*'ñ)‰j¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÎw=g:ßyu˛ˆsæΩu˝ù€∆ú◊W¥Î÷ªsß6Î≠õ{Nª◊ﬁuﬂwzÛæ€◊O6v«™πÈ‹{ûlÖ≠πÎﬁ_·Æ∑ÛMZ›Õ}€û€ó8mÆõ≠˙sﬂ9ÕÙÔo5—˝‹kæúÎMy€^˚Èø‚ .≠«ú¢i¢∑á˜”û˙„á∫˜ñﬁ·Œ⁄˜M˝·≠;ÎN◊Ω4€∂˝Ú .≠«≠≠ÁµonÙ{FºÛgµ˜∆úÁ◊4„niÁ∫ñ¥ÌÕ›ﬂéõ ◊¨◊ç¯•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”û•j∏≤ã´qÊÂ°∫ﬁ•®´ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁØyÜ∫ﬂÕ5kw5˜nxn\·∂∫m˛∑Èœ|Âˇ7”Ωº◊G˜qÆ˙s≠5Ám{Ô¶¸sã™ÁßqÓz≤∂ÁßõÛŒŸæzsF∫i«¥È˝ºﬂ≠sgˆ{G{m◊˜sèÛg∏·˝˙ÂÕ5}Ω\}ˆ˜€´(∫∑râ¶ä◊∑Ÿ≠⁄Îæ‹Á¶ΩŸ≠Ω·Á7”W˙kÜÙko8Îé—ª(∫∑∂∑ûı˝4È›ko<’˜õﬂéx”ç›o›<Ÿˆ¯˜~ºﬂnπo+^≥^∑Íñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”N{Ü+-¢∏újZﬁ≤ã´qÊßv¨∂äÚÜÈ‰≤gi≠Á^qÎ,¢ªÇgß∂»Z€ûûoœ8of˘ÈÕÈß”ßˆÛ~¥}ÕüŸÌÌ∑_›Œ<oÕû„á˜Îó4’ˆıq˜€ﬂn¨z´ûù«πÓ»Z€ûöÎV˜sΩq˜‹só⁄€Ævs∆›Îç=mŒ]Á«õ’Ø<„è<{w∂sﬁzÈ÷˜€ÕuŸ˛Ï¢Í‹y &ö+^iﬁ|q∑˚yÔ5˜æs}˝ÁátiΩ=sçﬂw}›ÒΩÏ¢Í‹z⁄ﬁyﬂx◊û<oùZÂÁ∂ÁØ{ùu~ˆÔN›·∆ºyŒû·º≠zÕ∫◊™Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM9Ú
+/zπﬁv∑¨¢Í‹zÀkj◊† öË¶ãñ:"ûgi≠Á^qÎ,¢ªÇgß∂»Z€ûöÎV˜sΩq˜‹só⁄€Ævs∆›Îç=mŒ]Á«õ’Ø<„è<{w∂sﬁzÈ÷˜€ÕuŸ˛Ïz´ûù«πÚ»Z€ûΩy˛xÌæ]Ÿ˛¸Ôó˘„]˙€û∫ﬂù;o]{q¶∏uÕxw]w·◊\kvﬂ€^ﬂ„Ω˝ó¨¢Í‹y &ö+]›ßy◊}”NxoßÙwﬁù}ı€ûªw¸È›û˜MÏ¢Í‹z⁄ﬁ{∑}„◊zÁéû€ß¥Áóõ˜«^ÎÆ¯sæ˜€o5ÂΩ⁄—º≠zÕ¥€⁄Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM9ˆjzZﬁ¶VúzgßµÎﬁû€bôÈù¶∑ùy«¨≤äÏz	ûû€!knzıÁ˘„∂˘wg˚Ûæ_ÁçwÎnzÎ~tÌΩuÌ∆ö·◊5·›uﬂá]q≠€m{é˜ı˛^±ÍÆzwÁ€!knz^{Îæy˛{oøÔΩ:”è\Ò∂Ù{ÕyÁÜùÎüZÔ›ˆ{~\y◊’∆πw∂üÌ˛õ≤ã´qÁ(öh≠€çùÂÊﬂŸ˜4o◊<ŸΩΩﬂ∑Z«ÙÒØzooyÛmˆ≤ã´qÎkyÌﬂ=”n5é˘iŒˆÒˇÂ«πÎ]¥s∑∏ı˝˘ÛÜÚµÎ6Ûæijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4ÎI®uÈkzôZqÈûû⁄ﬁ≤ã´qÈbùÊ†zgi≠Á^qÎ,¢ªÇgß∂»Z€ûü◊û˙Ôáûû€Ô«{ÔN¥„◊<mΩÛ^y·ßzÁ÷ª˜}ûﬂóu«5qÆ]Ìß˚¶Ïz´ûù«∫“»Z€û∑oM8Û}5kvﬂ◊∑9kN4Îo5„œ9ko6ÛÆ<—◊4”ù‹y˝}·ÁıÈÁÛ}ˆ€ÕÏ¢Í‹y &ö+|}Ø;„~π˜÷Ù˜Ωz˜á;·Ω:{g∏sñ˘y≠∑€m,¢Í‹z⁄ﬁ{∆ÙuÆ{◊]6u∑ıÛg€Îó;yÆ‹ﬂoıßõuÆ∑uº≠zÕ{”ZZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM:÷jzXùz{b∑(b≤⁄+ Xßy®ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Á≠€”N<ﬂMZ›∑ıÌŒZ”ç:€ÕxÛŒZ€ÕºÎè4uÕ4Áw_xy˝zy∆¸ﬂ}∂Û{™ÁßqÓµ≤∂Á¶˝{ﬁöÁœÌÕÙsW∑{Ø7kæÌﬁÂ«xÒŒ∂ﬂ÷Ùq˛{Ÿ≠€GvyﬁvÔGwo{(∫∑râ¶ä›û›Ω˘Û}{mœÂﬁ∂œ{—÷∂Ûn{ÛﬁüŸÓ5ﬂõ(∫∑∂∑û›Ωüu∑6iæﬁﬂn<Á]Ùißπy◊µ·Õw”wy◊öo+^≥}5⁄ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”N∂öá^ñ∑¨¢Í‹y  û+b¢yù¶∑ùy«¨≤äÏz	ûû€!knzo◊ΩÈÆ|Ò˛‹ﬂG5{w∫Ûvª·˛›·Œ\wèÎm˝oGÁΩö›∑ÙwgùÁnÙwv˜±ÍÆzwÎk!knz—˛˝svûÔœ9·Êº›æ:›Œ∂ûÛ≠⁄u≠˚˜~{Ûç6◊W˜ÂΩoø=iÕ˜mæ7≤ã´qÁ(öh≠Á∑˚ﬂøt„M7uΩπÛ]˚ÛØ=€øÁG_˜nzw~5≤ã´qÎkyÔ_sûﬂ~ˆoÆ∫oΩ‹ó=Î<s~5ÛÕ]g<kvÚµÎ7€é©jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4Îw(Çx≠äâﬁ¶+-zhúÜÈ‰v+)¢»≠äâÏô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Á≠Ô◊7iÓ¸ÛûkÕ€„≠‹·«˚iÔ:›ßZﬂøwÁø8”mu~[—Ê˚Û÷úﬂv€„{™ÁßqÓ∑≤∂ÁÆ€k¶Ωﬂn]{û∑uæõÁæ¸{◊]omy„≠\ΩÙÔ]˘y∂ﬂ}≠ww›|Ÿ˜wÕZ◊õ(∫∑râ¶ä◊˘·›8mﬁΩﬂÆ∑”G‹Ôáú„ót€¶⁄mÓıÎ∆π·€(∫∑∂∑ûÈØ]›ﬂ5ÛM]˜\’ÁxÎ›üÛΩﬂ˜«∂Î_{{Õûo+^≥n7⁄ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”N∏ñâ‡ä€ùäv•≠Î(∫∑rà'äÿ®ûgi≠Á^qÎ,¢ªÇgß∂»Z€ûªmÆö˜}πuÓz›÷˙oû˚ÒÔ]uΩµÁéµq˛˜”ΩwÂÊ€}ˆµ›ﬂuÛg‹uﬂ5k^lz´ûù«∫‚»Z€û∫”ßˆÎøı∑4„∑z’›∏Îû}„◊›«tß=uﬁ¯„á<ﬂæ€›Á∫”á_sN:uœ,¢Í‹y &ö+_˜Õ‹ÁwúÎ÷ûﬂ=y◊π›Õ=€›\ÔÆ⁄Ôo\È≠€ ◊¨◊ü6•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”Æ^¶+-zhúz˜ß∂ÿ¶yÿ¨¶ã"∂*'≤gi≠Á^qÎ,¢ªÇgß∂»Z€û∫”ßˆÎøı∑4„∑z’›∏Îû}„◊›«tß=uﬁ¯„á<ﬂæ€›Á∫”á_sN:uœ,z´ûù«∫Ê»Z€ûúÌÁ}ÁWﬁÁÆ∂„èt·ˆüŸ˝o◊ßºÒÆÛWuÆ<ıÕ∫k«πwæ=swõu∆Ï¢Í‹y &ö+|s≠¥uÕ:ÔgªÌ˝7Îç˜y«6—Ω;ı¶Ω„ékGõ ◊¨◊üx•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”Æûô∫âÁl¢Í‹z)Ìz
+‚∑*ﬁ•®´ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áß;yﬂy’˜πÎ≠∏„›8}ßˆGü€«µÈÔ<ká¸’«kè=snöÒÓ]Ôè\›Ê›qª™ÁßqÓ∫≤∂Áß€—ŒõÛ:€gµ{ÆﬁÔßwÌ∆πw∂∑Ì˛;q≠{Ôm4€∑6kﬂwqæ9Û^˘}ÕΩuª(∫∑râ¶ä›ûyÁõ€W:È«6}øzußü·«ﬂç5˜∑ﬂ€W‹ﬂFÚµÎ5˜}©jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4Î∑(û⁄ËñWùÜ+-¢ºöù⁄ﬁrãﬁØ)ù¶∑ùy«¨≤äÏz	ûû€!knz}ΩÈø7Û≠∂{W∫ÌÓ˙w~‹kó{k~ﬂ„∑◊æˆ”MªsfΩ˜w„ü5Ôó‹€◊[±ÍÆzwÎª!knz”]Ò˛6ÔG4€éxÁ~usæ8o∑;◊ﬂ„æxÂ∂û„Oz{fº◊çªog<qΩ[ﬂ›Z≤ã´qÁ(öh≠uæ9s›y€O]q˜4i˝∑i«¸ÔŒﬂq›∫Ûø:uÕ€o+^≥_u“ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”Nº¶∫zÀ+zÀZÆ◊(Çx≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÎMtw«¯€Ω”n9„ù˘’Œ¯·æ‹Ìˇ_é˘„ñ⁄{ç=ÈÌöÛ^6ÌΩúÒ∆ıouj«™πÈ‹{Ø,Ö≠πÈ∆ı—∑úoùZwß‹’Ω›Î÷ü˜ûªﬂ}›{è]{M’ŒﬂﬂvﬂÁ€ßªÎ◊ΩkN8Ú .≠«ú¢i¢µ˛7ÔF˙oØi«]Ô~˜û6o]∫oN6wù¯˜ñÙıº≠zÕ∫ÔZZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM:ˆ)Ïµ©ejÿ®ûÜÏzª⁄∂*'≠Î-jª\¢	‚∂*'ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áß◊FﬁqæuiﬁüsV˜wØZﬁzÔ}˜uÓ=uÌ4sW;}€ù¸nûÔØ^ı≠8„À™ÁßqÓΩ≤∂ÁÆ˚„vµÎg[kÜ˜oŒùkMªÁ]<ıø|wMûÒ˜ªoΩ‹ıÆ|m≠˜F¥iﬂÔó˘ÂÀ(∫∑râ¶ä›:Ìˆ€ñı˜◊}˝ﬂı◊Îñûwæü›œ˜f˚Á¶ÚµÎ5Ôæ©jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4ÔG(û⁄ËñWùÜ+-¢º¨π«≤»®û∑ØâÏ&vöﬁuÁ≤ +±Ë&z{lÖ≠πÎæ¯›≠zŸ÷⁄·Ω€ÛßZ”n˘◊O=oﬂ”gº}Ó€Ôw=kük}ﬂ—≠w«;Â˛yr«™πÈ‹{Ω,Ö≠πÈÓ‹ÁΩ|€}\oó\˜OÈŒ‹È÷˙Ìøuﬁ8kçöÔç⁄Á~∏o~uwGÂÆ9Ámxz .≠«ú¢i¢∑]¥ﬂø8ÁÕﬁ’∑∏Ì«=Û8’÷∑Ìß\”]∫◊è6Òº≠zÕyÛ™Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM;÷∑¨¢Í‹z¨∂äÚµ´$j€kâª≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈÓ‹ÁΩ|€}\oó\˜OÈŒ‹È÷˙Ìøuﬁ8kçöÔç⁄Á~∏o~uwGÂÆ9Ámxz«™πÈ‹{ΩlÖ≠πÈﬁ6ÔFﬁi˝z}æ7u◊ù·∑u—◊Î÷¯”◊}ÛçxÈˇzÁÆˆÁv¯yÆ5€ﬁöÈˇ]“ .≠«ú¢i¢µÌzÔ∑uÌ8ıÆ6Ò«6Ò˝ﬂw›”Æ7ﬁıÛŒ7}º≠zÕπ◊öZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM;⁄∑¨¢Í‹zßz∂≠äâ›z˜•¢ôûû÷•râÌä{¢∑)ù¶∑ùy«¨≤äÏz	ûû€!knzwçª—∑ö^üoç›uÁxm›tu∆˙ıæ4ıﬂ|„^:ﬁπÎΩπ›ækçv˜¶∫◊t±ÍÆzwÔk!knzsü;Á~zÂÓõqÆ8iÁ˙—ﬁπ”æ∂iŒ¥wá<›Ω€Á_<{Øyﬂ≠ﬁkû^k›}iæw≤ã´qÁ(öh≠{^ªÌ∆ù{N=kçºqÕºw›˜G¥Îçﬂ˜Ω|Ûçﬂo+^≥ØzÚñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”N˜≠Á(ΩÍﬁu˙ËÕÈ„¢ÍÁj[.}¯±ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áß9ÛæwÁÆ^È∑„Üû≠Îù;ÎfúÎGxsÕ€›æuÛ«∫˜ù˙›ÊπÂÊΩ◊÷õÁ{™ÁßqÓ˜≤∂Áß◊G5sg^yﬂ}mŒ;wá6’œxs◊oñ˜iæ=q›zmﬁ;˜∑›ÂœZ◊ßùiﬁ_{[(∫∑râ¶ä›4”m⁄€ØZŸ˝⁄—Ê€”Õ˜·Æw„ÆZÁ∑∂Ûè{”fÚµÎ5˜)jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4ÔáÎ£7ßrÎ-°‹©ππbq´b¢x.j∑fvöﬁuÁ≤ +±Ë&z{lÖ≠πÈ«5—Õ\Ÿ◊ûwﬂ[sé›·Õµsﬁı«ÂΩ⁄oè\w^õwé˝Ì˜ys÷µÈÁZwóﬁ÷«™πÈ‹{æ,Ö≠πÎá^mÓ¸Ÿ∑‹Ì◊[wÜ‹ÒÁy”«ûÂÕú]zwÕ◊û€›Á{˜]ÙÂæu·æ7qŒ¥Í .≠«ú¢i¢∑M4€v∂Î÷∂v¥y∂ÙÛ}¯kù¯ÎñπÌÌº„ﬁÙŸº≠zÕ¯€JZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM;ÊÜ„yÀbΩÎ¢∏ßÅ©›≠Î-jªfvöﬁuÁ≤ +±Ë&z{lÖ≠πÎá^mÓ¸Ÿ∑‹Ì◊[wÜ‹ÒÁy”«ûÂÕú]zwÕ◊û€›Á{˜]ÙÂæu·æ7qŒ¥Í«™πÈ‹{ælÖ≠πÈ∑5wwˆ◊;ÛW:◊}Ω„_;Ôç_’Ó∑›∂ù”~Ù·Æªi∆ﬁﬂ«9ÁNy„~ık∂˝÷ .≠«ú¢i¢∑N<◊ÆZsÕµwΩµﬂá∑”á∑uˆºÛﬂvÌ›Èø4iº≠zÕºÁ⁄Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM;Í«(≠Ëb≤⁄+ öËçÁ-äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈ∑5wwˆ◊;ÛW:◊}Ω„_;Ôç_’Ó∑›∂ù”~Ù·Æªi∆ﬁﬂ«9ÁNy„~ık∂˝÷«™πÈ‹{æ¨Ö≠πÎç¸w∆π˜û¸Ì∆õs«ÒŒ∏Ì≠¸”]›ı∑t}›]›ÌˆÔçZ˜ß]Îù˜ÈÔt˜∂ıÚ .≠«ú¢i¢µæ9{Ü˝€◊Áù˘—œ[u≠Zsó]Ô÷ıu¶∏ÕıŸº≠zÕ∂◊JZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM;ÓÜ„yÀbΩÍﬁ≤÷´∂öËqÎ,ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁÆ7ÒﬂÁﬁ{Û∑mœs«:„∂∑ÛMww÷›—˜uww∑€æ5kﬁùwÆwﬂßΩ”ﬁ€◊À™ÁßqÓ˚≤∂ÁßÈΩ\ÌÕ˝Î¶¸Áùv„ç5s]7’◊öÒΩ¯ıΩ]iﬁZ”NÂ∆ﬁ{8·˝ΩÛg˚ı˚(∫∑râ¶ä÷¸ÛmwÛ^=kÜÙ„«5Û^G€”gúÛÆ;ıø6y÷ÚµÎ6”mijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4Ô ﬁ≤ã´qÍ±ÍÔz∫ﬁ≤÷´µÀ¨∂árô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁßÈΩ\ÌÕ˝Î¶¸Áùv„ç5s]7’◊öÒΩ¯ıΩ]iﬁZ”NÂ∆ﬁ{8·˝ΩÛg˚ı˚™ÁßqÓ¸≤∂Áß˚·∑˙Îéıkg4Èß]›˛˘kÆ‹’˜:w≠;˜›∑y∂úuÆÈ∂ö·Á;Î¶ΩWtÔK(∫∑râ¶ä›ˆ›Ø’ﬁ]ÔŒ˜iŒõÁWZW˝›˛6iæ=·˛=˜¶ÚµÎ6ﬂΩijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4Ô€ôÈ®uÈhn7ú∂+ﬁÜ+-¢º¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÈ˛¯m˛∫„ΩZŸÕ:i◊wæZÎ∑5}ŒùÎN˝˜mﬁmßkÜ∫m¶∏yŒ˙ÈØ_’›;“«™πÈ‹{ølÖ≠πÎ}€WZÁñÙÎ∂‹oVµ”^ı€æ∏◊éﬁÒ˝∂Ûè6„n:ÛÆ5Ôv˘—˜|›«ªu˜ûˆ .≠«ú¢i¢∑_4o^^·˝€q˝˝wœ5›Óxﬂ~˘”ﬂ<—œ}Û^›Âº≠zÕπ◊∫Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM<“Ü„yÀbΩËßµÍÎ∫õ^v«(≠ÍﬁrãﬁØ)ù¶∑ùy«¨≤äÏz	ûû€!knzﬂF∂’÷πÂΩ:Ì∑’≠t◊ΩvÔÆ5„∑ºmº„Õ∏€éºÎç{›æt}ﬂ7qÓ›}ÁΩ±ÍÆzwÛK!knzs]º€~w”¶˘oNõÒÓ}ÆywØy˜}Ò∂ºo◊›˜û˙˜Wz˜◊ª◊}5kßv”÷˚≤ã´qÁ(öh≠Ì÷˚Ò˛{Î~Z}˝öq◊tÈˇ4Òﬁk~õkó¥Áo+^≥m∑ﬁñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”O5Ü+-¢º∞¢π]≤÷≠zV≠z∑(Çx≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈÕvÛm˘ﬂNõÂΩ:o«∏uˆπÂﬁºqÁ›˜∆⁄Òø_wﬁ{Î›]Îﬂ^Ô]Ù’Æù€O[Ó«™πÈ‹{ÕlÖ≠πÎ~_sé6Ôg¸kŒ∫›«˚ÂŒx’˛∏ﬂNi›ÎØ8oG<ﬂ≠9kß{◊~ÎùÙŸ∂€⁄ .≠«ú¢i¢∑∆⁄Â¶∫„◊ºu◊˘sæùsv∑€«˚Î^üoÆªÌØ:Âº≠zÕ∏ÛZZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM<⁄∑¨¢Í‹y %v∑¨µ™Ìô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Á≠˘}Œ8€ΩüÒØ:ÎwÔó9„W˙„}8}ßt{Æº·ΩÛ~¥ÂÆùÔ]¯sÆw”f€ok™ÁßqÔ6≤∂ÁØŸ÷ùwgmæ4Âæ˜Â∂€iÕﬁkG4—˜:ﬂÕùÛΩùyÕˆ{ﬂ6·÷∂Ûçﬁmø6Ûã(∫∑râ¶äﬁ8Ìß”Ø€œzıÌˆsGΩsΩökfû›˝˜o◊ùkÜÚµÎ6◊mÈjÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4Ûy®uÈl•Á"~'(n7ú∂+ﬁï´^≠  û+b¢yù¶∑ùy«¨≤äÏz	ûû€!knzÒΩùi◊vqÊ€„N[Ô~[m∂ú›Ê¥sMs≠¸Ÿﬂ;Ÿ◊úﬂgΩÛnko8›Ê€Ûo8±ÍÆzwÛ{!knzﬂﬁú—˝ZÒß=ÛùöÂ∆µ˜øw˜œ{Ô^ıkMÔO8sﬁ˘mΩüsÕykç5Áóûkﬁ|≤ã´qÁ(öh≠{ßù{Wˆ”vˆá_u›˝wß9”wõ◊∑x„ù=ﬂ]{o+^≥}¯“ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”O8°∏ﬁrÿØzöËmÎ.ä◊öùŸhi◊ùrá^nãßu™Úô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Á≠˝ÈÕ’Øsﬂ9ŸÆ\k_{˜|˜æıÔV¥—æÙÛá=Ôñ€Ÿ˜<◊ñ∏”^yyÊΩÁÀ™ÁßqÔ8≤∂Á¶˚’˜˜æ˙Ô«∏sn∂€÷€ﬂf¸kﬂ=i÷¸„è8È˛}æ8o∆ﬁﬂ^‹”ó^wÆx”{(∫∑râ¶ä◊˜›ùmÁ˘kﬁª◊f˘knz”≠{”]{ı◊:ÛM_€ñÚµÎ5◊NÈjÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4Ûök°∑¨∫+^i€ﬁÆ∆´â©\¢{k¢Yù¶∑ùy«¨≤äÏz	ûû€!knzoΩ_qØ{ÔÆ¸{á6ÎmΩmΩˆo∆ΩÛ÷ùoŒ8Ûéü·ß€„Ü¸mÌıÌÕ9uÁzÁç7±ÍÆzwÛõ!knzmΩ;{æ<iÌw{ùΩ{∆ù}Ô˜æΩy◊ù˜FªÛû¸ÎNΩ—«\y«ıyÌºkè6”ΩÙ≤ã´qÁ(öh≠’›‹—¶üÛn4„n9Ôß¸}≠û„f›››^s]∏w∂ºo+^≥^∏Êñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”O:¶∫zÀ¢µÍﬁrãﬁØ&ùΩÍÏj∏öñgi≠Á^qÎ,¢ªÇgß∂»Z€ûõoNﬁÔè{]ﬁÁo^Òß_{«=ÔØ^uÁ}—Æ¸Áø:”Øtq◊q˝^{o„Õ¥Ô},z´ûù«ºÍ»Z€ûΩ„tı˜{æ˝omZÔØ;kù‹Òß;ÁGtiæwoV¸oÕ6È˛ª’˜˙ıÌ[”nùmÕl¢Í‹y &ö+zkŒt€Æ˘”æo◊5◊ß^w÷Ùw~ûiæª„ﬁ\’˛õ ◊¨€M}•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”ŒÎz÷¢ûñ´∂&•¶∫y +≠Á-ùÎ,ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁØxﬂ›=}∆ﬁÔø[€VªÎŒ⁄Áw<iŒ˘—›où€’øÛM∫Æı}˛Ω{VÙ€ß[s[™ÁßqÔ;≤∂Áß9}ÆπÔn{Ám∑w_5q«ÙkÆı˝ú·ˆ˚mΩªqß]y˝Ô^wÁ_vÌ∂‹’≠ﬂsK(∫∑râ¶äﬁ}{]∑ÔùµÔN∏wç<—Ó∏—ÓıŸÆµÁﬁπ˜çömÊÚµÎ6ﬂ^)jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4ÛÀôÈ®uÈiÆÜﬁ≤Ë≠y '∂)Óä‹¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÈŒ_kÆ{€û˘€m›◊Õ\q˝Îá=g8}æ€on‹i◊^G;◊ù˘◊›ªm∑5kw‹“«™πÈ‹{œ,Ö≠πÎ]∑uﬂ;Ò≠∑”ó„F‹’˛Ù}«õ{≠·◊:oûú◊∑ü◊ùùiÌ˜◊ª”◊ª›æ∫v .≠«ú¢i¢∑}ıÎo\˜∆¯y˛z—≠öÁΩ7€NıŸÓﬁÁ]ZÈ≠wuº≠zÕtÎäZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM<ˆ∆¶zjzZk°∑¨∫+^~∑¨ÜöËqÎ,ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Á≠v›◊|Ô∆∂ﬂN\kçsW˚—˜mÓ¥sá\Èæzs^ﬁ^vuß¥oﬂ^ÔO^Ôv˙È€™ÁßqÔ=≤∂Á≠ªÎ]4€ézÁﬂ{ÛßªﬂΩxkG4q«ºwgù{ó^Òˆ∫›æ¸›Ω∫ÔÕÙÎæ^˜m|◊õ(∫∑râ¶äﬁÔo<Õ|o~|Ûœ<u˝€wgΩ„ŒˆÔßµ”Üº˜¶ÚµÎ5Ôﬁijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4˜Ihû≠πÿßjW±•Í‚ôÈÌ≤¨∂ä‚q©\ï´,â¯újÿ®ûgi≠Á^qÎ,¢ªÇgß∂»Z€û∂Ô≠t”n9Îü}ÔŒûÔ~ı·≠—«Ò›ûuÓ]{«⁄Îv˚ÛvˆÎø7”Æ˘{›µÛ^lz´ûù«Ω“»Z€ûü◊ÆzwŒ‹nﬁÔoG›Æ8kÕõqŒ‹sw\Ô]_køy˜›˜q∑ıÔø]M<s∆Ï¢Í‹y &ö+u◊w¯„^x{ÕúÛ]˜Ò˝^sÕ7Áﬁ|{Ω]Á}ΩÛ÷õ ◊¨◊ﬁı•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”›lzWÊ°◊•¶∫#yÀb¢xb≤⁄+â∆•±Èöûÿú≤gi≠Á^qÎ,¢ªÇgß∂»Z€ûü◊ÆzwŒ‹nﬁÔoG›Æ8kÕõqŒ‹sw\Ô]_køy˜›˜q∑ıÔø]M<s∆Ïz´ûù«Ω÷»Z€ûûiΩˆ˜g—◊9}◊}mﬁzkn:’˝ZwN˘Ûﬁ‹yæ9ÒÔ7}÷∏ÔÕ^’›˚„Õ˚ál¢Í‹y &ö+t—◊\·ΩÁ¶úıœ}◊]ukó·Ø;—Ô9Â∑üÒˆ€ ◊¨◊Œª•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”›®≠ÿßjºú¢	‚∂*'±È_öá^ñ´öñ'‚zª&vöﬁuÁ≤ +±Ë&z{lÖ≠πÈÊõﬂovqΩsó›w÷›Á¶∂„≠_’ßtÔü=Ì«õ„üÛw›ké¸’Ì]ﬂæ<ﬂ∑¯v«™πÈ‹{›¨Ö≠πÎÕx˜Œqˆù’ÆŸ›{{V∂ı∑zÈŒ_ﬂ›ÌˆûÌæ9q˝€sæﬂ◊m;ÂÕ—ØZv .≠«ú¢i¢∑á{ÌØwN|◊û}ÛÆ6oV¥k◊s›∑mÕ˙{N9mº≠zÕy◊™Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM=ﬁ¨∂ä‚q©\ï®¶µÈ©¢∂•± )zgi≠Á^qÎ,¢ªÇgß∂»Z€ûº◊è|·Ái›Z·˝ù◊∑µko[wÆúÂ˝˝—ŒﬂiÓ€„ó›∑;Ì˝v”æ\—≠ıßlz´ûù«Ωﬁ»Z€ûùyæ9qÌﬂkø<ﬂw˜Nm≠<ÂΩ∫Ôœs«{ûÈÆo◊<ﬂóö›≠t◊éº€ø,¢Í‹y &ö+_møwù8mÁõsÕÙ·Œü·÷µw›ûÛm¸{N⁄yﬁ[ ◊¨◊≠:•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”ﬁ)≠ÎÆ˜ú∫∫ﬁû÷ßv¨∂ä‚q©l∫öhÆŸù¶∑ùy«¨≤äÏz	ûû€!knzuÊ¯Â«∑}Æ¸Û}‹›8m∂¥ÛñˆÎø<}œÌ˛xk¶∏iø\Û~^kvµ”^:Ûn¸±ÍÆzw˜ã!knzﬂè\€≠]s¶˘”é˘·˛üÁΩ|mŒ;kFüÒÕZÔÕt◊æı›Á7o«;Ôw∏ÔÜÙuˇv≤ã´qÁ(öh≠”Œ˘◊}€oœzqﬁ¸swümﬁ∏Ûwªq«úkùwnxo+^≥]ΩÍñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”Oyö,^u∆≠z
++ ˆ•πÁ(ù˘brŸù¶∑ùy«¨≤äÏz	ûû€!knzﬂè\€≠]s¶˘”é˘·˛üÁΩ|mŒ;kFüÒÕZÔÕt◊æı›Á7o«;Ôw∏ÔÜÙuˇv±ÍÆzw˜õ!knz”ø|ÌŒﬂkæ}≠7˜G9Ì¶∫◊gy˜N∏€œz{F˚}≠Ù˜∆€k_|Á¶ı’∂›ÒÓ˜≤ã´qÁ(öh≠wGˆÂÁ=ÁáΩÌ«¯wç6ÎfúÁæ;”Ø[{÷ü◊]˘o+^≥^ΩÊñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”Ozv*ﬁr◊%j)¨∫ó´±Î,äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÎN˝Û∑;}Æ¯uˆ¥ﬂ›Á∂öÎ]ùÁ›:„o=ÈÌÌˆ∑”ﬂm≠}Ûûõ◊V€w«ªﬁ«™πÈ‹{ﬁ¨Ö≠πÎÕ˝uÓ∏kØt{^ΩﬂwyÁæ;ÒØ8Ûó¸˜á[sæ5wŒtÔw˘Û^[sá{ﬂûûs◊y~ .≠«ú¢i¢µÓˆ„Ω8„^ı˜üŸ˜wﬂ«}Òˆ¯„ù^€çº€n¥—º≠zÕy˜JZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇM=Óöﬁ±ÍÔz◊´ö)⁄ñÀúqÎ,äâÏô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁØ7ı◊∫·ÆΩ—Ìz˜}›Áû¯Ô∆º„Œ_ÛﬁmŒ¯’ﬂ9”ΩﬂÁÕymŒÔ~zyœ]Â˚™ÁßqÔ{≤∂Á≠πwç:˜¶ÙyΩxıﬁxy«ùÈﬁ¥ÁwﬁÂΩ∫›Õ∫›≠∂wá∑{ù˙{ûüÎùﬁ—˛{i˚(∫∑râ¶ä◊õ{Gw›∆ª”ù{FõÁáû◊é„nöÂﬁÎñ¥Ÿ¶ÚµÎ6◊~ijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝4˜ ﬁrãﬁ≠»^rJhä{^vÜ„yÀbΩÍÓûgi≠Á^qÎ,¢ªÇgß∂»Z€û∂Âﬁ4Îﬁõ—Êı„◊y·Áwßz”ùﬂ{ñˆÎw6Îv∂Ÿﬁ›ÓwÈÓzÆw{G˘ÌßÏz´ûù«ΩÚ»Z€ûºy≠¯ﬁz—˝_Ôçû˜mª◊ü^{ó;Îñ∏˜∑¥Âß]·Œõı«Ω—ÊûkΩªuÁt◊]l¢Í‹y &ö+\qÌ¸„}wÕ[”æ9m◊›„∑<s◊}„«_uﬂty∑€ ◊¨ﬂû{•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ”ﬂe°ß^u y∫.ù÷´…©›µÎ-rÎ-°‹¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÎ«öﬂá˝Á≠’˛¯ŸÔv€ΩyıÁπsæπkè{{NZuﬁÈø\{›iÊª€∑^wMu÷«™πÈ‹{ﬂlÖ≠πÎù<ÔO{€]Zw∑ûwM¯i∑Û∂∑ÛG5Ò◊tÈÁıÌõÂ˜;„«Ùk^¸˜›⁄ÈØ^ˆ .≠«ú¢i¢µÆxw∂˘ıÌ˝Ÿ∂ﬁ—ÆúiŒ8—Ø7iæ›ÆG¯Ê .≠«≠≠Á¥Ò«ﬁm∂∏—Ê˝iÊº}æ}s≠ûÔN5◊O]Ôé[€Ω€ ◊¨€Õ4•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊M!¢À^u»^rKù◊±µÍÁjZkz∑™∫+"µÎ&vöﬁuÁ≤ +±Ë&z{lÖ≠πÎù<ÔO{€]Zw∑ûwM¯i∑Û∂∑ÛG5Ò◊tÈÁıÌõÂ˜;„«Ùk^¸˜›⁄ÈØ^ˆ«™πÈ‹{]4≤∂Á¶ùÔOyÂÁ}oN<’Ô}é∫ÁgõÛ«∑u¶üÛgº€w—Ê˜oøui˝¯Âˆ˜Ôæº}À(∫∑râ¶ä÷ÙM]€mZ”o€ÜºiÕªkvûÛ~˚Ìˆµsvû˜À(∫∑∂∑ûŸØ=›ﬁ9ﬂ]ﬂ·ˇ]˜gúoﬁ˘ç=ÈÌ^◊G˘s}o+^≥~vˆñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]5≤Í^Æ¯¨yÿßµÍÈ≠Î^ÆÜÏzª⁄∂*'ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Á¶ùÔOyÂÁ}oN<’Ô}é∫ÁgõÛ«∑u¶üÛgº€w—Ê˜oøui˝¯Âˆ˜Ôæº}À™ÁßqÌt÷»Z€û∫ÔO[Ì˛vo4›Ì]ﬂg∂ÔﬂkoÈß˘·ﬂvÁGtm∑∑i›[Û«vŸÓÙﬂè<·›l¢Í‹y &ö+[Òﬂ;kVﬁkç∑qÆ]Â∆ı”w9”Mµ”Gﬁ”áÒΩÏ¢Í‹z⁄ﬁ{ßﬁ„f∫·Ìˆ◊Nﬂ¶ö’ø}◊èzÁgÎÕΩ˜«:qº≠zŒ4”ZZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMtŸÿ†zÀhû\®n7ú∂+ﬁ± +z…ù¶∑ùy«¨≤äÏz	ûû€!knzÎΩ=o∑˘Ÿ˝º”wµw}û€ø|}≠ºo¶üÁá}€ù—∂ﬁ›ßuoœ€gª”~<Ûáu±ÍÆzw◊M¨Ö≠πÎ≠∑ÛûûoŒ}˜]ŸÌkG˘ıˇ6svπwN‹s∑È∆õﬂn¸ı›ﬂwÆÙow˚Û◊˜÷ .≠«ú¢i¢∑vı’˝∫mŒ›ﬂg6◊xÂ˜⁄kû_”çπÔ_s^n .≠«≠≠Áöu«5k]9Îgº€]˘o◊6{ß4{∑9kﬁ]’Œ˜^€ ◊¨€m¯•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊M‹ïÊßµ™‡z◊ù{^Æ)ûû€r•Î&vöﬁuÁ≤ +±Ë&z{lÖ≠πÎ≠∑ÛûûoŒ}˜]ŸÌkG˘ıˇ6svπwN‹s∑È∆õﬂn¸ı›ﬂwÆÙow˚Û◊˜÷«™πÈ‹{]7≤∂Á¶ı¶˜Ÿ¶¸wNvÈ≠õÈﬁﬁ”û˘Î]∂€g8ÒÕ5Ô^{uﬁöw]¸m˛7◊ûû◊◊{À(∫∑râ¶ä◊Z„á[ÂŒÛéﬂﬂo9Á]ykÕZﬂ∑Ωwn¯ﬂñ˙ı˚(∫∑∂∑û·≠º{ﬁÙw÷ˆÒÕ7Áùu›ˆ˝€}z„]={∑8ﬂ^<o+^≥o|ıÎ‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”]8≠Á(ù»•zõõñ+!y€¢∑´jw\¢WkzÀZÆÿÏ¢wØâ◊ßqÎ!knz’ˆıﬂM:€èswﬂy˜º}∂¥ÒÊ€kó⁄{}wÒﬁ∂Áw˜›Ωö›Ó;uæ;ﬂ››iŒı•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊N+y 'r)^¶ÊÂä»^v«(≠Í⁄ù◊(ï⁄ﬁ≤÷´∂gi≠Á^qÎ,¢ªÇgß∂»Z€ûõ’˛õﬂfõÒ›9€¶∂oß{{N{Á≠v€mú„«4◊ΩyÌ◊zi›wÒ∑¯ﬂ^z{_\}Ô,z´ûù«µ”ã!knzoé˘sœt{]{ÎÆtÂ˜˜Ûç7„^t◊^∫m¶⁄€û„n¥kçºÒÕ˜oÕÔßı”ù7≤ã´qÁ(öh≠o◊˜NZ›9˜m—Õµ{n¥yÁ˚›◊∫kﬁÙÒß9≤ã´qÎkyÁ^o~u{æûı«˘—æ;€G:È∂€wn[w¶π€_u·∂ÚµÎ7ÔΩûæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5”ñ‚ù⁄çÁ-ä˜¨rä‚ûh≠Ê•±ÍÔäx#≤âﬁæ'^ù«¨Ö≠πÈØu—ÊõÁè5sû}wùv€W{ı∆üÒΩı„fõ˜WﬂÒæÎùùﬂ«’Õ˜’›;ÔØuzñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]9n)›°∏ﬁrÿØz«(Æ)‡∂äﬁj[Æ¯ßÇgi≠Á^qÎ,¢ªÇgß∂»Z€ûõ„æ\Û›◊^˙Îù9}˝¸„M¯◊ù5◊Æõi∂∂ÁÜ∏€≠„o<s}€ÛG{È˝tÁMÏz´ûù«µ”õ!knzw~ªÛÕ◊æµqŒ_qÌúÂ≠wÒ∂⁄›Æyqˇ6m¶∫Ò∆üw˜Ÿ÷∏q˝ù›≠k]ù≤ã´qÁ(öh≠ÛÆuÈæ[Ì˛8mÁºÛm[Ôç˝—˜‹”ß¥ÔNπ˜ûy≤ã´qÎkyÁ7ﬂék◊õıÓvo};ÔN_séº›˛⁄qﬂ{◊n;◊ÜÚµÎ7”éﬁæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5”™ﬁrãﬁÆ⁄Óù∆≠yÿb≤⁄+ «(≠Î#≤âﬁæ'^ù«¨Ö≠πÎ∑˜uﬂ}”ß4Áû:Îæº—æ;uˇy◊7uˆ€Ûœó¸w≠6›˝}wœ5„}xoü^Íñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]:≠Á(ΩÍÌÆÈ‹j◊ùÜ+-¢º¨räﬁ≤gi≠Á^qÎ,¢ªÇgß∂»Z€ûùﬂÆ¸ÛFıÔ≠\só‹{g9k]¸m∂∑kû\ÕõiÆºqßﬂ›˝ˆuÆgwkG⁄◊glz´ûù«µ”´!knz€◊ú}ßZ€◊{„ŒZsŒΩwﬁ[Áo\Û¶€}æxkçuwM∑◊N<—∑ıkG8ıÕ¸”¶ö≤ã´qÁ(öh≠◊ç˜È◊ı·Ø]w÷πiÊ›È˝_ŸÁÙ◊Œ˝iﬁm◊w≤ã´qÎkyÔuŸ◊9{ø=ø8˜œm∑ÁowÔÕ⁄Ûá_ÔN<oFÚµÎ7”~æ'^ù«õ ◊¨€ç{z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊NÏµ®¢w¨Üãhn7ú∂+ﬁä{^Æ˜ß∂*'é 'z¯ùzw≤∂Á≠|oáùÔ›4w¶ûuÔy«ÌÌ∏Áó¯’ß‹€n:››Ω›◊úw«›ÔΩº€û⁄ıÕw{⁄Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMtÓÀZÅÍ'z»h∂Ü„yÀbΩËßµÍÔz{b¢yù¶∑ùy«¨≤äÏz	ûû€!knz€◊ú}ßZ€◊{„ŒZsŒΩwﬁ[Áo\Û¶€}æxkçuwM∑◊N<—∑ıkG8ıÕ¸”¶ö±ÍÆzw◊NÏÖ≠πÎ≠8ÈŒ∏’Œ˘››˜ÛG˜iæºı˜ü◊ﬁ∏{W<oÕﬁœyoæ›wﬁx”Wü˜ßuÂ›xv .≠«ú¢i¢∑«vÂ÷öÌ¶Ùkç7Ôñ¥◊n;iﬁ¥Û¶˝Á∂º”w€÷ .≠«≠≠Áªkùı˜vÎ_|oÕZÔŒ∫o~_wé”ü[ﬂŒ9æ[ ◊¨ﬂ;z¯ùzwo+^≥}˘›Î‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”]<ñáñÜ„yÀbΩÍﬁiÿßzÀù÷Óv≠é 'z¯ùzw≤∂Áß”fª”◊5i◊9sŒ<o{u¶Ω”}∂Û]üÁó\o¶˝€n;◊Œº„n‹ıÓ¥ÔﬁùﬂZZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMtÚZjZçÁ-ä˜´yßbùÎ,jw[πÿ∂gi≠Á^qÎ,¢ªÇgß∂»Z€û∫”éúÎç\Ôù›ﬂ4võÎœ_y˝}Îáµs∆¸›Á¸˜ñ˚Ì◊}Áç5yˇzw^]◊álz´ûù«µ”À!knz˜ó^ÔówÒ∂˜◊éx—«˙ÔÜ⁄È∑û◊é∂˜n⁄oŒÌØtç˜·≠ﬁwo7Ôgv”nú≤ã´qÁ(öh≠ﬂé{›6Ûn›ˇ[’«‹Á≠˙Ÿæ^Á~}Ò≠4◊Nu≤ã´qÎkyÁùŸæ[u›vkÕ˝om9{ﬁ=ÁWz’ﬁy€∑:Èﬁù”FÚµÎ6ﬂÆ^æ'^ù«õ ◊¨€N∑z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊Oky /z∂ßvÀ´}ß°∏ﬁrÿØzã≠râû≤;(ùÎ‚uÈ‹z»Z€ûµqˇ_Û◊ö„ñ˙m∑9kûÒ˝ÌßıÛçw˜m[ÒÆ|é8o=€}€◊W∑yi¶©jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5”⁄ﬁrãﬁ≠©›≤Íﬂi«®n7ú∂+ﬁ¢Î\¢g¨ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁØyuÓ˘wo}xÁçÆ¯mÆõyÌxÎovÌ¶¸·Ó⁄˜G¯ﬂ~›ÁvÛ~ˆwm6ÈÀ™ÁßqÌtˆ»Z€ûµ„5„œ|wGÂ∑kg‹„◊u}˜¸oüZ{m˜Ôá¸{F˙”ñúsΩv}Ì9Ìß⁄◊æÏ¢Í‹y &ö+^{v∏Á≠ÙÎww·Á[Û›wm4oç;◊◊_—Ô·˛l¢Í‹z⁄ﬁyßÂ◊^k__˜ÜÙ„}ºuÌ{ü<y›ü¶ı˜F⁄}º≠zÕπ”wØâ◊ßqÊÚµÎ6Î_æ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5◊Jﬁi⁄'ó*çÁ-ä˜´zÀ•∂)Ï•Á-äâ„≤âﬁæ'^ù«¨Ö≠πÎûÂ◊^ÔóπÛﬁ]◊^ÔØwq÷¥›«t◊]tﬂn{g\Ò«În¸’◊_{óû€è=zñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]t≠Êù¢yr°∏ﬁrÿØz∑¨∫[bû ^rÿ®ûgi≠Á^qÎ,¢ªÇgß∂»Z€ûµ„5„œ|wGÂ∑kg‹„◊u}˜¸oüZ{m˜Ôá¸{F˙”ñúsΩv}Ì9Ìß⁄◊æÏz´ûù«µ◊K!knzÌ◊wÎ«;Á«‹◊ù^˜v∑Ûœ}uﬁ›{}›}ˆπyˆ˙Ûg]„œ_ÁG”o4◊]˝wN=≤ã´qÁ(öh≠{∂¥”á¥◊GzÈ˛x◊è\m«:kﬂv◊ûﬂ”G=sﬁ≤ã´qÎkyÁú”∑6Îœov¥È˜5ÌÆŸÆıÁÆy„çı›_sVÚµÎ6˜æûæ'^ù«õ ◊¨€}}z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊]ky /z∂õïÍ.µ &y 'µ©¢ù´b¢zh≤€´z;(ùÎ‚uÈ‹z»Z€ûúuÌ}ﬂ]ÂÕ7◊V¸Ì˜5Âæ◊øÈÁ⁄˜]9”ç{€◊ı«}ı˝€Õu]˜iÔ)jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5◊Zﬁrãﬁ≠¶Âzã≠râûrâÌjhßjÿ®ûö,∂Íﬁô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁÆ›w~ºsæ|}Õy’Ôwk<˜◊]Ì◊∑›◊ﬂkóüoØ6uﬁ<ı˛tq≠6ÛMuﬂ◊t„€™ÁßqÌu÷»Z€ûΩkWΩÔ∑∂mÕ\€ÆΩ~wiÌı≠w’∑{Ò÷ˆk÷˙Û∑üo◊∂o^ûu¶˙yˆﬁÒ˛¨¢Í‹y &ö+Zsn∏{F˜Û≠;◊∂ª◊ûukæv{M˙u˜˝„ﬁ<Á¶¨¢Í‹z⁄ﬁ{o_k∆ıÎç4wM˘Ô]:˜ùwm˜πm{„∆˝Ÿˇyº≠zÕÙ€GØâ◊ßqÊÚµÎ6◊ﬁæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5◊f‚ù◊ü}Á-ä˜†zw´jÿ®ù«¢ñ)‡≤;(ùÎ‚uÈ‹z»Z€ûús}€È˜ÙÂΩ¯”wıÌÁùÎMx›∂⁄◊w˘w^ûqÆ=ûZ˜gπÂﬁﬂÌŒπıœ;yŒijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5◊f‚ù◊ü}Á-ä˜†zw´jÿ®ù«¢ñ)‡≤gi≠Á^qÎ,¢ªÇgß∂»Z€ûΩkWΩÔ∑∂mÕ\€ÆΩ~wiÌı≠w’∑{Ò÷ˆk÷˙Û∑üo◊∂o^ûu¶˙yˆﬁÒ˛¨z´ûù«µ◊k!knz—ÓxkﬁŸ◊7ﬂM”ó4Ω∂Áæ∑ŸÓÙıŒÛßukç^Áü=˜ù{{∆€kÜ‹ﬂ∆∂≤ã´qÁ(öh≠v¸{Õ’ﬁxy˛z}«⁄u∂µ}œ:oŒ<w◊_kæ<≤ã´qÎkyÓz·Ω}Ì∑vÈﬁ”«_€ñÙ—˛z”áﬂ„á€”Ü˚y∆ÚµÎ7”~ﬁæ'^ù«õ ◊¨ﬂü8z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊]È≠ÎÆ˜õi…ù◊(öô^∂*'rÎh}¯Ï¢wØâ◊ßqÎ!knzÌ∑ümß|Îg€÷öiÌywoZ{O[Ô◊<uˇ_˜v˙’«8ÂÓ=„}N5”∂¯}Ó¯•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊]È≠ÎÆ˜õi…ù◊(öô^∂*'rÎh}˘ù¶∑ùy«¨≤äÏz	ûû€!knz—ÓxkﬁŸ◊7ﬂM”ó4Ω∂Áæ∑ŸÓÙıŒÛßukç^Áü=˜ù{{∆€kÜ‹ﬂ∆∂±ÍÆzw◊]ÏÖ≠πÈˇy∂öÒ˛ﬂwó;ÁG:›∂∏≠n8{›Z◊èzk∂ös«º›Ìm∑Ω{Üπw8ﬁ .≠«ú¢i¢µÌÙ€ß{{VùŸΩzÛŒ∫o◊∂m∑ªiÁ¸Î∑5˜O÷ .≠«≠≠Á¥”é¸◊Õ5”M˜s›=iß›„Œ_Ò◊ﬁ◊MıÎv¯„ø ◊¨€^¯z¯ùzwo+^≥_=ÌÎ‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”]xv+-äx.ä»\¢{Zö)⁄∂*'∫y'£	„≤âﬁæ'^ù«¨Ö≠πÎ~‹}◊Ù€~ª{w6oW[wó]”ß÷›È◊ﬂç€„Ω⁄mœzÔwõknvqﬂ{Áé¥Úñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]xv+-äx.ä»\¢{Zö)⁄∂*'∫y'£	ÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈˇy∂öÒ˛ﬂwó;ÁG:›∂∏≠n8{›Z◊èzk∂ös«º›Ìm∑Ω{Üπw8ﬁ«™πÈ‹{]x≤∂ÁØ4›≠¸wV‹˜w›ÈÕ˝€û_◊ù]ÌÆ∏ﬂN˚oÆ„é=◊^u◊«6wF˘yΩ·˝¯ÁK(∫∑râ¶äﬂ^uÕ∂ﬂ]ﬁÈ˝u’˝ﬂÛn˚›˛_◊é˝}∂ΩÛ◊‹—˚(∫∑∂∑ûÎæ}◊’«ı¶õŸŒto~vyØ{ÒŒùsFﬂÎm4o+^≥n;ÈÎ‚uÈ‹yº≠zÕy˜óØâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMuÂÏZr⁄çÁ-ä˜®•Í⁄∂ä·jwh}¯Ï¢wØâ◊ßqÎ!knzo∑ÙoW}ŸﬂZÛﬁﬂ—Õ:ıÓ◊∑oŒùM¸Ω8kçzÎÕ˘Îù|·ßmÁz„Wü•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊^^≈ß-°∏ﬁrÿØzä^≠´hÆßváﬂô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁØ4›≠¸wV‹˜w›ÈÕ˝€û_◊ù]ÌÆ∏ﬂN˚oÆ„é=◊^u◊«6wF˘yΩ·˝¯ÁK™ÁßqÌuÊ»Z€û∂m∑]Ì¶∑„~õÒÆ5€óΩm˝]u›∏ﬂûum˛5Ò÷õ—∑∫›ŒÛ^˙w~˝—«üıﬁl¢Í‹y &ö+\yﬂ}ﬂZﬂéuÛWıw~{}üÛáµÎGüÌÔ;á,¢Í‹z⁄ﬁ{∑<Âˆúm˜ûsﬁªq˜umæ;wMzqÊúÁÕw„÷ûÂº≠zÕˆÎ«Øâ◊ßqÊÚµÎ8Ô›æ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5◊™ﬁi⁄'ó(h≤⁄Óûÿ¶zöﬁ~X†ÜÿÏ¢wØâ◊ßqÎ!knz˜ù{onﬂá5·Æ7€Õ‹ûõÔgõ}ﬁ|Î∂ö˜Ωﬂ€∑˝ÂØ9˜ûúu˛›Áﬂ€M^•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊^´yßhû\°¢Àk∫{bôÍky˘bÇfvöﬁuÁ≤ +±Ë&z{lÖ≠πÎf€uﬁ⁄k~7Èø„]π{÷ﬂ’◊]€ç˘ÁVﬂ„_iΩ{≠‹·Ø5ÔßwÔ›yˇ]Ê«™πÈ‹{]z≤∂Áß_ÂÊ‹”^ﬂ◊«9◊gú”Ω[{m∑€]¯o∑∫Ò˛;kß›ÒΩıkæ⁄˜_5m˝ZÒÔıÎ(∫∑râ¶ä÷˝ı˛µÔñõká€æ{∆˙ÁF∫Û_5◊O=—ˆ˙oã(∫∑∂∑ûÈØvyßÙÎ~⁄s}|k›˝{◊Îæ˚k^8ÔÕ\—ˆıo+^≥ouÒÎ‚uÈ‹yº≠zŒwÔáØâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMuÓ∑övâÂ «´æ)‡ä{-jYZ∂*'¶∑üñ(!∂;(ùÎ‚uÈ‹z»Z€û∏ﬂé:·◊7o}5qˆù’Õ˚◊∑\„guk]ªg5Ôn}{mxﬂÜ˙s∆µ—∂πwûÛ^Èjÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5◊∫ﬁi⁄'ó+Æ¯ßÇ)Ïµ©ejÿ®ûöﬁ~X†ÜŸù¶∑ùy«¨≤äÏz	ûû€!knzu˛^mÕ5Ì˝|sùvyÕ;’∑∂€}µﬂÜ˚{Ø„∂∫}ﬂﬂVªÌØuÛVﬂ’ØÒˇ^±ÍÆzw◊^ÏÖ≠πÎG¸{o|Ò∆˝ÔΩúÎ∂∑ÌÊ˙Ôww››Ì¶öŸÔ<]4ﬂg}s◊}˜^¥ﬂ^Z€;‚ .≠«ú¢i¢µÓﬂ{Ø:◊F‹ı«9ﬂﬁ<€≠ﬂ”~¥{◊smºΩﬁz .≠«≠≠Áû›Æ˜„∆û”ó˚Á∑›oﬁù◊éªkû7Ôot}œyÔ][ ◊¨◊≠yz¯ùzwo+^≥m4ıÎ‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”]|≠Á(ù»•z∑úz*mñ)‰yÿb≤⁄+ ∑öv)ﬁ≤»Ï¢wØâ◊ßqÎ!knzÔgwÔß∫„^πﬂf˙Ì˝;◊__ﬂáÙ·˜ˆÛgüqŒ^sÜü◊FûÁ~üüt”œuk∆π•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊_+y 'r)^≠Áäõeäyv¨∂äÚ≠Êùäw¨≤gi≠Á^qÎ,¢ªÇgß∂»Z€û¥«∂˜œoﬁ˚ŸŒªk~ﬁoÆ˜q«}›ﬁ⁄i≠ûÛ«ı”Mˆw◊=wﬂuÎMıÂ≠∑Ûæ,z´ûù«µ◊À!knzsM}kñ∂È∑ΩmÔ]›Æﬁo◊|ow‹€N˚w≠üÎw˙„v¥”wü·›ﬂ„|ıßõ}Œ≤ã´qÁ(öh≠Îw:sœw€≠|„ø}ŒÁﬁ5◊ó:◊ù∏{ΩΩ”û≤ã´qÎkyÓ∏sØzﬂß∂˜∑]’Æ9ﬂmv’ﬁ›◊á€Â«mŒ˙€vÚµÎ5„œ^æ'^ù«õ ◊¨€]˝z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊_gjgÆû∑ØjXùj◊ùÜ+-¢º≠ÆÎa~Èe ;(ùÎ‚uÈ‹z»Z€ûµ”÷˚ÁNvmŒ¯˜ﬁ8Á]<’«\Á≠Ì◊[€Æ4qœ|—ΩZﬂgvﬂﬁ˚Ô~6søm˛)jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5◊Ÿ⁄ôÎß≠Î⁄ñ'ZµÁaäÀhØ+k∫ÿ_∫Yrô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áß4◊÷πknõ{÷ﬁı›⁄ÌÊ˝w∆˜}Õ¥Ô∑zŸ˛∑Æ7kM7y˛›˛7˜œZy∑‹·´™ÁßqÌuˆ»Z€û∫q˝7q«∂{wıogú˜Üú€≠x·˝ª—˜π€éWﬂkﬂ}€Üºy◊∑ÔﬂwÁVùo^Ï¢Í‹y &ö+vuÆ⁄Á∆ı—Õ<Ûáti∑\—˜v{Ü∂„û5ﬂóû€ù¨¢Í‹z⁄ﬁyˆù”^¥”ﬂm«˙ıÌ˚€Õ;{÷ΩÌ∑Ô∑ù”m8qº≠zÕ}€áØâ◊ßqÊÚµÎ7”m^æ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5€Jﬁi⁄'ó'ÓñXb≤⁄+…ßfäÀ"¢xß≤óú∂*'é 'z¯ùzw≤∂ÁØ8˜¶¥ﬂæ:˜Ø{qΩüÒ≠9wﬂ\u∂˚˜GúÛf˚·ÁÙ}Ìõ˜^Ÿ˝¸€Æú›≠˙ÛzZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMv“∑övâÂ…˚•ñ¨∂äÚiŸ¢≤»®û)Ï•Á-äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÎß”w{g∑VˆyœxiÕ∫◊é€Ω{ù∏·Áı}ˆΩ˜›∏k«ù{~˝˜~ui÷ıÓ«™πÈ‹{]¥≤∂ÁØ<}Ø|Î}¸kÕZ„nªqØw˜›wﬂ:€›8sW€«ﬂuÆﬁu˝5mø4˜›”Wy€À(∫∑râ¶äﬁıÁŒ7m›¥„›ª{_<è7y«∂·ß_Ûè6ﬂn◊K(∫∑∂∑ûÔó8ıﬂuyæµwmsæµ€Gy”¶ﬂsÆ;Æ9sÆ∂o+^≥^˚ÂÎ‚uÈ‹yº≠zÕπ˜GØâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMv÷'^ûÿü ä^≠´hÆ∫(∂∆ßvw±µß-äâ„≤âﬁæ'^ù«¨Ö≠πÈˇtıÕ_ÁFÙ€v‹„∑Ùm∑¸k«ökvyŒ‹„g5on={œxﬂt∆ˆo=ÎmZvñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]µâ◊ß∂'Ú¢ó´j⁄+Æä-±©›ùÏmiÀb¢yù¶∑ùy«¨≤äÏz	ûû€!knzÛ«⁄˜Œ∑ﬂ∆º’Æ6Î∑˜}—∑}Û≠Ω”á5qΩº}˜ZÌÁ_”V€ÛO}—Ω5wùº±ÍÆzw◊mlÖ≠πÎm¸„æ5u÷∫˜VúÂﬁ—›wogû{æÛ∂ö„øuu«Îæ=—Ô{—ΩyG=„mˆj .≠«ú¢i¢µΩ=Îá;˜V¥ÁGµ”Øy€~µOÛw⁄mß⁄”o^Í .≠«≠≠Áõ”çx˜ûvÒﬁõkáﬂ{œŸÕ€·ß∫ﬂ^˘”ç\mﬁ€ ◊¨◊çΩz¯ùzwo+^≥m˝ÂÎ‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”]∂ô™‰uß¶¢w(ù¯†n)›äx.ûÜÏzªﬁv;(ùÎ‚uÈ‹z»Z€ûöŸ◊∑„æﬂ·˛ªoøÁNtÔÕ˝kﬂsÆ›çgµ·∂πÈ˛ımﬂ}’›7sçÙÔ})jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5€iöÆGZzj'râﬂä‚ùÿßÇÈËn«´ΩÁfvöﬁuÁ≤ +±Ë&z{lÖ≠πÎm¸„æ5u÷∫˜VúÂﬁ—›wogû{æÛ∂ö„øuu«Îæ=—Ô{—ΩyG=„mˆj«™πÈ‹{]∂≤∂ÁÆZŸ◊∂Á∆ı·ÆZı˜ª„w∂Ûﬁ˙·Æûmæuo◊ﬁk›{yˇ7Áß]„◊ﬂÔ}sçÎ´(∫∑râ¶ä◊Ù€}_ÒÓπuæwwwﬂ¶ıÈ∑ts]}„Œ∏ﬂﬁuıÎ(∫∑∂∑ûi˜Âß}„Nõy∑8„çûiÓµÎ◊¯„∆˙q¶ªqﬁûo+^≥n˝ÂÎ‚uÈ‹yº≠zÕ˝Á◊Øâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMvﬁöËçÁ-ΩÍ‚~'ù°∏ﬁrÿØzªß≤⁄0¢π]≤÷≠z;(ùÎ‚uÈ‹z»Z€û∏mˆµkg˙yÓ8—˜{ﬂ_;€~ıuÆ:}˜¥ÂΩvwæÔ∆úÔvﬂÎ]xy¶‹Û∂ﬁÔNijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5€zk¢7ú∂˜´â¯ûvÜ„yÀbΩÍÓûÀh¬äÂvÀZµÈù¶∑ùy«¨≤äÏz	ûû€!knzÂ≠ù{n|o^ÂØ_{æ7{o=ÔÆÈÊ€ÁV˝}ÊΩ◊∑üÛ~zuﬁ=}˛˜—ß8—ﬁ∫±ÍÆzw◊mÏÖ≠πÎmºÔŒ\Înúo›{Á◊¯kfù’◊¥ﬂF˘{}6”éıußﬁ·˜µ€«x˜Õyk^¯„œˆ .≠«ú¢i¢µ˜ﬁ—ÓúÛMxÈΩ;Û^πÔæûÛNtißº”W={Ω{z .≠«≠≠ÁªÔü4˜∑}ı›‹Ônﬁ◊ü<}Æ¥„vµ”∑xÁWy’æ[ ◊¨€M}•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊n≈…nuÎß≠ÍÆzÀ^v∑ú¢˜´y⁄Óû…ù¶∑ùy«¨≤äÏz	ûû€!knz€o;Ûó:€ß˜^˘ı˛ŸßuuÌ7—æ^ﬂM¥„Ω]i˜∏}ÌvÒﬁ=Û^Z◊æ8Û∆Ω±ÍÆzw◊n,Ö≠πÈÓ:ÎÆ|€Æuﬂwm◊¯ÌÁ\qÔ9Ò≠∂sw”ø6w∂∏ıˇ=Ôè<Îè=wN<Î}ˆn .≠«ú¢i¢∑4ﬂfıß^kF˙Òæﬂ„∑¥˜Nû◊ûvkçΩ]t“ .≠«≠≠Á∂›æ˜Ûá5„mwÌÔ]k_]◊∑]Ôæ¥Â˝º˜ﬁuw~ ◊¨€Õµ•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊nkyßhû\û∆ó´ägß∂ÀZÇ)‡¶∑üñ(!∂gi≠Á^qÎ,¢ªÇgß∂»Z€ûû„Æ∫ÁÕ∫·Á]˜v›éﬁu«Ûü€g7˜};Ûg{kè_Ûﬁ¯ÛŒ∏Û◊t„Œ∑ﬂfÏz´ûù«µ€õ!knzm˜ömˆú—Ø5›Æºséo◊˝—›yk]€˜G’∂ºÎŒ_„gv◊æı·¶›kßzqÕú≤ã´qÁ(öh≠Áﬁ]yÊΩsgûi≠üuŒ8q«ﬂV¸yÌπﬂ~ıÊõ≤ã´qÎkyÁùıÊ˙—ˇ·Áπkwmß˜NöÎ≠ù€∑ûm˝7ÛvÚµÎ5Ûn)jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5€¶‚ù€-jùÜ+-¢º≠¢å'zªbrIù¶∑ùy«¨≤äÏz	ûû€!knzm˜ömˆú—Ø5›Æºséo◊˝—›yk]€˜G’∂ºÎŒ_„gv◊æı·¶›kßzqÕú±ÍÆzw◊n¨Ö≠πÎ«˝”~6ÂˇzWπÎW˝{^ºuÁ[u¶›ÁèÎß∏ﬂn˜„≠ΩÌ∑ùwo5Înm«‹‚ .≠«ú¢i¢∑^˝’›u€^˘qÊ›—÷˝oéπyøt«vÎçﬂ”n∑ﬁ .≠«≠≠Á∂oo8s_]€Nz◊wu˜g˙·˝¯’æz€Wz’˝µ„á€ ◊¨€ç4z¯ùzwo+^≥è=’Î‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”]ªµ´$}©¢ó'±•Í‚zw∂∂ß±˜´é 'z¯ùzw≤∂Á¶öŸ÷∏q¶πs}πÛßvkv˙Ô}vm˝4◊mx}Õm∆ú˜ﬁ˘Áf˚◊WùÁm˝◊Æª” Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMvÓ÷¨ëˆ¶ä\û∆ó´âÈ‹z⁄⁄û«ﬁÆgi≠Á^qÎ,¢ªÇgß∂»Z€ûº›7„n_˜ßı{ûµ◊µÎ«^u∑ZmﬁxÒÓ∫{çˆÔ~:€ﬁ€y◊vÛ^∂·∆‹}Œ,z´ûù«µ€ª!knzÎ≠€÷ıı◊7ÁwúÌÔqæx˜∆∑”◊ˆÎ∑<◊}]i˜µÎnZÈ˛Z·«˝ÎœZ◊O<≤ã´qÁ(öh≠ÁmﬁÈ≠∂qÕû„ø◊∆ªı˝ˆ›«∏ﬂÕ[Á›|y∑7≤ã´qÎkyÓvow_yŒ˙wÆπs≠<ÂŒÔéö˜]úﬂŒõÈÓxiÊÚµÎ6◊Mﬁæ'^ù«õ ◊¨ﬂ7z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊o(n7ú∂+ﬁµ´$}©¢ó*k¢
+ﬁ≤»®û;(ùÎ‚uÈ‹z»Z€ûù◊wı{≠⁄Èˆ∏˜á∑›ß¥€MzıŒ[Ø5”}”M˝yΩ[q˛ªÎæ}˜≠8Ò◊6◊WÈjÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5€ çÁ-ä˜≠j…jh• öËÇ∑¨≤*'ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁÆ∫—›Ωo_]s~wyŒﬁÒ˜Áè|k}=nªsÕw’÷ü{^∂ÂÆüÂÆﬁºı≠tÛÀ™ÁßqÌvÚ»Z€ûüÒ∂ﬁm›πÌÌΩwé5i«˙˜ÕÎ›tmÆˆÈæ5”Æ5Òˇ9{V˘„è}søukvısmÏ¢Í‹y &ö+_ÔN9iÁö{}uwfüyΩ¸„W¸È∑_kó˙În<Øl¢Í‹z⁄ﬁyÕwéõ{Gﬁﬂ^∏sﬂxÈ˛8È◊\kñ˘uæv—∆∑iº≠zÕ{˜GØâ◊ßqÊÚµÎ6ÛMﬁæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5€⁄ﬁ≤÷´∂÷¨ëˆ¶ä\üyÁ[i…#≤âﬁæ'^ù«¨Ö≠πÈ∆ûwM∂y«[˜ﬁªÛN∑ÔüZ€wΩÌ˝w◊Æ¥Ò◊{„wΩ„~˘’˛y„ç∂˜Æ\◊Ø÷ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]Ω≠Î-jªmj…jh•…˜ûu∂úígi≠Á^qÎ,¢ªÇgß∂»Z€ûüÒ∂ﬁm›πÌÌΩwé5i«˙˜ÕÎ›tmÆˆÈæ5”Æ5Òˇ9{V˘„è}søukvısmÏz´ûù«µ€€!knzÛﬁımÓ˚ÂÁ◊›_€ó6w«uÌ«ﬂ—Œ<˜∂›Òß}q≠‹„ﬁ\s~˘—Óﬂ›ŒÙ}Æ\≤ã´qÁ(öh≠„W¯—ﬂ7ÂŒ[sé^›˛ö·›π·∑›Ô^ﬂo~∫’∂¸≤ã´qÎkyÊªy˜}wó˙·◊6}Á„ûy››˜ÂÕ|˜F˚„é^Û∂ÚµÎ5Ô~æ'^ù«õ ◊¨€Æ∂z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊}"û◊´ÆÍmy◊⁄ö)r± +z∑ú¢˜´ ;(ùÎ‚uÈ‹z»Z€û∑}÷üÛGû›Ì∫Ò∆˚ﬂè]·Øw—œtıÁ›m∆ºÁF∫˜◊˚yØZÔG;˜Mºk]ﬁwmÈjÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5ﬂHßµÍÎ∫õ^uˆ¶ä\¨räﬁ≠Á(ΩÍÚô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁØ=ÔVﬁÔæ^qÌ}’˝πsg|w^‹}˝„œ{mﬂw◊›Œ=Â«7ÔùÌ˝‹ÔG⁄ÂÀ™ÁßqÌw“»Z€ûõ€ç∏só_ÔWöÂÌÛ~€}Õö·æü”w}}Ωº„«;iﬁ∫]úow8}Æ4Â˛‹oó,¢Í‹y &ö+]Î¶˘·ß=È˜z}¶˜ø:gÁ÷‹oé˚◊ûÙo^,¢Í‹z⁄ﬁ{∑˜”_}øt◊Æ›Ôw\€Fπké∫wg˜Ág|◊≠<qº≠zÕy”gØâ◊ßqÊÚµÎ6ÛNﬁæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5ﬂZﬁi⁄'ó*k¢
+ﬁ≤»®û)Ï•Á-äâ„≤âﬁæ'^ù«¨Ö≠πÈ∑¯›◊zÒΩ∂Òﬁ¥Â◊üoù7}œ5ﬂÕ∂”÷ı·ˆ€ÛæﬂÒ◊y˜Oy{mÒ∆˝ÔG[~ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]ı≠Êù¢yr¶∫ ≠Î,äâ‚û ^rÿ®ûgi≠Á^qÎ,¢ªÇgß∂»Z€ûõ€ç∏só_ÔWöÂÌÛ~€}Õö·æü”w}}Ωº„«;iﬁ∫]úow8}Æ4Â˛‹oó,z´ûù«µﬂ[!knzsVˆwW¯ÎçûÎ∆ıÎ∆õ˜∆ÙÛ]˜ﬂg:ÁM˙m«∂s~4ÒΩû˜≠ûÎØ|ÛéÁF¯≤ã´qÁ(öh≠Â≠˙ı∆ﬁ◊∆˙ﬂG¥ÂÔ\ÎMÙŸ«π◊^<”Ø<n∫≤ã´qÎkyÌ¸w]|m≠ûkﬂ9}ß;Ôœ|Îﬂu—˜;Ûv‹Á}û∂ÚµÎ5ÁM^æ'^ù«õ ◊¨€ﬁ6z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊}´yßhû\©Æà+zÀ"¢w%ä;(ùÎ‚uÈ‹z»Z€ûº◊∆∏}◊sÕ—æuÛœ:’›6Áﬁ∂ÔæºÈ÷∂oóùÛé:m˛˜„^6kÆZÈ˜ºuØijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5ﬂjﬁi⁄'ó*k¢
+ﬁ≤»®ù…bô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áß5ogué∏ŸÓºo^ºiø|oO5ﬂ}ˆsÆtﬂ¶‹{g7„OŸÔzŸÓ∫˜œ8·ætoã™ÁßqÌw⁄»Z€ûùyÔww∑—˛4„wÙ„Üµ˜FöÛáüÂæö˜göﬂùº’˛;ÁG∫◊M¥kfº€Æ}iøl¢Í‹y &ö+xwfµmˇ<uØ4ı¶∏ÂÆºÌ«ﬁÈ›6Á≠4ÂŒ›Ìl¢Í‹z⁄ﬁ{«9u›[€M=Ô∂ﬂ—Ô_sw9„é”◊∂u˛ΩÁ]Ωqº≠zÕ{”∑Øâ◊ßqÊÚµÎ7”Œæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5ﬂ{a≠Áû¶+(uÎZ≤G⁄ö)rñä)é 'z¯ùzw≤∂Áß5ÔﬂzÌ∑˜◊ù˚kgZmßı„Ω⁄◊Oy„ß¥{ñû„á‹€ÕõoÆyÌ«{çÛûªÂ˙Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMwﬁÿkyÁ©ä z÷¨ëˆ¶ä\•¢äfvöﬁuÁ≤ +±Ë&z{lÖ≠πÈ◊ûÒßw{}„N7N8k_tiØ8y˛[ÈØvy≠˘€Õ_„æt{≠t€F∂kÕ∫Á÷õˆ«™πÈ‹{]˜≤∂ÁØtw_|◊Ø›Œ˙ø\Ûß€·Œ˘ÁNﬁow›{gªÛ›ªkŒﬁ„gw—˜ª}Ô|„é;Û€(∫∑râ¶ä›˜›≠y˝€—¶ûkΩ€n¥ı˛˚Ÿ≠{ÎçªÛÆ¸”{(∫∑∂∑ûÔ∑ıÎ≠öqø\—ÓÙwè^ÎFü^_·÷€sÕxw◊¯o+^≥^ΩÒÎ‚uÈ‹yº≠zÕ∂˜gØâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMw· Ë≤ k°«¨≤«(≠Ák∫zﬁrãﬁØ(Ï¢wØâ◊ßqÎ!knzy◊[møoFˆ—ßÎv⁄oF⁄Â«û˜G›ÁvÙ}ΩÔÒÆswt◊Ω∑Ûu•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊~Æã,¶∫zÀ,räﬁvªß≠Á(ΩÍÚô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁØtw_|◊Ø›Œ˙ø\Ûß€·Œ˘ÁNﬁow›{gªÛ›ªkŒﬁ„gw—˜ª}Ô|„é;Û€™ÁßqÌw‚»Z€û∏ÎN<„Ü˙Á≠ûﬂ^ﬁ’ÌıﬂNyoŒ9Á~˘mØ8yÁ;—œ_€ó9{Œ4Ô¶˜”∑˝◊Ol¢Í‹y &ö+{ÎVù€g˜—ÓZ—ˆ¸u›‹ÎÆ˜oóÙsü:Ûgxk]l¢Í‹z⁄ﬁ{∑˙Ûé=kw∑{Fı”≠˚„◊z”~ké8Ô◊€Á}∑mº≠zÕxÔóØâ◊ßqÊÚµÎ6Îè^æ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5ﬂó!äWiÆá≤«ûâ‚q©ky«¢¶€ﬁÆ'‚q´b¢xÏ¢wØâ◊ßqÎ!knzÁmΩﬂgÙÎ^=iÁÙw}7€ﬁz◊ŒZ„ß7€á:oæ5ÒÕß∂{ñ⁄€«vÛŒº„_•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊~\Ü)]¶∫zÀjz'â∆•≠Áäõoz∏üâ∆≠äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÎé¥„Œ8oÆzŸÌıÌÌ^ﬂ]ÙÁñ¸„ûwÔñ⁄ÛáûsΩı˝πsóº„N˙o};›tˆ«™πÈ‹{]˘≤∂ÁÆöqÕ<›˜<”Õ}kﬁ<ÔZ˜›º∑6Ò∑¥„oZo~ÔNÁ«ﬂﬂ}¯m◊∏›ÔzÛ{(∫∑râ¶äﬂw„çZ·∑:Î}ûkO5◊Gw{«}ká7oáz—Æ}iª(∫∑∂∑û{á∫ÔM∫ÛﬁyOsé˙”á⁄swõ}ﬂ8ÛáõÈÓ8o+^≥^yŸÎ‚uÈ‹yº≠zÕ∫ÁáØâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMwÎ
++ï€-j◊´zöËçÁ-äâ⁄~◊´≠Î-jªc≤âﬁæ'^ù«¨Ö≠πÈ∑∫€}xow˙ÌÕπÈÕ‹Â∂úk∆üfΩÛû’∑8ÌΩ›Ágû{}v˜f∏€≠9”]7Úñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]˙¬äÂvÀZµÍﬁ¶∫#yÀb¢vüµÍÎzÀZÆŸù¶∑ùy«¨≤äÏz	ûû€!knzÈß”ÕﬂsÕ<◊÷Ω„Œ˜ıØ}€«˚so{N6ı¶˜·ÓÙ·Ó|}˝˜ﬂÜ›{çﬁ˜Ø7±ÍÆzw◊~¨Ö≠πÎFü◊ù€n˘ÔΩ;iÁ∑ﬂN|}◊ùo∑\ﬂ~uq˛tÁ]◊ü}—∂˜ÛO|€nΩ’«€v .≠«ú¢i¢∑óZ„fÙ{ØZÁVªs∑ˆÈÌ¸i›toáyΩzÁ›_ˆ .≠«≠≠ÁûoŒÙwéªı˜Ωo¶∑ÁÜπÁ∂ºw∑⁄{ß¸sæ∫Âæ€ ◊¨◊ûzz¯ùzwo+^≥nºıÎ‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”]˚≠Á(ΩÍﬁu˜ûu∂úì
+‚µÊ⁄rG+j»c≤âﬁæ'^ù«¨Ö≠πÎŒºÂ∂ú—ﬂ7{Ü∏k^€óyqæuÎø\kfªkw⁄Ûv⁄„}¸€é’ÌüÒ›öıﬁ8ˆñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”]˚≠Á(ΩÍﬁu˜ûu∂úì
+‚µÊ⁄rG+j»fvöﬁuÁ≤ +±Ë&z{lÖ≠πÎFü◊ù€n˘ÔΩ;iÁ∑ﬂN|}◊ùo∑\ﬂ~uq˛tÁ]◊ü}—∂˜ÛO|€nΩ’«€v«™πÈ‹{]˚≤∂ÁßtÂÔ;uÌu◊F¸kMûÒÆ[Û¶ü›Õ∂oVÙŸ∑w{›üsOyÂØ^ÌΩü›ˇ|˜G4€ª(∫∑râ¶ä÷ﬁ„ﬁ]ÌŒZ˜«4„÷€ÎW]Îﬁvœ}ﬂ◊ıy∆µÒ€(∫∑∂∑ûy«ΩÁNmæyÁﬁümÌÛûπÛgúÎùﬂ€≠mˆ˚o+^≥_}ıÎ‚uÈ‹yº≠zÕıÛßØâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMwÚ÷¨í∑•zˆß∂¨∂äÚmÏ®ù‹"ù⁄0é 'z¯ùzw≤∂Á≠wÌØ4Á◊˙m«˚ÒÕ∂—Ω^”Vùq«˙kÜ∏˜ÆÁm˜ù|Ÿ˛{Î∑]ÛG∑i◊|i⁄Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMwÚ÷¨í∑•zˆß∂¨∂äÚmÏ®ù‹"ù⁄0ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂ÁßtÂÔ;uÌu◊F¸kMûÒÆ[Û¶ü›Õ∂oVÙŸ∑w{›üsOyÂØ^ÌΩü›ˇ|˜G4€ª™ÁßqÌwÚ»Z€ûµé7◊Wiˆ˜Ò÷ú€W∏{W˝u›¯w~}oó\È∂˝Ûùz”áö€á∫wèÂœ;€FÏ¢Í‹y &ö+]Áw[yÌxÒ÷õÛV‹”^_ıØ<„o|{æxÎ~]ﬂ«Ï¢Í‹z⁄ﬁ{m5„ÆΩ{¶›ÒÁüog|€Æ4˜g˜i˝¸È«{„fü’º≠zÕyÎßØâ◊ßqÊÚµÎ6€›æ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5ﬂ÷ùö+myÿb≤⁄+ jz[.q«¨≤*'é 'z¯ùzw≤∂Á≠ùÔßúçZWwÎfΩyÔzÂ«öÛáºﬂg˚w›˘k_y›ˇqæu◊;˜wû{Æ[Â∫Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMwıßfä€^v¨∂äÚöá^ñÀúqÎ,äâÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÎW¯„}uq∆üoiÕµ{áµ◊]ﬂáwÁ÷˘uŒõoﬂ9◊≠8y≠∏{ßxÒﬁ\ÛΩ¥n«™πÈ‹{]˝≤∂ÁØzÔß˝f∑wó€ÁﬁΩŸÊı~<sŒµ·›˝’œ6È∑uso6”ΩxÛé{V∫„óöuÎ(∫∑râ¶ä÷ûk≠ﬁ◊«zwVõÁw¯{nıŸﬁ<›œ[~∫·ø]Á€(∫∑∂∑ûy˜ú∑4ÒΩ<€∑‹Ò∆˝’ﬁı„Ω5u˝˚„~ü·ÆÙo+^≥_:’Î‚uÈ‹yº≠zŒ8ÔßØâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMx—€´iπ^Ü+-¢º¨zWú∂*'n)›äx#≤âﬁæ'^ù«¨Ö≠πÎV˚Î^‹—∂∑oﬂ:ogª˜Ø6qÆΩÌÕù”o\w~˘„W∑Ôßπ„wx—˛6˜N„ü^⁄ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”^4vÍ⁄nW°äÀhØ+ïÁ-äâ€äwbû	ù¶∑ùy«¨≤äÏz	ûû€!knz˜Æ˙◊ˆkwy}æ}Î›ûoW˜„«<Î^ﬂ›\ÛnõwW6Ûm;◊è8·∑µkÆ9yß^±ÍÆzw◊ç,Ö≠πÈ˛}Ì9”áúÔW◊ÕπÒØ7”óÙ”vﬂ€Ü∫È≠8ÒΩ9Ò¶öwf∂yÆsé€ÈÁtz .≠«ú¢i¢µ˜˜qˇ=ÌÔ\Ág˜v€Èæ∫˜oÁN∑ŸÓ∏iﬂ‚ .≠«≠≠ÁúÛ≠9ﬂvıu◊üm⁄Á^úŸøÛMº„ó\◊}5yÆõ ◊¨◊ûtz¯ùzwo+^≥ç4ÈÎ‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”^5Ü+-¢º©¢Xú öË∂á(ï∏ßv)‡é 'z¯ùzw≤∂Á≠˘’«4„ù∫Ô∂µqΩ]yßxﬂæ˜—≠7sÆù}ø;Ò«x˜«ywn˝Ò≠7sWzÔÜıÎZZ∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMx÷¨∂äÚ¶âbs*k¢⁄¢V‚ùÿßÇgi≠Á^qÎ,¢ªÇgß∂»Z€ûü·∑ﬁ”ù8yŒıqÕ|€üÛ}9M7m˝∏kÆö”è”üißvkgö·«8ÌæûwG¨z´ûù«µ„[!knzwŒkéª”o[€^ü˜]¥ÛM5kèyıΩZ›ﬂÛΩ˙„›}Áæ<˜›π”g|ﬂæùu˛€≤ã´qÁ(öh≠·ﬁ|yØ4€é;◊áﬁ{ûz·˝ZÒæ8mÌı{~õﬂﬁ[≤ã´qÎkyÌ‹o≠›ÜöÌØ{mÕ[”á∏€ùﬂ€nﬂ∆˙k]€∆ÚµÎ6Îü^æ'^ù«õ ◊¨ﬂMπz¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊ç´z .≠«•äyÅËßrà'äÿ®û;(ùÎ‚uÈ‹z»Z€û∏◊π˜ó¸w~9◊o7y›\æ‹„~πﬂ}^Û◊[ÈÁ^wóÛû¯km|Ì≠Ω=}Øijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5„jﬁ≤ã´qÈbûF†z)‹¢	‚∂*'ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áß|·Ê∏ÎΩ6ıΩµÈˇu€O4”V∏˜ü[’≠›ÒÔ;ﬂÆ=◊ﬁ{„œ}€ù6wÕ˚È◊_Ìª™ÁßqÌx⁄»Z€ûúmΩZıÕûÂ˜ºÈŒuwÜª„wºwO6{«ﬁ€á7Á∂û”Wπ◊è€ﬂ{û‹·≠Œ,¢Í‹y &ö+xy¶˘—˝ﬂu˝vÂ˜ùı˛u{æ7{∂ºo∂ﬂoè|iÔl¢Í‹z⁄ﬁ{Œ5€∑˝m∂‹ŸˆªÎáyÕ6˜ÕxyŒ9È˝⁄›˝›—º≠zÕ∑ﬂwØâ◊ßqÊÚµÎ7Û≠ûæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5„w^ΩÈh¶gßµ©kz .≠«´y«¢¶ÿËäxÏ¢wØâ◊ßqÎ!knzmˆ◊áy—◊˙›Ó∑ÛØ9uÆ[Ôù[◊g6”ùõsW‹—ﬁùw≠ú{xi¶∂sávﬂo6•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊ç›z˜•¢ôûû÷•≠Î(∫∑≠Áäõc¢)ÊvöﬁuÁ≤ +±Ë&z{lÖ≠πÈ∆€’Ø\ŸÓ_{ŒúÁWxkæ7{«tÛgº}Ì∏s~{iÌ5{ùxÒÕΩÒ∑πÌŒ—◊¸‚«™πÈ‹{^7≤∂Áß\so[„G€ÛÆú’Á€f˝ÒØtk¶öVµi◊˙uŒuÔ«9€ß8ﬂæym≠”áû{{(∫∑râ¶ä◊˘Ûé:”o|◊∂¥ﬂç;^ú{O{Ìæ{”nÙ˜ûµkª(∫∑∂∑ûmΩwﬂ∑7uæyı˜4mßõÈÓ9uŒ;m˛üÌÓwOto+^≥_5’Î‚uÈ‹yº≠zÕıÁáØâ◊ßqÍZ∂(ÆO‹¢{-ÆÁ-äâˇz¯ùzwˇMx‚∑¨¢Í‹z«(≠Ê‚ùÿßÇ;(ùÎ‚uÈ‹z»Z€û∏q˜<uÊ˚oçüwNﬂΩZﬂû¥kŒwÁﬁ\”ø7Ì«ﬂ{∂‹„ﬁöÎÕsg<€]˜◊©jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5„äﬁ≤ã´qÎ¢∑õäwbû	ù¶∑ùy«¨≤äÏz	ûû€!knzu«6ıæ4}ø:ÈÕ^q›∂oﬂ˜F∫ißıkVùß\Á^¸sù∫sç˚Áñ⁄—Ì8yÁ∑±ÍÆzw◊é,Ö≠πÎ~¯Â≠ı}ﬁZÔü;w]^sÆ˚mﬁÁMùu∑v„◊⁄i÷õ}ß˚sóöÛ_:˜]ÙÂÆ6‚ .≠«ú¢i¢µÌ;Á^˚oøwkﬁz}˝møZu∑Èø5€w˘ﬁ7r .≠«≠≠Á∂iÓ;Á_{u∂ﬁ◊Wüı«7q«›}˛<›∑úÎç‹oNõ ◊¨€m˘z¯ùzwo+^≥~;’Î‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”^9¶∫ ≠Î,äâ·äÀhØ(ùz{b∑(Ï¢wØâ◊ßqÎ!knzÈˆΩs}|◊≠∫{ΩıÎó⁄ÔÕ˚ıÓ[sé^iøtÔûök∂ﬂwN∂·«ûu≠7ÔÜ€„MΩ•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊éiÆà+zÀ"¢xb≤⁄+ '^ûÿ≠ gi≠Á^qÎ,¢ªÇgß∂»Z€û∑ÔéZﬂW›ÂÆ˘Û∑u’Á:Ô∂›·ætŸ◊[wn=}¶ùi∑⁄∑9yØ5ÛØuﬂNZ„n,z´ûù«µ„õ!knzu˛}”]ﬂÔ∂üÂŒﬁo∑ﬁŸøtﬂn5◊æ{uŒ:Òæ5ÔçıyÔv{Nı’Áuo∑yu«_≤ã´qÁ(öh≠}ﬁﬁo∑ˆÂÊ∑ﬂœ4{∆‹Áæ¥Ô¶˚wû6„ù˘Òæ{≤ã´qÎkyÌ˙Ôá^s_6◊Ωª·ﬂ^◊v¯Ôûu˜Œ›ﬁΩ◊ók¶ÚµÎ5Ûﬂæ'^ù«õ ◊¨ﬂ≠{z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊éön∑¨¢Í‹z«(≠ÈbùÊ†z;(ùÎ‚uÈ‹z»Z€ûüy∑[ŸﬁﬁÛG˜Áçö◊]õ{ó[i∆‹kvˆmˇ—Œ[Ôû’›}ﬂM:Û}¸Î÷ªŸˇijÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5„¶õ≠Î(∫∑± +zXßy®ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áß_Á›5›˛˚i˛\ÌÊ˚}Ìõ˜Mˆ„]{Á∑\„Ø„^¯ﬂWû˜g¥Ô]^wV˚wó\u˚™ÁßqÌxÍ»Z€ûº·ø[›Æmø;s}ıy››ıæuÛ›ıﬂW˜˜÷¸k≠ﬂﬂáy„m;„W˝k›:k◊ÔW,¢Í‹y &ö+vÎ~ú˜]€€á\ÒÓ{›∆üÒøZiﬁ;€N›’ßi˜¨¢Í‹z⁄ﬁ{nz”ÆÙŸ˛€Á›wqæûoÕ∫›]ﬂou{^:wß¸}º≠zÕyÎwØâ◊ßqÊÚµÎ7◊éæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5„∂ùö+myÿb≤⁄+ jzZﬁ¶Vúzgß∂;(ùÎ‚uÈ‹z»Z€û¥Î∆˙›æ=›÷¥i◊˙Ì˜›Û≠˘’◊˚k¶Ωm«wﬂû8ÛO4mæª}«∏Áø{ÈŒ∂{Æ)jÿp¢π?râÏ∂ªú∂*'˛«†ôÈÌ≥˝5„∂ùö+myÿb≤⁄+ jzZﬁ¶Vúzgß∂gi≠Á^qÎ,¢ªÇgß∂»Z€ûº·ø[›Æmø;s}ıy››ıæuÛ›ıﬂW˜˜÷¸k≠ﬂﬂáy„m;„W˝k›:k◊ÔW,z´ûù«µ„ª!knzmß9w›8sçy≠]ﬂÆ¯wœo◊zﬂæ€Ÿ˛[ﬂ^ZmΩ_oç˘uÔ={ø]á›{ó≤ã´qÁ(öh≠qÓ‹ıˆ›Ôù˙›ÙÔv¯m›ü”NoW˝Ωö€~Ω≤ã´qÎkyÁ}˜∂∂Ûá∂s~zÛ¶˘˜m‹È˜8ﬂNÌΩªkœ5{vÚµÎ6€ùæ'^ù«õ ◊¨€ﬂ6z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊è-j…jh• ÀZÇ)‡Ö©›°˜„≤âﬁæ'^ù«¨Ö≠πÎ~z˜Õ˘m›_o_:◊Æ|w◊˝”o6u˝t˜æˆg˝Œº}≠kMÙ{◊]·œwÒÓõvñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”^<µ´$}©¢ó+-jßÇßváﬂô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Á¶⁄só}”á8—∑ö’›˙Ôá|Òˆ˝w≠˚ÌΩüÂΩıÂ¶€’ˆ¯ﬂó^Û◊ªı◊¯}◊πqÀ™ÁßqÌxÚ»Z€ûú{O]i«∫wøx—æywﬁÙÁG4ÌΩŸÓ8mﬁ∂mΩÙÎæÙ”^wè=ÁÕ5qˆ˝oŒ,¢Í‹y &ö+\ÁN¥ﬂ∑<mŒ|iÓ˝wN€Ô_7Èˇ[”Œ∏››∑}œ,¢Í‹z⁄ﬁ{w<oùt◊˙Ûo<o~o_{}ÔÎßºmºi◊[ıº≠zÕ¥ÎáØâ◊ßqÊÚµÎ6„ﬁæ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5„€Z≤G⁄ö)rvá-¢∫ky˘bÇc≤âﬁæ'^ù«¨Ö≠πÈﬂ\ÛØ;˜M∑˜^y◊]˜œw·Á¥ﬂWyı˝∂’≠∑€G}Î}uww¸sÆΩkØZ—∑]“ñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”^=µ´$}©¢ó'hr⁄+¶∑üñ(!∂gi≠Á^qÎ,¢ªÇgß∂»Z€ûú{O]i«∫wøx—æywﬁÙÁG4ÌΩŸÓ8mﬁ∂mΩÙÎæÙ”^wè=ÁÕ5qˆ˝oŒ,z´ûù«µ„€!knz◊á4›∂ﬂ◊◊9qÕ\·Õ6’ˇv{›_i∑x◊NºqÌx”Œ¥Áéﬁ„m›{~Ù˜∂˝Ò«|≤ã´qÁ(öh≠wms∆⁄}Ωz€è8á∫wNµ{›<o^:yﬁÎû˘≤ã´qÎkyÊıyŒ<Ÿœ]kΩ¸fû·«=oéü’Õ¥oowŸø\u∂ÚµÎ5˜üæ'^ù«õ ◊¨ﬂN˙z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊ù(n7ú∂+ﬁ≠Áäõ\¢Ài¢Àn≠ËÏ¢wØâ◊ßqÎ!knz€Mü◊≠ª˜÷ÙÂ¶ˆŸ∑ök~}€g}È≠¥ÔóﬁsŒõÛ◊_uﬁû›¶˙w¶ﬂkáúÂÕ{•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊ù(n7ú∂+ﬁ≠Áäõ\¢Ài¢Àn≠Èù¶∑ùy«¨≤äÏz	ûû€!knz◊á4›∂ﬂ◊◊9qÕ\·Õ6’ˇv{›_i∑x◊NºqÌx”Œ¥Áéﬁ„m›{~Ù˜∂˝Ò«|±ÍÆzw◊ù,Ö≠πÈﬁt’ˆ⁄˜èv€∂õkn’∑ıwçú◊œ=MΩ„∆ª„›Ω—˜€iÓ_mÁ5ﬂGû{ç^z .≠«ú¢i¢∑◊∂—ÕükfΩ”¶˚o_˜∑˚˜Wˆ}ßZiÌ\›ÓÍ .≠«≠≠Á¥”◊◊^;iÌo∆∫Ûá˝ı≠‹Áw6„W˜›˛ı◊M ◊¨€m˜z¯ùzwo+^≥~˜ÂÎ‚uÈ‹zñ≠á
++ì˜(ûÀkπÀb¢ﬁæ'^ù«ø”^uµ´$± +zXßy®é 'z¯ùzw≤∂Á¶ªıŒπ„óﬁ·«qﬁ^ÈÓ6◊∑}◊OyØ8sM;qÕZmøtsﬁ¯iΩ9s÷¥ÌŒ∂{∫Z∂(ÆO‹¢{-ÆÁ-äâˇ±Ë&z{lˇMy÷÷¨í«(≠ÈbùÊ†zgi≠Á^qÎ,¢ªÇgß∂»Z€ûùÁM_mØx˜mªi∂∂·Õ[WxŸÕ|Û◊Ù€ﬁ<kæ=€›}∂ûÂˆﬁs]ÙyÁ∏’Á¨z´ûù«µÁ[!knzq˜{f∫„~v◊ΩΩÁ÷πÁguÒ˜Ì˛ΩÁ^˜€ßùﬁü·˝9oûö—ß˜kw››x≤ã´qÁ(öh≠ıØ5€n€m˝⁄ÈﬂÛá¯swπÁvªw≠ú◊≠ı˜∂›≤ã´qÎkyÓzq∑€yÌwÔo\Ô~ù◊}˜›ˆ}Ω∑„m{„g˘Â∂ÚµÎ5Ûﬂæ'^ù«õ ◊¨€Œ˙z¯ùzw•´a¬ä‰˝ '≤⁄Órÿ®ü˜Øâ◊ßqÔÙ◊ùüjh• ¨∂äÚöá^ñÀúqÎ,äâ„≤âﬁæ'^ù«¨Ö≠πÎó8Á«;Î∑qæ˘◊n4qß∏ı≠˚ÔM7ÛŒts›˝◊çx_yÈßˆﬂﬁ˜kçökÆüzñ≠á
++ì˜(ûÀkπÀb¢Ïz	ûû€?”^v}©¢ó(b≤⁄+ jz[.q«¨≤*'ô⁄ky◊úzÀ(Æ«†ôÈÌ≤∂Áßq∑∂kÆ7Ám{€ﬁ}kûvw_qæﬂÎﬁuÔ}∫y◊˝È˛”ñ˘È≠v∑q˝›◊ã™ÁßqÌy⁄»Z€ûüoM=Â≠}◊›˝Ò˜ykó˜≠ﬂÔMªsgú·Ô<ﬂZœ{›ﬁtÜˆﬂÆzsΩwy÷Ï¢Í‹y &ö+{Áó‹ÛO8ÌÁ]Î^4Ûè_kfûÆ›Ø}”v∫uÓ¨¢Í‹z⁄ﬁyø_wN|·∑úmÓˆ{çˆs~¥kn⁄„m›Œ6mﬁ[’º≠zÕ}ﬂ∑Øâ◊ßqÊÚµÎ6€~^æ'^ù«©jÿp¢π?râÏ∂ªú∂*'˝Î‚uÈ‹{˝5Áy®uÈkzôZqÈûû€¢∑°äÀhØ(Ï¢wØâ◊ßqÎ!knzÈ˜=oßÂΩ<’∂∫Èœ◊V˝’˝º˜^^yˆ€€nöoWwÛ›z›œŸ≠ú››˙kè7•´a¬ä‰˝ '≤⁄Órÿ®ü˚Çgß∂œÙ◊ùÊ°◊•≠Íei«¶z{lräﬁÜ+-¢º¶vöﬁuÁ≤ +±Ë&z{lÖ≠πÈˆÙ”ﬁZ◊›}ﬂﬂwñπqˇz›˛Ù€∑6yŒÛ«˝ıß¸˜Ω›ÁG¯om˙Áß;◊wùn«™πÈ‹{^w≤∂Á≠Ω›≠¸„çö”GúsØ9€Æ\ÈÕª˜ﬁ∫Èß}”«ªwæ‹€÷˙Û◊}ÁÕ7uÊösgyyª(∫∑râ¶ä›ÁVúÎæ€·≠€”æ€smöÌ›Ùq«uŒ⁄ÛΩ’´(∫∑∂∑ûk~v€G‹s∑{„≠õ}÷úŸΩx€}ﬂÁ~xÈÓÙß≤ã´qÊú™Ë¨äÿ®ùº≠zÕ¯ﬂ™Z∂(ÆOÏ¢Í‹yß*∫+"∂*'€M∫◊Mvé '≤∂Á¶€ÔMÙÛ«5”ß{Ø^ﬂ∂∫Ûg6iÁΩ{ßµÁûı˜«öı˝x„n[˜›ª{›πÔNﬂ◊KﬁÆ'‚y⁄ﬁöã^râ¶äﬁ[˜O7sø]˜Nwﬂ∂û˜Æ€Âﬁ;ÎgqÁ∂€ß_”kﬁÆ'‚y⁄ﬁöã^∂∑û◊wuΩıkç8Î_\∂ùÔó⁄u∆¸qΩ⁄Œ<ißz¬ä‰≤ñúz∑ú¢w"ñ&≠äâÈjÿp¢π?¬ä‰≤ñúz∑ú¢w"ñ&≠äâˆ”nµ”]úÌ˛˚◊òÏ¢{!knz€w]Èﬁv◊∑ùﬂV∏uÌ˜Œöo∆ÙÛ«}~uøtÈ∆‹sﬁ¥{\„Øv€ç∂”VˆΩÍ‚~'ù≠È®µÁ(öh≠s∑˚Ô^zsW¯◊Ωõ{F˝€}˙kéπÂ∑ûsm˘◊ÜúΩÍ‚~'ù≠È®µÎkyÌ—Æª◊û7sœ„Œsntmœ{ﬂóvqÌtmˇ\iÏ(ÆK)i«´y 'r)bjÿ®û¨∂äÚ•´a¬ä‰ˇ
++í ZqÍﬁrâ‹äXö∂*'€M∫◊MvÈ∂¥wßc≤âÏÖ≠πÎOÔÕ¥yﬂ{€Ø[}Ω^Ûü9ÒﬁqÕ5Ìß6ﬂg:◊≠˜Îg^„çûsm_Ûß∂˜vΩ÷˜´â¯ûv∑¶¢◊ú¢i¢∑¶⁄—ﬁùÁﬂÎ_\€áuØyÔGü’Œ˝Ò˜˚sé9÷˜´â¯ûv∑¶¢◊≠≠Áõ◊«˚{çûÒ˝ÒœÁ∑˙yÔtm∑ÈÁ6k≠∑ŸÁ
