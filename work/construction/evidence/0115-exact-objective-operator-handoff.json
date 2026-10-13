@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "source_commit": "ced99339a345181f1d357f32f84e160ef7e87f4c",
+  "source_tree": "7c85facbfeec967cfd1bb47d016ceac581349ae5",
+  "parent_commit": "0348c10a511c8ca0b72d138c67c79a8c4b9504ab",
+  "parent_tree": "338c4b0f5ed992b0428613a20cbbca03677e5eb2",
+  "changed_files": {
+    "docs/development/resident_developmental_cognition.md": {
+      "git_blob": "3eb56e870afc6a458abfe9a6e8a7266132bebff7",
+      "sha256": "98a564d786c1fa161365ccffaeab4af927f57bf2ef574a6ce7cf927fdc699528"
+    }
+  },
+  "validation": {
+    "cli_help": {
+      "doctor_resident_objective_experiment": "passed",
+      "stage_resident_objective_intervention": "passed",
+      "inspect_resident_objective_result": "passed"
+    },
+    "actual_doctor": {
+      "exit_code": 2,
+      "status": "preflight_blocked",
+      "trial_execution_ready": false,
+      "artifact_reason": "git_lfs_pointer_not_model_payload",
+      "history_status": "awaiting_eligible_history",
+      "authority_effects_all_false": true,
+      "temporary_state_mutation": "only supplied config file remained"
+    },
+    "local_artifact_inventory": {
+      "tracked_gguf_count": 5,
+      "all_127_byte_lfs_pointers": true
+    },
+    "local_backend_availability": {
+      "llama_cpp": false,
+      "transformers": false
+    },
+    "actual_model_loaded": false,
+    "production_verified": false,
+    "remote_readback": "pending checkpoint",
+    "hosted_checks": "not queried"
+  },
+  "boundaries": {
+    "daemon_started": false,
+    "request_staged": false,
+    "serving_activated": false,
+    "inference_admission_requested": false
+  }
+}

@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Last independently verified implementation commit `9edc22313e6f111f3f82773f5f1479fba989fc0f`, tree `674cfdce1ccc9aab2c50b352ea978c6dc0bf6200`. Sequence 114 distinguishes a task-specific contamination review that was not performed from an empty list of review findings, while retaining historical compatibility.
+Last independently verified implementation commit `ced99339a345181f1d357f32f84e160ef7e87f4c`, tree `7c85facbfeec967cfd1bb47d016ceac581349ae5`. Sequence 115 documents and checks the exact operator handoff; the actual local preflight returns a blocked result because local model artifacts are LFS pointers and eligible history is unavailable.
 
-Latest segment: `work/construction/segments/0114-distinguish-contamination-unknown.md`
-SHA-256: `803a38d1bc93fd6c39255f151d7a643077b64a4449115118c2d0b5eb0e4f3450`
-Evidence: `work/construction/evidence/0114-distinguish-contamination-unknown.json`
-Evidence SHA-256: `37cfdf02367e3c2b1dbd5dd06cbf9bd6dcc343b473abc9673eba252cd9754608`
-Sequence: 114
+Latest segment: `work/construction/segments/0115-exact-objective-operator-handoff.md`
+SHA-256: `2bbdd7aa3436b8a4125e9bf1ddd243551bf418dab0be63c4a8176d3790cef9d5`
+Evidence: `work/construction/evidence/0115-exact-objective-operator-handoff.json`
+Evidence SHA-256: `b7f0b1d92d9a897f0c069e4f17cbb86df038f704a416683565184acdbed641ef`
+Sequence: 115
 
-Focused acceptance: 113 passed; 0 failed; 0 skipped. Changed Python compiled. No real model or production behavior was exercised.
+CLI help passed for readiness, staging, and result inspection. Explicit read-only preflight was blocked by the 127-byte LFS pointer and empty eligible-history fixture. No daemon or model was activated. Earlier focused construction tests remain 113 passed; current changes are documentation and read-only inspection only.
 
-Next dependency: verify the read-only readiness, staging, daemon-consumption, and result-inspection operator chain against current CLI interfaces, then reconcile the Windows/WSL write boundary without weakening custody.
+Next dependency: external authenticated model payload/runtime, eligible history, and existing authorized serving/inference evidence on a supported host. External Windows/CUDA readiness remains unknown; no real-model transfer experiment has occurred.
