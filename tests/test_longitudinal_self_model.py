@@ -194,6 +194,28 @@ def test_equal_current_and_historical_values_keep_separate_categories(tmp_path: 
         if claim.predicate == "lifecycle.observation.disposition")
 
 
+def test_value_conflict_retains_current_and_historical_source_categories(tmp_path: Path) -> None:
+    current = record(source="runtime:current-conflict", subject="software-generation",
+        disposition="running")
+    current["subject_kind"] = "observed_running_software_generation"
+    historical = record(source="runtime:historical-conflict", subject="software-generation",
+        disposition="stopped")
+    historical.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "observed_running_software_generation"})
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(current, historical), tick_id="tick-conflicting-temporal-support")
+    claims = [claim for claim in result.claims
+        if claim.predicate == "lifecycle.observation.disposition"]
+    assert {(claim.value, claim.claim_category, claim.status, claim.source_evidence_ids)
+        for claim in claims} == {
+            ("running", "current_state", "contradicted", ("runtime:current-conflict",)),
+            ("stopped", "historical_interpretation", "contradicted",
+                ("runtime:historical-conflict",)),
+        }
+    assert all(claim.contradiction_state == "contradicted" for claim in claims)
+    assert all(claim.current_truth is False for claim in claims)
+
+
 def test_generation_and_model_transition_preserves_historical_claims(tmp_path: Path) -> None:
     owner = LongitudinalSelfModelOwner(tmp_path)
     first = owner.reconcile(snapshot(record(model="model-a", generation="software-a")), tick_id="tick-a")

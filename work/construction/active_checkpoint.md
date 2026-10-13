@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `0875133bb896cd78c3efbd6483e7cceca50fd254`, tree `5de3332642332c03569ed2a448aa76ab6a49b75d`. Sequence 94 keeps equal-valued current and historical support in separate provenance claims, without input-order category selection or false contradiction. Focused self-model modules passed 30 tests; production remains unverified.
+Last independently verified remote baseline `d0f25ec954e97cf4d40262ac5747069be9af1135`, tree `dec93abac28a7bae6f09cbea7d7c5274c787a631`. Sequence 95 proves conflicting current and historical dispositions retain separate values, source identities, and categories, with contradiction state on both and no latest-wins. Focused longitudinal suite passed 27 tests; production remains unverified.
 
-Latest segment: work/construction/segments/0094-preserve-current-and-historical-support.md
-SHA-256: 349c261dc6b504754f6f5718bc47a0af8c1a781017713ec3b8c773e474b0df92
-Sequence: 94
+Latest segment: work/construction/segments/0095-mixed-category-value-conflict.md
+SHA-256: 07987c7fa74dfa0390c57aa612d590642896e0b7fa3098bba19856b11bbd8e73
+Sequence: 95
 
-Loaded-code identity remains `not_independently_attested`. Real model execution remains blocked by absent payload, commissioning identity, and exact time-bounded approval; no model was loaded or invoked.
+Loaded-code identity remains `not_independently_attested`; actual model execution remains blocked by missing local payload, commissioned identity, and exact operator approval.
 
-Next: review value conflicts across current and historical source categories; preserve both source categories and contradiction state without latest-wins.
+Next: examine transition from mixed-category contradiction to later unambiguous evidence; preserve successor status and historical source attribution.

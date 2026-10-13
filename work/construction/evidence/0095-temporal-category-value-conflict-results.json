@@ -1,0 +1,20 @@
+{
+  "failed": 0,
+  "finding": "conflicting current and historical values remain separately attributable and both carry contradiction state without latest-wins.",
+  "focused_modules": [
+    "tests/test_longitudinal_self_model.py"
+  ],
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 4240,
+    "path": "work/construction/evidence/0095-temporal-category-value-conflict-junit.xml",
+    "sha256": "b97468ba41e166c18283a6749f8295e58ac23b1219ae46a2d06d04e21cb34d45"
+  },
+  "passed": 27,
+  "python_compilation": "passed",
+  "sequence": 95,
+  "skipped": 0,
+  "source_baseline_commit": "d0f25ec954e97cf4d40262ac5747069be9af1135",
+  "source_baseline_tree": "dec93abac28a7bae6f09cbea7d7c5274c787a631",
+  "status": "construction_tested_unverified_for_production"
+}
