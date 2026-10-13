@@ -3473,8 +3473,13 @@ class ResidentDevelopmentalCognitionOwner:
                     selected.append(record_id)
                     selected_set.add(record_id)
             if probe_set:
-                # Preserve checkpoint order after choosing the best bounded set.
-                ids = [record_id for record_id in ids if record_id in selected_set]
+                # The prompt binder admits a complete suffix as capacity shrinks.
+                # Order the selected set from least to most relevant so that
+                # every smaller suffix keeps the best probe-overlap records;
+                # checkpoint order remains the stable tie-breaker.
+                ids = sorted((record_id for record_id in ids
+                    if record_id in selected_set), key=lambda record_id: (
+                        relevance.get(record_id, -1), ids.index(record_id)))
             else:
                 # Keep the established family-only order for legacy callers.
                 ids = list(reversed(selected))
