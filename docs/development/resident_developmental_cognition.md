@@ -258,7 +258,8 @@ python scripts/doctor_resident_objective_experiment.py \
   --config <resident-cognition-config.json> \
   --serving-config <resident-model-serving-config.json> \
   --model-path <selected-model.gguf> \
-  --allowed-root <narrow-model-root>
+  --allowed-root <narrow-model-root> \
+  --task-family-id <source-backed-family>
 
 python scripts/stage_resident_objective_intervention.py \
   --config <resident-cognition-config.json> \
@@ -286,6 +287,12 @@ the same request return the same measurement digest and cannot replay inference.
 The result's separate inference flag describes only whether the three
 historical invocation receipts independently reconcile to completed
 nonsynthetic local-model inference.
+
+When `--task-family-id` is supplied, the doctor uses the same read-only
+completed-tick and verified-writeback selector as staging and reports the
+matching admitted record IDs and digests. A generic valid history record no
+longer makes a family-specific preflight appear ready. This is still a custody
+check, not a claim that the selected observation is true, useful, or learned.
 
 For a transfer task that must consume a matching admitted source outcome, pass
 both `--task-family-id` and `--require-task-family-history`. The family is an

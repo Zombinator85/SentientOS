@@ -19,6 +19,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sentientos.local_model_commissioning import inspect_artifact
+from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
 from sentientos.installation_state import (
     InstallationIdentity, InstallationStateError, InstallationStateRegistry,
 )
@@ -29,6 +30,7 @@ from sentientos.resident_cognitive_model_serving import (
 from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError,
     load_config as load_cognition_config,
+    inspect_checkpointed_history_record_refs,
 )
 from sentientos.codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
@@ -36,6 +38,14 @@ from sentientos.codex_task_authority_admission import (
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionVerifier
 from sentientos.platform_fcntl import FLOCK_SUPPORTED
+
+
+def _task_family_argument(value: str) -> str:
+    try:
+        ObjectivePredictionTask(1, 0, 0, (1,), task_family_id=value).specification()
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    return value
 
 
 def _custody_status(os_name: str, primitives: dict[str, bool]) -> str:
@@ -58,6 +68,8 @@ def _next_operator_actions(findings: dict[str, Any], status: str) -> list[str]:
     history = findings.get("developmental_history", {})
     if history.get("status") == "awaiting_eligible_history":
         actions.append("Wait for an ordinary configured cognition tick to consume a real allowed World-State task/outcome fact; do not seed or hand-edit history.")
+    elif history.get("status") == "awaiting_matching_task_family_history":
+        actions.append("Wait for an ordinary configured cognition tick to admit a source observation in the selected task family; do not seed or hand-edit history.")
     elif history.get("status") == "invalid_custody":
         actions.append("Inspect the reported history custody reason; use only the existing owner recovery path for an interrupted write, and do not hand-edit records or receipts.")
     serving = findings.get("serving_installation", {})
@@ -137,9 +149,13 @@ def inspect_host_runtime() -> dict[str, Any]:
 
 
 def inspect_readiness(config_path: Path, model_path: Path,
-                      allowed_root: Path, *, serving_config_path: Path | None = None,
+                      allowed_root: Path, *, task_family_id: str | None = None,
+                      serving_config_path: Path | None = None,
                       installation_registry: InstallationStateRegistry | None = None
                       ) -> dict[str, Any]:
+    if task_family_id is not None:
+        ObjectivePredictionTask(1, 0, 0, (1,),
+            task_family_id=task_family_id).specification()
     host_runtime = inspect_host_runtime()
     findings: dict[str, Any] = {
         "schema_version": "sentientos.resident_objective_experiment_readiness:v1",
@@ -147,6 +163,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
         "source_contracts": {
             "resident_configuration": "sentientos.resident_developmental_cognition_config",
             "history_custody": "ResidentDevelopmentalWritebackController.inspect_completed_records",
+            "task_family_eligibility": "inspect_checkpointed_history_record_refs",
             "artifact_inspection": "sentientos.local_model_commissioning.inspect_artifact",
             "serving_installation": "InstallationStateRegistry.open_read_only",
         },
@@ -191,13 +208,33 @@ def inspect_readiness(config_path: Path, model_path: Path,
                 current_sequence=ledger.current_sequence)
             recovered = writeback.inspect_completed_records()
             records = tuple(record for record, _receipt in recovered)
-            history_status = "eligible_history_present" if records else "awaiting_eligible_history"
+            task_family_refs: tuple[tuple[str, str], ...] | None = None
+            if task_family_id is not None:
+                try:
+                    task_family_refs = inspect_checkpointed_history_record_refs(
+                        config.state_root / "composition_state.json", writeback=writeback,
+                        limit=config.max_retrieved_records,
+                        required_task_family_id=task_family_id)
+                except ResidentDevelopmentalCognitionError as exc:
+                    if str(exc) != "checkpointed_history_relevant_experience_missing":
+                        raise
+                    task_family_refs = ()
+            history_status = (
+                "matching_task_family_history_present" if task_family_refs
+                else "awaiting_matching_task_family_history" if task_family_refs is not None
+                else "eligible_history_present" if records else "awaiting_eligible_history")
             findings["findings"]["developmental_history"] = {
                 "status": history_status, "verified_record_count": len(records),
                 "maximum_reported_records": min(len(records), config.max_retrieved_records),
+                "task_family_id": task_family_id,
+                **({"matching_task_family_record_ids": [item[0] for item in task_family_refs],
+                    "matching_task_family_record_digests": [item[1] for item in task_family_refs]}
+                    if task_family_refs is not None else {}),
                 "admission_validation": "verified_read_only",
                 "runtime_recovery_validation": "verified_read_only_no_repair",
-                "reason_code": None if records else "no_verified_developmental_history_records",
+                "reason_code": (None if (task_family_refs if task_family_refs is not None else records)
+                    else "no_verified_matching_task_family_records" if task_family_refs is not None
+                    else "no_verified_developmental_history_records"),
             }
         except Exception as exc:
             findings["findings"]["developmental_history"] = {
@@ -290,7 +327,8 @@ def inspect_readiness(config_path: Path, model_path: Path,
     observed = findings["findings"]
     config_ready = observed.get("resident_configuration", {}).get("status") == "enabled"
     history_ready = observed.get("developmental_history", {}).get("status") == \
-        "eligible_history_present"
+        ("matching_task_family_history_present" if task_family_id is not None
+            else "eligible_history_present")
     artifact_ready = observed.get("explicit_model_artifact", {}).get("status") == "verified_local_candidate"
     platform_ready = observed["request_custody_platform"]["status"] == "required_primitives_available"
     installation_ready = observed.get("serving_installation", {}).get("status") == \
@@ -317,8 +355,12 @@ def main() -> int:
         help="explicit root authorized for the selected artifact")
     parser.add_argument("--serving-config", type=Path,
         help="explicit serving config used to validate the installation identity/root")
+    parser.add_argument("--task-family-id",
+        type=_task_family_argument,
+        help="optional exact operator-declared family whose admitted record must be eligible")
     args = parser.parse_args()
     result = inspect_readiness(args.config, args.model_path, args.allowed_root,
+        task_family_id=args.task_family_id,
         serving_config_path=args.serving_config)
     print(json.dumps(result, sort_keys=True, ensure_ascii=False))
     return 0 if result["status"] == "ready_for_operator_review" else 2
