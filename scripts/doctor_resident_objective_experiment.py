@@ -30,8 +30,11 @@ from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionError,
     load_config as load_cognition_config,
 )
-from sentientos.resident_developmental_writeback import DevelopmentalHistoryStore
-from sentientos.resident_developmental_writeback import WritebackReceipt, _identity
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
+)
+from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionVerifier
 from sentientos.platform_fcntl import FLOCK_SUPPORTED
 
 
@@ -41,43 +44,6 @@ def _custody_status(os_name: str, primitives: dict[str, bool]) -> str:
     if all(primitives.values()):
         return "required_posix_primitives_available_filesystem_unverified"
     return "required_posix_primitive_missing"
-
-
-def _receipt_linked_history(store: DevelopmentalHistoryStore) -> tuple[Any, ...]:
-    """Read records and receipts without repairing an interrupted publication.
-
-    A content-valid record alone is not evidence that its separate writeback
-    receipt reached durable custody. The cognition owner can recover that
-    publication, but this preflight must remain read-only and must not predict
-    that recovery will succeed.
-    """
-    records = store.records()
-    receipts = store.receipts()
-    records_by_id = {record.record_id: record for record in records}
-    if len(records_by_id) != len(records):
-        raise ValueError("durable_record_identity_collision")
-    receipts_by_record: dict[str, Any] = {}
-    for receipt in receipts:
-        record = records_by_id.get(receipt.record_id)
-        if record is None:
-            raise ValueError("durable_receipt_orphaned")
-        candidate_id = record.candidate.get("candidate_id")
-        candidate_digest = record.candidate.get("candidate_digest")
-        if not isinstance(candidate_id, str) or not isinstance(candidate_digest, str):
-            raise ValueError("durable_receipt_candidate_identity_invalid")
-        expected = WritebackReceipt("", "", record.record_id, record.record_digest,
-            candidate_id, candidate_digest, record.admission_id,
-            record.admission_binding_digest, record.principal, record.operation_id, True)
-        receipt_id, receipt_digest = _identity("devreceipt", expected.semantic_payload())
-        expected = WritebackReceipt(receipt_id, receipt_digest, record.record_id,
-            record.record_digest, candidate_id, candidate_digest, record.admission_id,
-            record.admission_binding_digest, record.principal, record.operation_id, True)
-        if receipt != expected or record.record_id in receipts_by_record:
-            raise ValueError("durable_receipt_record_lineage_mismatch")
-        receipts_by_record[record.record_id] = receipt
-    if records and len(receipts_by_record) != len(records):
-        raise ValueError("durable_history_receipt_recovery_required")
-    return records
 
 
 def inspect_host_runtime() -> dict[str, Any]:
@@ -153,7 +119,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
         "readiness_scope": "read_only_preflight_not_execution_readiness",
         "source_contracts": {
             "resident_configuration": "sentientos.resident_developmental_cognition_config",
-            "history_custody": "DevelopmentalHistoryStore.records",
+            "history_custody": "ResidentDevelopmentalWritebackController.inspect_completed_records",
             "artifact_inspection": "sentientos.local_model_commissioning.inspect_artifact",
             "serving_installation": "InstallationStateRegistry.open_read_only",
         },
@@ -184,14 +150,22 @@ def inspect_readiness(config_path: Path, model_path: Path,
         if not config.enabled or not config.comparison_enabled:
             findings["findings"]["resident_configuration"]["reason_code"] = "history_comparison_not_enabled"
         try:
-            records = _receipt_linked_history(DevelopmentalHistoryStore(config.history_root))
-            history_status = ("record_receipt_linked_admission_not_revalidated"
-                if records else "awaiting_eligible_history")
+            ledger = AdmissionLedger(config.state_root / "runtime_admissions.json")
+            definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK:
+                RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+            writeback = ResidentDevelopmentalWritebackController(
+                history_root=config.history_root,
+                admission_verifier=RuntimeAdmissionVerifier(
+                    definitions=definitions, ledger=ledger),
+                current_sequence=ledger.current_sequence)
+            recovered = writeback.inspect_completed_records()
+            records = tuple(record for record, _receipt in recovered)
+            history_status = "eligible_history_present" if records else "awaiting_eligible_history"
             findings["findings"]["developmental_history"] = {
                 "status": history_status, "verified_record_count": len(records),
                 "maximum_reported_records": min(len(records), config.max_retrieved_records),
-                "admission_validation": "not_performed_by_read_only_preflight",
-                "runtime_recovery_validation": "not_performed_by_read_only_preflight",
+                "admission_validation": "verified_read_only",
+                "runtime_recovery_validation": "verified_read_only_no_repair",
                 "reason_code": None if records else "no_verified_developmental_history_records",
             }
         except Exception as exc:
@@ -274,7 +248,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
     observed = findings["findings"]
     config_ready = observed.get("resident_configuration", {}).get("status") == "enabled"
     history_ready = observed.get("developmental_history", {}).get("status") == \
-        "record_receipt_linked_admission_not_revalidated"
+        "eligible_history_present"
     artifact_ready = observed.get("explicit_model_artifact", {}).get("status") == "verified_local_candidate"
     platform_ready = observed["request_custody_platform"]["status"] == "required_primitives_available"
     installation_ready = observed.get("serving_installation", {}).get("status") == \

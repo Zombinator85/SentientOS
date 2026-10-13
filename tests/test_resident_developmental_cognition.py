@@ -9,6 +9,7 @@ from pathlib import Path
 from collections.abc import Iterator
 
 import pytest
+import scripts.doctor_resident_objective_experiment as readiness
 
 from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
 from sentientos.developmental_history_intervention_experiment import (
@@ -37,6 +38,8 @@ from sentientos.resident_developmental_cognition import (
 from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
 )
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.resident_cognitive_model_serving import CONFIG_SCHEMA as SERVING_CONFIG_SCHEMA
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.runtime_governor import reset_runtime_governor
 from sentientos.federated_governance import reset_controller as reset_federated_governance
@@ -1001,7 +1004,7 @@ def test_missing_final_score_keeps_interrupted_trial_unfinalized(tmp_path: Path,
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
           allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
           max_selected_facts: int = 1, objective_task=None):
-    ledger = AdmissionLedger(root / "state" / "admissions.json")
+    ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
         admissions, _ = ledger.load(); return max((a.issued_sequence for a in admissions), default=1)
@@ -2082,6 +2085,78 @@ def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path
     assert [r.purpose for r in fake.requests] == ["resident_developmental_interpretation"]
     assert composition.writeback.store.get(result.written_record_id).current_truth is False
     assert composition.writeback.store.get_receipt(result.writeback_receipt_id).storage_verified
+    inspected = composition.writeback.inspect_completed_records()
+    assert [(record.record_id, receipt.receipt_id) for record, receipt in inspected] == [
+        (result.written_record_id, result.writeback_receipt_id)]
+
+
+def test_read_only_recovery_inspection_never_repairs_missing_writeback_receipt(
+        tmp_path: Path) -> None:
+    composition, _ = owner(tmp_path)
+    result = composition.run_tick(snapshot=snapshot(), tick_id="inspection-receipt-gap")
+    receipt_path = (composition.writeback.store.receipts_root
+        / f"{result.writeback_receipt_id}.json")
+    original = receipt_path.read_bytes()
+    receipt_path.unlink()
+
+    with pytest.raises(DevelopmentalWritebackError,
+            match="durable_writeback_receipt_missing"):
+        composition.writeback.inspect_completed_records()
+
+    assert not receipt_path.exists()
+    assert composition.writeback.store.get(result.written_record_id).record_digest
+    assert original
+
+
+def test_readiness_accepts_history_after_actual_owner_admission_recovery_check(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "resident"
+    composition, _ = owner(root, comparison=True)
+    written = composition.run_tick(snapshot=snapshot(), tick_id="preflight-history")
+
+    config_path = tmp_path / "cognition.json"
+    config_path.write_text(json.dumps({
+        "schema": CONFIG_SCHEMA,
+        "enabled": True,
+        "history_root": str(root / "history"),
+        "state_root": str(root / "state"),
+        "allowed_source_kinds": ["capability_registry"],
+        "max_selected_facts": 1,
+        "max_retrieved_records": 4,
+        "comparison_enabled": True,
+    }))
+    models = tmp_path / "models"
+    models.mkdir()
+    model_path = models / "selected.gguf"
+    model_path.write_bytes(b"fixture artifact; never loaded")
+    serving_path = tmp_path / "serving.json"
+    identity = InstallationIdentity("install-readiness")
+    registry = InstallationStateRegistry._for_testing(tmp_path / "install-state")
+    registry.state_root_for(identity).mkdir(parents=True)
+    serving_path.write_text(json.dumps({
+        "schema_version": SERVING_CONFIG_SCHEMA,
+        "enabled": True,
+        "installation_identity": identity.value,
+        "serving_operation_id": "readiness-fixture",
+        "expected_activation_state_digest": "a" * 64,
+    }))
+    monkeypatch.setattr(readiness, "inspect_artifact", lambda *args, **kwargs: {
+        "artifact_size_bytes": 123, "model_content_sha256": "a" * 64,
+        "semantic_artifact_identity": "sha256:" + "b" * 64,
+        "configuration_digest": "sha256:" + "c" * 64,
+        "llama_cpp_dependency_available": True,
+    })
+
+    report = readiness.inspect_readiness(config_path, model_path, models,
+        serving_config_path=serving_path, installation_registry=registry)
+
+    assert written.written_record_id
+    assert report["status"] == "ready_for_operator_review"
+    assert report["findings"]["developmental_history"]["status"] == "eligible_history_present"
+    assert report["findings"]["developmental_history"]["admission_validation"] == "verified_read_only"
+    assert report["findings"]["developmental_history"]["runtime_recovery_validation"] == \
+        "verified_read_only_no_repair"
+    assert report["trial_execution_ready"] is False
 
 
 def test_restart_recovers_writeback_committed_before_composition_checkpoint(tmp_path: Path) -> None:

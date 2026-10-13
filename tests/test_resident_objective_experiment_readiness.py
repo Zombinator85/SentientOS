@@ -154,13 +154,11 @@ def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
     report = readiness.inspect_readiness(config, tmp_path / "selected.gguf", tmp_path,
         serving_config_path=serving_path, installation_registry=registry)
 
-    assert report["status"] == "ready_for_operator_review"
+    assert report["status"] == "preflight_blocked"
     assert report["trial_execution_ready"] is False
-    assert report["findings"]["developmental_history"]["verified_record_count"] == 1
-    assert report["findings"]["developmental_history"]["status"] == \
-        "record_receipt_linked_admission_not_revalidated"
-    assert report["findings"]["developmental_history"]["admission_validation"] == \
-        "not_performed_by_read_only_preflight"
+    assert report["findings"]["developmental_history"]["status"] == "invalid_custody"
+    assert "durable_candidate_reconstruction_failed" in \
+        report["findings"]["developmental_history"]["reason_code"]
     assert report["findings"]["explicit_model_artifact"]["identity_scope"] == \
         "operator_selected_file_not_resident_loaded_model"
     assert report["findings"]["serving_installation"]["status"] == \
@@ -168,7 +166,7 @@ def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
     assert report["findings"]["serving_installation"]["active_session_status"] == "not_observed"
 
 
-def test_readiness_does_not_treat_unreceipted_record_as_eligible(tmp_path: Path,
+def test_readiness_does_not_treat_incomplete_candidate_as_eligible(tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "runtime"
     root.mkdir()
@@ -189,7 +187,7 @@ def test_readiness_does_not_treat_unreceipted_record_as_eligible(tmp_path: Path,
 
     history = report["findings"]["developmental_history"]
     assert history["status"] == "invalid_custody"
-    assert history["reason_code"] == "durable_history_receipt_recovery_required"
+    assert history["reason_code"] == "durable_candidate_reconstruction_failed"
     assert report["status"] == "preflight_blocked"
     assert not list((root / "history" / "receipts").glob("*.json"))
 

@@ -1895,12 +1895,21 @@ class ResidentDevelopmentalWritebackController:
             # inventory snapshot and repair with append's operation-id lookup so
             # restart reconciliation cannot race an authorized append.
             with self._operation_lock():
-                return self._recover_completed_records_locked()
+                return self._recover_completed_records_locked(repair_missing_receipts=True)
         # Windows recovery remains read-only; the POSIX writer lock is unavailable.
-        return self._recover_completed_records_locked()
+        return self._recover_completed_records_locked(repair_missing_receipts=False)
+
+    def inspect_completed_records(self) -> tuple[tuple[DevelopmentalRecord, WritebackReceipt], ...]:
+        """Revalidate durable history/admission lineage without repair or locking writes.
+
+        This read-only inventory may observe a concurrent publication halfway
+        through its record/receipt pair and fail closed. It never creates a
+        lockfile, reconstructs a receipt, or changes authority state.
+        """
+        return self._recover_completed_records_locked(repair_missing_receipts=False)
 
     def _recover_completed_records_locked(
-        self,
+        self, *, repair_missing_receipts: bool,
     ) -> tuple[tuple[DevelopmentalRecord, WritebackReceipt], ...]:
         """Verify durable records and restore only their deterministic receipt metadata."""
         durable_records = self.store.records()
@@ -2075,7 +2084,19 @@ class ResidentDevelopmentalWritebackController:
                 candidate.candidate_id, candidate.candidate_digest, record.admission_id,
                 record.admission_binding_digest, record.principal, record.operation_id, True)
             receipt_id, receipt_digest = _identity("devreceipt", raw.semantic_payload())
-            receipt = self.store.write_receipt(replace(raw, receipt_id=receipt_id, receipt_digest=receipt_digest))
+            expected_receipt = replace(raw, receipt_id=receipt_id, receipt_digest=receipt_digest)
+            if repair_missing_receipts:
+                receipt = self.store.write_receipt(expected_receipt)
+            else:
+                try:
+                    receipt = self.store.get_receipt(receipt_id)
+                except DevelopmentalWritebackError as exc:
+                    if str(exc) == "stored_payload_missing":
+                        raise DevelopmentalWritebackError(
+                            "durable_writeback_receipt_missing") from exc
+                    raise
+                if receipt != expected_receipt:
+                    raise DevelopmentalWritebackError("durable_receipt_record_lineage_mismatch")
             recovered.append((record, receipt))
         return tuple(recovered)
 

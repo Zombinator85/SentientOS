@@ -174,16 +174,16 @@ python scripts/doctor_resident_objective_experiment.py \
   --allowed-root <narrow-authorized-model-root>
 ```
 
-The doctor reads the configured developmental-history collection through its
-existing verifier and requires each stored record to have its matching durable
-writeback receipt. It does not repair a missing receipt: an interrupted
-record/receipt publication is reported as invalid or unavailable until the
-existing cognition owner performs its normal recovery. A receipt-linked record
-is reported separately from fully eligible history because the doctor does not
-revalidate the recorded runtime admission or run the full developmental
-recovery path. The daemon still enforces those checks before retrieval or
-writeback. The preflight does not prove that a later task will retrieve the
-record. It also checks the selected artifact through
+The doctor validates the bounded developmental-history records, candidate
+lineage, exact writeback receipts, and recorded runtime admissions through the
+existing writeback recovery verifier in read-only mode. It never creates an
+admission authority or repairs a missing receipt; an interrupted
+record/receipt publication is reported as unavailable until the normal
+cognition recovery path reconciles it. If a concurrent writer publishes while
+the inspection runs, the bounded snapshot may be reported incomplete and can
+be inspected again. This check confirms recovery eligibility at inspection
+time, not that a later task will retrieve the record. It also checks the
+selected artifact through
 `local_model_commissioning.inspect_artifact`; it never searches model roots.
 It also reports the current Python executable/version, operating-system and
 architecture identifiers, whether the `llama_cpp` package is discoverable, and
