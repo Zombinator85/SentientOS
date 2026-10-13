@@ -553,6 +553,90 @@ print(json.dumps(score["score"], sort_keys=True))
     assert len(fake.requests) == invocations
 
 
+def test_final_score_checkpoints_recover_run_after_precommit_interruption(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeInvoker()
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    seeded = cognition.run_tick(snapshot=snapshot(), tick_id="final-score-recovery-seed")
+    assert seeded.written_record_id
+
+    def interrupt_after_all_scores(_payload):
+        raise OSError("fixture interruption after final score checkpoint")
+
+    monkeypatch.setattr(cognition.experiments, "persist_run", interrupt_after_all_scores)
+    with pytest.raises(OSError, match="final score checkpoint"):
+        cognition.run_tick(snapshot=snapshot(), tick_id="final-score-recovery-trial")
+    request_count = len(fake.requests)
+    score_files = list((tmp_path / "state" / "developmental_experiments" / "protocols").glob(
+        "objective-score-*.json"))
+    assert len(score_files) == 3
+
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    refs = restarted.recovered_objective_experiment_run_refs()
+    assert len(refs) == 1
+    run_id, run_digest = refs[0]
+    run = restarted.experiments.load_run(run_id)
+    assert run["run_digest"] == run_digest
+    assert run["objective_evaluation"]["history_accuracy_delta"] == 1
+    assert run["objective_evaluation"]["restoration_correctness_stable"] is True
+    assert len(run["objective_scores"]) == 3
+    projected = restarted.experiments.world_state_records(run_refs=refs)
+    assert len(projected) == 1
+    assert projected[0]["payload"]["objective_evaluation"] == run["objective_evaluation"]
+    assert "output_text" not in json.dumps(projected)
+    assert len(fake.requests) == request_count
+
+    state = restarted._state()
+    intent = next(row for row in state["incomplete_ticks"]
+        if row.get("tick_id") == "final-score-recovery-trial")
+    assert intent["status"] == "interrupted_recovered"
+    assert intent["experiment_recovery_posture"] == (
+        "complete_scored_run_recovered_without_inference_replay")
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(), tick_id="final-score-recovery-trial")
+    assert len(fake.requests) == request_count
+
+
+def test_missing_final_score_keeps_interrupted_trial_unfinalized(tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeInvoker()
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    cognition.run_tick(snapshot=snapshot(), tick_id="missing-score-recovery-seed")
+    persist_score = cognition.experiments.persist_objective_condition_score
+
+    def interrupt_before_restored_score(protocol, plan, *, condition_id, observation, receipt):
+        if condition_id == "history_restored":
+            raise OSError("fixture interruption before final score checkpoint")
+        return persist_score(protocol, plan, condition_id=condition_id,
+            observation=observation, receipt=receipt)
+
+    monkeypatch.setattr(cognition.experiments, "persist_objective_condition_score",
+        interrupt_before_restored_score)
+    with pytest.raises(OSError, match="final score checkpoint"):
+        cognition.run_tick(snapshot=snapshot(), tick_id="missing-score-recovery-trial")
+    request_count = len(fake.requests)
+    protocols = list((tmp_path / "state" / "developmental_experiments" / "protocols").glob(
+        "devexp-protocol-*.json"))
+    assert len(protocols) == 1
+
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    assert restarted.recovered_objective_experiment_run_refs() == ()
+    incomplete = next(row for row in restarted._state()["incomplete_ticks"]
+        if row.get("tick_id") == "missing-score-recovery-trial")
+    assert incomplete["status"] == "interrupted_recovered"
+    assert "recovered_experiment_run_id" not in incomplete
+    assert len(fake.requests) == request_count
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(), tick_id="missing-score-recovery-trial")
+    assert len(fake.requests) == request_count
+
+
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
           allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
           max_selected_facts: int = 1, objective_task=None):

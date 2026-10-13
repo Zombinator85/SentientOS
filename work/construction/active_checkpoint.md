@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `ebe0d33ca7050ae0ab54ee144d426a5d4c65a02a`, tree `4d6c87bd055d45f0c9ecc9794c65cf04e7022cc9`. Sequence 97 preserves direct historical-successor links across three or more reconciliations while retaining stale-evidence withdrawal. Focused longitudinal and later-cognition suites passed 34 tests; production remains unverified.
+Last independently verified remote baseline `cce384313f81b0745bdfd47c8c9d948dfdd90ebf`, tree `fce3a67ff4f39ad31594f8b44e1583e4d6ab075a`. Sequence 98 recovers a fully score-checkpointed interrupted history intervention as a verified, source-selectable run without repeating inference; missing score custody remains incomplete. Three affected modules passed 101 focused tests. Mypy remains unverified due repository import/config diagnostics; production remains unverified.
 
-Latest segment: work/construction/segments/0097-preserve-terminal-successions.md
-SHA-256: 25d40696b0eb149d54eced6d6053fe5b263c263a22d4e3e536e56f653e0f57af
-Sequence: 97
+Latest segment: work/construction/segments/0098-recover-checkpointed-objective-run.md
+SHA-256: 8ea34f9560f1f742e9227159ee5c765a497e05add4c6b9ce90eaea727ded0111
+Sequence: 98
 
-Loaded-code identity remains `not_independently_attested`; actual model execution remains blocked by missing local payload, commissioned identity, and exact operator approval.
+Actual model execution remains blocked by missing local payload, commissioned identity, independent serving admission, and exact operator approval. Loaded-code identity remains `not_independently_attested`.
 
-Next: verify partial objective-score recovery remains incomplete without replay, including missing-condition classification after a fresh owner starts.
+Next: inspect the runtime-generation observation boundary against launcher and installation source owners, then continue to the next concrete causal integration gap.

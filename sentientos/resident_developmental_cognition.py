@@ -24,6 +24,7 @@ from .governed_local_model_invocation import (
 )
 from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
+    CONDITION_ORDER,
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
     OBJECTIVE_SCHEMA, make_protocol, summarize,
     summarize_objective_task,
@@ -1312,6 +1313,8 @@ class ResidentDevelopmentalCognitionOwner:
             self._recovered_record_order(item[0], completed_order=completed_order,
                 recovery_intent_order=recovery_intent_order)))
         recovered_observations = self._recover_observation_ticks(include_records=True)
+        if self._recover_interrupted_objective_runs(state, recovered_observations):
+            changed = True
         for record, receipt in recovered:
             self._verify_recovered_cognition_candidate(record, recovered_observations)
             candidate = record.candidate
@@ -1366,6 +1369,127 @@ class ResidentDevelopmentalCognitionOwner:
         if changed:
             self._save_state(state)
         return state
+
+    def _recover_interrupted_objective_runs(self, state: dict[str, Any],
+            observations: Mapping[str, Mapping[str, Any]]) -> bool:
+        """Finalize only fully receipted objective runs; never resume inference."""
+        changed = False
+        for intent in state["incomplete_ticks"]:
+            protocol_id = intent.get("objective_protocol_id")
+            if protocol_id is None:
+                continue
+            if (not isinstance(protocol_id, str)
+                    or intent.get("status") != "interrupted_recovered"):
+                raise ResidentDevelopmentalCognitionError(
+                    "interrupted_objective_protocol_intent_invalid")
+            try:
+                protocol = self.experiments.load_protocol(protocol_id)
+                plan = self.experiments.verify_objective_task_plan(protocol)
+            except DevelopmentalHistoryInterventionError as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "interrupted_objective_protocol_recovery_failed") from exc
+            if protocol.schema_version != OBJECTIVE_SCHEMA:
+                raise ResidentDevelopmentalCognitionError(
+                    "interrupted_objective_protocol_schema_mismatch")
+            if (plan.get("plan_digest") != intent.get("objective_task_plan_digest")
+                    or protocol.snapshot_id != intent.get("snapshot_id")
+                    or protocol.snapshot_digest != intent.get("snapshot_digest")):
+                raise ResidentDevelopmentalCognitionError(
+                    "interrupted_objective_intent_binding_mismatch")
+            by_condition: dict[str, Mapping[str, Any]] = {}
+            for observation in observations.values():
+                if observation.get("tick_id") != intent.get("tick_id"):
+                    continue
+                condition = observation.get("condition_id")
+                if condition not in CONDITION_ORDER:
+                    continue
+                if condition in by_condition:
+                    raise ResidentDevelopmentalCognitionError(
+                        "interrupted_objective_condition_conflict")
+                by_condition[str(condition)] = observation
+            if set(by_condition) != set(CONDITION_ORDER):
+                continue
+
+            observation_values: list[ResidentCognitionObservation] = []
+            score_values: list[dict[str, Any]] = []
+            missing_checkpoint = False
+            tuple_fields = ("current_fact_ids", "retrieved_record_ids", "retrieved_record_digests",
+                "self_model_claim_ids", "self_model_claim_digests", "epistemic_proposition_ids",
+                "epistemic_state_ids", "epistemic_state_digests", "epistemic_generations",
+                "epistemic_evidence_set_digests", "epistemic_consumed_packet_ids",
+                "epistemic_consumed_packet_digests", "epistemic_omitted_packets")
+            for condition in CONDITION_ORDER:
+                raw = by_condition[condition]
+                value = dict(raw)
+                for field in tuple_fields:
+                    if field in value:
+                        value[field] = tuple(value[field])
+                try:
+                    observation_values.append(ResidentCognitionObservation(**value))
+                    checkpoint = self.experiments.load_objective_condition_score(
+                        protocol, condition_id=condition, observation=raw)
+                except DevelopmentalHistoryInterventionError as exc:
+                    if str(exc) == "objective_condition_score_missing":
+                        missing_checkpoint = True
+                        break
+                    raise ResidentDevelopmentalCognitionError(
+                        "interrupted_objective_score_recovery_failed") from exc
+                except (TypeError, ValueError) as exc:
+                    raise ResidentDevelopmentalCognitionError(
+                        "interrupted_objective_observation_invalid") from exc
+                score_values.append({"condition_id": condition,
+                    "inference_receipt_id": raw["inference_receipt_id"],
+                    "inference_receipt_digest": raw["inference_receipt_digest"],
+                    "invocation_output_digest": raw["output_digest"],
+                    "score": dict(checkpoint["score"])})
+            if missing_checkpoint:
+                continue
+            try:
+                summary = summarize(protocol, observation_values)
+                evaluation = summarize_objective_task(plan, score_values)
+                run_payload = {"protocol": asdict(protocol),
+                    "conditions": [asdict(value) for value in observation_values],
+                    "summary": summary, "validity": "valid_controlled_observation",
+                    "contamination_reasons": [], "objective_scores": score_values,
+                    "objective_evaluation": evaluation}
+                run_id = self.experiments.persist_run(run_payload)
+                run = self.experiments.load_run(run_id)
+            except (DevelopmentalHistoryInterventionError, TypeError, ValueError) as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "interrupted_objective_run_recovery_failed") from exc
+            recovered_fields = {
+                "recovered_experiment_run_id": run_id,
+                "recovered_experiment_run_digest": str(run["run_digest"]),
+                "experiment_recovery_posture":
+                    "complete_scored_run_recovered_without_inference_replay",
+            }
+            if any(intent.get(key) != value for key, value in recovered_fields.items()):
+                intent.update(recovered_fields)
+                changed = True
+        return changed
+
+    def recovered_objective_experiment_run_refs(self) -> tuple[tuple[str, str], ...]:
+        """Return explicitly selectable recovered run identities after validation."""
+        state = self._state()
+        refs: list[tuple[str, str]] = []
+        for intent in state["incomplete_ticks"]:
+            run_id = intent.get("recovered_experiment_run_id")
+            run_digest = intent.get("recovered_experiment_run_digest")
+            if run_id is None and run_digest is None:
+                continue
+            if not isinstance(run_id, str) or not isinstance(run_digest, str):
+                raise ResidentDevelopmentalCognitionError(
+                    "recovered_objective_run_reference_invalid")
+            try:
+                run = self.experiments.load_run(run_id)
+            except DevelopmentalHistoryInterventionError as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "recovered_objective_run_reference_invalid") from exc
+            if run.get("run_digest") != run_digest:
+                raise ResidentDevelopmentalCognitionError(
+                    "recovered_objective_run_reference_conflict")
+            refs.append((run_id, run_digest))
+        return tuple(refs)
 
     def _verify_observation_invocation(self, observation: Mapping[str, Any]) -> None:
         """Reconcile a session-bound cognition row to its exact governed receipt."""
@@ -2660,6 +2784,15 @@ class ResidentDevelopmentalCognitionOwner:
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 objective_plan = (self.experiments.persist_objective_task_plan(
                     protocol, self.objective_task) if self.objective_task is not None else None)
+                if objective_plan is not None:
+                    intent = next((row for row in state["incomplete_ticks"]
+                        if row.get("tick_id") == tick_id), None)
+                    if intent is None:
+                        raise ResidentDevelopmentalCognitionError(
+                            "objective_experiment_tick_intent_missing")
+                    intent["objective_protocol_id"] = protocol.protocol_id
+                    intent["objective_task_plan_digest"] = objective_plan["plan_digest"]
+                    self._save_state(state)
                 present = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id, projection=prior,
                     with_history=True, condition_id="history_present", purpose=EXPERIMENT_PURPOSE, protocol=protocol,
                     prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,

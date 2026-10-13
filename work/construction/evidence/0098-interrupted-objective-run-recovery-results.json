@@ -1,0 +1,27 @@
+{
+  "errors": 0,
+  "failed": 0,
+  "finding": "Complete objective-score checkpoints now finalize an interrupted, receipt-verified trial without inference replay; missing checkpoints remain incomplete.",
+  "focused_modules": [
+    "tests/test_resident_developmental_cognition.py",
+    "tests/test_developmental_history_intervention_experiment.py",
+    "tests/test_developmental_objective_scoring.py"
+  ],
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 16593,
+    "path": "work/construction/evidence/0098-interrupted-objective-run-recovery-junit.xml",
+    "sha256": "5e703bc6deea964eb5d88696066c454971028c716ffbec9d4ff29e82094ff20e"
+  },
+  "new_recovery_helper_mypy_diagnostics": 0,
+  "passed": 101,
+  "python_compilation": "passed",
+  "sequence": 98,
+  "skipped": 0,
+  "source_baseline_commit": "cce384313f81b0745bdfd47c8c9d948dfdd90ebf",
+  "source_baseline_tree": "fce3a67ff4f39ad31594f8b44e1583e4d6ab075a",
+  "status": "construction_tested_unverified_for_production",
+  "targeted_mypy": "not_clean_repository_import_diagnostics",
+  "targeted_mypy_checked_files": 144,
+  "targeted_mypy_diagnostics": 1092
+}
