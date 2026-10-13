@@ -437,10 +437,13 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
             if isinstance(payload, Mapping) else None)
         if (isinstance(source, Mapping) and source.get("kind") == "resource_governor"
                 and isinstance(subject, Mapping)
-                and subject.get("subject_kind") == "causal_resource_consumption"
+                and subject.get("subject_kind") in {
+                    "causal_resource_consumption", "strategy_invocation_resource_lineage",
+                    "model_replacement_invocation_resource_lineage",
+                    "developmental_history_invocation_resource_lineage"}
                 and isinstance(payload, Mapping)
                 and payload.get("current_truth") is False and payload.get("authority") is False
-                and payload.get("effect_proven") is False
+                and fact.get("effect_proven") is False
                 and isinstance(projection, Mapping)
                 and projection.get("schema_version")
                     == "sentientos.resource_interpretation_projection:v1"):
@@ -732,7 +735,8 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
         return dict(fact)
     if subject.get("subject_kind") in {
             "strategy_invocation_resource_lineage",
-            "model_replacement_invocation_resource_lineage"}:
+            "model_replacement_invocation_resource_lineage",
+            "developmental_history_invocation_resource_lineage"}:
         # Joined attribution records can carry a sizeable frozen-history
         # context. The writeback request has a smaller independent byte bound,
         # so retain exact causal identities and a digest of the unabridged
@@ -763,6 +767,7 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                 context["history_record_digests_omitted"] = omitted_history_digest_count
         compact_linkage = {key: linkage.get(key) for key in (
             "request_id", "request_digest", "purpose", "model_id", "model_artifact_digest",
+            "invocation_authority_map_digest",
             "allocation_digest", "attempt_id", "consumption_receipt_digests",
             "linkage_digest", "effect_receipt_id", "effect_receipt_digest") if key in linkage}
         receipt_digests = compact_linkage.get("consumption_receipt_digests")
@@ -809,6 +814,19 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
             "current_truth": False, "authority": False,
             "lineage_projection_posture": projection_posture,
         }
+        for key in ("developmental_history_run_id", "developmental_history_run_digest",
+                "developmental_history_source_record_id",
+                "developmental_history_source_record_digest",
+                "developmental_history_condition", "developmental_history_observation_id",
+                "developmental_history_observation_digest", "developmental_history_protocol_id",
+                "developmental_history_protocol_digest", "task_family_id", "active_model_identity",
+                "resource_measurement_posture"):
+            if key in original:
+                summary[key] = original[key]
+        if "resource_consumption_evidence" in original:
+            evidence = original.get("resource_consumption_evidence")
+            summary["resource_consumption_evidence"] = (list(evidence[:2])
+                if isinstance(evidence, (list, tuple)) else [])
         projection_binding = {"schema_version": "sentientos.resource_interpretation_projection:v1",
             "source_fact_id": str(fact.get("fact_id", "")),
             "source_payload_digest": digest(dict(original)),

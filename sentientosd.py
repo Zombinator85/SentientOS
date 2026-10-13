@@ -1907,6 +1907,7 @@ class RuntimeMaintenanceSurfaces:
                 if subject_kind == "causal_resource_consumption": return 0
                 if subject_kind in {"strategy_invocation_resource_lineage",
                         "model_replacement_invocation_resource_lineage",
+                        "developmental_history_invocation_resource_lineage",
                         "resource_invocation_lineage_retention"}: return 1
             if (source_kind == WorldStateSourceKind.RUNTIME_SUPERVISOR.value
                     and subject_kind == "resident_parent_lifecycle_history"):

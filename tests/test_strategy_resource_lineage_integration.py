@@ -28,6 +28,7 @@ from sentientos.host_resource_runtime import (
     resource_invocation_proposal_lineage_records,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.world_state_board import record_digest
 from sentientos.production_chat_resource_provisioning import load_production_chat_resource_context_owner
 from sentientos.production_chat_resource_provisioning_bundle_producer import (
     produce_production_chat_resource_provisioning_bundle,
@@ -76,8 +77,8 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
     monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path / "repo"))
     monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "trust"))
     monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "trust" / "state.json"))
-    installation, provisioning_inputs = inputs(tmp_path, calls=3)
-    bounds = GovernedLocalModelResourceBounds(8192, 8192, 32, 5.0, 3)
+    installation, provisioning_inputs = inputs(tmp_path, calls=4)
+    bounds = GovernedLocalModelResourceBounds(8192, 8192, 32, 5.0, 4)
     policy = GovernedLocalModelResourcePolicy.create(
         epoch=1,
         max_resource_specific_bounds=bounds,
@@ -91,7 +92,8 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
     produce_production_chat_resource_provisioning_bundle(
         installation, "strategy-lineage", **provisioning_inputs
     )
-    nonce_values = iter(("strategy-attempt-1", "strategy-attempt-2", "strategy-attempt-3"))
+    nonce_values = iter(("strategy-attempt-1", "strategy-attempt-2", "strategy-attempt-3",
+        "developmental-history-attempt"))
     resource_owner = load_production_chat_resource_context_owner(
         installation,
         "strategy-lineage",
@@ -203,7 +205,7 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
     )
     assert result["experiment_completion_posture"] == "completed", result
     assert model.calls == 3
-    assert resource_owner.allocator.ledger.remaining_calls(resource_owner.allocation.allocation_id) == 0
+    assert resource_owner.allocator.ledger.remaining_calls(resource_owner.allocation.allocation_id) == 1
 
     evidence_owner = ConsequenceStore(tmp_path / "strategy-evidence")
     experiment_records = evidence_owner.world_state_records(
@@ -234,6 +236,118 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
     assert len(incomplete) == 3
     assert all(row["disposition"] == "degraded" for row in incomplete)
     assert all("resource_invocation_projection_missing_or_ambiguous" in row["payload"]["lineage_findings"] for row in incomplete)
+
+    # A further governed local call supplies genuine resource custody for the
+    # developmental-history join. The surrounding run row is only a bounded
+    # source-record fixture; this does not claim a real developmental episode.
+    developmental_request = invoker.build_request(
+        purpose="resident_developmental_history_intervention_experiment",
+        prompt='{"condition":"history_present","task_family_id":"fixture-affine"}',
+        caller="controlled-developmental-resource-join-fixture",
+        correlation_id="fixture-developmental-resource-join",
+        lifecycle_phase="runtime", expected_output_format="json", budget=budget,
+        upstream_evidence={"fixture_scope": "resource-join-contract-only"},
+        linkage={"experiment_condition": "history_present",
+            "experiment_protocol_id": "fixture-protocol"})
+    developmental_receipt = invoker.invoke(developmental_request, persist=True,
+        include_output_in_receipt=False, resource_context=resource_owner.next_context())
+    assert developmental_receipt.status == "admitted_completed"
+    developmental_value = developmental_receipt.to_dict()
+    condition = {
+        "condition_id": "history_present", "observation_id": "fixture-observation",
+        "observation_digest": "fixture-observation-digest",
+        "output_digest": developmental_receipt.output_digest,
+        "request_id": developmental_receipt.request["request_id"],
+        "request_digest": developmental_receipt.request["request_digest"],
+        "inference_receipt_id": developmental_receipt.receipt_id,
+        "inference_receipt_digest": developmental_receipt.receipt_digest,
+        "model_id": developmental_request.model_id,
+        "model_artifact_digest": developmental_request.model_artifact_digest,
+        "authority_map_digest": developmental_request.authority_map_digest,
+        "active_model_identity": {}, "retrieved_record_ids": [],
+        "retrieved_record_digests": [], "serving_session_id": None,
+        "observed_at": developmental_receipt.observed_at,
+        "resource_allocation_digest": developmental_receipt.resource_allocation_digest,
+        "resource_attempt_id": developmental_receipt.resource_attempt_id,
+        "resource_consumption_receipt_digests": list(
+            developmental_receipt.resource_consumption_receipt_digests),
+        "resource_linkage_digest": developmental_receipt.resource_linkage_digest,
+    }
+    developmental_payload = {
+        "run_id": "fixture-developmental-resource-run",
+        "run_digest": "fixture-run-digest",
+        "protocol_id": "fixture-protocol", "protocol_digest": "fixture-protocol-digest",
+        "history_record_ids": [], "history_record_digests": [],
+        "model_id": developmental_request.model_id,
+        "model_artifact_digest": developmental_request.model_artifact_digest,
+        "active_model_identity": {}, "authority_map_digest": developmental_request.authority_map_digest,
+        "conditions": [condition],
+        "objective_task_descriptor": {"task_family_id": "fixture-affine"},
+    }
+    developmental_record = {"source_kind": "embodiment",
+        "source_id": "fixture-developmental-run", "subject_id": "fixture-developmental-resource-run",
+        "subject_kind": "developmental_history_intervention_experiment",
+        "stage": "observation", "disposition": "fixture_only",
+        "payload": developmental_payload}
+    developmental_record["digest"] = record_digest(developmental_record)
+    all_resource_records = resource_consumption_world_state_records(
+        ledger=resource_owner.allocator.ledger,
+        invocation_receipts=[*invocations, developmental_value])
+    developmental_join = resource_invocation_proposal_lineage_records(
+        [*all_resource_records, developmental_record])
+    [history_lineage] = [row for row in developmental_join
+        if row["subject_kind"] == "developmental_history_invocation_resource_lineage"]
+    assert history_lineage["disposition"] == "verified", history_lineage["payload"]["lineage_findings"]
+    assert history_lineage["payload"]["task_family_id"] == "fixture-affine"
+    assert history_lineage["payload"]["resource_measurement_posture"] == "verified_ledger_receipt_values"
+    measurement_rows = history_lineage["payload"]["resource_consumption_evidence"]
+    assert len(measurement_rows) == 2
+    assert all(row["measured_values"]["call_units_consumed"] == 1
+        for row in measurement_rows)
+    assert all(row["measurement_posture"]["token_count"] == "unknown"
+        and row["measurement_posture"]["shared_host_cpu_gpu"]
+            == "unknown_without_independent_observation" for row in measurement_rows)
+
+    # The attributed source is consumable by the existing World-State and
+    # developmental writeback owners; the interpreting model remains a test
+    # fixture, and its lesson remains separately admitted historical context.
+    from sentientos.world_state_board import WorldStateBoardBuilder
+    from tests.test_resident_developmental_cognition import owner as cognition_owner
+    board = WorldStateBoardBuilder().build([history_lineage])
+    cognition, fixture_model = cognition_owner(tmp_path / "cognition",
+        allowed_source_kinds=("resource_governor",), max_selected_facts=16)
+    cognition_result = cognition.run_tick(snapshot=board,
+        tick_id="resource-lineage-developmental-interpretation")
+    assert cognition_result.written_record_id
+    admitted = cognition.writeback.store.get(cognition_result.written_record_id)
+    assert any(fact["subject"]["subject_kind"]
+            == "developmental_history_invocation_resource_lineage"
+        and fact["payload"]["resource_measurement_posture"] == "verified_ledger_receipt_values"
+        for fact in admitted.candidate["selected_facts"])
+    assert fixture_model.requests
+
+    substituted = json.loads(json.dumps(developmental_record))
+    substituted["payload"]["conditions"][0]["resource_attempt_id"] = "substituted-attempt"
+    substituted["digest"] = record_digest(substituted)
+    degraded = resource_invocation_proposal_lineage_records(
+        [*all_resource_records, substituted])
+    degraded_history = next(row for row in degraded
+        if row["subject_kind"] == "developmental_history_invocation_resource_lineage")
+    assert degraded_history["disposition"] == "degraded"
+    assert "resource_invocation_linkage_substitution" in degraded_history["payload"]["lineage_findings"]
+    assert degraded_history["payload"]["resource_measurement_posture"] == \
+        "unknown_unverified_or_missing_lineage"
+    partial = json.loads(json.dumps(developmental_record))
+    partial["payload"]["conditions"][0]["resource_linkage_digest"] = None
+    partial["digest"] = record_digest(partial)
+    incomplete_linkage = resource_invocation_proposal_lineage_records(
+        [*all_resource_records, partial])
+    partial_history = next(row for row in incomplete_linkage
+        if row["subject_kind"] == "developmental_history_invocation_resource_lineage")
+    assert partial_history["disposition"] == "degraded"
+    assert "resource_invocation_linkage_substitution" in partial_history["payload"]["lineage_findings"]
+    assert partial_history["payload"]["resource_consumption_evidence"] == []
+    assert resource_owner.allocator.ledger.remaining_calls(resource_owner.allocation.allocation_id) == 0
     resource_owner.close()
     serving.close()
     fixture_patch.undo()

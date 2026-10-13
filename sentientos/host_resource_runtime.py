@@ -538,6 +538,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         "resource_allocation_digest": invocation.get("resource_allocation_digest"),
         "resource_attempt_id": invocation.get("resource_attempt_id"),
         "resource_consumption_receipt_digests": invocation.get("resource_consumption_receipt_digests"),
+        "resource_linkage_digest": invocation.get("resource_linkage_digest"),
         "chat_process_handoff_digest": (
             generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {})
                 .get("chat_process_handoff", {}).get("handoff_digest")
@@ -1387,6 +1388,84 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         if item.get("source_kind") == "embodiment"
         and item.get("subject_kind") == "embodied_strategy_proposal"]
     model_replacement_candidates: dict[str, dict[str, Any]] = {}
+    developmental_history_candidates: dict[str, dict[str, Any]] = {}
+    for run in records:
+        if (run.get("source_kind") != "embodiment"
+                or run.get("subject_kind") != "developmental_history_intervention_experiment"
+                or not isinstance(run.get("payload"), Mapping)):
+            continue
+        run_payload = run["payload"]
+        conditions = run_payload.get("conditions", ())
+        if not isinstance(conditions, (list, tuple)) or len(conditions) > 3:
+            continue
+        task_descriptor = run_payload.get("objective_task_descriptor")
+        task_family_id = (task_descriptor.get("task_family_id")
+            if isinstance(task_descriptor, Mapping) else None)
+        for condition in conditions:
+            if not isinstance(condition, Mapping):
+                continue
+            resource_linkage_digest = condition.get("resource_linkage_digest")
+            if not any(condition.get(key) for key in (
+                    "resource_allocation_digest", "resource_attempt_id",
+                    "resource_consumption_receipt_digests", "resource_linkage_digest")):
+                continue
+            candidate_findings: list[str] = []
+            if run.get("digest") != record_digest(run):
+                candidate_findings.append("developmental_experiment_source_binding_invalid")
+            consumption = condition.get("resource_consumption_receipt_digests")
+            if not isinstance(consumption, (list, tuple)):
+                candidate_findings.append("developmental_experiment_resource_linkage_shape_invalid")
+                consumption = ()
+            observation_id = str(condition.get("observation_id") or "")
+            request_context = {"experiment_condition": condition.get("condition_id"),
+                "experiment_protocol_id": run_payload.get("protocol_id"),
+                "history_record_ids": list(run_payload.get("history_record_ids") or ()),
+                "history_record_digests": list(run_payload.get("history_record_digests") or ()),
+                "history_withheld": condition.get("condition_id") == "history_withheld",
+                "task_family_id": task_family_id}
+            history_linkage: dict[str, Any] = {
+                "posture": "invocation_receipt_bound_ledger_corroboration_not_performed",
+                "request_id": condition.get("request_id"),
+                "request_digest": condition.get("request_digest"),
+                "purpose": "resident_developmental_history_intervention_experiment",
+                "model_id": condition.get("model_id") or run_payload.get("model_id"),
+                "cognitive_model_id": run_payload.get("model_id"),
+                "invocation_authority_map_digest": condition.get("authority_map_digest"),
+                "model_artifact_digest": condition.get("model_artifact_digest")
+                    or run_payload.get("model_artifact_digest"),
+                "allocation_digest": condition.get("resource_allocation_digest"),
+                "attempt_id": condition.get("resource_attempt_id"),
+                "consumption_receipt_digests": list(consumption),
+                "linkage_digest": resource_linkage_digest,
+                "effect_receipt_id": condition.get("inference_receipt_id"),
+                "effect_receipt_digest": condition.get("inference_receipt_digest")}
+            history_candidate_payload: dict[str, Any] = {
+                "resource_linkage": history_linkage,
+                "invocation_request_context_linkage": request_context,
+                "invocation_receipt_id": history_linkage["effect_receipt_id"],
+                "invocation_receipt_digest": history_linkage["effect_receipt_digest"],
+                "active_model_identity_digest": (digest(condition["active_model_identity"])
+                    if isinstance(condition.get("active_model_identity"), Mapping) else None),
+                "_lineage_findings": candidate_findings,
+                "_developmental_history_run_id": run_payload.get("run_id"),
+                "_developmental_history_run_digest": run_payload.get("run_digest"),
+                "_developmental_history_source_record_id": run.get("source_id"),
+                "_developmental_history_source_record_digest": run.get("digest"),
+                "_developmental_history_condition": condition.get("condition_id"),
+                "_developmental_history_observation_id": observation_id,
+                "_developmental_history_observation_digest": condition.get("observation_digest"),
+                "_developmental_history_protocol_id": run_payload.get("protocol_id"),
+                "_developmental_history_protocol_digest": run_payload.get("protocol_digest"),
+                "_developmental_history_task_family_id": task_family_id,
+                "_developmental_history_model_identity": condition.get("active_model_identity")}
+            synthetic: dict[str, Any] = {"source_kind": "embodiment",
+                "source_id": "developmental-history-invocation-candidate:" + observation_id,
+                "subject_id": observation_id,
+                "subject_kind": "developmental_history_intervention_experiment",
+                "payload": history_candidate_payload}
+            synthetic["digest"] = record_digest(synthetic)
+            developmental_history_candidates[str(synthetic["source_id"])] = synthetic["payload"]
+            proposal_rows.append(synthetic)
     if include_model_replacement:
         for run in records:
             if (run.get("source_kind") != "embodiment"
@@ -1553,7 +1632,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                             != linkage.get("invocation_authority_map_digest"))
                     or invocation_row.get("resource_allocation_digest") != linkage.get("allocation_digest")
                     or invocation_row.get("resource_attempt_id") != linkage.get("attempt_id")
-                    or tuple(invocation_row.get("resource_consumption_receipt_digests") or ()) != expected_receipts):
+                    or tuple(invocation_row.get("resource_consumption_receipt_digests") or ()) != expected_receipts
+                    or invocation_row.get("resource_linkage_digest") != linkage.get("linkage_digest")):
                 findings.append("resource_invocation_linkage_substitution")
             if (resource_payload.get("lineage_posture") != "verified"
                     or resource_payload.get("recovery_posture") != "reconciled_or_restored"
@@ -1587,6 +1667,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
 
         semantic_linkage = {key: linkage.get(key) for key in (
             "request_id", "request_digest", "purpose", "model_id", "model_artifact_digest",
+            "invocation_authority_map_digest",
             "allocation_digest", "attempt_id", "consumption_receipt_digests", "linkage_digest",
             "effect_receipt_id", "effect_receipt_digest")}
         if not isinstance(semantic_linkage["consumption_receipt_digests"], (list, tuple)):
@@ -1606,6 +1687,21 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 or not expected_receipt_digests
                 or semantic_linkage["linkage_digest"] != digest_payload(authenticated_linkage)):
             findings.append("invocation_resource_linkage_digest_invalid")
+        measurement_fields = ("generation_attempted", "call_units_consumed",
+            "generated_output_size_bytes", "returned_output_size_bytes",
+            "output_truncated", "latency_ms")
+        measurement_evidence = ([{
+            "receipt_id": item.get("receipt_id"),
+            "receipt_digest": item.get("receipt_digest"),
+            "state": item.get("state"), "observed_at": item.get("observed_at"),
+            "previous_receipt_digest": item.get("previous_receipt_digest"),
+            "effect_receipt_digest": item.get("effect_receipt_digest"),
+            "measured_values": ({key: item["resource_specific_measurement"].get(key)
+                for key in measurement_fields}
+                if isinstance(item.get("resource_specific_measurement"), Mapping) else {}),
+            "measurement_posture": item.get("measurement_posture")}
+            for item in ledger_receipts]
+            if resource_record is not None and not findings else [])
         resource_ref = ({"source_id": resource_record.get("source_id"),
             "record_digest": resource_record.get("digest"),
             "ledger_digest": resource_record.get("payload", {}).get("ledger_digest")}
@@ -1653,6 +1749,9 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "task_context": task_context,
                 "event_times": sorted(str(item.get("observed_at")) for item in ledger_receipts
                     if isinstance(item.get("observed_at"), str)) if resource_record is not None else [],
+                "resource_measurement_posture": ("verified_ledger_receipt_values"
+                    if measurement_evidence else "unknown_unverified_or_missing_lineage"),
+                "resource_consumption_evidence": measurement_evidence,
                 "lineage_findings": sorted(set(findings)),
                 "shared_host_cpu_gpu_attribution": "unknown_without_independent_observation",
                 "interpretation": "resource_use_for_strategy_inference_not_external_consequence",
@@ -1678,6 +1777,36 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "model_provenance_manifest_digest": model_candidate.get("_model_provenance_digest"),
                 "causal_context_id": model_candidate.get("_causal_context_id"),
                 "causal_context_digest": model_candidate.get("_causal_context_digest")})
+        history_candidate = developmental_history_candidates.get(str(proposal.get("source_id", "")))
+        if history_candidate is not None:
+            join["source_id"] = "developmental-history-resource-lineage:" + digest({
+                "observation_id": history_candidate.get("_developmental_history_observation_id"),
+                "invocation_receipt_digest": linkage.get("effect_receipt_digest")})[:24]
+            join["schema_version"] = "sentientos.developmental_history_invocation_resource_lineage:v1"
+            join["subject_id"] = str(history_candidate.get("_developmental_history_observation_id") or "")
+            join["subject_kind"] = "developmental_history_invocation_resource_lineage"
+            join["payload"].pop("strategy_proposal_id", None)
+            join["payload"].pop("strategy_proposal_record_digest", None)
+            join["payload"]["interpretation"] = (
+                "resource use for developmental experiment inference; not external consequence or capability proof")
+            join["payload"].update({
+                "developmental_history_run_id": history_candidate.get("_developmental_history_run_id"),
+                "developmental_history_run_digest": history_candidate.get("_developmental_history_run_digest"),
+                "developmental_history_source_record_id": history_candidate.get(
+                    "_developmental_history_source_record_id"),
+                "developmental_history_source_record_digest": history_candidate.get(
+                    "_developmental_history_source_record_digest"),
+                "developmental_history_condition": history_candidate.get("_developmental_history_condition"),
+                "developmental_history_observation_id": history_candidate.get(
+                    "_developmental_history_observation_id"),
+                "developmental_history_observation_digest": history_candidate.get(
+                    "_developmental_history_observation_digest"),
+                "developmental_history_protocol_id": history_candidate.get(
+                    "_developmental_history_protocol_id"),
+                "developmental_history_protocol_digest": history_candidate.get(
+                    "_developmental_history_protocol_digest"),
+                "task_family_id": history_candidate.get("_developmental_history_task_family_id"),
+                "active_model_identity": history_candidate.get("_developmental_history_model_identity")})
         join["digest"] = record_digest(join)
         if len(json.dumps(join, sort_keys=True, separators=(",", ":")).encode("utf-8")) > 32_768:
             raise ValueError("resource_proposal_join_record_oversized")
