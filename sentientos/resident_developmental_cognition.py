@@ -1650,6 +1650,11 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             "model_generation_profile": model_profile,
             "inference_receipt_id": observation.get("inference_receipt_id"),
             "inference_receipt_digest": observation.get("inference_receipt_digest"),
+            "retrieved_record_ids": list(observation.get("retrieved_record_ids", ())),
+            "retrieved_record_digests": list(observation.get("retrieved_record_digests", ())),
+            "history_selection_digest": (
+                observation.get("developmental_history_selection", {}).get("selection_digest")
+                if isinstance(observation.get("developmental_history_selection"), Mapping) else None),
             "output_digest": observation.get("output_digest"),
             "score_digest": score.get("score_digest"),
             "score_status": score.get("status"), "correct": score.get("correct"),
@@ -1683,6 +1688,9 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
         "measurement_digest": run.get("run_digest"), "request_id": request["request_id"],
         "request_digest": request["request_digest"], "protocol_id": protocol.protocol_id,
         "protocol_digest": protocol.protocol_digest,
+        "history_record_ids": list(protocol.record_ids),
+        "history_record_digests": list(protocol.record_digests),
+        "history_record_set_digest": protocol.record_set_digest,
         "objective_task_plan_digest": plan.get("plan_digest"),
         "task_family": task_family,
         "objective_evaluation": dict(evaluation), "conditions": outputs,
@@ -2419,7 +2427,11 @@ class ResidentDevelopmentalCognitionOwner:
                     "score_digest": item.get("score_digest"),
                     "output_digest": item.get("output_digest"),
                     "inference_receipt_id": item.get("inference_receipt_id"),
-                    "inference_receipt_digest": item.get("inference_receipt_digest")})
+                    "inference_receipt_digest": item.get("inference_receipt_digest"),
+                    "retrieved_record_ids": list(item.get("retrieved_record_ids", ())),
+                    "retrieved_record_digests": list(item.get(
+                        "retrieved_record_digests", ())),
+                    "history_selection_digest": item.get("history_selection_digest")})
             semantic = {"request_id": request_id,
                 "request_digest": refs[str(request_id)],
                 "episode_ordinal": len(episodes) + 1,
@@ -2427,6 +2439,9 @@ class ResidentDevelopmentalCognitionOwner:
                 "measurement_id": verified.get("measurement_id"),
                 "measurement_digest": verified.get("measurement_digest"),
                 "task_family": dict(family),
+                "history_record_ids": list(verified.get("history_record_ids", ())),
+                "history_record_digests": list(verified.get("history_record_digests", ())),
+                "history_record_set_digest": verified.get("history_record_set_digest"),
                 "model_generation_profiles": [dict(profile)
                     if isinstance(profile, Mapping) else None for profile in profiles],
                 "model_generation_profile_digests": profile_digests,

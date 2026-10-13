@@ -964,6 +964,15 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert progression["distinct_probe_sets"] is True
     assert progression["actual_nonsynthetic_inference_verified"] is False
     assert progression["learning_established"] is False
+    for episode in progression["episodes"]:
+        expected_ids = episode["history_record_ids"]
+        assert episode["conditions"][0]["retrieved_record_ids"] == expected_ids
+        assert episode["conditions"][1]["retrieved_record_ids"] == []
+        assert episode["conditions"][2]["retrieved_record_ids"] == expected_ids
+        assert episode["conditions"][0]["retrieved_record_digests"] == \
+            episode["history_record_digests"]
+        assert episode["conditions"][2]["retrieved_record_digests"] == \
+            episode["history_record_digests"]
 
 
 def test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer(
@@ -1203,6 +1212,10 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
     assert progression["actual_nonsynthetic_inference_verified"] is False
     assert progression["learning_established"] is False
     assert progression["performance_improvement_established"] is False
+    for episode in progression["episodes"]:
+        assert episode["conditions"][0]["retrieved_record_ids"] == episode["history_record_ids"]
+        assert episode["conditions"][1]["retrieved_record_ids"] == []
+        assert episode["conditions"][2]["retrieved_record_ids"] == episode["history_record_ids"]
     assert all("multiplier" not in json.dumps(episode)
         for episode in progression["episodes"])
     before = len(fake.requests)
