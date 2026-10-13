@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -11,6 +13,24 @@ from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model_commissioning import FILES, doctor, inspect_artifact, render_bundle, verify_bundle
+
+
+def test_documented_commissioning_cli_starts_from_repository_root(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "local_model_commissioning.py"
+    result = subprocess.run([sys.executable, str(script), "--help"],
+        cwd=script.parents[1], capture_output=True, text=True, check=False)
+    assert result.returncode == 0
+    assert "inspect" in result.stdout and "doctor" in result.stdout
+    allowed_root = tmp_path / "models"
+    allowed_root.mkdir()
+    pointer = allowed_root / "tracked.gguf"
+    pointer.write_bytes(b"version https://git-lfs.github.com/spec/v1\n"
+        b"oid sha256:" + b"b" * 64 + b"\nsize 123456\n")
+    blocked = subprocess.run([sys.executable, str(script), "inspect",
+        "--model-path", str(pointer), "--allowed-root", str(allowed_root)],
+        cwd=script.parents[1], capture_output=True, text=True, check=False)
+    assert blocked.returncode == 2
+    assert json.loads(blocked.stdout)["reason"] == "git_lfs_pointer_not_model_payload"
 
 
 def _artifact(root: Path, content: bytes = b"GGUF-local-test-bytes") -> Path:
@@ -94,6 +114,16 @@ def test_controlled_loader_identity_exact_map_call_path(monkeypatch: pytest.Monk
         metadata: dict[str, object] = {}
     identity = LocalModel._identity_for(config.candidates[0], config, Backend(), {}, 0)  # type: ignore[arg-type]
     assert authority.record_for_active_identity(identity, "discernment_judgment") is not None
+
+
+def test_lfs_pointer_is_not_mistaken_for_local_model_payload(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    models.mkdir()
+    pointer = models / "tracked.gguf"
+    pointer.write_bytes(b"version https://git-lfs.github.com/spec/v1\n"
+        b"oid sha256:" + b"a" * 64 + b"\nsize 123456\n")
+    with pytest.raises(ValueError, match="git_lfs_pointer_not_model_payload"):
+        inspect_artifact(pointer, allowed_root=models)
 
 
 def test_doctor_is_zero_generation_and_handoff_never_runs_calibration(tmp_path: Path,

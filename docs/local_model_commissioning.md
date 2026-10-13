@@ -43,6 +43,12 @@ candidate index, configuration digest, and the existing `LocalModelAuthorityMap`
 preview. It does **not** prove model quality, discernment quality, adoption, consent,
 policy, trial suitability, or authority.
 
+The local-only `inspect` command also recognizes the Git LFS pointer header and
+returns `blocked` with `git_lfs_pointer_not_model_payload`; the pointer's own
+content hash is never accepted as a GGUF model identity. The documented
+CLI is directly executable from the repository root without relying on an
+editable install or inherited `PYTHONPATH`.
+
 Model selection and acquisition remain external prerequisites. This workflow never
 downloads, copies, converts, quantizes, modifies, recommends, or redistributes model
 bytes. Its runtime library performs no network/provider inference, semantic

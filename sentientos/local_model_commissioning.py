@@ -83,6 +83,25 @@ def inspect_artifact(model_path: Path, *, allowed_root: Path, engine: str = "lla
     root, resolved = _authorized_artifact(model_path, allowed_root)
     if resolved.suffix.lower() != ".gguf" or engine != "llama_cpp":
         raise ValueError("gguf_llama_cpp_candidate_required")
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise ValueError("artifact_descriptor_safety_unavailable")
+    descriptor = os.open(resolved, flags | os.O_NOFOLLOW)
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("artifact_not_regular_file")
+        prefix = os.read(descriptor, 512)
+        after = os.fstat(descriptor)
+        if ((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+            raise ValueError("artifact_changed_during_inspection")
+    except OSError as exc:
+        raise ValueError("artifact_descriptor_read_failed") from exc
+    finally:
+        os.close(descriptor)
+    if prefix.startswith(b"version https://git-lfs.github.com/spec/v1\n"):
+        raise ValueError("git_lfs_pointer_not_model_payload")
     candidate = ModelCandidate(path=resolved, engine=engine, name=name,
                                options=dict(options or {}))
     config = ModelConfig([candidate], default_engine=engine,
