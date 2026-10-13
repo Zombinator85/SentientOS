@@ -245,6 +245,7 @@ def prepare(root: Path, *, fault: str | None = None,
     scenario: dict[str, Any] = {"schema_version": SCENARIO_SCHEMA, "scenario_name": "developmental-model-replacement-system-rehearsal",
         "fault": fault, "objective_scored": objective_scored,
         "objective_task": (task.specification() if task is not None else None),
+        "objective_task_commitment_nonce": (task.commitment_nonce if task is not None else None),
         "installation_identity": handle.identity.value, "context": asdict(context),
         "provenance_a": asdict(provenance[0]), "provenance_b": asdict(provenance[1]),
         "protocol_id": experiment.protocol.protocol_id, "protocol_digest": experiment.protocol.protocol_digest,
@@ -301,9 +302,12 @@ def _task(scenario: Mapping[str, Any]) -> ObjectivePredictionTask | None:
     if raw is None:
         return None
     probes = raw.get("probe_inputs")
-    return (ObjectivePredictionTask(raw["multiplier"], raw["offset"], probes[0], tuple(probes[1:]))
+    nonce = scenario.get("objective_task_commitment_nonce")
+    options = {"commitment_nonce": nonce} if isinstance(nonce, str) else {}
+    return (ObjectivePredictionTask(raw["multiplier"], raw["offset"], probes[0], tuple(probes[1:]),
+            **options)
         if isinstance(probes, list) else
-        ObjectivePredictionTask(raw["multiplier"], raw["offset"], raw["probe_input"]))
+        ObjectivePredictionTask(raw["multiplier"], raw["offset"], raw["probe_input"], **options))
 
 
 def run_next(root: Path, *, resource_context_owner: ProductionChatResourceContextOwner | None = None) -> Mapping[str, Any]:

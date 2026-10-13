@@ -576,12 +576,28 @@ class DevelopmentalModelReplacementCampaign:
             self._invalidate("campaign_trial_failed_no_retry")
             raise
         if run.get("experiment_completion_posture", "completed") != "completed":
-            self._invalidate("campaign_trial_incomplete_no_retry", failure_evidence={
+            condition_statuses = run.get("condition_statuses")
+            failure_code = next((evidence.get("failure_code")
+                for row in condition_statuses if isinstance(row, Mapping)
+                and isinstance((evidence := row.get("failure_evidence")), Mapping)
+                and isinstance(evidence.get("failure_code"), str)
+                and len(evidence["failure_code"]) <= 128
+                and all(character.isascii() and
+                    (character.isalnum() or character in "_.:-")
+                    for character in evidence["failure_code"])), None) \
+                if isinstance(condition_statuses, list) else None
+            reason = ("campaign_trial_failed_no_retry" if failure_code is not None
+                else "campaign_trial_incomplete_no_retry")
+            self._invalidate(reason, failure_evidence={
                 "trial_id": trial_id, "run_id": run.get("run_id"),
                 "run_digest": run.get("run_digest"),
                 "experiment_completion_posture": run.get("experiment_completion_posture"),
                 "condition_statuses": run.get("condition_statuses"),
             })
+            if failure_code is not None:
+                # Keep the terminal no-retry state while preserving the
+                # concrete owner reason for callers and diagnostics.
+                raise DevelopmentalModelReplacementError(failure_code)
             raise DevelopmentalModelReplacementError("campaign_trial_incomplete_no_retry")
         completed = list(self.state["completed_trials"])
         completed.append({"trial_id": trial_id, "run_id": run["run_id"], "run_digest": run["run_digest"]})

@@ -28,7 +28,7 @@ from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
     CONDITION_ORDER,
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
-    OBJECTIVE_SCHEMA, make_protocol, objective_task_contamination_assessment, summarize,
+    OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMAS, make_protocol, objective_task_contamination_assessment, summarize,
     summarize_objective_task,
     PURPOSE as EXPERIMENT_PURPOSE,
 )
@@ -202,7 +202,8 @@ MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
 MAX_RESIDENT_COGNITION_CONFIG_BYTES = 65_536
 MAX_RESIDENT_COGNITION_INPUT_CHARS = 16_000
 MAX_COGNITION_CONCLUSION_BYTES = 4000
-OBJECTIVE_REQUEST_SCHEMA = "sentientos.resident_objective_intervention_request:v1"
+LEGACY_OBJECTIVE_REQUEST_SCHEMA = "sentientos.resident_objective_intervention_request:v1"
+OBJECTIVE_REQUEST_SCHEMA = "sentientos.resident_objective_intervention_request:v2"
 OBJECTIVE_REQUEST_FILENAME = "pending_objective_intervention.json"
 MAX_OBJECTIVE_REQUEST_BYTES = 16_384
 MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES = 1024
@@ -219,7 +220,8 @@ def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def _objective_task_from_specification(specification: Any) -> Any:
+def _objective_task_from_specification(specification: Any,
+        commitment_nonce: str | None = None) -> Any:
     """Reconstitute only the existing bounded objective-task contract."""
     from .developmental_model_replacement_experiment import ObjectivePredictionTask
 
@@ -233,7 +235,8 @@ def _objective_task_from_specification(specification: Any) -> Any:
         if specification.get("oracle_scope") != "deterministic_fixture_not_physical_measurement":
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
         task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
-            specification["probe_input"])
+            specification["probe_input"],
+            **({"commitment_nonce": commitment_nonce} if commitment_nonce is not None else {}))
     elif schema in {"sentientos.affine_prediction_task_suite:v2",
             "sentientos.affine_prediction_task_family_suite:v3"}:
         fields = common | {"probe_inputs", "oracle_scope"}
@@ -247,7 +250,8 @@ def _objective_task_from_specification(specification: Any) -> Any:
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
         task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
             probes[0], tuple(probes[1:]), specification.get("task_family_id"),
-            specification.get("requires_task_family_history", False))
+            specification.get("requires_task_family_history", False),
+            **({"commitment_nonce": commitment_nonce} if commitment_nonce is not None else {}))
     else:
         raise ResidentDevelopmentalCognitionError("objective_request_task_schema_unsupported")
     try:
@@ -269,28 +273,48 @@ def objective_request_payload(*, request_id: str, task: Any) -> dict[str, Any]:
         descriptor = task.public_descriptor()
     except (AttributeError, TypeError, ValueError) as exc:
         raise ResidentDevelopmentalCognitionError("objective_request_task_invalid") from exc
-    reconstructed = _objective_task_from_specification(specification)
+    # The request is private staging custody: retain the nonce there so its
+    # salted public commitment can be reproduced after restart.
+    reconstructed = _objective_task_from_specification(specification, task.commitment_nonce)
     if reconstructed.public_descriptor() != descriptor:
         raise ResidentDevelopmentalCognitionError("objective_request_descriptor_mismatch")
     semantic = {"schema_version": OBJECTIVE_REQUEST_SCHEMA, "request_id": request_id,
-        "task": dict(specification), "task_descriptor": dict(descriptor)}
+        "task": dict(specification), "task_commitment_nonce": task.commitment_nonce,
+        "task_descriptor": dict(descriptor)}
     return {**semantic, "request_digest": _digest(semantic)}
+
+
+def _legacy_objective_request_digest(*, request_id: str, task: Any) -> str:
+    """Verify pending v1 requests without re-exposing their legacy plain hash."""
+    semantic = {"schema_version": LEGACY_OBJECTIVE_REQUEST_SCHEMA,
+        "request_id": request_id, "task": task.specification(),
+        "task_descriptor": task.legacy_public_descriptor()}
+    return _digest(semantic)
 
 
 def _parse_objective_request_bytes(raw: bytes) -> Mapping[str, Any]:
     try:
         value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
-        expected = {"schema_version", "request_id", "task", "task_descriptor", "request_digest"}
-        if (not isinstance(value, dict) or set(value) != expected
+        expected_legacy = {"schema_version", "request_id", "task", "task_descriptor", "request_digest"}
+        expected_current = expected_legacy | {"task_commitment_nonce"}
+        if (not isinstance(value, dict) or set(value) not in (expected_legacy, expected_current)
                 or json.dumps(value, indent=2, sort_keys=True).encode("utf-8") + b"\n" != raw
-                or value.get("schema_version") != OBJECTIVE_REQUEST_SCHEMA):
+                or value.get("schema_version") not in {LEGACY_OBJECTIVE_REQUEST_SCHEMA, OBJECTIVE_REQUEST_SCHEMA}
+                or (value.get("schema_version") == OBJECTIVE_REQUEST_SCHEMA and set(value) != expected_current)
+                or (value.get("schema_version") == LEGACY_OBJECTIVE_REQUEST_SCHEMA and set(value) != expected_legacy)):
             raise ValueError("shape")
-        semantic = {key: value[key] for key in ("schema_version", "request_id", "task", "task_descriptor")}
+        semantic = {key: item for key, item in value.items() if key != "request_digest"}
         if value.get("request_digest") != _digest(semantic):
             raise ValueError("digest")
-        if objective_request_payload(request_id=value["request_id"],
-                task=_objective_task_from_specification(value["task"])) != value:
-            raise ValueError("binding")
+        task = _objective_task_from_specification(value["task"], value.get("task_commitment_nonce"))
+        if value.get("schema_version") == OBJECTIVE_REQUEST_SCHEMA:
+            if objective_request_payload(request_id=value["request_id"], task=task) != value:
+                raise ValueError("binding")
+        else:
+            legacy_descriptor = task.legacy_public_descriptor()
+            if (legacy_descriptor != value.get("task_descriptor")
+                    or set(semantic) != {"schema_version", "request_id", "task", "task_descriptor"}):
+                raise ValueError("legacy_binding")
     except (UnicodeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
         raise ResidentDevelopmentalCognitionError("objective_request_invalid") from exc
     return value
@@ -494,9 +518,16 @@ def objective_task_for_request(request: Mapping[str, Any]) -> Any:
     request_id = request.get("request_id") if isinstance(request, Mapping) else None
     if not isinstance(request_id, str):
         raise ResidentDevelopmentalCognitionError("objective_request_invalid")
-    task = _objective_task_from_specification(request.get("task"))
-    expected = objective_request_payload(request_id=request_id, task=task)
-    if expected != dict(request):
+    task = _objective_task_from_specification(request.get("task"),
+        request.get("task_commitment_nonce"))
+    if request.get("schema_version") == LEGACY_OBJECTIVE_REQUEST_SCHEMA:
+        semantic = {key: request.get(key) for key in
+            ("schema_version", "request_id", "task", "task_descriptor")}
+        valid = (task.legacy_public_descriptor() == request.get("task_descriptor")
+            and request.get("request_digest") == _digest(semantic))
+    else:
+        valid = objective_request_payload(request_id=request_id, task=task) == dict(request)
+    if not valid:
         raise ResidentDevelopmentalCognitionError("objective_request_invalid")
     return task
 
@@ -1566,7 +1597,7 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
         plan = experiments.verify_objective_task_plan(protocol)
     except DevelopmentalHistoryInterventionError as exc:
         raise ResidentDevelopmentalCognitionError("objective_outcome_custody_invalid") from exc
-    if (protocol.schema_version != OBJECTIVE_SCHEMA
+    if (protocol.schema_version not in OBJECTIVE_SCHEMAS
             or plan.get("task_descriptor") != dict(request["task_descriptor"])):
         raise ResidentDevelopmentalCognitionError("objective_outcome_request_plan_mismatch")
     conditions = run.get("conditions")
@@ -2092,7 +2123,7 @@ class ResidentDevelopmentalCognitionOwner:
             except DevelopmentalHistoryInterventionError as exc:
                 raise ResidentDevelopmentalCognitionError(
                     "interrupted_objective_protocol_recovery_failed") from exc
-            if protocol.schema_version != OBJECTIVE_SCHEMA:
+            if protocol.schema_version not in OBJECTIVE_SCHEMAS:
                 raise ResidentDevelopmentalCognitionError(
                     "interrupted_objective_protocol_schema_mismatch")
             if (plan.get("plan_digest") != intent.get("objective_task_plan_digest")
@@ -4073,7 +4104,9 @@ class ResidentDevelopmentalCognitionOwner:
                 or not callable(getattr(objective_task, "public_descriptor", None))):
             raise ResidentDevelopmentalCognitionError("objective_one_shot_not_configured")
         payload = objective_request_payload(request_id=request_id, task=objective_task)
-        if payload.get("request_digest") != request_digest:
+        legacy_digest = _legacy_objective_request_digest(
+            request_id=request_id, task=objective_task)
+        if request_digest not in {payload.get("request_digest"), legacy_digest}:
             raise ResidentDevelopmentalCognitionError("objective_request_digest_mismatch")
         return self._run_tick(snapshot=snapshot, tick_id=tick_id,
             prior_self_model=None, prior_epistemic_state=None, objective_task=objective_task,

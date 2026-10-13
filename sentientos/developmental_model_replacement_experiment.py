@@ -9,7 +9,7 @@ import json
 import os
 import secrets
 import stat
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast
@@ -1154,6 +1154,14 @@ class ModelReplacementArtifactStore:
             invalid_code="objective_plan_invalid")
         try:
             specification = value["task"]
+            nonce = value.get("task_commitment_nonce")
+            if value.get("schema_version") == "sentientos.objective_task_plan:v2":
+                if not isinstance(nonce, str):
+                    raise ValueError("objective_task_commitment_nonce_missing")
+            elif value.get("schema_version") == "sentientos.objective_task_plan:v1":
+                nonce = None
+            else:
+                raise ValueError("objective_plan_schema_invalid")
             if specification.get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
                     "sentientos.affine_prediction_task_family_suite:v3"}:
                 probes = specification["probe_inputs"]
@@ -1161,11 +1169,15 @@ class ModelReplacementArtifactStore:
                     raise ValueError("objective_probe_suite_invalid")
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     probes[0], tuple(probes[1:]), specification.get("task_family_id"),
-                    specification.get("requires_task_family_history", False))
+                    specification.get("requires_task_family_history", False),
+                    **({"commitment_nonce": nonce} if nonce is not None else {}))
             else:
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
-                    specification["probe_input"])
-            canonical = _objective_plan(task, protocol)
+                    specification["probe_input"],
+                    **({"commitment_nonce": nonce} if nonce is not None else {}))
+            canonical = (_legacy_objective_plan(task, protocol)
+                if value.get("schema_version") == "sentientos.objective_task_plan:v1"
+                else _objective_plan(task, protocol))
         except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalModelReplacementError("objective_plan_invalid") from exc
         if value != canonical or (expected is not None and value != expected):
@@ -1181,15 +1193,18 @@ class ModelReplacementArtifactStore:
         protocol = self.load_verified_protocol(str(protocol_id or ""), str(protocol_digest or ""))
         try:
             specification = plan["task"]
+            nonce = plan.get("task_commitment_nonce")
+            if plan.get("schema_version") != "sentientos.objective_task_plan:v2" or not isinstance(nonce, str):
+                raise ValueError("objective_task_commitment_nonce_missing")
             if specification.get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
                     "sentientos.affine_prediction_task_family_suite:v3"}:
                 probes = specification["probe_inputs"]
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     probes[0], tuple(probes[1:]), specification.get("task_family_id"),
-                    specification.get("requires_task_family_history", False))
+                    specification.get("requires_task_family_history", False), nonce)
             else:
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
-                    specification["probe_input"])
+                    specification["probe_input"], commitment_nonce=nonce)
             canonical = _objective_plan(task, protocol)
         except (KeyError, TypeError, ValueError, IndexError) as exc:
             raise DevelopmentalModelReplacementError("objective_plan_invalid") from exc
@@ -1607,6 +1622,7 @@ class ObjectivePredictionTask:
     additional_probe_inputs: tuple[int, ...] = ()
     task_family_id: str | None = None
     requires_task_family_history: bool = False
+    commitment_nonce: str = field(default_factory=lambda: secrets.token_hex(32), repr=False)
 
     def specification(self) -> dict[str, Any]:
         if any(type(value) is not int or abs(value) > 1_000_000
@@ -1630,6 +1646,9 @@ class ObjectivePredictionTask:
         if type(self.requires_task_family_history) is not bool or (
                 self.requires_task_family_history and self.task_family_id is None):
             raise DevelopmentalModelReplacementError("objective_task_family_requirement_invalid")
+        if (not isinstance(self.commitment_nonce, str) or len(self.commitment_nonce) != 64
+                or any(character not in "0123456789abcdef" for character in self.commitment_nonce)):
+            raise DevelopmentalModelReplacementError("objective_task_commitment_nonce_invalid")
         if not self.additional_probe_inputs:
             return {"schema_version": "sentientos.affine_prediction_task:v1",
             "multiplier": self.multiplier, "offset": self.offset,
@@ -1648,6 +1667,29 @@ class ObjectivePredictionTask:
             "oracle_scope": "deterministic_fixture_not_physical_measurement"}
 
     def public_descriptor(self) -> dict[str, Any]:
+        # The nonce is retained only with the private task plan.  Publishing a
+        # plain hash of this low-entropy oracle would let the model brute-force
+        # the answer parameters from upstream metadata.
+        task_digest = _digest({"schema_version": "sentientos.objective_task_commitment:v1",
+            "task": self.specification(), "nonce": self.commitment_nonce})
+        if self.additional_probe_inputs:
+            inputs = [self.probe_input, *self.additional_probe_inputs]
+            return {"task_digest": task_digest,
+                "task_digest_posture": "salted_private_oracle_commitment:v1",
+                "question": f"Predict the outputs for inputs {inputs} from the historical examples.",
+                "answer_format": 'Exactly one JSON object: {"answers": [<integer>, ...]}',
+                "probe_inputs": inputs, "probe_count": len(inputs),
+                **({"task_family_id": self.task_family_id,
+                    "family_posture": "operator_declared_protocol_bound",
+                    "requires_task_family_history": self.requires_task_family_history}
+                    if self.task_family_id is not None else {})}
+        return {"task_digest": task_digest,
+            "task_digest_posture": "salted_private_oracle_commitment:v1",
+            "question": f"Predict the output for input {self.probe_input} from the historical examples.",
+            "answer_format": 'Exactly one JSON object: {"answer": <integer>}'}
+
+    def legacy_public_descriptor(self) -> dict[str, Any]:
+        """Reproduce the pre-commitment descriptor for historical v1 artifacts."""
         task_digest = _digest(self.specification())
         if self.additional_probe_inputs:
             inputs = [self.probe_input, *self.additional_probe_inputs]
@@ -1668,10 +1710,29 @@ def _objective_plan(task: ObjectivePredictionTask, protocol: ModelReplacementPro
     suite = task.specification().get("schema_version") in {
         "sentientos.affine_prediction_task_suite:v2",
         "sentientos.affine_prediction_task_family_suite:v3"}
+    semantic = {"schema_version": "sentientos.objective_task_plan:v2",
+        "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
+        "causal_context_digest": protocol.causal_context_digest,
+        "task": task.specification(), "task_commitment_nonce": task.commitment_nonce,
+        "task_descriptor": task.public_descriptor(),
+        "condition_order": list(CONDITION_ORDER),
+        "rubric": "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1",
+        "authority": False}
+    public_semantic = {key: value for key, value in semantic.items()
+        if key not in {"task", "task_commitment_nonce"}}
+    return {**semantic, "plan_digest": _digest(public_semantic)}
+
+
+def _legacy_objective_plan(task: ObjectivePredictionTask,
+                           protocol: ModelReplacementProtocol) -> dict[str, Any]:
+    """Rebuild the original oracle-bearing v1 plan only for historical custody."""
+    suite = task.specification().get("schema_version") in {
+        "sentientos.affine_prediction_task_suite:v2",
+        "sentientos.affine_prediction_task_family_suite:v3"}
     semantic = {"schema_version": "sentientos.objective_task_plan:v1",
         "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
         "causal_context_digest": protocol.causal_context_digest,
-        "task": task.specification(), "task_descriptor": task.public_descriptor(),
+        "task": task.specification(), "task_descriptor": task.legacy_public_descriptor(),
         "condition_order": list(CONDITION_ORDER),
         "rubric": "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1",
         "authority": False}
@@ -1931,11 +1992,44 @@ class DevelopmentalModelReplacementExperiment:
         self.protocol.verify()
         self.store = ModelReplacementArtifactStore(artifact_root)
         descriptor = context.current_projection_payload.get("objective_task")
-        if descriptor is not None and objective_task is None:
-            raise DevelopmentalModelReplacementError("objective_task_oracle_missing")
-        if objective_task is not None and descriptor is not None and descriptor != objective_task.public_descriptor():
+        recovered_plan = None
+        objective_plan_path = (self.store.protocols /
+            f"objective-task-plan-{self.protocol.protocol_id}.json")
+        if ((descriptor is not None and (objective_task is None
+                    or descriptor != objective_task.public_descriptor()))
+                or objective_plan_path.exists()):
+            try:
+                recovered_plan = self.store.verify_objective_plan(self.protocol)
+            except DevelopmentalModelReplacementError as exc:
+                if objective_task is None:
+                    raise DevelopmentalModelReplacementError("objective_task_oracle_missing") from exc
+                raise DevelopmentalModelReplacementError("objective_task_context_binding_invalid") from exc
+            specification = recovered_plan.get("task")
+            if not isinstance(specification, Mapping) or (objective_task is not None
+                    and dict(specification) != objective_task.specification()):
+                raise DevelopmentalModelReplacementError("objective_task_context_binding_invalid")
+            nonce = recovered_plan.get("task_commitment_nonce")
+            probes = specification.get("probe_inputs")
+            commitment_options = ({"commitment_nonce": nonce}
+                if recovered_plan.get("schema_version") == "sentientos.objective_task_plan:v2"
+                else {})
+            if isinstance(probes, list):
+                objective_task = ObjectivePredictionTask(specification["multiplier"],
+                    specification["offset"], probes[0], tuple(probes[1:]),
+                    specification.get("task_family_id"),
+                    specification.get("requires_task_family_history", False),
+                    **commitment_options)
+            else:
+                objective_task = ObjectivePredictionTask(specification["multiplier"],
+                    specification["offset"], specification["probe_input"],
+                    **commitment_options)
+        descriptor_matches = (objective_task is not None and isinstance(descriptor, Mapping)
+            and (dict(descriptor) == objective_task.public_descriptor()
+                or dict(descriptor) == objective_task.legacy_public_descriptor()))
+        if descriptor is not None and not descriptor_matches:
             raise DevelopmentalModelReplacementError("objective_task_context_binding_invalid")
-        self.objective_plan = _objective_plan(objective_task, self.protocol) if objective_task else None
+        self.objective_plan = (recovered_plan if recovered_plan is not None else
+            _objective_plan(objective_task, self.protocol) if objective_task else None)
         if self.objective_plan is None and (self.store.protocols /
                 f"objective-task-plan-{self.protocol.protocol_id}.json").exists():
             raise DevelopmentalModelReplacementError("objective_task_oracle_missing")
@@ -2328,11 +2422,19 @@ class DevelopmentalModelReplacementExperiment:
                     "mismatch", "invalid", "contradictory", "binding", "digest", "drift"))
                 failure_posture = ("contradictory_execution_evidence" if contradictory
                     else "inference_interrupted_or_failed")
+                failure_code = (str(exc) if len(str(exc)) <= 128
+                    and all(character.isascii() and
+                        (character.isalnum() or character in "_.:-") for character in str(exc))
+                    else "untyped_inference_failure")
+                failure_evidence = {"failure_code": failure_code}
+                detail = getattr(exc, "evidence", None)
+                if isinstance(detail, Mapping):
+                    failure_evidence["details"] = dict(detail)
                 terminal = self.store.finish_condition(start=start,
                     status="contradictory" if contradictory else "incomplete",
                     observation=raw_observation if contradictory else None,
                     failure_posture=failure_posture,
-                    failure_evidence=getattr(exc, "evidence", None))
+                    failure_evidence=failure_evidence)
                 condition_statuses.append({"condition": condition, "condition_id": condition_id,
                     "condition_input_digest": terminal["input_digest"],
                     "status": terminal["status"],

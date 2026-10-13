@@ -80,6 +80,15 @@ class TaskEndpoint(FakeEndpoint):
 
 def experiment(root, mode='derive', *, model_b_mode=None, task=None):
     task = task or ObjectivePredictionTask(3, 2, 7)
+    plans = list((root / 'developmental_experiments' / 'model_replacement' /
+        'protocols').glob('objective-task-plan-*.json'))
+    if len(plans) == 1:
+        saved = json.loads(plans[0].read_text())
+        if (saved.get('schema_version') == 'sentientos.objective_task_plan:v2'
+                and saved.get('task') == task.specification()):
+            task = ObjectivePredictionTask(task.multiplier, task.offset, task.probe_input,
+                task.additional_probe_inputs, task.task_family_id,
+                task.requires_task_family_history, saved['task_commitment_nonce'])
     a = TaskEndpoint('a', root, mode=mode)
     b = TaskEndpoint('b', root, mode=mode if model_b_mode is None else model_b_mode)
     return DevelopmentalModelReplacementExperiment(context=task_context(task),
@@ -95,7 +104,8 @@ def experiment(root, mode='derive', *, model_b_mode=None, task=None):
     ('unavailable', None, None, 'unscoreable_missing_output'),
 ])
 def test_objective_treatments_and_no_replay(tmp_path, mode, delta, stable, assessment):
-    owner, a, b = experiment(tmp_path, mode)
+    task = ObjectivePredictionTask(3, 2, 7)
+    owner, a, b = experiment(tmp_path, mode, task=task)
     run = owner.run()
     evaluation = run['objective_evaluation']
     assert 'output_text' not in json.dumps(run)
@@ -104,6 +114,8 @@ def test_objective_treatments_and_no_replay(tmp_path, mode, delta, stable, asses
     assert evaluation['restoration_correctness_stable'] is stable
     assert evaluation['assessment'] == assessment
     assert len(a.calls) == 3 and len(b.calls) == 2
+    assert all(task.commitment_nonce not in json.dumps(call['upstream_evidence'])
+        for call in (*a.calls, *b.calls))
     recovered, a2, b2 = experiment(tmp_path, mode)
     assert json.loads(json.dumps(recovered.run())) == json.loads(json.dumps(run))
     assert a2.calls == b2.calls == []
@@ -132,6 +144,91 @@ print(json.dumps({"run_digest":run["run_digest"],
     assert child_result['condition_count'] == 5
 
 
+def test_public_task_commitments_do_not_hash_low_entropy_oracle_inputs(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    owner, a, b = experiment(tmp_path, task=task)
+    descriptor = task.public_descriptor()
+    assert descriptor['task_digest_posture'] == 'salted_private_oracle_commitment:v1'
+    assert 'multiplier' not in descriptor and 'offset' not in descriptor
+    assert task.commitment_nonce not in json.dumps(descriptor)
+    assert descriptor['task_digest'] != digest(task.specification())
+    plan = owner.objective_plan
+    legacy_semantic = {key: plan[key] for key in (
+        'schema_version', 'protocol_id', 'protocol_digest', 'causal_context_digest',
+        'task', 'task_descriptor', 'condition_order', 'rubric', 'authority')}
+    legacy_semantic['schema_version'] = 'sentientos.objective_task_plan:v1'
+    assert plan['plan_digest'] != digest(legacy_semantic)
+    run = owner.run()
+    assert task.commitment_nonce not in json.dumps(run)
+    assert all(task.commitment_nonce not in call['prompt']
+        and task.commitment_nonce not in json.dumps(call['upstream_evidence'])
+        for call in (*a.calls, *b.calls))
+    for multiplier in range(-8, 9):
+        for offset in range(-8, 9):
+            candidate = ObjectivePredictionTask(multiplier, offset, 7, (8, 9))
+            assert digest(candidate.specification()) != descriptor['task_digest']
+
+
+def test_historical_oracle_bearing_plan_remains_verifiable(tmp_path):
+    from sentientos.developmental_history_intervention_experiment import (
+        DevelopmentalExperimentStore, LEGACY_OBJECTIVE_SCHEMA, _digest as experiment_digest,
+        make_protocol,
+    )
+    task = ObjectivePredictionTask(3, 2, 7)
+    protocol = make_protocol(schema_version=LEGACY_OBJECTIVE_SCHEMA,
+        snapshot_id='legacy-snapshot', snapshot_digest=experiment_digest({'snapshot': 1}),
+        current_projection_id='legacy-current',
+        current_projection_digest=experiment_digest({'current': 1}),
+        current_fact_ids=(), record_ids=(), record_digests=(),
+        record_set_digest=experiment_digest({'records': []}), model_id='legacy-model',
+        model_artifact_digest=None, active_model_identity={},
+        active_model_identity_digest=experiment_digest({}),
+        authority_map_digest=experiment_digest({'authority': 'legacy'}),
+        inference_budget={}, generation_posture={},
+        instruction_template_digest=experiment_digest({'instruction': 'legacy'}),
+        objective_task_digest=experiment_digest(task.specification()),
+        objective_task_descriptor=task.legacy_public_descriptor())
+    store = DevelopmentalExperimentStore(tmp_path / 'legacy')
+    store.persist_protocol(protocol)
+    plan = store.persist_objective_task_plan(protocol, task)
+    assert plan['schema_version'] == 'sentientos.objective_task_plan:v1'
+    assert plan['plan_digest'] == experiment_digest({key: value
+        for key, value in plan.items() if key != 'plan_digest'})
+    assert store.verify_objective_task_plan(protocol) == plan
+
+
+def test_pending_legacy_request_recovers_privately_and_new_request_round_trips():
+    from sentientos.resident_developmental_cognition import (
+        LEGACY_OBJECTIVE_REQUEST_SCHEMA, _digest as request_digest,
+        _parse_objective_request_bytes, _legacy_objective_request_digest,
+        objective_request_payload, objective_task_for_request,
+    )
+    task = ObjectivePredictionTask(3, 2, 7)
+    old_semantic = {"schema_version": LEGACY_OBJECTIVE_REQUEST_SCHEMA,
+        "request_id": "historical-request", "task": task.specification(),
+        "task_descriptor": task.legacy_public_descriptor()}
+    old_request = {**old_semantic, "request_digest": request_digest(old_semantic)}
+    recovered = objective_task_for_request(old_request)
+    assert recovered.specification() == task.specification()
+    assert recovered.public_descriptor()['task_digest'] != old_semantic[
+        'task_descriptor']['task_digest']
+    assert _legacy_objective_request_digest(request_id='historical-request',
+        task=recovered) == old_request['request_digest']
+    current = objective_request_payload(request_id='current-request', task=task)
+    encoded = (json.dumps(current, sort_keys=True, indent=2) + '\n').encode()
+    assert _parse_objective_request_bytes(encoded) == current
+    assert current['task_commitment_nonce'] == task.commitment_nonce
+    assert task.commitment_nonce not in json.dumps(current['task_descriptor'])
+
+
+def test_historical_model_replacement_plan_remains_verifiable(tmp_path):
+    from sentientos.developmental_model_replacement_experiment import _legacy_objective_plan
+    task = ObjectivePredictionTask(3, 2, 7)
+    owner, _, _ = experiment(tmp_path, task=task)
+    legacy = _legacy_objective_plan(task, owner.protocol)
+    path = owner.store.protocols / f"objective-task-plan-{owner.protocol.protocol_id}.json"
+    owner.store._write(path, legacy)
+    assert owner.store.verify_objective_plan(owner.protocol) == legacy
 def test_new_digest_only_score_and_historical_output_retaining_score_are_readable(tmp_path):
     owner, _a, _b = experiment(tmp_path, 'derive')
     run = owner.run()
@@ -182,14 +279,15 @@ def test_oracle_cannot_be_changed_after_calls(tmp_path):
         owner.run()
 
 
-def test_persisted_objective_run_requires_oracle_on_recovery(tmp_path):
-    task = ObjectivePredictionTask(3, 2, 7)
+def test_persisted_objective_run_recovers_oracle_from_private_plan(tmp_path):
     owner, _, _ = experiment(tmp_path)
-    owner.run()
-    with pytest.raises(DevelopmentalModelReplacementError, match='objective_task_oracle_missing'):
-        DevelopmentalModelReplacementExperiment(context=task_context(task),
-            model_a=FakeEndpoint(identity('a')), model_b=FakeEndpoint(identity('b')),
-            artifact_root=tmp_path)
+    completed = owner.run()
+    recovered = DevelopmentalModelReplacementExperiment(context=owner.context,
+        model_a=FakeEndpoint(identity('a')), model_b=FakeEndpoint(identity('b')),
+        artifact_root=tmp_path)
+    assert recovered.objective_plan['task_commitment_nonce'] == owner.objective_plan[
+        'task_commitment_nonce']
+    assert recovered.run() == completed
 
 
 def test_rehashed_wrong_assessment_rejected_and_projection_is_bounded(tmp_path):
@@ -223,10 +321,9 @@ def test_oracle_identity_mismatch_fails_before_inference(tmp_path):
     original.run()
     supplied = ObjectivePredictionTask(3, 9, 7)
     a, b = TaskEndpoint('a', tmp_path), TaskEndpoint('b', tmp_path)
-    changed = DevelopmentalModelReplacementExperiment(context=task_context(supplied),
-        model_a=a, model_b=b, artifact_root=tmp_path, objective_task=supplied)
-    with pytest.raises(DevelopmentalModelReplacementError, match='artifact_identity_collision'):
-        changed.run()
+    with pytest.raises(DevelopmentalModelReplacementError, match='objective_task_context_binding_invalid'):
+        DevelopmentalModelReplacementExperiment(context=original.context,
+            model_a=a, model_b=b, artifact_root=tmp_path, objective_task=supplied)
     assert a.calls == b.calls == []
 
 
