@@ -1,0 +1,9 @@
+# Sequence 146 — Bind A/B succession resource observations to scored conditions
+
+Verified source commit `2636c913b24dc8e573caf8b9aad47207d1accafe`, tree `25606702f7b5913cb6eb826f91d3291e146d6f8f`, published by expected-HEAD CAS from `f0e9aeffea4245f9672213d9eca57786d3b36a6f`. Current branch, commit/tree, and four changed blobs were independently read back.
+
+The model-replacement World-State projection now carries a compact objective-score summary for each condition, copied only after the existing run loader verifies the A/B trial. It includes the score digest/status/correctness and probe denominator/count; it excludes probe-level oracle answers. The resource invocation lineage joins that summary to the exact model condition, request, inference receipt, allocation, attempt, consumption receipts, and reconciled effect receipt. The existing resident writeback projection validates the condition and exact receipt binding, including the separate model-replacement condition identity.
+
+The A/B resource-lineage integration now uses the existing canonical synthetic objective-scored rehearsal. Its five model-A/model-B history conditions are all score-bound to their own actual governed invocation and resource ledger row. The existing subprocess recovery and later-cognition path also ran in this composition test. Adversarial receipt substitution is rejected. The run is a deterministic worker fixture, not a real cognitive model and not a learning claim.
+
+Validation: four changed Python files compiled. The model-replacement resource-lineage composition test plus the resident writeback suite passed: **24 passed**. No targeted typing, hosted CI, production verification, or real-model performance evidence was obtained. The separate canonical rehearsal remained negative for history association; this patch establishes attribution only. Construction remains unverified for production.

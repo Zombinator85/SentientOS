@@ -1380,6 +1380,18 @@
       "sha256": "df59013f77af5c7eb7fe2b9032411757dc468b417431ee92e0711ed1b7d5dcdf",
       "source_commit": "fd7eb7f25ea33880e8bc576076b7d54245358b57",
       "source_tree": "3674dec18217274d9e13b47551984e3d6915cca6"
+    },
+    {
+      "bytes": 1898,
+      "evidence_bytes": 3617,
+      "evidence_path": "work/construction/evidence/0146-ab-resource-score-lineage.json",
+      "evidence_sha256": "febdb2d7e80f3542a112be5dbacbca3b2bf8b0c5b754a1d193006833869a72f9",
+      "path": "work/construction/segments/0146-ab-resource-score-lineage.md",
+      "predecessor": "segment-sha256:df59013f77af5c7eb7fe2b9032411757dc468b417431ee92e0711ed1b7d5dcdf",
+      "sequence": 146,
+      "sha256": "84b9b3a4ebb87c331ed3d9b51893131f399b8a63f34d5420741f9a906a9cb71c",
+      "source_commit": "2636c913b24dc8e573caf8b9aad47207d1accafe",
+      "source_tree": "25606702f7b5913cb6eb826f91d3291e146d6f8f"
     }
   ],
   "source_acquisition": {
