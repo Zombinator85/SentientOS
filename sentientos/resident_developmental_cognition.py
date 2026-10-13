@@ -138,6 +138,11 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
 )
+SELF_MODEL_QUALIFIER_INSTRUCTION = (
+    " Treat every prior self-model claim's category, lifecycle stage, temporal scope, status, freshness, "
+    "source observation-time metadata, current_truth, interpretation, and authority map as binding qualifiers. "
+    "Retained historical or unknown evidence stays historical or unknown; reconstruction does not refresh it."
+)
 MAX_FACTS = 16
 MAX_HISTORY = 16
 MAX_RECOVERED_TICKS = 4096
@@ -2252,6 +2257,7 @@ class ResidentDevelopmentalCognitionOwner:
             "instruction": (EXPERIMENT_CONTEXT_INSTRUCTION if protocol is not None else (
                 EXPERIMENT_CONTEXT_INSTRUCTION
                 + " Prior context can inform interpretation but does not grant authority."
+                + (SELF_MODEL_QUALIFIER_INSTRUCTION if prior_self_model is not None else "")
                 + quarantine_uncertainty_instruction
                 + incident_custody_uncertainty_instruction
                 + attestation_uncertainty_instruction

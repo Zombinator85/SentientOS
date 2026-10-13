@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `00ddc4b0f56ac9c991111a5cf4a870e855bef8fb`, tree `fc1cbe0524eba1ea6a643944f59de770de68763e`. Sequence 91 makes later cognition preserve historical self-model category, source observation-time provenance, uncertainty/freshness, interpretation, current-truth, and false-authority qualifiers across the tick boundary. Six focused developmental modules passed 151 tests; all work remains unverified for production.
+Last independently verified remote baseline `4d77a93f05815598642b1a0a9cdc923bc36e045b`, tree `408b5416736002aaf4968510367d2e5a109ac8a2`. Sequence 92 adds explicit semantic handling for category, time/freshness, interpretation, current-truth, and authority qualifiers to the ordinary cognition prompt while preserving the shared digest-bound instructions for historical preregistered experiments. Six focused developmental modules passed 151 tests; production remains unverified.
 
-Latest segment: work/construction/segments/0091-self-model-projection-historical-semantics.md
-SHA-256: eab3292cb0dc5fdd9bd56a2461f1ad075897ceb458e83fda4781e1d374837f4d
-Sequence: 91
+Latest segment: work/construction/segments/0092-ordinary-cognition-self-model-qualifiers.md
+SHA-256: 814984ecfad1a4f2d17e1a29bd66c5f390c7fae7b45cf3bc77f12075c0a0a9ad
+Sequence: 92
 
-Loaded-code identity remains `not_independently_attested`. Actual model payload, commissioned identity, and exact time-bounded operator approval remain unavailable; no real model was loaded or invoked.
+Loaded-code identity remains `not_independently_attested`. No actual local-model payload, commissioning receipt, or exact time-bounded operator approval is available; no model was loaded or invoked.
 
-Next: inspect downstream developmental writeback and task-scoring consumers for separation between historical self-model interpretations and authored developmental lessons. Preserve the distinction between fixtures and live-model acquisition/transfer.
+Next: inspect developmental lesson packet provenance so a prior self-model interpretation can inform an uncertain later lesson without being copied as current evidence or independently admitted fact.
