@@ -1251,6 +1251,12 @@ print(json.dumps({"context_id": context["context_id"],
             ("family-continued-transfer", continued_request["request_digest"])))
     assert recovered_progression == progression
     assert len(fake.requests) == invocation_count_before_reconstruction
+    child_progression = _reconstruct_progression_in_child(tmp_path, fake.receipts, [
+        ("family-acquisition", request["request_digest"]),
+        ("family-transfer", staged["request_digest"]),
+        ("family-continued-transfer", continued_request["request_digest"])])
+    assert child_progression == progression
+    assert len(fake.requests) == invocation_count_before_reconstruction
 
 
 def test_objective_staging_arguments_can_require_exact_task_family_history() -> None:
@@ -1603,66 +1609,9 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
     # Reconstruct the same report in a new interpreter from the durable
     # cognition/experiment custody plus serialized fixture-issued receipts.
     # This checks restart reading, not model behavior or production custody.
-    receipt_path = tmp_path / "fixture-issued-invocation-receipts.json"
-    receipt_path.write_text(json.dumps({receipt_id: receipt.to_dict()
-        for receipt_id, receipt in fake.receipts.items()}, sort_keys=True), encoding="utf-8")
-    child_code = r'''
-import json, sys
-from pathlib import Path
-from sentientos.codex_task_authority_admission import (
-    RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION)
-from sentientos.resident_developmental_cognition import (
-    ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner)
-from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
-from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
-
-root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
-refs = json.loads(sys.argv[3])
-receipts = json.loads(receipt_path.read_text(encoding="utf-8"))
-class PersistedFixtureReceiptVerifier:
-    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
-        value = receipts[receipt_id]
-        assert value["receipt_id"] == receipt_id and value["receipt_digest"] == receipt_digest
-        request = value["request"]
-        assert request["request_id"] == expected["expected_request_id"]
-        assert request["request_digest"] == expected["expected_request_digest"]
-        assert request["active_model_identity"] == expected["expected_active_model_identity"]
-        serving = request["linkage"]["resident_cognitive_serving"]
-        assert serving["session_id"] == expected["expected_session_id"]
-        assert serving["activation_state_semantic_digest"] == expected[
-            "expected_session_binding"]["activation_state_semantic_digest"]
-        return {key: value[key] for key in ("receipt_id", "receipt_digest", "request",
-            "status", "output_digest", "output_truncated", "generation_config",
-            "output_size_bytes", "resource_allocation_digest", "resource_attempt_id",
-            "resource_consumption_receipt_digests", "resource_linkage_digest",
-            "backend_completion", "observed_at") if key in value}
-
-ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
-definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
-def current_sequence():
-    admissions, _ = ledger.load()
-    return max((item.issued_sequence for item in admissions), default=1)
-def next_sequence():
-    admissions, revocations = ledger.load()
-    return max([item.issued_sequence for item in admissions]
-        + [item.sequence for item in revocations] + [0]) + 1
-writeback = ResidentDevelopmentalWritebackController(
-    history_root=root / "history",
-    admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
-    current_sequence=current_sequence)
-owner = ResidentDevelopmentalCognitionOwner(
-    config=ResidentDevelopmentalCognitionConfig(root / "history", root / "state",
-        ("capability_registry", "embodiment"), 16, 4, True),
-    writeback=writeback,
-    admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-    invoker=PersistedFixtureReceiptVerifier(), current_sequence=next_sequence)
-print(json.dumps(owner.verified_objective_task_family_progression(
-    request_refs=tuple(tuple(item) for item in refs)), sort_keys=True))
-'''
-    child = subprocess.run([sys.executable, "-c", child_code, str(tmp_path), str(receipt_path),
-        json.dumps(requests + [(third_request["request_id"], third_request["request_digest"])]),
-        ], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=True)
-    assert json.loads(child.stdout.strip().splitlines()[-1]) == changed
+    child_report = _reconstruct_progression_in_child(tmp_path, fake.receipts,
+        requests + [(third_request["request_id"], third_request["request_digest"])])
+    assert child_report == changed
     with pytest.raises(ResidentDevelopmentalCognitionError,
             match="objective_progression_episode_count_invalid"):
         restarted.verified_objective_task_family_progression(request_refs=tuple(requests) * 9)
@@ -2439,6 +2388,71 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence, objective_task=objective_task)
     return result, fake
+
+
+def _reconstruct_progression_in_child(root: Path, receipts: Mapping[str, Any],
+        request_refs: list[tuple[str, str]]) -> Mapping[str, Any]:
+    """Reconstruct a task-family progression in a fresh interpreter."""
+    receipt_path = root / "fixture-issued-invocation-receipts.json"
+    receipt_path.write_text(json.dumps({receipt_id: receipt.to_dict()
+        for receipt_id, receipt in receipts.items()}, sort_keys=True), encoding="utf-8")
+    child_code = r'''
+import json, sys
+from pathlib import Path
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION)
+from sentientos.resident_developmental_cognition import (
+    ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner)
+from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
+
+root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
+refs = json.loads(sys.argv[3])
+receipts = json.loads(receipt_path.read_text(encoding="utf-8"))
+class PersistedFixtureReceiptVerifier:
+    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+        value = receipts[receipt_id]
+        assert value["receipt_id"] == receipt_id and value["receipt_digest"] == receipt_digest
+        request = value["request"]
+        assert request["request_id"] == expected["expected_request_id"]
+        assert request["request_digest"] == expected["expected_request_digest"]
+        assert request["active_model_identity"] == expected["expected_active_model_identity"]
+        serving = request["linkage"]["resident_cognitive_serving"]
+        assert serving["session_id"] == expected["expected_session_id"]
+        assert serving["activation_state_semantic_digest"] == expected[
+            "expected_session_binding"]["activation_state_semantic_digest"]
+        return {key: value[key] for key in ("receipt_id", "receipt_digest", "request",
+            "status", "output_digest", "output_truncated", "generation_config",
+            "output_size_bytes", "resource_allocation_digest", "resource_attempt_id",
+            "resource_consumption_receipt_digests", "resource_linkage_digest",
+            "backend_completion", "observed_at") if key in value}
+
+ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
+definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+def current_sequence():
+    admissions, _ = ledger.load()
+    return max((item.issued_sequence for item in admissions), default=1)
+def next_sequence():
+    admissions, revocations = ledger.load()
+    return max([item.issued_sequence for item in admissions]
+        + [item.sequence for item in revocations] + [0]) + 1
+writeback = ResidentDevelopmentalWritebackController(
+    history_root=root / "history",
+    admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+    current_sequence=current_sequence)
+owner = ResidentDevelopmentalCognitionOwner(
+    config=ResidentDevelopmentalCognitionConfig(root / "history", root / "state",
+        ("capability_registry", "embodiment"), 16, 4, True),
+    writeback=writeback,
+    admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+    invoker=PersistedFixtureReceiptVerifier(), current_sequence=next_sequence)
+print(json.dumps(owner.verified_objective_task_family_progression(
+    request_refs=tuple(tuple(item) for item in refs)), sort_keys=True))
+'''
+    child = subprocess.run([sys.executable, "-c", child_code, str(root), str(receipt_path),
+        json.dumps(request_refs)], cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, check=True)
+    return json.loads(child.stdout.strip().splitlines()[-1])
 
 
 def test_host_resource_owner_reaches_restart_safe_later_tick_cognition(
