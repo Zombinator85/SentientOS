@@ -1,0 +1,58 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 143,
+  "title": "developmental objective resource receipt join",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "f58446029817a03407f16ce0977b5702709561a7",
+    "tree": "bb1337c3db559fc0baeb6e45dc47bf6f7e4dd090"
+  },
+  "base": {
+    "commit": "018feab6521e6857cfba87ab0f2ec75cc076df3d",
+    "tree": "daa6bb88a8d2f64af61a2952d75a624ba562bd45"
+  },
+  "integrations": [
+    "developmental-history conditions join to authenticated ledger evidence by invocation receipt identity and resource-linkage digest",
+    "daemon selects bounded resource-lineage observations into World-State",
+    "resident developmental writeback projects exact linked identities and compact ledger-supported measurements"
+  ],
+  "positive_control": "genuine governed invocation and actual ledger reconciliation were used; synthetic developmental-condition row exercised the join only",
+  "negative_controls": "substituted attempt and partial or missing linkage remain degraded and do not project measurements",
+  "measurement_semantics": "call counts, output sizes, truncation, latency only when present in the ledger row; token count and shared host CPU/GPU remain unknown",
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "sentientos/host_resource_runtime.py",
+        "sentientos/developmental_history_intervention_experiment.py",
+        "sentientos/resident_developmental_writeback.py",
+        "sentientosd.py",
+        "tests/test_strategy_resource_lineage_integration.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "passed": 27,
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-a54-next-full/governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-a54-next-full/runtime SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-a54-next-full/federation SENTIENTOS_REPO_ROOT=/tmp/sentientos-a54-next-full/repo SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-a54-next-full/kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-a54-next-full/trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-a54-next-full/trust/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_strategy_resource_lineage_integration.py tests/test_developmental_model_replacement_resource_lineage_integration.py tests/test_resident_developmental_writeback.py tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context tests/test_resident_developmental_cognition.py::test_v6_history_selection_recovery_reconciles_the_invocation_receipt"
+    },
+    "typing": {
+      "status": "not_established",
+      "detail": "targeted mypy reported 38 diagnostics across two modules; broad imported-file attempt reported 1028 diagnostics across 141 files"
+    },
+    "hosted_ci": "not_observed",
+    "production_verification": "not_performed",
+    "real_model_performance": "not_observed"
+  },
+  "limitations": [
+    "developmental condition source row is synthetic test input, not a real intervention episode",
+    "ledger metrics do not establish causal per-invocation CPU/GPU/energy use",
+    "construction code remains unverified for production"
+  ],
+  "next_dependency": "inspect the experiment-result and lesson-admission path to determine whether objective task outcomes are linked by exact trial identities to subsequent history-conditioned retrieval; strengthen that source-backed outcome chain without treating fixture scores or retained history as evidence of acquired competence",
+  "publication": {
+    "expected_head": "018feab6521e6857cfba87ab0f2ec75cc076df3d",
+    "commit": "f58446029817a03407f16ce0977b5702709561a7",
+    "tree": "bb1337c3db559fc0baeb6e45dc47bf6f7e4dd090",
+    "remote_readback": "commit and tree independently verified"
+  }
+}

@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 142 continues from verified source `4eab50f3fdf125fed9f51e743e7a8b7bfb498ae9`, tree `84127f9bbbc2fa764ccec029814ec456f3a3f3d0`. Cognition observation v7 binds resource-linked invocation allocation, attempt, consumption-receipt digests, and resource-linkage digest. The persisted invocation verifier authenticates these refs; unlinked historical receipts retain prior digest scopes. Experiment condition and World-State projections preserve linked identities without inventing resource measures.
+Sequence 143 continues from source commit f58446029817a03407f16ce0977b5702709561a7, tree bb1337c3db559fc0baeb6e45dc47bf6f7e4dd090. Bounded developmental-history conditions are joined to authenticated ledger measurement receipts by exact invocation and resource-linkage identity. The existing daemon World-State selection and authorized writeback preserve the bounded lineage. No per-invocation CPU/GPU/energy or token measurement is inferred.
 
-Compilation passed for all five changed Python files. Focused resident-cognition, intervention-experiment, and governed-resource-invocation suites passed: 107 passed. No mypy, full repository checks, hosted CI, production verification, or real-model performance evaluation.
+Compilation and focused tests passed as recorded in sequence 143. Targeted typing was not established; no hosted CI, production verification, or real-model acquisition/performance evidence exists.
 
-Latest segment: `work/construction/segments/0142-resource-linkage-in-cognition.md`
-SHA-256: `cbb1a9c2e5fe86c51d4a743e8d082e8fe24c357ae01e5148c298be57c4a0df84`
-Evidence: `work/construction/evidence/0142-resource-linkage-in-cognition.json`
-Evidence SHA-256: `4f9e595f8d3451283ed1cf77c4365331e89db6eded5cb8574a2187a0cf709fa9`
-Sequence: 142
+Latest segment: work/construction/segments/0143-developmental-resource-receipt-join.md
+SHA-256: dcc29b40fb866c1ecd22b98a90a6aaf1a1adf6dc5178c526c43755ba0e04eee3
+Evidence: work/construction/evidence/0143-developmental-resource-receipt-join.json
+Evidence SHA-256: f23214d50df63e638685da5b751b12c2052bc1fc0d6dd62ce394aaa2c4d23282
+Sequence: 143
 
-Next: determine and implement a bounded join from objective conditions to authenticated resource-ledger measurement receipts via exact invocation receipt identities. Preserve unknown/shared-host measurements and historical projection identity.
+Next: inspect whether objective trial outcomes join to history-conditioned retrieval through exact trial identities and authorized lesson admission.

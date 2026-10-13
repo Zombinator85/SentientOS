@@ -1344,6 +1344,18 @@
       "sha256": "cbb1a9c2e5fe86c51d4a743e8d082e8fe24c357ae01e5148c298be57c4a0df84",
       "source_commit": "4eab50f3fdf125fed9f51e743e7a8b7bfb498ae9",
       "source_tree": "84127f9bbbc2fa764ccec029814ec456f3a3f3d0"
+    },
+    {
+      "bytes": 2333,
+      "evidence_bytes": 3862,
+      "evidence_path": "work/construction/evidence/0143-developmental-resource-receipt-join.json",
+      "evidence_sha256": "f23214d50df63e638685da5b751b12c2052bc1fc0d6dd62ce394aaa2c4d23282",
+      "path": "work/construction/segments/0143-developmental-resource-receipt-join.md",
+      "predecessor": "segment-sha256:cbb1a9c2e5fe86c51d4a743e8d082e8fe24c357ae01e5148c298be57c4a0df84",
+      "sequence": 143,
+      "sha256": "dcc29b40fb866c1ecd22b98a90a6aaf1a1adf6dc5178c526c43755ba0e04eee3",
+      "source_commit": "f58446029817a03407f16ce0977b5702709561a7",
+      "source_tree": "bb1337c3db559fc0baeb6e45dc47bf6f7e4dd090"
     }
   ],
   "source_acquisition": {
