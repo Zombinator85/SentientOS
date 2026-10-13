@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `4c7288f818b3588888df3bd2e9487276e104a896`, tree `0471d1fe98600698aeb08b97cbc2097578e6de0b`. Sequence 89 proves fresh-process reconstruction of same-model probe-suite plan, partial scores and aggregate evaluation from the original durable store, without inference replay. Targeted fixture test passed; production unverified.
+Last independently verified remote baseline `113f44154e82c81338f1ec8035958e71d532989a`, tree `41a870ad85c19d079e90ea9fb51927bf79a9729a`. Sequence 90 corrected a longitudinal self-model classification error: immutable developmental model-replacement and same-model history-intervention records now remain historical interpretations instead of being projected as current state. Focused longitudinal suite passed 25 tests; construction is unverified for production.
 
-Latest segment: work/construction/segments/0089-same-model-probe-suite-fresh-process.md
-SHA-256: 2761002456599786e73714a0c0cce8d2ede5de8fa63b783b267830675e921815
-Sequence: 89
+Latest segment: work/construction/segments/0090-longitudinal-experiments-historical-classification.md
+SHA-256: f1656d87cf27e728bf0cf3a44a82bcc7cc3dc711fa7959933cbf1779df008c8b
+Sequence: 90
 
-Loaded-code identity remains `not_independently_attested`. Actual local-model payload and exact existing commissioning/operator approval remain absent. Seq88 hosted checks were still running for Source Validation/invariants/Helm/self-check at the last query; docs had failed at its existing approval gate.
+Loaded-code identity remains `not_independently_attested`. No actual local model bytes or exact existing commissioning/operator approval are available; no model has been loaded or invoked.
 
-Next: verify seq88 hosted results and inspect adjacent developmental consumers for causal score preservation; do not claim real-model learning or infer loaded-code identity.
+Next: audit later-cognition selectors and persisted historical-interpretation consumers for category or freshness promotion. Keep fixture task outcomes distinct from actual model acquisition, transfer, or generalized learning.

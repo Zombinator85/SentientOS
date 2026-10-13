@@ -125,6 +125,11 @@ HISTORICAL_EMBODIMENT_SUBJECTS = frozenset({
     "embodied_prediction_comparison", "embodied_consequence_chain",
     "embodied_strategy_experiment", "embodied_strategy_proposal",
     "embodied_strategy_proposal_review", "embodied_proposal_fulfillment_receipt",
+    # These World-State rows are immutable experimental records. Their generic
+    # lifecycle disposition describes a completed historical trial, not a
+    # present system state or continuing capability.
+    "developmental_model_replacement_experiment",
+    "developmental_history_intervention_experiment",
 })
 HOST_RESOURCE_METRICS = (
     "cpu_utilization_percent", "ram_utilization_percent", "gpu_utilization_percent",

@@ -99,6 +99,34 @@ def test_host_resource_snapshot_stays_historical_unknown_and_later_tick_bound(tm
     assert retained["value"]["shared_host_use_attribution"] == "not_per_invocation"
 
 
+@pytest.mark.parametrize("subject_kind", [
+    "developmental_model_replacement_experiment",
+    "developmental_history_intervention_experiment",
+])
+def test_developmental_experiment_lifecycle_is_historical_not_current_state(
+    tmp_path: Path, subject_kind: str,
+) -> None:
+    source_record = {
+        "source_kind": "embodiment", "source_id": f"experiment:{subject_kind}",
+        "schema_version": "sentientos.developmental_experiment:v1",
+        "subject_id": f"run:{subject_kind}", "subject_kind": subject_kind,
+        "stage": "observation", "disposition": "history_presence_associated_stable_difference",
+        "evidence_strength": "digest_bound_experimental_record",
+        "observed_at": "2026-09-25T11:59:00Z",
+        "payload": {"classification": "history_presence_associated_stable_difference",
+            "current_truth": False, "authority": False, "learning_established": False},
+        "effect_claimed": False, "effect_proven": False,
+    }
+    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
+        snapshot(source_record), tick_id=f"tick:{subject_kind}")
+    lifecycle = next(claim for claim in result.claims
+        if claim.predicate == "lifecycle.observation.disposition")
+    assert lifecycle.claim_category == "historical_interpretation"
+    assert lifecycle.status == "historical"
+    assert lifecycle.current_truth is False
+    assert lifecycle.value == "history_presence_associated_stable_difference"
+
+
 def test_contradictory_evidence_is_preserved_without_latest_wins(tmp_path: Path) -> None:
     result = LongitudinalSelfModelOwner(tmp_path).reconcile(
         snapshot(record(source="runtime:a", model="model-a"), record(source="runtime:b", model="model-b")),
