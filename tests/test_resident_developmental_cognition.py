@@ -849,10 +849,11 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert any(fact["payload"].get("objective_task_family") == "integer_affine_prediction"
         for fact in admitted.candidate["selected_facts"])
 
-    # Recent unrelated interpretations must not evict this bounded family match.
+    # A relevant example older than the prior 64-tick search window must not
+    # be hidden by newer unrelated, otherwise valid developmental history.
     unrelated_owner, _ = owner(tmp_path, comparison=False, invoker=fake,
         allowed_source_kinds=("capability_registry",), max_selected_facts=4)
-    for value in range(2, 7):
+    for value in range(2, 68):
         unrelated = unrelated_owner.run_tick(snapshot=snapshot(value),
             tick_id=f"unrelated-history-{value}")
         assert unrelated.written_record_id
@@ -947,6 +948,91 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert progression["distinct_probe_sets"] is True
     assert progression["actual_nonsynthetic_inference_verified"] is False
     assert progression["learning_established"] is False
+
+
+def test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer(
+        tmp_path: Path) -> None:
+    """A family match is relevant evidence, not an implicit success claim."""
+    fake = SessionBoundFakeInvoker()
+    fake.objective_mode = "degrade"
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="adverse-family-seed").written_record_id
+
+    # The fixture endpoint is preregistered to answer incorrectly when history
+    # is present and correctly when withheld. This is an instrument control,
+    # not evidence of actual model learning or model performance.
+    acquisition = ObjectivePredictionTask(0, 23, 6, (7, 8),
+        task_family_id="integer_affine_prediction")
+    stage_objective_request(tmp_path / "state", request_id="adverse-acquisition",
+        task=acquisition)
+    staged = load_objective_request(tmp_path / "state")
+    assert staged is not None
+    acquired = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="adverse-family-acquisition", objective_task=acquisition,
+        request_id=staged["request_id"], request_digest=staged["request_digest"])
+    assert acquired.changed_cognition_measurement_id
+    run = cognition.experiments.load_run(acquired.changed_cognition_measurement_id)
+    assert run["objective_evaluation"]["history_correct_probe_delta"] == -3
+    source_records = cognition.experiments.world_state_records(run_refs=((
+        run["run_id"], run["run_digest"]),))
+    assert len(source_records) == 1
+    source_payload = source_records[0]["payload"]
+    assert source_payload["current_truth"] is False
+    assert source_payload["learning_established"] is False
+    assert [item["evaluator_correct"] for item in source_payload["acquisition_examples"]] == [
+        False, False, False]
+    source_score_digest = source_payload["objective_scores"][0]["score_digest"]
+    assert all(item["source_score_digest"] == source_score_digest
+        for item in source_payload["acquisition_examples"])
+
+    source_world = WorldStateBoardBuilder().build(source_records)
+    retained_result = cognition.run_tick(snapshot=source_world,
+        tick_id="adverse-family-source-writeback")
+    assert retained_result.written_record_id
+    retained = cognition.writeback.store.get(retained_result.written_record_id)
+    retained_fact = next(fact for fact in retained.candidate["selected_facts"]
+        if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
+    assert [item["evaluator_correct"] for item in retained_fact["payload"][
+        "acquisition_examples"]] == [False, False, False]
+    assert retained_fact["payload"]["objective_scores"][0]["score_digest"] == source_score_digest
+
+    # Recent unrelated history cannot erase this independently admitted family
+    # evidence. Staging discovers it via the ordinary checkpoint and receipt.
+    later_task = ObjectivePredictionTask(0, 23, 9,
+        (10,),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    from scripts.stage_resident_objective_intervention import stage_request
+    config_path = tmp_path / "adverse-family-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    staged_path, _, matching_count = stage_request(config_path=config_path,
+        request_id="adverse-family-transfer", task=later_task)
+    assert staged_path.exists() and matching_count >= 1
+    later_request = load_objective_request(tmp_path / "state")
+    assert later_request is not None
+    later = cognition.run_objective_intervention_once(snapshot=source_world,
+        tick_id="adverse-family-transfer-run", objective_task=objective_task_for_request(later_request),
+        request_id=later_request["request_id"], request_digest=later_request["request_digest"])
+    assert later.changed_cognition_measurement_id
+    transfer = cognition.experiments.load_run(later.changed_cognition_measurement_id)
+    assert transfer["objective_evaluation"]["history_correct_probe_delta"] == -2
+    present, withheld, restored = transfer["conditions"]
+    assert retained.record_id in present["retrieved_record_ids"]
+    assert retained.record_id not in withheld["retrieved_record_ids"]
+    assert retained.record_id in restored["retrieved_record_ids"]
+    source_fact = next(fact for fact in source_world.facts
+        if fact.source.source_id == source_records[0]["source_id"])
+    assert all(source_fact.fact_id not in condition["current_fact_ids"]
+        for condition in transfer["conditions"])
+    assert all("objective_evaluation" not in json.dumps(condition["current_fact_ids"])
+        for condition in transfer["conditions"])
+    assert transfer["objective_evaluation"]["scope"] == (
+        "same_model_task_correctness_not_general_learning_or_weight_change")
 
 
 def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(

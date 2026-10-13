@@ -2716,12 +2716,15 @@ class ResidentDevelopmentalCognitionOwner:
         family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
             if self.objective_task is not None else None)
         if isinstance(family, str):
-            # Search a bounded recent window for authenticated source facts in
-            # the declared task family, then fill remaining slots by recency.
-            # The family label is protocol-bound metadata, not proof of learning.
-            window = ids[-64:]
-            relevant: list[str] = []
-            for record_id in window:
+            # The completed-tick checkpoint bounds this search to
+            # MAX_RECOVERED_TICKS. Search newest-first across that complete
+            # retained lineage so a valid older family example is not hidden
+            # by unrelated recent history. Keep only the newest matching
+            # records, then fill spare slots by recency. Family labels are
+            # protocol-bound relevance metadata, not proof of correctness or
+            # learning; the selected records retain their source qualifiers.
+            relevant_newest_first: list[str] = []
+            for record_id in reversed(ids):
                 try:
                     record = self.writeback.store.get(record_id)
                 except Exception as exc:
@@ -2733,8 +2736,10 @@ class ResidentDevelopmentalCognitionOwner:
                         and isinstance(fact.get("payload"), Mapping)
                         and fact["payload"].get("objective_task_family") == family
                         for fact in facts):
-                    relevant.append(record_id)
-            selected = relevant[-self.config.max_retrieved_records:]
+                    relevant_newest_first.append(record_id)
+                    if len(relevant_newest_first) >= self.config.max_retrieved_records:
+                        break
+            selected = list(reversed(relevant_newest_first))
             selected_set = set(selected)
             for record_id in reversed(ids):
                 if len(selected) >= self.config.max_retrieved_records:

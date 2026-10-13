@@ -1,0 +1,37 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "compile_command": "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+    "fixture_only": true,
+    "focused_test_command": "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-campaign/governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-campaign/federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-campaign/kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-campaign/pulse-trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-campaign/pulse-trust/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py tests/test_resident_developmental_writeback.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_objective_scoring.py tests/test_world_state_board.py tests/test_world_state_sources.py",
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 144,
+    "focused_tests_skipped": 10,
+    "pre_repair_regression": "The extended old-family-record test failed because runtime returned no measurement after the record aged past the 64-tick scan; the repaired source passed that test and the adverse-source test.",
+    "production_acceptance": "deferred"
+  },
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 249749,
+      "git_blob": "5a54a0ee7a2cb8ab5afe6f1312b7c4de5bac901a",
+      "sha256": "c899b63a2f20a58a7d6104bf286c38d1d697293a87b13df5f3b2038c5b41b4e0"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 233236,
+      "git_blob": "38de2ed27cfa48060119f74240f9e478f61d1fc1",
+      "sha256": "45bcad3ef132982afb9623352c20ccfa3e29624f0cb26acb68b9b316f5b598bd"
+    }
+  },
+  "implementation": {
+    "adverse_evidence": "An incorrect acquisition remains evaluator_correct=false with its exact source score digest through canonical World-State, ordinary writeback, and a later family transfer. The transfer remains negatively scored when the controlled fixture exposes harmful history.",
+    "limits": "All model outputs and serving receipts in these cases are fixtures. No actual model acquisition, performance improvement, live serving, or production behavior was demonstrated.",
+    "retrieval": "Task-family search now scans committed completed ticks newest-first, bounded by MAX_RECOVERED_TICKS and max_retrieved_records; it selects the newest matching records, then fills with recent records.",
+    "stage_runtime_consistency": "Regression first reproduced a staged family record older than 64 ticks being missed by runtime retrieval; after source repair, staging and execution both consume the existing admitted record."
+  },
+  "objective": "Make operator staging and runtime retrieval agree for relevant developmental history older than recent unrelated ticks, and preserve adverse source quality through later transfer.",
+  "schema_version": 1,
+  "sequence": 138,
+  "source_acquisition_retries": "None; isolated exact source workspace retained and remote base verified.",
+  "source_commit": "d53dbee148dab81bc015f9a884298e754635d38f",
+  "source_tree": "2014669e6bd8eefb2d8264092f3af386cd742af1"
+}
