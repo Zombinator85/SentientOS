@@ -2623,6 +2623,8 @@ class RuntimeMaintenanceSurfaces:
                         max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
                         current_tick=int(cognition_instant.timestamp()))
                 objective_request_status = None
+                objective_measurement_summary = None
+                existing_objective_request = False
                 developmental_owner = self._resident_developmental_owner
                 unwrapped_owner = (developmental_owner._owner
                     if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner)
@@ -2635,12 +2637,28 @@ class RuntimeMaintenanceSurfaces:
                     request_digest = str(staged_request["request_digest"])
                     objective_request_status = unwrapped_owner.objective_request_disposition(
                         request_id=request_id, request_digest=request_digest)
+                    existing_objective_request = objective_request_status != "new"
                     if objective_request_status == "new":
                         result = developmental_owner.run_objective_intervention_once(
                             snapshot=self._world_state_snapshot, tick_id=tick_id,
                             objective_task=objective_task_for_request(staged_request),
                             request_id=request_id, request_digest=request_digest)
                         objective_request_status = result.status
+                        if (result.status == "objective_intervention_completed"
+                                and result.changed_cognition_measurement_id is not None):
+                            try:
+                                objective_measurement_summary = dict(
+                                    unwrapped_owner.verified_objective_measurement_summary(
+                                        measurement_id=result.changed_cognition_measurement_id,
+                                        request=staged_request))
+                            except Exception as exc:
+                                # The experiment remains completed; optional
+                                # presentation cannot change its service outcome.
+                                objective_measurement_summary = {
+                                    "status": "outcome_verification_unavailable",
+                                    "reason_code": f"{type(exc).__name__}:{exc}"[:192],
+                                    "authority": False,
+                                }
                     else:
                         # Never replay a terminal or interrupted task request.
                         # The regular, independently gated cognition cycle may
@@ -2654,8 +2672,25 @@ class RuntimeMaintenanceSurfaces:
                         snapshot=self._world_state_snapshot, tick_id=tick_id,
                         prior_self_model=prior_self_model,
                         prior_epistemic_state=prior_epistemic_state)
+                if (staged_request is not None and existing_objective_request
+                        and objective_measurement_summary is None):
+                    try:
+                        objective_measurement_summary = dict(
+                            unwrapped_owner.verified_objective_measurement_for_request(
+                                request_id=str(staged_request["request_id"]),
+                                request_digest=str(staged_request["request_digest"])))
+                    except Exception as exc:
+                        # Recovery reporting is observational and cannot change
+                        # the tick or trigger a retry of the staged experiment.
+                        objective_measurement_summary = {
+                            "status": "outcome_verification_unavailable",
+                            "reason_code": f"{type(exc).__name__}:{exc}"[:192],
+                            "authority": False,
+                        }
                 feedback = {**asdict(result), "snapshot_object_preserved": True,
                             "objective_request_status": objective_request_status,
+                            **({"objective_measurement_summary": objective_measurement_summary}
+                                if objective_measurement_summary is not None else {}),
                             "memory_posture": "historical_interpretation_not_current_truth",
                             "epistemic_composition": {
                                 "status": ("composed" if prior_epistemic_state is not None else

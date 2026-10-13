@@ -119,6 +119,16 @@ durable plan and is not included in the model's task descriptor. This handoff
 makes the existing trial path callable; it does not demonstrate actual model
 acquisition or performance.
 
+After a completed request, daemon feedback includes a bounded score summary
+reloaded through the existing run verifier and the configured invocation-receipt
+verifier. It contains receipt/output digests, per-condition score status and
+correctness, plus a separate `actual_nonsynthetic_inference_verified` flag; it
+does not include prompts, output text, or the oracle. After restart, a fully
+checkpointed interrupted trial can be reconstructed and summarized without
+repeating inference. Missing or unbound receipts leave the actual-inference
+flag false, and failure to render this optional summary does not change the
+already completed trial result.
+
 Before staging, an operator can run a bounded read-only preflight against one
 explicitly selected model file:
 

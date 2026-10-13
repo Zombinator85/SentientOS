@@ -446,6 +446,19 @@ def test_explicit_objective_request_runs_once_without_developmental_writeback(tm
         for request in objective_calls)
     assert cognition.objective_request_disposition(request_id=request["request_id"],
         request_digest=request["request_digest"]) == "completed"
+    report = cognition.verified_objective_measurement_summary(
+        measurement_id=result.changed_cognition_measurement_id, request=request)
+    assert report["status"] == "verified_objective_measurement"
+    assert report["actual_nonsynthetic_inference_verified"] is False
+    assert report["objective_evaluation"] == run["objective_evaluation"]
+    assert [row["condition_id"] for row in report["conditions"]] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert all("output_text" not in row and "answer" not in row
+        for row in report["conditions"])
+    altered_request = dict(request); altered_request["request_id"] = "substituted-request"
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="objective_outcome_request_invalid"):
+        cognition.verified_objective_measurement_summary(
+            measurement_id=result.changed_cognition_measurement_id, request=altered_request)
     assert stored_objective_request_disposition(tmp_path / "state",
         request_id=request["request_id"], request_digest=request["request_digest"]) == "completed"
     second_task = ObjectivePredictionTask(3, 2, 8)
@@ -506,6 +519,42 @@ def test_interrupted_one_shot_request_is_not_replayed_after_restart(tmp_path: Pa
         restarted.run_objective_intervention_once(snapshot=snapshot(),
             tick_id="interrupted-one-shot-replay", objective_task=task,
             request_id=request["request_id"], request_digest=request["request_digest"])
+    assert len(fake.requests) == calls_at_interruption
+
+
+def test_recovered_one_shot_score_is_returned_without_replaying_inference(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="recoverable-request-seed").written_record_id
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    stage_objective_request(tmp_path / "state", request_id="recoverable-one-shot", task=task)
+    request = load_objective_request(tmp_path / "state")
+    assert request is not None
+    real_persist_run = cognition.experiments.persist_run
+
+    def interrupt_after_scores(payload):
+        raise OSError("fixture interruption after objective scores")
+
+    monkeypatch.setattr(cognition.experiments, "persist_run", interrupt_after_scores)
+    with pytest.raises(OSError, match="after objective scores"):
+        cognition.run_objective_intervention_once(snapshot=snapshot(),
+            tick_id="recoverable-one-shot-tick", objective_task=task,
+            request_id=request["request_id"], request_digest=request["request_digest"])
+    calls_at_interruption = len(fake.requests)
+    monkeypatch.setattr(cognition.experiments, "persist_run", real_persist_run)
+
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake)
+    outcome = restarted.verified_objective_measurement_for_request(
+        request_id=request["request_id"], request_digest=request["request_digest"])
+
+    assert outcome["status"] == "verified_objective_measurement"
+    assert outcome["recovery_posture"] == "completed_run_loaded_without_inference_replay"
+    assert outcome["actual_nonsynthetic_inference_verified"] is False
+    assert outcome["objective_evaluation"]["assessment"] == "preregistered_probe_suite_scored"
+    assert len(outcome["conditions"]) == 3
     assert len(fake.requests) == calls_at_interruption
 
 
@@ -2020,6 +2069,9 @@ def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_conf
     assert result["objective_request_status"] == "objective_intervention_completed"
     assert result["written_record_id"] is None
     assert result["canonical_explicit_user_retention_mutated"] is False
+    assert result["objective_measurement_summary"]["status"] == "verified_objective_measurement"
+    assert result["objective_measurement_summary"]["actual_nonsynthetic_inference_verified"] is False
+    assert len(result["objective_measurement_summary"]["conditions"]) == 3
     assert request.exists()
     trial_requests = [item for item in fake.requests
         if item.purpose == "resident_developmental_history_intervention_experiment"
@@ -2032,6 +2084,8 @@ def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_conf
     surfaces.build_world_state_board(tick_id=next_tick)
     later = surfaces.run_resident_developmental_cognition(tick_id=next_tick)
     assert later["objective_request_status"] == "completed"
+    assert later["objective_measurement_summary"]["status"] == "verified_objective_measurement"
+    assert later["objective_measurement_summary"]["actual_nonsynthetic_inference_verified"] is False
     assert len([item for item in fake.requests
         if item.purpose == "resident_developmental_history_intervention_experiment"
         and "objective_task_plan_digest" in item.upstream_evidence]) == 3
