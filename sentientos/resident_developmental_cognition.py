@@ -1586,7 +1586,7 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
     outputs: list[dict[str, Any]] = []
     actual_inference = True
     requested_tokens = protocol.inference_budget.get("max_new_tokens")
-    requested_output_bytes = protocol.inference_budget.get("max_output_chars")
+    requested_output_chars = protocol.inference_budget.get("max_output_chars")
     for condition in CONDITION_ORDER:
         observation = condition_rows[condition]
         wrapper = score_by_condition[condition]
@@ -1643,6 +1643,52 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
         backend_completion = (receipt.get("backend_completion")
             if isinstance(receipt, Mapping)
             and isinstance(receipt.get("backend_completion"), Mapping) else None)
+        output_size = (receipt.get("output_size_bytes") if isinstance(receipt, Mapping)
+            and type(receipt.get("output_size_bytes")) is int
+            and 0 <= receipt["output_size_bytes"] <= 1_048_576 else None)
+        resource_fields = {
+            "resource_allocation_digest": receipt.get("resource_allocation_digest")
+                if isinstance(receipt, Mapping) else None,
+            "resource_attempt_id": receipt.get("resource_attempt_id")
+                if isinstance(receipt, Mapping) else None,
+            "resource_consumption_receipt_digests": list(
+                receipt.get("resource_consumption_receipt_digests") or ())
+                if isinstance(receipt, Mapping) else [],
+            "resource_linkage_digest": receipt.get("resource_linkage_digest")
+                if isinstance(receipt, Mapping) else None,
+        }
+        has_resource_linkage = any((resource_fields["resource_allocation_digest"],
+            resource_fields["resource_attempt_id"],
+            resource_fields["resource_consumption_receipt_digests"],
+            resource_fields["resource_linkage_digest"]))
+        observed_resource_fields_present = any(key in observation for key in resource_fields)
+        linkage_mismatch = False
+        if observed_resource_fields_present:
+            for key, value in resource_fields.items():
+                observed_value = observation.get(key)
+                if key == "resource_consumption_receipt_digests":
+                    if (not isinstance(observed_value, (list, tuple))
+                            or tuple(observed_value) != tuple(value)):
+                        linkage_mismatch = True
+                        break
+                elif observed_value != value:
+                    linkage_mismatch = True
+                    break
+        if linkage_mismatch:
+            raise ResidentDevelopmentalCognitionError(
+                "objective_outcome_resource_linkage_mismatch")
+        if has_resource_linkage and not observed_resource_fields_present:
+            resource_posture = "receipt_linkage_not_bound_in_historical_observation"
+            resource_fields = {"resource_allocation_digest": None,
+                "resource_attempt_id": None,
+                "resource_consumption_receipt_digests": [],
+                "resource_linkage_digest": None}
+        elif has_resource_linkage:
+            resource_posture = (
+                "invocation_receipt_linkage_verified_ledger_reconciliation_not_performed")
+        else:
+            resource_posture = ("unbound_historical_invocation" if receipt is None else
+                "no_resource_linkage_in_invocation_receipt")
         score = wrapper.get("score")
         if not isinstance(score, Mapping):
             raise ResidentDevelopmentalCognitionError("objective_outcome_score_invalid")
@@ -1665,14 +1711,23 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             "backend_completion_posture": ("receipt_bound_backend_report"
                 if backend_completion is not None else
                 "legacy_or_backend_completion_reason_unavailable"),
+            "output_size_bytes": output_size,
+            "output_size_posture": ("invocation_receipt_bound" if output_size is not None
+                else "unknown_missing_or_invalid_receipt_value"),
             "generation_budget": {
                 "preregistered_max_new_tokens": requested_tokens,
                 "effective_max_new_tokens": effective_tokens,
                 "posture": budget_posture,
-                "preregistered_max_output_bytes": requested_output_bytes,
+                "preregistered_max_output_chars": requested_output_chars,
                 "output_truncated": wrapper.get("output_truncated", False),
                 "backend_completion_reason_verified": False,
-            }})
+            },
+            "resource_linkage": {"posture": resource_posture,
+                **resource_fields,
+                "ledger_reconciliation_posture": "not_performed_by_objective_result_inspector",
+                "cpu_time_ms": None, "gpu_time_ms": None,
+                "energy_joules": None, "generated_token_count": None,
+                "measurement_posture": "unknown_without_ledger_or_token_measurement"}})
     descriptor = dict(request["task_descriptor"])
     task_specification = dict(request["task"])
     task_family = None
@@ -2426,6 +2481,15 @@ class ResidentDevelopmentalCognitionOwner:
                     "scoreable": type(count) is int,
                     "score_digest": item.get("score_digest"),
                     "output_digest": item.get("output_digest"),
+                    "receipt_status": item.get("receipt_status"),
+                    "output_truncated": item.get("output_truncated"),
+                    "output_size_bytes": item.get("output_size_bytes"),
+                    "output_size_posture": item.get("output_size_posture"),
+                    "backend_completion": (dict(item["backend_completion"])
+                        if isinstance(item.get("backend_completion"), Mapping) else None),
+                    "backend_completion_posture": item.get("backend_completion_posture"),
+                    "generation_budget": dict(item.get("generation_budget", {})),
+                    "resource_linkage": dict(item.get("resource_linkage", {})),
                     "inference_receipt_id": item.get("inference_receipt_id"),
                     "inference_receipt_digest": item.get("inference_receipt_digest"),
                     "retrieved_record_ids": list(item.get("retrieved_record_ids", ())),
@@ -2466,6 +2530,35 @@ class ResidentDevelopmentalCognitionOwner:
         distinct_tasks = len(set(task_digests)) == len(task_digests)
         distinct_probes = len(set(probe_keys)) == len(probe_keys)
         scored = all(episode["scoreable"] for episode in episodes)
+        condition_rows = [condition for episode in episodes
+            for condition in episode["conditions"]]
+        execution_cost_summary = {
+            "condition_count": len(condition_rows),
+            "invocation_receipt_identity_count": sum(bool(row.get("inference_receipt_id")
+                and row.get("inference_receipt_digest")) for row in condition_rows),
+            "verified_completed_inference_count": sum(row.get("receipt_status") ==
+                "admitted_local_model_inference" for row in condition_rows),
+            "scoreable_condition_count": sum(row.get("scoreable") is True
+                for row in condition_rows),
+            "truncated_output_count": sum(row.get("output_truncated") is True
+                for row in condition_rows),
+            "receipt_linked_resource_condition_count": sum(
+                row.get("resource_linkage", {}).get("posture") ==
+                "invocation_receipt_linkage_verified_ledger_reconciliation_not_performed"
+                for row in condition_rows),
+            "ledger_reconciled_consumption_count": None,
+            "resource_measurement_posture": "not_reconciled_by_progression_inspector",
+            "backend_completion_report_count": sum(
+                isinstance(row.get("backend_completion"), Mapping)
+                for row in condition_rows),
+            "backend_completion_measurement_posture": (
+                "receipt_bound_backend_report_not_independent_measurement"),
+            "cpu_time_ms": None, "gpu_time_ms": None, "energy_joules": None,
+            "generated_token_count": None,
+            "output_size_observations": [{"condition_id": row.get("condition_id"),
+                "output_size_bytes": row.get("output_size_bytes"),
+                "posture": row.get("output_size_posture")} for row in condition_rows],
+        }
         comparable = (len(episodes) >= 2 and len(family_ids) == 1 and distinct_tasks and distinct_probes
             and same_profile and scored)
         semantic = {"schema_version": "sentientos.objective_task_family_progression:v1",
@@ -2478,6 +2571,7 @@ class ResidentDevelopmentalCognitionOwner:
             "distinct_task_instances": distinct_tasks,
             "distinct_probe_sets": distinct_probes,
             "all_episodes_scoreable": scored,
+            "execution_cost_summary": execution_cost_summary,
             "actual_nonsynthetic_inference_verified": all(
                 episode["actual_nonsynthetic_inference_verified"] for episode in episodes),
             "interpretation": "descriptive_task_correctness_only",

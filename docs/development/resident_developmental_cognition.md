@@ -167,6 +167,12 @@ when a scored run or required receipt cannot be verified; it does not replay an
 interrupted request. The report separates score validity from actual governed
 inference verification and omits raw prompts, outputs, and oracle data.
 
+Progression output keeps the requested `max_output_chars` limit separate from
+receipt-reported output bytes. It carries allocation, attempt, and consumption
+receipt identities only as invocation-receipt linkage until the resource ledger
+is independently reconciled. CPU, GPU, energy, and generated-token measurements
+remain unknown when this result path has no corroborating measurement owner.
+
 Before staging, an operator can run a bounded read-only preflight against one
 explicitly selected model file:
 
