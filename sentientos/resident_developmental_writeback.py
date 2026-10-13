@@ -131,6 +131,46 @@ def _identity(prefix: str, payload: Any) -> tuple[str, str]:
     return f"{prefix}-{digest.removeprefix('sha256:')[:24]}", digest
 
 
+def _validate_candidate_source_bindings(candidate: "DevelopmentalCandidate") -> None:
+    """Require one exact source row per source referenced by retained facts.
+
+    Older records can omit selected fact payloads, so this check is limited to
+    the versioned payload-bearing form. Mapping construction must not silently
+    collapse duplicate source IDs: conflicting duplicates would make recovery
+    depend on row order.
+    """
+    if not candidate.selected_facts:
+        return
+    if (len(candidate.selected_fact_ids) != len(set(candidate.selected_fact_ids))
+            or len(candidate.selected_facts) != len(candidate.selected_fact_ids)):
+        raise DevelopmentalWritebackError("candidate_source_binding_invalid")
+    sources_by_id: dict[str, Mapping[str, Any]] = {}
+    for source in candidate.selected_sources:
+        source_id = source.get("source_id") if isinstance(source, Mapping) else None
+        source_digest = source.get("digest") if isinstance(source, Mapping) else None
+        if (not isinstance(source_id, str) or not source_id
+                or not isinstance(source_digest, str) or len(source_digest) != 64
+                or any(character not in "0123456789abcdef" for character in source_digest)
+                or source_id in sources_by_id):
+            raise DevelopmentalWritebackError("candidate_source_binding_invalid")
+        sources_by_id[source_id] = source
+    referenced_sources: dict[str, Mapping[str, Any]] = {}
+    for fact in candidate.selected_facts:
+        if not isinstance(fact, Mapping) or not isinstance(fact.get("source"), Mapping):
+            raise DevelopmentalWritebackError("candidate_source_binding_invalid")
+        source = fact["source"]
+        source_id = source.get("source_id")
+        if (not isinstance(source_id, str) or not source_id
+                or source_id in referenced_sources
+                and dict(referenced_sources[source_id]) != dict(source)):
+            raise DevelopmentalWritebackError("candidate_source_binding_invalid")
+        referenced_sources[source_id] = source
+        if sources_by_id.get(source_id) != source:
+            raise DevelopmentalWritebackError("candidate_source_binding_invalid")
+    if set(sources_by_id) != set(referenced_sources):
+        raise DevelopmentalWritebackError("candidate_source_binding_invalid")
+
+
 def _runtime_history_projection(fact: Mapping[str, Any]) -> dict[str, Any] | None:
     """Retain compact process/serving lineage while binding it to the full source row."""
     source = fact.get("source")
@@ -2032,6 +2072,7 @@ class ResidentDevelopmentalWritebackController:
         cid, cdigest = _identity("devcand", candidate.semantic_payload())
         if (candidate.candidate_id, candidate.candidate_digest) != (cid, cdigest):
             raise DevelopmentalWritebackError("candidate_digest_mismatch")
+        _validate_candidate_source_bindings(candidate)
         _verify_history_conditioned_candidate(candidate)
         config = self.admission_configuration_digest(candidate, operation_id=operation_id)
         if tuple(admission.effects) != EFFECTS:
@@ -2145,6 +2186,7 @@ class ResidentDevelopmentalWritebackController:
             candidate_id, candidate_digest = _identity("devcand", candidate.semantic_payload())
             if (candidate.candidate_id, candidate.candidate_digest) != (candidate_id, candidate_digest):
                 raise DevelopmentalWritebackError("durable_candidate_digest_mismatch")
+            _validate_candidate_source_bindings(candidate)
             _verify_history_conditioned_candidate(candidate)
             is_cognition_candidate = (
                 candidate.transformation_provenance.get("kind")

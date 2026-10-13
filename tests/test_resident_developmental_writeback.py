@@ -13,9 +13,9 @@ from sentientos.codex_task_authority_admission import (
 from sentientos.governed_local_model_invocation import LocalModelInvocationBudget, LocalModelInvocationReceipt
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_writeback import (
-    EFFECTS, PRINCIPAL, PURPOSE, CognitionObservation, DevelopmentalHistoryStore,
+    EFFECTS, PRINCIPAL, PURPOSE, CognitionObservation, DevelopmentalCandidate, DevelopmentalHistoryStore,
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
-    SelectedEvidence, _has_bounded_integrity_controller_observation,
+    SelectedEvidence, _has_bounded_integrity_controller_observation, _identity,
     measure_changed_cognition,
 )
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
@@ -111,6 +111,48 @@ def test_successful_selected_evidence_candidate_admitted_append_receipt_retrieva
     assert projection.read_only and projection.records[0]["record_digest"] == record.record_digest
     assert not projection.current_truth and not projection.authority and not projection.canonical_explicit_user_retention
     assert fresh.store.get_receipt(receipt.receipt_id) == receipt
+    recovered = fresh.inspect_completed_records()
+    assert len(recovered) == 1
+    recovered_candidate = recovered[0][0].candidate
+    assert recovered_candidate["selected_sources"] == [dict(source) for source in selection.sources]
+    assert [fact["source"] for fact in recovered_candidate["selected_facts"]] == [
+        dict(selection.sources[0])]
+
+
+def test_recovery_rejects_duplicate_source_binding_after_identity_reconstruction(tmp_path: Path) -> None:
+    ctrl, authority = controller(tmp_path)
+    _selection, candidate, _fake = candidate_for(ctrl)
+    record, receipt = ctrl.append(
+        candidate, admission=issue(authority, candidate), operation_id="op-1",
+        correlation_id="c", created_at="fixed")
+    record_path = ctrl.store.records_root / f"{record.record_id}.json"
+    payload = json.loads(record_path.read_text(encoding="utf-8"))
+    candidate_payload = payload["candidate"]
+    candidate_payload["selected_fact_ids"] = tuple(candidate_payload["selected_fact_ids"])
+    candidate_payload["selected_sources"] = tuple(candidate_payload["selected_sources"])
+    candidate_payload["selected_facts"] = tuple(candidate_payload["selected_facts"])
+    candidate_payload["selected_sources"] += (dict(candidate_payload["selected_sources"][0]),)
+    recovered_candidate = DevelopmentalCandidate(**candidate_payload)
+    candidate_id, candidate_digest = _identity(
+        "devcand", recovered_candidate.semantic_payload())
+    recovered_candidate = replace(
+        recovered_candidate, candidate_id=candidate_id, candidate_digest=candidate_digest)
+    tampered_record = replace(record, record_id="", record_digest="",
+        candidate=asdict(recovered_candidate))
+    record_id, record_digest = _identity("devrec", tampered_record.semantic_payload())
+    tampered_record = replace(tampered_record, record_id=record_id, record_digest=record_digest)
+
+    # Simulate storage corruption with internally recomputed content identities.
+    # The original admission cannot legitimize the duplicate source row, and
+    # recovery must reject it before treating the missing receipt as repairable.
+    record_path.unlink()
+    (ctrl.store.receipts_root / f"{receipt.receipt_id}.json").unlink()
+    tampered_path = ctrl.store.records_root / f"{record_id}.json"
+    tampered_path.write_text(
+        json.dumps(asdict(tampered_record), sort_keys=True, indent=2) + "\n",
+        encoding="utf-8")
+    with pytest.raises(DevelopmentalWritebackError, match="candidate_source_binding_invalid"):
+        ctrl.inspect_completed_records()
 
 
 def test_snapshot_validation_membership_and_provenance_tampering_fail_closed(tmp_path: Path) -> None:
