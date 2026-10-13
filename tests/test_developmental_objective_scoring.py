@@ -342,3 +342,14 @@ def test_preregistered_probe_suite_scores_transfer_and_recovers_without_replay(t
 def test_probe_suite_bounds_and_identity_are_validated(additional):
     with pytest.raises(DevelopmentalModelReplacementError, match='objective_task_parameters_invalid'):
         ObjectivePredictionTask(3, 2, 7, additional).specification()
+
+
+def test_probe_suite_malformed_answer_is_scored_as_failure_not_success(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    owner, _, _ = experiment(tmp_path, 'malformed', task=task)
+    run = owner.run()
+    assert run['experiment_completion_posture'] == 'completed'
+    assert run['objective_evaluation']['assessment'] == 'preregistered_probe_suite_scored'
+    assert all(item['objective_task_score']['status'] == 'invalid_answer'
+        and item['objective_task_score']['correct'] is False
+        for item in run['observations'])
