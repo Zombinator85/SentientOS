@@ -1,0 +1,37 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "commands": [
+      "python -m py_compile tests/test_resident_developmental_cognition.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest --override-ini addopts= -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixture_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 163,
+    "production_acceptance": "deferred",
+    "tests": [
+      "new owner reconstructs exact completed-run references before projection",
+      "task-family score retains historical event posture and no oracle parameters",
+      "ordinary writeback persists family evidence",
+      "later owner retrieves retained evidence through controlled present/withheld/restored cognition",
+      "separate child interpreter reconstructs an identical multi-episode report from receipt and owner custody without inference replay"
+    ]
+  },
+  "changed_files": {
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 203132,
+      "git_blob": "b89b78090ab85c31f939d39647c543d66ab98792",
+      "sha256": "f86f9a915612ac64866ba652fc9042f53896b27f3bd5c0a6b96c49b6bdb3e159"
+    }
+  },
+  "implementation": {
+    "causal_feedback": "A completed task-family run is selected by the recovered owner into canonical World-State; its evaluator-scored examples enter ordinary admitted history; a subsequent reconstructed owner retrieves that record in history-present/restored and not withheld conditions.",
+    "posture": "The child verifier exposes only the fields verified by the parent fixture verifier. It preserves actual_nonsynthetic_inference_verified=false; this is a durable fixture test, not production receipt evidence.",
+    "process_restart": "The integration test serializes fixture-issued invocation receipt custody, starts a child interpreter, reconstructs AdmissionLedger, writeback and cognition owners from persistent roots, and verifies the same bounded progression report."
+  },
+  "objective": "Verify score-outcome projection, admission, and later cognition after reconstructing the owner, including a separate Python process for progression recovery.",
+  "schema_version": 1,
+  "sequence": 129,
+  "source_commit": "41f40d835c5bc45e3f6a4d254bfd717fb3661bb8",
+  "source_tree": "a7efd9d5f64dc2feca45553d335c1890b7445e87"
+}

@@ -370,7 +370,8 @@ def test_completed_objective_run_is_read_only_projected_into_a_later_world_state
     fake.objective_mode = "derive_from_history"
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
-    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="integer_affine_prediction")
     cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
         allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
     seed = cognition.run_tick(snapshot=snapshot(), tick_id="experience-seed")
@@ -407,8 +408,13 @@ def test_completed_objective_run_is_read_only_projected_into_a_later_world_state
     request.addfinalizer(reset_trust_ledger)
     request.addfinalizer(reset_control_plane_kernel)
 
+    # Reconstruct the cognition owner before World-State consumes the completed
+    # score. The durable invocation verifier remains explicitly supplied.
+    recovered_cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    assert recovered_cognition.inspect_completed_objective_experiment_run_refs() == refs
     surfaces = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "runtime",
-        resident_developmental_owner=cognition)
+        resident_developmental_owner=recovered_cognition)
     surfaces.build_world_state_board(tick_id="2026-01-02T00:00:00+00:00")
     later_snapshot = surfaces.current_world_state_snapshot
     assert later_snapshot is not None
@@ -417,13 +423,39 @@ def test_completed_objective_run_is_read_only_projected_into_a_later_world_state
     assert run_fact.observed_at == "2026-01-01T00:00:00+00:00"
     assert run_fact.payload["current_truth"] is False
     assert run_fact.payload["learning_established"] is False
+    assert run_fact.payload["objective_task_family"] == "integer_affine_prediction"
+    assert len(run_fact.payload["acquisition_examples"]) == 3
     assert "multiplier" not in json.dumps(run_fact.payload)
     assert surfaces._feedback["surfaces"]["developmental_history_intervention_projection"][
         "automatic_completed_run_count"] == 1
 
-    later = cognition.run_tick(snapshot=later_snapshot, tick_id="objective-outcome-consumed")
+    later = recovered_cognition.run_tick(snapshot=later_snapshot, tick_id="objective-outcome-consumed")
     assert run_fact.fact_id in later.selected_fact_ids
     assert later.written_record_id
+    retained = recovered_cognition.writeback.store.get(later.written_record_id)
+    assert any(fact["payload"].get("objective_task_family") == "integer_affine_prediction"
+        for fact in retained.candidate["selected_facts"])
+
+    # A second owner reconstruction at a later tick retrieves the admitted
+    # consequence record; projection and retention do not replay the experiment.
+    successor_cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    successor_surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+        runtime_state_root=tmp_path / "runtime", resident_developmental_owner=successor_cognition)
+    successor_surfaces.build_world_state_board(tick_id="2026-01-02T00:00:02+00:00")
+    successor_snapshot = successor_surfaces.current_world_state_snapshot
+    assert successor_snapshot is not None
+    successor = successor_cognition.run_tick(snapshot=successor_snapshot,
+        tick_id="objective-outcome-retrieved")
+    assert successor.changed_cognition_measurement_id
+    recovered_run = successor_cognition.experiments.load_run(
+        successor.changed_cognition_measurement_id)
+    assert later.written_record_id in recovered_run["protocol"]["record_ids"]
+    assert later.written_record_id in recovered_run["conditions"][0]["retrieved_record_ids"]
+    assert later.written_record_id not in recovered_run["conditions"][1]["retrieved_record_ids"]
+    assert later.written_record_id in recovered_run["conditions"][2]["retrieved_record_ids"]
+    assert len([item for item in fake.requests
+        if "objective_task_plan_digest" in item.upstream_evidence]) == 3
 
     pending = cognition.config.state_root / "pending_objective_intervention.json"
     substituted = json.loads(pending.read_text(encoding="utf-8"))
@@ -617,6 +649,67 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
     assert changed["same_model_generation_controls"] is False
     assert changed["actual_nonsynthetic_inference_verified"] is False
     assert changed["performance_improvement_established"] is False
+    # Reconstruct the same report in a new interpreter from the durable
+    # cognition/experiment custody plus serialized fixture-issued receipts.
+    # This checks restart reading, not model behavior or production custody.
+    receipt_path = tmp_path / "fixture-issued-invocation-receipts.json"
+    receipt_path.write_text(json.dumps({receipt_id: receipt.to_dict()
+        for receipt_id, receipt in fake.receipts.items()}, sort_keys=True), encoding="utf-8")
+    child_code = r'''
+import json, sys
+from pathlib import Path
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION)
+from sentientos.resident_developmental_cognition import (
+    ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner)
+from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
+
+root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
+refs = json.loads(sys.argv[3])
+receipts = json.loads(receipt_path.read_text(encoding="utf-8"))
+class PersistedFixtureReceiptVerifier:
+    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+        value = receipts[receipt_id]
+        assert value["receipt_id"] == receipt_id and value["receipt_digest"] == receipt_digest
+        request = value["request"]
+        assert request["request_id"] == expected["expected_request_id"]
+        assert request["request_digest"] == expected["expected_request_digest"]
+        assert request["active_model_identity"] == expected["expected_active_model_identity"]
+        serving = request["linkage"]["resident_cognitive_serving"]
+        assert serving["session_id"] == expected["expected_session_id"]
+        assert serving["activation_state_semantic_digest"] == expected[
+            "expected_session_binding"]["activation_state_semantic_digest"]
+        return {key: value[key] for key in ("receipt_id", "receipt_digest", "request",
+            "status", "output_digest", "output_truncated", "generation_config",
+            "backend_completion", "observed_at") if key in value}
+
+ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
+definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+def current_sequence():
+    admissions, _ = ledger.load()
+    return max((item.issued_sequence for item in admissions), default=1)
+def next_sequence():
+    admissions, revocations = ledger.load()
+    return max([item.issued_sequence for item in admissions]
+        + [item.sequence for item in revocations] + [0]) + 1
+writeback = ResidentDevelopmentalWritebackController(
+    history_root=root / "history",
+    admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+    current_sequence=current_sequence)
+owner = ResidentDevelopmentalCognitionOwner(
+    config=ResidentDevelopmentalCognitionConfig(root / "history", root / "state",
+        ("capability_registry", "embodiment"), 16, 4, True),
+    writeback=writeback,
+    admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+    invoker=PersistedFixtureReceiptVerifier(), current_sequence=next_sequence)
+print(json.dumps(owner.verified_objective_task_family_progression(
+    request_refs=tuple(tuple(item) for item in refs)), sort_keys=True))
+'''
+    child = subprocess.run([sys.executable, "-c", child_code, str(tmp_path), str(receipt_path),
+        json.dumps(requests + [(third_request["request_id"], third_request["request_digest"])]),
+        ], cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=True)
+    assert json.loads(child.stdout.strip().splitlines()[-1]) == changed
     with pytest.raises(ResidentDevelopmentalCognitionError,
             match="objective_progression_episode_count_invalid"):
         restarted.verified_objective_task_family_progression(request_refs=tuple(requests) * 9)

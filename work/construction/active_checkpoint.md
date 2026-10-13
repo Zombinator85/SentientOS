@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 128 continues from verified remote source `f7045aeeae311d2afeb3841f86bdfa5f66248f69`, tree `c13f46be0fe3164c9946f446ddca5b5db520ca3a`. A bounded resident-owner report now reconstructs completed task-family episodes through durable tick, objective-run, score, and governed receipt verifiers; it orders from canonical completion custody, binds exact model/generation identities, and refuses comparability when those controls differ. Incomplete episodes remain explicit. The fixture report is correctness-only, does not claim learning, and reconstructs after owner restart without inference replay. Focused suites passed 163 cases. Construction remains unverified for production.
+Sequence 129 continues from verified remote source `41f40d835c5bc45e3f6a4d254bfd717fb3661bb8`, tree `a7efd9d5f64dc2feca45553d335c1890b7445e87`. The task-family score-feedback path now survives cognition-owner reconstruction, ordinary World-State projection and admitted developmental writeback, then reaches controlled later cognition. A separate Python process reconstructs a multi-episode progression report from durable owner custody and fixture-issued invocation receipts without replaying inference. The test deliberately preserves the fixture-only inference posture. Focused suites passed 163 cases. Construction remains unverified for production.
 
-Latest segment: `work/construction/segments/0128-objective-task-family-progression.md`
-SHA-256: `f8bbebd257e29d441acf6980b6910ba726b4106418f85e1b54499c791a3b1c23`
-Evidence: `work/construction/evidence/0128-objective-task-family-progression.json`
-Evidence SHA-256: `d13f1e63a6fa494e33ae020169c5bf681030f0039eb1bcf67675996048dc211f`
-Sequence: 128
+Latest segment: `work/construction/segments/0129-restart-task-family-feedback.md`
+SHA-256: `8971be775ece191f25c2d8d17cff0c4897bd8ad9ca3c495cc3750e7f3c70fa5c`
+Evidence: `work/construction/evidence/0129-restart-task-family-feedback.json`
+Evidence SHA-256: `caed022ecdb99678063759a23e97f1316608dd743e943751f554422965c168f1`
+Sequence: 129
 
-Next: exercise the causal transfer chain across an independent process restart and ensure completed score feedback remains recoverable into subsequent World-State and later cognition without repeating inference. Then inspect the exact supported local-model host readiness boundary; do not claim real acquisition until an actual operator host and model artifact are observed.
+Next: test a second distinct task after retained score evidence without allowing the source answer into current context, then exercise interruption and recovery at the source-to-history boundaries. No actual model or host acceptance evidence is available in this workspace.
