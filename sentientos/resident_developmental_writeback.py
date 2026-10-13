@@ -838,11 +838,12 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                     "score_status", "correct", "correct_count", "probe_count",
                     "oracle_answer_retained", "causal_effect_established"}
                 linkage = original.get("resource_linkage")
+                condition_id = original.get("developmental_history_condition",
+                    original.get("model_replacement_condition"))
                 count = task_outcome.get("correct_count")
                 probes = task_outcome.get("probe_count")
                 if (set(task_outcome) != expected_outcome
-                        or task_outcome.get("condition_id") != original.get(
-                            "developmental_history_condition")
+                        or task_outcome.get("condition_id") != condition_id
                         or task_outcome.get("inference_receipt_id") != original.get(
                             "invocation_receipt_id")
                         or task_outcome.get("inference_receipt_digest") != original.get(

@@ -1367,7 +1367,7 @@ class ModelReplacementArtifactStore:
                         or raw.get("inference_event_time_posture", event_time_posture) != event_time_posture
                         or generation_parameters.get("temperature") != 0):
                     raise DevelopmentalModelReplacementError("run_projection_observation_binding_invalid")
-                observations.append({
+                projected_observation = {
                     key: raw.get(key, "unknown" if key == "inference_event_time_posture" else None)
                     for key in (
                     "condition_id", "observation_id", "observation_digest", "model_identity_digest",
@@ -1387,7 +1387,16 @@ class ModelReplacementArtifactStore:
                     "prior_epistemic_state_ids", "prior_epistemic_state_digests",
                     "prior_cognitive_context_posture", "resource_allocation_digest",
                     "resource_attempt_id", "resource_consumption_receipt_digests",
-                    "resource_linkage_digest", "resource_attribution_posture")})
+                    "resource_linkage_digest", "resource_attribution_posture")}
+                objective_score = raw.get("objective_task_score")
+                if isinstance(objective_score, Mapping):
+                    # Publish only the independently checked condition summary.
+                    # The score digest binds the private oracle comparison; the
+                    # expected answer and probe-level oracle never enter World-State.
+                    projected_observation["objective_task_score"] = {
+                        key: objective_score.get(key) for key in (
+                            "score_digest", "status", "correct", "correct_count", "probe_count")}
+                observations.append(projected_observation)
             if completion == "completed":
                 if (observations[0].get("history_record_ids") != observations[2].get("history_record_ids")
                         or observations[0].get("history_record_digests") != observations[2].get("history_record_digests")

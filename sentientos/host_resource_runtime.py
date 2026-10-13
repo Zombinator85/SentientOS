@@ -1536,6 +1536,37 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     "history_record_ids": list(observation.get("history_record_ids") or ()),
                     "history_record_digests": list(observation.get("history_record_digests") or ()),
                     "history_withheld": observation.get("history_withheld")}
+                raw_score = observation.get("objective_task_score")
+                task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
+                if raw_score is not None:
+                    correct_count = raw_score.get("correct_count") if isinstance(raw_score, Mapping) else None
+                    probe_count = raw_score.get("probe_count") if isinstance(raw_score, Mapping) else None
+                    valid_counts = (correct_count is None and probe_count is None) or (
+                        type(correct_count) is int and type(probe_count) is int
+                        and 0 <= correct_count <= probe_count <= 16)
+                    if (not isinstance(raw_score, Mapping)
+                            or not isinstance(raw_score.get("score_digest"), str)
+                            or len(raw_score["score_digest"]) != 71
+                            or not raw_score["score_digest"].startswith("sha256:")
+                            or not isinstance(raw_score.get("status"), str)
+                            or (raw_score.get("correct") is not None
+                                and type(raw_score.get("correct")) is not bool)
+                            or not valid_counts):
+                        candidate_findings.append(
+                            "model_replacement_condition_score_invalid")
+                        task_outcome = {"posture": "score_binding_invalid"}
+                    else:
+                        task_outcome = {"posture": "run_owner_score_bound_to_condition",
+                            "condition_id": observation.get("condition_id"),
+                            "inference_receipt_id": observation.get("inference_receipt_id"),
+                            "inference_receipt_digest": observation.get("inference_receipt_digest"),
+                            "output_digest": observation.get("output_digest"),
+                            "score_digest": raw_score["score_digest"],
+                            "score_status": raw_score["status"],
+                            "correct": raw_score.get("correct"),
+                            "correct_count": correct_count, "probe_count": probe_count,
+                            "oracle_answer_retained": False,
+                            "causal_effect_established": False}
                 linkage = {"posture": "invocation_receipt_bound_ledger_corroboration_not_performed",
                     "request_id": observation.get("request_id"),
                     "request_digest": observation.get("request_digest"),
@@ -1561,6 +1592,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                         "invocation_request_context_linkage": request_context,
                         "invocation_receipt_id": linkage["effect_receipt_id"],
                         "invocation_receipt_digest": linkage["effect_receipt_digest"],
+                        "_model_replacement_task_outcome": task_outcome,
                         "active_model_identity_digest": observation.get("model_identity_digest"),
                         "declared_software_generation": run_payload.get("software_generation_identity"),
                         "software_generation_posture": run_payload.get("software_generation_posture"),
@@ -1817,7 +1849,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "model_identity_digest": model_candidate.get("_model_identity_digest"),
                 "model_provenance_manifest_digest": model_candidate.get("_model_provenance_digest"),
                 "causal_context_id": model_candidate.get("_causal_context_id"),
-                "causal_context_digest": model_candidate.get("_causal_context_digest")})
+                "causal_context_digest": model_candidate.get("_causal_context_digest"),
+                "task_outcome": model_candidate.get("_model_replacement_task_outcome")})
         history_candidate = developmental_history_candidates.get(str(proposal.get("source_id", "")))
         if history_candidate is not None:
             join["source_id"] = "developmental-history-resource-lineage:" + digest({

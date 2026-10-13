@@ -83,7 +83,7 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
 
     experiment_root = tmp_path / "model-replacement"
     try:
-        scenario = prepare(experiment_root)
+        scenario = prepare(experiment_root, objective_scored=True)
         completed = run_next(experiment_root, resource_context_owner=owner)
         assert completed["status"] == "completed_one_trial", completed
         run = completed["result"]
@@ -142,6 +142,13 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
             for row in joined)
         assert all(row["payload"]["software_attribution"]["generation_posture"]
             == "not_bound_by_selected_protocol" for row in joined)
+        assert all(row["payload"]["task_outcome"]["posture"]
+            == "run_owner_score_bound_to_condition" for row in joined)
+        assert all(row["payload"]["task_outcome"]["inference_receipt_id"]
+            == row["payload"]["resource_linkage"]["effect_receipt_id"] for row in joined)
+        assert all(row["payload"]["task_outcome"]["oracle_answer_retained"] is False
+            and row["payload"]["task_outcome"]["causal_effect_established"] is False
+            for row in joined)
 
         # Compose the same ledger, exact invocation receipts, and model-run
         # artifact through the daemon's actual configured World-State path.
@@ -251,6 +258,15 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         assert isinstance(task_context["history_record_count"], int)
         assert isinstance(task_context["history_record_digest_count"], int)
         assert task_context["context_digest"].startswith("sha256:")
+        substituted_score = deepcopy(lineage_record)
+        substituted_score["payload"]["task_outcome"]["inference_receipt_digest"] = "substituted"
+        substituted_score["digest"] = record_digest(substituted_score)
+        substituted_score_board = WorldStateBoardBuilder().build([substituted_score])
+        from sentientos.resident_developmental_writeback import DevelopmentalWritebackError
+        with pytest.raises(DevelopmentalWritebackError,
+                match="resource_task_outcome_projection_binding_invalid"):
+            cognition.writeback.select_evidence(substituted_score_board,
+                fact_ids=tuple(fact.fact_id for fact in substituted_score_board.facts))
 
         # Cross a real interpreter/process boundary after all three owners have
         # durably published. The child reconstructs their canonical stores and
