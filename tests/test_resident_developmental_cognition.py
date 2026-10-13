@@ -336,6 +336,14 @@ class InstallationCustodyFakeInvoker(SessionBoundFakeInvoker):
         receipt = super().invoke(request, **kwargs)
         if self.installation_handle is None:
             raise AssertionError("fixture installation writer not configured")
+        # Keep test-generated outputs truthful at the canonical receipt boundary:
+        # valid durable custody does not turn a deterministic fake into inference.
+        from dataclasses import replace
+        simulated = replace(receipt, status="admitted_simulation",
+            effects={**dict(receipt.effects), "local_model_inference": False})
+        self.receipts.pop(receipt.receipt_id, None)
+        self.receipts[simulated.receipt_id] = simulated
+        receipt = simulated
         relative = ("local-model/resident-cognitive-serving/inference/receipts/"
             + receipt.receipt_id + ".json")
         target = self.installation_handle.fixed_object(relative)
@@ -1624,9 +1632,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert second_episode["conditions"][1]["task_family_retrieved_record_ids"] == []
     assert second_episode["conditions"][2]["task_family_retrieved_record_ids"] == [
         feedback.written_record_id]
-    # The production reader validates the fixture's canonical receipt claims.
-    # This remains a deterministic fake backend, not actual-model evidence.
-    assert progression["actual_nonsynthetic_inference_verified"] is True
+    # Canonical receipt validation remains distinct from actual local-model use.
+    assert progression["actual_nonsynthetic_inference_verified"] is False
     assert progression["learning_established"] is False
     assert progression["performance_improvement_established"] is False
     assert episode["fresh_process"] is True
