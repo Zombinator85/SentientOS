@@ -117,14 +117,36 @@ def test_developmental_experiment_lifecycle_is_historical_not_current_state(
             "current_truth": False, "authority": False, "learning_established": False},
         "effect_claimed": False, "effect_proven": False,
     }
-    result = LongitudinalSelfModelOwner(tmp_path).reconcile(
-        snapshot(source_record), tick_id=f"tick:{subject_kind}")
+    owner = LongitudinalSelfModelOwner(tmp_path)
+    world_state = snapshot(source_record)
+    tick_id = f"tick:{subject_kind}"
+    result = owner.reconcile(world_state, tick_id=tick_id)
     lifecycle = next(claim for claim in result.claims
         if claim.predicate == "lifecycle.observation.disposition")
     assert lifecycle.claim_category == "historical_interpretation"
     assert lifecycle.status == "historical"
     assert lifecycle.current_truth is False
     assert lifecycle.value == "history_presence_associated_stable_difference"
+    assert owner.cognitive_projection(before_tick=tick_id, max_claims=4,
+        allowed_predicates=("lifecycle.observation.disposition",)) is None
+
+    # Restarted later cognition receives the historical category, source
+    # observation time, uncertainty, and non-authority qualifiers intact.
+    later = LongitudinalSelfModelOwner(tmp_path).cognitive_projection(
+        before_tick=f"{tick_id}:next", max_claims=4,
+        allowed_predicates=("lifecycle.observation.disposition",))
+    assert later is not None and later.source_tick == tick_id
+    projected = later.selected_claims[0]
+    assert projected["claim_category"] == "historical_interpretation"
+    assert projected["status"] == "historical"
+    assert projected["freshness"] == "unknown"
+    assert projected["temporal_scope"] == "historical_and_current"
+    assert projected["lifecycle_stage"] == "observation"
+    assert projected["source_observed_at"] == ["2026-09-25T11:59:00Z"]
+    assert projected["source_observed_at_count"] == 1
+    assert projected["source_observed_at_posture"] == "complete"
+    assert projected["current_truth"] is False and projected["interpretation"] is True
+    assert projected["authority"] and not any(projected["authority"].values())
 
 
 def test_contradictory_evidence_is_preserved_without_latest_wins(tmp_path: Path) -> None:

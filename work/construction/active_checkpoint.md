@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `113f44154e82c81338f1ec8035958e71d532989a`, tree `41a870ad85c19d079e90ea9fb51927bf79a9729a`. Sequence 90 corrected a longitudinal self-model classification error: immutable developmental model-replacement and same-model history-intervention records now remain historical interpretations instead of being projected as current state. Focused longitudinal suite passed 25 tests; construction is unverified for production.
+Last independently verified remote baseline `00ddc4b0f56ac9c991111a5cf4a870e855bef8fb`, tree `fc1cbe0524eba1ea6a643944f59de770de68763e`. Sequence 91 makes later cognition preserve historical self-model category, source observation-time provenance, uncertainty/freshness, interpretation, current-truth, and false-authority qualifiers across the tick boundary. Six focused developmental modules passed 151 tests; all work remains unverified for production.
 
-Latest segment: work/construction/segments/0090-longitudinal-experiments-historical-classification.md
-SHA-256: f1656d87cf27e728bf0cf3a44a82bcc7cc3dc711fa7959933cbf1779df008c8b
-Sequence: 90
+Latest segment: work/construction/segments/0091-self-model-projection-historical-semantics.md
+SHA-256: eab3292cb0dc5fdd9bd56a2461f1ad075897ceb458e83fda4781e1d374837f4d
+Sequence: 91
 
-Loaded-code identity remains `not_independently_attested`. No actual local model bytes or exact existing commissioning/operator approval are available; no model has been loaded or invoked.
+Loaded-code identity remains `not_independently_attested`. Actual model payload, commissioned identity, and exact time-bounded operator approval remain unavailable; no real model was loaded or invoked.
 
-Next: audit later-cognition selectors and persisted historical-interpretation consumers for category or freshness promotion. Keep fixture task outcomes distinct from actual model acquisition, transfer, or generalized learning.
+Next: inspect downstream developmental writeback and task-scoring consumers for separation between historical self-model interpretations and authored developmental lessons. Preserve the distinction between fixtures and live-model acquisition/transfer.

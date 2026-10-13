@@ -24,7 +24,7 @@ def test_runtime_config_reconstructs_exact_custody_and_rejects_tamper(tmp_path: 
     loaded = load_runtime_config(config)
     assert LongitudinalSelfModelOwner(loaded.custody_root).history()[0].tick_id == "tick-1"
     path = next((custody / "reconciliations").glob("*.json")); raw=json.loads(path.read_text())
-    raw["tick_id"]="tampered"; path.write_text(json.dumps(raw))
+    raw["tick_id"]="tampered"; path.write_text(json.dumps(raw, sort_keys=True, indent=2) + "\n")
     with pytest.raises(LongitudinalSelfModelError, match="digest_mismatch"):
         LongitudinalSelfModelOwner(loaded.custody_root).history()
 
