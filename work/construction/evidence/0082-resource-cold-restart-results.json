@@ -1,0 +1,68 @@
+{
+  "claims": [
+    "Fresh child processes independently reconstructed the resource fact from installation custody, produced World-State using the same exact source payload/digest, and persisted developmental history. A second fresh process reconstructed World-State again, recovered the durable history, and delivered its record identity to later-tick cognition.",
+    "The fixture local model backend is deterministic test machinery; this is not real-model learning or production runtime evidence."
+  ],
+  "details": "default selection passed 9 and skipped the two legacy-marked owner integration cases; the canonical -m legacy selection passed both; targeted fresh-process scenario passed separately. No skipped result is counted as a pass.",
+  "failed": 0,
+  "git_diff_check": "passed",
+  "passed": 11,
+  "python_compilation": "passed",
+  "readiness_evidence": "work/construction/evidence/0082-local-model-readiness.json",
+  "runs": [
+    {
+      "bytes": 2549,
+      "junit_path": "work/construction/evidence/0082-resource-default-junit.xml",
+      "kind": "resource-default",
+      "sha256": "70a9b54f3c1e970b29faf9938e5df90821933cfc07778ad1135a96c160445761",
+      "testsuite": {
+        "errors": "0",
+        "failures": "0",
+        "hostname": "26f42f715b9f",
+        "name": "pytest",
+        "skipped": "2",
+        "tests": "11",
+        "time": "1.115",
+        "timestamp": "2026-10-12T23:59:16.269085+00:00"
+      }
+    },
+    {
+      "bytes": 596,
+      "junit_path": "work/construction/evidence/0082-resource-legacy-junit.xml",
+      "kind": "resource-legacy",
+      "sha256": "29433e2b8c290f607bf87157fc7e49590f4f0ce560896bccaabd49a965763520",
+      "testsuite": {
+        "errors": "0",
+        "failures": "0",
+        "hostname": "26f42f715b9f",
+        "name": "pytest",
+        "skipped": "0",
+        "tests": "2",
+        "time": "2.734",
+        "timestamp": "2026-10-12T23:59:18.761023+00:00"
+      }
+    },
+    {
+      "bytes": 418,
+      "junit_path": "work/construction/evidence/0082-resource-cold-restart-targeted-junit.xml",
+      "kind": "resource-cold-restart-targeted",
+      "sha256": "8d71f7e08a6569e7b80e086465f131b8ea709f50de3f9c11491fb7f6630546ce",
+      "testsuite": {
+        "errors": "0",
+        "failures": "0",
+        "hostname": "26f42f715b9f",
+        "name": "pytest",
+        "skipped": "0",
+        "tests": "1",
+        "time": "2.310",
+        "timestamp": "2026-10-12T23:59:09.112825+00:00"
+      }
+    }
+  ],
+  "sequence": 82,
+  "skipped": 0,
+  "source_baseline_commit": "447acb068d28969e32c0e9c72aa2ae3f33b9eda4",
+  "source_baseline_tree": "f3d97a74fb66ee4f3fd0ea1a99230e2e6ad685a2",
+  "status": "construction_tested_unverified_for_production",
+  "total_distinct_resource_suite_tests": 11
+}

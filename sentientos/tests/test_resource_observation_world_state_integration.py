@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import subprocess
+import sys
 
 from sentientos.governed_local_model_invocation import LocalModelInvocationBudget
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
@@ -148,6 +151,67 @@ def test_owner_produced_invocation_and_debit_reach_world_state(
         assert facts[0].effect_claimed is False and facts[0].effect_proven is False
         assert context_owner.allocator.ledger.remaining_calls(bundle.allocation_id) == 1
         assert ledger_path.exists()
+        ledger_before_reconstruction = ledger_path.read_bytes()
+        # Reconstruct in a new interpreter from original installation custody.
+        # No predecessor snapshot or in-memory ledger crosses this boundary.
+        child_script = r'''
+import json, sys
+from pathlib import Path
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.production_chat_resource_observation import ProductionChatResourceObservationOwner
+from sentientosd import RuntimeMaintenanceSurfaces
+mode, state_root, repo_root, provisioning_id, tick_id, history_root = sys.argv[1:]
+view = InstallationStateRegistry(Path(state_root), _test_only=True).open_read_only(
+    InstallationIdentity.parse("production"))
+observer = ProductionChatResourceObservationOwner(view, provisioning_id)
+surfaces = RuntimeMaintenanceSurfaces(Path(repo_root),
+    runtime_state_root=Path(state_root) / ("restarted-maintenance-" + mode),
+    resource_observation_owner=observer,
+    resource_observation_configuration_status={
+        "status": "configured", "read_only": True, "effect_authority": False})
+surfaces.build_world_state_board(tick_id=tick_id)
+snapshot = surfaces.current_world_state_snapshot
+assert snapshot is not None
+facts = [fact for fact in snapshot.facts if fact.source.kind == "resource_governor"
+    and fact.source.source_id == "governed_local_model_resource_consumption"]
+assert len(facts) == 1, surfaces._resource_observation_health
+from tests.test_resident_developmental_cognition import owner
+cognition, invoker = owner(Path(history_root), allowed_source_kinds=("resource_governor",),
+    max_selected_facts=1)
+cycle = cognition.run_tick(snapshot=snapshot, tick_id=tick_id)
+result = {"source_digest": facts[0].source.digest, "payload": dict(facts[0].payload),
+    "written_record_id": cycle.written_record_id, "prior_record_ids": list(cycle.prior_record_ids)}
+if mode == "later":
+    request = next(item for item in invoker.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    result["retrieval_record_ids"] = request.upstream_evidence["record_ids"]
+print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+'''
+        def reconstruct(mode: str, tick_id: str) -> dict[str, object]:
+            child = subprocess.run([sys.executable, "-c", child_script, mode,
+                    str(tmp_path / "state"), str(tmp_path), "invocation-integration",
+                    tick_id, str(tmp_path / "cognition")],
+                cwd=Path(__file__).resolve().parents[2], capture_output=True,
+                text=True, check=True, timeout=15)
+            return json.loads(child.stdout.strip().splitlines()[-1])
+
+        recovered = reconstruct("first", "2026-09-21T08:40:01Z")
+        assert recovered["source_digest"] == facts[0].source.digest
+        assert recovered["payload"] == json.loads(json.dumps(dict(facts[0].payload)))
+        assert recovered["payload"]["allocation_count"] == 1
+        assert recovered["payload"]["consumption_receipt_count"] == 3
+        assert recovered["payload"]["invocation_receipt_count"] == 1
+        assert recovered["payload"]["shared_host_usage_attribution"] == (
+            "unknown_without_independent_observation")
+        first_record_id = recovered["written_record_id"]
+        assert isinstance(first_record_id, str) and first_record_id
+        assert recovered["prior_record_ids"] == []
+        later = reconstruct("later", "2026-09-21T08:40:02Z")
+        assert later["source_digest"] == recovered["source_digest"]
+        assert first_record_id in later["prior_record_ids"]
+        assert first_record_id in later["retrieval_record_ids"]
+        assert later["payload"] == recovered["payload"]
+        assert ledger_path.read_bytes() == ledger_before_reconstruction
     finally:
         context_owner.close()
         serving.close()

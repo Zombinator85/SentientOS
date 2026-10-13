@@ -1,0 +1,81 @@
+{
+  "actions_taken": [
+    "read-only Git LFS pointer and source-contract inspection",
+    "checked presence of named runtime configuration environment variables without reading or recording their values"
+  ],
+  "authority_added": false,
+  "basis": [
+    "All five tracked GGUF paths are 127-byte Git LFS pointer files; none is a model payload.",
+    "No local model path, model configuration, resident-serving configuration, or resource-observation installation selector was configured in this task environment.",
+    "ExperimentalModelServingController.prepare_intent requires a preregistered protocol and exact verified commissioned-model receipt. establish requires an approval bound to the exact intent, protocol, identity, artifact, runtime, and time interval.",
+    "No external installation custody was selected or read; no approval or commissioned receipt was inferred from repository files."
+  ],
+  "environment_configuration_presence": {
+    "SENTIENTOS_MODEL_CONFIG": false,
+    "SENTIENTOS_MODEL_PATH": false,
+    "SENTIENTOS_RESIDENT_COGNITIVE_MODEL_SERVING_CONFIG": false,
+    "SENTIENTOS_RESOURCE_OBSERVATION_INSTALLATION_IDENTITY": false
+  },
+  "existing_methods": [
+    "prepare_intent",
+    "establish",
+    "ExperimentalCognitiveEndpoint.infer"
+  ],
+  "existing_owner": "sentientos.developmental_model_replacement_experimental_serving.ExperimentalModelServingController",
+  "model_invoked": false,
+  "model_loaded": false,
+  "operator_packet_posture": "source-bound prerequisites identified; cannot instantiate an exact request/approval packet until the commissioned artifact and preregistered model identities are supplied by existing custody",
+  "production_readiness": "blocked_pending_external_commissioned_artifact_protocol_and_exact_operator_approval",
+  "provider_egress": false,
+  "required_next_inputs": [
+    "exact commissioned artifact bytes in installation custody",
+    "authenticated commissioning receipt bound to exact artifact/runtime/model identity",
+    "preregistered replacement protocol with exact Model A/Model B identities and frozen history",
+    "non-synthetic operator approval bound to the exact prepared intent with valid time interval",
+    "independent model-serving and per-inference admission from existing owners"
+  ],
+  "source_commit": "447acb068d28969e32c0e9c72aa2ae3f33b9eda4",
+  "source_tree": "f3d97a74fb66ee4f3fd0ea1a99230e2e6ad685a2",
+  "tracked_model_artifacts": [
+    {
+      "expected_payload_bytes": 27,
+      "git_lfs_oid": "4dc76b0f53f1e50e4af4fe4150b75a03c195b31119676df4cfd68bb1f6fa2d10",
+      "path": "escrow/EleutherAI__pythia-12b/pythia-12b-q4_k_m-4dc76b0f53f1e50e4af4fe4150b75a03c195b31119676df4cfd68bb1f6fa2d10.gguf",
+      "payload_available": false,
+      "working_tree_bytes": 127,
+      "working_tree_sha256": "9a9ea3b13272dbd3316f98264dd0f992a0b0daad887eb34644400573e5a64bc6"
+    },
+    {
+      "expected_payload_bytes": 36,
+      "git_lfs_oid": "c51adfe5f4d1483441cbfc83161decdd33019574c90de2366b6d5da0998f64a8",
+      "path": "escrow/mistralai__Mistral-7B-Instruct-v0.2__q4_k_m/mistral-7b-instruct-v0.2-q4_k_m-c51adfe5f4d1483441cbfc83161decdd33019574c90de2366b6d5da0998f64a8.gguf",
+      "payload_available": false,
+      "working_tree_bytes": 127,
+      "working_tree_sha256": "93c5d0bf70b2abdb6121f179ced6aeaf822c575b2ba95be4132d3926706e8380"
+    },
+    {
+      "expected_payload_bytes": 34,
+      "git_lfs_oid": "ba7b3fc5336b94502f800bb847f86376c780f5c00b9cf0dd17e9ad0a38b9290d",
+      "path": "escrow/mistralai__Mistral-7B-Instruct-v0.2__q6_k/mistral-7b-instruct-v0.2-q6_k-ba7b3fc5336b94502f800bb847f86376c780f5c00b9cf0dd17e9ad0a38b9290d.gguf",
+      "payload_available": false,
+      "working_tree_bytes": 127,
+      "working_tree_sha256": "6e483ae5cde0f34c5ac52fd8153662fbf1cecfc313db1cb6009644c41f0ac4ea"
+    },
+    {
+      "expected_payload_bytes": 32,
+      "git_lfs_oid": "7ec9e6975c2695c8c97ad5f401c470abb2fffb8622da1b2e4163e5cf37a483bb",
+      "path": "escrow/mosaicml__mpt-7b-instruct/mpt-7b-instruct-q4_k_m-7ec9e6975c2695c8c97ad5f401c470abb2fffb8622da1b2e4163e5cf37a483bb.gguf",
+      "payload_available": false,
+      "working_tree_bytes": 127,
+      "working_tree_sha256": "b50c506dedeb547ebf26d7290eee7b2edad74e3ed16bc39ac4d32f6d4ae196fd"
+    },
+    {
+      "expected_payload_bytes": 59,
+      "git_lfs_oid": "72cbaeb786394bb3c04dbbe006ee4cf5b0bed45a082ec2037cb36c447bc9f145",
+      "path": "escrow/sample-llama-3-8b-q4/sample-llama-3-8b-q4-72cbaeb786394bb3c04dbbe006ee4cf5b0bed45a082ec2037cb36c447bc9f145.gguf",
+      "payload_available": false,
+      "working_tree_bytes": 127,
+      "working_tree_sha256": "7ddcc7173451a00c8e5c400615342b84d0a0794692b2e9e9013bc65355eeb454"
+    }
+  ]
+}

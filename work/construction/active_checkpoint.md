@@ -1,9 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `8ba5aa649e8ddf5c76dc3a328f7616fb6677a865`, tree `fef578c042bb181fbc4c0982fe457fe1793fd7d4`. Sequence 81 connects explicit completed developmental-history experiment custody through World-State, separately admitted history, and restart-safe later-tick cognition. Construction tests passed; not production verified.
+Last independently verified remote baseline `447acb068d28969e32c0e9c72aa2ae3f33b9eda4`, tree `f3d97a74fb66ee4f3fd0ea1a99230e2e6ad685a2`. Sequence 82 demonstrates resource invocation and debit reconstruction from original installation custody in two fresh Python processes, including durable history recovery and later-tick cognition. Fixture tests pass; production unverified.
 
-Latest segment: work/construction/segments/0081-history-worldstate-later-cognition.md
-SHA-256: 35fc44272f8a8663cf75c541f64304fad0e6684b0c83605a6d7134c65302bbb2
-Sequence: 81
+Latest segment: work/construction/segments/0082-resource-cold-restart.md
+SHA-256: 8b2dadd2cebb405b735bbbac3ea0c00fc6382d872dec32e9824da2843ebb8284
+Sequence: 82
 
-Next: assess exact commissioned local-model readiness without invoking a model absent required approvals, then inspect whether a fresh process can reconstruct resource-backed World-State and later cognition from canonical original custody rather than serialized predecessor state. Record exact source identities and retain unknown/incomplete status.
+Actual-model readiness is externally blocked: tracked artifacts are Git LFS pointers, no runtime configuration or installation selector is present, and no exact commissioning receipt/approval was provided. Do not load or invoke a model.
+
+Next: verify the existing model-replacement history-delivery and task-score binding, including the endpoint's exact model identity and unfavorable controls.
