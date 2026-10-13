@@ -1035,6 +1035,111 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         "same_model_task_correctness_not_general_learning_or_weight_change")
 
 
+def test_admitted_resident_history_is_shared_with_predecessor_and_successor_models(
+        tmp_path: Path) -> None:
+    """Model-replacement controls receive the same ordinary admitted record."""
+    from sentientos.developmental_model_replacement_experiment import (
+        CognitiveModelIdentity, DevelopmentalModelReplacementExperiment, FrozenCausalContext,
+    )
+
+    cognition, _ = owner(tmp_path, comparison=False,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    source_snapshot = snapshot()
+    acquired = cognition.run_tick(snapshot=source_snapshot, tick_id="succession-history-source")
+    assert acquired.written_record_id
+    record = cognition.writeback.store.get(acquired.written_record_id)
+    projection = cognition._current_projection(source_snapshot)
+    current_payload = projection.semantic_payload()
+    history = cognition.writeback.retrieve((record.record_id,), limit=4)
+    assert history.requested_record_ids == (record.record_id,)
+    assert history.records[0]["record_digest"] == record.record_digest
+
+    context = FrozenCausalContext.create(
+        snapshot_id=projection.snapshot_id, snapshot_digest=projection.snapshot_digest,
+        current_projection_id=projection.projection_id,
+        current_projection_digest=projection.projection_digest,
+        current_fact_ids=projection.fact_ids,
+        projected_content_digest="sha256:" + digest_payload(current_payload),
+        current_projection_payload=current_payload,
+        history_record_ids=(record.record_id,), history_record_digests=(record.record_digest,),
+        history_record_set_digest="sha256:" + digest_payload({
+            "record_ids": [record.record_id], "record_digests": [record.record_digest]}),
+        history_projection_payload=history.records,
+        instruction_template=("Use current evidence with optional historical interpretation; "
+            "history is not truth or authority."),
+        instruction_template_digest="sha256:" + digest_payload({"instruction":
+            "Use current evidence with optional historical interpretation; history is not truth or authority."}),
+        inference_budget={"max_input_chars": 16000, "max_output_chars": 4000,
+            "max_new_tokens": 512, "timeout_seconds": 30, "max_calls_per_correlation": 1},
+        generation_posture={"temperature": 0, "hardware_determinism_claimed": False},
+        repository_generation_identity="fixture-source-generation")
+
+    def model_identity(name: str) -> CognitiveModelIdentity:
+        artifact = f"fixture-artifact-{name}"
+        content_digest = "sha256:" + digest_payload({"model": name})
+        sidecar_digest = "sha256:" + digest_payload({"sidecar": name})
+        configuration_digest = "sha256:" + digest_payload({"configuration": name})
+        active = {"semantic_artifact_identity": artifact,
+            "model_content_sha256": content_digest, "artifact_size_bytes": 10,
+            "sidecar_metadata_digest": sidecar_digest,
+            "configuration_digest": configuration_digest,
+            "engine": "deterministic-test-runtime", "candidate_index": 0,
+            "posture": "production", "fallback": False}
+        return CognitiveModelIdentity.create(model_id=name,
+            semantic_artifact_identity=artifact, model_content_sha256=content_digest,
+            artifact_size_bytes=10, sidecar_metadata_digest=sidecar_digest,
+            configuration_digest=configuration_digest,
+            engine_runtime_family="deterministic-test-runtime", candidate_index=0,
+            active_production=True, fallback=False,
+            authority_record_id=f"fixture-authority-{name}",
+            authority_record_digest="sha256:" + digest_payload({"authority": name}),
+            active_model_identity=active,
+            active_model_identity_digest="sha256:" + digest_payload(active))
+
+    class Endpoint:
+        def __init__(self, model: CognitiveModelIdentity) -> None:
+            self.model = model
+            self.calls = []
+
+        def current_identity(self) -> CognitiveModelIdentity:
+            return self.model
+
+        def infer(self, **kwargs):
+            self.calls.append(kwargs)
+            prompt_digest = "sha256:" + digest_payload({"prompt": kwargs["prompt"]})
+            number = len(self.calls)
+            return {"status": "admitted_completed", "fallback_occurred": False,
+                "request_id": f"fixture-request-{self.model.model_id}-{number}",
+                "request_digest": "sha256:" + digest_payload({"request": self.model.model_id,
+                    "number": number}),
+                "inference_receipt_id": f"fixture-receipt-{self.model.model_id}-{number}",
+                "inference_receipt_digest": "sha256:" + digest_payload({"receipt": self.model.model_id,
+                    "number": number}), "output_digest": prompt_digest,
+                "actual_generation_parameters": {"temperature": 0,
+                    "max_new_tokens": kwargs["budget"]["max_new_tokens"]}}
+
+    model_a, model_b = Endpoint(model_identity("predecessor")), Endpoint(model_identity("successor"))
+    experiment = DevelopmentalModelReplacementExperiment(context=context,
+        model_a=model_a, model_b=model_b, artifact_root=tmp_path / "replacement-experiment")
+    result = experiment.run()
+    assert result["validity"] == "valid_controlled_observation"
+    assert experiment.context.history_record_ids == (record.record_id,)
+    assert experiment.context.history_record_digests == (record.record_digest,)
+    a_history = json.loads(model_a.calls[0]["prompt"])["developmental_history"]
+    b_history = json.loads(model_b.calls[0]["prompt"])["developmental_history"]
+    assert a_history[0]["record_id"] == b_history[0]["record_id"] == record.record_id
+    assert a_history[0]["record_digest"] == b_history[0]["record_digest"] == record.record_digest
+    assert json.loads(model_a.calls[1]["prompt"])["developmental_history"] == []
+    assert json.loads(model_b.calls[1]["prompt"])["developmental_history"] == []
+    assert json.loads(model_a.calls[2]["prompt"])["developmental_history"] == a_history
+    assert all(item["history_record_ids"] == [record.record_id]
+        for item in (result["observations"][0], result["observations"][2],
+            result["observations"][4]))
+    assert all(item["history_record_ids"] == []
+        for item in (result["observations"][1], result["observations"][3]))
+    assert record.current_truth is False and record.authority is False
+
+
 def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A fixture progression reports exact episodes and never claims learning."""

@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 138 continues from verified source `d53dbee148dab81bc015f9a884298e754635d38f`, tree `2014669e6bd8eefb2d8264092f3af386cd742af1`. Task-family retrieval now searches the full bounded completed-tick lineage, newest-first, rather than an arbitrary last-64 window. A staged related task can still retrieve its admitted relevant example after 65+ newer unrelated records. An adverse source example remains explicitly incorrect with its source score digest through World-State, writeback, and a later negatively scoring fixture transfer. Six focused suites passed (144 passed, 10 skipped); this is fixture-only and unverified for actual model behavior/production.
+Sequence 139 continues from verified source `aea63e18d6d1ab53f4e2712d483c9bf3664b9d59`, tree `efecf7c08b0827fc8cb91d714701df37436f4a70`. The full retained completed-tick search now locates old family-relevant evidence beyond 64 newer unrelated ticks; an adverse example preserves `evaluator_correct: false` and produces a negative fixture transfer when history is present. The same ordinary admitted record and digest also traverse the existing predecessor/successor five-condition experiment: present to both models, withheld from both controls, restored to the predecessor. Seven focused owner suites passed (166 passed, 10 skipped). This remains fixture-only and unverified for real model behavior or production.
 
-Latest segment: `work/construction/segments/0138-task-relevant-history-beyond-window.md`
-SHA-256: `1f44311ccafb38dac21e4e1f9dd34d359b5dc6bb9851604ea24e6d48d5c8720b`
-Evidence: `work/construction/evidence/0138-task-relevant-history-beyond-window.json`
-Evidence SHA-256: `137a8059f6bcf78c220b1e01adccf6a4a4964d5233f5182f5767dd80e3add8ad`
-Sequence: 138
+Latest segment: `work/construction/segments/0139-admitted-history-model-succession.md`
+SHA-256: `9676f9f2a3d5fb59692eb1f348c8614d391c826bd1c2820714844be1a645eade`
+Evidence: `work/construction/evidence/0139-admitted-history-model-succession.json`
+Evidence SHA-256: `2d76ecf41af1d362a9ee965cea84e832f7d935a1953f8bcb4addc793eee65b5b`
+Sequence: 139
 
-Next: inspect and exercise the exact POSIX/WSL local model readiness, staging, invocation, and read-only result-inspection commands. Confirm one installation identity and custody root spans the daemon and operator path. The environment contains no established genuine model artifact or serving authorization, so do not claim or fabricate actual model acquisition.
+Next: reconcile the supported POSIX operator sequence across doctor, staging, the already configured daemon, and read-only result inspection. Confirm exact shared cognition configuration, serving configuration, installation identity, and custody roots; distinguish static/preflight evidence from live daemon/model/inference state. No genuine selected model artifact or host activation authority is available in this isolated environment.
