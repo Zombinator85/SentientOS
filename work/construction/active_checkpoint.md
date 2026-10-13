@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-A three-episode task-family fixture now crosses two fresh-process inference boundaries. After episode two, its run flows through World-State and normal admitted writeback; episode three retrieves that new record. The durable invocation path uses installation-scoped canonical receipt verification. All inference receipts remain `admitted_simulation`; actual nonsynthetic inference, learning, and performance improvement remain unestablished.
+Objective summaries and task-family progression now distinguish authenticated owner-receipt evidence from independent backend observation. The legacy execution boolean remains compatible; the new posture fields state explicitly that no independent backend observation exists. The fixture tests use admitted-simulation receipts and preserve a false non-synthetic-inference claim.
 
-Latest source commit: 9ef691d48c93c138155afabfde47ca505cb998f0
-Latest source tree: fcabaee2850e8a20927cb5cc4bdec92731b4c838
-Latest segment: work/construction/segments/0169-three-episode-fresh-process-transfer.md
-Segment SHA-256: 3de7820172d98f2cb89ed6aa732b9836568b58225707650e694c5f0c66365401
-Evidence: work/construction/evidence/0169-three-episode-fresh-process-transfer.json
-Evidence SHA-256: 4baf76f45629ac92a2c4aac14df3bc1a047bb5d655e84f0a58d06c2b16ac1ced
-Sequence: 169
+Latest source commit: a5b6b0fd64b4ad7723b9b2faec70b2a9ff08d2fd
+Latest source tree: 986ff07c34fb41ec9c8890084e48b5a9a845eb31
+Latest segment: work/construction/segments/0170-owner-execution-evidence-scope.md
+Segment SHA-256: ce68ba5aa8b57e140fe4783a7c4769e77663f15cef483fbd775de2ed886e3c74
+Evidence: work/construction/evidence/0170-owner-execution-evidence-scope.json
+Evidence SHA-256: 41a122e5be30b8342b2bcaa245114298ad0504bd7596b52b62a99c0b54351ce9
+Sequence: 170
 
-Next: inspect the execution-evidence trust chain and available local model artifacts/configuration; determine whether a real model experiment can proceed under existing authority, without activation or invented evidence.
+Next: inspect configured local-model artifact and authorization availability without loading/invoking anything. Continue source-supported acquisition/recovery improvements if an actual backend run is unavailable.
