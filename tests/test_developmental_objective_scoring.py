@@ -12,6 +12,7 @@ import pytest
 from sentientos.developmental_model_replacement_experiment import (
     DevelopmentalModelReplacementError, DevelopmentalModelReplacementExperiment,
     FrozenCausalContext, ModelReplacementArtifactStore, ObjectivePredictionTask,
+    _objective_score_legacy, _verify_objective_score,
 )
 from tests.test_developmental_model_replacement_experiment import FakeEndpoint, context, digest, identity
 
@@ -97,6 +98,7 @@ def test_objective_treatments_and_no_replay(tmp_path, mode, delta, stable, asses
     owner, a, b = experiment(tmp_path, mode)
     run = owner.run()
     evaluation = run['objective_evaluation']
+    assert 'output_text' not in json.dumps(run)
     assert evaluation['model_a_history_accuracy_delta'] == delta
     assert evaluation['model_b_history_accuracy_delta'] == delta
     assert evaluation['restoration_correctness_stable'] is stable
@@ -128,6 +130,29 @@ print(json.dumps({"run_digest":run["run_digest"],
     assert child_result['run_digest'] == run['run_digest']
     assert child_result['objective_evaluation'] == evaluation
     assert child_result['condition_count'] == 5
+
+
+def test_new_digest_only_score_and_historical_output_retaining_score_are_readable(tmp_path):
+    owner, _a, _b = experiment(tmp_path, 'derive')
+    run = owner.run()
+    score = run['observations'][0]['objective_task_score']
+    assert 'output_text' not in score
+    assert score['output_retention_posture'] == 'live_bytes_digest_verified_not_retained'
+    assert _verify_objective_score(owner.objective_plan, score,
+        run['observations'][0]['output_digest']) == score
+    persisted = "\n".join(path.read_text(encoding="utf-8")
+        for path in tmp_path.rglob("*.json"))
+    assert '"output_text"' not in persisted
+    assert '{"answer":23}' not in persisted
+
+    # Preserve read compatibility for immutable v1 records already carrying the
+    # exact bounded output bytes; new scoring never writes this representation.
+    output = '{"answer":23}'
+    historical = _objective_score_legacy(owner.objective_plan, output,
+        digest({'output': output}))
+    assert 'output_text' in historical
+    assert _verify_objective_score(owner.objective_plan, historical,
+        digest({'output': output})) == historical
 
 
 def test_output_substitution_is_incomplete_not_replayed(tmp_path):

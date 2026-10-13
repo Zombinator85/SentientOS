@@ -308,7 +308,7 @@ class DevelopmentalExperimentStore:
         from .developmental_model_replacement_experiment import _objective_score
         try:
             score = _objective_score(verified_plan, output_text,
-                output_digest if output_text is not None else None)
+                output_digest)
         except (TypeError, ValueError) as exc:
             raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid") from exc
         semantic = {"schema_version": "sentientos.objective_condition_score:v1",
@@ -367,15 +367,11 @@ class DevelopmentalExperimentStore:
         score = value.get("score")
         if not isinstance(score, Mapping):
             raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid")
-        from .developmental_model_replacement_experiment import _objective_score
+        from .developmental_model_replacement_experiment import _verify_objective_score
         try:
-            recomputed = _objective_score(plan, score.get("output_text"),
-                value["output_digest"] if score.get("output_text") is not None else None)
+            _verify_objective_score(plan, score, value["output_digest"])
         except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid") from exc
-        if json.dumps(recomputed, sort_keys=True, separators=(",", ":"), ensure_ascii=False) != json.dumps(
-                score, sort_keys=True, separators=(",", ":"), ensure_ascii=False):
-            raise DevelopmentalHistoryInterventionError("objective_condition_score_binding_invalid")
         return value
 
     def load_protocol(self, protocol_id: str) -> DevelopmentalHistoryInterventionProtocol:
@@ -483,7 +479,7 @@ class DevelopmentalExperimentStore:
             scores = value.get("objective_scores")
             if not isinstance(scores, list) or len(scores) != len(CONDITION_ORDER):
                 raise DevelopmentalHistoryInterventionError("objective_scores_incomplete")
-            from .developmental_model_replacement_experiment import _objective_score
+            from .developmental_model_replacement_experiment import _verify_objective_score
             verified_scores: list[dict[str, Any]] = []
             by_condition = {str(item.get("condition_id")): item for item in conditions
                 if isinstance(item, Mapping)}
@@ -500,12 +496,12 @@ class DevelopmentalExperimentStore:
                         or not isinstance(wrapper.get("score"), Mapping)):
                     raise DevelopmentalHistoryInterventionError("objective_score_receipt_binding_invalid")
                 try:
-                    expected_score = _objective_score(plan, wrapper["score"].get("output_text"),
-                        wrapper["invocation_output_digest"] if wrapper["score"].get("output_text") is not None else None)
+                    expected_score = _verify_objective_score(plan, wrapper["score"],
+                        wrapper["invocation_output_digest"])
                 except (KeyError, TypeError, ValueError) as exc:
-                    raise DevelopmentalHistoryInterventionError("objective_score_invalid") from exc
-                if canonical(expected_score) != canonical(wrapper["score"]):
-                    raise DevelopmentalHistoryInterventionError("objective_score_binding_invalid")
+                    code = ("objective_score_binding_invalid"
+                        if "binding_invalid" in str(exc) else "objective_score_invalid")
+                    raise DevelopmentalHistoryInterventionError(code) from exc
                 checkpoint = self.load_objective_condition_score(protocol,
                     condition_id=condition_id, observation=observation_payload)
                 if canonical(checkpoint.get("score")) != canonical(wrapper["score"]):

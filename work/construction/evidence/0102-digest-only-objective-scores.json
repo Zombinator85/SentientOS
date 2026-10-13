@@ -1,0 +1,80 @@
+{
+  "actual_model_invoked": false,
+  "base_commit": "3b11f26bc7d32c213945ffaa55f0425718bc14bb",
+  "base_tree": "adcc1a10562e82135b9c2e6c0e7c5a95d1c4c917",
+  "construction_change": {
+    "historical_compatibility": "Legacy score objects containing output_text are validated with their prior v1 semantics; new score objects use v2.",
+    "new_score_retention": [
+      "oracle, task, plan and condition identities",
+      "bounded parsed integer answer when valid",
+      "authenticated output digest",
+      "score status and digest",
+      "explicit output-retention posture"
+    ],
+    "raw_output_persisted": false,
+    "raw_prompt_persisted": false,
+    "invalid_output_posture": "digest-bound negative classification, no raw bytes or answer retained"
+  },
+  "focused_tests": {
+    "collected": 123,
+    "failed": 0,
+    "modules": [
+      "tests/test_developmental_objective_scoring.py",
+      "tests/test_developmental_model_replacement_experiment.py",
+      "tests/test_developmental_history_intervention_experiment.py",
+      "tests/test_resident_developmental_cognition.py"
+    ],
+    "passed": 123,
+    "skipped": 0
+  },
+  "hosted_checks_for_parent_seq101": {
+    "commit": "3b11f26bc7d32c213945ffaa55f0425718bc14bb",
+    "checks": [
+      {
+        "name": "Source validation (unprivileged)",
+        "conclusion": "success",
+        "check_run_id": 115082185905
+      },
+      {
+        "name": "helm-k8s-test",
+        "conclusion": "success",
+        "check_run_id": 115082185845
+      },
+      {
+        "name": "docs",
+        "conclusion": "failure",
+        "check_run_id": 115082185964,
+        "reason": "administrator-only protected-memory/policy access denied"
+      },
+      {
+        "name": "self-check",
+        "conclusion": "failure",
+        "check_run_id": 115082185887,
+        "reason": "protected-memory/policy denial and /glow permission failures"
+      },
+      {
+        "name": "invariants",
+        "conclusion": "failure",
+        "check_run_id": 115082185882,
+        "reason": "pytest collection internal error after protected-state access failures"
+      }
+    ],
+    "privileged_retry": false
+  },
+  "mypy": {
+    "command": ".venv/bin/python -m mypy --follow-imports=skip sentientos/developmental_model_replacement_experiment.py sentientos/developmental_history_intervention_experiment.py",
+    "diagnostics": 3,
+    "result": "not clean; diagnostics occur at existing lines outside the new score writer/verifier",
+    "status": "failed"
+  },
+  "production_verified": false,
+  "provider_egress": false,
+  "schema_version": 1,
+  "changed_file_sha256": {
+    "sentientos/developmental_model_replacement_experiment.py": "eeaf0cc4041985849185fd19de70b540f32a7e5d3fbc38eec0cce08b1a6245bc",
+    "sentientos/developmental_history_intervention_experiment.py": "79c9686ff0c63d32ef1c0ffee140cc47573f45e78413b49bf1a735d0ac035885",
+    "tests/test_developmental_objective_scoring.py": "df790551d88908c8c3aeb0a4e290df0847e236e1af8976988a6c4c96774fd37b",
+    "tests/test_resident_developmental_cognition.py": "e6538e9c89d9b6c2d954c1c6e55c42042f3a9525c3c0700ffc394bf71d68617f",
+    "work/construction/segments/0102-digest-only-objective-scores.md": "623856eb859910a2e0fa0f59f82c3a5d07cc7ce6cab32789d3fd670b3f789f31"
+  }
+}

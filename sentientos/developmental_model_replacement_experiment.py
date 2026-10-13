@@ -1241,9 +1241,7 @@ class ModelReplacementArtifactStore:
             plan = self.verify_objective_plan(protocol)
             for observation in value["observations"]:
                 score = observation.get("objective_task_score")
-                if (not isinstance(score, Mapping) or score != _objective_score(plan,
-                        score.get("output_text"), observation.get("output_digest"))):
-                    raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+                _verify_objective_score(plan, score, observation.get("output_digest"))
             if evaluation != _objective_evaluation(plan, value["observations"]):
                 raise DevelopmentalModelReplacementError("objective_evaluation_binding_invalid")
         return value
@@ -1563,12 +1561,24 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
             correct = answer == expected
             status = "correct" if correct else "incorrect"
             if is_suite:
-                correct_count = sum(actual == target for actual, target in zip(answer, expected))
+                answer_values = cast(list[Any], answer)
+                expected_values = cast(list[int], expected)
+                correct_count = sum(actual == target
+                    for actual, target in zip(answer_values, expected_values))
         except (ValueError, TypeError):
             status, correct = "invalid_answer", False
-    semantic = {"plan_digest": plan["plan_digest"],
+    if status == "invalid_answer":
+        # A malformed response can contain arbitrary sensitive text. Retain only
+        # the negative classification and its receipt-bound digest, never bytes.
+        answer = None
+    semantic = {"schema_version": "sentientos.objective_task_score:v2",
+        "plan_digest": plan["plan_digest"],
         "task_digest": plan["task_descriptor"]["task_digest"],
-        "output_text": output, "output_digest": output_digest,
+        "output_digest": output_digest,
+        "output_retention_posture": (
+            "live_bytes_digest_verified_not_retained" if status in {"correct", "incorrect"}
+            else "live_bytes_invalid_answer_not_retained" if status == "invalid_answer"
+            else "output_bytes_unavailable"),
         "status": status, "answer": answer, "correct": correct,
         "evaluator": ("deterministic_exact_integer_suite_oracle_v2" if is_suite
             else "deterministic_exact_integer_oracle_v1")}
@@ -1578,6 +1588,95 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         if status == "output_unavailable":
             semantic["correct_count"] = None
     return {**semantic, "score_digest": _digest(semantic)}
+
+
+def _objective_score_legacy(plan: Mapping[str, Any], output: object,
+                            output_digest: object) -> dict[str, Any]:
+    """Reproduce the historical v1 record shape without changing its verifier."""
+    current = _objective_score(plan, output, output_digest)
+    semantic = {key: value for key, value in current.items()
+        if key not in {"schema_version", "output_retention_posture", "score_digest"}}
+    if current.get("status") == "invalid_answer" and isinstance(output, str):
+        is_suite = plan.get("task", {}).get("schema_version") == "sentientos.affine_prediction_task_suite:v2"
+        expected_key = "answers" if is_suite else "answer"
+        def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            parsed: dict[str, Any] = {}
+            for key, value in pairs:
+                if key in parsed:
+                    raise ValueError("duplicate_answer_key")
+                parsed[key] = value
+            return parsed
+        try:
+            parsed = json.loads(output, object_pairs_hook=unique_object)
+            semantic["answer"] = parsed.get(expected_key) if isinstance(parsed, dict) else None
+        except (TypeError, ValueError):
+            semantic["answer"] = None
+    semantic["output_text"] = output
+    return {**semantic, "score_digest": _digest(semantic)}
+
+
+def _verify_objective_score(plan: Mapping[str, Any], score: object,
+                            expected_output_digest: object) -> dict[str, Any]:
+    """Verify new digest-only scores and preserve compatibility with legacy v1 scores."""
+    if not isinstance(score, Mapping):
+        raise DevelopmentalModelReplacementError("objective_score_invalid")
+    value = dict(score)
+    # Historical score records include output_text. Verify them with their original
+    # byte-retaining contract; newly produced records never include that field.
+    if "output_text" in value:
+        output = value.get("output_text")
+        retained_digest = value.get("output_digest")
+        expected = _objective_score_legacy(plan, output, retained_digest)
+        if (output is not None and retained_digest != expected_output_digest
+                or output is None and retained_digest not in {None, expected_output_digest}):
+            raise DevelopmentalModelReplacementError("objective_score_output_digest_mismatch")
+        if value != expected:
+            raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+        return value
+    expected_fields = {"schema_version", "plan_digest", "task_digest", "output_digest",
+        "output_retention_posture", "status", "answer", "correct", "evaluator",
+        "score_digest"}
+    is_suite = plan.get("task", {}).get("schema_version") == "sentientos.affine_prediction_task_suite:v2"
+    if is_suite:
+        expected_fields |= {"probe_count", "correct_count"}
+    if (set(value) != expected_fields
+            or value.get("schema_version") != "sentientos.objective_task_score:v2"
+            or value.get("plan_digest") != plan.get("plan_digest")
+            or value.get("task_digest") != plan.get("task_descriptor", {}).get("task_digest")
+            or value.get("evaluator") != ("deterministic_exact_integer_suite_oracle_v2"
+                if is_suite else "deterministic_exact_integer_oracle_v1")
+            or value.get("score_digest") != _digest({key: item for key, item in value.items()
+                if key != "score_digest"})):
+        raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+    status = value.get("status")
+    if status in {"correct", "incorrect"}:
+        if value.get("output_digest") != expected_output_digest:
+            raise DevelopmentalModelReplacementError("objective_score_output_digest_mismatch")
+        answer_key = "answers" if is_suite else "answer"
+        canonical_output = json.dumps({answer_key: value.get("answer")},
+            sort_keys=True, separators=(",", ":"))
+        try:
+            expected = _objective_score(plan, canonical_output, expected_output_digest)
+        except (TypeError, ValueError) as exc:
+            raise DevelopmentalModelReplacementError("objective_score_answer_invalid") from exc
+        if value != expected:
+            raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+    elif status == "invalid_answer":
+        # Negative classifications are safe to retain without the raw invalid
+        # bytes; they cannot confer success, and remain bound to the invocation.
+        if (value.get("output_digest") != expected_output_digest
+                or not isinstance(expected_output_digest, str)
+                or value.get("output_retention_posture") != "live_bytes_invalid_answer_not_retained"
+                or value.get("answer") is not None or value.get("correct") is not False
+                or (is_suite and value.get("correct_count") != 0)):
+            raise DevelopmentalModelReplacementError("objective_score_invalid_output_binding")
+    elif status == "output_unavailable":
+        expected = _objective_score(plan, None, expected_output_digest)
+        if value != expected:
+            raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+    else:
+        raise DevelopmentalModelReplacementError("objective_score_status_invalid")
+    return value
 
 
 def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -1879,9 +1978,7 @@ class DevelopmentalModelReplacementExperiment:
         score = value.get("objective_task_score")
         if self.objective_plan is not None:
             self.store.verify_objective_plan(self.protocol, self.objective_plan)
-            if (not isinstance(score, Mapping) or score != _objective_score(self.objective_plan,
-                    score.get("output_text"), value.get("output_digest"))):
-                raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+            _verify_objective_score(self.objective_plan, score, value.get("output_digest"))
         elif score is not None:
             raise DevelopmentalModelReplacementError("objective_task_oracle_missing")
         if serving_binding:

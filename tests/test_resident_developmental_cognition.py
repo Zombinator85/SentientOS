@@ -530,7 +530,10 @@ def test_interrupted_same_model_trial_recovers_checkpointed_score_without_replay
     recovered = restarted_store.load_objective_condition_score(protocol,
         condition_id="history_present", observation=condition)
     assert recovered["score"]["correct"] is True
-    assert recovered["score"]["output_text"] == '{"answer":23}'
+    assert "output_text" not in recovered["score"]
+    assert recovered["score"]["output_retention_posture"] == (
+        "live_bytes_digest_verified_not_retained")
+    assert recovered["score"]["output_digest"] == condition["output_digest"]
     condition_path = tmp_path / "state" / "cognition_observations" / (
         condition["observation_id"] + ".json")
     child = subprocess.run([sys.executable, "-c", """
