@@ -1,0 +1,29 @@
+{
+  "assertions": [
+    "restart inspection preserves exact selected source rows and fact-to-source bindings",
+    "duplicate source IDs with recomputed candidate and record identities are rejected before interrupted-receipt repair",
+    "historical candidate compatibility without selected fact payloads is preserved"
+  ],
+  "checks": {
+    "focused_tests": {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-recon8-writeback-g SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-recon8-writeback-r SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-recon8-writeback-f SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-recon8-writeback-k PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-recon8-writeback-t PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-recon8-writeback-t/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_writeback.py::test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart tests/test_resident_developmental_writeback.py::test_recovery_rejects_duplicate_source_binding_after_identity_reconstruction",
+      "result": "2 passed in 0.31s",
+      "scope": "hermetic fixture; no model invocation"
+    },
+    "python_compile": "passed: sentientos/resident_developmental_writeback.py, tests/test_resident_developmental_writeback.py"
+  },
+  "not_established": [
+    "real model acquisition",
+    "transfer",
+    "performance improvement",
+    "production operation"
+  ],
+  "predecessor_sequence": 155,
+  "predecessor_source_commit": "4365da2649e9e72c552f0d0af5ca89fb6c2f9ed0",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 156,
+  "source_commit": "a2959caa57010fe982079035150b98245ff54563",
+  "source_tree": "7f700556bfe2e6be204dfb448bc97c8492f78673",
+  "title": "developmental history source binding recovery",
+  "unverified_for_production": true
+}
