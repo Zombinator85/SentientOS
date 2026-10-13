@@ -32,7 +32,7 @@ from sentientos.resident_developmental_cognition import (
     CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
     load_objective_request, objective_task_for_request, stage_objective_request,
-    stored_objective_request_disposition,
+    stored_objective_request_disposition, stored_objective_request_record,
 )
 from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
@@ -556,6 +556,54 @@ def test_recovered_one_shot_score_is_returned_without_replaying_inference(
     assert outcome["objective_evaluation"]["assessment"] == "preregistered_probe_suite_scored"
     assert len(outcome["conditions"]) == 3
     assert len(fake.requests) == calls_at_interruption
+
+
+def test_read_only_objective_result_inspection_reconciles_existing_custody(tmp_path: Path) -> None:
+    from scripts.inspect_resident_objective_result import inspect_result
+
+    fake = FakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="inspect-result-seed").written_record_id
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    stage_objective_request(tmp_path / "state", request_id="inspect-result-request", task=task)
+    request = load_objective_request(tmp_path / "state")
+    assert request is not None
+    result = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="inspect-result-tick", objective_task=task,
+        request_id=request["request_id"], request_digest=request["request_digest"])
+    assert result.changed_cognition_measurement_id
+
+    cognition_config = tmp_path / "cognition.json"
+    cognition_config.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry"], "max_selected_facts": 1,
+        "max_retrieved_records": 4, "comparison_enabled": True}), encoding="utf-8")
+    serving_config = tmp_path / "serving.json"
+    serving_config.write_text(json.dumps({"schema_version": "sentientos.resident_cognitive_model_serving_config:v1",
+        "enabled": True, "installation_identity": "install-1", "serving_operation_id": "inspect-operation",
+        "expected_activation_state_digest": "a" * 64}), encoding="utf-8")
+    from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+    registry = InstallationStateRegistry._for_testing(tmp_path / "installation-state")
+    registry.open(InstallationIdentity("install-1"), create=True)
+    before = {path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*") if path.is_file()}
+
+    lineage = stored_objective_request_record(tmp_path / "state",
+        request_id=request["request_id"], request_digest=request["request_digest"])
+    assert lineage["tick_id"] == "inspect-result-tick"
+    report = inspect_result(cognition_config_path=cognition_config,
+        serving_config_path=serving_config, request_id=request["request_id"],
+        request_digest=request["request_digest"], installation_registry=registry)
+
+    assert report["status"] == "verified_objective_measurement"
+    assert report["tick_id"] == "inspect-result-tick"
+    assert report["actual_nonsynthetic_inference_verified"] is False
+    assert report["model_invoked"] is False and report["write_performed"] is False
+    after = {path.relative_to(tmp_path).as_posix(): path.read_bytes()
+        for path in tmp_path.rglob("*") if path.is_file()}
+    assert after == before
 
 
 def test_staged_objective_request_rejects_noncanonical_and_substituted_bytes(tmp_path: Path) -> None:

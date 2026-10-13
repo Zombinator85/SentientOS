@@ -50,6 +50,15 @@ def test_session_receipt_reference_rechecks_durable_privilege_witness(monkeypatc
         expected_activation_state_semantic_digest=session.binding["activation_state_semantic_digest"],
         expected_active_model_identity=session.binding["observed_loaded_model_identity"])
     assert verified["receipt_id"] == reference["session_receipt_id"]
+    readonly = InstallationStateRegistry._for_testing(tmp_path).open_read_only(
+        InstallationIdentity("install-1"))
+    verified_readonly = verify_resident_serving_session_receipt_reference(readonly,
+        reference["session_receipt_id"], reference["session_receipt_semantic_digest"],
+        expected_session_id=session.session_id,
+        expected_model_serving_admission_ref=session.binding["model_serving_admission_ref"],
+        expected_activation_state_semantic_digest=session.binding["activation_state_semantic_digest"],
+        expected_active_model_identity=session.binding["observed_loaded_model_identity"])
+    assert verified_readonly == verified
     with pytest.raises(ResidentCognitiveModelServingError,match="historical_serving_receipt_binding_mismatch"):
         verify_resident_serving_session_receipt_reference(handle,
             reference["session_receipt_id"],reference["session_receipt_semantic_digest"],

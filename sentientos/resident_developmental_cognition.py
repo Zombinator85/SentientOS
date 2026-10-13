@@ -282,13 +282,27 @@ def load_objective_request_by_identity(state_root: str | Path, *, request_id: st
 
 def stored_objective_request_disposition(state_root: str | Path, *,
         request_id: str, request_digest: str) -> str:
-    """Read the digest-sealed tick ledger without recovery mutation."""
+    """Read one digest-sealed tick outcome without recovery mutation."""
+    try:
+        record = stored_objective_request_record(state_root, request_id=request_id,
+            request_digest=request_digest)
+    except ResidentDevelopmentalCognitionError as exc:
+        if str(exc) == "objective_request_identity_conflict":
+            return "identity_conflict"
+        raise
+    return str(record.get("disposition", "new"))
+
+
+def stored_objective_request_record(state_root: str | Path, *,
+        request_id: str, request_digest: str) -> Mapping[str, Any]:
+    """Read the minimal exact request/tick/run lineage from custody, without repair."""
     path = Path(state_root) / "composition_state.json"
     try:
         raw = read_explicit_file(path, max_bytes=MAX_COMPOSITION_STATE_BYTES)
     except WindowsHandleCustodyError as exc:
         if str(exc) == "explicit_file_missing":
-            return "new"
+            return {"disposition": "new", "request_id": request_id,
+                "request_digest": request_digest, "authority": False}
         raise ResidentDevelopmentalCognitionError("objective_request_state_custody_invalid") from exc
     try:
         state = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
@@ -306,16 +320,22 @@ def stored_objective_request_disposition(state_root: str | Path, *,
             raise ValueError("shape")
     except (UnicodeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
         raise ResidentDevelopmentalCognitionError("objective_request_state_invalid") from exc
-    matches = [("completed" if row in completed else "interrupted")
+    if len(completed) + len(incomplete) > MAX_RECOVERED_TICKS:
+        raise ResidentDevelopmentalCognitionError("objective_request_state_over_bound")
+    matches = [("completed" if row in completed else "interrupted", row)
         for row in completed + incomplete if row.get("objective_request_id") == request_id]
     if not matches:
-        return "new"
-    for row in completed + incomplete:
-        if row.get("objective_request_id") == request_id and row.get("objective_request_digest") != request_digest:
-            return "identity_conflict"
-    if len(matches) != 1:
-        return "identity_conflict"
-    return matches[0]
+        return {"disposition": "new", "request_id": request_id,
+            "request_digest": request_digest, "authority": False}
+    if (len(matches) != 1 or matches[0][1].get("objective_request_digest") != request_digest
+            or not isinstance(matches[0][1].get("tick_id"), str)):
+        raise ResidentDevelopmentalCognitionError("objective_request_identity_conflict")
+    disposition, row = matches[0]
+    fields = ("tick_id", "objective_request_status", "measurement_id",
+        "recovered_experiment_run_id", "recovered_experiment_run_digest")
+    return {"disposition": disposition, "request_id": request_id,
+        "request_digest": request_digest, **{key: row.get(key) for key in fields},
+        "authority": False}
 
 
 def objective_task_for_request(request: Mapping[str, Any]) -> Any:
@@ -1279,6 +1299,83 @@ class ResidentDevelopmentalCycleResult:
     canonical_explicit_user_retention_mutated: bool = False
 
 
+def verified_objective_measurement_summary(*, experiments: DevelopmentalExperimentStore,
+        measurement_id: str, request: Mapping[str, Any],
+        verify_observation: Callable[[Mapping[str, Any]], Mapping[str, Any] | None]) -> Mapping[str, Any]:
+    """Verify and reduce a durable experiment without inference or custody writes."""
+    try:
+        task = objective_task_for_request(request)
+    except ResidentDevelopmentalCognitionError as exc:
+        raise ResidentDevelopmentalCognitionError("objective_outcome_request_invalid") from exc
+    if objective_request_payload(request_id=str(request.get("request_id", "")),
+            task=task) != dict(request):
+        raise ResidentDevelopmentalCognitionError("objective_outcome_request_invalid")
+    try:
+        run = experiments.load_run(measurement_id)
+        raw_protocol = run.get("protocol")
+        if not isinstance(raw_protocol, Mapping):
+            raise DevelopmentalHistoryInterventionError("objective_outcome_protocol_missing")
+        protocol = experiments.load_protocol(str(raw_protocol.get("protocol_id", "")))
+        plan = experiments.verify_objective_task_plan(protocol)
+    except DevelopmentalHistoryInterventionError as exc:
+        raise ResidentDevelopmentalCognitionError("objective_outcome_custody_invalid") from exc
+    if (protocol.schema_version != OBJECTIVE_SCHEMA
+            or plan.get("task_descriptor") != dict(request["task_descriptor"])):
+        raise ResidentDevelopmentalCognitionError("objective_outcome_request_plan_mismatch")
+    conditions = run.get("conditions")
+    score_rows = run.get("objective_scores")
+    evaluation = run.get("objective_evaluation")
+    if (not isinstance(conditions, list) or len(conditions) != len(CONDITION_ORDER)
+            or not isinstance(score_rows, list) or len(score_rows) != len(CONDITION_ORDER)
+            or not isinstance(evaluation, Mapping)):
+        raise ResidentDevelopmentalCognitionError("objective_outcome_shape_invalid")
+    condition_rows = {str(item.get("condition_id")): item for item in conditions
+        if isinstance(item, Mapping)}
+    score_by_condition = {str(item.get("condition_id")): item for item in score_rows
+        if isinstance(item, Mapping)}
+    if (tuple(condition_rows) != CONDITION_ORDER
+            or tuple(score_by_condition) != CONDITION_ORDER):
+        raise ResidentDevelopmentalCognitionError("objective_outcome_condition_set_invalid")
+    outputs: list[dict[str, Any]] = []
+    actual_inference = True
+    for condition in CONDITION_ORDER:
+        observation = condition_rows[condition]
+        wrapper = score_by_condition[condition]
+        receipt = verify_observation(observation)
+        if receipt is None:
+            actual_inference = False
+            receipt_status = "historical_invocation_unbound"
+        else:
+            effects = receipt.get("effects")
+            completed = (receipt.get("status") == "admitted_completed"
+                and receipt.get("fallback_occurred") is False
+                and isinstance(effects, Mapping)
+                and effects.get("local_model_inference") is True)
+            actual_inference = actual_inference and completed
+            receipt_status = ("admitted_local_model_inference" if completed
+                else "not_completed_nonsynthetic_local_model_inference")
+        score = wrapper.get("score")
+        if not isinstance(score, Mapping):
+            raise ResidentDevelopmentalCognitionError("objective_outcome_score_invalid")
+        outputs.append({"condition_id": condition, "receipt_status": receipt_status,
+            "inference_receipt_id": observation.get("inference_receipt_id"),
+            "inference_receipt_digest": observation.get("inference_receipt_digest"),
+            "output_digest": observation.get("output_digest"),
+            "score_digest": score.get("score_digest"),
+            "score_status": score.get("status"), "correct": score.get("correct"),
+            "correct_count": score.get("correct_count"),
+            "output_truncated": wrapper.get("output_truncated", False)})
+    return {"status": "verified_objective_measurement", "measurement_id": measurement_id,
+        "measurement_digest": run.get("run_digest"), "request_id": request["request_id"],
+        "request_digest": request["request_digest"], "protocol_id": protocol.protocol_id,
+        "protocol_digest": protocol.protocol_digest,
+        "objective_task_plan_digest": plan.get("plan_digest"),
+        "objective_evaluation": dict(evaluation), "conditions": outputs,
+        "actual_nonsynthetic_inference_verified": actual_inference,
+        "raw_prompt_output_and_oracle_retained_in_report": False,
+        "authority": False, "canonical_explicit_user_retention": False}
+
+
 def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
     try:
         payload = json.loads(read_explicit_file(Path(path),
@@ -1718,79 +1815,9 @@ class ResidentDevelopmentalCognitionOwner:
     def verified_objective_measurement_summary(self, *, measurement_id: str,
             request: Mapping[str, Any]) -> Mapping[str, Any]:
         """Return a bounded score summary only after revalidating its exact receipts."""
-        try:
-            task = objective_task_for_request(request)
-        except ResidentDevelopmentalCognitionError as exc:
-            raise ResidentDevelopmentalCognitionError("objective_outcome_request_invalid") from exc
-        if objective_request_payload(request_id=str(request.get("request_id", "")),
-                task=task) != dict(request):
-            raise ResidentDevelopmentalCognitionError("objective_outcome_request_invalid")
-        try:
-            run = self.experiments.load_run(measurement_id)
-            raw_protocol = run.get("protocol")
-            if not isinstance(raw_protocol, Mapping):
-                raise DevelopmentalHistoryInterventionError("objective_outcome_protocol_missing")
-            protocol = self.experiments.load_protocol(str(raw_protocol.get("protocol_id", "")))
-            plan = self.experiments.verify_objective_task_plan(protocol)
-        except DevelopmentalHistoryInterventionError as exc:
-            raise ResidentDevelopmentalCognitionError("objective_outcome_custody_invalid") from exc
-        if (protocol.schema_version != OBJECTIVE_SCHEMA
-                or plan.get("task_descriptor") != dict(request["task_descriptor"])):
-            raise ResidentDevelopmentalCognitionError("objective_outcome_request_plan_mismatch")
-        conditions = run.get("conditions")
-        score_rows = run.get("objective_scores")
-        evaluation = run.get("objective_evaluation")
-        if (not isinstance(conditions, list) or len(conditions) != len(CONDITION_ORDER)
-                or not isinstance(score_rows, list) or len(score_rows) != len(CONDITION_ORDER)
-                or not isinstance(evaluation, Mapping)):
-            raise ResidentDevelopmentalCognitionError("objective_outcome_shape_invalid")
-        condition_rows = {str(item.get("condition_id")): item for item in conditions
-            if isinstance(item, Mapping)}
-        score_by_condition = {str(item.get("condition_id")): item for item in score_rows
-            if isinstance(item, Mapping)}
-        if (tuple(condition_rows) != CONDITION_ORDER
-                or tuple(score_by_condition) != CONDITION_ORDER):
-            raise ResidentDevelopmentalCognitionError("objective_outcome_condition_set_invalid")
-        outputs: list[dict[str, Any]] = []
-        actual_inference = True
-        for condition in CONDITION_ORDER:
-            observation = condition_rows[condition]
-            wrapper = score_by_condition[condition]
-            receipt = self._verify_observation_invocation(observation)
-            if receipt is None:
-                actual_inference = False
-                receipt_status = "historical_invocation_unbound"
-            else:
-                effects = receipt.get("effects")
-                completed = (receipt.get("status") == "admitted_completed"
-                    and receipt.get("fallback_occurred") is False
-                    and isinstance(effects, Mapping)
-                    and effects.get("local_model_inference") is True)
-                actual_inference = actual_inference and completed
-                receipt_status = ("admitted_local_model_inference" if completed
-                    else "not_completed_nonsynthetic_local_model_inference")
-            score = wrapper.get("score")
-            if not isinstance(score, Mapping):
-                raise ResidentDevelopmentalCognitionError("objective_outcome_score_invalid")
-            outputs.append({"condition_id": condition,
-                "receipt_status": receipt_status,
-                "inference_receipt_id": observation.get("inference_receipt_id"),
-                "inference_receipt_digest": observation.get("inference_receipt_digest"),
-                "output_digest": observation.get("output_digest"),
-                "score_digest": score.get("score_digest"),
-                "score_status": score.get("status"),
-                "correct": score.get("correct"),
-                "correct_count": score.get("correct_count"),
-                "output_truncated": wrapper.get("output_truncated", False)})
-        return {"status": "verified_objective_measurement",
-            "measurement_id": measurement_id, "measurement_digest": run.get("run_digest"),
-            "request_id": request["request_id"], "request_digest": request["request_digest"],
-            "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
-            "objective_task_plan_digest": plan.get("plan_digest"),
-            "objective_evaluation": dict(evaluation), "conditions": outputs,
-            "actual_nonsynthetic_inference_verified": actual_inference,
-            "raw_prompt_output_and_oracle_retained_in_report": False,
-            "authority": False, "canonical_explicit_user_retention": False}
+        return verified_objective_measurement_summary(experiments=self.experiments,
+            measurement_id=measurement_id, request=request,
+            verify_observation=self._verify_observation_invocation)
 
     def verified_objective_measurement_for_request(self, *, request_id: str,
             request_digest: str) -> Mapping[str, Any]:

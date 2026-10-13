@@ -8,7 +8,8 @@ from typing import Any, Callable, Mapping
 
 from .control_plane_kernel import (AdmissionOutcome, AuthorityClass, ControlActionRequest,
                                    ControlPlaneKernel, LifecyclePhase)
-from .installation_state import InstallationStateError, InstallationStateHandle
+from .installation_state import (InstallationStateError, InstallationStateHandle,
+    InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView)
 from .local_model_production_activation import ProductionActivationError, verify_current_activation
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_runtime_provisioning import semantic_digest
@@ -33,6 +34,15 @@ class ResidentCognitiveModelServingError(RuntimeError):
 
 def _canonical(value: Mapping[str, Any]) -> bytes:
     return (json.dumps(dict(value), sort_keys=True, separators=(",", ":")) + "\n").encode()
+
+
+def _read_installation_regular(handle: Any, relative: str, *, max_bytes: int) -> bytes:
+    """Read one fixed installation object through either read-only or owner custody."""
+    if isinstance(handle, (InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView)):
+        return handle.read_regular_bounded(relative, max_bytes=max_bytes)
+    if isinstance(handle, InstallationStateHandle):
+        return handle.read_regular_bounded(handle.fixed_object(relative), max_bytes=max_bytes)
+    raise ResidentCognitiveModelServingError("authenticated_installation_reader_required")
 
 
 def _create(handle: InstallationStateHandle, relative: str, value: Mapping[str, Any]) -> None:
@@ -158,10 +168,11 @@ def resident_serving_session_receipt_reference(session: ServingSession) -> dict[
         "session_receipt_semantic_digest": receipt["receipt_semantic_digest"]}
 
 
-def verify_resident_serving_session_receipt(handle: InstallationStateHandle,
+def verify_resident_serving_session_receipt(handle: Any,
         session: Mapping[str, Any]) -> dict[str, Any]:
     """Verify exact durable serving and privilege receipts for a historical session."""
-    if not isinstance(handle, InstallationStateHandle):
+    if not isinstance(handle, (InstallationStateHandle, InstallationStateReadOnlyView,
+                               WindowsInstallationStateReadOnlyView)):
         raise ResidentCognitiveModelServingError("authenticated_installation_handle_required")
     session_id, binding = session.get("session_id"), session.get("binding")
     if (not isinstance(session_id, str) or not session_id.startswith("resident-serving-session-")
@@ -171,8 +182,9 @@ def verify_resident_serving_session_receipt(handle: InstallationStateHandle,
     if session_id != "resident-serving-session-" + semantic_digest(dict(binding))[:24]:
         raise ResidentCognitiveModelServingError("historical_serving_session_identity_mismatch")
     receipt = _resident_serving_session_receipt(session)
-    raw = handle.read_regular(handle.fixed_object(
-        f"local-model/resident-cognitive-serving/receipts/{receipt['receipt_id']}.json"))
+    raw = _read_installation_regular(handle,
+        f"local-model/resident-cognitive-serving/receipts/{receipt['receipt_id']}.json",
+        max_bytes=1_048_576)
     if len(raw) > 1_048_576:
         raise ResidentCognitiveModelServingError("historical_serving_receipt_over_bound")
     try:
@@ -186,7 +198,8 @@ def verify_resident_serving_session_receipt(handle: InstallationStateHandle,
         "admission_decision_ref": binding.get("model_serving_admission_ref"),
         "authority_class": AuthorityClass.MODEL_SERVING.value, "inference_performed": False}
     witness["witness_semantic_digest"] = semantic_digest(witness)
-    witness_raw = handle.read_regular(handle.fixed_object(f"logs/privileges/{receipt['receipt_id']}.json"))
+    witness_raw = _read_installation_regular(handle,
+        f"logs/privileges/{receipt['receipt_id']}.json", max_bytes=65_536)
     if len(witness_raw) > 65_536:
         raise ResidentCognitiveModelServingError("historical_serving_witness_over_bound")
     try:
@@ -198,7 +211,7 @@ def verify_resident_serving_session_receipt(handle: InstallationStateHandle,
     return receipt
 
 
-def verify_resident_serving_session_receipt_reference(handle: InstallationStateHandle,
+def verify_resident_serving_session_receipt_reference(handle: Any,
         receipt_id: str, receipt_digest: str, *, expected_session_id: str,
         expected_model_serving_admission_ref: str,
         expected_activation_state_semantic_digest: str,
@@ -210,10 +223,9 @@ def verify_resident_serving_session_receipt_reference(handle: InstallationStateH
             or not isinstance(expected_session_id, str) or not expected_session_id):
         raise ResidentCognitiveModelServingError("historical_serving_receipt_reference_invalid")
     try:
-        raw = handle.read_regular(handle.fixed_object(
-            f"local-model/resident-cognitive-serving/receipts/{receipt_id}.json"))
-        if len(raw) > 1_048_576:
-            raise ResidentCognitiveModelServingError("historical_serving_receipt_over_bound")
+        raw = _read_installation_regular(handle,
+            f"local-model/resident-cognitive-serving/receipts/{receipt_id}.json",
+            max_bytes=1_048_576)
         stored = json.loads(raw.decode("utf-8"))
     except ResidentCognitiveModelServingError:
         raise
@@ -234,6 +246,80 @@ def verify_resident_serving_session_receipt_reference(handle: InstallationStateH
             or binding.get("observed_loaded_model_identity") != dict(expected_active_model_identity)):
         raise ResidentCognitiveModelServingError("historical_serving_receipt_binding_mismatch")
     return stored
+
+
+def verify_persisted_resident_invocation_receipt(handle: Any, receipt_id: str,
+        receipt_digest: str, *, expected_request_id: str,
+        expected_request_digest: str, expected_session_id: str,
+        expected_session_binding: Mapping[str, Any],
+        expected_active_model_identity: Mapping[str, Any],
+        expected_session_receipt_id: str | None = None,
+        expected_session_receipt_digest: str | None = None) -> Mapping[str, Any]:
+    """Verify historical inference custody using only an explicit installation reader."""
+    if (not isinstance(receipt_id, str) or len(receipt_id) != 30 or not receipt_id.startswith("lmrec-")
+            or not isinstance(receipt_digest, str) or not receipt_digest
+            or not isinstance(expected_request_id, str) or not expected_request_id
+            or not isinstance(expected_request_digest, str) or not expected_request_digest
+            or not isinstance(expected_session_id, str) or not expected_session_id):
+        raise ResidentCognitiveModelServingError("historical_invocation_identity_invalid")
+    try:
+        raw = _read_installation_regular(handle,
+            f"local-model/resident-cognitive-serving/inference/receipts/{receipt_id}.json",
+            max_bytes=1_048_576)
+        payload = json.loads(raw.decode("utf-8"))
+    except ResidentCognitiveModelServingError:
+        raise
+    except Exception as exc:
+        raise ResidentCognitiveModelServingError("historical_invocation_receipt_unavailable") from exc
+    from .governed_local_model_invocation import validate_receipt
+    if (not isinstance(payload, dict)
+            or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != raw
+            or payload.get("receipt_id") != receipt_id
+            or payload.get("receipt_digest") != receipt_digest
+            or validate_receipt(payload)[0] is not True):
+        raise ResidentCognitiveModelServingError("historical_invocation_receipt_invalid")
+    request = payload.get("request")
+    if (not isinstance(request, Mapping)
+            or request.get("request_id") != expected_request_id
+            or request.get("request_digest") != expected_request_digest
+            or request.get("active_model_identity") != dict(expected_active_model_identity)):
+        raise ResidentCognitiveModelServingError("historical_invocation_request_mismatch")
+    linkage = request.get("linkage")
+    serving = linkage.get("resident_cognitive_serving") if isinstance(linkage, Mapping) else None
+    expected_serving = {"session_id": expected_session_id,
+        "model_serving_admission_ref": expected_session_binding.get("model_serving_admission_ref"),
+        "activation_state_semantic_digest": expected_session_binding.get("activation_state_semantic_digest")}
+    if expected_session_receipt_id is not None or expected_session_receipt_digest is not None:
+        if not (isinstance(expected_session_receipt_id, str)
+                and isinstance(expected_session_receipt_digest, str)):
+            raise ResidentCognitiveModelServingError("historical_serving_receipt_reference_invalid")
+        expected_serving.update({"session_receipt_id": expected_session_receipt_id,
+            "session_receipt_semantic_digest": expected_session_receipt_digest})
+    if (not isinstance(serving, Mapping)
+            or dict(serving) != expected_serving
+            or serving.get("model_serving_admission_ref") != payload.get("admission_decision_ref")):
+        raise ResidentCognitiveModelServingError("historical_invocation_serving_session_mismatch")
+    if expected_session_receipt_id is not None:
+        verify_resident_serving_session_receipt_reference(handle,
+            expected_session_receipt_id, str(expected_session_receipt_digest),
+            expected_session_id=expected_session_id,
+            expected_model_serving_admission_ref=str(expected_session_binding.get("model_serving_admission_ref")),
+            expected_activation_state_semantic_digest=str(expected_session_binding.get("activation_state_semantic_digest")),
+            expected_active_model_identity=expected_active_model_identity)
+    return payload
+
+
+class ResidentCognitiveInvocationReceiptReader:
+    """Bounded receipt verifier with no current-session or model-loading capability."""
+    def __init__(self, installation_view: InstallationStateReadOnlyView | WindowsInstallationStateReadOnlyView):
+        if not isinstance(installation_view,
+                (InstallationStateReadOnlyView, WindowsInstallationStateReadOnlyView)):
+            raise ResidentCognitiveModelServingError("read_only_installation_view_required")
+        self._installation_view = installation_view
+
+    def verify_persisted_invocation_receipt(self, receipt_id: str, receipt_digest: str, **kwargs: Any) -> Mapping[str, Any]:
+        return verify_persisted_resident_invocation_receipt(self._installation_view,
+            receipt_id, receipt_digest, **kwargs)
 
 
 class ResidentCognitiveModelServingController:
@@ -545,58 +631,14 @@ class ResidentCognitiveServingInvoker:
                                             expected_session_receipt_id: str | None = None,
                                             expected_session_receipt_digest: str | None = None) -> Mapping[str, Any]:
         """Verify one historical governed receipt without loading or invoking a model."""
-        if (not isinstance(receipt_id, str) or len(receipt_id) != 30 or not receipt_id.startswith("lmrec-")
-                or not isinstance(receipt_digest, str) or not receipt_digest
-                or not isinstance(expected_request_id, str) or not expected_request_id
-                or not isinstance(expected_request_digest, str) or not expected_request_digest
-                or not isinstance(expected_session_id, str) or not expected_session_id):
-            raise ResidentCognitiveModelServingError("historical_invocation_identity_invalid")
-        try:
-            raw = self._serving._handle.read_regular(self._serving._handle.fixed_object(
-                f"local-model/resident-cognitive-serving/inference/receipts/{receipt_id}.json"))
-            if len(raw) > 1_048_576:
-                raise ResidentCognitiveModelServingError("historical_invocation_receipt_over_bound")
-            payload = json.loads(raw.decode("utf-8"))
-        except ResidentCognitiveModelServingError:
-            raise
-        except Exception as exc:
-            raise ResidentCognitiveModelServingError("historical_invocation_receipt_unavailable") from exc
-        from .governed_local_model_invocation import validate_receipt
-        if (not isinstance(payload, dict)
-                or json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n" != raw
-                or payload.get("receipt_id") != receipt_id
-                or payload.get("receipt_digest") != receipt_digest
-                or validate_receipt(payload)[0] is not True):
-            raise ResidentCognitiveModelServingError("historical_invocation_receipt_invalid")
-        request = payload.get("request")
-        if (not isinstance(request, Mapping)
-                or request.get("request_id") != expected_request_id
-                or request.get("request_digest") != expected_request_digest
-                or request.get("active_model_identity") != dict(expected_active_model_identity)):
-            raise ResidentCognitiveModelServingError("historical_invocation_request_mismatch")
-        linkage = request.get("linkage")
-        serving = linkage.get("resident_cognitive_serving") if isinstance(linkage, Mapping) else None
-        expected_serving = {"session_id": expected_session_id,
-            "model_serving_admission_ref": expected_session_binding.get("model_serving_admission_ref"),
-            "activation_state_semantic_digest": expected_session_binding.get("activation_state_semantic_digest")}
-        if expected_session_receipt_id is not None or expected_session_receipt_digest is not None:
-            if not (isinstance(expected_session_receipt_id, str)
-                    and isinstance(expected_session_receipt_digest, str)):
-                raise ResidentCognitiveModelServingError("historical_serving_receipt_reference_invalid")
-            expected_serving.update({"session_receipt_id": expected_session_receipt_id,
-                "session_receipt_semantic_digest": expected_session_receipt_digest})
-        if (not isinstance(serving, Mapping)
-                or dict(serving) != expected_serving
-                or serving.get("model_serving_admission_ref") != payload.get("admission_decision_ref")):
-            raise ResidentCognitiveModelServingError("historical_invocation_serving_session_mismatch")
-        if expected_session_receipt_id is not None:
-            verify_resident_serving_session_receipt_reference(self._serving._handle,
-                expected_session_receipt_id, str(expected_session_receipt_digest),
-                expected_session_id=expected_session_id,
-                expected_model_serving_admission_ref=str(expected_session_binding.get("model_serving_admission_ref")),
-                expected_activation_state_semantic_digest=str(expected_session_binding.get("activation_state_semantic_digest")),
-                expected_active_model_identity=expected_active_model_identity)
-        return payload
+        return verify_persisted_resident_invocation_receipt(self._serving._handle,
+            receipt_id, receipt_digest, expected_request_id=expected_request_id,
+            expected_request_digest=expected_request_digest,
+            expected_session_id=expected_session_id,
+            expected_session_binding=expected_session_binding,
+            expected_active_model_identity=expected_active_model_identity,
+            expected_session_receipt_id=expected_session_receipt_id,
+            expected_session_receipt_digest=expected_session_receipt_digest)
 
     def build_request(self, **kwargs: Any) -> Any:
         session = self._serving.current_session()

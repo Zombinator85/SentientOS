@@ -129,6 +129,26 @@ repeating inference. Missing or unbound receipts leave the actual-inference
 flag false, and failure to render this optional summary does not change the
 already completed trial result.
 
+An operator can retrieve the same result after the transient daemon feedback is
+gone, using the exact request ID and digest printed by staging:
+
+```sh
+python scripts/inspect_resident_objective_result.py \
+  --config <resident-cognition-config.json> \
+  --serving-config <resident-model-serving-config.json> \
+  --request-id <staged-request-id> \
+  --request-digest <staged-request-digest>
+```
+
+This command reads the sealed cognition tick ledger, the active or archived
+request, the immutable scored run, and the explicitly configured installation's
+serving and inference receipts through a read-only installation view. It never
+constructs a serving controller, loads a model, admits inference, repairs
+custody, or writes a new experiment. It returns an incomplete/unavailable status
+when a scored run or required receipt cannot be verified; it does not replay an
+interrupted request. The report separates score validity from actual governed
+inference verification and omits raw prompts, outputs, and oracle data.
+
 Before staging, an operator can run a bounded read-only preflight against one
 explicitly selected model file:
 
