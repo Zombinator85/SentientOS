@@ -101,8 +101,11 @@ exists, it records a terminal blocked request without inference. The request
 identity is persisted with the tick, so an interrupted or completed trial is
 never replayed; the staged file remains as custody evidence. An exact restage
 is idempotent, while replacing the occupied slot with different bytes is
-rejected. A later experiment requires a new request ID and separately reviewed
-history/context.
+rejected until its identity is terminal. Before staging a different request,
+the prior request bytes are published into a separate immutable archive under a
+bounded 1,024-file limit; a new request ID cannot reuse an identity already in
+the durable tick ledger. A later experiment therefore requires a new request ID
+and separately reviewed history/context.
 
 The experiment tick produces scored experiment custody only. It does not create
 a developmental-history writeback, update canonical explicit-user memory, alter

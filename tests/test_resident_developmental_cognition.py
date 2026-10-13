@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -31,6 +32,7 @@ from sentientos.resident_developmental_cognition import (
     CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
     load_objective_request, objective_task_for_request, stage_objective_request,
+    stored_objective_request_disposition,
 )
 from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
@@ -444,6 +446,17 @@ def test_explicit_objective_request_runs_once_without_developmental_writeback(tm
         for request in objective_calls)
     assert cognition.objective_request_disposition(request_id=request["request_id"],
         request_digest=request["request_digest"]) == "completed"
+    assert stored_objective_request_disposition(tmp_path / "state",
+        request_id=request["request_id"], request_digest=request["request_digest"]) == "completed"
+    second_task = ObjectivePredictionTask(3, 2, 8)
+    old_bytes = request_path.read_bytes()
+    stage_objective_request(tmp_path / "state", request_id="operator-one-shot-002",
+        task=second_task)
+    archive_name = hashlib.sha256(request["request_id"].encode()).hexdigest() + ".json"
+    archived = tmp_path / "state" / "objective_intervention_request_archive" / archive_name
+    assert archived.read_bytes() == old_bytes
+    next_request = load_objective_request(tmp_path / "state")
+    assert next_request is not None and next_request["request_id"] == "operator-one-shot-002"
     before = len(fake.requests)
     with pytest.raises(ResidentDevelopmentalCognitionError, match="objective_request_completed"):
         cognition.run_objective_intervention_once(snapshot=snapshot(),
@@ -500,6 +513,8 @@ def test_staged_objective_request_rejects_noncanonical_and_substituted_bytes(tmp
     task = ObjectivePredictionTask(3, 2, 7)
     stage_objective_request(tmp_path, request_id="fixed-task", task=task)
     with pytest.raises(ResidentDevelopmentalCognitionError, match="slot_occupied"):
+        stage_objective_request(tmp_path, request_id="pending-task", task=task)
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="identity_conflict"):
         stage_objective_request(tmp_path, request_id="fixed-task",
             task=ObjectivePredictionTask(3, 9, 7))
     request_path = tmp_path / "pending_objective_intervention.json"

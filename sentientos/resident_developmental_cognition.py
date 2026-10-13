@@ -6,6 +6,7 @@ it is never canonical explicit-user retention.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import stat
@@ -31,7 +32,8 @@ from .developmental_history_intervention_experiment import (
     PURPOSE as EXPERIMENT_PURPOSE,
 )
 from .local_model_authority import digest_payload
-from .private_file_custody import PrivateFileCustodyError, open_private_directory, replace_private_bytes
+from .private_file_custody import (PrivateFileCustodyError, list_bounded_json_names_at,
+    open_private_directory, publish_immutable_bytes, replace_private_bytes)
 from .platform_fcntl import fcntl, require_flock
 from .longitudinal_self_model import CognitiveSelfModelProjection
 from .persistent_epistemic_state import (EpistemicCognitiveProjection,
@@ -158,6 +160,7 @@ MAX_COGNITION_CONCLUSION_BYTES = 4000
 OBJECTIVE_REQUEST_SCHEMA = "sentientos.resident_objective_intervention_request:v1"
 OBJECTIVE_REQUEST_FILENAME = "pending_objective_intervention.json"
 MAX_OBJECTIVE_REQUEST_BYTES = 16_384
+MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES = 1024
 class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
 
@@ -253,6 +256,44 @@ def load_objective_request(state_root: str | Path) -> Mapping[str, Any] | None:
     return value
 
 
+def stored_objective_request_disposition(state_root: str | Path, *,
+        request_id: str, request_digest: str) -> str:
+    """Read the digest-sealed tick ledger without recovery mutation."""
+    path = Path(state_root) / "composition_state.json"
+    try:
+        raw = read_explicit_file(path, max_bytes=MAX_COMPOSITION_STATE_BYTES)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) == "explicit_file_missing":
+            return "new"
+        raise ResidentDevelopmentalCognitionError("objective_request_state_custody_invalid") from exc
+    try:
+        state = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+        if (not isinstance(state, dict)
+                or json.dumps(state, indent=2, sort_keys=True).encode("utf-8") + b"\n" != raw):
+            raise ValueError("noncanonical")
+        claimed = state.pop("state_digest")
+        if (state.get("schema") not in {STATE_SCHEMA, LEGACY_STATE_SCHEMA}
+                or claimed != _digest(state)):
+            raise ValueError("digest")
+        completed = state.get("completed_ticks")
+        incomplete = state.get("incomplete_ticks", [])
+        if (not isinstance(completed, list) or not isinstance(incomplete, list)
+                or any(not isinstance(row, dict) for row in completed + incomplete)):
+            raise ValueError("shape")
+    except (UnicodeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
+        raise ResidentDevelopmentalCognitionError("objective_request_state_invalid") from exc
+    matches = [("completed" if row in completed else "interrupted")
+        for row in completed + incomplete if row.get("objective_request_id") == request_id]
+    if not matches:
+        return "new"
+    for row in completed + incomplete:
+        if row.get("objective_request_id") == request_id and row.get("objective_request_digest") != request_digest:
+            return "identity_conflict"
+    if len(matches) != 1:
+        return "identity_conflict"
+    return matches[0]
+
+
 def objective_task_for_request(request: Mapping[str, Any]) -> Any:
     """Return a task object only after validating the complete staged request."""
     request_id = request.get("request_id") if isinstance(request, Mapping) else None
@@ -278,9 +319,38 @@ def stage_objective_request(state_root: str | Path, *, request_id: str,
             raise ResidentDevelopmentalCognitionError("objective_request_custody_invalid") from exc
         existing = None
     if existing is not None:
-        if existing != data:
+        current = load_objective_request(state_root)
+        assert current is not None
+        if existing == data:
+            return path
+        if current.get("request_id") == request_id:
+            raise ResidentDevelopmentalCognitionError("objective_request_identity_conflict")
+        prior_disposition = stored_objective_request_disposition(state_root,
+            request_id=str(current["request_id"]), request_digest=str(current["request_digest"]))
+        if prior_disposition not in {"completed", "interrupted"}:
             raise ResidentDevelopmentalCognitionError("objective_request_slot_occupied")
-        return path
+        archive_root = Path(state_root) / "objective_intervention_request_archive"
+        archive_name = hashlib.sha256(str(current["request_id"]).encode("utf-8")).hexdigest() + ".json"
+        archive_path = archive_root / archive_name
+        directory_fd: int | None = None
+        try:
+            directory_fd = open_private_directory(archive_root, create=True)
+            names = list_bounded_json_names_at(directory_fd,
+                max_entries=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES,
+                max_directory_entries=MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES * 2)
+            if archive_name not in names and len(names) >= MAX_OBJECTIVE_REQUEST_ARCHIVE_FILES:
+                raise ResidentDevelopmentalCognitionError("objective_request_archive_retention_limit")
+            publish_immutable_bytes(archive_path, existing,
+                max_bytes=MAX_OBJECTIVE_REQUEST_BYTES,
+                collision_code="objective_request_archive_identity_conflict")
+        except (PrivateFileCustodyError, OSError) as exc:
+            raise ResidentDevelopmentalCognitionError("objective_request_archive_publication_failed") from exc
+        finally:
+            if directory_fd is not None:
+                os.close(directory_fd)
+    if stored_objective_request_disposition(state_root,
+            request_id=request_id, request_digest=str(payload["request_digest"])) != "new":
+        raise ResidentDevelopmentalCognitionError("objective_request_identity_reused")
     try:
         replace_private_bytes(path, data, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
     except PrivateFileCustodyError as exc:
