@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 121 continues from exact remote source `b0964c791a050e106952361f08f83fabafa029e6`, tree `b041495528d6ba4ffe88b2c3b4ae63175041cbd7`. The read-only experiment doctor now lists configured history/state roots, the explicit installation identity/state root, and bounded next operator actions. It keeps configured paths distinct from verified installation custody and continues to report live serving/inference gates as unobserved. Ten focused cases pass; changed Python compiles, targeted mypy passes, and whitespace scan is clean.
+Sequence 122 continues from remote source `f0231f8e65db4ed3d336b16bd0c119486439519e`, tree `afcb5ad9406bebc4442eae6169f448b6caa7cd6e`. The experiment preflight now marks the relation between explicit cognition/serving configs and the running daemon as unobserved and makes operator confirmation an explicit step. Ten focused cases passed; changed Python compiled, targeted mypy passed, and whitespace scan is clean. Hosted checks for the parent had Source Validation and Helm success; invariants/docs/self-check failed for recorded runner gate/tooling conditions.
 
-Latest segment: `work/construction/segments/0121-identify-operator-roots-and-next-action.md`
-SHA-256: `2384741dda691ac5d4b0d13b2eee74a87aa4791dccf67490e970b15f0c94232a`
-Evidence: `work/construction/evidence/0121-identify-operator-roots-and-next-action.json`
-Evidence SHA-256: `f909c1f50b023bc47f0bbf8a8eaa392ec7c42c1b249e8943390f8b2f289621ad`
-Sequence: 121
+Latest segment: `work/construction/segments/0122-mark-daemon-config-binding-unobserved.md`
+SHA-256: `5a2de258b14a5a9fe743e289764a6ebb51b9fea917ef8356dd49ff730ac40d66`
+Evidence: `work/construction/evidence/0122-mark-daemon-config-binding-unobserved.json`
+Evidence SHA-256: `a2de3477f4f67b78b50507839a98ac67df40cf2e14ba56f71bd991d03c430730`
+Sequence: 122
 
-Hosted checks for the prior checkpoint `b0964c7` were: Source Validation success, Helm success, invariants/docs/self-check failure as detailed in the segment. The sequence 121 commit requires fresh hosted results. Construction remains unverified for production.
+No real model, daemon, experiment, or production path was run. This sequence's publication still requires independent branch readback.
 
-Next: assess exact operator run-path composition without daemon activation; continue to the real task/outcome acquisition interface only where an existing independent source owner supports it.
+Next: inspect existing startup custody for an authenticated configuration/process receipt, then continue the real task/outcome source boundary or another independent transfer control.

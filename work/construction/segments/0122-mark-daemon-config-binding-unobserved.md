@@ -1,0 +1,7 @@
+# 0122 — keep selected config paths separate from running-process identity
+
+- Continued from remote `f0231f8e65db4ed3d336b16bd0c119486439519e`, tree `afcb5ad9406bebc4442eae6169f448b6caa7cd6e`.
+- The preflight accepted explicitly selected cognition and serving configurations, but no source owner binds both files to the configuration actually loaded by a separately running daemon. It now states `running_daemon_binding: not_observed_explicit_config_paths_only`, adds the missing gate to the machine-readable unobserved list, and tells the operator to confirm the running daemon's exact configurations before staging.
+- Updated the operator handoff and regression. Focused readiness plus actual admitted fixture-history preflight: **10 passed**. Changed Python compiled, targeted mypy passed, and changed-file whitespace scan is clean. No daemon or model was run.
+- Hosted checks for `f0231f8` were independently read: Source Validation and Helm succeeded; invariants and docs failed on the protected administrator gate; self-check failed at lock installation and emitted the 52-failure baseline. No gate was bypassed.
+- Next: verify whether the daemon has an existing explicit startup configuration receipt that can be read without ambient discovery. If absent, preserve this as an external live-process observation boundary, then advance to the next independently implementable task/outcome or experiment-contamination path.

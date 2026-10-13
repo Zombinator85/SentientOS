@@ -203,7 +203,10 @@ identifies the configured history and cognition-state roots separately from the
 exact installation identity/state root, and supplies a bounded
 `next_operator_actions` list. These paths are configuration observations; they
 do not prove that the running daemon loaded the same configuration or that the
-filesystem roots share an authenticated process lifetime.
+filesystem roots share an authenticated process lifetime. The report keeps
+that process/configuration binding in `unobserved_runtime_gates`; the final
+operator action requires checking the daemon's actual configured environment
+before staging.
 The report always sets `trial_execution_ready` false because this separate
 process cannot observe the daemon's World-State tick, its actual loaded model
 identity, task-specific history/current-context contamination, or the effective

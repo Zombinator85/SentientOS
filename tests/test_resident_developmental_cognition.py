@@ -2162,8 +2162,13 @@ def test_readiness_accepts_history_after_actual_owner_admission_recovery_check(
         str(root / "state")
     assert report["findings"]["serving_installation"]["installation_state_root"] == \
         str(registry.state_root_for(identity))
-    assert any("Review task/history contamination" in action
+    assert any("Confirm the running daemon uses these exact cognition and serving configurations"
+        in action
         for action in report["next_operator_actions"])
+    assert report["findings"]["resident_configuration"]["running_daemon_binding"] == \
+        "not_observed_explicit_config_paths_only"
+    assert "resident_cognition_and_serving_config_same_process_lifetime_not_observed" in \
+        report["unobserved_runtime_gates"]
     assert report["trial_execution_ready"] is False
 
 

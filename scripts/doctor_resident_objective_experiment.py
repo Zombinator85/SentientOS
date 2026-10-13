@@ -69,7 +69,7 @@ def _next_operator_actions(findings: dict[str, Any], status: str) -> list[str]:
     if artifact.get("status") in {"awaiting_artifact", "invalid_custody", "runtime_incompatible"}:
         actions.append("Select an already available supported model artifact within the explicitly allowed root; the doctor will not download or load it.")
     if status == "ready_for_operator_review":
-        actions.append("Review task/history contamination and the live tick, loaded model, generation budget, and per-call admission; only then consider the existing one-shot staging command under its independent gates.")
+        actions.append("Confirm the running daemon uses these exact cognition and serving configurations, then review task/history contamination and the live tick, loaded model, generation budget, and per-call admission before considering the existing one-shot staging command under its independent gates.")
     return actions
 
 
@@ -164,6 +164,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
             "objective_task_history_and_current_context_contamination_review_required",
             "effective_generation_budget_not_observed_at_daemon_runtime",
             "current_resident_serving_session_not_observed",
+            "resident_cognition_and_serving_config_same_process_lifetime_not_observed",
         ],
     }
     try:
@@ -175,6 +176,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
             "configured_source_kind_count": len(config.allowed_source_kinds),
             "configured_history_root": str(config.history_root),
             "configured_state_root": str(config.state_root),
+            "running_daemon_binding": "not_observed_explicit_config_paths_only",
         }
         if not config.enabled or not config.comparison_enabled:
             findings["findings"]["resident_configuration"]["reason_code"] = "history_comparison_not_enabled"
