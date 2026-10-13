@@ -1,0 +1,44 @@
+{
+  "schema_version": "sentientos.construction.acceptance_evidence:v1",
+  "purpose": "Canonical validation and tamper rejection for fresh-process fixture receipt custody",
+  "baseline": {
+    "parent_commit": "eeb80cd4a247003158e9567540ad5fa1858bd23b",
+    "parent_tree": "2f571305a334d19f606eb987517ff023b46adc3a"
+  },
+  "publication": {
+    "source_commit": "2b2ae568dfb03a14870fcd3cb29dd200830c557f",
+    "source_tree": "d7b89eba9430202ce5c1a2896884d7e2eb73751d",
+    "parent": "eeb80cd4a247003158e9567540ad5fa1858bd23b"
+  },
+  "changed_blobs": {
+    "tests/test_resident_developmental_cognition.py": "d522b6e970c3180ea863f293c1824b2b24638fc8"
+  },
+  "checks": [
+    {
+      "command": "Focused fresh-process acquisition/transfer, history context, adverse-example, and progression group",
+      "result": "4 passed"
+    },
+    {
+      "command": "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "result": "passed"
+    },
+    {
+      "command": "UTF-8 decoding, no-NUL, and trailing-whitespace scan",
+      "result": "passed"
+    }
+  ],
+  "custody": {
+    "max_bytes": 4194304,
+    "deterministic_canonical_json": true,
+    "sha256_expected_digest_retained_during_tamper": true,
+    "tampered_input_rejected_before_test_module_import": true,
+    "canonical_invocation_validate_receipt_applied_to_fixture_receipts": true,
+    "production_receipt_store_exercised": false
+  },
+  "claims": {
+    "actual_local_model_behavior": false,
+    "learning_established": false,
+    "performance_improvement": false,
+    "production_acceptance": false
+  }
+}
