@@ -1,0 +1,49 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 152,
+  "title": "task-family history survives A/B model-replacement context recovery",
+  "status": "constructed_and_focused_test_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "755fc80847edd6140849fa2aef64a3a9903a6de6",
+    "tree": "b9fd0584becbe72e432c360a27a420b3c42bd5b1"
+  },
+  "base": {
+    "commit": "2d4ab864d03ce77c63207b02f2322d3c95864242",
+    "tree": "8bb6868e019af8ec56140ca06b1053ed27f1d645"
+  },
+  "implementation": "Exercise create_from_admitted_history with an actual task-family record admitted through normal cognition/writeback; bind it to the frozen A/B history context and verify the same source is present/withheld/restored as specified.",
+  "positive_control": "Both fixture model endpoints receive the same exact admitted family record in present/restored conditions; current evidence is separate and withheld conditions have empty history.",
+  "negative_control": "Read-only child process verifies exact persistent context IDs/digests; re-instantiated replacement owner recovers the completed run without any new endpoint inference.",
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "tests/test_resident_developmental_cognition.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "passed": 1,
+      "duration_seconds": 61.14,
+      "node": "tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context"
+    },
+    "child_process_recovery": "passed; re-opened ModelReplacementArtifactStore read-only and verified frozen context and exact history record IDs/digests",
+    "source_hygiene": "changed test and documentation files decode as UTF-8 without NULs or trailing whitespace",
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "real_model_behavior": "not_observed",
+    "production_verification": "not_performed"
+  },
+  "limitations": [
+    "fixture endpoints demonstrate interface composition and deterministic custody, not actual A/B model behavior or acquired competence",
+    "the child process verified the persisted context manifest; it did not load model weights or replay the cognitive trial",
+    "the admitted-history factory consumes caller-selected IDs and does not independently determine semantic task relevance"
+  ],
+  "next_dependency": "continue the score-feedback/retrieval seam; real model custody and existing serving/admission authorization remain external prerequisites for a live acquisition-and-transfer trial",
+  "publication": {
+    "expected_head": "2d4ab864d03ce77c63207b02f2322d3c95864242",
+    "commit": "755fc80847edd6140849fa2aef64a3a9903a6de6",
+    "tree": "b9fd0584becbe72e432c360a27a420b3c42bd5b1",
+    "remote_readback": "branch, tree, and changed source blob verified"
+  }
+}
