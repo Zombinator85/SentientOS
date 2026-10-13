@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `331629c98b4ef560a2a570320712e7e511a6a13d`, tree `38c4829faae1b55b3d0dc8035d5bd57585efd982`. Sequence 88 composes bounded probe-suite scoring with the existing same-model history-present/withheld/restored protocol, preserving old scalar identities. Partial score deltas survive World-State, authorized developmental history, fresh-owner recovery and N+1 cognition. The 120 focused tests pass; production and real-model behavior are unverified.
+Last independently verified remote baseline `4c7288f818b3588888df3bd2e9487276e104a896`, tree `0471d1fe98600698aeb08b97cbc2097578e6de0b`. Sequence 89 proves fresh-process reconstruction of same-model probe-suite plan, partial scores and aggregate evaluation from the original durable store, without inference replay. Targeted fixture test passed; production unverified.
 
-Latest segment: work/construction/segments/0088-same-model-probe-suite-continuity.md
-SHA-256: 123dd878a2305ca40bc1f70fcebe60c4dc6b56c17ef152dae0b99e709e73b66d
-Sequence: 88
+Latest segment: work/construction/segments/0089-same-model-probe-suite-fresh-process.md
+SHA-256: 2761002456599786e73714a0c0cce8d2ede5de8fa63b783b267830675e921815
+Sequence: 89
 
-Loaded-code identity remains `not_independently_attested`; current serving prereqs remain absent (tracked artifacts are LFS pointers, no commissioning receipt or exact approval). Seq87 Source Validation and Helm smoke succeeded; other hosted jobs hit documented existing gates/setup failures.
+Loaded-code identity remains `not_independently_attested`. Actual local-model payload and exact existing commissioning/operator approval remain absent. Seq88 hosted checks were still running for Source Validation/invariants/Helm/self-check at the last query; docs had failed at its existing approval gate.
 
-Next: verify durable cognition projection semantics for the new metric and assess an adjacent continuity gap without conflating task scores with truth, authority or real-model improvement.
+Next: verify seq88 hosted results and inspect adjacent developmental consumers for causal score preservation; do not claim real-model learning or infer loaded-code identity.

@@ -396,6 +396,18 @@ def test_same_model_probe_suite_partial_scores_reach_later_cognition(tmp_path: P
     assert evaluation["condition_correct_counts"] == [2, 0, 2]
     assert evaluation["history_correct_probe_delta"] == 2
     assert evaluation["restoration_correct_probe_delta"] == 0
+    child = subprocess.run([sys.executable, "-c", """
+import json, sys
+from pathlib import Path
+from sentientos.developmental_history_intervention_experiment import DevelopmentalExperimentStore
+run=DevelopmentalExperimentStore(Path(sys.argv[1])).load_run(sys.argv[2])
+print(json.dumps({"run_id":run["run_id"],"objective_evaluation":run["objective_evaluation"],
+    "correct_counts":[item["score"]["correct_count"] for item in run["objective_scores"]]}, sort_keys=True))
+""", str(tmp_path / "state"), run["run_id"]], cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, check=True)
+    child_value = json.loads(child.stdout.strip().splitlines()[-1])
+    assert child_value["objective_evaluation"] == evaluation
+    assert child_value["correct_counts"] == [2, 0, 2]
     records = cognition.experiments.world_state_records(
         run_refs=((run["run_id"], run["run_digest"]),))
     assert records[0]["payload"]["objective_evaluation"] == evaluation
