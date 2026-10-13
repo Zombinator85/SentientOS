@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "source_commit": "8d25daa7ab0a40375a01247ad6086b957a803fb1",
+  "source_tree": "7a50d9fd26198b81a7866b35fd44f059b3845f75",
+  "implementation_commits": [
+    {"commit": "4c51fd14c584045c46a5c60665665f095f4863e3", "tree": "954dead222e6acd6250d5efdb8027b537e80b63b"},
+    {"commit": "c54926e3a5befb03905367ba04f7f1613c645322", "tree": "c801f754d5f0bf25b7774285df412f5acafb4b4c"}
+  ],
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": "7665ab151826139faf70bfdb3c4bbad9b52289b1b4f76c2b81e2b884cab5f958",
+    "sentientos/resident_cognitive_model_transition_experiment.py": "aea3fe9cbe2bc44bd3443aa49b42ad0e3909654ddda460bda72adc159264e3fb",
+    "sentientosd.py": "4cb47e8d4e7f406feebbbf9cbd0e2277ee05b11fc491770fdaa0426bfa956f9f",
+    "scripts/stage_resident_objective_intervention.py": "8ad8ddf25026b1076764c9f53088203dd64c4b80c14ca43ade0b741a75ca73b7",
+    "tests/test_resident_developmental_cognition.py": "686c41576aa3a5e55068ca0bd6eae0684272359c8db92ca917a37e61cde91f97",
+    "docs/development/resident_developmental_cognition.md": "eb34b830b94caf1c2c50c00f51eeb0a827c3afed98b10252cbd144afb75c2169"
+  },
+  "validation": {
+    "python_compilation": "passed",
+    "cli_help": "passed",
+    "focused_tests": {
+      "command": "PYTHONPATH=. SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-exp-final3/governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-exp-final3/federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-exp-final3/kernel SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-exp-final3/runtime PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-exp-final3/pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-exp-final3/pulse/state.json .venv/bin/python -m pytest -o addopts='' -q --tb=short tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_objective_scoring.py",
+      "passed": 110,
+      "failed": 0,
+      "skipped": 0
+    },
+    "targeted_mypy": "no diagnostics in changed code ranges; repository files remain non-clean due existing diagnostics",
+    "actual_model_invoked": false,
+    "production_verified": false
+  },
+  "boundary_findings": {
+    "posix_only_private_publication": true,
+    "windows_fallback_used": false,
+    "new_effect_authority": false,
+    "provider_egress": false,
+    "developmental_writeback_from_trial": false,
+    "canonical_explicit_user_memory_mutation": false
+  }
+}

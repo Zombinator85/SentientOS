@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Last independently verified remote HEAD `604143c94e9710a440566ac66ed03fe590c49ef5`, tree `813d37991d2fb1d6b9f4823b938ab2034aa9ed08`. Sequence 106 binds objective output truncation to the exact session-bound invocation receipt through score checkpoint, restart reconstruction, and World-State projection.
+Last independently verified implementation commit `c54926e3a5befb03905367ba04f7f1613c645322`, tree `c801f754d5f0bf25b7774285df412f5acafb4b4c`. Sequence 107 connects an explicitly staged, single-use objective task to the configured resident cognition owner without recurring objective configuration or developmental writeback.
 
-Latest segment: `work/construction/segments/0106-recover-truncated-history-scores.md`
-SHA-256: `29ecfada29d7485ac869d95b529c86bbfb54a411d02310480bf1a0c49c3806aa`
-Evidence: `work/construction/evidence/0106-recover-truncated-history-scores.json`
-Evidence SHA-256: `7f3dd9906c0554667680b47df95f9c3dfbb888cf5f8d6023f19d8814314b59e6`
-Sequence: 106
+Latest segment: `work/construction/segments/0107-stage-one-shot-objective-intervention.md`
+SHA-256: `6046c641c753d3380f3ab689fef1964e1c8b83ef895b77dd95401ef96d15d14d
+Evidence: `work/construction/evidence/0107-stage-one-shot-objective-intervention.json`
+Evidence SHA-256: `18b4ed7900d6aede8becce7e2455f41afc22463d293decd8fd7728257a9c13e9
+Sequence: 107
 
-Focused acceptance: 105 passed; 0 failed; 0 skipped. Python compilation passed. Targeted mypy passes for the history-intervention owner; resident developmental cognition retains 13 diagnostics at unrelated existing lines. Sequence 105's hosted Source Validation and Helm smoke passed; docs/self-check/invariants failed and were not retried.
+Focused acceptance: 110 passed; 0 failed; 0 skipped. Changed Python compilation and staging CLI help passed. Targeted mypy produced no diagnostics in changed code ranges; existing file diagnostics remain. This is fixture-only evidence, not actual local-model execution or production verification.
 
-No actual local model was loaded or invoked. The Codex workspace contains LFS pointers only and lacks llama_cpp; this does not describe the user's separate host.
+The staging/private cognition publisher is POSIX-only. No actual model payload or approved serving/inference action was accessed in this environment. These limits do not describe an external Windows/CUDA host.
 
-Next dependency: create the narrow explicit one-model experiment handoff through the already governed resident-serving path. Objective tasks must be bound before calls, run as one opt-in intervention, preserve per-call inference admission, and remain excluded from recurring daemon configuration and canonical user memory.
+Next dependency: inspect the existing local-model commissioning/readiness doctor and compose an exact read-only one-model readiness/handoff without conflating artifact, backend, catalog/acquisition, commissioning, operator approval, serving admission, inference admission, and actual inference. Preserve the Windows read-only custody boundary.
