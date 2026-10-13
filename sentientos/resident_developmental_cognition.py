@@ -2134,12 +2134,13 @@ class ResidentDevelopmentalCognitionOwner:
             request_refs: Sequence[tuple[str, str]]) -> Mapping[str, Any]:
         """Build a bounded, read-only chronology from receipt-verified family runs.
 
-        This describes scored episodes and exact execution controls; it is not
-        a learning or general-capability claim.  The completed-tick journal,
-        not caller order or wall-clock reconstruction time, defines chronology.
+        This path reads the checkpoint directly and never invokes tick recovery
+        or publishes a custody repair. It describes scored episodes and exact
+        execution controls; it is not a learning claim. Completed-tick journal
+        order, not caller order or recovery wall time, defines chronology.
         """
         if (not isinstance(request_refs, Sequence) or isinstance(request_refs, (str, bytes))
-                or not 2 <= len(request_refs) <= 16):
+                or not 1 <= len(request_refs) <= 16):
             raise ResidentDevelopmentalCognitionError(
                 "objective_progression_episode_count_invalid")
         refs: dict[str, str] = {}
@@ -2156,36 +2157,80 @@ class ResidentDevelopmentalCognitionOwner:
                     "objective_progression_duplicate_request")
             refs[request_id] = request_digest
 
-        state = self._state()
-        completed = state["completed_ticks"]
-        incomplete = state["incomplete_ticks"]
+        try:
+            raw_state = read_explicit_file(self.state_path,
+                max_bytes=MAX_COMPOSITION_STATE_BYTES)
+        except WindowsHandleCustodyError as exc:
+            raise ResidentDevelopmentalCognitionError(
+                "objective_progression_checkpoint_unavailable") from exc
+        try:
+            state_value = json.loads(raw_state.decode("utf-8"),
+                object_pairs_hook=_unique_json_object)
+            if (not isinstance(state_value, dict)
+                    or json.dumps(state_value, indent=2, sort_keys=True).encode("utf-8")
+                        + b"\n" != raw_state):
+                raise ValueError("noncanonical")
+            state = dict(state_value)
+            claimed = state.pop("state_digest")
+            completed = state.get("completed_ticks")
+            incomplete = state.get("incomplete_ticks", [])
+            processed = state.get("processed_selection_ids")
+            if (state.get("schema") not in {STATE_SCHEMA, LEGACY_STATE_SCHEMA}
+                    or claimed != _digest(state)
+                    or not isinstance(completed, list) or not isinstance(incomplete, list)
+                    or not isinstance(processed, list)
+                    or any(not isinstance(row, dict) for row in completed + incomplete)
+                    or any(not isinstance(item, str) for item in processed)
+                    or len(completed) + len(incomplete) > MAX_RECOVERED_TICKS
+                    or len(processed) > MAX_RECOVERED_FACT_IDS):
+                raise ValueError("checkpoint")
+            tick_ids = [row.get("tick_id") for row in completed + incomplete]
+            if (any(not isinstance(item, str) or not item for item in tick_ids)
+                    or len(set(tick_ids)) != len(tick_ids)):
+                raise ValueError("tick identities")
+        except (UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise ResidentDevelopmentalCognitionError(
+                "objective_progression_checkpoint_invalid") from exc
         rows_by_request: dict[str, list[tuple[str, Mapping[str, Any]]]] = {}
         for posture, rows in (("completed", completed), ("incomplete", incomplete)):
             for row in rows:
                 request_id = row.get("objective_request_id")
                 if request_id in refs:
                     rows_by_request.setdefault(str(request_id), []).append((posture, row))
+        incomplete_episodes: list[dict[str, Any]] = []
         for request_id, expected_digest in refs.items():
             rows = rows_by_request.get(request_id, [])
             if len(rows) != 1 or rows[0][1].get("objective_request_digest") != expected_digest:
                 raise ResidentDevelopmentalCognitionError(
                     "objective_progression_checkpoint_identity_conflict")
             if rows[0][0] != "completed":
-                return {"schema_version": "sentientos.objective_task_family_progression:v1",
-                    "status": "incomplete_episode_present",
-                    "incomplete_request_id": request_id,
-                    "incomplete_request_digest": expected_digest,
+                incomplete_episodes.append({"request_id": request_id,
+                    "request_digest": expected_digest,
                     "tick_id": rows[0][1].get("tick_id"),
-                    "recovery_posture": rows[0][1].get("status", "incomplete"),
-                    "inference_replayed": False, "authority": False}
+                    "recovery_posture": rows[0][1].get("status", "incomplete")})
+        if incomplete_episodes:
+            return {"schema_version": "sentientos.objective_task_family_progression:v1",
+                "status": "incomplete_episode_present",
+                "incomplete_episodes": incomplete_episodes,
+                "inference_replayed": False, "authority": False}
 
         episodes: list[dict[str, Any]] = []
         for row in completed:
             request_id = row.get("objective_request_id")
             if request_id not in refs:
                 continue
-            verified = self.verified_objective_measurement_for_request(
-                request_id=str(request_id), request_digest=refs[str(request_id)])
+            run_id = row.get("measurement_id")
+            if not isinstance(run_id, str) or not run_id:
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_completed_run_missing")
+            try:
+                request = load_objective_request_by_identity(self.config.state_root,
+                    request_id=str(request_id), request_digest=refs[str(request_id)])
+                verified = self.verified_objective_measurement_summary(
+                    measurement_id=run_id, request=request)
+            except (ResidentDevelopmentalCognitionError, DevelopmentalHistoryInterventionError) as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "objective_progression_measurement_unverified") from exc
             if (verified.get("status") != "verified_objective_measurement"
                     or not isinstance(verified.get("measurement_digest"), str)):
                 raise ResidentDevelopmentalCognitionError(
@@ -2251,10 +2296,11 @@ class ResidentDevelopmentalCognitionOwner:
         distinct_tasks = len(set(task_digests)) == len(task_digests)
         distinct_probes = len(set(probe_keys)) == len(probe_keys)
         scored = all(episode["scoreable"] for episode in episodes)
-        comparable = (len(family_ids) == 1 and distinct_tasks and distinct_probes
+        comparable = (len(episodes) >= 2 and len(family_ids) == 1 and distinct_tasks and distinct_probes
             and same_profile and scored)
         semantic = {"schema_version": "sentientos.objective_task_family_progression:v1",
             "status": "comparable_scored_episodes" if comparable else
+                "insufficient_episode_count" if len(episodes) < 2 else
                 "descriptive_episodes_not_comparable",
             "task_family_id": next(iter(family_ids)) if len(family_ids) == 1 else None,
             "episode_count": len(episodes), "episodes": episodes,

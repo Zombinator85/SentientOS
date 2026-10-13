@@ -521,6 +521,11 @@ def test_interrupted_scored_family_run_recovers_into_later_world_state_without_r
     restarted, _ = owner(tmp_path, comparison=True, invoker=fake,
         allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
     assert restarted.inspect_completed_objective_experiment_run_refs() == ()
+    checkpoint_before_inspection = restarted.state_path.read_bytes()
+    incomplete_report = restarted.verified_objective_task_family_progression(
+        request_refs=((staged["request_id"], staged["request_digest"]),))
+    assert incomplete_report["status"] == "incomplete_episode_present"
+    assert restarted.state_path.read_bytes() == checkpoint_before_inspection
     recovered_refs = restarted.recovered_objective_experiment_run_refs()
     assert len(recovered_refs) == 1
     run_id, run_digest = recovered_refs[0]
@@ -737,8 +742,10 @@ def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
         assert result.changed_cognition_measurement_id
         requests.append((request_id, request["request_digest"]))
 
+    checkpoint_before_report = cognition.state_path.read_bytes()
     progression = cognition.verified_objective_task_family_progression(
         request_refs=tuple(reversed(requests)))
+    assert cognition.state_path.read_bytes() == checkpoint_before_report
     assert progression["status"] == "comparable_scored_episodes"
     assert progression["task_family_id"] == "integer_affine_prediction"
     assert progression["episode_count"] == 2
