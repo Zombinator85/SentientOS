@@ -5,7 +5,7 @@ import base64
 import hashlib
 import json
 import time
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,6 +20,9 @@ from sentientos.control_plane_kernel import AdmissionOutcome, ControlPlaneKernel
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, GovernedLocalModelResourceInvocationContext, LocalModelInvocationBudget
 from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceAllocator, GovernedLocalModelResourceBounds, GovernedLocalModelResourceLedger, GovernedLocalModelResourcePolicy
 from sentientos.local_model_authority import build_local_model_authority_map
+from sentientos.resident_developmental_cognition import (
+    ResidentDevelopmentalCognitionError, _resource_linkage_fields,
+)
 
 pytestmark = pytest.mark.no_legacy_skip
 NOW = "2026-09-21T08:30:00Z"
@@ -75,6 +78,23 @@ def test_resource_backed_completion_cross_links_exact_effect_receipt_and_survive
     assert ledger._state["receipts"][-1]["effect_receipt_digest"] == receipt.receipt_digest
     assert ledger.remaining_calls(context.allocation.allocation_id) == 1
     assert GovernedLocalModelResourceLedger(ledger.path).remaining_calls(context.allocation.allocation_id) == 1
+
+
+def test_resource_receipt_linkage_is_projection_ready_without_inventing_measurements(tmp_path):
+    model, invoker, request, context, ledger = setup(tmp_path)
+    receipt = invoker.invoke(request, resource_context=context)
+    projection = _resource_linkage_fields(receipt)
+    actual = ledger._state["receipts"][-2:]
+    assert projection["resource_allocation_digest"] == context.allocation.allocation_digest
+    assert projection["resource_attempt_id"] == actual[0]["attempt_id"]
+    assert projection["resource_consumption_receipt_digests"] == tuple(
+        item["receipt_digest"] for item in actual)
+    assert actual[-1]["effect_receipt_digest"] == receipt.receipt_digest
+    assert projection["resource_linkage_digest"] == receipt.resource_linkage_digest
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="cognition_resource_linkage_digest_mismatch"):
+        _resource_linkage_fields(replace(receipt,
+            resource_consumption_receipt_digests=("0" * 64, "1" * 64)))
 
 def test_serving_guard_rejection_restores_only_pre_entry_debit(tmp_path):
     model, invoker, request, context, ledger = setup(tmp_path)

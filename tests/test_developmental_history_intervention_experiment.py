@@ -65,6 +65,9 @@ def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
         semantic = asdict(item)
         semantic.pop("observation_id"); semantic.pop("observation_digest")
         semantic.pop("developmental_history_selection")
+        for field in ("resource_allocation_digest", "resource_attempt_id",
+                "resource_consumption_receipt_digests", "resource_linkage_digest"):
+            semantic.pop(field)
         digest = "sha256:" + digest_payload(semantic)
         return replace(item, observation_id="devcog-" + digest[7:31], observation_digest=digest)
 

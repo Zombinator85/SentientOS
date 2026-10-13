@@ -14,6 +14,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Callable, Iterator, Mapping, Sequence, cast
 
 from .codex_task_authority_admission import (
@@ -114,6 +115,48 @@ def _aware_event_time(value: Any) -> bool:
     except (OverflowError, ValueError):
         return False
     return instant.tzinfo is not None and instant.utcoffset() is not None
+
+
+def _resource_linkage_fields(receipt: Any) -> dict[str, Any]:
+    """Return only receipt-authenticated resource identities; never infer usage."""
+    allocation = getattr(receipt, "resource_allocation_digest", None)
+    attempt = getattr(receipt, "resource_attempt_id", None)
+    consumption = getattr(receipt, "resource_consumption_receipt_digests", ())
+    linkage_digest = getattr(receipt, "resource_linkage_digest", None)
+    if allocation is None and attempt is None and not consumption and linkage_digest is None:
+        return {"resource_allocation_digest": None, "resource_attempt_id": None,
+            "resource_consumption_receipt_digests": (), "resource_linkage_digest": None}
+    if (not isinstance(allocation, str) or not allocation
+            or not isinstance(attempt, str) or not attempt
+            or not isinstance(consumption, (tuple, list)) or not 1 <= len(consumption) <= 8
+            or any(not isinstance(item, str) or len(item) != 64
+                or any(char not in "0123456789abcdef" for char in item) for item in consumption)
+            or not isinstance(linkage_digest, str) or len(linkage_digest) != 64
+            or any(char not in "0123456789abcdef" for char in linkage_digest)):
+        raise ResidentDevelopmentalCognitionError("cognition_resource_linkage_incomplete")
+    receipt_digest = getattr(receipt, "receipt_digest", None)
+    expected = digest_payload({"receipt_digest": receipt_digest,
+        "allocation_digest": allocation, "attempt_id": attempt,
+        "consumption_receipt_digests": tuple(consumption)})
+    if not isinstance(receipt_digest, str) or linkage_digest != expected:
+        raise ResidentDevelopmentalCognitionError("cognition_resource_linkage_digest_mismatch")
+    return {"resource_allocation_digest": allocation, "resource_attempt_id": attempt,
+        "resource_consumption_receipt_digests": tuple(consumption),
+        "resource_linkage_digest": linkage_digest}
+
+
+def _validate_observation_resource_linkage(value: Mapping[str, Any]) -> None:
+    fields = _resource_linkage_fields(SimpleNamespace(**{
+        "resource_allocation_digest": value.get("resource_allocation_digest"),
+        "resource_attempt_id": value.get("resource_attempt_id"),
+        "resource_consumption_receipt_digests": value.get("resource_consumption_receipt_digests", ()),
+        "resource_linkage_digest": value.get("resource_linkage_digest"),
+        "receipt_digest": value.get("inference_receipt_digest")}))
+    if (fields["resource_allocation_digest"] != value.get("resource_allocation_digest")
+            or fields["resource_attempt_id"] != value.get("resource_attempt_id")
+            or tuple(fields["resource_consumption_receipt_digests"])
+                != tuple(value.get("resource_consumption_receipt_digests", ()))):
+        raise ResidentDevelopmentalCognitionError("cognition_resource_linkage_binding_mismatch")
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 CONFIG_ENV = "SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG"
@@ -125,6 +168,7 @@ COGNITION_OBSERVATION_SCHEMA_V3 = "sentientos.resident_cognition_observation:v3"
 COGNITION_OBSERVATION_SCHEMA_V4 = "sentientos.resident_cognition_observation:v4"
 COGNITION_OBSERVATION_SCHEMA_V5 = "sentientos.resident_cognition_observation:v5"
 COGNITION_OBSERVATION_SCHEMA_V6 = "sentientos.resident_cognition_observation:v6"
+COGNITION_OBSERVATION_SCHEMA_V7 = "sentientos.resident_cognition_observation:v7"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
@@ -1458,6 +1502,10 @@ class ResidentCognitionObservation:
     serving_session_receipt_id: str | None = None
     serving_session_receipt_digest: str | None = None
     observed_at: str | None = None
+    resource_allocation_digest: str | None = None
+    resource_attempt_id: str | None = None
+    resource_consumption_receipt_digests: tuple[str, ...] = ()
+    resource_linkage_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -2042,10 +2090,15 @@ class ResidentDevelopmentalCognitionOwner:
                 recovered_conditions: list[dict[str, Any]] = []
                 for observation_value in observation_values:
                     payload = asdict(observation_value)
-                    if observation_value.schema_version != COGNITION_OBSERVATION_SCHEMA_V6:
+                    if observation_value.schema_version not in {
+                            COGNITION_OBSERVATION_SCHEMA_V6, COGNITION_OBSERVATION_SCHEMA_V7}:
                         # Preserve the historical run digest/shape when
                         # rebuilding interrupted pre-v6 experiments.
                         payload.pop("developmental_history_selection", None)
+                    if observation_value.schema_version != COGNITION_OBSERVATION_SCHEMA_V7:
+                        for field in ("resource_allocation_digest", "resource_attempt_id",
+                                "resource_consumption_receipt_digests", "resource_linkage_digest"):
+                            payload.pop(field, None)
                     recovered_conditions.append(payload)
                 summary = summarize(protocol, observation_values)
                 evaluation = summarize_objective_task(plan, score_values)
@@ -2425,6 +2478,10 @@ class ResidentDevelopmentalCognitionOwner:
         session_id = observation.get("serving_session_id")
         session_binding = observation.get("serving_session_binding")
         if session_id is None and session_binding is None:
+            if (observation.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V7
+                    and observation.get("resource_linkage_digest") is not None):
+                raise ResidentDevelopmentalCognitionError(
+                    "cognition_resource_linked_invocation_session_unbound")
             return None  # Historical v2 and non-session invocations remain explicitly unbound.
         verifier = getattr(self.invoker, "verify_persisted_invocation_receipt", None)
         if not callable(verifier) or not isinstance(session_binding, Mapping):
@@ -2462,10 +2519,22 @@ class ResidentDevelopmentalCognitionOwner:
                 or request.get("active_model_identity") != observation.get("active_model_identity")
                 or receipt.get("output_digest") != observation.get("output_digest")
                 or (observation.get("schema_version") in {
-                        COGNITION_OBSERVATION_SCHEMA_V5, COGNITION_OBSERVATION_SCHEMA_V6}
+                        COGNITION_OBSERVATION_SCHEMA_V5, COGNITION_OBSERVATION_SCHEMA_V6,
+                        COGNITION_OBSERVATION_SCHEMA_V7}
                     and receipt.get("observed_at") != observation.get("observed_at"))
                 or not isinstance(serving, Mapping) or dict(serving) != expected_serving):
             raise ResidentDevelopmentalCognitionError("cognition_invocation_receipt_binding_mismatch")
+        if observation.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V7:
+            observed_consumption = observation.get("resource_consumption_receipt_digests", ())
+            receipt_consumption = receipt.get("resource_consumption_receipt_digests", ())
+            if (observation.get("resource_allocation_digest")
+                    != receipt.get("resource_allocation_digest")
+                    or observation.get("resource_attempt_id") != receipt.get("resource_attempt_id")
+                    or tuple(observed_consumption or ()) != tuple(receipt_consumption or ())
+                    or observation.get("resource_linkage_digest")
+                        != receipt.get("resource_linkage_digest")):
+                raise ResidentDevelopmentalCognitionError(
+                    "cognition_resource_linkage_invocation_mismatch")
         if observation.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V6:
             upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
             if (not isinstance(upstream, Mapping)
@@ -2567,6 +2636,8 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("cognition_observation_corrupt") from exc
             expected_fields = set(ResidentCognitionObservation.__dataclass_fields__) - {
                 "observation_id", "observation_digest"}
+            resource_linkage_fields = {"resource_allocation_digest", "resource_attempt_id",
+                "resource_consumption_receipt_digests", "resource_linkage_digest"}
             semantic_fields = {"epistemic_projection_schema", "epistemic_semantic_status",
                 "epistemic_owner_packet_count", "epistemic_consumed_packet_ids",
                 "epistemic_consumed_packet_digests", "epistemic_omitted_packets",
@@ -2576,11 +2647,12 @@ class ResidentDevelopmentalCognitionOwner:
             history_selection_fields = {"developmental_history_selection"}
             session_fields = {"serving_session_id", "serving_session_binding"}
             session_receipt_fields = {"serving_session_receipt_id", "serving_session_receipt_digest"}
-            legacy_fields = expected_fields - history_selection_fields - semantic_fields - session_fields - session_receipt_fields - {"observed_at"}
-            v2_fields = expected_fields - history_selection_fields - session_fields - session_receipt_fields - {"observed_at"}
-            v3_fields = expected_fields - history_selection_fields - session_receipt_fields - {"observed_at"}
-            v4_fields = expected_fields - history_selection_fields - {"observed_at"}
-            v5_fields = expected_fields - history_selection_fields
+            legacy_fields = expected_fields - history_selection_fields - semantic_fields - session_fields - session_receipt_fields - resource_linkage_fields - {"observed_at"}
+            v2_fields = expected_fields - history_selection_fields - session_fields - session_receipt_fields - resource_linkage_fields - {"observed_at"}
+            v3_fields = expected_fields - history_selection_fields - session_receipt_fields - resource_linkage_fields - {"observed_at"}
+            v4_fields = expected_fields - history_selection_fields - resource_linkage_fields - {"observed_at"}
+            v5_fields = expected_fields - history_selection_fields - resource_linkage_fields
+            v6_fields = expected_fields - resource_linkage_fields
             legacy_observation = isinstance(value, dict) and set(value) == legacy_fields
             versioned_v2_observation = (isinstance(value, dict) and set(value) == v2_fields
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V2)
@@ -2590,11 +2662,13 @@ class ResidentDevelopmentalCognitionOwner:
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V4)
             versioned_v5_observation = (isinstance(value, dict) and set(value) == v5_fields
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V5)
-            versioned_v6_observation = (isinstance(value, dict) and set(value) == expected_fields
+            versioned_v6_observation = (isinstance(value, dict) and set(value) == v6_fields
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V6)
+            versioned_v7_observation = (isinstance(value, dict) and set(value) == expected_fields
+                and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V7)
             versioned_observation = (versioned_v2_observation or versioned_v3_observation
                 or versioned_v4_observation or versioned_v5_observation
-                or versioned_v6_observation)
+                or versioned_v6_observation or versioned_v7_observation)
             if (not (legacy_observation or versioned_observation)
                     or not isinstance(value.get("tick_id"), str) or not value["tick_id"]
                     or observation_digest != _digest(value)
@@ -2603,9 +2677,11 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("cognition_observation_digest_mismatch")
             if versioned_observation:
                 _validate_epistemic_observation_binding(value)
-            if versioned_v6_observation:
+            if versioned_v6_observation or versioned_v7_observation:
                 _validate_developmental_history_selection(value)
-            if versioned_v3_observation or versioned_v4_observation or versioned_v5_observation or versioned_v6_observation:
+            if versioned_v7_observation:
+                _validate_observation_resource_linkage(value)
+            if versioned_v3_observation or versioned_v4_observation or versioned_v5_observation or versioned_v6_observation or versioned_v7_observation:
                 session_id, session_binding = value.get("serving_session_id"), value.get("serving_session_binding")
                 absent = session_id is None and session_binding is None
                 activation_digest = (session_binding.get("activation_state_semantic_digest")
@@ -2623,7 +2699,7 @@ class ResidentDevelopmentalCognitionOwner:
                     and (activation_digest_raw or (versioned_v3_observation and activation_digest_legacy)))
                 if not (absent or present):
                     raise ResidentDevelopmentalCognitionError("cognition_observation_serving_session_binding_invalid")
-                if versioned_v4_observation or versioned_v5_observation or versioned_v6_observation:
+                if versioned_v4_observation or versioned_v5_observation or versioned_v6_observation or versioned_v7_observation:
                     receipt_id, receipt_digest = (value.get("serving_session_receipt_id"),
                         value.get("serving_session_receipt_digest"))
                     receipt_absent = absent and receipt_id is None and receipt_digest is None
@@ -2664,7 +2740,7 @@ class ResidentDevelopmentalCognitionOwner:
             verified_observation = {
                 **value, "observation_id": observation_id,
                 "observation_digest": observation_digest}
-            if versioned_v3_observation or versioned_v5_observation or versioned_v6_observation:
+            if versioned_v3_observation or versioned_v5_observation or versioned_v6_observation or versioned_v7_observation:
                 self._verify_observation_invocation(verified_observation)
             verified_records[observation_id] = verified_observation
         if include_records:
@@ -3636,7 +3712,8 @@ class ResidentDevelopmentalCognitionOwner:
             "epistemic_generations": prior_epistemic_state.generations if prior_epistemic_state else (),
             "epistemic_evidence_set_digests": prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
             **epistemic_metadata,
-            "schema_version": COGNITION_OBSERVATION_SCHEMA_V6,
+            **_resource_linkage_fields(receipt),
+            "schema_version": COGNITION_OBSERVATION_SCHEMA_V7,
             "serving_session_id": serving_session_id,
             "serving_session_binding": serving_session_binding,
             "serving_session_receipt_id": serving_session_receipt_id,
@@ -3672,14 +3749,17 @@ class ResidentDevelopmentalCognitionOwner:
             prior_epistemic_state.state_digests if prior_epistemic_state else (),
             prior_epistemic_state.generations if prior_epistemic_state else (),
             prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
-            schema_version=COGNITION_OBSERVATION_SCHEMA_V6,
+            schema_version=COGNITION_OBSERVATION_SCHEMA_V7,
             serving_session_id=serving_session_id,
             serving_session_binding=serving_session_binding,
             serving_session_receipt_id=serving_session_receipt_id,
             serving_session_receipt_digest=serving_session_receipt_digest,
             observed_at=receipt.observed_at,
+            **_resource_linkage_fields(receipt),
             **epistemic_metadata,
         )
+        if observation.schema_version == COGNITION_OBSERVATION_SCHEMA_V7:
+            self._verify_observation_invocation(asdict(observation))
         try:
             _publish_store_json(self.observations_root / f"{observation.observation_id}.json",
                 asdict(observation), collision_error="cognition_observation_identity_collision")

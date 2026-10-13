@@ -888,6 +888,14 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert later.written_record_id in family_record_ids
     conditions = recovered["conditions"]
     present, withheld, restored = conditions
+    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v7"
+        for item in conditions)
+    # This fixture uses genuinely unlinked historical-compatible invocation
+    # receipts; the new observation version must retain that empty linkage.
+    assert all(item["resource_allocation_digest"] is None
+        and item["resource_attempt_id"] is None
+        and item["resource_consumption_receipt_digests"] == []
+        and item["resource_linkage_digest"] is None for item in conditions)
     family_fact = records[0]["payload"]
     source_fact = next(fact for fact in world.facts
         if fact.source.source_id == records[0]["source_id"])
@@ -3136,7 +3144,7 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     durable = [json.loads(path.read_text(encoding="utf-8"))
         for path in restarted.observations_root.glob("*.json")]
     by_request = {row["request_id"]: row for row in durable}
-    assert all(by_request[request.request_id]["schema_version"].endswith(":v6")
+    assert all(by_request[request.request_id]["schema_version"].endswith(":v7")
         and by_request[request.request_id]["developmental_history_selection"]
             == request.upstream_evidence["developmental_history_selection"]
         for request in cognition)
@@ -3681,10 +3689,13 @@ def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path:
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v6"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v7"
     value.pop("observation_id")
     value.pop("observation_digest")
     value.pop("developmental_history_selection")
+    for field in ("resource_allocation_digest", "resource_attempt_id",
+            "resource_consumption_receipt_digests", "resource_linkage_digest"):
+        value.pop(field)
     value["schema_version"] = "sentientos.resident_cognition_observation:v5"
     digest = "sha256:" + digest_payload(value)
     observation_id = "devcog-" + digest[7:31]
@@ -3709,9 +3720,13 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v6"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v7"
     value.pop("observation_id")
     value.pop("observation_digest")
+    for field in ("resource_allocation_digest", "resource_attempt_id",
+            "resource_consumption_receipt_digests", "resource_linkage_digest"):
+        value.pop(field)
+    value["schema_version"] = "sentientos.resident_cognition_observation:v6"
     selection = value["developmental_history_selection"]
     selection["retrieval_policy_id"] = "task_family_relevant_then_recency_fill:v1"
     selection["task_family_id"] = "integer_affine_prediction"
@@ -3730,6 +3745,27 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     with pytest.raises(ResidentDevelopmentalCognitionError,
             match="cognition_history_selection_invocation_binding_mismatch"):
         composition._recover_observation_ticks(include_records=True)
+
+
+def test_resource_linkage_cannot_bypass_serving_receipt_verification(tmp_path: Path) -> None:
+    composition, _ = owner(tmp_path)
+    receipt_digest = "a" * 64
+    allocation_digest = "b" * 64
+    attempt_id = "attempt-source-backed"
+    consumption = ("c" * 64, "d" * 64)
+    linkage_digest = digest_payload({"receipt_digest": receipt_digest,
+        "allocation_digest": allocation_digest, "attempt_id": attempt_id,
+        "consumption_receipt_digests": consumption})
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="cognition_resource_linked_invocation_session_unbound"):
+        composition._verify_observation_invocation({
+            "schema_version": "sentientos.resident_cognition_observation:v7",
+            "serving_session_id": None, "serving_session_binding": None,
+            "resource_allocation_digest": allocation_digest,
+            "resource_attempt_id": attempt_id,
+            "resource_consumption_receipt_digests": consumption,
+            "resource_linkage_digest": linkage_digest,
+        })
 
 
 def test_experimental_history_arms_do_not_retain_cognition_lessons(tmp_path: Path) -> None:
