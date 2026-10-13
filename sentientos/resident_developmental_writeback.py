@@ -1217,6 +1217,14 @@ def _developmental_history_interpretation_projection(
     only the three canonical conditions and their exact receipt, request,
     retrieved-history, event-time, and objective-score identities.
     """
+    run_id = original.get("run_id")
+    subject = fact.get("subject")
+    if (not isinstance(run_id, str) or not run_id
+            or source.get("source_id") != "developmental-history-run:" + run_id
+            or not isinstance(subject, Mapping)
+            or subject.get("subject_kind") != "developmental_history_intervention_experiment"
+            or subject.get("subject_id") != run_id):
+        raise DevelopmentalWritebackError("developmental_history_source_identity_invalid")
     conditions = original.get("conditions")
     if not isinstance(conditions, (list, tuple)) or len(conditions) != 3:
         raise DevelopmentalWritebackError("developmental_history_conditions_invalid")

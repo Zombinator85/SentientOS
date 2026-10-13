@@ -854,6 +854,11 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     from sentientos.resident_developmental_writeback import (
         DevelopmentalWritebackError, _developmental_history_interpretation_projection,
     )
+    projection_fact = {"fact_id": "fixture-history-fact",
+        "subject": {"subject_id": records[0]["subject_id"],
+            "subject_kind": records[0]["subject_kind"]}}
+    projection_source = {"source_id": records[0]["source_id"],
+        "digest": records[0]["digest"]}
     for field, replacement in (("task_digest", "sha256:substituted"),
             ("evaluator", "substituted_evaluator")):
         substituted = json.loads(json.dumps(evidence))
@@ -861,7 +866,31 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
         with pytest.raises(DevelopmentalWritebackError,
                 match="developmental_history_task_score_lineage_invalid"):
             _developmental_history_interpretation_projection(
-                {"fact_id": records[0]["source_id"]}, substituted, records[0])
+                projection_fact, substituted, projection_source)
+    substituted_examples = json.loads(json.dumps(evidence))
+    substituted_examples["acquisition_examples"][0]["observed_answer"] += 1
+    with pytest.raises(DevelopmentalWritebackError,
+            match="developmental_history_task_example_binding_invalid"):
+        _developmental_history_interpretation_projection(
+            projection_fact, substituted_examples, projection_source)
+    with pytest.raises(DevelopmentalWritebackError,
+            match="developmental_history_source_identity_invalid"):
+        _developmental_history_interpretation_projection(projection_fact, evidence,
+            {**projection_source, "source_id": "substituted-completed-run"})
+    substituted_subject = {**projection_fact,
+        "subject": {**projection_fact["subject"], "subject_id": "another-run"}}
+    with pytest.raises(DevelopmentalWritebackError,
+            match="developmental_history_source_identity_invalid"):
+        _developmental_history_interpretation_projection(
+            substituted_subject, evidence, projection_source)
+
+    for invocation_request in fake.requests:
+        if invocation_request.purpose != \
+                "resident_developmental_history_intervention_experiment":
+            continue
+        assert '"multiplier"' not in invocation_request.prompt
+        assert '"offset"' not in invocation_request.prompt
+        assert "objective_evaluation" not in invocation_request.prompt
 
     from sentientos.world_state_board import WorldStateBoardBuilder
     world = WorldStateBoardBuilder().build(records)
