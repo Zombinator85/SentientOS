@@ -1350,6 +1350,12 @@ class LongitudinalSelfModelOwner:
             for old in previous.claims:
                 matching = any(claim.claim_id == old.claim_id for claim in new_claims)
                 if not matching:
+                    if old.status == "withdrawn" or (
+                            old.status == "historical" and old.superseded_by):
+                        # Terminal records describe earlier support and must
+                        # survive later ticks with their original direct links.
+                        new_claims.append(old)
+                        continue
                     successors = tuple(sorted({claim.claim_id for claim in new_claims
                         if old.claim_id in claim.supersedes}))
                     new_claims.append(replace(old,

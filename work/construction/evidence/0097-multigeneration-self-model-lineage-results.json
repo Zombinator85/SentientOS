@@ -1,0 +1,22 @@
+{
+  "errors": 0,
+  "failed": 0,
+  "finding": "Superseded historical claims now retain their direct successors across later generations; stale unsupported claims still withdraw.",
+  "focused_modules": [
+    "tests/test_longitudinal_self_model.py",
+    "tests/test_self_model_cognitive_consumption.py"
+  ],
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 5301,
+    "path": "work/construction/evidence/0097-multigeneration-self-model-lineage-junit.xml",
+    "sha256": "1e8ca245bc764bdc45c833fcefe852250bc06ed905184e1cb0a82615be769421"
+  },
+  "passed": 34,
+  "python_compilation": "passed",
+  "sequence": 97,
+  "skipped": 0,
+  "source_baseline_commit": "ebe0d33ca7050ae0ab54ee144d426a5d4c65a02a",
+  "source_baseline_tree": "4d6c87bd055d45f0c9ecc9794c65cf04e7022cc9",
+  "status": "construction_tested_unverified_for_production"
+}

@@ -289,6 +289,33 @@ def test_generation_and_model_transition_preserves_historical_claims(tmp_path: P
     assert new and all(claim.status == "current" and claim.supersedes for claim in new)
 
 
+def test_multigeneration_lineage_preserves_terminal_claim_links(tmp_path: Path) -> None:
+    owner = LongitudinalSelfModelOwner(tmp_path)
+    owner.reconcile(snapshot(record(model="model-a")), tick_id="tick-model-a")
+    second = owner.reconcile(snapshot(record(source="runtime:model-b", model="model-b")),
+        tick_id="tick-model-b")
+    second_claims = [claim for claim in second.claims
+        if claim.predicate == "cognitive_model_identity"]
+    model_a = next(claim for claim in second_claims if claim.value == "model-a")
+    model_b = next(claim for claim in second_claims if claim.value == "model-b")
+    assert model_a.status == "historical"
+    assert model_a.superseded_by == (model_b.claim_id,)
+
+    third = owner.reconcile(snapshot(record(source="runtime:model-c", model="model-c")),
+        tick_id="tick-model-c")
+    third_claims = [claim for claim in third.claims
+        if claim.predicate == "cognitive_model_identity"]
+    retained_a = next(claim for claim in third_claims if claim.value == "model-a")
+    retained_b = next(claim for claim in third_claims if claim.value == "model-b")
+    model_c = next(claim for claim in third_claims if claim.value == "model-c")
+    assert retained_a.status == "historical"
+    assert retained_a.superseded_by == (model_b.claim_id,)
+    assert retained_a.source_evidence_ids == model_a.source_evidence_ids
+    assert retained_b.status == "historical"
+    assert retained_b.superseded_by == (model_c.claim_id,)
+    assert model_c.status == "current" and model_c.supersedes == (model_b.claim_id,)
+
+
 def test_source_digest_mismatch_fails_closed_without_write(tmp_path: Path) -> None:
     bad = snapshot({**record(), "digest": "not-the-content-digest"})
     owner = LongitudinalSelfModelOwner(tmp_path)
