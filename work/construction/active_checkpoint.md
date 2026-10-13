@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 132 continues from verified remote source `4d2a1bf88da809aa45a687cfe6d0256005c4a3e1`, tree `8c5dd1b200977bf0e9fc3c5444b09e2df695129c`. The existing read-only objective result command can now inspect one exact result or a bounded task-family progression. The progression route uses the configured installation-scoped receipt verifier and existing cognition/writeback owners, reports exact model/generation controls, and performs no inference or custody writes. Focused suites passed 164 cases; CLI help and non-mutation were checked. Evidence remains fixture-only and construction remains unverified for production.
+Sequence 133 continues from verified remote source `333a0cef3b0aaea70c22609f772a176427867803`, tree `77f1662acb9c0e70d49e60aff15f4dbbc814d9f4`. A single composed fixture now traverses acquisition, ordinary writeback, held-out transfer, World-State feedback, another admitted record, and a third distinct task with nonoverlapping probes. Exact task/run/score/invocation/model-generation identities appear in a bounded progression report. Same-family source facts remain absent from current evidence. Results stay fixture-only; learning/performance improvement are not claimed. Focused suites passed 164 cases. Production remains unverified.
 
-Latest segment: `work/construction/segments/0132-readonly-progression-cli.md`
-SHA-256: `dee8ad3e30f4043f044a190aa84ef5b6a92ea35281f4750e61020a2a82659ab9`
-Evidence: `work/construction/evidence/0132-readonly-progression-cli.json`
-Evidence SHA-256: `818a4fdcbc80f0b5188861d02596277686da2b5ed8446bf734142a65a6fe8da9`
-Sequence: 132
+Latest segment: `work/construction/segments/0133-three-episode-task-family-loop.md`
+SHA-256: `90d198168d3c76f79c86fb4c75507eb3fde2e78927a87e42d30fe7fe98444789`
+Evidence: `work/construction/evidence/0133-three-episode-task-family-loop.json`
+Evidence SHA-256: `c179967bf31537a2dabaf1473a109546e0e5ae44fc282bb6557ccfe40b85675f`
+Sequence: 133
 
-Next: test for answer leakage across acquisition, feedback, and a second held-out task, then cover the remaining crash boundaries. The Codex workspace has no verified actual local model or production serving host.
+Next: test source projection, interpretation, and admission interruptions and adversarial evidence substitution across the three-episode chain. An actual model/host performance evaluation still requires an available supported host and non-pointer model artifact.

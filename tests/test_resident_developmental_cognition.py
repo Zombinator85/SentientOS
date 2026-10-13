@@ -580,7 +580,9 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
 
     acquisition = ObjectivePredictionTask(3, 2, 7, (8, 9),
         task_family_id="integer_affine_prediction")
-    request = objective_request_payload(request_id="family-acquisition", task=acquisition)
+    stage_objective_request(tmp_path / "state", request_id="family-acquisition", task=acquisition)
+    request = load_objective_request(tmp_path / "state")
+    assert request is not None
     run_result = cognition.run_objective_intervention_once(snapshot=snapshot(),
         tick_id="family-acquisition-run", objective_task=acquisition,
         request_id="family-acquisition", request_digest=request["request_digest"])
@@ -644,11 +646,13 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
         task_family_id="integer_affine_prediction", requires_task_family_history=True)
     unrelated = ObjectivePredictionTask(3, 2, 10, (11, 12),
         task_family_id="unrelated_prediction_family", requires_task_family_history=True)
+    pending_path = tmp_path / "state" / "pending_objective_intervention.json"
+    pending_before_denial = pending_path.read_bytes()
     with pytest.raises(ResidentDevelopmentalCognitionError,
             match="checkpointed_history_relevant_experience_missing"):
         stage_request(config_path=config_path, request_id="unrelated-family-transfer",
             task=unrelated)
-    assert not (tmp_path / "state" / "pending_objective_intervention.json").exists()
+    assert pending_path.read_bytes() == pending_before_denial
     staged_path, _, matching_count = stage_request(config_path=config_path,
         request_id="family-transfer", task=transfer)
     assert staged_path.exists() and matching_count >= 1
@@ -708,6 +712,20 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert all(not continuation_source_ids.intersection(condition["current_fact_ids"])
         for condition in continued_run["conditions"])
     assert continued_run["objective_evaluation"]["assessment"] == "preregistered_probe_suite_scored"
+    progression = cognition.verified_objective_task_family_progression(request_refs=(
+        ("family-acquisition", request["request_digest"]),
+        ("family-transfer", staged["request_digest"]),
+        ("family-continued-transfer", continued_request["request_digest"]),
+    ))
+    assert progression["status"] == "comparable_scored_episodes"
+    assert progression["episode_count"] == 3
+    assert [episode["task_family"]["probe_inputs"] for episode in progression["episodes"]] == [
+        [7, 8, 9], [10, 11, 12], [13, 14, 15]]
+    assert progression["same_model_generation_controls"] is True
+    assert progression["distinct_task_instances"] is True
+    assert progression["distinct_probe_sets"] is True
+    assert progression["actual_nonsynthetic_inference_verified"] is False
+    assert progression["learning_established"] is False
 
 
 def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
