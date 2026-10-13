@@ -1,0 +1,51 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 149,
+  "title": "read-only task-family evidence preflight",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "d20cc8bafb162484f4e6d061e908b146ed4f6575",
+    "tree": "b1ec482c9da738f2ae4cc9b46f1c20b2932b9cdb"
+  },
+  "base": {
+    "commit": "63b70e27ba0059fc327de3d6d3bb8e66e42ad730",
+    "tree": "a7bdb7694bb649d615d10cd47d9561697183c30a"
+  },
+  "implementation": "Read-only doctor reuses completed-tick and verified-writeback selection to report exact matching family history identities; unrelated verified history no longer counts as relevant",
+  "positive_control": "Existing admitted task-family source record is returned with its exact developmental record id and digest",
+  "negative_control": "Unrelated task family reports awaiting_matching_task_family_history; state remains byte-identical",
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "scripts/doctor_resident_objective_experiment.py",
+        "tests/test_resident_developmental_cognition.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "passed": 2,
+      "duration_seconds": 71.9,
+      "nodes": [
+        "tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+        "tests/test_resident_developmental_cognition.py::test_readiness_accepts_history_after_actual_owner_admission_recovery_check"
+      ]
+    },
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "real_model_behavior": "not_observed",
+    "production_verification": "not_performed"
+  },
+  "limitations": [
+    "task-family identifiers express operator-declared relevance and do not prove truth or usefulness",
+    "objective episodes use deterministic test invokers; no user-host model episode was run",
+    "doctor remains a custody preflight and cannot observe the daemon's live tick, loaded model, effective generation parameters, or actual inference authorization"
+  ],
+  "next_dependency": "review task-result World-State source lineage and evaluator/task identity handoff before real host execution",
+  "publication": {
+    "expected_head": "63b70e27ba0059fc327de3d6d3bb8e66e42ad730",
+    "commit": "d20cc8bafb162484f4e6d061e908b146ed4f6575",
+    "tree": "b1ec482c9da738f2ae4cc9b46f1c20b2932b9cdb",
+    "remote_readback": "commit, tree, and changed blobs verified"
+  }
+}
