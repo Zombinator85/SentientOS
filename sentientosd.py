@@ -46,7 +46,9 @@ from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.codex_task_authority_admission import (RESIDENT_DEVELOPMENTAL_WRITEBACK,
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION, RESIDENT_EPISTEMIC_STATE_MUTATION,
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION)
-from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV, ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config
+from sentientos.resident_developmental_cognition import (CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV,
+    ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config,
+    load_objective_request, objective_task_for_request)
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
 from sentientos.resident_epistemic_development import (CONFIG_ENV as EPISTEMIC_DEVELOPMENT_CONFIG_ENV,
@@ -2620,11 +2622,40 @@ class RuntimeMaintenanceSurfaces:
                     prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                         max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
                         current_tick=int(cognition_instant.timestamp()))
-                result = self._resident_developmental_owner.run_tick(
-                    snapshot=self._world_state_snapshot, tick_id=tick_id,
-                    prior_self_model=prior_self_model,
-                    prior_epistemic_state=prior_epistemic_state)
+                objective_request_status = None
+                developmental_owner = self._resident_developmental_owner
+                unwrapped_owner = (developmental_owner._owner
+                    if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner)
+                    else developmental_owner)
+                owner_config = getattr(unwrapped_owner, "config", None)
+                staged_request = (load_objective_request(owner_config.state_root)
+                    if owner_config is not None else None)
+                if staged_request is not None:
+                    request_id = str(staged_request["request_id"])
+                    request_digest = str(staged_request["request_digest"])
+                    objective_request_status = unwrapped_owner.objective_request_disposition(
+                        request_id=request_id, request_digest=request_digest)
+                    if objective_request_status == "new":
+                        result = developmental_owner.run_objective_intervention_once(
+                            snapshot=self._world_state_snapshot, tick_id=tick_id,
+                            objective_task=objective_task_for_request(staged_request),
+                            request_id=request_id, request_digest=request_digest)
+                        objective_request_status = result.status
+                    else:
+                        # Never replay a terminal or interrupted task request.
+                        # The regular, independently gated cognition cycle may
+                        # still proceed on a fresh maintenance tick.
+                        result = developmental_owner.run_tick(
+                            snapshot=self._world_state_snapshot, tick_id=tick_id,
+                            prior_self_model=prior_self_model,
+                            prior_epistemic_state=prior_epistemic_state)
+                else:
+                    result = developmental_owner.run_tick(
+                        snapshot=self._world_state_snapshot, tick_id=tick_id,
+                        prior_self_model=prior_self_model,
+                        prior_epistemic_state=prior_epistemic_state)
                 feedback = {**asdict(result), "snapshot_object_preserved": True,
+                            "objective_request_status": objective_request_status,
                             "memory_posture": "historical_interpretation_not_current_truth",
                             "epistemic_composition": {
                                 "status": ("composed" if prior_epistemic_state is not None else

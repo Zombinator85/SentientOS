@@ -269,6 +269,14 @@ class QuiescedDevelopmentalCognitionOwner:
         with self.gate.cycle():
             return self._owner.run_tick(**kwargs)
 
+    def run_objective_intervention_once(self, **kwargs: Any) -> Any:
+        """Keep explicit experimental calls inside resident-cognition quiescence."""
+        with self.gate.cycle():
+            return self._owner.run_objective_intervention_once(**kwargs)
+
+    def objective_request_disposition(self, **kwargs: Any) -> str:
+        return cast(str, self._owner.objective_request_disposition(**kwargs))
+
 
 class TransitionJournal:
     def __init__(self, path: Path):

@@ -73,6 +73,49 @@ output-digest differences and restoration stability. Difference is not improveme
 correctness, learning, sentience, selfhood, or consciousness. Comparison is
 off by default.
 
+### One explicitly staged objective intervention
+
+The ordinary daemon configuration never receives a persistent objective task.
+For a single same-model history experiment, an operator may stage one bounded
+request in the configured cognition `state_root`:
+
+```sh
+python scripts/stage_resident_objective_intervention.py \
+  --request-id history-transfer-20261013-01 \
+  --multiplier 3 --offset 2 \
+  --probe 7 --probe 8 --probe 9
+```
+
+The command uses `SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG` (or an
+explicit `--config`) and only writes
+`pending_objective_intervention.json` under that configuration's state root.
+Its output says `staged_not_authorized`: it does not load a model, admit a call,
+or grant serving authority. On the next daemon tick with an exact World-State
+snapshot, the configured resident owner reads the request through bounded
+no-follow file custody on POSIX. The current private publication and cognition
+state owners remain unsupported on Windows; the staging command reports that
+platform blocker and does not fall back to an ordinary write. If eligible prior developmental history exists, the
+owner binds the request and its public descriptor into a durable objective
+plan before the three existing governed inference calls. If no prior history
+exists, it records a terminal blocked request without inference. The request
+identity is persisted with the tick, so an interrupted or completed trial is
+never replayed; the staged file remains as custody evidence. An exact restage
+is idempotent, while replacing the occupied slot with different bytes is
+rejected. A later experiment requires a new request ID and separately reviewed
+history/context.
+
+The experiment tick produces scored experiment custody only. It does not create
+a developmental-history writeback, update canonical explicit-user memory, alter
+the recurring owner configuration, or activate/replace serving. Per-call
+inference admission and the resident cognition quiescence gate remain in force.
+Choose a task only when its examples are already present in the retained history
+available to the present/restored conditions and are absent from other current
+context; the staging command does not manufacture training examples or certify
+that scientific-contamination check. The answer oracle remains private to the
+durable plan and is not included in the model's task descriptor. This handoff
+makes the existing trial path callable; it does not demonstrate actual model
+acquisition or performance.
+
 Every projection and observation declares historical context to be read-only,
 non-authoritative, non-policy, non-current-truth, and outside canonical explicit
 user retention. Developmental history uses a physically separate configured

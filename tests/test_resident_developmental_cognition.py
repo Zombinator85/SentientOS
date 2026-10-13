@@ -30,6 +30,7 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import (
     CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
+    load_objective_request, objective_task_for_request, stage_objective_request,
 )
 from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
@@ -405,6 +406,107 @@ def test_same_model_truncated_objective_output_recovers_as_unscoreable(tmp_path:
     assert all(row["score"]["correct_count"] is None for row in run["objective_scores"])
     restarted, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
     assert restarted.experiments.load_run(run["run_id"])["objective_evaluation"] == run["objective_evaluation"]
+
+
+def test_explicit_objective_request_runs_once_without_developmental_writeback(tmp_path: Path) -> None:
+    fake = FakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake)
+    seeded = cognition.run_tick(snapshot=snapshot(), tick_id="one-shot-history-seed")
+    assert seeded.written_record_id is not None
+    prior_records = cognition.writeback.store.records()
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    request_path = stage_objective_request(tmp_path / "state",
+        request_id="operator-one-shot-001", task=task)
+    request = load_objective_request(tmp_path / "state")
+    assert request_path.exists() and request is not None
+    assert objective_task_for_request(request).public_descriptor() == task.public_descriptor()
+    assert request["task_descriptor"]["task_digest"] == task.public_descriptor()["task_digest"]
+
+    result = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="one-shot-objective-trial", objective_task=objective_task_for_request(request),
+        request_id=request["request_id"], request_digest=request["request_digest"])
+    assert result.status == "objective_intervention_completed"
+    assert result.changed_cognition_measurement_id
+    assert result.written_record_id is None and result.writeback_receipt_id is None
+    assert result.canonical_explicit_user_retention_mutated is False
+    assert cognition.writeback.store.records() == prior_records
+    run = cognition.experiments.load_run(result.changed_cognition_measurement_id)
+    assert run["objective_evaluation"]["assessment"] == "preregistered_probe_suite_scored"
+    assert [item["condition_id"] for item in run["conditions"]] == [
+        "history_present", "history_withheld", "history_restored"]
+    objective_calls = [request for request in fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and "objective_task_plan_digest" in request.upstream_evidence]
+    assert len(objective_calls) == 3
+    assert all(request.upstream_evidence["objective_task_digest"] == task.public_descriptor()["task_digest"]
+        for request in objective_calls)
+    assert cognition.objective_request_disposition(request_id=request["request_id"],
+        request_digest=request["request_digest"]) == "completed"
+    before = len(fake.requests)
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="objective_request_completed"):
+        cognition.run_objective_intervention_once(snapshot=snapshot(),
+            tick_id="one-shot-objective-replay", objective_task=task,
+            request_id=request["request_id"], request_digest=request["request_digest"])
+    assert len(fake.requests) == before
+
+
+def test_objective_request_digest_collision_and_no_history_are_terminal(tmp_path: Path) -> None:
+    fake = FakeInvoker()
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake)
+    task = ObjectivePredictionTask(3, 2, 7)
+    payload = stage_objective_request(tmp_path / "state", request_id="no-history-request", task=task)
+    request = load_objective_request(tmp_path / "state")
+    assert request is not None and payload.exists()
+    result = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="no-history-terminal", objective_task=task,
+        request_id=request["request_id"], request_digest=request["request_digest"])
+    assert result.status == "objective_blocked_no_eligible_history"
+    assert not fake.requests
+    assert cognition.objective_request_disposition(request_id=request["request_id"],
+        request_digest=request["request_digest"]) == "completed"
+    assert cognition.objective_request_disposition(request_id=request["request_id"],
+        request_digest="0" * 64) == "identity_conflict"
+
+
+def test_interrupted_one_shot_request_is_not_replayed_after_restart(tmp_path: Path) -> None:
+    fake = FakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="interrupted-one-shot-seed").written_record_id
+    task = ObjectivePredictionTask(3, 2, 7)
+    stage_objective_request(tmp_path / "state", request_id="interrupted-one-shot", task=task)
+    request = load_objective_request(tmp_path / "state")
+    assert request is not None
+    fake.fail_objective_condition = "history_present"
+    with pytest.raises(RuntimeError, match="fixture_interrupted"):
+        cognition.run_objective_intervention_once(snapshot=snapshot(),
+            tick_id="interrupted-one-shot-tick", objective_task=task,
+            request_id=request["request_id"], request_digest=request["request_digest"])
+    calls_at_interruption = len(fake.requests)
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake)
+    assert restarted.objective_request_disposition(request_id=request["request_id"],
+        request_digest=request["request_digest"]) == "interrupted"
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="objective_request_interrupted"):
+        restarted.run_objective_intervention_once(snapshot=snapshot(),
+            tick_id="interrupted-one-shot-replay", objective_task=task,
+            request_id=request["request_id"], request_digest=request["request_digest"])
+    assert len(fake.requests) == calls_at_interruption
+
+
+def test_staged_objective_request_rejects_noncanonical_and_substituted_bytes(tmp_path: Path) -> None:
+    task = ObjectivePredictionTask(3, 2, 7)
+    stage_objective_request(tmp_path, request_id="fixed-task", task=task)
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="slot_occupied"):
+        stage_objective_request(tmp_path, request_id="fixed-task",
+            task=ObjectivePredictionTask(3, 9, 7))
+    request_path = tmp_path / "pending_objective_intervention.json"
+    request_path.write_text(request_path.read_text().replace('"offset": 2', '"offset": 9'),
+        encoding="utf-8")
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="objective_request_invalid"):
+        load_objective_request(tmp_path)
 
 
 def test_same_model_probe_suite_partial_scores_reach_later_cognition(tmp_path: Path) -> None:
@@ -1879,6 +1981,45 @@ def test_sentientosd_preserves_exact_snapshot_and_absent_config_is_inert(tmp_pat
     except TypeError:
         pass
     assert spy.seen is injected.current_world_state_snapshot
+
+
+def test_sentientosd_consumes_staged_objective_once_without_recurring_owner_config(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        isolated_governed_runtime_roots: None) -> None:
+    monkeypatch.delenv("SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG", raising=False)
+    fake = FakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "cognition" / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake)
+    seeded = cognition.run_tick(snapshot=snapshot(), tick_id="daemon-objective-history-seed")
+    assert seeded.written_record_id
+    request = stage_objective_request(tmp_path / "cognition" / "state",
+        request_id="daemon-objective-once", task=ObjectivePredictionTask(3, 2, 7))
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+        runtime_state_root=tmp_path / "runtime-objective",
+        resident_developmental_owner=cognition)  # type: ignore[arg-type]
+    tick = "2026-10-13T00:00:00+00:00"
+    surfaces.build_world_state_board(tick_id=tick)
+    result = surfaces.run_resident_developmental_cognition(tick_id=tick)
+    assert result["status"] == "objective_intervention_completed"
+    assert result["objective_request_status"] == "objective_intervention_completed"
+    assert result["written_record_id"] is None
+    assert result["canonical_explicit_user_retention_mutated"] is False
+    assert request.exists()
+    trial_requests = [item for item in fake.requests
+        if item.purpose == "resident_developmental_history_intervention_experiment"
+        and "objective_task_plan_digest" in item.upstream_evidence]
+    assert len(trial_requests) == 3
+
+    # The staged file remains as custody evidence. Its durable request identity
+    # prevents another trial, while ordinary cognition may continue next tick.
+    next_tick = "2026-10-13T00:00:01+00:00"
+    surfaces.build_world_state_board(tick_id=next_tick)
+    later = surfaces.run_resident_developmental_cognition(tick_id=next_tick)
+    assert later["objective_request_status"] == "completed"
+    assert len([item for item in fake.requests
+        if item.purpose == "resident_developmental_history_intervention_experiment"
+        and "objective_task_plan_digest" in item.upstream_evidence]) == 3
 
 
 def test_sentientosd_composes_explicit_prior_epistemic_projection(tmp_path: Path, monkeypatch) -> None:

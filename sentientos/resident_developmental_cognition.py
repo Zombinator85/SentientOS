@@ -155,8 +155,137 @@ MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
 MAX_RESIDENT_COGNITION_CONFIG_BYTES = 65_536
 MAX_RESIDENT_COGNITION_INPUT_CHARS = 16_000
 MAX_COGNITION_CONCLUSION_BYTES = 4000
+OBJECTIVE_REQUEST_SCHEMA = "sentientos.resident_objective_intervention_request:v1"
+OBJECTIVE_REQUEST_FILENAME = "pending_objective_intervention.json"
+MAX_OBJECTIVE_REQUEST_BYTES = 16_384
 class ResidentDevelopmentalCognitionError(ValueError):
     """Fail-closed composition/configuration violation."""
+
+
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _objective_task_from_specification(specification: Any) -> Any:
+    """Reconstitute only the existing bounded objective-task contract."""
+    from .developmental_model_replacement_experiment import ObjectivePredictionTask
+
+    if not isinstance(specification, Mapping):
+        raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
+    schema = specification.get("schema_version")
+    common = {"schema_version", "multiplier", "offset"}
+    if schema == "sentientos.affine_prediction_task:v1":
+        if set(specification) != common | {"probe_input", "oracle_scope"}:
+            raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
+        if specification.get("oracle_scope") != "deterministic_fixture_not_physical_measurement":
+            raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
+        task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+            specification["probe_input"])
+    elif schema == "sentientos.affine_prediction_task_suite:v2":
+        if set(specification) != common | {"probe_inputs", "oracle_scope"}:
+            raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
+        probes = specification.get("probe_inputs")
+        if (specification.get("oracle_scope") != "deterministic_fixture_not_physical_measurement"
+                or not isinstance(probes, list) or not probes):
+            raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
+        task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+            probes[0], tuple(probes[1:]))
+    else:
+        raise ResidentDevelopmentalCognitionError("objective_request_task_schema_unsupported")
+    try:
+        if task.specification() != dict(specification):
+            raise ResidentDevelopmentalCognitionError("objective_request_task_noncanonical")
+    except (TypeError, ValueError) as exc:
+        raise ResidentDevelopmentalCognitionError("objective_request_task_invalid") from exc
+    return task
+
+
+def objective_request_payload(*, request_id: str, task: Any) -> dict[str, Any]:
+    """Build the exact staged request body; this does not authorize model use."""
+    if (not isinstance(request_id, str) or not request_id or len(request_id) > 128
+            or any(not (character.isascii() and (character.isalnum() or character in "_.:-"))
+                   for character in request_id)):
+        raise ResidentDevelopmentalCognitionError("objective_request_identity_invalid")
+    try:
+        specification = task.specification()
+        descriptor = task.public_descriptor()
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ResidentDevelopmentalCognitionError("objective_request_task_invalid") from exc
+    reconstructed = _objective_task_from_specification(specification)
+    if reconstructed.public_descriptor() != descriptor:
+        raise ResidentDevelopmentalCognitionError("objective_request_descriptor_mismatch")
+    semantic = {"schema_version": OBJECTIVE_REQUEST_SCHEMA, "request_id": request_id,
+        "task": dict(specification), "task_descriptor": dict(descriptor)}
+    return {**semantic, "request_digest": _digest(semantic)}
+
+
+def load_objective_request(state_root: str | Path) -> Mapping[str, Any] | None:
+    """Read one explicit, bounded request from the configured cognition state root."""
+    path = Path(state_root) / OBJECTIVE_REQUEST_FILENAME
+    try:
+        raw = read_explicit_file(path, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) == "explicit_file_missing":
+            return None
+        raise ResidentDevelopmentalCognitionError("objective_request_custody_invalid") from exc
+    except OSError as exc:
+        raise ResidentDevelopmentalCognitionError("objective_request_custody_invalid") from exc
+    try:
+        value = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+        expected = {"schema_version", "request_id", "task", "task_descriptor", "request_digest"}
+        if (not isinstance(value, dict) or set(value) != expected
+                or json.dumps(value, indent=2, sort_keys=True).encode("utf-8") + b"\n" != raw
+                or value.get("schema_version") != OBJECTIVE_REQUEST_SCHEMA):
+            raise ValueError("shape")
+        semantic = {key: value[key] for key in ("schema_version", "request_id", "task", "task_descriptor")}
+        if value.get("request_digest") != _digest(semantic):
+            raise ValueError("digest")
+        if objective_request_payload(request_id=value["request_id"],
+                task=_objective_task_from_specification(value["task"])) != value:
+            raise ValueError("binding")
+    except (UnicodeError, json.JSONDecodeError, TypeError, ValueError, KeyError) as exc:
+        raise ResidentDevelopmentalCognitionError("objective_request_invalid") from exc
+    return value
+
+
+def objective_task_for_request(request: Mapping[str, Any]) -> Any:
+    """Return a task object only after validating the complete staged request."""
+    request_id = request.get("request_id") if isinstance(request, Mapping) else None
+    if not isinstance(request_id, str):
+        raise ResidentDevelopmentalCognitionError("objective_request_invalid")
+    task = _objective_task_from_specification(request.get("task"))
+    expected = objective_request_payload(request_id=request_id, task=task)
+    if expected != dict(request):
+        raise ResidentDevelopmentalCognitionError("objective_request_invalid")
+    return task
+
+
+def stage_objective_request(state_root: str | Path, *, request_id: str,
+        task: Any) -> Path:
+    """Atomically stage one bounded request without invoking or authorizing a model."""
+    payload = objective_request_payload(request_id=request_id, task=task)
+    path = Path(state_root) / OBJECTIVE_REQUEST_FILENAME
+    data = json.dumps(payload, sort_keys=True, indent=2).encode("utf-8") + b"\n"
+    try:
+        existing = read_explicit_file(path, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) != "explicit_file_missing":
+            raise ResidentDevelopmentalCognitionError("objective_request_custody_invalid") from exc
+        existing = None
+    if existing is not None:
+        if existing != data:
+            raise ResidentDevelopmentalCognitionError("objective_request_slot_occupied")
+        return path
+    try:
+        replace_private_bytes(path, data, max_bytes=MAX_OBJECTIVE_REQUEST_BYTES)
+    except PrivateFileCustodyError as exc:
+        raise ResidentDevelopmentalCognitionError("objective_request_publication_failed") from exc
+    return path
 
 
 def _resolved_owner_root(value: str | Path) -> Path:
@@ -2692,18 +2821,66 @@ class ResidentDevelopmentalCognitionOwner:
     def run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
                  prior_epistemic_state: EpistemicCognitiveProjection | None = None) -> ResidentDevelopmentalCycleResult:
+        return self._run_tick(snapshot=snapshot, tick_id=tick_id,
+            prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
+            objective_task=self.objective_task, objective_only=False,
+            objective_request_id=None, objective_request_digest=None)
+
+    def objective_request_disposition(self, *, request_id: str,
+            request_digest: str) -> str:
+        """Return whether this bounded request is new, completed, or interrupted."""
+        state = self._state()
+        for row in (*state["completed_ticks"], *state["incomplete_ticks"]):
+            if row.get("objective_request_id") != request_id:
+                continue
+            if row.get("objective_request_digest") != request_digest:
+                return "identity_conflict"
+            return "completed" if row in state["completed_ticks"] else "interrupted"
+        return "new"
+
+    def run_objective_intervention_once(self, *, snapshot: WorldStateSnapshot,
+            tick_id: str, objective_task: Any, request_id: str,
+            request_digest: str) -> ResidentDevelopmentalCycleResult:
+        """Run one explicit scored history intervention without developmental writeback."""
+        if (self.objective_task is not None or not self.config.comparison_enabled
+                or not callable(getattr(objective_task, "specification", None))
+                or not callable(getattr(objective_task, "public_descriptor", None))):
+            raise ResidentDevelopmentalCognitionError("objective_one_shot_not_configured")
+        payload = objective_request_payload(request_id=request_id, task=objective_task)
+        if payload.get("request_digest") != request_digest:
+            raise ResidentDevelopmentalCognitionError("objective_request_digest_mismatch")
+        return self._run_tick(snapshot=snapshot, tick_id=tick_id,
+            prior_self_model=None, prior_epistemic_state=None, objective_task=objective_task,
+            objective_only=True, objective_request_id=request_id,
+            objective_request_digest=request_digest)
+
+    def _run_tick(self, *, snapshot: WorldStateSnapshot, tick_id: str,
+                 prior_self_model: CognitiveSelfModelProjection | None,
+                 prior_epistemic_state: EpistemicCognitiveProjection | None,
+                 objective_task: Any | None, objective_only: bool,
+                 objective_request_id: str | None,
+                 objective_request_digest: str | None) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         if os.name != "posix":
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
-                prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state)
+                prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
+                objective_task=objective_task, objective_only=objective_only,
+                objective_request_id=objective_request_id,
+                objective_request_digest=objective_request_digest)
         with self._composition_lock():
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
-                prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state)
+                prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
+                objective_task=objective_task, objective_only=objective_only,
+                objective_request_id=objective_request_id,
+                objective_request_digest=objective_request_digest)
 
     def _run_tick_locked(self, *, snapshot: WorldStateSnapshot, tick_id: str,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
-                 prior_epistemic_state: EpistemicCognitiveProjection | None = None) -> ResidentDevelopmentalCycleResult:
+                 prior_epistemic_state: EpistemicCognitiveProjection | None = None,
+                 objective_task: Any | None = None, objective_only: bool = False,
+                 objective_request_id: str | None = None,
+                 objective_request_digest: str | None = None) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         if os.name != "posix":
@@ -2716,11 +2893,36 @@ class ResidentDevelopmentalCognitionOwner:
         self._pending_cognition_candidates.clear()
         self._pending_objective_scores.clear()
         state = self._state()
+        if objective_only:
+            if (not isinstance(objective_request_id, str) or not objective_request_id
+                    or not isinstance(objective_request_digest, str)
+                    or not objective_request_digest or len(objective_request_digest) > 80):
+                raise ResidentDevelopmentalCognitionError("objective_request_identity_invalid")
+            disposition = self.objective_request_disposition(request_id=objective_request_id,
+                request_digest=objective_request_digest)
+            if disposition != "new":
+                raise ResidentDevelopmentalCognitionError("objective_request_" + disposition)
         if (any(row.get("tick_id") == tick_id for row in state["completed_ticks"])
                 or any(row.get("tick_id") == tick_id for row in state["incomplete_ticks"])):
             raise ResidentDevelopmentalCognitionError("tick_already_completed")
         if len(state["completed_ticks"]) + len(state["incomplete_ticks"]) >= MAX_RECOVERED_TICKS:
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
+
+        # Capture prior history before the experiment intent. This permits a
+        # staged one-shot request with no eligible history to be terminalized
+        # without invoking a model or leaving an automatic retry behind.
+        prior = self._prior_projection(state, tick_id)
+        if objective_only and not prior.requested_record_ids:
+            assert objective_request_id is not None and objective_request_digest is not None
+            state["completed_ticks"].append({"tick_id": tick_id,
+                "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+                "record_id": None, "receipt_id": None,
+                "objective_request_id": objective_request_id,
+                "objective_request_digest": objective_request_digest,
+                "objective_request_status": "blocked_no_eligible_history"})
+            self._save_state(state)
+            return ResidentDevelopmentalCycleResult("objective_blocked_no_eligible_history",
+                tick_id, snapshot.snapshot_id)
 
         # Publish the exact snapshot/tick intent before any local-model call.
         # A crash before the first durable cognition observation must remain
@@ -2728,11 +2930,12 @@ class ResidentDevelopmentalCognitionOwner:
         # not be replayed after restart. A future tick can continue normally.
         state["incomplete_ticks"].append({"tick_id": tick_id,
             "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
-            "status": "in_progress"})
+            "status": "in_progress",
+            **({"objective_request_id": objective_request_id,
+                "objective_request_digest": objective_request_digest}
+                if objective_only else {})})
         self._save_state(state)
 
-        # Capture prior history before any candidate from this tick can exist.
-        prior = self._prior_projection(state, tick_id)
         current = self._current_projection(snapshot)
         observations: list[ResidentCognitionObservation] = []
         measurement_id: str | None = None
@@ -2781,12 +2984,12 @@ class ResidentDevelopmentalCognitionOwner:
                     self_model_claim_digests=prior_self_model.selected_claim_digests if prior_self_model else (),
                     instruction_template_digest=_digest({"instruction":EXPERIMENT_CONTEXT_INSTRUCTION}),
                     **({"schema_version": OBJECTIVE_SCHEMA,
-                        "objective_task_digest": self.objective_task.public_descriptor()["task_digest"],
-                        "objective_task_descriptor": self.objective_task.public_descriptor()}
-                        if self.objective_task is not None else {}))
+                        "objective_task_digest": objective_task.public_descriptor()["task_digest"],
+                        "objective_task_descriptor": objective_task.public_descriptor()}
+                        if objective_task is not None else {}))
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 objective_plan = (self.experiments.persist_objective_task_plan(
-                    protocol, self.objective_task) if self.objective_task is not None else None)
+                    protocol, objective_task) if objective_task is not None else None)
                 if objective_plan is not None:
                     intent = next((row for row in state["incomplete_ticks"]
                         if row.get("tick_id") == tick_id), None)
@@ -2824,6 +3027,26 @@ class ResidentDevelopmentalCognitionOwner:
                     run_payload["objective_evaluation"] = summarize_objective_task(
                         objective_plan, objective_scores)
                 measurement_id = self.experiments.persist_run(run_payload)
+
+        if objective_only:
+            if measurement_id is None:
+                raise ResidentDevelopmentalCognitionError("objective_intervention_not_completed")
+            assert objective_request_id is not None and objective_request_digest is not None
+            state["incomplete_ticks"] = [row for row in state["incomplete_ticks"]
+                if row.get("tick_id") != tick_id]
+            state["completed_ticks"].append({"tick_id": tick_id,
+                "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+                "record_id": None, "receipt_id": None,
+                "objective_request_id": objective_request_id,
+                "objective_request_digest": objective_request_digest,
+                "objective_request_status": "completed",
+                "measurement_id": measurement_id})
+            self._save_state(state)
+            return ResidentDevelopmentalCycleResult("objective_intervention_completed",
+                tick_id, snapshot.snapshot_id, prior_record_ids=prior.requested_record_ids,
+                cognition_observation_ids=tuple(item.observation_id for item in observations),
+                changed_cognition_measurement_id=measurement_id,
+                canonical_explicit_user_retention_mutated=False)
 
         fact_ids = self._select_fact_ids(snapshot, set(state["processed_selection_ids"]))
         if len(set(state["processed_selection_ids"]) | set(fact_ids)) > MAX_RECOVERED_FACT_IDS:
