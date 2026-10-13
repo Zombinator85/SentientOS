@@ -474,20 +474,27 @@ def test_interrupted_scored_family_run_recovers_into_later_world_state_without_r
     from scripts.stage_resident_objective_intervention import stage_request
 
     class CompleteReceiptInvoker(SessionBoundFakeInvoker):
+        def invoke(self, request, **kwargs):
+            receipt = super().invoke(request, **kwargs)
+            relative = ("local-model/resident-cognitive-serving/inference/receipts/"
+                + receipt.receipt_id + ".json")
+            target = self.installation_handle.fixed_object(relative)
+            self.installation_handle.ensure_directory(
+                self.installation_handle.fixed_object(relative.rsplit("/", 1)[0]))
+            self.installation_handle.durable_create(target,
+                (json.dumps(receipt.to_dict(), sort_keys=True, indent=2) + "\n").encode())
+            return receipt
+
         def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
-            verified = dict(super().verify_persisted_invocation_receipt(
-                receipt_id, receipt_digest, **expected))
-            receipt = self.receipts[receipt_id]
-            verified["effects"] = dict(receipt.effects)
-            verified["fallback_occurred"] = receipt.fallback_occurred
-            return verified
+            return self.installation_reader.verify_persisted_invocation_receipt(
+                receipt_id, receipt_digest, **expected)
 
     fake = CompleteReceiptInvoker()
     # Persist the fixture's invocation receipts under an explicit installation
     # identity. The restarted process below uses the production read-only
     # receipt verifier, not a test-local verifier that merely compares fields.
     from sentientos.resident_cognitive_model_serving import (
-        WITNESS_SCHEMA, ServingSession,
+        WITNESS_SCHEMA, ResidentCognitiveInvocationReceiptReader, ServingSession,
         _resident_serving_session_receipt, resident_serving_session_receipt_reference,
     )
     from sentientos.local_runtime_provisioning import semantic_digest
@@ -533,6 +540,9 @@ def test_interrupted_scored_family_run_recovers_into_later_world_state_without_r
     witness["witness_semantic_digest"] = semantic_digest(witness)
     persist_installation_fixture("logs/privileges/" + session_receipt["receipt_id"] + ".json",
         witness)
+    fake.installation_handle = installation_handle
+    fake.installation_reader = ResidentCognitiveInvocationReceiptReader(
+        installation_registry.open_read_only(installation_identity))
     fake.objective_mode = "derive_from_history"
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
@@ -566,14 +576,6 @@ def test_interrupted_scored_family_run_recovers_into_later_world_state_without_r
     assert sum(1 for item in fake.requests[before:]
         if "objective_task_plan_digest" in item.upstream_evidence) == 3
     assert cognition.inspect_completed_objective_experiment_run_refs() == ()
-    for receipt_id, receipt in fake.receipts.items():
-        relative = ("local-model/resident-cognitive-serving/inference/receipts/"
-            + receipt_id + ".json")
-        target = installation_handle.fixed_object(relative)
-        installation_handle.ensure_directory(
-            installation_handle.fixed_object(relative.rsplit("/", 1)[0]))
-        installation_handle.durable_create(target,
-            (json.dumps(receipt.to_dict(), sort_keys=True, indent=2) + "\n").encode())
     installation_files_before_recovery = {
         path.relative_to(installation_handle.root).as_posix(): path.read_bytes()
         for path in installation_handle.root.rglob("*") if path.is_file()}
@@ -670,6 +672,7 @@ print(json.dumps({"refs": refs, "projectable": projectable,
     receipt_path = installation_handle.root / "local-model/resident-cognitive-serving/inference/receipts" / (
         score_receipt.receipt_id + ".json")
     substituted_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    original_score_receipt_bytes = receipt_path.read_bytes()
     substituted_receipt["request"]["request_digest"] = "substituted-request-digest"
     receipt_path.write_text(json.dumps(substituted_receipt, sort_keys=True, indent=2) + "\n",
         encoding="utf-8")
@@ -686,6 +689,7 @@ print(json.dumps({"refs": refs, "projectable": projectable,
     assert rejection == {"status": "rejected",
         "reason": "cognition_invocation_receipt_reconciliation_failed"}
     assert len(fake.requests) == issued_count
+    receipt_path.write_bytes(original_score_receipt_bytes)
 
     # The independent parent owner sees the run recovered by the child and
     # does not issue another inference or change its identity.
@@ -725,8 +729,58 @@ print(json.dumps({"refs": refs, "projectable": projectable,
     assert fact.payload["objective_task_family"] == "integer_affine_prediction"
     assert fact.payload["learning_established"] is False
     assert "multiplier" not in json.dumps(fact.payload)
-    later = restarted.run_tick(snapshot=world, tick_id="interrupted-family-feedback-writeback")
-    assert later.written_record_id
+    save_state = restarted._save_state
+    def interrupt_after_admitted_feedback(state):
+        if any(row.get("tick_id") == "interrupted-family-feedback-writeback"
+                for row in state["completed_ticks"]):
+            raise ResidentDevelopmentalCognitionError(
+                "simulated_after_feedback_admission_before_checkpoint")
+        save_state(state)
+    restarted._save_state = interrupt_after_admitted_feedback
+    captured_prior: dict[str, tuple[str, ...]] = {}
+    build_prior_projection = restarted._prior_projection
+    def capture_prior_projection(state, tick_id, **kwargs):
+        projection = build_prior_projection(state, tick_id, **kwargs)
+        if tick_id == "interrupted-family-feedback-writeback":
+            captured_prior[tick_id] = projection.requested_record_ids
+        return projection
+    restarted._prior_projection = capture_prior_projection
+    records_before_feedback = {record.record_id
+        for record in restarted.writeback.store.records()}
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="after_feedback_admission_before_checkpoint"):
+        restarted.run_tick(snapshot=world,
+            tick_id="interrupted-family-feedback-writeback")
+    committed = [record for record in restarted.writeback.store.records()
+        if record.record_id not in records_before_feedback]
+    assert len(committed) == 1
+    assert len(restarted.writeback.store.receipts()) == 2
+    feedback_record = committed[0]
+    assert feedback_record.record_id not in captured_prior["interrupted-family-feedback-writeback"]
+    assert any(fact["payload"].get("objective_task_family") ==
+        "integer_affine_prediction" for fact in feedback_record.candidate["selected_facts"])
+
+    invocations_before_checkpoint_recovery = len(fake.requests)
+    after_interruption, later_fake = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    recovered_state = after_interruption._state()
+    assert len(fake.requests) == invocations_before_checkpoint_recovery
+    recovered_tick = next(row for row in recovered_state["completed_ticks"]
+        if row["tick_id"] == "interrupted-family-feedback-writeback")
+    assert recovered_tick["record_id"] == feedback_record.record_id
+    assert recovered_tick["receipt_id"]
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
+        after_interruption.run_tick(snapshot=world,
+            tick_id="interrupted-family-feedback-writeback")
+    assert len(after_interruption.writeback.store.records()) == 2
+    assert len(after_interruption.writeback.store.receipts()) == 2
+    later = after_interruption.run_tick(snapshot=snapshot(3),
+        tick_id="interrupted-family-feedback-later-cognition")
+    assert feedback_record.record_id in later.prior_record_ids
+    later_request = next(item for item in reversed(later_fake.requests)
+        if item.purpose == "resident_developmental_history_intervention_experiment"
+        and item.linkage.get("history_present") is True)
+    assert feedback_record.record_id in later_request.upstream_evidence["record_ids"]
     assert len([item for item in fake.requests
         if "objective_task_plan_digest" in item.upstream_evidence]) == 3
 

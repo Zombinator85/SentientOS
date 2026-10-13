@@ -1,0 +1,32 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "commands": [
+      "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py scripts/inspect_resident_objective_result.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixture_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 164,
+    "production_acceptance": "deferred"
+  },
+  "changed_files": {
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 227841,
+      "git_blob": "ec253d9f4e0aec029983866f831f0dd266c3f6a5",
+      "sha256": "62b6b6f4ae96f9eb5f0bd60917ecec9a7f273834577c572ef2f9377e973fb975"
+    }
+  },
+  "implementation": {
+    "fixture_receipt_custody": "The focused scenario\u2019s fixture invoker publishes each output receipt under one explicit installation identity and verifies through the production ResidentCognitiveInvocationReceiptReader.",
+    "interruption": "After World-State reports the recovered scored run, the normal writeback owner publishes a developmental record and receipt; the final cognition checkpoint is interrupted.",
+    "limits": "The evaluator and model responses are deterministic fixtures. This establishes integration/recovery behavior, not a real model\u2019s acquisition or performance improvement.",
+    "recovery": "A reconstructed owner recovers the exact completed tick from the unique durable record/receipt pair, without another inference call or duplicate record.",
+    "temporal_firewall": "Captured prior selection and the digest-bound cognition input exclude the record being written at that tick. A retry of the recovered tick is rejected; the next tick\u2019s history-present condition explicitly includes the exact record ID."
+  },
+  "objective": "Carry the recovered objective-result observation through admission and durable developmental history across a crash before its cognition composition checkpoint.",
+  "schema_version": 1,
+  "sequence": 137,
+  "source_commit": "be495d7c5a98c049bb61dd6952f89939f1eca18d",
+  "source_tree": "ece9504dbb55596fbe0e856582ec653f260abfb7"
+}
