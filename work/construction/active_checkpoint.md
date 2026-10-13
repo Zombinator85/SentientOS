@@ -1,13 +1,15 @@
 # Active construction checkpoint
 
-Last independently verified remote HEAD `b9ce905af905920d0c21e260eef73de6a9708ac5`, tree `deb351e76e9cf50b4720c66bbbd25bd6a521914b`. Sequence 104 reconfirms that the scorer is already published, records terminal hosted check status, and verifies cold-restart reconstruction through real owner custody.
+Last independently verified remote HEAD `ed7febc6a51b065b77b358c163f3fb7cae0a3598`, tree `757673a83186dd6b3269c960d264dfdfb8ab6fc4`. Sequence 105 binds the preregistered objective task through the production model-replacement runner, makes generation ceilings explicitly commissioned, corrects truncated-suite unknown counts, and repairs the legacy smoke-receipt verifier handoff.
 
-Latest segment: work/construction/segments/0104-reconcile-published-scorer-and-cold-restart.md
-SHA-256: b475c890e11766505ff3840341501166baba254a4260a4288c33b80d76f10503
-Evidence: work/construction/evidence/0104-reconcile-published-scorer-and-cold-restart.json
-Evidence SHA-256: 1fb13006248cc3ffefe8fba08ebba5fae3138d6253f33b2a3e47db47393dac71
-Sequence: 104
+Latest segment: `work/construction/segments/0105-bind-objective-scoring-to-real-serving.md`
+SHA-256: `d367880b1761cc5fce2c5a138bba3a55cf82baa68caff3f32da4cf2d3a0fa12d`
+Evidence: `work/construction/evidence/0105-bind-objective-scoring-to-real-serving.json`
+Evidence SHA-256: `a910eab5481c559d51221d79caf8b3142ab91ff8b4b652d38ce1c331d077691e`
+Sequence: 105
 
-Focused experiment/recovery run: 124 passed, 0 failed, 0 skipped. Six source owners compile; focused mypy on the two experiment modules passes. No model/provider invocation or production verification occurred.
+Focused acceptance: 117 passed; 0 failed; 0 skipped. Targeted mypy passed for five owners; changed Python compiled. The scored, unscored, and truncated synthetic rehearsal lanes each reconstructed in separate CLI processes. No real model or provider was invoked.
 
-Next dependency: the operator must supply a commissioned model artifact with authenticated development provenance and explicit local serving/inference admission before a real-model objective trial can run. Until then, only source-backed readiness work that does not claim model effects is supportable.
+Codex cloud contains only 127-byte Git LFS pointer files for tracked GGUF examples and does not have `llama_cpp` installed. This is not a statement about the operator's separate host.
+
+Next dependency: make the existing same-model objective history-intervention owner explicitly invocable once through its already admitted resident serving and per-inference path, without making the objective task a recurring daemon setting or bypassing operator/task authority. `sentientosd` currently constructs resident developmental cognition without `objective_task`, and no operator-facing one-shot experiment command exists.
