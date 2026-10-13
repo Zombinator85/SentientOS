@@ -1,0 +1,34 @@
+{
+  "claims": [
+    "The existing five-condition model replacement artifact, score projection, World-State, authorized fixture writeback, and later-tick cognition path preserve model A/B lineage and objective deltas for the tested fixture.",
+    "This is source-and-fixture acceptance only; it does not demonstrate actual local-model learning, generalization, production behavior, or improved real-model performance."
+  ],
+  "details": "Added model-specific outcome treatment: model A derives the preregistered affine task from the frozen examples, while model B ignores history. Exact five-condition order, endpoint identities, history-present/withheld bindings, restoration output digest, and score deltas are checked in World-State and the bounded durable developmental-history projection; a restarted cognition owner retrieves the admitted record at the next tick. Fixture endpoints are deterministic and are not real-model performance evidence.",
+  "failed": 0,
+  "git_diff_check": "passed",
+  "passed": 15,
+  "python_compilation": "passed",
+  "runs": [
+    {
+      "bytes": 2583,
+      "junit_path": "work/construction/evidence/0083-model-specific-objective-later-cognition-junit.xml",
+      "kind": "model-specific-objective-later-cognition",
+      "sha256": "8c347b6adb7eca8aee04d6a37bc2ffb410eb910dbdc5d502b46707647aab1fd0",
+      "testsuite": {
+        "errors": null,
+        "failures": null,
+        "hostname": null,
+        "name": "pytest tests",
+        "skipped": null,
+        "tests": null,
+        "time": null,
+        "timestamp": null
+      }
+    }
+  ],
+  "sequence": 83,
+  "skipped": 0,
+  "source_baseline_commit": "e6ede1f203b2f4dfdd39d6c503eb17d445093117",
+  "source_baseline_tree": "e58f037e6aa856ce580b30e4c98547cf76c36c54",
+  "status": "construction_tested_unverified_for_production"
+}

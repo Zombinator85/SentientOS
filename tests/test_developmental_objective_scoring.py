@@ -69,9 +69,10 @@ class TaskEndpoint(FakeEndpoint):
         return receipt
 
 
-def experiment(root, mode='derive'):
+def experiment(root, mode='derive', *, model_b_mode=None):
     task = ObjectivePredictionTask(3, 2, 7)
-    a, b = TaskEndpoint('a', root, mode=mode), TaskEndpoint('b', root, mode=mode)
+    a = TaskEndpoint('a', root, mode=mode)
+    b = TaskEndpoint('b', root, mode=mode if model_b_mode is None else model_b_mode)
     return DevelopmentalModelReplacementExperiment(context=task_context(task),
         model_a=a, model_b=b, artifact_root=root, objective_task=task), a, b
 
@@ -218,11 +219,70 @@ def test_score_evidence_reaches_durable_history_and_later_cognition(tmp_path):
     assert selected['payload']['objective_evaluation'] == projected_score
     assert selected['source']['digest'] == snapshot.facts[0].source.digest
     assert record.authority is False and record.current_truth is False
+    # The score vector is meaningful only when its fixed condition order stays
+    # joined to the independently verified endpoint and history bindings.
+    projected_payload = snapshot.facts[0].payload
+    observations = projected_payload['observations']
+    assert [item['condition_id'] for item in observations] == [
+        'model_a_history_present', 'model_a_history_withheld', 'model_b_history_present',
+        'model_b_history_withheld', 'model_a_history_restored']
+    assert [item['model_identity_digest'] for item in observations] == [
+        identity('a').identity_digest, identity('a').identity_digest,
+        identity('b').identity_digest, identity('b').identity_digest,
+        identity('a').identity_digest]
+    assert observations[0]['history_record_ids'] == observations[2]['history_record_ids'] == [
+        'record-1', 'record-2']
+    assert observations[1]['history_record_ids'] == observations[3]['history_record_ids'] == []
+    assert observations[0]['output_digest'] == observations[4]['output_digest']
 
     recovered, invoker = developmental_owner(cognition_root,
         allowed_source_kinds=('embodiment',), max_selected_facts=1)
     later = recovered.run_tick(snapshot=snapshot, tick_id='tick-score-2')
     assert later.status == 'completed'
+    assert first.written_record_id in later.prior_record_ids
+    retrieval = next(request for request in invoker.requests
+        if request.purpose == 'resident_developmental_retrieval_cognition')
+    assert first.written_record_id in retrieval.upstream_evidence['record_ids']
+    later_packet = recovered.writeback.store.get(first.written_record_id).candidate[
+        'selected_facts'][0]['payload']
+    assert later_packet['conditions'] == selected['payload']['conditions']
+    assert later_packet['model_lineage'] == selected['payload']['model_lineage']
+    assert later_packet['objective_evaluation'] == selected['payload']['objective_evaluation']
+
+
+def test_model_specific_objective_outcome_survives_later_cognition(tmp_path):
+    from sentientos.world_state_board import WorldStateBoardBuilder
+    from tests.test_resident_developmental_cognition import owner as developmental_owner
+
+    experiment_owner, _, _ = experiment(tmp_path / 'experiment', 'derive', model_b_mode='ignore')
+    run = experiment_owner.run()
+    assert run['objective_evaluation']['model_a_history_accuracy_delta'] == 1
+    assert run['objective_evaluation']['model_b_history_accuracy_delta'] == 0
+    snapshot = WorldStateBoardBuilder().build(experiment_owner.store.world_state_records(
+        run_refs=((run['run_id'], run['run_digest']),)))
+    cognition_root = tmp_path / 'cognition'
+    cognition, _ = developmental_owner(cognition_root,
+        allowed_source_kinds=('embodiment',), max_selected_facts=1)
+    first = cognition.run_tick(snapshot=snapshot, tick_id='tick-model-score-1')
+    assert first.status == 'completed' and first.written_record_id
+    record = cognition.writeback.store.get(first.written_record_id)
+    packet = record.candidate['selected_facts'][0]['payload']
+    assert packet['objective_evaluation']['model_a_history_accuracy_delta'] == 1
+    assert packet['objective_evaluation']['model_b_history_accuracy_delta'] == 0
+    columns = packet['condition_columns']
+    conditions = packet['conditions']
+    assert [row[columns.index('cond')] for row in conditions] == [
+        'model_a_history_present', 'model_a_history_withheld', 'model_b_history_present',
+        'model_b_history_withheld', 'model_a_history_restored']
+    assert [row[1] for row in packet['model_lineage']] == [
+        identity('a').identity_digest.removeprefix('sha256:'),
+        identity('b').identity_digest.removeprefix('sha256:')]
+    assert len(packet['objective_evaluation']['condition_score_digests']) == len(conditions)
+    assert [row[columns.index('withheld')] for row in conditions] == [False, True, False, True, False]
+
+    recovered, invoker = developmental_owner(cognition_root,
+        allowed_source_kinds=('embodiment',), max_selected_facts=1)
+    later = recovered.run_tick(snapshot=snapshot, tick_id='tick-model-score-2')
     assert first.written_record_id in later.prior_record_ids
     retrieval = next(request for request in invoker.requests
         if request.purpose == 'resident_developmental_retrieval_cognition')
