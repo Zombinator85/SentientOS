@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "source_commit": "ee3a4563063d34edb890cd200b40719df0e8f4f5",
+  "source_tree": "acd5ddea19f94b04328de0be588ed2ff6b190baf",
+  "parent_commit": "d9aeb24fa7eccfcc240de401b12ba350d149888a",
+  "parent_tree": "fd9c4bf99b7d78ab74db237480bfc86526c1ac22",
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": {
+      "git_blob": "eb0f2ba1f98ed0d4a8111c1bfaeb6610f6a983bd",
+      "sha256": "4e51784353a7b6a4cc3816887972d62e6a35c7df5e9f463e3d8a42d4e0c28248"
+    },
+    "sentientosd.py": {
+      "git_blob": "5cb45c6ae8abbc9274a49b804d0ea0f3a93edc9e",
+      "sha256": "bcda4d80e1d7f20a007f7923f81a70f9754d6ecf1858c1b3243cbfed5fe8c1d2"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "git_blob": "5d22653187f3602ea44ac2e563f2090886843361",
+      "sha256": "5dac6f1ae6e2f70e8e0bacc70ddbf1a4091da3f18f0084f8940594e34e2aed7d"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "git_blob": "68f757b5fda9f3cc4a82a0d182a8b8163067487e",
+      "sha256": "ec09266cc81ee1793e7a18330217c369b5be0b013e74c2c33da78d00b058d9f9"
+    }
+  },
+  "validation": {
+    "focused_tests": {
+      "passed": 111,
+      "failed": 0,
+      "skipped": 0,
+      "suites": [
+        "resident developmental cognition",
+        "developmental history intervention experiment",
+        "developmental objective scoring"
+      ]
+    },
+    "py_compile": "passed for changed Python source and test files",
+    "targeted_mypy": "not run",
+    "remote_source_readback": "changed blob identities match GitHub-created canonical blobs",
+    "remote_branch_cas": "succeeded with expected parent d9aeb24fa7eccfcc240de401b12ba350d149888a",
+    "remote_branch_readback": "ee3a4563063d34edb890cd200b40719df0e8f4f5",
+    "hosted_workflow_runs": [],
+    "combined_status_checks": [],
+    "actual_model_invoked": false,
+    "production_verified": false
+  },
+  "boundaries": {
+    "inference_replay_on_recovery": false,
+    "raw_output_exposed_in_summary": false,
+    "new_authority": false,
+    "production_activation": false
+  }
+}
