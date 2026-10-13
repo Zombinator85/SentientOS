@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `4d77a93f05815598642b1a0a9cdc923bc36e045b`, tree `408b5416736002aaf4968510367d2e5a109ac8a2`. Sequence 92 adds explicit semantic handling for category, time/freshness, interpretation, current-truth, and authority qualifiers to the ordinary cognition prompt while preserving the shared digest-bound instructions for historical preregistered experiments. Six focused developmental modules passed 151 tests; production remains unverified.
+Last independently verified remote baseline `fbb8cd504beebc8304c6f4da1d92e8238e07aed5`, tree `2295ebe2858e355ca6670e13f8e4e369c613446a`. Sequence 93 aligns temporal scope with historical-interpretation category and preserves it through restarted N+1 self-model projection. Focused self-model modules passed 29 tests; production behavior remains unverified.
 
-Latest segment: work/construction/segments/0092-ordinary-cognition-self-model-qualifiers.md
-SHA-256: 814984ecfad1a4f2d17e1a29bd66c5f390c7fae7b45cf3bc77f12075c0a0a9ad
-Sequence: 92
+Latest segment: work/construction/segments/0093-historical-claim-temporal-scope.md
+SHA-256: deb45ce3fa78833cf904bba085b26788fc8d7f54a6a4ab9c835ea3a101468278
+Sequence: 93
 
-Loaded-code identity remains `not_independently_attested`. No actual local-model payload, commissioning receipt, or exact time-bounded operator approval is available; no model was loaded or invoked.
+Loaded-code identity remains `not_independently_attested`. Actual local model payload, commissioned identity, and exact time-bounded approval remain unavailable; no model was loaded or invoked.
 
-Next: inspect developmental lesson packet provenance so a prior self-model interpretation can inform an uncertain later lesson without being copied as current evidence or independently admitted fact.
+Next: inspect how reconciliation groups identical claim values when current and historical sources coexist; prevent category selection from depending on input order or erasing evidence qualifications.

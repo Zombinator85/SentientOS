@@ -1310,7 +1310,9 @@ class LongitudinalSelfModelOwner:
                     return next(iter(vals)) if len(vals) == 1 else None
                 new_claims.append(SelfModelClaim(
                     cid, key, facts[0].subject.subject_id, facts[0].subject.subject_kind,
-                    predicate, value, "historical_and_current", category, facts[0].stage,
+                    predicate, value,
+                    "historical" if category == "historical_interpretation" else "historical_and_current",
+                    category, facts[0].stage,
                     "contradicted" if contradicted else ("historical" if historical_interpretation
                         or freshness in {"stale", "unknown", "not_applicable"} else "current"),
                     freshness, "contradicted" if contradicted else "consistent",

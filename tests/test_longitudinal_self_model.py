@@ -127,6 +127,7 @@ def test_developmental_experiment_lifecycle_is_historical_not_current_state(
     assert lifecycle.status == "historical"
     assert lifecycle.current_truth is False
     assert lifecycle.value == "history_presence_associated_stable_difference"
+    assert lifecycle.temporal_scope == "historical"
     assert owner.cognitive_projection(before_tick=tick_id, max_claims=4,
         allowed_predicates=("lifecycle.observation.disposition",)) is None
 
@@ -140,7 +141,7 @@ def test_developmental_experiment_lifecycle_is_historical_not_current_state(
     assert projected["claim_category"] == "historical_interpretation"
     assert projected["status"] == "historical"
     assert projected["freshness"] == "unknown"
-    assert projected["temporal_scope"] == "historical_and_current"
+    assert projected["temporal_scope"] == "historical"
     assert projected["lifecycle_stage"] == "observation"
     assert projected["source_observed_at"] == ["2026-09-25T11:59:00Z"]
     assert projected["source_observed_at_count"] == 1
