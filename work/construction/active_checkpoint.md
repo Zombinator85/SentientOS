@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 149 closes the mismatch between generic-history readiness and a task-family-required staging request. The read-only doctor now accepts the explicit family and returns only exact admitted records named by completed ticks with verified writeback receipts, including their IDs and digests. A nonmatching family is separately reported as awaiting relevant history. Default generic readiness remains compatible.
+Sequence 150 corrected objective-report semantics: requested `max_output_chars` remains a character ceiling; output bytes are reported only from a bounded verified invocation receipt. Condition and progression reports preserve exact receipt and matching resource-linkage identities, while explicitly stating that this inspector did not reconcile the resource ledger and that CPU/GPU/energy/generated-token measurements are unknown.
 
-The positive and negative cases were exercised through actual cognition/writeback owner custody; two focused tests passed and changed Python compiled. Test invokers are deterministic fixtures. No real-model behavior, typing, hosted CI, or production verification.
+Three focused cognition tests passed, including the bounded multi-episode progression's restart read-only result path and a resource-linkage negative control. Changed Python compiled. Deterministic fixtures only; no real-model behavior, typing, hosted CI, or production verification.
 
-Latest source commit: d20cc8bafb162484f4e6d061e908b146ed4f6575
-Latest source tree: b1ec482c9da738f2ae4cc9b46f1c20b2932b9cdb
-Latest segment: work/construction/segments/0149-task-family-doctor-preflight.md
-Segment SHA-256: 14c03bbf19c5cc1c4c021f92e91fabd41068ce140860547e423de37097b98cd8
-Evidence: work/construction/evidence/0149-task-family-doctor-preflight.json
-Evidence SHA-256: d9c86879023914aeddd98934ee031d59f221a2320d96311d3f8c669a69a0bdd0
-Sequence: 149
+Latest source commit: 9e20c2fa2a906b7b18f97f791f2fadaae1c3e4f6
+Latest source tree: 009ca1147ae0cb8a684f99a3c53c241f33f71100
+Latest segment: work/construction/segments/0150-objective-receipt-cost-posture.md
+Segment SHA-256: d501fba949227aba24c1bf1d42c1889f02948a749290ffbae5fbec130eee41ee
+Evidence: work/construction/evidence/0150-objective-receipt-cost-posture.json
+Evidence SHA-256: 202f162799b05ab22beaa35922d96a2075fec86b89dfdd6e3ab6d6bfa4ec5c17
+Sequence: 150
 
-Next: inspect exact source-task, evaluator, score, and World-State bindings for the task-family episode and identify any remaining provenance gap before attempting real POSIX model serving. Real model file custody and authorization remain external.
+Next: trace task-family examples and evaluator/source identities through task descriptors, scored-run custody, and next-tick World-State feedback, ensuring the private oracle never enters retrieval or current context.
