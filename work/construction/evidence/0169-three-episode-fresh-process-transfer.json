@@ -1,0 +1,50 @@
+{
+  "schema_version": "sentientos.construction.acceptance_evidence:v1",
+  "purpose": "Three-episode task-family acquisition and transfer across fresh-process boundaries",
+  "baseline": {
+    "parent_commit": "5403a7afffa125d09eb0f8cdd2dd08b269266959",
+    "parent_tree": "00c0a09796189a3a525459e53478d6cedf899fa4"
+  },
+  "publication": {
+    "source_commit": "9ef691d48c93c138155afabfde47ca505cb998f0",
+    "source_tree": "fcabaee2850e8a20927cb5cc4bdec92731b4c838",
+    "parent": "5403a7afffa125d09eb0f8cdd2dd08b269266959"
+  },
+  "changed_blobs": {
+    "tests/test_resident_developmental_cognition.py": "5361cd217f0bb915082c5867bc0e3748d8b5118d"
+  },
+  "checks": [
+    {
+      "command": "Focused three-episode fresh-process transfer, family-context isolation, adverse-example, and progression group",
+      "result": "4 passed"
+    },
+    {
+      "command": "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "result": "passed"
+    },
+    {
+      "command": "UTF-8 decode, no-NUL, trailing-whitespace scan",
+      "result": "passed"
+    }
+  ],
+  "episode": {
+    "acquisition_run_world_state_and_writeback": true,
+    "second_episode_fresh_interpreter": true,
+    "second_episode_world_state_and_normal_writeback": true,
+    "third_episode_fresh_interpreter": true,
+    "third_episode_distinct_probe_set": true,
+    "third_episode_retrieved_new_feedback_record": true,
+    "progression_episode_count": 3,
+    "present_withheld_restored": "3/3, 0/3, 3/3",
+    "invocation_custody": "installation-scoped canonical reader",
+    "fixture_status": "admitted_simulation",
+    "actual_nonsynthetic_inference_verified": false,
+    "learning_established": false,
+    "performance_improvement_established": false
+  },
+  "claims": {
+    "real_local_model_behavior": false,
+    "production_acceptance": false,
+    "authority_expanded": false
+  }
+}
