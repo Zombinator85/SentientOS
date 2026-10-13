@@ -32,6 +32,15 @@ still unloaded in B-then-A order. The runner never activates either experimental
 model, changes production serving, changes developmental history, or transitions the
 resident default cognitive model.
 
+For scored tasks, the protocol independently bounds `max_output_chars` in UTF-8
+bytes and `max_new_tokens` in model generation tokens. Preflight verifies the
+canonical answer fits the byte ceiling and that the token ceiling is within the
+existing 1..512 invocation bound; it does not compare these unlike units or
+pretend to know a tokenizer's output length before loading the model. The
+actual invocation receipt's truncation flag controls scoring. Truncated output
+is retained as an explicitly incomplete objective measurement and cannot count
+as a correct answer.
+
 This is bounded production experimental evidence, not evidence that model B is
 better, repeated production evidence, learning, persistent identity, selfhood,
 sentience, consciousness, or causal closure.

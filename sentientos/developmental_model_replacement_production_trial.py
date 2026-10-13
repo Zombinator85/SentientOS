@@ -47,6 +47,19 @@ def _objective_answer_bytes(task: ObjectivePredictionTask) -> int:
     return size
 
 
+def _validate_objective_inference_budget(task: ObjectivePredictionTask,
+        inference_budget: Mapping[str, Any]) -> None:
+    """Validate independent byte and token ceilings without conflating units."""
+    output_bytes = _objective_answer_bytes(task)
+    output_budget = inference_budget.get("max_output_chars")
+    output_limit = 1024 if task.additional_probe_inputs else 256
+    if (type(output_budget) is not int or not output_bytes <= output_budget <= output_limit):
+        raise ProductionTrialError("objective_output_budget_insufficient")
+    token_budget = inference_budget.get("max_new_tokens")
+    if type(token_budget) is not int or not 1 <= token_budget <= 512:
+        raise ProductionTrialError("objective_generation_budget_invalid")
+
+
 class ProductionTrialError(RuntimeError):
     def __init__(self, code: str): self.code = code; super().__init__(code)
 
@@ -140,14 +153,7 @@ class DevelopmentalModelReplacementProductionTrialRunner:
                 or dict(descriptor) != objective_task.public_descriptor()):
             raise ProductionTrialError("objective_task_context_binding_invalid")
         if objective_task is not None:
-            output_bytes = _objective_answer_bytes(objective_task)
-            output_budget = context.inference_budget.get("max_output_chars")
-            token_budget = context.inference_budget.get("max_new_tokens")
-            output_limit = (1024 if objective_task.additional_probe_inputs else 256)
-            if (type(output_budget) is not int or not output_bytes <= output_budget <= output_limit):
-                raise ProductionTrialError("objective_output_budget_insufficient")
-            if type(token_budget) is not int or token_budget < output_bytes:
-                raise ProductionTrialError("objective_generation_budget_insufficient")
+            _validate_objective_inference_budget(objective_task, context.inference_budget)
         preflight = DevelopmentalModelReplacementExperiment(context=context,
             model_a=_IdentityEndpoint(protocol.model_a_identity), model_b=_IdentityEndpoint(protocol.model_b_identity),
             artifact_root=self._experiment_root, model_a_provenance=provenance_a,

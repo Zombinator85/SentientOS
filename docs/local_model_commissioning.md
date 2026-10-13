@@ -123,6 +123,12 @@ python scripts/local_model_commissioning.py commission --evidence-root /custody/
 The approval evidence must independently bind the emitted intent, including its smoke
 contract. The command does not issue approval or bypass control-plane admission.
 
+`doctor --state-root ...` without `--require-load-verification` verifies only the
+legacy metadata bundle. Its `calibration_readiness` remains
+`awaiting_process_real_identity_verification`, and its live-calibration booleans
+remain false until `verify --load` successfully loads the exact active identity
+and closes the loaded backend. The report does not run calibration or inference.
+
 After a successful process-real proof, an operator may point
 `SENTIENTOS_MODEL_CONFIG` at `/custody/a/model-config.json` and invoke the existing
 `scripts/discernment_calibration.py doctor` or `run` command with an explicit external

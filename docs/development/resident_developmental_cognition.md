@@ -119,6 +119,32 @@ durable plan and is not included in the model's task descriptor. This handoff
 makes the existing trial path callable; it does not demonstrate actual model
 acquisition or performance.
 
+Before staging, an operator can run a bounded read-only preflight against one
+explicitly selected model file:
+
+```sh
+python scripts/doctor_resident_objective_experiment.py \
+  --config <resident-cognition-config.json> \
+  --model-path <operator-selected-model.gguf> \
+  --allowed-root <narrow-authorized-model-root>
+```
+
+The doctor reads the configured developmental-history collection through its
+existing verifier and checks the selected artifact through
+`local_model_commissioning.inspect_artifact`; it never searches model roots.
+`ready_for_operator_review` means only that these preflight observations passed.
+The report always sets `trial_execution_ready` false because this separate
+process cannot observe the daemon's World-State tick, its actual loaded model
+identity, task-specific history/current-context contamination, or the effective
+generation budget, and it requests no `LOCAL_MODEL_INFERENCE` admission. It
+does not check the separate v3 two-model commissioning and serving gates. A
+127-byte Git LFS pointer is reported as
+`git_lfs_pointer_not_model_payload`; this says nothing about artifacts on another
+host. The existing `scripts/local_model_commissioning.py doctor` is a legacy
+discernment-calibration doctor, not an experiment readiness assertion; its
+calibration fields now remain false until a process-real load verifies the exact
+active identity.
+
 Every projection and observation declares historical context to be read-only,
 non-authoritative, non-policy, non-current-truth, and outside canonical explicit
 user retention. Developmental history uses a physically separate configured
