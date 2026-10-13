@@ -823,6 +823,55 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                 "resource_measurement_posture"):
             if key in original:
                 summary[key] = original[key]
+        if "task_outcome" in original:
+            task_outcome = original.get("task_outcome")
+            if not isinstance(task_outcome, Mapping):
+                raise DevelopmentalWritebackError("resource_task_outcome_projection_invalid")
+            posture = task_outcome.get("posture")
+            if posture in {"not_scored_or_legacy", "score_binding_invalid"}:
+                if set(task_outcome) != {"posture"}:
+                    raise DevelopmentalWritebackError(
+                        "resource_task_outcome_projection_invalid")
+            elif posture == "run_owner_score_bound_to_condition":
+                expected_outcome = {"posture", "condition_id", "inference_receipt_id",
+                    "inference_receipt_digest", "output_digest", "score_digest",
+                    "score_status", "correct", "correct_count", "probe_count",
+                    "oracle_answer_retained", "causal_effect_established"}
+                linkage = original.get("resource_linkage")
+                count = task_outcome.get("correct_count")
+                probes = task_outcome.get("probe_count")
+                if (set(task_outcome) != expected_outcome
+                        or task_outcome.get("condition_id") != original.get(
+                            "developmental_history_condition")
+                        or task_outcome.get("inference_receipt_id") != original.get(
+                            "invocation_receipt_id")
+                        or task_outcome.get("inference_receipt_digest") != original.get(
+                            "invocation_receipt_digest")
+                        or not isinstance(task_outcome.get("output_digest"), str)
+                        or len(task_outcome["output_digest"]) not in {64, 71}
+                        or (len(task_outcome["output_digest"]) == 71
+                            and not task_outcome["output_digest"].startswith("sha256:"))
+                        or not isinstance(task_outcome.get("score_digest"), str)
+                        or len(task_outcome["score_digest"]) != 71
+                        or not task_outcome["score_digest"].startswith("sha256:")
+                        or not isinstance(task_outcome.get("score_status"), str)
+                        or (task_outcome.get("correct") is not None
+                            and type(task_outcome.get("correct")) is not bool)
+                        or not ((count is None and probes is None) or (
+                            type(count) is int and type(probes) is int
+                            and 0 <= count <= probes <= 16))
+                        or task_outcome.get("oracle_answer_retained") is not False
+                        or task_outcome.get("causal_effect_established") is not False
+                        or not isinstance(linkage, Mapping)
+                        or linkage.get("effect_receipt_id") != task_outcome.get(
+                            "inference_receipt_id")
+                        or linkage.get("effect_receipt_digest") != task_outcome.get(
+                            "inference_receipt_digest")):
+                    raise DevelopmentalWritebackError(
+                        "resource_task_outcome_projection_binding_invalid")
+            else:
+                raise DevelopmentalWritebackError("resource_task_outcome_projection_invalid")
+            summary["task_outcome"] = dict(task_outcome)
         if "resource_consumption_evidence" in original:
             evidence = original.get("resource_consumption_evidence")
             summary["resource_consumption_evidence"] = (list(evidence[:2])

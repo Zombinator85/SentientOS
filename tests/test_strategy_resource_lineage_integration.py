@@ -283,6 +283,9 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
         "active_model_identity": {}, "authority_map_digest": developmental_request.authority_map_digest,
         "conditions": [condition],
         "objective_task_descriptor": {"task_family_id": "fixture-affine"},
+        "objective_scores": [{"condition_id": "history_present",
+            "score_digest": "sha256:" + "a" * 64, "status": "scored",
+            "correct": True, "correct_count": 2, "probe_count": 2}],
     }
     developmental_record = {"source_kind": "embodiment",
         "source_id": "fixture-developmental-run", "subject_id": "fixture-developmental-resource-run",
@@ -299,6 +302,15 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
         if row["subject_kind"] == "developmental_history_invocation_resource_lineage"]
     assert history_lineage["disposition"] == "verified", history_lineage["payload"]["lineage_findings"]
     assert history_lineage["payload"]["task_family_id"] == "fixture-affine"
+    outcome = history_lineage["payload"]["task_outcome"]
+    assert outcome == {"posture": "run_owner_score_bound_to_condition",
+        "condition_id": "history_present",
+        "inference_receipt_id": developmental_receipt.receipt_id,
+        "inference_receipt_digest": developmental_receipt.receipt_digest,
+        "output_digest": developmental_receipt.output_digest,
+        "score_digest": "sha256:" + "a" * 64, "score_status": "scored",
+        "correct": True, "correct_count": 2, "probe_count": 2,
+        "oracle_answer_retained": False, "causal_effect_established": False}
     assert history_lineage["payload"]["resource_measurement_posture"] == "verified_ledger_receipt_values"
     measurement_rows = history_lineage["payload"]["resource_consumption_evidence"]
     assert len(measurement_rows) == 2
@@ -313,9 +325,18 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
     # fixture, and its lesson remains separately admitted historical context.
     from sentientos.world_state_board import WorldStateBoardBuilder
     from tests.test_resident_developmental_cognition import owner as cognition_owner
+    from sentientos.resident_developmental_writeback import DevelopmentalWritebackError
     board = WorldStateBoardBuilder().build([history_lineage])
     cognition, fixture_model = cognition_owner(tmp_path / "cognition",
         allowed_source_kinds=("resource_governor",), max_selected_facts=16)
+    substituted_outcome = json.loads(json.dumps(history_lineage))
+    substituted_outcome["payload"]["task_outcome"]["inference_receipt_id"] = "substituted"
+    substituted_outcome["digest"] = record_digest(substituted_outcome)
+    substituted_board = WorldStateBoardBuilder().build([substituted_outcome])
+    with pytest.raises(DevelopmentalWritebackError,
+            match="resource_task_outcome_projection_binding_invalid"):
+        cognition.writeback.select_evidence(substituted_board,
+            fact_ids=tuple(fact.fact_id for fact in substituted_board.facts))
     cognition_result = cognition.run_tick(snapshot=board,
         tick_id="resource-lineage-developmental-interpretation")
     assert cognition_result.written_record_id
@@ -323,6 +344,7 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
     assert any(fact["subject"]["subject_kind"]
             == "developmental_history_invocation_resource_lineage"
         and fact["payload"]["resource_measurement_posture"] == "verified_ledger_receipt_values"
+        and fact["payload"]["task_outcome"]["score_digest"] == outcome["score_digest"]
         for fact in admitted.candidate["selected_facts"])
     assert fixture_model.requests
 

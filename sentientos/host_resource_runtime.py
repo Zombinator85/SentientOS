@@ -1401,6 +1401,9 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         task_descriptor = run_payload.get("objective_task_descriptor")
         task_family_id = (task_descriptor.get("task_family_id")
             if isinstance(task_descriptor, Mapping) else None)
+        raw_scores = run_payload.get("objective_scores")
+        score_rows = (tuple(item for item in raw_scores if isinstance(item, Mapping))
+            if isinstance(raw_scores, (list, tuple)) else ())
         for condition in conditions:
             if not isinstance(condition, Mapping):
                 continue
@@ -1423,6 +1426,43 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "history_record_digests": list(run_payload.get("history_record_digests") or ()),
                 "history_withheld": condition.get("condition_id") == "history_withheld",
                 "task_family_id": task_family_id}
+            condition_scores = [item for item in score_rows
+                if item.get("condition_id") == condition.get("condition_id")]
+            task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
+            if raw_scores is not None:
+                if len(condition_scores) != 1:
+                    candidate_findings.append(
+                        "developmental_experiment_condition_score_missing_or_ambiguous")
+                    task_outcome = {"posture": "score_binding_invalid"}
+                else:
+                    score = condition_scores[0]
+                    correct_count = score.get("correct_count")
+                    probe_count = score.get("probe_count")
+                    valid_counts = (correct_count is None and probe_count is None) or (
+                        type(correct_count) is int and type(probe_count) is int
+                        and 0 <= correct_count <= probe_count <= 16)
+                    if (not isinstance(score.get("score_digest"), str)
+                            or not score["score_digest"].startswith("sha256:")
+                            or len(score["score_digest"]) != 71
+                            or not isinstance(score.get("status"), str)
+                            or (score.get("correct") is not None
+                                and type(score.get("correct")) is not bool)
+                            or not valid_counts):
+                        candidate_findings.append(
+                            "developmental_experiment_condition_score_invalid")
+                        task_outcome = {"posture": "score_binding_invalid"}
+                    else:
+                        task_outcome = {"posture": "run_owner_score_bound_to_condition",
+                            "condition_id": condition.get("condition_id"),
+                            "inference_receipt_id": condition.get("inference_receipt_id"),
+                            "inference_receipt_digest": condition.get("inference_receipt_digest"),
+                            "output_digest": condition.get("output_digest"),
+                            "score_digest": score["score_digest"],
+                            "score_status": score["status"],
+                            "correct": score.get("correct"),
+                            "correct_count": correct_count, "probe_count": probe_count,
+                            "oracle_answer_retained": False,
+                            "causal_effect_established": False}
             history_linkage: dict[str, Any] = {
                 "posture": "invocation_receipt_bound_ledger_corroboration_not_performed",
                 "request_id": condition.get("request_id"),
@@ -1444,6 +1484,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "invocation_request_context_linkage": request_context,
                 "invocation_receipt_id": history_linkage["effect_receipt_id"],
                 "invocation_receipt_digest": history_linkage["effect_receipt_digest"],
+                "_developmental_history_task_outcome": task_outcome,
                 "active_model_identity_digest": (digest(condition["active_model_identity"])
                     if isinstance(condition.get("active_model_identity"), Mapping) else None),
                 "_lineage_findings": candidate_findings,
@@ -1806,7 +1847,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "developmental_history_protocol_digest": history_candidate.get(
                     "_developmental_history_protocol_digest"),
                 "task_family_id": history_candidate.get("_developmental_history_task_family_id"),
-                "active_model_identity": history_candidate.get("_developmental_history_model_identity")})
+                "active_model_identity": history_candidate.get("_developmental_history_model_identity"),
+                "task_outcome": history_candidate.get("_developmental_history_task_outcome")})
         join["digest"] = record_digest(join)
         if len(json.dumps(join, sort_keys=True, separators=(",", ":")).encode("utf-8")) > 32_768:
             raise ValueError("resource_proposal_join_record_oversized")
