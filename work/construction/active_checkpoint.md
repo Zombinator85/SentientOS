@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Task-family history is selected by exact public-probe overlap and checkpoint recency, with adverse outcomes retained. The experiment preregisters the exact complete history packets admitted by bounded inference context, while binding the full available set, omitted identities, omission reason, and selection manifest. Strict condition drift checks remain in force. Current validation is fixture based.
+Task-family history is selected by exact public-probe overlap and checkpoint recency, with adverse outcomes retained. Input ordering now ensures that prompt-budget suffix admission keeps the strongest overlap records as capacity shrinks. The experiment preregisters the exact complete history packets admitted by bounded inference context, while binding the full available set, omitted identities, omission reason, and selection manifest. Strict condition drift checks remain in force. Current validation is fixture based.
 
-Latest source commit: 32c1291a481416b207a8f6947f3f959df8982970
-Latest source tree: 615c8439fc9607690c4498b982ed9973d0421059
-Latest segment: work/construction/segments/0172-bounded-task-relevance-and-protocol-identity.md
-Segment SHA-256: 54cd1eb808dec1d9377e8bb85e4ee53daa53e88c293a0b47d06772083146c76c
-Evidence: work/construction/evidence/0172-bounded-task-relevance-and-protocol-identity.json
-Evidence SHA-256: ead34c37a6e5819cd54d68dcc15b9355b5e7b48a61cc54566557d5ab599fae6f
-Sequence: 172
+Latest source commit: 205a84168a4128df5cfbbb36435970481e1e5343
+Latest source tree: c3e346bc429e228b186ca345adbb986ad08b6607
+Latest segment: work/construction/segments/0173-preserve-relevance-under-prompt-capacity.md
+Segment SHA-256: 9bf7d6b82963797f5f1d017f6d212a817852d6781fabaf000ab66e61e32bbab3
+Evidence: work/construction/evidence/0173-preserve-relevance-under-prompt-capacity.json
+Evidence SHA-256: c61c60f18f6273debca1c2325cbe8725933b4df26a5838f3d064105bb4782d93
+Sequence: 173
 
-Next: adversarially validate bounded selection under a saturated prompt with competing positive and adverse task-family records, stable tie-breaking, omission evidence, and downstream outcome lineage. A real-model transfer run remains unmeasured; no model activation or production authority was used.
+Next: add an explicit saturated-budget adversarial case with overlapping positive and adverse records, then verify the omitted-history manifest and progression lineage after restart. A real-model transfer run remains unmeasured; no model activation or production authority was used.
