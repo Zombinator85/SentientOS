@@ -1000,6 +1000,31 @@ print(json.dumps({"context_id": context["context_id"],
         "task_descriptor"]["task_digest"]
     assert "multiplier" not in json.dumps(scored_records[0]["payload"])
     assert "offset" not in json.dumps(scored_records[0]["payload"])
+    call_counts = (len(scored_a.calls), len(scored_b.calls))
+    restarted_scored = DevelopmentalModelReplacementExperiment(
+        context=succession_context, model_a=scored_a, model_b=scored_b,
+        artifact_root=tmp_path / "family-model-replacement-scored",
+        objective_task=ObjectivePredictionTask(3, 2, 10, (11, 12),
+            task_family_id="integer_affine_prediction", requires_task_family_history=True))
+    recovered_scored_run = restarted_scored.run(trial_id="family-score-contract")
+    assert recovered_scored_run["run_id"] == scored_run["run_id"]
+    assert recovered_scored_run["run_digest"] == scored_run["run_digest"]
+    assert (len(scored_a.calls), len(scored_b.calls)) == call_counts
+    assert restarted_scored.store.world_state_records(run_refs=(
+        (recovered_scored_run["run_id"], recovered_scored_run["run_digest"]),)) == scored_records
+
+    from sentientos.resident_developmental_writeback import (
+        _model_replacement_interpretation_projection,
+    )
+    substituted_score_record = json.loads(json.dumps(scored_records[0]))
+    substituted_score_record["payload"]["objective_score_contract"]["task_digest"] = "sha256:" + "0" * 64
+    rejected_projection = _model_replacement_interpretation_projection(
+        {"fact_id": scored_records[0]["source_id"]},
+        substituted_score_record["payload"], scored_records[0])
+    assert "objective_score_contract" not in rejected_projection["payload"]
+    assert rejected_projection["payload"]["objective_score_contract_posture"] == \
+        "invalid_or_inconsistent"
+
     scored_world = WorldStateBoardBuilder().build(scored_records)
     scored_tick = cognition.run_tick(snapshot=scored_world,
         tick_id="family-model-replacement-score-writeback")
