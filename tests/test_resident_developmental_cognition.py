@@ -1476,26 +1476,41 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "probe_input": row["probe_input"], "observed_answer": row["observed_answer"],
         "evaluator_correct": row["evaluator_correct"]}
         for row in family_fact["payload"]["acquisition_examples"]]
+    # Contradictory lineage must not survive as a cognition packet even if the
+    # surrounding task-family label and example values still look plausible.
+    import copy
+    mismatched_score = copy.deepcopy(admitted.candidate)
+    mismatched_family_fact = next(fact for fact in mismatched_score["selected_facts"]
+        if fact["fact_id"] == family_fact["fact_id"])
+    mismatched_family_fact["payload"]["acquisition_examples"][0][
+        "source_score_digest"] = "sha256:" + "f" * 64
+    assert _task_family_history_examples(mismatched_score,
+        task_family_id="integer_affine_prediction") == []
+    substituted_source = copy.deepcopy(admitted.candidate)
+    substituted_family_fact = next(fact for fact in substituted_source["selected_facts"]
+        if fact["fact_id"] == family_fact["fact_id"])
+    substituted_family_fact["source"]["digest"] = "e" * 64
+    assert _task_family_history_examples(substituted_source,
+        task_family_id="integer_affine_prediction") == []
     assert _task_family_history_examples(admitted.candidate,
         task_family_id="unrelated_family") == []
     assert "multiplier" not in json.dumps(projected_examples)
     assert "offset" not in json.dumps(projected_examples)
 
-    # Reconstruct a fresh composition owner from durable checkpoint/history.
-    restarted, _ = owner(tmp_path, comparison=True, invoker=fake,
-        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    # Stage the second request, then execute it in a new interpreter. The child
+    # receives only the bounded serialized fixture receipts and durable roots;
+    # it cannot inherit the parent's invoker, receipt dictionary, owner, or run
+    # objects.
     heldout_task = ObjectivePredictionTask(3, 2, 10, (11, 12),
         task_family_id="integer_affine_prediction", requires_task_family_history=True)
     _, heldout_request, eligible_count = stage_request(config_path=config_path,
         request_id="episode-heldout-after-restart", task=heldout_task)
     assert eligible_count >= 1
-    fake.objective_mode = "derive_from_admitted_family"
-    heldout_snapshot = snapshot()
-    heldout = restarted.run_objective_intervention_once(snapshot=heldout_snapshot,
-        tick_id="episode-heldout-after-restart", objective_task=heldout_task,
+    episode = _run_family_episode_in_child(tmp_path, fake.receipts,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
         request_id="episode-heldout-after-restart",
         request_digest=str(heldout_request["request_digest"]))
-    heldout_run = restarted.experiments.load_run(str(heldout.changed_cognition_measurement_id))
+    heldout_run = episode["run"]
     present, withheld, restored = heldout_run["conditions"]
     assert feedback.written_record_id in present["retrieved_record_ids"]
     assert withheld["retrieved_record_ids"] == []
@@ -1506,11 +1521,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert scores["history_withheld"]["correct_count"] == 0
     assert scores["history_restored"]["correct_count"] == 3
     # Exact request correlation binds each control to this held-out tick.
-    heldout_prompts = {request.correlation_id.rsplit(":", 1)[-1]: request.prompt
-        for request in fake.requests
-        if request.purpose == "resident_developmental_history_intervention_experiment"
-        and request.correlation_id.startswith("episode-heldout-after-restart:")
-        and request.prompt.lstrip().startswith("{")}
+    heldout_prompts = episode["prompts"]
     for condition_id, prompt in heldout_prompts.items():
         body = json.loads(prompt)
         assert not any("task_relevant_experience" in fact
@@ -1524,9 +1535,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert "learning_established" not in heldout_run["objective_evaluation"]
     assert heldout_run["objective_evaluation"]["scope"] == \
         "same_model_task_correctness_not_general_learning_or_weight_change"
-    progression = restarted.verified_objective_task_family_progression(request_refs=(
-        ("episode-acquisition", str(acquisition_request["request_digest"])),
-        ("episode-heldout-after-restart", str(heldout_request["request_digest"]))))
+    progression = episode["progression"]
     assert progression["episode_count"] == 2
     assert progression["distinct_task_instances"] is True
     assert progression["distinct_probe_sets"] is True
@@ -1540,6 +1549,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert progression["actual_nonsynthetic_inference_verified"] is False
     assert progression["learning_established"] is False
     assert progression["performance_improvement_established"] is False
+    assert episode["fresh_process"] is True
+    assert episode["fixture_only"] is True
 
 
 def test_legacy_oracle_hashes_are_excluded_from_current_cognition(tmp_path: Path) -> None:
@@ -2577,10 +2588,15 @@ def _reconstruct_progression_in_child(root: Path, receipts: Mapping[str, Any],
         request_refs: list[tuple[str, str]]) -> Mapping[str, Any]:
     """Reconstruct a task-family progression in a fresh interpreter."""
     receipt_path = root / "fixture-issued-invocation-receipts.json"
-    receipt_path.write_text(json.dumps({receipt_id: receipt.to_dict()
-        for receipt_id, receipt in receipts.items()}, sort_keys=True), encoding="utf-8")
+    receipt_bytes = json.dumps({receipt_id: receipt.to_dict()
+        for receipt_id, receipt in receipts.items()}, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")
+    if len(receipt_bytes) > 4 * 1024 * 1024:
+        raise AssertionError("fixture receipt custody exceeded bounded test size")
+    receipt_path.write_bytes(receipt_bytes)
+    receipt_digest = hashlib.sha256(receipt_bytes).hexdigest()
     child_code = r'''
-import json, sys
+import hashlib, json, sys
 from pathlib import Path
 from sentientos.codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK, RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION)
@@ -2591,7 +2607,11 @@ from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthor
 
 root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
 refs = json.loads(sys.argv[3])
-receipts = json.loads(receipt_path.read_text(encoding="utf-8"))
+raw = receipt_path.read_bytes()
+assert len(raw) <= 4 * 1024 * 1024
+assert hashlib.sha256(raw).hexdigest() == sys.argv[4]
+receipts = json.loads(raw.decode("utf-8"))
+assert json.dumps(receipts, sort_keys=True, separators=(",", ":")).encode("utf-8") == raw
 class PersistedFixtureReceiptVerifier:
     def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
         value = receipts[receipt_id]
@@ -2633,8 +2653,87 @@ print(json.dumps(owner.verified_objective_task_family_progression(
     request_refs=tuple(tuple(item) for item in refs)), sort_keys=True))
 '''
     child = subprocess.run([sys.executable, "-c", child_code, str(root), str(receipt_path),
-        json.dumps(request_refs)], cwd=Path(__file__).resolve().parents[1],
+        json.dumps(request_refs), receipt_digest], cwd=Path(__file__).resolve().parents[1],
         capture_output=True, text=True, check=True)
+    return json.loads(child.stdout.strip().splitlines()[-1])
+
+
+def _run_family_episode_in_child(root: Path, receipts: Mapping[str, Any], *,
+        acquisition_request_digest: str, request_id: str,
+        request_digest: str) -> Mapping[str, Any]:
+    """Run and score one staged task-family episode in an isolated interpreter.
+
+    This exercises durable history/request custody and fresh-process composition
+    with a deterministic fixture issuer; it is not model-performance evidence.
+    """
+    receipt_path = root / "fixture-issued-invocation-receipts.json"
+    receipt_bytes = json.dumps({receipt_id: receipt.to_dict()
+        for receipt_id, receipt in receipts.items()}, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")
+    if len(receipt_bytes) > 4 * 1024 * 1024:
+        raise AssertionError("fixture receipt custody exceeded bounded test size")
+    receipt_path.write_bytes(receipt_bytes)
+    receipt_digest = hashlib.sha256(receipt_bytes).hexdigest()
+    child_code = r'''
+import hashlib, importlib.util, json, sys
+from pathlib import Path
+from types import SimpleNamespace
+
+root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
+request_id, request_digest, custody_digest = sys.argv[3:6]
+raw = receipt_path.read_bytes()
+assert len(raw) <= 4 * 1024 * 1024
+assert hashlib.sha256(raw).hexdigest() == custody_digest
+receipt_values = json.loads(raw.decode("utf-8"))
+assert json.dumps(receipt_values, sort_keys=True, separators=(",", ":")).encode() == raw
+test_path = Path.cwd() / "tests" / "test_resident_developmental_cognition.py"
+spec = importlib.util.spec_from_file_location("fixture_cognition_tests", test_path)
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+invoker = module.SessionBoundFakeInvoker()
+invoker.objective_mode = "derive_from_admitted_family"
+invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
+# Reconstitute the fixture issuer's prior receipt index from serialized custody;
+# the child does not receive or inherit the parent's Python receipt objects.
+for receipt_id, value in receipt_values.items():
+    assert value.get("receipt_id") == receipt_id
+    value.setdefault("backend_completion", None)
+    value.setdefault("resource_allocation_digest", None)
+    value.setdefault("resource_attempt_id", None)
+    value.setdefault("resource_consumption_receipt_digests", [])
+    value.setdefault("resource_linkage_digest", None)
+    invoker.receipts[receipt_id] = SimpleNamespace(**value)
+owner, _ = module.owner(root, comparison=True, invoker=invoker,
+    allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+request_values = json.loads(sys.argv[6])
+request = module.load_objective_request(root / "state")
+assert request is not None
+assert request.get("request_id") == request_id
+assert request.get("request_digest") == request_digest
+task = module.objective_task_for_request(request)
+result = owner.run_objective_intervention_once(snapshot=module.snapshot(),
+    tick_id=request_id, objective_task=task, request_id=request_id,
+    request_digest=request_digest)
+run = owner.experiments.load_run(str(result.changed_cognition_measurement_id))
+prompts = {request.correlation_id.rsplit(":", 1)[-1]: request.prompt
+    for request in invoker.requests
+    if request.purpose == "resident_developmental_history_intervention_experiment"
+    and request.correlation_id.startswith(request_id + ":")
+    and request.prompt.lstrip().startswith("{")}
+progression = owner.verified_objective_task_family_progression(request_refs=(
+    ("episode-acquisition", str(request_values["acquisition_digest"])),
+    (request_id, request_digest)))
+print(json.dumps({"fresh_process": True, "fixture_only": True,
+    "run": run, "progression": progression, "prompts": prompts}, sort_keys=True))
+'''
+    child_request_values = {"acquisition_digest": acquisition_request_digest}
+    child = subprocess.run([sys.executable, "-c", child_code, str(root), str(receipt_path),
+        request_id, request_digest, receipt_digest,
+        json.dumps(child_request_values, sort_keys=True)],
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
+    if child.returncode != 0:
+        raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
     return json.loads(child.stdout.strip().splitlines()[-1])
 
 
