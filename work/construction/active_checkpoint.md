@@ -1,15 +1,17 @@
 # Active construction checkpoint
 
-Sequence 161 binds the canonical completed developmental-history run source to its World-State subject before projection. Adversarial tests reject substituted task outcomes and source/subject identities. The actual cognition prompt is checked for oracle fields/values.
+New objective requests use nonce-salted task commitments. Immutable plan custody retains the nonce and oracle; cognition receives only safe descriptors and salted digests. Public plan hashes exclude the private task/nonce. Legacy protocol, plan, and request readers remain versioned. A/B replacement recovers its salt from its exact immutable plan.
 
-Two focused tests passed (103.99s), and changed Python compiled. The experiment used fixture-issued inference receipts; no real model learning or production behavior was measured.
+The canonical A/B rehearsal identified and repaired loss of concrete currentness failure codes through the durable no-retry record.
 
-Latest source commit: 1d23b1eea68127f01910e905ce5618b6f57e6f18
-Latest source tree: f0b1b560a617451a39eb248fae995b68fbe45e3a
-Latest segment: work/construction/segments/0161-source-identity-binding.md
-Segment SHA-256: 2b590fdad6aa00c6a2ef96d1a228f099775dfe0a12fa65b95c002b4c7d327976
-Evidence: work/construction/evidence/0161-source-identity-binding.json
-Evidence SHA-256: 3d308ee515fdd39f84e1851cc7060470c3d6ab096194325092de8d52985b5402
-Sequence: 161
+Focused evidence: 44 objective/history integration tests passed (84.68s), all 8 rehearsal and legacy-request checks passed (2.76s), and the currentness no-retry control passed (0.57s). Changed Python/test files compiled. Synthetic fixture results only; no actual model learning or production behavior.
 
-Next: remove oracle-derived task/plan hashes from cognition metadata without invalidating historical v1-v3 experiment receipts.
+Latest source commit: 710846a7708f0f1a6289187051c26286228f6115
+Latest source tree: 1e67c21c01470218fac24245c1aff670022732aa
+Latest segment: work/construction/segments/0162-salted-objective-commitments.md
+Segment SHA-256: 6be0d7f2c250aad3ced128bdab2c4792ebc1c0e88eb743092c6e1f76f31fa54f
+Evidence: work/construction/evidence/0162-salted-objective-commitments.json
+Evidence SHA-256: 3d90b952238bbeef868d263c3ec3f0bdadb5f757a32467750d3aca6db841bfab
+Sequence: 162
+
+Next: audit all remaining cognition-facing metadata and retrieval paths for oracle-derived identities, including A/B campaign/report projections, then continue to later-episode decision or strategy transfer beyond factual affine-example recall.
