@@ -372,6 +372,7 @@ def test_same_model_history_intervention_uses_preregistered_objective_oracle(
     run = cognition.experiments.load_run(second.changed_cognition_measurement_id)
     contamination = run["contamination_assessment"]
     assert contamination["status"] == "not_assessed"
+    assert run["contamination_reasons"] is None
     assert contamination["objective_task_digest"] == task.public_descriptor()["task_digest"]
     assert contamination["current_projection_digest"] == run["protocol"]["current_projection_digest"]
     assert contamination["history_examples_absent_from_current_context"] is None

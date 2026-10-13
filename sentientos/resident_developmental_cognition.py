@@ -1816,7 +1816,7 @@ class ResidentDevelopmentalCognitionOwner:
                 run_payload = {"protocol": asdict(protocol),
                     "conditions": [asdict(value) for value in observation_values],
                     "summary": summary, "validity": "valid_controlled_observation",
-                    "contamination_reasons": [], "objective_scores": score_values,
+                    "contamination_reasons": None, "objective_scores": score_values,
                     "objective_evaluation": evaluation,
                     "contamination_assessment": objective_task_contamination_assessment(protocol)}
                 run_id = self.experiments.persist_run(run_payload)
@@ -3306,6 +3306,7 @@ class ResidentDevelopmentalCognitionOwner:
                     "conditions":[asdict(x) for x in observations], "summary":summary,
                     "validity":"valid_controlled_observation", "contamination_reasons":[]}
                 if objective_plan is not None:
+                    run_payload["contamination_reasons"] = None
                     run_payload["contamination_assessment"] = (
                         objective_task_contamination_assessment(protocol))
                     objective_scores = [self._pending_objective_scores.pop(item.observation_id)

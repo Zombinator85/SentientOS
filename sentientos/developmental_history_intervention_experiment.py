@@ -465,7 +465,9 @@ class DevelopmentalExperimentStore:
                 or not expected_fields.issubset(value) or not isinstance(protocol_raw, Mapping)
                 or not isinstance(conditions, list) or not isinstance(value.get("summary"), Mapping)
                 or value.get("validity") != "valid_controlled_observation"
-                or value.get("contamination_reasons") != []):
+                or value.get("contamination_reasons") not in ([], None)
+                or (value.get("contamination_reasons") is None
+                    and "contamination_assessment" not in value)):
             raise DevelopmentalHistoryInterventionError("run_artifact_control_invalid")
         protocol_payload = dict(protocol_raw)
         tuple_fields = ("current_fact_ids", "record_ids", "record_digests", "condition_order",
@@ -479,6 +481,7 @@ class DevelopmentalExperimentStore:
             assessment = value.get("contamination_assessment")
             if (assessment is not None
                     and (protocol.schema_version != OBJECTIVE_SCHEMA
+                        or value.get("contamination_reasons") is not None
                         or assessment != objective_task_contamination_assessment(protocol))):
                 raise ValueError("objective_task_contamination_assessment_invalid")
             from .resident_developmental_cognition import ResidentCognitionObservation
