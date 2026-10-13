@@ -25,7 +25,7 @@ from sentientos.host_resource_runtime import (
 )
 from sentientos.governed_local_model_invocation import (
     GovernedLocalModelInvoker, LocalModelInvocationBudget, LocalModelInvocationReceipt,
-    FORBIDDEN_EFFECTS, validate_receipt,
+    FORBIDDEN_EFFECTS,
 )
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model_authority import digest_payload
@@ -324,6 +324,83 @@ class SessionBoundFakeInvoker(FakeInvoker):
                 receipt.resource_consumption_receipt_digests),
             "resource_linkage_digest": receipt.resource_linkage_digest,
             "observed_at": receipt.observed_at}
+
+
+class InstallationCustodyFakeInvoker(SessionBoundFakeInvoker):
+    """Deterministic issuer whose receipts use the real installation custody reader."""
+
+    installation_handle = None
+    installation_reader = None
+
+    def invoke(self, request, **kwargs):
+        receipt = super().invoke(request, **kwargs)
+        if self.installation_handle is None:
+            raise AssertionError("fixture installation writer not configured")
+        relative = ("local-model/resident-cognitive-serving/inference/receipts/"
+            + receipt.receipt_id + ".json")
+        target = self.installation_handle.fixed_object(relative)
+        self.installation_handle.ensure_directory(
+            self.installation_handle.fixed_object(relative.rsplit("/", 1)[0]))
+        payload = (json.dumps(receipt.to_dict(), sort_keys=True, indent=2) + "\n").encode()
+        self.installation_handle.durable_create(target, payload)
+        return receipt
+
+    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+        if self.installation_reader is None:
+            raise AssertionError("fixture read-only installation receipt reader not configured")
+        return self.installation_reader.verify_persisted_invocation_receipt(
+            receipt_id, receipt_digest, **expected)
+
+
+def _bind_fixture_installation_custody(root: Path,
+        invoker: InstallationCustodyFakeInvoker, *, publish_session: bool = True) -> None:
+    """Install synthetic serving witness and bind the fake issuer to real custody APIs."""
+    from sentientos.resident_cognitive_model_serving import (
+        WITNESS_SCHEMA, ResidentCognitiveInvocationReceiptReader, ServingSession,
+        _resident_serving_session_receipt, resident_serving_session_receipt_reference,
+    )
+    from sentientos.local_runtime_provisioning import semantic_digest
+
+    identity = InstallationIdentity("task-family-transfer-installation")
+    registry = InstallationStateRegistry._for_testing(root / "installation-custody")
+    handle = registry.open(identity, create=True)
+    binding = {
+        "installation_identity": identity.value,
+        "serving_operation_id": "task-family-transfer-serving",
+        "serving_config_digest": "d" * 64,
+        "model_serving_admission_ref": "local",
+        "activation_state_semantic_digest": "a" * 64,
+        "observed_loaded_model_identity": {},
+    }
+    session = ServingSession("resident-serving-session-" + semantic_digest(binding)[:24], binding)
+    session_receipt = _resident_serving_session_receipt(session.to_dict())
+    reference = resident_serving_session_receipt_reference(session)
+
+    def persist(relative: str, value: Mapping[str, object]) -> None:
+        target = handle.fixed_object(relative)
+        handle.ensure_directory(handle.fixed_object(relative.rsplit("/", 1)[0]))
+        payload = (json.dumps(dict(value), sort_keys=True, separators=(",", ":")) + "\n").encode()
+        if publish_session:
+            handle.durable_create(target, payload)
+
+    persist("local-model/resident-cognitive-serving/receipts/"
+        + session_receipt["receipt_id"] + ".json", session_receipt)
+    witness = {"schema_version": WITNESS_SCHEMA, "session_id": session.session_id,
+        "receipt_id": session_receipt["receipt_id"],
+        "receipt_semantic_digest": session_receipt["receipt_semantic_digest"],
+        "admission_decision_ref": binding["model_serving_admission_ref"],
+        "authority_class": AuthorityClass.MODEL_SERVING.value, "inference_performed": False}
+    witness["witness_semantic_digest"] = semantic_digest(witness)
+    persist("logs/privileges/" + session_receipt["receipt_id"] + ".json", witness)
+    invoker.session_id = session.session_id
+    invoker.session_binding = {
+        "model_serving_admission_ref": binding["model_serving_admission_ref"],
+        "activation_state_semantic_digest": binding["activation_state_semantic_digest"],
+        **reference,
+    }
+    invoker.installation_handle = handle
+    invoker.installation_reader = ResidentCognitiveInvocationReceiptReader(
+        registry.open_read_only(identity))
 
 
 def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(tmp_path: Path) -> None:
@@ -1437,7 +1514,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     """Fixture-only episode chain: acquired examples are reused after owner reconstruction."""
     from scripts.stage_resident_objective_intervention import stage_request
 
-    fake = SessionBoundFakeInvoker()
+    fake = InstallationCustodyFakeInvoker()
+    _bind_fixture_installation_custody(tmp_path, fake)
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
     config_path = tmp_path / "objective-config.json"
@@ -1506,7 +1584,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     _, heldout_request, eligible_count = stage_request(config_path=config_path,
         request_id="episode-heldout-after-restart", task=heldout_task)
     assert eligible_count >= 1
-    episode = _run_family_episode_in_child(tmp_path, fake.receipts,
+    episode = _run_family_episode_in_child(tmp_path,
         acquisition_request_digest=str(acquisition_request["request_digest"]),
         request_id="episode-heldout-after-restart",
         request_digest=str(heldout_request["request_digest"]))
@@ -1546,16 +1624,26 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert second_episode["conditions"][1]["task_family_retrieved_record_ids"] == []
     assert second_episode["conditions"][2]["task_family_retrieved_record_ids"] == [
         feedback.written_record_id]
-    assert progression["actual_nonsynthetic_inference_verified"] is False
+    # The production reader validates the fixture's canonical receipt claims.
+    # This remains a deterministic fake backend, not actual-model evidence.
+    assert progression["actual_nonsynthetic_inference_verified"] is True
     assert progression["learning_established"] is False
     assert progression["performance_improvement_established"] is False
     assert episode["fresh_process"] is True
     assert episode["fixture_only"] is True
-    assert _run_family_episode_in_child(tmp_path, fake.receipts,
+    tampered_receipt = next(receipt.receipt_id for receipt in fake.receipts.values()
+        if receipt.purpose == "resident_developmental_history_intervention_experiment"
+        and "objective_task_plan_digest" in receipt.request.get("upstream_evidence", {}))
+    tamper_task = ObjectivePredictionTask(3, 2, 13, (14, 15),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, tamper_request, tamper_eligible = stage_request(config_path=config_path,
+        request_id="episode-heldout-tamper-control", task=tamper_task)
+    assert tamper_eligible >= 1
+    assert _run_family_episode_in_child(tmp_path,
         acquisition_request_digest=str(acquisition_request["request_digest"]),
-        request_id="episode-heldout-after-restart",
-        request_digest=str(heldout_request["request_digest"]),
-        tamper_receipt_custody=True)["rejected_before_owner_recovery"] is True
+        request_id="episode-heldout-tamper-control",
+        request_digest=str(tamper_request["request_digest"]),
+        tamper_receipt_id=tampered_receipt)["rejected_before_owner_recovery"] is True
 
 
 def test_legacy_oracle_hashes_are_excluded_from_current_cognition(tmp_path: Path) -> None:
@@ -2666,67 +2754,60 @@ print(json.dumps(owner.verified_objective_task_family_progression(
     return json.loads(child.stdout.strip().splitlines()[-1])
 
 
-def _run_family_episode_in_child(root: Path, receipts: Mapping[str, Any], *,
-        acquisition_request_digest: str, request_id: str,
-        request_digest: str, tamper_receipt_custody: bool = False) -> Mapping[str, Any]:
-    """Run and score one staged task-family episode in an isolated interpreter.
+def _run_family_episode_in_child(root: Path, *, acquisition_request_digest: str,
+        request_id: str, request_digest: str,
+        tamper_receipt_id: str | None = None) -> Mapping[str, Any]:
+    """Run transfer in a fresh process through installation-scoped production readers.
 
-    This exercises durable history/request custody and fresh-process composition
-    with a deterministic fixture issuer; it is not model-performance evidence.
+    Inference itself is issued by a deterministic fixture; the persisted receipt
+    verifier and storage path are the normal installation-owned implementations.
     """
-    receipt_path = root / "fixture-issued-invocation-receipts.json"
-    receipt_bytes = json.dumps({receipt_id: receipt.to_dict()
-        for receipt_id, receipt in receipts.items()}, sort_keys=True,
-        separators=(",", ":")).encode("utf-8")
-    if len(receipt_bytes) > 4 * 1024 * 1024:
-        raise AssertionError("fixture receipt custody exceeded bounded test size")
-    receipt_path.write_bytes(receipt_bytes)
-    receipt_digest = hashlib.sha256(receipt_bytes).hexdigest()
+    installation_root = root / "installation-custody"
+    tampered_path: Path | None = None
+    original_receipt: bytes | None = None
+    if tamper_receipt_id is not None:
+        if (not tamper_receipt_id.startswith("lmrec-") or len(tamper_receipt_id) != 30):
+            raise AssertionError("invalid fixture receipt identity for tamper control")
+        registry = InstallationStateRegistry._for_testing(installation_root)
+        installation_handle = registry.open(
+            InstallationIdentity("task-family-transfer-installation"), create=False)
+        tampered_path = (installation_handle.root / "local-model" / "resident-cognitive-serving"
+            / "inference" / "receipts" / (tamper_receipt_id + ".json"))
+        original_receipt = tampered_path.read_bytes()
+        altered = json.loads(original_receipt.decode("utf-8"))
+        altered["request"]["request_digest"] = "sha256:" + "f" * 64
+        tampered_path.write_text(json.dumps(altered, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8")
     child_code = r'''
-import hashlib, importlib.util, json, sys
+import importlib.util, json, sys
 from pathlib import Path
-from types import SimpleNamespace
-from sentientos.governed_local_model_invocation import validate_receipt
 
-root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
-request_id, request_digest, custody_digest = sys.argv[3:6]
-raw = receipt_path.read_bytes()
-assert len(raw) <= 4 * 1024 * 1024
-assert hashlib.sha256(raw).hexdigest() == custody_digest
-receipt_values = json.loads(raw.decode("utf-8"))
-assert json.dumps(receipt_values, sort_keys=True, separators=(",", ":")).encode() == raw
-for receipt_id, value in receipt_values.items():
-    valid, reasons = validate_receipt(value)
-    assert valid, (receipt_id, reasons)
+root, installation_root = Path(sys.argv[1]), Path(sys.argv[2])
+request_id, request_digest = sys.argv[3:5]
 test_path = Path.cwd() / "tests" / "test_resident_developmental_cognition.py"
 spec = importlib.util.spec_from_file_location("fixture_cognition_tests", test_path)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
-invoker = module.SessionBoundFakeInvoker()
+invoker = module.InstallationCustodyFakeInvoker()
+module._bind_fixture_installation_custody(root, invoker, publish_session=False)
 invoker.objective_mode = "derive_from_admitted_family"
 invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
-# Reconstitute the fixture issuer's prior receipt index from serialized custody;
-# the child does not receive or inherit the parent's Python receipt objects.
-for receipt_id, value in receipt_values.items():
-    assert value.get("receipt_id") == receipt_id
-    value.setdefault("backend_completion", None)
-    value.setdefault("resource_allocation_digest", None)
-    value.setdefault("resource_attempt_id", None)
-    value.setdefault("resource_consumption_receipt_digests", [])
-    value.setdefault("resource_linkage_digest", None)
-    invoker.receipts[receipt_id] = SimpleNamespace(**value)
 owner, _ = module.owner(root, comparison=True, invoker=invoker,
     allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
-request_values = json.loads(sys.argv[6])
 request = module.load_objective_request(root / "state")
 assert request is not None
 assert request.get("request_id") == request_id
 assert request.get("request_digest") == request_digest
 task = module.objective_task_for_request(request)
-result = owner.run_objective_intervention_once(snapshot=module.snapshot(),
-    tick_id=request_id, objective_task=task, request_id=request_id,
-    request_digest=request_digest)
+try:
+    result = owner.run_objective_intervention_once(snapshot=module.snapshot(),
+        tick_id=request_id, objective_task=task, request_id=request_id,
+        request_digest=request_digest)
+except Exception as exc:
+    print(json.dumps({"status": "rejected", "reason": str(exc),
+        "new_invocations": len(invoker.requests)}, sort_keys=True))
+    raise SystemExit(0)
 run = owner.experiments.load_run(str(result.changed_cognition_measurement_id))
 prompts = {request.correlation_id.rsplit(":", 1)[-1]: request.prompt
     for request in invoker.requests
@@ -2734,28 +2815,27 @@ prompts = {request.correlation_id.rsplit(":", 1)[-1]: request.prompt
     and request.correlation_id.startswith(request_id + ":")
     and request.prompt.lstrip().startswith("{")}
 progression = owner.verified_objective_task_family_progression(request_refs=(
-    ("episode-acquisition", str(request_values["acquisition_digest"])),
-    (request_id, request_digest)))
+    ("episode-acquisition", sys.argv[5]), (request_id, request_digest)))
 print(json.dumps({"fresh_process": True, "fixture_only": True,
     "run": run, "progression": progression, "prompts": prompts}, sort_keys=True))
 '''
-    child_request_values = {"acquisition_digest": acquisition_request_digest}
-    if tamper_receipt_custody:
-        changed = b" " if receipt_bytes[-1:] != b" " else b"!"
-        receipt_path.write_bytes(receipt_bytes[:-1] + changed)
-    child = subprocess.run([sys.executable, "-c", child_code, str(root), str(receipt_path),
-        request_id, request_digest, receipt_digest,
-        json.dumps(child_request_values, sort_keys=True)],
-        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True)
-    if child.returncode != 0:
-        if tamper_receipt_custody:
-            assert "AssertionError" in child.stderr
-            assert "module.owner" not in child.stderr
+    try:
+        child = subprocess.run([sys.executable, "-c", child_code, str(root),
+            str(installation_root), request_id, request_digest,
+            acquisition_request_digest], cwd=Path(__file__).resolve().parents[1],
+            capture_output=True, text=True)
+        if child.returncode != 0:
+            raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
+        result = json.loads(child.stdout.strip().splitlines()[-1])
+        if tampered_path is not None:
+            assert result == {"status": "rejected",
+                "reason": "cognition_invocation_receipt_reconciliation_failed",
+                "new_invocations": 0}
             return {"rejected_before_owner_recovery": True, "fixture_only": True}
-        raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
-    if tamper_receipt_custody:
-        raise AssertionError("tampered fixture receipt custody was accepted")
-    return json.loads(child.stdout.strip().splitlines()[-1])
+        return result
+    finally:
+        if tampered_path is not None and original_receipt is not None:
+            tampered_path.write_bytes(original_receipt)
 
 
 def test_host_resource_owner_reaches_restart_safe_later_tick_cognition(
