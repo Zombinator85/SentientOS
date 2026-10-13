@@ -264,7 +264,8 @@ python scripts/stage_resident_objective_intervention.py \
   --config <resident-cognition-config.json> \
   --request-id <unique-request-id> \
   --multiplier <operator-selected-integer> --offset <operator-selected-integer> \
-  --probe <held-out-integer> [--probe <additional-held-out-integer> ...]
+  --probe <held-out-integer> [--probe <additional-held-out-integer> ...] \
+  --task-family-id <source-backed-family> --require-task-family-history
 
 python scripts/inspect_resident_objective_result.py \
   --config <resident-cognition-config.json> \
@@ -285,6 +286,14 @@ the same request return the same measurement digest and cannot replay inference.
 The result's separate inference flag describes only whether the three
 historical invocation receipts independently reconcile to completed
 nonsynthetic local-model inference.
+
+For a transfer task that must consume a matching admitted source outcome, pass
+both `--task-family-id` and `--require-task-family-history`. The family is an
+operator-declared protocol label, not evidence by itself; staging checks that a
+completed tick and verified writeback receipt name a retained record containing
+that exact family observation. Omitting both flags preserves the historical
+general-history behavior. Supplying a family without the requirement influences
+retrieval when a matching record exists but does not block if it is absent.
 
 Native Windows staging is unsupported; this command does not use a weaker
 fallback publisher. WSL is only a candidate supported host when both the daemon

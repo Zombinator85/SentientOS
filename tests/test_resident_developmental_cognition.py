@@ -975,6 +975,22 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
             episode["history_record_digests"]
 
 
+def test_objective_staging_arguments_can_require_exact_task_family_history() -> None:
+    from scripts.stage_resident_objective_intervention import objective_task_from_arguments
+
+    task = objective_task_from_arguments(multiplier=3, offset=2,
+        probes=[10, 11, 12], task_family_id="integer_affine_prediction",
+        require_task_family_history=True)
+    assert task.public_descriptor()["task_family_id"] == "integer_affine_prediction"
+    assert task.public_descriptor()["requires_task_family_history"] is True
+    optional = objective_task_from_arguments(multiplier=3, offset=2,
+        probes=[10, 11, 12])
+    assert optional.public_descriptor().get("task_family_id") is None
+    with pytest.raises(ValueError, match="requires --task-family-id"):
+        objective_task_from_arguments(multiplier=3, offset=2,
+            probes=[10, 11, 12], require_task_family_history=True)
+
+
 def test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer(
         tmp_path: Path) -> None:
     """A family match is relevant evidence, not an implicit success claim."""

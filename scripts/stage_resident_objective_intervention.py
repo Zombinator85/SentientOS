@@ -26,6 +26,22 @@ from sentientos.resident_developmental_writeback import ResidentDevelopmentalWri
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionVerifier
 
 
+def objective_task_from_arguments(*, multiplier: int, offset: int,
+        probes: list[int], task_family_id: str | None = None,
+        require_task_family_history: bool = False) -> ObjectivePredictionTask:
+    """Build the preregistered task while preserving explicit relevance intent."""
+    if not 1 <= len(probes) <= 16:
+        raise ValueError("one to sixteen distinct probes are required")
+    if require_task_family_history and not task_family_id:
+        raise ValueError("--require-task-family-history requires --task-family-id")
+    task = ObjectivePredictionTask(multiplier, offset, probes[0], tuple(probes[1:]),
+        task_family_id=task_family_id,
+        requires_task_family_history=require_task_family_history)
+    # Validate the same bounded identity and probe contract used by staging.
+    task.specification()
+    return task
+
+
 def stage_request(*, config_path: str | Path, request_id: str,
         task: ObjectivePredictionTask) -> tuple[Path, dict[str, object], int]:
     """Stage only after read-only verification of committed eligible history."""
@@ -64,6 +80,10 @@ def main() -> int:
     parser.add_argument("--offset", type=int, required=True)
     parser.add_argument("--probe", type=int, action="append", required=True,
         help="held-out integer probe; repeat for an exact-scored suite (maximum 16)")
+    parser.add_argument("--task-family-id",
+        help="operator-declared task family used for bounded history relevance selection")
+    parser.add_argument("--require-task-family-history", action="store_true",
+        help="block staging unless verified admitted history contains this exact task family")
     args = parser.parse_args()
     if not args.config:
         parser.error(f"--config or {CONFIG_ENV} is required")
@@ -71,9 +91,11 @@ def main() -> int:
         parser.exit(2, "blocked: this bounded private-file publisher is currently POSIX-only\n")
     if not 1 <= len(args.probe) <= 16:
         parser.error("one to sixteen distinct --probe values are required")
-    task = ObjectivePredictionTask(args.multiplier, args.offset, args.probe[0],
-        tuple(args.probe[1:]))
     try:
+        task = objective_task_from_arguments(multiplier=args.multiplier,
+            offset=args.offset, probes=args.probe,
+            task_family_id=args.task_family_id,
+            require_task_family_history=args.require_task_family_history)
         path, payload, history_record_count = stage_request(
             config_path=args.config, request_id=args.request_id, task=task)
     except (ResidentDevelopmentalCognitionError, OSError, ValueError) as exc:
