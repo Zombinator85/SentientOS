@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 126 continues from verified remote commit `1791d112175cebd0db9b465eb90f8d2643f02633`, tree `2b284c19d205613d192f64f341b5621d61f2144f`. Objective staging now requires read-only proof that the exact admitted record and receipt belong to the sealed completed tick, candidate snapshot, and deterministic operation identity. Sequence-126 focused cognition/experiment suites passed 91 cases and daemon runtime closure passed 28 cases; changed Python compiled. All tests used local fixtures, not a live model.
+Sequence 127 continues from verified remote source `523e6a22cc2e478f18a79f323ce4381b5918ebc3`, tree `52b3dfec76d665c6085c4e746a912c386b6e54ae`. A versioned task-family experiment can now carry evaluator-scored observed examples through World-State and ordinary admitted developmental writeback. Family-required retrieval survives five newer unrelated records, and controlled transfer excludes family facts from shared current evidence. Focused source-owner suites passed 163 cases; all used fixtures, not an actual cognitive model. Construction remains unverified for production.
 
-Latest segment: `work/construction/segments/0126-bind-staged-history-to-owner-tick.md`
-SHA-256: `8f903425f96f1e561f9e168dedbdabd548e66e4327346297bedd281624cbcfc4`
-Evidence: `work/construction/evidence/0126-bind-staged-history-to-owner-tick.json`
-Evidence SHA-256: `afcdf0ad77c390007fae1afa09672ff9863f70371f50baf6d683207df5deaa2e`
-Sequence: 126
+Latest segment: `work/construction/segments/0127-task-family-experience-transfer.md`
+SHA-256: `660d29b19dc353ec7e8fcb5498a309f267c8131dafe1625a6f5a4cf9689a1088`
+Evidence: `work/construction/evidence/0127-task-family-experience-transfer.json`
+Evidence SHA-256: `aa2da4caa5c32586d2a3b67312bf001214fc0ebcac997552b711ed5239166708`
+Sequence: 127
 
-Seq125 hosted Source validation and Helm smoke passed. Invariants, self-check, and docs failed at protected administrator/root gates. No real POSIX user host, running model, GPU, or production execution has been evidenced. Next: prepare and execute a real source-backed acquisition/transfer only when the exact operator-host event, daemon identity, model custody, and existing per-call admission are available; do not reconstruct or duplicate empty-history writeback.
+Next: add bounded multi-episode progression measurement with exact model/generation controls; then test acquisition-record restart and later cognition recovery without inference replay. Do not claim fixture improvement as model learning. Operator-host model access, serving/inference admission, GPU/WSL runtime and production verification remain unobserved.

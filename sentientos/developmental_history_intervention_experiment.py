@@ -237,7 +237,9 @@ class DevelopmentalExperimentStore:
                 or descriptor.get("task_digest") != protocol.objective_task_digest
                 or _digest(specification) != protocol.objective_task_digest):
             raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
-        suite = specification.get("schema_version") == "sentientos.affine_prediction_task_suite:v2"
+        suite = specification.get("schema_version") in {
+            "sentientos.affine_prediction_task_suite:v2",
+            "sentientos.affine_prediction_task_family_suite:v3"}
         semantic = {"schema_version": "sentientos.objective_task_plan:v1",
             "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
             "task": dict(specification), "task_descriptor": dict(descriptor),
@@ -268,7 +270,9 @@ class DevelopmentalExperimentStore:
         semantic = dict(value); claimed = semantic.pop("plan_digest")
         task = value.get("task")
         suite = isinstance(task, Mapping) and task.get("schema_version") == (
-            "sentientos.affine_prediction_task_suite:v2")
+            "sentientos.affine_prediction_task_suite:v2") or (
+            isinstance(task, Mapping) and task.get("schema_version") ==
+                "sentientos.affine_prediction_task_family_suite:v3")
         if (value.get("schema_version") != "sentientos.objective_task_plan:v1"
                 or value.get("protocol_id") != protocol.protocol_id
                 or value.get("protocol_digest") != protocol.protocol_digest
@@ -280,6 +284,9 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("objective_task_plan_binding_invalid")
         expected_task_fields = ({"schema_version", "multiplier", "offset", "probe_inputs", "oracle_scope"}
             if suite else {"schema_version", "multiplier", "offset", "probe_input", "oracle_scope"})
+        if isinstance(task, Mapping) and task.get("schema_version") == (
+                "sentientos.affine_prediction_task_family_suite:v3"):
+            expected_task_fields.update({"task_family_id", "requires_task_family_history"})
         if not isinstance(task, Mapping) or set(task) != expected_task_fields:
             raise DevelopmentalHistoryInterventionError("objective_task_plan_invalid")
         from .developmental_model_replacement_experiment import ObjectivePredictionTask
@@ -289,7 +296,8 @@ class DevelopmentalExperimentStore:
                 if not isinstance(probes, list) or not probes:
                     raise ValueError("objective_probe_suite_invalid")
                 reconstructed = ObjectivePredictionTask(task["multiplier"], task["offset"],
-                    probes[0], tuple(probes[1:]))
+                    probes[0], tuple(probes[1:]), task.get("task_family_id"),
+                    task.get("requires_task_family_history", False))
             else:
                 reconstructed = ObjectivePredictionTask(task["multiplier"], task["offset"], task["probe_input"])
             if (reconstructed.specification() != dict(task)
@@ -638,9 +646,28 @@ class DevelopmentalExperimentStore:
                     "status": item["score"]["status"],
                     "correct": item["score"]["correct"],
                     **({"correct_count": item["score"]["correct_count"],
-                        "probe_count": item["score"]["probe_count"]}
+                        "probe_count": item["score"]["probe_count"],
+                        **({"probe_results": item["score"]["probe_results"]}
+                            if "probe_results" in item["score"] else {})}
                         if "correct_count" in item["score"] else {})}
                     for item in objective_scores]
+            task_descriptor = (dict(protocol.objective_task_descriptor)
+                if isinstance(protocol.objective_task_descriptor, Mapping) else None)
+            acquisition_examples = None
+            if (task_descriptor is not None
+                    and isinstance(task_descriptor.get("task_family_id"), str)
+                    and score_projection is not None):
+                history_score = next((item for item in score_projection
+                    if item.get("condition_id") == "history_present"), None)
+                if isinstance(history_score, Mapping) and isinstance(
+                        history_score.get("probe_results"), list):
+                    acquisition_examples = [{
+                        "probe_input": item.get("probe_input"),
+                        "observed_answer": item.get("observed_answer"),
+                        "evaluator_correct": item.get("correct"),
+                        "source_score_digest": history_score.get("score_digest"),
+                        "source_condition": "history_present",
+                    } for item in history_score["probe_results"]]
             payload = {
                 "run_id": run_id, "run_digest": run["run_digest"],
                 "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
@@ -665,6 +692,16 @@ class DevelopmentalExperimentStore:
                 "history_intervention_summary": run["summary"],
                 "objective_scores": score_projection,
                 "objective_evaluation": objective_evaluation,
+                "objective_task_descriptor": task_descriptor,
+                "acquisition_examples": acquisition_examples,
+                "objective_task_family_id": (protocol.objective_task_descriptor.get("task_family_id")
+                    if isinstance(protocol.objective_task_descriptor, Mapping) else None),
+                "objective_task_family": (protocol.objective_task_descriptor.get("task_family_id")
+                    if isinstance(protocol.objective_task_descriptor, Mapping) else None),
+                "task_family_posture": ("operator_declared_protocol_bound"
+                    if isinstance(protocol.objective_task_descriptor, Mapping)
+                    and protocol.objective_task_descriptor.get("task_family_id") is not None
+                    else "not_declared"),
                 "claims_posture": "bounded_single_trial_history_association_only",
                 "current_truth": False, "authority": False,
                 "learning_established": False,
@@ -797,7 +834,9 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
             "unscoreable_truncated_output" if truncated else "unscoreable_missing_output"),
         "scope": "same_model_task_correctness_not_general_learning_or_weight_change",
         "model_behavior_posture": "resident_endpoint_receipts_not_independent_model_attestation"}
-    if plan.get("task", {}).get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+    if plan.get("task", {}).get("schema_version") in {
+            "sentientos.affine_prediction_task_suite:v2",
+            "sentientos.affine_prediction_task_family_suite:v3"}:
         counts = [row["score"].get("correct_count")
             if isinstance(row.get("score"), Mapping) else None for row in scores]
         count_complete = len(counts) == 3 and all(type(value) is int for value in counts)

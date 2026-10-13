@@ -189,15 +189,20 @@ def _objective_task_from_specification(specification: Any) -> Any:
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
         task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
             specification["probe_input"])
-    elif schema == "sentientos.affine_prediction_task_suite:v2":
-        if set(specification) != common | {"probe_inputs", "oracle_scope"}:
+    elif schema in {"sentientos.affine_prediction_task_suite:v2",
+            "sentientos.affine_prediction_task_family_suite:v3"}:
+        fields = common | {"probe_inputs", "oracle_scope"}
+        if schema == "sentientos.affine_prediction_task_family_suite:v3":
+            fields |= {"task_family_id", "requires_task_family_history"}
+        if set(specification) != fields:
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
         probes = specification.get("probe_inputs")
         if (specification.get("oracle_scope") != "deterministic_fixture_not_physical_measurement"
                 or not isinstance(probes, list) or not probes):
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
         task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
-            probes[0], tuple(probes[1:]))
+            probes[0], tuple(probes[1:]), specification.get("task_family_id"),
+            specification.get("requires_task_family_history", False))
     else:
         raise ResidentDevelopmentalCognitionError("objective_request_task_schema_unsupported")
     try:
@@ -340,7 +345,8 @@ def stored_objective_request_record(state_root: str | Path, *,
 
 def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
         writeback: ResidentDevelopmentalWritebackController,
-        limit: int = MAX_HISTORY) -> tuple[tuple[str, str], ...]:
+        limit: int = MAX_HISTORY,
+        required_task_family_id: str | None = None) -> tuple[tuple[str, str], ...]:
     """Return admitted history named by completed cognition ticks, without repair.
 
     A valid record/receipt pair that has not yet been committed into the
@@ -419,9 +425,22 @@ def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
                 or pair[0].operation_id != expected_operation_id):
             raise ResidentDevelopmentalCognitionError(
                 "checkpointed_history_tick_binding_invalid")
+        if required_task_family_id is not None:
+            selected_facts = candidate.get("selected_facts", ())
+            family_matches = any(
+                isinstance(fact, Mapping)
+                and isinstance(fact.get("payload"), Mapping)
+                and fact["payload"].get("objective_task_family") == required_task_family_id
+                for fact in selected_facts)
+            if family_matches:
+                refs.append((record_id, pair[0].record_digest))
+        else:
+            refs.append((record_id, pair[0].record_digest))
         seen.add(record_id)
         seen_ticks.add(tick_id)
-        refs.append((record_id, pair[0].record_digest))
+    if required_task_family_id is not None and not refs:
+        raise ResidentDevelopmentalCognitionError(
+            "checkpointed_history_relevant_experience_missing")
     return tuple(refs[-limit:])
 
 
@@ -2468,7 +2487,8 @@ class ResidentDevelopmentalCognitionOwner:
             raise ResidentDevelopmentalCognitionError("composition_state_unbounded")
         _replace_cognition_state(self.state_path, {**semantic, "state_digest": _digest(semantic)})
 
-    def _prior_projection(self, state: Mapping[str, Any], tick_id: str) -> DevelopmentalHistoryProjection:
+    def _prior_projection(self, state: Mapping[str, Any], tick_id: str, *,
+            task_family_id: str | None = None) -> DevelopmentalHistoryProjection:
         # Tick identifiers are opaque at this owner boundary. The durable,
         # digest-verified completed-checkpoint sequence establishes which
         # developmental records were committed before this cycle; wall-clock
@@ -2477,6 +2497,36 @@ class ResidentDevelopmentalCognitionOwner:
         # reached completed_ticks while this projection is captured.
         ids = [str(completed["record_id"]) for completed in state["completed_ticks"]
                if completed.get("tick_id") != tick_id and completed.get("record_id")]
+        family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
+            if self.objective_task is not None else None)
+        if isinstance(family, str):
+            # Search a bounded recent window for authenticated source facts in
+            # the declared task family, then fill remaining slots by recency.
+            # The family label is protocol-bound metadata, not proof of learning.
+            window = ids[-64:]
+            relevant: list[str] = []
+            for record_id in window:
+                try:
+                    record = self.writeback.store.get(record_id)
+                except Exception as exc:
+                    raise ResidentDevelopmentalCognitionError(
+                        "task_relevant_history_recovery_failed") from exc
+                candidate = record.candidate
+                facts = candidate.get("selected_facts", ()) if isinstance(candidate, Mapping) else ()
+                if any(isinstance(fact, Mapping)
+                        and isinstance(fact.get("payload"), Mapping)
+                        and fact["payload"].get("objective_task_family") == family
+                        for fact in facts):
+                    relevant.append(record_id)
+            selected = relevant[-self.config.max_retrieved_records:]
+            selected_set = set(selected)
+            for record_id in reversed(ids):
+                if len(selected) >= self.config.max_retrieved_records:
+                    break
+                if record_id not in selected_set:
+                    selected.append(record_id)
+                    selected_set.add(record_id)
+            ids = list(reversed(selected))
         ids = ids[-self.config.max_retrieved_records:]
         return self.writeback.retrieve(ids, limit=self.config.max_retrieved_records)
 
@@ -2810,6 +2860,61 @@ class ResidentDevelopmentalCognitionOwner:
         digest = _digest(raw.semantic_payload())
         return replace(raw, projection_id="current-world-state-" + digest[7:31], projection_digest=digest)
 
+    @staticmethod
+    def _exclude_retained_task_facts(current: CurrentWorldStateCognitiveProjection,
+            records: Sequence[Mapping[str, Any]], task_family_id: str) -> CurrentWorldStateCognitiveProjection:
+        """Keep the acquired source outcome in history treatment, not current evidence.
+
+        Only exact fact IDs retained by admitted records in this declared family
+        are removed. Other current observations remain shared across conditions.
+        """
+        excluded: set[str] = set()
+        for record in records:
+            candidate = record.get("candidate")
+            facts = candidate.get("selected_facts", ()) if isinstance(candidate, Mapping) else ()
+            for fact in facts:
+                if (isinstance(fact, Mapping)
+                        and isinstance(fact.get("fact_id"), str)
+                        and isinstance(fact.get("payload"), Mapping)
+                        and fact["payload"].get("objective_task_family") == task_family_id):
+                    excluded.add(str(fact["fact_id"]))
+        # The same completed family may have multiple retained run facts in
+        # current World-State. Remove all matching source observations from the
+        # shared current channel so an unselected sibling cannot leak transfer.
+        for fact in current.facts:
+            payload = fact.get("payload") if isinstance(fact, Mapping) else None
+            fact_id = fact.get("fact_id") if isinstance(fact, Mapping) else None
+            if (isinstance(payload, Mapping)
+                    and payload.get("objective_task_family") == task_family_id
+                    and isinstance(fact_id, str)):
+                excluded.add(fact_id)
+        if not excluded:
+            return current
+        facts = tuple(fact for fact in current.facts
+            if not isinstance(fact, Mapping) or fact.get("fact_id") not in excluded)
+        remaining_ids = {str(fact.get("fact_id")) for fact in facts if isinstance(fact, Mapping)}
+        used_sources = {str(fact.get("source", {}).get("source_id"))
+            for fact in facts if isinstance(fact, Mapping)
+            and isinstance(fact.get("source"), Mapping)}
+        sources = tuple(source for source in current.sources
+            if isinstance(source, Mapping) and str(source.get("source_id")) in used_sources)
+        conflicts = []
+        for conflict in current.conflicts:
+            if not isinstance(conflict, Mapping):
+                continue
+            conflict_ids = set(conflict.get("fact_ids", ()))
+            if conflict_ids & excluded:
+                continue
+            ids = [item for item in conflict.get("fact_ids", ()) if item in remaining_ids]
+            if ids:
+                conflicts.append({**dict(conflict), "fact_ids": ids})
+        raw = replace(current, facts=facts, sources=sources,
+            conflicts=tuple(conflicts), fact_ids=tuple(sorted(remaining_ids)),
+            projection_id="", projection_digest="")
+        digest = _digest(raw.semantic_payload())
+        return replace(raw, projection_id="current-world-state-" + digest[7:31],
+            projection_digest=digest)
+
     def _cognize(self, *, snapshot: WorldStateSnapshot, current: CurrentWorldStateCognitiveProjection, tick_id: str,
                   projection: DevelopmentalHistoryProjection, with_history: bool,
                   prior_self_model: CognitiveSelfModelProjection | None = None,
@@ -3026,6 +3131,22 @@ class ResidentDevelopmentalCognitionOwner:
         if objective_plan is not None:
             upstream_evidence.update({"objective_task_plan_digest": objective_plan["plan_digest"],
                 "objective_task_digest": objective_plan["task_descriptor"]["task_digest"]})
+            task_family_id = objective_plan["task_descriptor"].get("task_family_id")
+            if isinstance(task_family_id, str) and protocol is not None:
+                family_fact_ids: set[str] = set()
+                for record_id in protocol.record_ids:
+                    record = self.writeback.store.get(record_id)
+                    candidate = record.candidate
+                    source_facts = candidate.get("selected_facts", ()) if isinstance(candidate, Mapping) else ()
+                    family_fact_ids.update(str(fact["fact_id"]) for fact in source_facts
+                        if isinstance(fact, Mapping) and isinstance(fact.get("fact_id"), str)
+                        and isinstance(fact.get("payload"), Mapping)
+                        and fact["payload"].get("objective_task_family") == task_family_id)
+                upstream_evidence.update({
+                    "task_family_id": task_family_id,
+                    "task_family_source_fact_ids": sorted(family_fact_ids),
+                    "task_family_source_fact_ids_digest": _digest(sorted(family_fact_ids)),
+                    "task_family_evidence_posture": "operator_declared_family_bound_to_admitted_source_facts"})
         request = self.invoker.build_request(
             purpose=purpose, prompt=prompt, caller=PRINCIPAL,
             correlation_id=correlation,
@@ -3373,7 +3494,10 @@ class ResidentDevelopmentalCognitionOwner:
         # Capture prior history before the experiment intent. This permits a
         # staged one-shot request with no eligible history to be terminalized
         # without invoking a model or leaving an automatic retry behind.
-        prior = self._prior_projection(state, tick_id)
+        task_descriptor = (objective_task.public_descriptor()
+            if objective_task is not None else {})
+        family_id = task_descriptor.get("task_family_id") if isinstance(task_descriptor, Mapping) else None
+        prior = self._prior_projection(state, tick_id, task_family_id=family_id)
         if objective_only and not prior.requested_record_ids:
             assert objective_request_id is not None and objective_request_digest is not None
             state["completed_ticks"].append({"tick_id": tick_id,
@@ -3385,6 +3509,26 @@ class ResidentDevelopmentalCognitionOwner:
             self._save_state(state)
             return ResidentDevelopmentalCycleResult("objective_blocked_no_eligible_history",
                 tick_id, snapshot.snapshot_id)
+        require_family = (objective_task.specification().get("requires_task_family_history") is True
+            if objective_task is not None else False)
+        if objective_only and isinstance(family_id, str) and require_family:
+            family_records = [record for record in prior.records
+                if any(isinstance(fact, Mapping)
+                    and isinstance(fact.get("payload"), Mapping)
+                    and fact["payload"].get("objective_task_family") == family_id
+                    for fact in (record.get("candidate", {}).get("selected_facts", ())
+                        if isinstance(record.get("candidate"), Mapping) else ())) ]
+            if not family_records:
+                assert objective_request_id is not None and objective_request_digest is not None
+                state["completed_ticks"].append({"tick_id": tick_id,
+                    "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+                    "record_id": None, "receipt_id": None,
+                    "objective_request_id": objective_request_id,
+                    "objective_request_digest": objective_request_digest,
+                    "objective_request_status": "blocked_no_task_relevant_history"})
+                self._save_state(state)
+                return ResidentDevelopmentalCycleResult("objective_blocked_no_task_relevant_history",
+                    tick_id, snapshot.snapshot_id)
 
         # Publish the exact snapshot/tick intent before any local-model call.
         # A crash before the first durable cognition observation must remain
@@ -3399,6 +3543,8 @@ class ResidentDevelopmentalCognitionOwner:
         self._save_state(state)
 
         current = self._current_projection(snapshot)
+        if isinstance(family_id, str) and objective_only:
+            current = self._exclude_retained_task_facts(current, prior.records, family_id)
         observations: list[ResidentCognitionObservation] = []
         measurement_id: str | None = None
         has_developmental_history = bool(prior.requested_record_ids)

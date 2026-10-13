@@ -137,9 +137,11 @@ class FakeInvoker:
                 and "objective_task_plan_digest" in request.upstream_evidence):
             assert self.objective_plan_root is not None
             plans = list(self.objective_plan_root.glob("objective-task-plan-*.json"))
-            assert len(plans) == 1
-            plan = json.loads(plans[0].read_text(encoding="utf-8"))
-            assert plan["plan_digest"] == request.upstream_evidence["objective_task_plan_digest"]
+            matching = [json.loads(path.read_text(encoding="utf-8")) for path in plans
+                if json.loads(path.read_text(encoding="utf-8")).get("plan_digest")
+                    == request.upstream_evidence["objective_task_plan_digest"]]
+            assert len(matching) == 1
+            plan = matching[0]
             prompt = json.loads(request.prompt)
             assert prompt["objective_task"] == plan["task_descriptor"]
             assert "objective_task" not in prompt["current_evidence"]
@@ -431,6 +433,117 @@ def test_completed_objective_run_is_read_only_projected_into_a_later_world_state
     with pytest.raises(ResidentDevelopmentalCognitionError,
             match="objective_run_projection_verification_failed"):
         cognition.inspect_completed_objective_experiment_run_refs()
+
+
+def test_task_family_example_flows_through_admitted_history_and_is_not_current_context(
+        tmp_path: Path) -> None:
+    """Fixture composition only: evaluator-backed examples reach later task history."""
+    from scripts.stage_resident_objective_intervention import stage_request
+    from sentientos.resident_developmental_cognition import objective_request_payload
+
+    fake = SessionBoundFakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    seeded = cognition.run_tick(snapshot=snapshot(), tick_id="family-acquisition-seed")
+    assert seeded.written_record_id
+
+    acquisition = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="integer_affine_prediction")
+    request = objective_request_payload(request_id="family-acquisition", task=acquisition)
+    run_result = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="family-acquisition-run", objective_task=acquisition,
+        request_id="family-acquisition", request_digest=request["request_digest"])
+    run = cognition.experiments.load_run(run_result.changed_cognition_measurement_id)
+    from sentientos.developmental_history_intervention_experiment import _digest as experiment_digest
+    from sentientos.developmental_model_replacement_experiment import (
+        DevelopmentalModelReplacementError, _verify_objective_score,
+    )
+    original_score = run["objective_scores"][0]["score"]
+    altered_score = dict(original_score)
+    altered_results = [dict(item) for item in altered_score["probe_results"]]
+    altered_results[0]["observed_answer"] += 1
+    altered_score["probe_results"] = altered_results
+    altered_score["score_digest"] = experiment_digest({key: value
+        for key, value in altered_score.items() if key != "score_digest"})
+    protocol = cognition.experiments.load_protocol(run["protocol"]["protocol_id"])
+    plan = cognition.experiments.verify_objective_task_plan(protocol)
+    with pytest.raises(DevelopmentalModelReplacementError,
+            match="objective_score_binding_invalid"):
+        _verify_objective_score(plan, altered_score, run["conditions"][0]["output_digest"])
+    records = cognition.experiments.world_state_records(run_refs=((run["run_id"], run["run_digest"]),))
+    evidence = records[0]["payload"]
+    assert evidence["task_family_posture"] == "operator_declared_protocol_bound"
+    assert evidence["objective_task_family"] == "integer_affine_prediction"
+    assert evidence["acquisition_examples"] == [
+        {"probe_input": 7, "observed_answer": 23, "evaluator_correct": True,
+            "source_score_digest": evidence["objective_scores"][0]["score_digest"],
+            "source_condition": "history_present"},
+        {"probe_input": 8, "observed_answer": 26, "evaluator_correct": True,
+            "source_score_digest": evidence["objective_scores"][0]["score_digest"],
+            "source_condition": "history_present"},
+        {"probe_input": 9, "observed_answer": 29, "evaluator_correct": True,
+            "source_score_digest": evidence["objective_scores"][0]["score_digest"],
+            "source_condition": "history_present"},
+    ]
+    assert "multiplier" not in json.dumps(evidence)
+
+    from sentientos.world_state_board import WorldStateBoardBuilder
+    world = WorldStateBoardBuilder().build(records)
+    later = cognition.run_tick(snapshot=world, tick_id="family-acquisition-writeback")
+    assert later.written_record_id
+    admitted = cognition.writeback.store.get(later.written_record_id)
+    assert any(fact["payload"].get("objective_task_family") == "integer_affine_prediction"
+        for fact in admitted.candidate["selected_facts"])
+
+    # Recent unrelated interpretations must not evict this bounded family match.
+    unrelated_owner, _ = owner(tmp_path, comparison=False, invoker=fake,
+        allowed_source_kinds=("capability_registry",), max_selected_facts=4)
+    for value in range(2, 7):
+        unrelated = unrelated_owner.run_tick(snapshot=snapshot(value),
+            tick_id=f"unrelated-history-{value}")
+        assert unrelated.written_record_id
+
+    config_path = tmp_path / "family-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    transfer = ObjectivePredictionTask(3, 2, 10, (11, 12),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    unrelated = ObjectivePredictionTask(3, 2, 10, (11, 12),
+        task_family_id="unrelated_prediction_family", requires_task_family_history=True)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="checkpointed_history_relevant_experience_missing"):
+        stage_request(config_path=config_path, request_id="unrelated-family-transfer",
+            task=unrelated)
+    assert not (tmp_path / "state" / "pending_objective_intervention.json").exists()
+    staged_path, _, matching_count = stage_request(config_path=config_path,
+        request_id="family-transfer", task=transfer)
+    assert staged_path.exists() and matching_count >= 1
+    staged = load_objective_request(tmp_path / "state")
+    assert staged is not None
+    result = cognition.run_objective_intervention_once(snapshot=world,
+        tick_id="family-transfer-run", objective_task=objective_task_for_request(staged),
+        request_id=staged["request_id"], request_digest=staged["request_digest"])
+    recovered = cognition.experiments.load_run(result.changed_cognition_measurement_id)
+    family_record_ids = tuple(recovered["protocol"]["record_ids"])
+    assert later.written_record_id in family_record_ids
+    conditions = recovered["conditions"]
+    present, withheld, restored = conditions
+    family_fact = records[0]["payload"]
+    source_fact = next(fact for fact in world.facts
+        if fact.source.source_id == records[0]["source_id"])
+    assert source_fact.fact_id not in present["current_fact_ids"]
+    assert source_fact.fact_id not in withheld["current_fact_ids"]
+    assert source_fact.fact_id not in restored["current_fact_ids"]
+    assert later.written_record_id in present["retrieved_record_ids"]
+    assert later.written_record_id not in withheld["retrieved_record_ids"]
+    assert later.written_record_id in restored["retrieved_record_ids"]
+    assert recovered["objective_evaluation"]["history_correct_probe_delta"] == 3
+    assert recovered["objective_evaluation"]["restoration_correct_probe_delta"] == 0
 
 
 @pytest.mark.parametrize("mode,delta,stable,assessment", [

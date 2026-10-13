@@ -1073,17 +1073,21 @@ def _developmental_history_interpretation_projection(
     if not isinstance(conditions, (list, tuple)) or len(conditions) != 3:
         raise DevelopmentalWritebackError("developmental_history_conditions_invalid")
     selected_conditions: list[dict[str, Any]] = []
+    family_projection = original.get("objective_task_family") is not None
     condition_fields = (
         "condition_id", "observation_id", "observation_digest", "output_digest",
         "request_id", "request_digest", "inference_receipt_id",
-        "inference_receipt_digest", "retrieved_record_ids", "retrieved_record_digests",
-        "serving_session_id", "observed_at",
+        "inference_receipt_digest", "serving_session_id", "observed_at",
     )
+    if not family_projection:
+        condition_fields += ("retrieved_record_ids", "retrieved_record_digests")
     for condition in conditions:
         if not isinstance(condition, Mapping):
             raise DevelopmentalWritebackError("developmental_history_condition_invalid")
         selected = {key: condition.get(key) for key in condition_fields}
         for key in ("retrieved_record_ids", "retrieved_record_digests"):
+            if key not in selected:
+                continue
             value = selected[key]
             if not isinstance(value, (list, tuple)) or len(value) > 64:
                 raise DevelopmentalWritebackError("developmental_history_retrieval_lineage_invalid")
@@ -1122,13 +1126,55 @@ def _developmental_history_interpretation_projection(
         "conditions": selected_conditions,
         "condition_event_times": original.get("condition_event_times"),
         "event_time_posture": original.get("event_time_posture"),
-        "history_intervention_summary": original.get("history_intervention_summary"),
+        "history_intervention_summary": (
+            {key: original.get("history_intervention_summary", {}).get(key)
+                for key in ("classification", "claims_posture")}
+            if family_projection and isinstance(original.get("history_intervention_summary"), Mapping)
+            else original.get("history_intervention_summary")),
         "objective_scores": score_summary,
         "objective_evaluation": original.get("objective_evaluation"),
         "claims_posture": original.get("claims_posture"),
         "current_truth": False, "authority": False,
         "learning_established": False, "reconstruction_time_is_event_time": False,
     }
+    family_id = original.get("objective_task_family")
+    if family_id is not None:
+        descriptor = original.get("objective_task_descriptor")
+        score_rows = original.get("objective_scores")
+        history_score = (next((row for row in score_rows if isinstance(row, Mapping)
+            and row.get("condition_id") == "history_present"), None)
+            if isinstance(score_rows, (list, tuple)) else None)
+        probe_results = history_score.get("probe_results") if isinstance(history_score, Mapping) else None
+        probes = descriptor.get("probe_inputs") if isinstance(descriptor, Mapping) else None
+        if (not isinstance(family_id, str) or not family_id or len(family_id) > 96
+                or not isinstance(descriptor, Mapping)
+                or descriptor.get("task_family_id") != family_id
+                or original.get("task_family_posture") != "operator_declared_protocol_bound"
+                or not isinstance(original.get("acquisition_examples"), list)
+                or len(original["acquisition_examples"]) > 16
+                or not isinstance(probes, (list, tuple)) or len(probes) != len(original["acquisition_examples"])
+                or not isinstance(probe_results, (list, tuple)) or len(probe_results) != len(probes)
+                or not isinstance(history_score.get("score_digest"), str)):
+            raise DevelopmentalWritebackError("developmental_history_task_family_binding_invalid")
+        expected_examples: list[dict[str, Any]] = []
+        for probe, result in zip(probes, probe_results):
+            if (type(probe) is not int or not isinstance(result, Mapping)
+                    or result.get("probe_input") != probe
+                    or type(result.get("observed_answer")) is not int
+                    or type(result.get("correct")) is not bool):
+                raise DevelopmentalWritebackError("developmental_history_task_example_invalid")
+            expected_examples.append({"probe_input": probe,
+                "observed_answer": result["observed_answer"],
+                "evaluator_correct": result["correct"],
+                "source_score_digest": history_score["score_digest"],
+                "source_condition": "history_present"})
+        examples = original["acquisition_examples"]
+        if examples != expected_examples:
+            raise DevelopmentalWritebackError("developmental_history_task_example_binding_invalid")
+        summary.update({"objective_task_family": family_id,
+            "objective_task_descriptor": dict(descriptor),
+            "acquisition_examples": [dict(example) for example in examples],
+            "task_family_posture": "operator_declared_protocol_bound"})
     if len(json.dumps(summary, sort_keys=True, separators=(",", ":"),
             ensure_ascii=False).encode("utf-8")) > MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES:
         raise DevelopmentalWritebackError("developmental_history_projection_over_bound")
