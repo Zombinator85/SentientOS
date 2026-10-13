@@ -1770,6 +1770,7 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
         if receipt is None:
             actual_inference = False
             receipt_status = "historical_invocation_unbound"
+            execution_evidence_posture = "invocation_receipt_unbound"
         else:
             effects = receipt.get("effects")
             completed = (receipt.get("status") == "admitted_completed"
@@ -1781,6 +1782,15 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             actual_inference = actual_inference and completed
             receipt_status = ("admitted_local_model_inference" if completed
                 else "not_completed_or_generation_budget_unverified")
+            if completed:
+                execution_evidence_posture = (
+                    "verified_owner_receipt_reports_backend_entry")
+            elif (receipt.get("status") == "admitted_simulation"
+                    or (isinstance(effects, Mapping)
+                        and effects.get("local_model_inference") is False)):
+                execution_evidence_posture = "receipt_reports_simulation_or_no_backend_entry"
+            else:
+                execution_evidence_posture = "receipt_does_not_establish_backend_entry"
         backend_completion = (receipt.get("backend_completion")
             if isinstance(receipt, Mapping)
             and isinstance(receipt.get("backend_completion"), Mapping) else None)
@@ -1834,6 +1844,7 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
         if not isinstance(score, Mapping):
             raise ResidentDevelopmentalCognitionError("objective_outcome_score_invalid")
         outputs.append({"condition_id": condition, "receipt_status": receipt_status,
+            "execution_evidence_posture": execution_evidence_posture,
             "model_generation_profile": model_profile,
             "inference_receipt_id": observation.get("inference_receipt_id"),
             "inference_receipt_digest": observation.get("inference_receipt_digest"),
@@ -1896,6 +1907,9 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             "reason_code": "historical_run_predates_explicit_contamination_posture",
             "authority": False}),
         "actual_nonsynthetic_inference_verified": actual_inference,
+        "execution_evidence_scope": (
+            "authenticated_owner_receipt_and_serving_custody_not_independent_backend_observation"),
+        "independent_backend_observation": False,
         "raw_prompt_output_and_oracle_retained_in_report": False,
         "authority": False, "canonical_explicit_user_retention": False}
 
@@ -2699,6 +2713,7 @@ class ResidentDevelopmentalCognitionOwner:
                     "score_digest": item.get("score_digest"),
                     "output_digest": item.get("output_digest"),
                     "receipt_status": item.get("receipt_status"),
+                    "execution_evidence_posture": item.get("execution_evidence_posture"),
                     "output_truncated": item.get("output_truncated"),
                     "output_size_bytes": item.get("output_size_bytes"),
                     "output_size_posture": item.get("output_size_posture"),
@@ -2760,7 +2775,10 @@ class ResidentDevelopmentalCognitionOwner:
                 "score_contrasts": score_contrasts,
                 "conditions": score_rows,
                 "actual_nonsynthetic_inference_verified":
-                    verified.get("actual_nonsynthetic_inference_verified") is True}
+                    verified.get("actual_nonsynthetic_inference_verified") is True,
+                "execution_evidence_scope": verified.get("execution_evidence_scope"),
+                "independent_backend_observation": (
+                    verified.get("independent_backend_observation") is True)}
             episodes.append(semantic)
         if len(episodes) != len(refs):
             raise ResidentDevelopmentalCognitionError(
@@ -2834,6 +2852,9 @@ class ResidentDevelopmentalCognitionOwner:
             "execution_cost_summary": execution_cost_summary,
             "actual_nonsynthetic_inference_verified": all(
                 episode["actual_nonsynthetic_inference_verified"] for episode in episodes),
+            "execution_evidence_scope": (
+                "authenticated_owner_receipts_not_independent_backend_observation"),
+            "independent_backend_observation": False,
             "interpretation": "descriptive_task_correctness_only",
             "performance_improvement_established": False,
             "learning_established": False, "authority": False,

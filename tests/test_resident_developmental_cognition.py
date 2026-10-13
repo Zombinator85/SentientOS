@@ -1354,6 +1354,12 @@ print(json.dumps({"context_id": context["context_id"],
             counts["history_restored"] - counts["history_present"])
         assert contrast["learning_established"] is False
     assert progression["actual_nonsynthetic_inference_verified"] is False
+    assert progression["independent_backend_observation"] is False
+    assert progression["execution_evidence_scope"] == (
+        "authenticated_owner_receipts_not_independent_backend_observation")
+    assert all(condition["execution_evidence_posture"] ==
+        "receipt_reports_simulation_or_no_backend_entry"
+        for condition in progression["episodes"][1]["conditions"])
     assert progression["learning_established"] is False
     cost = progression["execution_cost_summary"]
     assert cost["condition_count"] == 9
@@ -1676,6 +1682,9 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "task_family_history_record_ids"]
     assert third_progression["learning_established"] is False
     assert third_progression["performance_improvement_established"] is False
+    assert third_progression["independent_backend_observation"] is False
+    assert third_progression["execution_evidence_scope"] == (
+        "authenticated_owner_receipts_not_independent_backend_observation")
 
     tampered_receipt = next(receipt.receipt_id for receipt in fake.receipts.values()
         if receipt.purpose == "resident_developmental_history_intervention_experiment"
