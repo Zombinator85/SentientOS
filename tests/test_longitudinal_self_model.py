@@ -216,6 +216,67 @@ def test_value_conflict_retains_current_and_historical_source_categories(tmp_pat
     assert all(claim.current_truth is False for claim in claims)
 
 
+def test_unambiguous_current_evidence_supersedes_only_conflicting_temporal_branch(
+    tmp_path: Path,
+) -> None:
+    owner = LongitudinalSelfModelOwner(tmp_path)
+    current = record(source="runtime:current-conflict", subject="software-generation",
+        disposition="running")
+    current["subject_kind"] = "observed_running_software_generation"
+    historical = record(source="runtime:historical-conflict", subject="software-generation",
+        disposition="stopped")
+    historical.update({"source_kind": "runtime_supervisor",
+        "subject_kind": "observed_running_software_generation"})
+    conflicted = owner.reconcile(snapshot(current, historical),
+        tick_id="tick-mixed-category-conflict")
+    previous = [claim for claim in conflicted.claims
+        if claim.predicate == "lifecycle.observation.disposition"]
+    old_current = next(claim for claim in previous if claim.claim_category == "current_state")
+    old_historical = next(claim for claim in previous
+        if claim.claim_category == "historical_interpretation")
+
+    resolved = owner.reconcile(snapshot(current), tick_id="tick-current-resolution")
+    claims = [claim for claim in resolved.claims
+        if claim.predicate == "lifecycle.observation.disposition"]
+    current_claim = next(claim for claim in claims
+        if claim.claim_category == "current_state" and claim.status == "current")
+    retained_historical = next(claim for claim in claims
+        if claim.claim_id == old_historical.claim_id)
+
+    assert current_claim.claim_id == old_current.claim_id
+    assert current_claim.first_supported_generation == old_current.first_supported_generation
+    assert current_claim.supersedes == (old_historical.claim_id,)
+    assert retained_historical.status == "historical"
+    assert retained_historical.superseded_by == (current_claim.claim_id,)
+    assert retained_historical.source_evidence_ids == old_historical.source_evidence_ids
+    assert retained_historical.claim_category == "historical_interpretation"
+    assert current_claim.current_truth is False
+    assert current_claim.contradiction_state == "consistent"
+
+
+def test_replaced_source_support_links_successor_without_resetting_claim_origin(
+    tmp_path: Path,
+) -> None:
+    owner = LongitudinalSelfModelOwner(tmp_path)
+    first = owner.reconcile(snapshot(record(source="runtime:source-a")), tick_id="tick-source-a")
+    prior = next(claim for claim in first.claims
+        if claim.predicate == "lifecycle.observation.disposition")
+    second = owner.reconcile(snapshot(record(source="runtime:source-b")), tick_id="tick-source-b")
+    successor = next(claim for claim in second.claims
+        if claim.predicate == "lifecycle.observation.disposition"
+        and claim.source_evidence_ids == ("runtime:source-b",))
+    retained = next(claim for claim in second.claims if claim.claim_id == prior.claim_id)
+
+    assert successor.claim_id != prior.claim_id
+    assert successor.value == prior.value
+    assert successor.claim_category == prior.claim_category
+    assert successor.supersedes == (prior.claim_id,)
+    assert successor.first_supported_generation == prior.first_supported_generation
+    assert retained.status == "historical"
+    assert retained.superseded_by == (successor.claim_id,)
+    assert retained.source_evidence_ids == ("runtime:source-a",)
+
+
 def test_generation_and_model_transition_preserves_historical_claims(tmp_path: Path) -> None:
     owner = LongitudinalSelfModelOwner(tmp_path)
     first = owner.reconcile(snapshot(record(model="model-a", generation="software-a")), tick_id="tick-a")

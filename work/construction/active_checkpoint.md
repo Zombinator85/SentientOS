@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `d0f25ec954e97cf4d40262ac5747069be9af1135`, tree `dec93abac28a7bae6f09cbea7d7c5274c787a631`. Sequence 95 proves conflicting current and historical dispositions retain separate values, source identities, and categories, with contradiction state on both and no latest-wins. Focused longitudinal suite passed 27 tests; production remains unverified.
+Last independently verified remote baseline `e7247044171958b2fd338d98fb4451e242822600`, tree `f5f1ffa6ae37145eacaf5e8cdea3dff5d712f999`. Sequence 96 preserves all claim predecessors across conflict resolution and source-evidence replacement. Focused longitudinal and later-cognition suites passed 33 tests; production remains unverified.
 
-Latest segment: work/construction/segments/0095-mixed-category-value-conflict.md
-SHA-256: 07987c7fa74dfa0390c57aa612d590642896e0b7fa3098bba19856b11bbd8e73
-Sequence: 95
+Latest segment: work/construction/segments/0096-direct-claim-supersession.md
+SHA-256: 839de64a690e16933d557478a8485f894dbc741d85073f5815bc4d7356ec9d5f
+Sequence: 96
 
 Loaded-code identity remains `not_independently_attested`; actual model execution remains blocked by missing local payload, commissioned identity, and exact operator approval.
 
-Next: examine transition from mixed-category contradiction to later unambiguous evidence; preserve successor status and historical source attribution.
+Next: inspect the scorer and history-intervention contracts for a protocol-preserving join between task-level correctness evidence and durable trial recovery.

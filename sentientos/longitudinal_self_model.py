@@ -1264,7 +1264,15 @@ class LongitudinalSelfModelOwner:
         if generation > MAX_RECONCILIATION_ENTRIES:
             raise LongitudinalSelfModelError("reconciliation_entry_limit_exceeded")
         previous = history[-1] if history else None
-        prior_current = {claim.claim_key: claim for claim in previous.claims if claim.status in {"current", "contradicted", "unresolved"}} if previous else {}
+        prior_current: dict[str, tuple[SelfModelClaim, ...]] = {}
+        if previous:
+            grouped_prior: dict[str, list[SelfModelClaim]] = {}
+            for claim in previous.claims:
+                if claim.status in {"current", "contradicted", "unresolved"}:
+                    grouped_prior.setdefault(claim.claim_key, []).append(claim)
+            prior_current = {key: tuple(sorted(claims,
+                key=lambda claim: (claim.claim_category, claim.claim_id)))
+                for key, claims in grouped_prior.items()}
         candidates: dict[str, list[tuple[WorldStateFact, str, Any, str]]] = {}
         for fact in snapshot.facts:
             for predicate, value, category in _fact_predicates(fact):
@@ -1289,13 +1297,16 @@ class LongitudinalSelfModelOwner:
                 grouped.setdefault((value_identity, item[3]), []).append(item)
             contradicted = len(value_identities) > 1 or any(
                 item[0].fact_id in conflict_fact_ids for item in items)
-            ids: list[str] = []
             for group in grouped.values():
                 facts = [item[0] for item in group]
                 predicate, value, category = group[0][1], group[0][2], group[0][3]
-                cid = _claim_id(key, value, [fact.fact_id for fact in facts]); ids.append(cid)
-                prior = prior_current.get(key)
-                supersedes = (prior.claim_id,) if prior and prior.value != value else ()
+                cid = _claim_id(key, value, [fact.fact_id for fact in facts])
+                predecessors = prior_current.get(key, ())
+                prior = next((claim for claim in predecessors
+                    if claim.value == value and claim.claim_category == category), None)
+                supersedes = tuple(sorted({claim.claim_id for claim in predecessors
+                    if claim.value != value or claim.claim_category != category
+                    or claim.claim_id != cid}))
                 source_times = tuple(sorted({str(fact.observed_at) for fact in facts if fact.observed_at is not None}))
                 payloads = [fact.payload for fact in facts]
                 freshnesses = {fact.source.staleness for fact in facts}
@@ -1335,16 +1346,16 @@ class LongitudinalSelfModelOwner:
                     context(("developmental_history_boundary",)),
                     current_truth=False, interpretation=historical_interpretation,
                 ))
-            active_ids_by_key[key] = tuple(sorted(ids))
-
         if previous:
             for old in previous.claims:
-                replacements = active_ids_by_key.get(old.claim_key, ())
                 matching = any(claim.claim_id == old.claim_id for claim in new_claims)
                 if not matching:
-                    new_claims.append(replace(old, status="historical" if replacements else "withdrawn",
-                                              freshness="superseded" if replacements else "stale",
-                                              superseded_by=replacements, last_supported_generation=generation - 1))
+                    successors = tuple(sorted({claim.claim_id for claim in new_claims
+                        if old.claim_id in claim.supersedes}))
+                    new_claims.append(replace(old,
+                        status="historical" if successors else "withdrawn",
+                        freshness="superseded" if successors else "stale",
+                        superseded_by=successors, last_supported_generation=generation - 1))
 
         shell = SelfModelReconciliation(RECONCILIATION_SCHEMA, "", "", generation, tick_id,
                                         snapshot.snapshot_id, snapshot.digest,
