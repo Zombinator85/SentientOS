@@ -1,0 +1,33 @@
+{
+  "claims": [
+    "120 focused tests across objective scoring, model replacement, same-model history intervention, and resident cognition passed after composition changes.",
+    "A deterministic same-model fixture measured +2 correct probes from history for a four-probe task; exact restored history reproduced that count. This does not demonstrate real-model performance."
+  ],
+  "details": "The same-model history-intervention owner shared the v2 scorer but still admitted only the scalar plan rubric. Its plan publication and recovery verifier now accept the bounded preregistered probe-suite schema with a distinct rubric, while historical scalar task-plan bytes and scoring identities remain unchanged. Partial results (2/4 correct) are carried across present/withheld/restored conditions, World-State, writeback, restart, and later-tick cognition.",
+  "failed": 0,
+  "git_diff_check": "passed",
+  "hosted_checks_path": "work/construction/evidence/0088-hosted-checks-seq87.json",
+  "junit": {
+    "bytes": 19715,
+    "path": "work/construction/evidence/0088-same-model-probe-suite-junit.xml",
+    "sha256": "5411e9a22f3d1fd7111f62efefb6409d305250ef48beb24dbfa1c276c55728e4",
+    "testsuite": {
+      "errors": null,
+      "failures": null,
+      "hostname": null,
+      "name": "pytest tests",
+      "skipped": null,
+      "tests": null,
+      "time": null,
+      "timestamp": null
+    }
+  },
+  "passed": 120,
+  "python_compilation": "passed",
+  "sequence": 88,
+  "skipped": 0,
+  "source_baseline_commit": "331629c98b4ef560a2a570320712e7e511a6a13d",
+  "source_baseline_tree": "38c4829faae1b55b3d0dc8035d5bd57585efd982",
+  "status": "construction_tested_unverified_for_production",
+  "typing": "not run"
+}

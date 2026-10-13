@@ -131,6 +131,10 @@ class FakeInvoker:
             assert prompt["objective_task"] == plan["task_descriptor"]
             assert "objective_task" not in prompt["current_evidence"]
             history = prompt["developmental_history"]
+            descriptor = plan["task_descriptor"]
+            suite = descriptor.get("probe_count", 1) > 1
+            probes = descriptor.get("probe_inputs", [7])
+            answers = [0 for _ in probes]
             if self.objective_mode == "derive_from_history":
                 examples = []
                 for packet in history:
@@ -142,24 +146,25 @@ class FakeInvoker:
                 if len(examples) >= 2:
                     (x1, y1), (x2, y2) = examples[:2]
                     multiplier = (y2 - y1) // (x2 - x1)
-                    answer = multiplier * 7 + (y1 - multiplier * x1)
-                else:
-                    answer = 0
+                    offset = y1 - multiplier * x1
+                    answers = [multiplier * probe + offset for probe in probes]
             elif self.objective_mode == "no_difference":
-                answer = 23
+                answers = [23 for _ in probes]
             elif self.objective_mode == "degrade":
-                answer = 0 if history else 23
+                answers = [0 for _ in probes] if history else [23 for _ in probes]
             elif self.objective_mode == "unstable":
-                answer = 0 if request.linkage["condition_id"] == "history_restored" else (
-                    23 if history else 0)
+                answers = ([0 for _ in probes] if request.linkage["condition_id"] == "history_restored"
+                    else [23 if history else 0 for _ in probes])
             elif self.objective_mode == "malformed":
-                answer = None
+                answers = [0 for _ in probes]
             elif self.objective_mode == "substitute":
-                answer = 23 if history else 0
-            else:
-                answer = 23 if history else 0
+                answers = [23 if history else 0 for _ in probes]
+            elif self.objective_mode == "partial":
+                answers = ([23, 26, *([0] * max(0, len(probes) - 2))]
+                    if history else [0 for _ in probes])
+            response = {"answers": answers} if suite else {"answer": answers[0]}
             output = ("{\"answer\":23,\"answer\":0}" if self.objective_mode == "malformed"
-                else json.dumps({"answer": answer}, sort_keys=True, separators=(",", ":")))
+                else json.dumps(response, sort_keys=True, separators=(",", ":")))
             if self.objective_mode == "unavailable":
                 receipt_text = None
             else:
@@ -371,6 +376,50 @@ print(json.dumps(run["objective_evaluation"], sort_keys=True))
     with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
         restarted.run_tick(snapshot=snapshot(), tick_id="objective-history-comparison")
     assert len(fake.requests) == replay_requests
+
+
+def test_same_model_probe_suite_partial_scores_reach_later_cognition(tmp_path: Path) -> None:
+    fake = FakeInvoker()
+    fake.objective_mode = "partial"
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9, 10))
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    seeded = cognition.run_tick(snapshot=snapshot(), tick_id="probe-suite-seed")
+    assert seeded.written_record_id
+    measured = cognition.run_tick(snapshot=snapshot(), tick_id="probe-suite-measured")
+    run = cognition.experiments.load_run(measured.changed_cognition_measurement_id)
+    evaluation = run["objective_evaluation"]
+    assert evaluation["assessment"] == "preregistered_probe_suite_scored"
+    assert evaluation["history_accuracy_delta"] == 0
+    assert evaluation["probe_count"] == 4
+    assert evaluation["condition_correct_counts"] == [2, 0, 2]
+    assert evaluation["history_correct_probe_delta"] == 2
+    assert evaluation["restoration_correct_probe_delta"] == 0
+    records = cognition.experiments.world_state_records(
+        run_refs=((run["run_id"], run["run_digest"]),))
+    assert records[0]["payload"]["objective_evaluation"] == evaluation
+    assert [item["correct_count"] for item in records[0]["payload"]["objective_scores"]] == [2, 0, 2]
+
+    from sentientos.world_state_board import WorldStateBoardBuilder
+    from tests.test_resident_developmental_cognition import owner as developmental_owner
+    snapshot_value = WorldStateBoardBuilder().build(records)
+    downstream_root = tmp_path / "later-cognition"
+    downstream, _ = developmental_owner(downstream_root,
+        allowed_source_kinds=("embodiment",), max_selected_facts=1)
+    first = downstream.run_tick(snapshot=snapshot_value, tick_id="suite-history-tick-n")
+    assert first.written_record_id
+    retained = downstream.writeback.store.get(first.written_record_id).candidate[
+        "selected_facts"][0]["payload"]
+    assert retained["objective_evaluation"]["history_correct_probe_delta"] == 2
+    assert [item["correct_count"] for item in retained["objective_scores"]] == [2, 0, 2]
+    recovered, invoker = developmental_owner(downstream_root,
+        allowed_source_kinds=("embodiment",), max_selected_facts=1)
+    later = recovered.run_tick(snapshot=snapshot_value, tick_id="suite-history-tick-n-plus-one")
+    assert first.written_record_id in later.prior_record_ids
+    retrieval = next(request for request in invoker.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert first.written_record_id in retrieval.upstream_evidence["record_ids"]
 
 
 def test_same_model_objective_score_recovery_rejects_rehashed_substitution(tmp_path: Path) -> None:

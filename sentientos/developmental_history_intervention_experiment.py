@@ -218,10 +218,12 @@ class DevelopmentalExperimentStore:
                 or descriptor.get("task_digest") != protocol.objective_task_digest
                 or _digest(specification) != protocol.objective_task_digest):
             raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
+        suite = specification.get("schema_version") == "sentientos.affine_prediction_task_suite:v2"
         semantic = {"schema_version": "sentientos.objective_task_plan:v1",
             "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
             "task": dict(specification), "task_descriptor": dict(descriptor),
-            "condition_order": list(CONDITION_ORDER), "rubric": "exact_integer_answer_v1",
+            "condition_order": list(CONDITION_ORDER),
+            "rubric": "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1",
             "authority": False}
         plan = {**semantic, "plan_digest": _digest(semantic)}
         path = self.protocols / f"objective-task-plan-{protocol.protocol_id}.json"
@@ -245,25 +247,35 @@ class DevelopmentalExperimentStore:
         if set(value) != expected:
             raise DevelopmentalHistoryInterventionError("objective_task_plan_invalid")
         semantic = dict(value); claimed = semantic.pop("plan_digest")
+        task = value.get("task")
+        suite = isinstance(task, Mapping) and task.get("schema_version") == (
+            "sentientos.affine_prediction_task_suite:v2")
         if (value.get("schema_version") != "sentientos.objective_task_plan:v1"
                 or value.get("protocol_id") != protocol.protocol_id
                 or value.get("protocol_digest") != protocol.protocol_digest
                 or value.get("condition_order") != list(CONDITION_ORDER)
-                or value.get("rubric") != "exact_integer_answer_v1"
+                or value.get("rubric") != ("exact_integer_answer_suite_v2" if suite
+                    else "exact_integer_answer_v1")
                 or value.get("authority") is not False
                 or claimed != _digest(semantic)):
             raise DevelopmentalHistoryInterventionError("objective_task_plan_binding_invalid")
-        task = value.get("task")
-        if not isinstance(task, Mapping) or set(task) != {
-                "schema_version", "multiplier", "offset", "probe_input", "oracle_scope"}:
+        expected_task_fields = ({"schema_version", "multiplier", "offset", "probe_inputs", "oracle_scope"}
+            if suite else {"schema_version", "multiplier", "offset", "probe_input", "oracle_scope"})
+        if not isinstance(task, Mapping) or set(task) != expected_task_fields:
             raise DevelopmentalHistoryInterventionError("objective_task_plan_invalid")
         from .developmental_model_replacement_experiment import ObjectivePredictionTask
         try:
-            reconstructed = ObjectivePredictionTask(task["multiplier"], task["offset"], task["probe_input"])
+            if suite:
+                probes = task["probe_inputs"]
+                if not isinstance(probes, list) or not probes:
+                    raise ValueError("objective_probe_suite_invalid")
+                reconstructed = ObjectivePredictionTask(task["multiplier"], task["offset"],
+                    probes[0], tuple(probes[1:]))
+            else:
+                reconstructed = ObjectivePredictionTask(task["multiplier"], task["offset"], task["probe_input"])
             if (reconstructed.specification() != dict(task)
                     or reconstructed.public_descriptor() != value.get("task_descriptor")
                     or value.get("task_descriptor") != dict(protocol_descriptor)
-                    or task.get("schema_version") != "sentientos.affine_prediction_task:v1"
                     or _digest(task) != protocol.objective_task_digest):
                 raise ValueError("objective_task_binding_invalid")
         except (TypeError, ValueError) as exc:
@@ -565,7 +577,10 @@ class DevelopmentalExperimentStore:
                 score_projection = [{"condition_id": item["condition_id"],
                     "score_digest": item["score"]["score_digest"],
                     "status": item["score"]["status"],
-                    "correct": item["score"]["correct"]}
+                    "correct": item["score"]["correct"],
+                    **({"correct_count": item["score"]["correct_count"],
+                        "probe_count": item["score"]["probe_count"]}
+                        if "correct_count" in item["score"] else {})}
                     for item in objective_scores]
             payload = {
                 "run_id": run_id, "run_digest": run["run_digest"],
@@ -712,7 +727,7 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
     delta = ((1 if correctness[0] is True else 0) - (1 if correctness[1] is True else 0)
         if complete else None)
     restored_stable = correctness[0] == correctness[2] if complete else None
-    return {"plan_digest": plan.get("plan_digest"),
+    evaluation = {"plan_digest": plan.get("plan_digest"),
         "condition_score_digests": [row["score"].get("score_digest")
             for row in scores if isinstance(row.get("score"), Mapping)],
         "history_accuracy_delta": delta,
@@ -720,3 +735,14 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
         "assessment": "single_preregistered_task_scored" if complete else "unscoreable_missing_output",
         "scope": "same_model_task_correctness_not_general_learning_or_weight_change",
         "model_behavior_posture": "resident_endpoint_receipts_not_independent_model_attestation"}
+    if plan.get("task", {}).get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+        counts = [row["score"].get("correct_count")
+            if isinstance(row.get("score"), Mapping) else None for row in scores]
+        count_complete = len(counts) == 3 and all(type(value) is int for value in counts)
+        evaluation.update({"probe_count": len(plan["task"]["probe_inputs"]),
+            "condition_correct_counts": counts,
+            "history_correct_probe_delta": counts[0] - counts[1] if count_complete else None,
+            "restoration_correct_probe_delta": counts[0] - counts[2] if count_complete else None,
+            "assessment": ("preregistered_probe_suite_scored" if complete
+                else "unscoreable_missing_output")})
+    return evaluation

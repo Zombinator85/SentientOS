@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `59e12375217064d4080e640e712a615965942abe`, tree `76ff595a04cea9bba6eb18ef8eb1d0ee14227c64`. Sequences 84–87 extend the existing model-replacement objective scorer with bounded preregistered probe suites, per-probe correct counts, adversarial plan/receipt controls, and durable later-tick history retrieval. The 119-test focused developmental/cognition set passed; production remains unverified.
+Last independently verified remote baseline `331629c98b4ef560a2a570320712e7e511a6a13d`, tree `38c4829faae1b55b3d0dc8035d5bd57585efd982`. Sequence 88 composes bounded probe-suite scoring with the existing same-model history-present/withheld/restored protocol, preserving old scalar identities. Partial score deltas survive World-State, authorized developmental history, fresh-owner recovery and N+1 cognition. The 120 focused tests pass; production and real-model behavior are unverified.
 
-Latest segment: work/construction/segments/0087-retain-partial-probe-correctness.md
-SHA-256: c5fa6572575223d181ccf0a64c9f2c4fb7bb27caddef0c715351927bbc1a3fc0
-Sequence: 87
+Latest segment: work/construction/segments/0088-same-model-probe-suite-continuity.md
+SHA-256: 123dd878a2305ca40bc1f70fcebe60c4dc6b56c17ef152dae0b99e709e73b66d
+Sequence: 88
 
-Loaded-code identity remains `not_independently_attested`. No local model payload/commissioning receipt/exact approval is available. Seq86 Source Validation passed; hosted Helm remained in progress at capture, while invariant/docs/self-check failures remain bound to existing access/environment limits.
+Loaded-code identity remains `not_independently_attested`; current serving prereqs remain absent (tracked artifacts are LFS pointers, no commissioning receipt or exact approval). Seq87 Source Validation and Helm smoke succeeded; other hosted jobs hit documented existing gates/setup failures.
 
-Next: inspect exact persisted suite recovery compatibility, then advance to the next independently implementable causal-developmental path without treating test success as real-model performance.
+Next: verify durable cognition projection semantics for the new metric and assess an adjacent continuity gap without conflating task scores with truth, authority or real-model improvement.

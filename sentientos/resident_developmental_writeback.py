@@ -1091,6 +1091,9 @@ def _developmental_history_interpretation_projection(
                 "score_digest": item.get("score_digest"),
                 "status": item.get("status"),
                 "correct": item.get("correct"),
+                **({"correct_count": item.get("correct_count"),
+                    "probe_count": item.get("probe_count")}
+                    if "correct_count" in item else {}),
             })
     summary = {
         "run_id": original.get("run_id"), "run_digest": original.get("run_digest"),
