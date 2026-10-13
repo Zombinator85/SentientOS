@@ -432,10 +432,12 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             lineage_findings.append(f"attempt_allocation_substitution:{attempt_id}")
         linked = [item for item in raw_receipts if isinstance(item, Mapping) and item.get("attempt_id") == attempt_id]
         valid_receipt_digests = all(
-            isinstance(digest, str) and bool(digest) for digest in receipt_digests)
+            isinstance(receipt_digest_value, str) and bool(receipt_digest_value)
+            for receipt_digest_value in receipt_digests)
         reported_receipt_digests = set(receipt_digests) if valid_receipt_digests else set()
         if (not receipt_digests or not valid_receipt_digests
-                or any(digest not in ledger_receipts for digest in reported_receipt_digests)):
+                or any(receipt_digest_value not in ledger_receipts
+                    for receipt_digest_value in reported_receipt_digests)):
             lineage_findings.append(f"consumption_receipt_missing:{attempt_id}")
         if linked:
             # The attempt-begun receipt proves the pre-inference debit gate and
@@ -451,8 +453,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or len(reported_receipt_digests) != len(receipt_digests)
                     or reported_receipt_digests != actual_receipt_digests):
                 lineage_findings.append(f"consumption_receipt_set_mismatch:{attempt_id}")
-        for digest in receipt_digests:
-            linked_receipt = ledger_receipts.get(str(digest))
+        for receipt_digest_value in receipt_digests:
+            linked_receipt = ledger_receipts.get(str(receipt_digest_value))
             if linked_receipt is None:
                 continue
             if linked_receipt.get("attempt_id") != attempt_id:
@@ -953,10 +955,14 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         if runtime_schema == "sentientos.chat_process_runtime_observation:v1":
             runtime_fields = base_runtime_fields
         elif runtime_schema in {"sentientos.chat_process_runtime_observation:v2",
-                "sentientos.chat_process_runtime_observation:v3"}:
+                "sentientos.chat_process_runtime_observation:v3",
+                "sentientos.chat_process_runtime_observation:v4"}:
             runtime_fields = base_runtime_fields | {"configured_serving_receipt_posture", "serving_receipt"}
-            if runtime_schema == "sentientos.chat_process_runtime_observation:v3":
+            if runtime_schema in {"sentientos.chat_process_runtime_observation:v3",
+                    "sentientos.chat_process_runtime_observation:v4"}:
                 runtime_fields = runtime_fields | {"configured_serving_operation_id"}
+            if runtime_schema == "sentientos.chat_process_runtime_observation:v4":
+                runtime_fields = runtime_fields | {"process_executable_observation"}
         else:
             runtime_fields = set()
         serving = runtime.get("serving_receipt") if isinstance(runtime, Mapping) else None
@@ -965,7 +971,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             (runtime_schema == "sentientos.chat_process_runtime_observation:v1"
                 and serving is None and serving_posture is None)
             or (runtime_schema in {"sentientos.chat_process_runtime_observation:v2",
-                    "sentientos.chat_process_runtime_observation:v3"}
+                    "sentientos.chat_process_runtime_observation:v3",
+                    "sentientos.chat_process_runtime_observation:v4"}
                 and (
                     (serving_posture == "selected_receipt_for_configured_operation"
                         and isinstance(serving, Mapping)
@@ -982,7 +989,8 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 ))
         )
         operation_binding_valid = (
-            runtime_schema != "sentientos.chat_process_runtime_observation:v3"
+            runtime_schema not in {"sentientos.chat_process_runtime_observation:v3",
+                "sentientos.chat_process_runtime_observation:v4"}
             or (runtime.get("configured_serving_operation_id") is None
                 or isinstance(runtime.get("configured_serving_operation_id"), str)
                 and bool(runtime.get("configured_serving_operation_id"))
@@ -991,8 +999,78 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 or runtime.get("configured_serving_operation_id")
                     == serving.get("serving_operation_id"))
         )
+        executable_valid = runtime_schema != "sentientos.chat_process_runtime_observation:v4"
+        if runtime_schema == "sentientos.chat_process_runtime_observation:v4":
+            executable = runtime.get("process_executable_observation") if isinstance(runtime, Mapping) else None
+            if (isinstance(executable, Mapping)
+                    and set(executable) == {"schema_version", "observer", "observation_status",
+                        "process_id", "expected_parent_process_id", "observed_parent_process_id",
+                        "parent_process_matches", "process_start_time_ticks",
+                        "expected_executable_path_sha256", "observed_executable_path_sha256",
+                        "executable_path_matches_expected", "executable_image_sha256",
+                        "executable_image_size_bytes", "observed_at", "reason_code",
+                        "loaded_python_module_identity_posture", "effect_authority", "observation_digest"}):
+                executable_semantic = {key: value for key, value in executable.items()
+                    if key != "observation_digest"}
+                observation_status = executable.get("observation_status")
+                expected_path_digest = executable.get("expected_executable_path_sha256")
+                executable_valid = (
+                    executable.get("schema_version") == "sentientos.supervised_process_executable_observation:v1"
+                    and executable.get("observer") == "supervising_parent_procfs_read"
+                    and isinstance(expected_path_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", expected_path_digest) is not None
+                    and executable.get("process_id") == runtime.get("process_id")
+                    and executable.get("expected_parent_process_id") == runtime.get("parent_process_id")
+                    and type(executable.get("process_id")) is int
+                    and type(executable.get("expected_parent_process_id")) is int
+                    and executable.get("loaded_python_module_identity_posture") == "not_independently_attested"
+                    and executable.get("effect_authority") is False
+                    and isinstance(executable.get("observed_at"), str)
+                    and executable.get("observation_digest") == hashlib.sha256(json.dumps(
+                        executable_semantic, sort_keys=True, separators=(",", ":"),
+                        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest())
+                if observation_status == "observed":
+                    executable_valid = executable_valid and (
+                        type(executable.get("observed_parent_process_id")) is int
+                        and executable.get("parent_process_matches") is (
+                            executable.get("observed_parent_process_id")
+                            == executable.get("expected_parent_process_id"))
+                        and type(executable.get("process_start_time_ticks")) is int
+                        and executable.get("process_start_time_ticks", 0) > 0
+                        and type(executable.get("executable_path_matches_expected")) is bool
+                        and type(executable.get("executable_image_size_bytes")) is int
+                        and executable.get("executable_image_size_bytes", 0) > 0
+                        and executable.get("executable_image_size_bytes", 0) <= 536_870_912
+                        and all(isinstance(executable.get(key), str)
+                            and re.fullmatch(r"[0-9a-f]{64}", executable[key])
+                                for key in ("expected_executable_path_sha256",
+                                    "observed_executable_path_sha256", "executable_image_sha256"))
+                        and executable.get("reason_code") is None)
+                elif observation_status == "unavailable":
+                    executable_valid = executable_valid and (
+                        all(executable.get(key) is None for key in (
+                            "observed_parent_process_id", "parent_process_matches",
+                            "process_start_time_ticks", "observed_executable_path_sha256",
+                            "executable_path_matches_expected", "executable_image_sha256",
+                            "executable_image_size_bytes"))
+                        and isinstance(executable.get("reason_code"), str)
+                        and re.fullmatch(r"[a-z0-9_]{1,80}", executable["reason_code"]) is not None)
+                else:
+                    executable_valid = False
+                try:
+                    executable_time = datetime.fromisoformat(
+                        str(executable.get("observed_at", "")).replace("Z", "+00:00"))
+                except (TypeError, ValueError):
+                    executable_valid = False
+                else:
+                    executable_valid = executable_valid and executable_time.tzinfo is not None
+            if runtime.get("runtime_status") == "running_observed":
+                executable_valid = executable_valid and isinstance(executable, Mapping)
+            else:
+                executable_valid = executable_valid and executable is None
         if (not isinstance(runtime, Mapping) or set(runtime) != runtime_fields
                 or not serving_valid or not operation_binding_valid
+                or not executable_valid
                 or runtime.get("installation_identity") != selected_source_identity.get("installation_identity")
                 or runtime.get("runtime_status") not in {"running_observed", "not_verified"}
                 or runtime.get("currentness_posture") != "runtime_owner_observed_at_recorded_event_time"
@@ -1098,6 +1176,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 "provisioning_id": selected_source_identity.get("provisioning_id"),
                 "manifest_digest": selected_source_identity.get("manifest_digest"),
                 "chat_process_runtime_observation": dict(runtime),
+                "process_executable_observation": (
+                    dict(runtime["process_executable_observation"])
+                    if runtime_schema == "sentientos.chat_process_runtime_observation:v4"
+                    and isinstance(runtime.get("process_executable_observation"), Mapping) else None),
                 "software_generation_scope": runtime["source_generation_scope"],
                 "loaded_code_identity_posture": "not_independently_attested",
                 "process_identity_scope":

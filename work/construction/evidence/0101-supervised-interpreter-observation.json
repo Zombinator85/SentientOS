@@ -1,0 +1,50 @@
+{
+  "actual_model_invoked": false,
+  "authority_expanded": false,
+  "base_commit": "b8d87a1bea423ca5d5cb103c5002100fe04cf8b3",
+  "base_tree": "6fe42a64e32104a36aa1b99149652cf682998c6c",
+  "compilation": {
+    "files": [
+      "sentientos/chat_process_generation.py",
+      "sentientos/host_resource_runtime.py",
+      "sentientos/resident_developmental_writeback.py",
+      "sentientos/longitudinal_self_model.py",
+      "tests/test_local_model_chat_runtime_startup.py",
+      "tests/test_longitudinal_self_model.py"
+    ],
+    "status": "passed"
+  },
+  "focused_tests": {
+    "collected": 76,
+    "failed": 0,
+    "modules": [
+      "tests/test_local_model_chat_runtime_startup.py",
+      "tests/test_resource_invocation_process_generation_integration.py",
+      "tests/test_host_resource_runtime.py",
+      "tests/test_longitudinal_self_model.py",
+      "tests/test_resident_developmental_writeback.py"
+    ],
+    "passed": 75,
+    "skipped": 1,
+    "skip_status": "pre-existing legacy-policy skip; not forced"
+  },
+  "initial_test_environment_failure": "Without temporary governor/federation/kernel roots, existing tests attempted to initialize /glow in the read-only environment; the rerun with isolated roots passed.",
+  "loaded_python_module_identity": "not_independently_attested",
+  "production_verified": false,
+  "provider_egress": false,
+  "source_changes": {
+    "interpreter_observation": "Linux procfs executable-image digest, process start ticks, parent identity and expected-path comparison; explicit unavailable posture elsewhere",
+    "resource_projection": "Fixed local variable shadowing of canonical digest function, exposed by the new owner-composition path",
+    "temporal_and_authority_posture": "Historical evidence only after observed_at; no effect authority; loaded modules remain unknown"
+  },
+  "schema_version": 1,
+  "changed_file_sha256": {
+    "sentientos/chat_process_generation.py": "205fcc7b5d8458d2a3c994beba1eb9f88ff37e3cf1d57d2cc7822deca8b9cf50",
+    "sentientos/host_resource_runtime.py": "4a1b6fead7fd56b5cd96c8a84f9bc50993a98018c1d6506aa923c13297ba790a",
+    "sentientos/resident_developmental_writeback.py": "7c7c60fa49f6ce0893df93eaf5c859f56be3784a0e8f9c997f8472212695a848",
+    "sentientos/longitudinal_self_model.py": "056bb3b873bf57b24937926a4eb6e28d02378173febc8a4325a45097d853a839",
+    "tests/test_local_model_chat_runtime_startup.py": "b60f5addb97300c7ff51c6742c714c98dd0c6d5e1f2a5795d2a95f7f72a6e310",
+    "tests/test_longitudinal_self_model.py": "353870cfded380930c3560a5713a1d14388a33435e518ca40b0432df14c7cd8f",
+    "work/construction/segments/0101-supervised-interpreter-observation.md": "6709b7f52f2803e1d32e2798fa28b6af54d9250d0bbe3ad1b88d22e7034884d1"
+  }
+}

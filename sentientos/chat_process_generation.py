@@ -35,9 +35,11 @@ MAX_HANDOFF_ENTRIES = 256
 MAX_LAUNCH_ARGUMENTS = 128
 MAX_LAUNCH_ARGUMENT_BYTES = 4096
 MAX_LAUNCH_ARGUMENT_TOTAL_BYTES = 32_768
-RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v3"
+RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v4"
+V3_RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v3"
 V2_RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v2"
 LEGACY_RUNTIME_OBSERVATION_SCHEMA = "sentientos.chat_process_runtime_observation:v1"
+PROCESS_EXECUTABLE_OBSERVATION_SCHEMA = "sentientos.supervised_process_executable_observation:v1"
 RUNTIME_OBSERVATION_PATH = "local-model/chat/runtime-observations/current.json"
 RUNTIME_OBSERVATION_LOCK = "local-model/chat/runtime-observations/owner.lock"
 MAX_RUNTIME_OBSERVATION_BYTES = 65_536
@@ -46,6 +48,8 @@ MAX_SOURCE_FILES = 2_048
 MAX_SOURCE_DIRECTORIES = 8_192
 MAX_SOURCE_FILE_BYTES = 2_097_152
 MAX_SOURCE_TOTAL_BYTES = 67_108_864
+MAX_PROCESS_EXECUTABLE_BYTES = 536_870_912
+MAX_PROC_STAT_BYTES = 65_536
 
 
 class ChatProcessGenerationError(ValueError):
@@ -253,6 +257,216 @@ def source_generation(repository_root: str | Path) -> tuple[str, tuple[dict[str,
                         "size_bytes": len(raw)})
     manifest_digest = _digest(members)
     return "sha256:" + manifest_digest, tuple(members)
+
+
+def _proc_process_identity(process_id: int) -> tuple[int, int]:
+    """Read kernel procfs parent PID and start ticks with a strict byte bound."""
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(f"/proc/{process_id}/stat", os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0))
+        raw = bytearray()
+        while True:
+            chunk = os.read(descriptor, min(4096, MAX_PROC_STAT_BYTES + 1 - len(raw)))
+            if not chunk:
+                break
+            raw.extend(chunk)
+            if len(raw) > MAX_PROC_STAT_BYTES:
+                raise ChatProcessGenerationError("process_proc_stat_too_large")
+    except ChatProcessGenerationError:
+        raise
+    except OSError as exc:
+        raise ChatProcessGenerationError("process_proc_stat_unavailable") from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+    try:
+        text = bytes(raw).decode("ascii")
+        close = text.rfind(")")
+        if close < 0:
+            raise ValueError("comm_terminator_missing")
+        fields = text[close + 1:].split()
+        # After comm: state is field 3, parent PID field 4, start time field 22.
+        if len(fields) <= 19:
+            raise ValueError("proc_stat_fields_missing")
+        parent_process_id, start_time_ticks = int(fields[1]), int(fields[19])
+        if parent_process_id < 0 or start_time_ticks < 1:
+            raise ValueError("proc_stat_identity_invalid")
+        return parent_process_id, start_time_ticks
+    except (UnicodeError, ValueError, IndexError) as exc:
+        raise ChatProcessGenerationError("process_proc_stat_invalid") from exc
+
+
+def observe_supervised_process_executable(*, process_id: int,
+        expected_parent_process_id: int, expected_executable: str) -> dict[str, Any]:
+    """Read the live child executable image through Linux procfs, without authority.
+
+    This is independent of the child application's self-report, but it identifies
+    only the interpreter executable image. Python modules loaded into memory remain
+    explicitly unattested. Other platforms and inaccessible procfs produce a bounded
+    unavailable observation rather than a guessed identity.
+    """
+    if (type(process_id) is not int or process_id < 1
+            or type(expected_parent_process_id) is not int or expected_parent_process_id < 1
+            or not isinstance(expected_executable, str) or not expected_executable
+            or len(expected_executable.encode("utf-8")) > 4096):
+        raise ChatProcessGenerationError("process_executable_observation_arguments_invalid")
+    try:
+        expected_path = os.path.realpath(expected_executable)
+        expected_path_digest = hashlib.sha256(expected_path.encode("utf-8")).hexdigest()
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ChatProcessGenerationError("process_executable_expected_path_invalid") from exc
+
+    def build(status: str, *, reason: str | None = None,
+              observed_parent: int | None = None, start_ticks: int | None = None,
+              observed_path_digest: str | None = None, path_matches: bool | None = None,
+              image_digest: str | None = None, image_size: int | None = None) -> dict[str, Any]:
+        semantic: dict[str, Any] = {
+            "schema_version": PROCESS_EXECUTABLE_OBSERVATION_SCHEMA,
+            "observer": "supervising_parent_procfs_read",
+            "observation_status": status,
+            "process_id": process_id,
+            "expected_parent_process_id": expected_parent_process_id,
+            "observed_parent_process_id": observed_parent,
+            "parent_process_matches": (observed_parent == expected_parent_process_id)
+                if observed_parent is not None else None,
+            "process_start_time_ticks": start_ticks,
+            "expected_executable_path_sha256": expected_path_digest,
+            "observed_executable_path_sha256": observed_path_digest,
+            "executable_path_matches_expected": path_matches,
+            "executable_image_sha256": image_digest,
+            "executable_image_size_bytes": image_size,
+            "observed_at": datetime.now(timezone.utc).isoformat(
+                timespec="microseconds").replace("+00:00", "Z"),
+            "reason_code": reason,
+            "loaded_python_module_identity_posture": "not_independently_attested",
+            "effect_authority": False,
+        }
+        return {**semantic, "observation_digest": _digest(semantic)}
+
+    if not sys.platform.startswith("linux"):
+        return build("unavailable", reason="procfs_platform_unavailable")
+    try:
+        parent_before, start_before = _proc_process_identity(process_id)
+        proc_executable = f"/proc/{process_id}/exe"
+        observed_path = os.readlink(proc_executable)
+        if len(observed_path.encode("utf-8")) > 4096:
+            raise ChatProcessGenerationError("process_executable_path_too_large")
+        descriptor = os.open(proc_executable, os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NONBLOCK", 0))
+        try:
+            before = os.fstat(descriptor)
+            if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_PROCESS_EXECUTABLE_BYTES:
+                raise ChatProcessGenerationError("process_executable_image_invalid")
+            digest = hashlib.sha256()
+            total = 0
+            while True:
+                chunk = os.read(descriptor, min(65_536, MAX_PROCESS_EXECUTABLE_BYTES + 1 - total))
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_PROCESS_EXECUTABLE_BYTES:
+                    raise ChatProcessGenerationError("process_executable_image_too_large")
+                digest.update(chunk)
+            after = os.fstat(descriptor)
+            # Confirm that procfs still names this opened image after reading it.
+            # An exec between readlink/open/read must not combine path metadata for
+            # one image with bytes from another image.
+            observed_path_after = os.readlink(proc_executable)
+            current_image = os.stat(proc_executable)
+        finally:
+            os.close(descriptor)
+        parent_after, start_after = _proc_process_identity(process_id)
+        if ((parent_before, start_before) != (parent_after, start_after)
+                or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                    != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+                or observed_path_after != observed_path
+                or (current_image.st_dev, current_image.st_ino)
+                    != (before.st_dev, before.st_ino)
+                or total != before.st_size):
+            raise ChatProcessGenerationError("process_executable_identity_changed")
+        observed_path_digest = hashlib.sha256(observed_path.encode("utf-8")).hexdigest()
+        normalized_observed = observed_path.removesuffix(" (deleted)")
+        path_matches = os.path.realpath(normalized_observed) == expected_path
+        return build("observed", observed_parent=parent_after, start_ticks=start_after,
+            observed_path_digest=observed_path_digest, path_matches=path_matches,
+            image_digest=digest.hexdigest(), image_size=total)
+    except ChatProcessGenerationError as exc:
+        code = str(exc)
+        if not re.fullmatch(r"[a-z0-9_]{1,80}", code):
+            code = "procfs_observation_invalid"
+        return build("unavailable", reason=code)
+    except (OSError, UnicodeError, ValueError) as exc:
+        code = "process_executable_observation_unavailable"
+        if isinstance(exc, OSError) and exc.errno in {13, 1}:
+            code = "process_executable_observation_denied"
+        return build("unavailable", reason=code)
+
+
+def _verify_process_executable_observation(value: object, *, handoff_record: Mapping[str, Any]) -> None:
+    if not isinstance(value, Mapping):
+        raise ChatProcessGenerationError("runtime_observation_process_executable_missing")
+    observation = dict(value)
+    expected_fields = {"schema_version", "observer", "observation_status", "process_id",
+        "expected_parent_process_id", "observed_parent_process_id", "parent_process_matches",
+        "process_start_time_ticks", "expected_executable_path_sha256",
+        "observed_executable_path_sha256", "executable_path_matches_expected",
+        "executable_image_sha256", "executable_image_size_bytes", "observed_at",
+        "reason_code", "loaded_python_module_identity_posture", "effect_authority",
+        "observation_digest"}
+    semantic = {key: item for key, item in observation.items() if key != "observation_digest"}
+    expected_path = str(handoff_record.get("python_executable", ""))
+    expected_path_digest = hashlib.sha256(os.path.realpath(expected_path).encode("utf-8")).hexdigest()
+    if (set(observation) != expected_fields
+            or observation.get("schema_version") != PROCESS_EXECUTABLE_OBSERVATION_SCHEMA
+            or observation.get("observer") != "supervising_parent_procfs_read"
+            or observation.get("observation_digest") != _digest(semantic)
+            or observation.get("process_id") != handoff_record.get("process_id")
+            or type(observation.get("process_id")) is not int
+            or type(handoff_record.get("process_id")) is not int
+            or observation.get("expected_parent_process_id") != handoff_record.get("parent_process_id")
+            or type(observation.get("expected_parent_process_id")) is not int
+            or type(handoff_record.get("parent_process_id")) is not int
+            or observation.get("expected_executable_path_sha256") != expected_path_digest
+            or observation.get("loaded_python_module_identity_posture") != "not_independently_attested"
+            or observation.get("effect_authority") is not False):
+        raise ChatProcessGenerationError("runtime_observation_process_executable_identity_invalid")
+    try:
+        observed_at = datetime.fromisoformat(str(observation.get("observed_at", "")).replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise ChatProcessGenerationError("runtime_observation_process_executable_time_invalid") from exc
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise ChatProcessGenerationError("runtime_observation_process_executable_time_invalid")
+    if observation.get("observation_status") == "observed":
+        observed_parent = observation.get("observed_parent_process_id")
+        expected_parent = observation.get("expected_parent_process_id")
+        if (type(observation.get("observed_parent_process_id")) is not int
+                or observed_parent < 1
+                or observation.get("parent_process_matches")
+                    is not (observed_parent == expected_parent)
+                or type(observation.get("parent_process_matches")) is not bool
+                or type(observation.get("process_start_time_ticks")) is not int
+                or observation["process_start_time_ticks"] < 1
+                or not isinstance(observation.get("observed_executable_path_sha256"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", observation["observed_executable_path_sha256"]) is None
+                or type(observation.get("executable_path_matches_expected")) is not bool
+                or not isinstance(observation.get("executable_image_sha256"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", observation["executable_image_sha256"]) is None
+                or type(observation.get("executable_image_size_bytes")) is not int
+                or observation["executable_image_size_bytes"] < 1
+                or observation["executable_image_size_bytes"] > MAX_PROCESS_EXECUTABLE_BYTES
+                or observation.get("reason_code") is not None):
+            raise ChatProcessGenerationError("runtime_observation_process_executable_shape_invalid")
+    elif observation.get("observation_status") == "unavailable":
+        if (any(observation.get(key) is not None for key in (
+                "observed_parent_process_id", "parent_process_matches", "process_start_time_ticks",
+                "observed_executable_path_sha256", "executable_path_matches_expected",
+                "executable_image_sha256", "executable_image_size_bytes"))
+                or not isinstance(observation.get("reason_code"), str)
+                or re.fullmatch(r"[a-z0-9_]{1,80}", observation["reason_code"]) is None):
+            raise ChatProcessGenerationError("runtime_observation_process_executable_shape_invalid")
+    else:
+        raise ChatProcessGenerationError("runtime_observation_process_executable_status_invalid")
 
 
 def _process_instance_id(*, handoff_id: str, pid: int, parent_pid: int,
@@ -735,6 +949,13 @@ def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
             "model_loaded_in_receipt": True,
             "selection_posture": "selected_receipt_for_configured_operation",
         }
+    process_executable_observation = None
+    if status == "running_observed":
+        handoff_record = _read_handoff(handle, str(historical["handoff_id"]))
+        process_executable_observation = observe_supervised_process_executable(
+            process_id=int(historical["process_id"]),
+            expected_parent_process_id=int(historical["parent_process_id"]),
+            expected_executable=str(handoff_record["python_executable"]))
     body: dict[str, Any] = {
         "schema_version": RUNTIME_OBSERVATION_SCHEMA,
         "installation_identity": handle.identity.value,
@@ -752,6 +973,7 @@ def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
         "parent_process_id": historical["parent_process_id"],
         "software_generation_digest": historical["software_generation_digest"],
         "source_generation_scope": historical["source_generation_scope"],
+        "process_executable_observation": process_executable_observation,
         "currentness_posture": "runtime_owner_observed_at_recorded_event_time",
         "independent_signature": False,
         "effect_authority": False,
@@ -767,10 +989,20 @@ def publish_chat_process_runtime_observation(*, handle: InstallationStateHandle,
     try:
         with handle.exclusive_lock(lock):
             previous = read_stored_chat_process_runtime_observation(handle)
+            def executable_identity(record: Mapping[str, Any]) -> Any:
+                observation = record.get("process_executable_observation")
+                if not isinstance(observation, Mapping):
+                    return None
+                return tuple(observation.get(key) for key in (
+                    "observation_status", "process_id", "expected_parent_process_id",
+                    "observed_parent_process_id", "parent_process_matches",
+                    "process_start_time_ticks", "expected_executable_path_sha256",
+                    "observed_executable_path_sha256", "executable_path_matches_expected",
+                    "executable_image_sha256", "executable_image_size_bytes", "reason_code"))
             if previous is not None and all(previous.get(key) == body.get(key) for key in (
                     "schema_version", "runtime_supervisor_generation", "runtime_status", "handoff_id",
                     "handoff_digest", "reason_code", "configured_serving_receipt_posture",
-                    "serving_receipt")):
+                    "serving_receipt")) and executable_identity(previous) == executable_identity(body):
                 previous_time = datetime.fromisoformat(
                     str(previous["observed_at"]).replace("Z", "+00:00"))
                 age = (datetime.now(timezone.utc) - previous_time).total_seconds()
@@ -802,13 +1034,15 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
         raise ChatProcessGenerationError("runtime_observation_malformed") from exc
     if (not isinstance(value, dict) or raw != _canonical(value)
             or value.get("schema_version") not in {RUNTIME_OBSERVATION_SCHEMA,
-                V2_RUNTIME_OBSERVATION_SCHEMA, LEGACY_RUNTIME_OBSERVATION_SCHEMA}
+                V3_RUNTIME_OBSERVATION_SCHEMA, V2_RUNTIME_OBSERVATION_SCHEMA,
+                LEGACY_RUNTIME_OBSERVATION_SCHEMA}
             or value.get("installation_identity") != handle.identity.value
             or not isinstance(value.get("runtime_supervisor_generation"), str)
             or not value.get("runtime_supervisor_generation")
             or len(value["runtime_supervisor_generation"]) > 128
             or value.get("observation_semantic_digest")
-                != semantic_digest(_without(value, "observation_semantic_digest"))
+                != semantic_digest({key: item for key, item in value.items()
+                    if key != "observation_semantic_digest"})
             or value.get("runtime_status") not in {"running_observed", "not_verified"}
             or (value.get("runtime_status") == "not_verified"
                 and not isinstance(value.get("reason_code"), str))
@@ -829,9 +1063,12 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
         expected_fields = base_fields
     elif value["schema_version"] == V2_RUNTIME_OBSERVATION_SCHEMA:
         expected_fields = base_fields | {"configured_serving_receipt_posture", "serving_receipt"}
-    else:
+    elif value["schema_version"] == V3_RUNTIME_OBSERVATION_SCHEMA:
         expected_fields = base_fields | {"configured_serving_receipt_posture", "serving_receipt",
             "configured_serving_operation_id"}
+    else:
+        expected_fields = base_fields | {"configured_serving_receipt_posture", "serving_receipt",
+            "configured_serving_operation_id", "process_executable_observation"}
     if set(value) != expected_fields:
         raise ChatProcessGenerationError("runtime_observation_shape_invalid")
     try:
@@ -851,6 +1088,13 @@ def read_stored_chat_process_runtime_observation(handle: Any) -> dict[str, Any] 
     }
     if any(value.get(key) != expected_value for key, expected_value in expected.items()):
         raise ChatProcessGenerationError("runtime_observation_handoff_binding_mismatch")
+    if value["schema_version"] == RUNTIME_OBSERVATION_SCHEMA:
+        executable_observation = value.get("process_executable_observation")
+        if value.get("runtime_status") == "running_observed":
+            _verify_process_executable_observation(executable_observation,
+                handoff_record=_read_handoff(handle, str(value["handoff_id"])))
+        elif executable_observation is not None:
+            raise ChatProcessGenerationError("runtime_observation_process_executable_status_mismatch")
     if (value.get("schema_version") == RUNTIME_OBSERVATION_SCHEMA
             and value.get("configured_serving_operation_id")
                 != handoff.get("configured_serving_operation_id")):

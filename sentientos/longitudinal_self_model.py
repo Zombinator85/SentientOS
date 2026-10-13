@@ -596,6 +596,16 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                         "serving_operation_id", "model_identity_in_receipt",
                         "selection_posture")}
                     if isinstance(observation.get("serving_receipt"), Mapping) else None),
+                "process_executable_observation": (
+                    {key: observation["process_executable_observation"].get(key) for key in (
+                        "schema_version", "observation_status", "process_id",
+                        "observed_parent_process_id", "parent_process_matches",
+                        "process_start_time_ticks", "expected_executable_path_sha256",
+                        "observed_executable_path_sha256", "executable_path_matches_expected",
+                        "executable_image_sha256", "executable_image_size_bytes", "observed_at",
+                        "reason_code", "loaded_python_module_identity_posture", "effect_authority",
+                        "observation_digest")}
+                    if isinstance(observation.get("process_executable_observation"), Mapping) else None),
                 "model_identity_in_receipt_is_current_claim": False,
                 "process_instance_id": observation.get("process_instance_id"),
                 "handoff_id": observation.get("handoff_id"),

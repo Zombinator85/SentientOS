@@ -398,6 +398,20 @@ def test_chat_runtime_history_binds_source_scope_and_loaded_code_limit(tmp_path:
         "process_instance_id": "process-1",
         "software_generation_digest": "sha256:" + "c" * 64,
         "source_generation_scope": "sentientos_and_scripts_python_sources",
+        "process_executable_observation": {
+            "schema_version": "sentientos.supervised_process_executable_observation:v1",
+            "observation_status": "observed", "process_id": 42,
+            "observed_parent_process_id": 7, "parent_process_matches": True,
+            "process_start_time_ticks": 9001,
+            "expected_executable_path_sha256": "d" * 64,
+            "observed_executable_path_sha256": "d" * 64,
+            "executable_path_matches_expected": True,
+            "executable_image_sha256": "e" * 64,
+            "executable_image_size_bytes": 2048,
+            "observed_at": "2026-09-25T11:59:00Z", "reason_code": None,
+            "loaded_python_module_identity_posture": "not_independently_attested",
+            "effect_authority": False, "observation_digest": "f" * 64,
+        },
     }
     source = record(source="runtime:chat-process", extra={
         "chat_process_runtime_observation": observation,
@@ -418,6 +432,9 @@ def test_chat_runtime_history_binds_source_scope_and_loaded_code_limit(tmp_path:
     assert lineage.value["loaded_code_identity_posture"] == "not_independently_attested"
     assert lineage.value["process_identity_scope"] == (
         "installation_bound_launcher_handoff_checked_at_recorded_observation")
+    assert lineage.value["process_executable_observation"]["executable_image_sha256"] == "e" * 64
+    assert lineage.value["process_executable_observation"]["loaded_python_module_identity_posture"] == (
+        "not_independently_attested")
 
 
 

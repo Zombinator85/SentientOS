@@ -187,7 +187,13 @@ def test_actual_adapter_handoff_binds_live_child_and_source_generation(
     import time
 
     from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
-    from sentientos.chat_process_generation import source_generation
+    from sentientos.chat_process_generation import (
+        ChatProcessGenerationError, RUNTIME_OBSERVATION_PATH,
+        publish_chat_process_runtime_observation, read_stored_chat_process_runtime_observation,
+        source_generation, verify_stored_chat_process_handoff,
+    )
+    from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
 
     root = tmp_path / "runtime-source"
     (root / "sentientos").mkdir(parents=True)
@@ -245,6 +251,28 @@ while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() <
     try:
         adapter.start()
         parent_observation = adapter.current_runtime_handoff()
+        stored_handoff = verify_stored_chat_process_handoff(handle=handle,
+            handoff_id=parent_observation["handoff_id"],
+            expected_digest=parent_observation["handoff_digest"])
+        runtime_observation = publish_chat_process_runtime_observation(
+            handle=handle, supervisor_generation="fixture-supervisor-generation",
+            handoff=stored_handoff)
+        assert runtime_observation["schema_version"] == "sentientos.chat_process_runtime_observation:v4"
+        executable = runtime_observation["process_executable_observation"]
+        assert executable["observation_status"] == "observed"
+        assert executable["process_id"] == adapter._process.pid
+        assert executable["parent_process_matches"] is True
+        assert executable["executable_image_size_bytes"] > 0
+        assert len(executable["executable_image_sha256"]) == 64
+        assert executable["loaded_python_module_identity_posture"] == "not_independently_attested"
+        assert read_stored_chat_process_runtime_observation(handle) == runtime_observation
+        runtime_records = resource_consumption_world_state_records(
+            ledger=GovernedLocalModelResourceLedger(tmp_path / "empty-resource-ledger.json"),
+            source_identity={"installation_identity": identity.value},
+            verified_chat_process_runtime_observation=runtime_observation)
+        runtime_record = next(record for record in runtime_records
+            if record.get("subject_kind") == "chat_process_runtime_generation_observation")
+        assert runtime_record["payload"]["process_executable_observation"] == executable
         deadline = time.monotonic() + 5
         while not result_path.exists() and time.monotonic() < deadline:
             time.sleep(.01)
@@ -270,6 +298,27 @@ while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() <
             expected_digest=child_observation["handoff_digest"])
         assert historical["software_generation_digest"] == child_observation["software_generation_digest"]
         assert historical["software_generation_digest"] != source_generation(root)[0]
+
+        # Recomputed outer custody digests cannot legitimize contradictory
+        # interpreter-parent evidence inside the v4 observation.
+        forged = dict(runtime_observation)
+        forged_executable = dict(executable)
+        forged_executable["parent_process_matches"] = False
+        from sentientos.chat_process_generation import _digest
+        forged_executable["observation_digest"] = _digest({
+            key: value for key, value in forged_executable.items()
+            if key != "observation_digest"})
+        forged["process_executable_observation"] = forged_executable
+        from sentientos.local_runtime_provisioning import semantic_digest
+        forged["observation_semantic_digest"] = semantic_digest({
+            key: value for key, value in forged.items()
+            if key != "observation_semantic_digest"})
+        handle.durable_replace(handle.fixed_object(RUNTIME_OBSERVATION_PATH),
+            (json.dumps(forged, sort_keys=True, separators=(",", ":"),
+                ensure_ascii=False) + "\n").encode("utf-8"))
+        with pytest.raises(ChatProcessGenerationError,
+                match="runtime_observation_process_executable_shape_invalid"):
+            read_stored_chat_process_runtime_observation(handle)
     finally:
         release_path.write_text("release\n", encoding="utf-8")
         adapter.stop()

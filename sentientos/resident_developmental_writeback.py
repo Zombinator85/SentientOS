@@ -202,6 +202,17 @@ def _runtime_history_projection(fact: Mapping[str, Any]) -> dict[str, Any] | Non
                 serving.update({key: serving_binding.get(key) for key in (
                     "serving_operation_id", "activation_state_semantic_digest",
                     "activation_generation", "model_id")})
+        process_executable = observation.get("process_executable_observation")
+        executable_summary = None
+        if isinstance(process_executable, Mapping):
+            executable_summary = {key: process_executable.get(key) for key in (
+                "schema_version", "observation_status", "process_id",
+                "observed_parent_process_id", "parent_process_matches",
+                "process_start_time_ticks", "expected_executable_path_sha256",
+                "observed_executable_path_sha256", "executable_path_matches_expected",
+                "executable_image_sha256", "executable_image_size_bytes", "observed_at",
+                "reason_code", "loaded_python_module_identity_posture", "effect_authority",
+                "observation_digest")}
         selected_links: list[dict[str, Any]] = []
         for item in links[:4]:
             if not isinstance(item, Mapping):
@@ -239,6 +250,7 @@ def _runtime_history_projection(fact: Mapping[str, Any]) -> dict[str, Any] | Non
                 "source_generation_scope", "configured_serving_operation_id",
                 "configured_serving_receipt_posture", "independent_signature",
                 "effect_authority")},
+            "process_executable_observation": executable_summary,
             "serving_receipt_at_observation": serving,
             "invocation_linkage_posture": original.get("invocation_linkage_posture"),
             "linked_invocation_receipts": selected_links,
