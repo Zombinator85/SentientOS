@@ -834,6 +834,9 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     evidence = records[0]["payload"]
     assert evidence["task_family_posture"] == "operator_declared_protocol_bound"
     assert evidence["objective_task_family"] == "integer_affine_prediction"
+    history_score = evidence["objective_scores"][0]
+    assert history_score["evaluator"] == "deterministic_exact_integer_suite_oracle_v2"
+    assert history_score["task_digest"] == evidence["objective_task_descriptor"]["task_digest"]
     assert evidence["acquisition_examples"] == [
         {"probe_input": 7, "observed_answer": 23, "evaluator_correct": True,
             "source_score_digest": evidence["objective_scores"][0]["score_digest"],
@@ -846,6 +849,19 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
             "source_condition": "history_present"},
     ]
     assert "multiplier" not in json.dumps(evidence)
+    assert "offset" not in json.dumps(evidence)
+
+    from sentientos.resident_developmental_writeback import (
+        DevelopmentalWritebackError, _developmental_history_interpretation_projection,
+    )
+    for field, replacement in (("task_digest", "sha256:substituted"),
+            ("evaluator", "substituted_evaluator")):
+        substituted = json.loads(json.dumps(evidence))
+        substituted["objective_scores"][0][field] = replacement
+        with pytest.raises(DevelopmentalWritebackError,
+                match="developmental_history_task_score_lineage_invalid"):
+            _developmental_history_interpretation_projection(
+                {"fact_id": records[0]["source_id"]}, substituted, records[0])
 
     from sentientos.world_state_board import WorldStateBoardBuilder
     world = WorldStateBoardBuilder().build(records)
@@ -1073,6 +1089,8 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert [item["evaluator_correct"] for item in retained_fact["payload"][
         "acquisition_examples"]] == [False, False, False]
     assert retained_fact["payload"]["objective_scores"][0]["score_digest"] == source_score_digest
+    assert retained_fact["payload"]["objective_scores"][0]["evaluator"] == \
+        "deterministic_exact_integer_suite_oracle_v2"
 
     # Recent unrelated history cannot erase this independently admitted family
     # evidence. Staging discovers it via the ordinary checkpoint and receipt.

@@ -1172,6 +1172,9 @@ def _developmental_history_interpretation_projection(
                 raise DevelopmentalWritebackError("developmental_history_score_invalid")
             score_summary.append({
                 "condition_id": item.get("condition_id"),
+                **{key: item[key] for key in (
+                    "schema_version", "plan_digest", "task_digest", "output_digest",
+                    "evaluator") if key in item},
                 "score_digest": item.get("score_digest"),
                 "status": item.get("status"),
                 "correct": item.get("correct"),
@@ -1212,6 +1215,8 @@ def _developmental_history_interpretation_projection(
         history_score = (next((row for row in score_rows if isinstance(row, Mapping)
             and row.get("condition_id") == "history_present"), None)
             if isinstance(score_rows, (list, tuple)) else None)
+        history_condition = next((row for row in conditions if isinstance(row, Mapping)
+            and row.get("condition_id") == "history_present"), None)
         probe_results = history_score.get("probe_results") if isinstance(history_score, Mapping) else None
         probes = descriptor.get("probe_inputs") if isinstance(descriptor, Mapping) else None
         if (not isinstance(family_id, str) or not family_id or len(family_id) > 96
@@ -1225,6 +1230,40 @@ def _developmental_history_interpretation_projection(
                 or not isinstance(history_score.get("score_digest"), str)):
             raise DevelopmentalWritebackError("developmental_history_task_family_binding_invalid")
         expected_examples: list[dict[str, Any]] = []
+        lineage_fields = ("schema_version", "plan_digest", "task_digest", "output_digest",
+            "evaluator")
+        lineage_present = (isinstance(history_score, Mapping)
+            and all(key in history_score for key in lineage_fields))
+        if lineage_present:
+            if (any(not isinstance(history_score.get(key), str)
+                    or not history_score.get(key) or len(history_score[key]) > 128
+                    for key in lineage_fields)
+                    or history_score.get("schema_version") != "sentientos.objective_task_score:v3"
+                    or history_score.get("evaluator") !=
+                        "deterministic_exact_integer_suite_oracle_v2"
+                    or history_score.get("task_digest") != descriptor.get("task_digest")
+                    or history_score.get("output_digest") != history_condition.get("output_digest")
+                    or any(not isinstance(history_score.get(key), str)
+                        or len(history_score[key]) != 71
+                        or not history_score[key].startswith("sha256:")
+                        or any(character not in "0123456789abcdef"
+                            for character in history_score[key][7:])
+                        for key in ("plan_digest", "task_digest", "score_digest"))
+                    or not isinstance(history_score.get("output_digest"), str)
+                    or len(history_score["output_digest"]) not in {64, 71}
+                    or (len(history_score["output_digest"]) == 71
+                        and not history_score["output_digest"].startswith("sha256:"))
+                    or any(character not in "0123456789abcdef"
+                        for character in history_score["output_digest"]
+                            .removeprefix("sha256:"))):
+                raise DevelopmentalWritebackError(
+                    "developmental_history_task_score_lineage_invalid")
+        elif any(any(key in example for key in (
+                "source_score_schema_version", "source_plan_digest", "source_task_digest",
+                "source_output_digest", "source_evaluator"))
+                for example in original["acquisition_examples"]):
+            raise DevelopmentalWritebackError(
+                "developmental_history_task_score_lineage_incomplete")
         for probe, result in zip(probes, probe_results):
             if (type(probe) is not int or not isinstance(result, Mapping)
                     or result.get("probe_input") != probe

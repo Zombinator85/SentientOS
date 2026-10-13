@@ -245,6 +245,11 @@ task outcome. A later completed tick may retrieve the retained record.
 
 For an acquisition-and-transfer study, the World-State fact must already carry
 the actual earlier task or consequence and its independently observed outcome.
+For the bounded affine task-family experiment, the history-present score row
+also carries its verified score schema, evaluator identifier, plan/task digests,
+and invocation output digest; each example references that score digest. This
+identifies the deterministic benchmark measurement, not an external event, and
+does not publish the private answer oracle.
 The repository does not expose a generic command that can manufacture such an
 event; use its real source owner. If no suitable source fact is present or its
 kind is not configured, no initial record is produced. Do not stage the

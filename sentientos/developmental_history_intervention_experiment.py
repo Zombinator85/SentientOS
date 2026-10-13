@@ -636,12 +636,21 @@ class DevelopmentalExperimentStore:
                     world_state_event_time = max(parsed_times).isoformat()
             objective_scores = run.get("objective_scores")
             objective_evaluation = run.get("objective_evaluation")
+            task_descriptor = (dict(protocol.objective_task_descriptor)
+                if isinstance(protocol.objective_task_descriptor, Mapping) else None)
+            family_scored_experience = (task_descriptor is not None
+                and isinstance(task_descriptor.get("task_family_id"), str))
             score_projection = None
             if objective_scores is not None:
                 if (not isinstance(objective_scores, list)
                         or len(objective_scores) != len(CONDITION_ORDER)):
                     raise DevelopmentalHistoryInterventionError("run_projection_objective_scores_invalid")
                 score_projection = [{"condition_id": item["condition_id"],
+                    **({key: item["score"][key] for key in (
+                        "schema_version", "plan_digest", "task_digest", "output_digest",
+                        "evaluator") if key in item["score"]}
+                        if family_scored_experience
+                        and item["condition_id"] == "history_present" else {}),
                     "score_digest": item["score"]["score_digest"],
                     "status": item["score"]["status"],
                     "correct": item["score"]["correct"],
@@ -651,8 +660,6 @@ class DevelopmentalExperimentStore:
                             if "probe_results" in item["score"] else {})}
                         if "correct_count" in item["score"] else {})}
                     for item in objective_scores]
-            task_descriptor = (dict(protocol.objective_task_descriptor)
-                if isinstance(protocol.objective_task_descriptor, Mapping) else None)
             acquisition_examples = None
             if (task_descriptor is not None
                     and isinstance(task_descriptor.get("task_family_id"), str)
