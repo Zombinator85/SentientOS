@@ -6,7 +6,7 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 
 import pytest
 import scripts.doctor_resident_objective_experiment as readiness
@@ -17,7 +17,7 @@ from sentientos.developmental_history_intervention_experiment import (
 )
 from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
-from sentientos.control_plane_kernel import ControlPlaneKernel, LifecyclePhase
+from sentientos.control_plane_kernel import AuthorityClass, ControlPlaneKernel, LifecyclePhase
 from sentientos.host_collectors import HostCollectorResult
 from sentientos.host_resource_runtime import (
     HostObservationCollectorSpec, HostResourceRuntimeCoordinator,
@@ -483,6 +483,56 @@ def test_interrupted_scored_family_run_recovers_into_later_world_state_without_r
             return verified
 
     fake = CompleteReceiptInvoker()
+    # Persist the fixture's invocation receipts under an explicit installation
+    # identity. The restarted process below uses the production read-only
+    # receipt verifier, not a test-local verifier that merely compares fields.
+    from sentientos.resident_cognitive_model_serving import (
+        WITNESS_SCHEMA, ServingSession,
+        _resident_serving_session_receipt, resident_serving_session_receipt_reference,
+    )
+    from sentientos.local_runtime_provisioning import semantic_digest
+    installation_identity = InstallationIdentity("interrupted-family-installation")
+    installation_registry = InstallationStateRegistry._for_testing(
+        tmp_path / "installation-custody")
+    installation_handle = installation_registry.open(installation_identity, create=True)
+    session_binding = {
+        "installation_identity": installation_identity.value,
+        "serving_operation_id": "interrupted-family-serving",
+        "serving_config_digest": "d" * 64,
+        "model_serving_admission_ref": "local",
+        "activation_state_semantic_digest": "a" * 64,
+        "observed_loaded_model_identity": {},
+    }
+    session = ServingSession("resident-serving-session-" + semantic_digest(session_binding)[:24],
+        session_binding)
+    session_receipt = _resident_serving_session_receipt(session.to_dict())
+    session_reference = resident_serving_session_receipt_reference(session)
+    fake.session_id = session.session_id
+    fake.session_binding = {
+        "model_serving_admission_ref": session_binding["model_serving_admission_ref"],
+        "activation_state_semantic_digest": session_binding["activation_state_semantic_digest"],
+        "session_receipt_id": session_reference["session_receipt_id"],
+        "session_receipt_semantic_digest": session_reference["session_receipt_semantic_digest"],
+    }
+
+    def persist_installation_fixture(relative: str, value: Mapping[str, object]) -> None:
+        target = installation_handle.fixed_object(relative)
+        installation_handle.ensure_directory(
+            installation_handle.fixed_object(relative.rsplit("/", 1)[0]))
+        installation_handle.durable_create(target,
+            (json.dumps(dict(value), sort_keys=True, separators=(",", ":")) + "\n").encode())
+
+    persist_installation_fixture(
+        "local-model/resident-cognitive-serving/receipts/"
+        + session_receipt["receipt_id"] + ".json", session_receipt)
+    witness = {"schema_version": WITNESS_SCHEMA, "session_id": session.session_id,
+        "receipt_id": session_receipt["receipt_id"],
+        "receipt_semantic_digest": session_receipt["receipt_semantic_digest"],
+        "admission_decision_ref": session_binding["model_serving_admission_ref"],
+        "authority_class": AuthorityClass.MODEL_SERVING.value, "inference_performed": False}
+    witness["witness_semantic_digest"] = semantic_digest(witness)
+    persist_installation_fixture("logs/privileges/" + session_receipt["receipt_id"] + ".json",
+        witness)
     fake.objective_mode = "derive_from_history"
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
@@ -516,9 +566,17 @@ def test_interrupted_scored_family_run_recovers_into_later_world_state_without_r
     assert sum(1 for item in fake.requests[before:]
         if "objective_task_plan_digest" in item.upstream_evidence) == 3
     assert cognition.inspect_completed_objective_experiment_run_refs() == ()
-    receipt_path = tmp_path / "interrupted-fixture-receipts.json"
-    receipt_path.write_text(json.dumps({receipt_id: receipt.to_dict()
-        for receipt_id, receipt in fake.receipts.items()}, sort_keys=True), encoding="utf-8")
+    for receipt_id, receipt in fake.receipts.items():
+        relative = ("local-model/resident-cognitive-serving/inference/receipts/"
+            + receipt_id + ".json")
+        target = installation_handle.fixed_object(relative)
+        installation_handle.ensure_directory(
+            installation_handle.fixed_object(relative.rsplit("/", 1)[0]))
+        installation_handle.durable_create(target,
+            (json.dumps(receipt.to_dict(), sort_keys=True, indent=2) + "\n").encode())
+    installation_files_before_recovery = {
+        path.relative_to(installation_handle.root).as_posix(): path.read_bytes()
+        for path in installation_handle.root.rglob("*") if path.is_file()}
     child_code = r'''
 import json, sys
 from pathlib import Path
@@ -527,23 +585,14 @@ from sentientos.codex_task_authority_admission import (
 from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner)
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.resident_cognitive_model_serving import ResidentCognitiveInvocationReceiptReader
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 
-root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
-receipts = json.loads(receipt_path.read_text(encoding="utf-8"))
-class PersistedFixtureReceiptVerifier:
-    def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
-        value = receipts[receipt_id]
-        assert value["receipt_id"] == receipt_id and value["receipt_digest"] == receipt_digest
-        request = value["request"]
-        assert request["request_id"] == expected["expected_request_id"]
-        assert request["request_digest"] == expected["expected_request_digest"]
-        assert request["active_model_identity"] == expected["expected_active_model_identity"]
-        serving = request["linkage"]["resident_cognitive_serving"]
-        assert serving["session_id"] == expected["expected_session_id"]
-        assert serving["activation_state_semantic_digest"] == expected[
-            "expected_session_binding"]["activation_state_semantic_digest"]
-        return value
+root, installation_root = Path(sys.argv[1]), Path(sys.argv[2])
+identity = InstallationIdentity("interrupted-family-installation")
+registry = InstallationStateRegistry._for_testing(installation_root)
+reader = ResidentCognitiveInvocationReceiptReader(registry.open_read_only(identity))
 ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
 definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
 def sequence(): return ledger.current_sequence()
@@ -556,7 +605,7 @@ owner = ResidentDevelopmentalCognitionOwner(
         ("capability_registry", "embodiment"), 16, 4, True),
     writeback=writeback,
     admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-    invoker=PersistedFixtureReceiptVerifier(), current_sequence=sequence)
+    invoker=reader, current_sequence=sequence)
 refs = owner.recovered_objective_experiment_run_refs()
 projectable = owner.inspect_completed_objective_experiment_run_refs()
 outcome = owner.verified_objective_measurement_for_request(
@@ -569,12 +618,41 @@ print(json.dumps({"refs": refs, "projectable": projectable,
     "actual_nonsynthetic_inference_verified":
         outcome["actual_nonsynthetic_inference_verified"]}, sort_keys=True))
 '''
-    child = subprocess.run([sys.executable, "-c", child_code, str(tmp_path), str(receipt_path)],
+    child = subprocess.run([sys.executable, "-c", child_code, str(tmp_path),
+        str(tmp_path / "installation-custody")],
         cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, check=True)
     child_result = json.loads(child.stdout.strip().splitlines()[-1])
     assert child_result["status"] == "verified_objective_measurement"
     assert child_result["actual_nonsynthetic_inference_verified"] is True
     assert len(child_result["refs"]) == 1 and child_result["projectable"] == child_result["refs"]
+    assert installation_files_before_recovery == {
+        path.relative_to(installation_handle.root).as_posix(): path.read_bytes()
+        for path in installation_handle.root.rglob("*") if path.is_file()}
+
+    # Substituting a request digest in one persisted receipt keeps every
+    # filename and journal identity fixed but must fail the canonical reader.
+    score_request = next(item for item in fake.requests
+        if "objective_task_plan_digest" in item.upstream_evidence)
+    score_receipt = next(value for value in fake.receipts.values()
+        if value.request["request_id"] == score_request.request_id)
+    receipt_path = installation_handle.root / "local-model/resident-cognitive-serving/inference/receipts" / (
+        score_receipt.receipt_id + ".json")
+    substituted_receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    substituted_receipt["request"]["request_digest"] = "substituted-request-digest"
+    receipt_path.write_text(json.dumps(substituted_receipt, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8")
+    child_code_reject = child_code.replace(
+        'refs = owner.recovered_objective_experiment_run_refs()',
+        'try:\n    refs = owner.recovered_objective_experiment_run_refs()\n'
+        'except Exception as exc:\n    print(json.dumps({"status": "rejected", "reason": str(exc)}))\n'
+        '    raise SystemExit(0)')
+    rejected = subprocess.run([sys.executable, "-c", child_code_reject, str(tmp_path),
+        str(tmp_path / "installation-custody")], cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, check=True)
+    rejection = json.loads(rejected.stdout.strip().splitlines()[-1])
+    assert rejection == {"status": "rejected",
+        "reason": "cognition_invocation_receipt_reconciliation_failed"}
+    assert len(fake.requests) == issued_count
 
     # The independent parent owner sees the run recovered by the child and
     # does not issue another inference or change its identity.
