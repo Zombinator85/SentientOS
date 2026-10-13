@@ -482,6 +482,63 @@ class FrozenCausalContext:
         digest = _digest(payload)
         return replace(raw, context_id="model-replacement-context-" + digest[7:31], context_digest=digest)
 
+    @classmethod
+    def create_from_admitted_history(cls, *, writeback: Any,
+            history_record_ids: Sequence[str], **context_fields: Any) -> "FrozenCausalContext":
+        """Freeze exact admitted developmental records into a read-only A/B context.
+
+        The caller supplies the independently frozen current context, while the
+        existing writeback owner supplies history records and admission receipts.
+        This does not mutate history, infer from it, or grant transition authority.
+        """
+        ids = tuple(history_record_ids)
+        if (not 1 <= len(ids) <= 64
+                or any(not isinstance(item, str) or not item or len(item) > 256 for item in ids)
+                or len(set(ids)) != len(ids)
+                or set(context_fields).intersection({"history_record_ids",
+                    "history_record_digests", "history_record_set_digest",
+                    "history_projection_payload", "context_id", "context_digest"})):
+            raise DevelopmentalModelReplacementError("admitted_history_selection_invalid")
+        inspect = getattr(writeback, "inspect_completed_records", None)
+        retrieve = getattr(writeback, "retrieve", None)
+        if not callable(inspect) or not callable(retrieve):
+            raise DevelopmentalModelReplacementError("admitted_history_owner_unavailable")
+        try:
+            completed = inspect()
+            eligible: dict[str, tuple[Any, Any]] = {}
+            for record, receipt in completed:
+                if (getattr(receipt, "storage_verified", False) is not True
+                        or getattr(receipt, "record_id", None) != getattr(record, "record_id", None)
+                        or getattr(receipt, "record_digest", None) != getattr(record, "record_digest", None)):
+                    raise ValueError("admitted_history_receipt_mismatch")
+                record_id = str(record.record_id)
+                if record_id in eligible:
+                    raise ValueError("admitted_history_identity_collision")
+                eligible[record_id] = (record, receipt)
+            if any(record_id not in eligible for record_id in ids):
+                raise ValueError("admitted_history_record_not_eligible")
+            projection = retrieve(ids, limit=len(ids))
+        except Exception as exc:
+            raise DevelopmentalModelReplacementError(
+                "admitted_history_verification_failed") from exc
+        if (getattr(projection, "requested_record_ids", None) != ids
+                or len(getattr(projection, "records", ())) != len(ids)):
+            raise DevelopmentalModelReplacementError("admitted_history_projection_mismatch")
+        rows = tuple(dict(row) for row in projection.records)
+        digests: list[str] = []
+        for record_id, row in zip(ids, rows):
+            record, receipt = eligible[record_id]
+            if (row.get("record_id") != record_id
+                    or row.get("record_digest") != record.record_digest
+                    or row.get("record_id") != receipt.record_id):
+                raise DevelopmentalModelReplacementError("admitted_history_projection_identity_mismatch")
+            digests.append(str(record.record_digest))
+        record_set_digest = _digest({"record_ids": list(ids), "record_digests": digests})
+        return cls.create(**context_fields, history_record_ids=ids,
+            history_record_digests=tuple(digests),
+            history_record_set_digest=record_set_digest,
+            history_projection_payload=rows)
+
     def verify(self) -> None:
         payload = asdict(self); payload.pop("context_id"); payload.pop("context_digest")
         digest = _digest(payload)

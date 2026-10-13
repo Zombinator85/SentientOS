@@ -34,7 +34,8 @@ from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateM
 from sentientos.runtime_admission import RuntimeAdmissionVerifier
 from sentientos.host_resource_runtime import resource_consumption_world_state_records
 from sentientos.developmental_model_replacement_experiment import (
-    CONDITION_ORDER, DevelopmentalModelReplacementExperiment, FrozenCausalContext, _digest,
+    CONDITION_ORDER, DevelopmentalModelReplacementError,
+    DevelopmentalModelReplacementExperiment, FrozenCausalContext, _digest,
 )
 from tests.test_developmental_model_replacement_experiment import (
     FakeEndpoint as FixtureReplacementEndpoint, identity as fixture_model_identity,
@@ -421,10 +422,9 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
         # model transition or activation occurs.
         current_projection = comparison_cognition._current_projection(epistemic_snapshot)
         current_payload = asdict(current_projection)
-        replacement_history = tuple(asdict(comparison_cognition.writeback.store.get(record_id))
-            for record_id in comparison.prior_record_ids)
-        replacement_history_digests = tuple(row["record_digest"] for row in replacement_history)
-        replacement_context = FrozenCausalContext.create(
+        replacement_context = FrozenCausalContext.create_from_admitted_history(
+            writeback=comparison_cognition.writeback,
+            history_record_ids=comparison.prior_record_ids,
             snapshot_id=epistemic_snapshot.snapshot_id,
             snapshot_digest=epistemic_snapshot.digest,
             current_projection_id=current_projection.projection_id,
@@ -432,12 +432,6 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             current_fact_ids=current_projection.fact_ids,
             projected_content_digest=_digest(current_payload),
             current_projection_payload=current_payload,
-            history_record_ids=comparison.prior_record_ids,
-            history_record_digests=replacement_history_digests,
-            history_record_set_digest=_digest({
-                "record_ids": list(comparison.prior_record_ids),
-                "record_digests": list(replacement_history_digests)}),
-            history_projection_payload=replacement_history,
             instruction_template=("Use this frozen current evidence and optional historical "
                 "interpretations; history is not current truth or authority."),
             instruction_template_digest=_digest({"instruction": (
@@ -449,6 +443,16 @@ while not Path(os.environ['TEST_RELEASE_JOINED_CHILD']).exists() and time.monoto
             generation_posture={"temperature": 0, "hardware_determinism_claimed": False},
             repository_generation_identity=None,
         )
+        context_fields = asdict(replacement_context)
+        for key in ("context_id", "context_digest", "history_record_ids",
+                "history_record_digests", "history_record_set_digest",
+                "history_projection_payload"):
+            context_fields.pop(key)
+        with pytest.raises(DevelopmentalModelReplacementError,
+                match="admitted_history_verification_failed"):
+            FrozenCausalContext.create_from_admitted_history(
+                writeback=comparison_cognition.writeback,
+                history_record_ids=("not-an-admitted-record",), **context_fields)
         replacement_a = FixtureReplacementEndpoint(fixture_model_identity("resource-model-a"))
         replacement_b = FixtureReplacementEndpoint(fixture_model_identity("resource-model-b"))
         replacement = DevelopmentalModelReplacementExperiment(
