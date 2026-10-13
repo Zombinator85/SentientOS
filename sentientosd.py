@@ -1666,38 +1666,57 @@ class RuntimeMaintenanceSurfaces:
                     "reason_code": type(exc).__name__, "read_only": True, "effect_authority": False}
                 self._feedback.setdefault("surfaces", {})["embodied_consequence_projection"] = dict(
                     self._embodied_consequence_projection_status)
-        if self._developmental_history_intervention_run_refs:
-            owner = self._resident_developmental_owner
-            if isinstance(owner, QuiescedDevelopmentalCognitionOwner):
-                owner = owner._owner
-            experiment_store = getattr(owner, "experiments", None) if owner is not None else None
-            projector = getattr(experiment_store, "world_state_records", None)
+        owner = self._resident_developmental_owner
+        if isinstance(owner, QuiescedDevelopmentalCognitionOwner):
+            owner = owner._owner
+        experiment_store = getattr(owner, "experiments", None) if owner is not None else None
+        projector = getattr(experiment_store, "world_state_records", None)
+        inspect_completed_runs = getattr(owner,
+            "inspect_completed_objective_experiment_run_refs", None) if owner is not None else None
+        run_refs = list(self._developmental_history_intervention_run_refs)
+        automatic_run_count = 0
+        projection_error: str | None = None
+        if callable(inspect_completed_runs):
+            try:
+                automatic_refs = inspect_completed_runs(limit=32)
+                automatic_run_count = len(automatic_refs)
+                by_run = {run_id: run_digest for run_id, run_digest in run_refs}
+                for run_id, run_digest in automatic_refs:
+                    prior_digest = by_run.get(run_id)
+                    if prior_digest is not None and prior_digest != run_digest:
+                        raise ValueError("developmental_history_run_reference_conflict")
+                    if prior_digest is None:
+                        by_run[run_id] = run_digest
+                        run_refs.append((run_id, run_digest))
+                if len(run_refs) > 32:
+                    raise ValueError("developmental_history_projection_selection_over_bound")
+            except Exception as exc:
+                projection_error = type(exc).__name__
+        if run_refs:
             if not callable(projector):
-                self._developmental_history_intervention_projection_status = {
-                    **self._developmental_history_intervention_projection_status,
-                    "status": "degraded", "reason_code": "developmental_experiment_owner_unavailable",
-                    "read_only": True, "effect_authority": False,
-                }
+                projection_error = projection_error or "developmental_experiment_owner_unavailable"
             else:
                 try:
-                    projected = projector(run_refs=self._developmental_history_intervention_run_refs)
-                    if len(projected) != len(self._developmental_history_intervention_run_refs):
+                    projected = projector(run_refs=tuple(run_refs))
+                    if len(projected) != len(run_refs):
                         raise ValueError("developmental_history_projection_count_mismatch")
                     records.extend(projected)
                     selected_embodied_source_ids.update(str(item["source_id"]) for item in projected)
-                    self._developmental_history_intervention_projection_status = {
-                        **self._developmental_history_intervention_projection_status,
-                        "status": "verified", "read_only": True, "effect_authority": False,
-                    }
                 except Exception as exc:
-                    self._developmental_history_intervention_projection_status = {
-                        **self._developmental_history_intervention_projection_status,
-                        "status": "degraded", "reason_code": type(exc).__name__,
-                        "read_only": True, "effect_authority": False,
-                    }
-            self._feedback.setdefault("surfaces", {})[
-                "developmental_history_intervention_projection"] = dict(
-                    self._developmental_history_intervention_projection_status)
+                    projection_error = projection_error or type(exc).__name__
+        self._developmental_history_intervention_projection_status = {
+            "status": ("degraded" if projection_error else
+                "verified" if run_refs else
+                "verified_empty" if callable(inspect_completed_runs) else
+                "disabled" if not self._developmental_history_intervention_run_refs else "degraded"),
+            **({"reason_code": projection_error} if projection_error else {}),
+            "selected_run_count": len(run_refs),
+            "automatic_completed_run_count": automatic_run_count,
+            "read_only": True, "effect_authority": False,
+        }
+        self._feedback.setdefault("surfaces", {})[
+            "developmental_history_intervention_projection"] = dict(
+                self._developmental_history_intervention_projection_status)
         if self._post_adoption_attribution_owner is not None and self._post_adoption_attribution_campaign_ids:
             try:
                 projected = self._post_adoption_attribution_owner.world_state_records(
@@ -1894,7 +1913,8 @@ class RuntimeMaintenanceSurfaces:
                 return 2
             if (source_kind == WorldStateSourceKind.EMBODIMENT.value
                     and subject_kind in {"embodied_strategy_proposal",
-                        "developmental_model_replacement_experiment"}):
+                        "developmental_model_replacement_experiment",
+                        "developmental_history_intervention_experiment"}):
                 return 2
             return 3
 

@@ -1858,6 +1858,91 @@ class ResidentDevelopmentalCognitionOwner:
             refs.append((run_id, run_digest))
         return tuple(refs)
 
+    def inspect_completed_objective_experiment_run_refs(self, *,
+            limit: int = 32) -> tuple[tuple[str, str], ...]:
+        """Read completed, real-inference objective runs without repairing custody.
+
+        This is the World-State observer path. It reads only the exact
+        composition-state file and the request/run identities named by it;
+        unlike ``_state()``, it never recovers ticks or publishes repairs.
+        """
+        if type(limit) is not int or not 1 <= limit <= 32:
+            raise ResidentDevelopmentalCognitionError("objective_run_projection_limit_invalid")
+        try:
+            raw = read_explicit_file(self.state_path, max_bytes=MAX_COMPOSITION_STATE_BYTES)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return ()
+            raise ResidentDevelopmentalCognitionError("objective_run_projection_state_unavailable") from exc
+        try:
+            state = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+            if (not isinstance(state, dict)
+                    or json.dumps(state, indent=2, sort_keys=True).encode("utf-8") + b"\n" != raw):
+                raise ValueError("noncanonical")
+            semantic = dict(state)
+            claimed = semantic.pop("state_digest")
+            completed, incomplete = semantic.get("completed_ticks"), semantic.get("incomplete_ticks", [])
+            if (semantic.get("schema") not in {STATE_SCHEMA, LEGACY_STATE_SCHEMA}
+                    or claimed != _digest(semantic)
+                    or not isinstance(completed, list) or not isinstance(incomplete, list)
+                    or any(not isinstance(row, dict) for row in completed + incomplete)
+                    or len(completed) + len(incomplete) > MAX_RECOVERED_TICKS):
+                raise ValueError("state")
+            tick_ids = [row.get("tick_id") for row in completed + incomplete]
+            if (any(not isinstance(value, str) or not value for value in tick_ids)
+                    or len(tick_ids) != len(set(tick_ids))):
+                raise ValueError("tick_identity")
+        except (UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise ResidentDevelopmentalCognitionError("objective_run_projection_state_invalid") from exc
+
+        candidates: list[tuple[Mapping[str, Any], str, str | None]] = []
+        for row in completed:
+            if row.get("objective_request_status") != "completed":
+                continue
+            request_id, request_digest, run_id = (row.get("objective_request_id"),
+                row.get("objective_request_digest"), row.get("measurement_id"))
+            if not all(isinstance(value, str) and value for value in
+                    (request_id, request_digest, run_id)):
+                raise ResidentDevelopmentalCognitionError("objective_run_projection_reference_invalid")
+            candidates.append((row, run_id, None))
+        for row in incomplete:
+            if row.get("experiment_recovery_posture") != (
+                    "complete_scored_run_recovered_without_inference_replay"):
+                continue
+            run_id, run_digest = (row.get("recovered_experiment_run_id"),
+                row.get("recovered_experiment_run_digest"))
+            if not isinstance(run_id, str) or not isinstance(run_digest, str):
+                raise ResidentDevelopmentalCognitionError("objective_run_projection_reference_invalid")
+            candidates.append((row, run_id, run_digest))
+
+        refs: list[tuple[str, str]] = []
+        identities: dict[str, str] = {}
+        for row, run_id, expected_digest in candidates[-limit:]:
+            request_id = row.get("objective_request_id")
+            request_digest = row.get("objective_request_digest")
+            if not isinstance(request_id, str) or not isinstance(request_digest, str):
+                raise ResidentDevelopmentalCognitionError("objective_run_projection_request_missing")
+            try:
+                request = load_objective_request_by_identity(self.config.state_root,
+                    request_id=request_id, request_digest=request_digest)
+                summary = self.verified_objective_measurement_summary(
+                    measurement_id=run_id, request=request)
+            except (ResidentDevelopmentalCognitionError, DevelopmentalHistoryInterventionError) as exc:
+                raise ResidentDevelopmentalCognitionError("objective_run_projection_verification_failed") from exc
+            run_digest = summary.get("measurement_digest")
+            if (summary.get("status") != "verified_objective_measurement"
+                    or summary.get("actual_nonsynthetic_inference_verified") is not True
+                    or not isinstance(run_digest, str)
+                    or (expected_digest is not None and expected_digest != run_digest)):
+                raise ResidentDevelopmentalCognitionError("objective_run_projection_not_verified_real_inference")
+            prior = identities.get(run_id)
+            if prior is not None and prior != run_digest:
+                raise ResidentDevelopmentalCognitionError("objective_run_projection_identity_conflict")
+            if prior is None:
+                identities[run_id] = run_digest
+                refs.append((run_id, run_digest))
+        return tuple(refs)
+
     def verified_objective_measurement_summary(self, *, measurement_id: str,
             request: Mapping[str, Any]) -> Mapping[str, Any]:
         """Return a bounded score summary only after revalidating its exact receipts."""

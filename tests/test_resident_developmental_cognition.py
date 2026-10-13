@@ -350,6 +350,89 @@ def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(
         for item in invoker.verified_receipts)
 
 
+def test_completed_objective_run_is_read_only_projected_into_a_later_world_state_tick(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        request: pytest.FixtureRequest) -> None:
+    from sentientos.resident_developmental_cognition import objective_request_payload
+
+    class CompleteReceiptInvoker(SessionBoundFakeInvoker):
+        def verify_persisted_invocation_receipt(self, receipt_id, receipt_digest, **expected):
+            verified = dict(super().verify_persisted_invocation_receipt(
+                receipt_id, receipt_digest, **expected))
+            receipt = self.receipts[receipt_id]
+            verified["effects"] = dict(receipt.effects)
+            verified["fallback_occurred"] = receipt.fallback_occurred
+            return verified
+
+    fake = CompleteReceiptInvoker()
+    fake.objective_mode = "derive_from_history"
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    seed = cognition.run_tick(snapshot=snapshot(), tick_id="experience-seed")
+    assert seed.written_record_id
+
+    objective_request = objective_request_payload(request_id="later-transfer", task=task)
+    stage_objective_request(cognition.config.state_root, request_id="later-transfer", task=task)
+    trial = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="objective-acquisition", objective_task=task,
+        request_id="later-transfer", request_digest=objective_request["request_digest"])
+    assert trial.status == "objective_intervention_completed"
+    assert trial.changed_cognition_measurement_id is not None
+    state_path = cognition.state_path
+    before = state_path.read_bytes()
+    refs = cognition.inspect_completed_objective_experiment_run_refs()
+    assert state_path.read_bytes() == before
+    assert refs == ((trial.changed_cognition_measurement_id,
+        cognition.experiments.load_run(trial.changed_cognition_measurement_id)["run_digest"]),)
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "kernel"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "pulse-trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "pulse-trust" / "state.json"))
+    reset_runtime_governor()
+    reset_federated_governance()
+    reset_pulse_trust_epoch()
+    reset_trust_ledger()
+    from sentientos.control_plane_kernel import reset_control_plane_kernel
+    reset_control_plane_kernel()
+    request.addfinalizer(reset_runtime_governor)
+    request.addfinalizer(reset_federated_governance)
+    request.addfinalizer(reset_pulse_trust_epoch)
+    request.addfinalizer(reset_trust_ledger)
+    request.addfinalizer(reset_control_plane_kernel)
+
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "runtime",
+        resident_developmental_owner=cognition)
+    surfaces.build_world_state_board(tick_id="2026-01-02T00:00:00+00:00")
+    later_snapshot = surfaces.current_world_state_snapshot
+    assert later_snapshot is not None
+    run_source_id = "developmental-history-run:" + trial.changed_cognition_measurement_id
+    run_fact = next(fact for fact in later_snapshot.facts if fact.source.source_id == run_source_id)
+    assert run_fact.observed_at == "2026-01-01T00:00:00+00:00"
+    assert run_fact.payload["current_truth"] is False
+    assert run_fact.payload["learning_established"] is False
+    assert "multiplier" not in json.dumps(run_fact.payload)
+    assert surfaces._feedback["surfaces"]["developmental_history_intervention_projection"][
+        "automatic_completed_run_count"] == 1
+
+    later = cognition.run_tick(snapshot=later_snapshot, tick_id="objective-outcome-consumed")
+    assert run_fact.fact_id in later.selected_fact_ids
+    assert later.written_record_id
+
+    pending = cognition.config.state_root / "pending_objective_intervention.json"
+    substituted = json.loads(pending.read_text(encoding="utf-8"))
+    substituted["task"]["offset"] += 1
+    pending.write_text(json.dumps(substituted, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="objective_run_projection_verification_failed"):
+        cognition.inspect_completed_objective_experiment_run_refs()
+
+
 @pytest.mark.parametrize("mode,delta,stable,assessment", [
     ("derive_from_history", 1, True, "single_preregistered_task_scored"),
     ("no_difference", 0, True, "single_preregistered_task_scored"),

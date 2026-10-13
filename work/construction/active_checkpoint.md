@@ -1,13 +1,11 @@
 # Active construction checkpoint
 
-Sequence 122 continues from remote source `f0231f8e65db4ed3d336b16bd0c119486439519e`, tree `afcb5ad9406bebc4442eae6169f448b6caa7cd6e`. The experiment preflight now marks the relation between explicit cognition/serving configs and the running daemon as unobserved and makes operator confirmation an explicit step. Ten focused cases passed; changed Python compiled, targeted mypy passed, and whitespace scan is clean. Hosted checks for the parent had Source Validation and Helm success; invariants/docs/self-check failed for recorded runner gate/tooling conditions.
+Sequence 123 continues from exact remote commit `ffe0e6c80146b078165776e8050aae801c9e717e`, tree `7758097d99d3c727e1588fa6043a107d451d51b5`. Completed, receipt-verified one-shot objective runs now flow from the resident cognition owner's fixed completion state through the existing World-State projector into a later snapshot, where configured cognition can consume the historical score evidence. Inspection is read-only; incomplete or non-real inference results do not qualify. Focused cognition/experiment suites passed 90 cases and daemon runtime closure passed 28 cases on local CPython 3.12 fixtures. No real model, GPU, Windows host, or production execution occurred.
 
-Latest segment: `work/construction/segments/0122-mark-daemon-config-binding-unobserved.md`
-SHA-256: `5a2de258b14a5a9fe743e289764a6ebb51b9fea917ef8356dd49ff730ac40d66`
-Evidence: `work/construction/evidence/0122-mark-daemon-config-binding-unobserved.json`
-Evidence SHA-256: `a2de3477f4f67b78b50507839a98ac67df40cf2e14ba56f71bd991d03c430730`
-Sequence: 122
+Latest segment: `work/construction/segments/0123-project-verified-objective-runs-to-world-state.md`
+SHA-256: `228785c626cb91759f4a2ad1de030b5e3020471dafe4fe128d49815a174488a9`
+Evidence: `work/construction/evidence/0123-project-verified-objective-runs-to-world-state.json`
+Evidence SHA-256: `4bfa1a2f6ee440fd731872371da46ffe05b12d74c78ac73bf6114eabc87be705`
+Sequence: 123
 
-No real model, daemon, experiment, or production path was run. This sequence's publication still requires independent branch readback.
-
-Next: inspect existing startup custody for an authenticated configuration/process receipt, then continue the real task/outcome source boundary or another independent transfer control.
+Construction remains unverified for production. Mypy still reports the existing 229 diagnostics in the large owner modules. The tested path does not bootstrap an empty history; the first source-backed experience with empty history remains the next implementation dependency.
