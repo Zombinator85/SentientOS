@@ -13,7 +13,7 @@ from .control_plane_kernel import ControlPlaneKernel
 from .developmental_model_replacement_campaign import DevelopmentalModelReplacementCampaign
 from .developmental_model_replacement_experiment import (CognitiveModelIdentity,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext, ModelDevelopmentProvenance,
-    ModelReplacementArtifactStore, _digest)
+    ModelReplacementArtifactStore, ObjectivePredictionTask, _digest)
 from .developmental_model_replacement_experimental_serving import (APPROVAL_SCHEMA,
     ExperimentalModelServingController, approval_bindings)
 from .developmental_model_replacement_production_trial import (
@@ -80,11 +80,12 @@ def _publication(model: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _identity_and_receipt(handle: Any, model: Mapping[str, Any], artifact: Path,
-                          proof: Mapping[str, Any]) -> tuple[CognitiveModelIdentity, dict[str, Any]]:
+                          proof: Mapping[str, Any], *,
+                          generation_max_new_tokens: int = 8) -> tuple[CognitiveModelIdentity, dict[str, Any]]:
     load = {"n_ctx": 512, "n_gpu_layers": 0}
     config = ModelConfig([ModelCandidate(artifact, "llama_cpp", str(model["model_id"]), {"gpu_layers": 0})],
         default_engine="llama_cpp", max_context_tokens=512,
-        generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1))
+        generation=GenerationConfig(max_new_tokens=generation_max_new_tokens, temperature=0, top_p=1))
     authority = build_local_model_authority_map(config, allowed_roots=[artifact.parent],
         observed_at="1970-01-01T00:00:00+00:00")
     record = authority.records[0]
@@ -125,6 +126,7 @@ def _identity_and_receipt(handle: Any, model: Mapping[str, Any], artifact: Path,
         "artifact_sha256": model["artifact_sha256"], "artifact_size_bytes": model["artifact_size_bytes"],
         "runtime_id": "synthetic-runtime", "interpreter_path": "/synthetic/rehearsal/python",
         "load_configuration": load, "authority_map_digest": authority.map_digest,
+        "authority_map": authority.to_dict(),
         "observed_active_model_identity": observed, "admission_outcome": "allow",
         "control_plane_authority_class": "model_commissioning", "model_left_loaded": False,
         "activated": False, "serving_authority_granted": False, "provider_network": False,
@@ -136,22 +138,48 @@ def _identity_and_receipt(handle: Any, model: Mapping[str, Any], artifact: Path,
 
 
 class _Worker:
-    def __init__(self, identity: Mapping[str, Any], *, fail_currentness: bool = False) -> None:
+    def __init__(self, identity: Mapping[str, Any], *, fail_currentness: bool = False,
+                 truncate_objective_output: bool = False) -> None:
         self.active_identity = ActiveModelIdentity(**identity); self.calls = 0
         self._identity, self._fail = dict(identity), fail_currentness
+        self._truncate_objective_output = truncate_objective_output
 
     def generate(self, prompt: str, **_: Any) -> str:
         self.calls += 1
         if self._fail and self.calls == 2:
             changed = dict(self._identity); changed["configuration_digest"] = "sha256:currentness-drift"
             self.active_identity = ActiveModelIdentity(**changed)
+        value = json.loads(prompt)
+        descriptor = value.get("objective_task")
+        if isinstance(descriptor, Mapping):
+            probes = descriptor.get("probe_inputs")
+            if isinstance(probes, list):
+                answer = json.dumps({"answers": [3 * item + 2 for item in probes]},
+                    sort_keys=True, separators=(",", ":"))
+            else:
+                answer = json.dumps({"answer": 23}, sort_keys=True, separators=(",", ":"))
+            return answer + (" " + "x" * 160 if self._truncate_objective_output else "")
         return "synthetic:" + hashlib.sha256(prompt.encode()).hexdigest()[:16]
 
     def close(self) -> None: pass
 
 
-def _context() -> FrozenCausalContext:
+def _context(objective_task: ObjectivePredictionTask | None = None) -> FrozenCausalContext:
     current = {"facts": [{"id": "rehearsal-current", "value": "frozen"}]}
+    if objective_task is not None:
+        current["objective_task"] = objective_task.public_descriptor()
+        if objective_task.additional_probe_inputs:
+            specification = objective_task.specification()
+            answer = {"answers": [specification["multiplier"] * probe + specification["offset"]
+                for probe in specification["probe_inputs"]]}
+        else:
+            specification = objective_task.specification()
+            answer = {"answer": specification["multiplier"] * specification["probe_input"]
+                + specification["offset"]}
+        generation_tokens = len(json.dumps(answer, sort_keys=True,
+            separators=(",", ":")).encode("utf-8"))
+    else:
+        generation_tokens = 8
     history = ({"id": "rehearsal-history", "value": "synthetic"},)
     return FrozenCausalContext.create(snapshot_id="rehearsal-snapshot", snapshot_digest=_digest({"snapshot": 1}),
         current_projection_id="rehearsal-current-projection", current_projection_digest=_digest(current),
@@ -161,14 +189,16 @@ def _context() -> FrozenCausalContext:
         history_record_set_digest=_digest({"record_ids": ["rehearsal-history"], "record_digests": [_digest(history[0])]}),
         history_projection_payload=history, instruction_template="Context: {context}\nHistory: {history}\nAnswer deterministically.",
         instruction_template_digest=_digest({"instruction": "Context: {context}\nHistory: {history}\nAnswer deterministically."}),
-        inference_budget={"max_input_chars": 4096, "max_output_chars": 128, "max_new_tokens": 8, "timeout_seconds": 10},
+        inference_budget={"max_input_chars": 4096, "max_output_chars": 128,
+            "max_new_tokens": generation_tokens, "timeout_seconds": 10},
         generation_posture={"temperature": 0, "top_p": 1}, repository_generation_identity="synthetic-rehearsal")
 
 
 def _paths(root: Path) -> tuple[Path, Path]: return root / "rehearsal", root / "installation"
 
 
-def prepare(root: Path, *, fault: str | None = None) -> Mapping[str, Any]:
+def prepare(root: Path, *, fault: str | None = None,
+            objective_scored: bool = False) -> Mapping[str, Any]:
     root = Path(root).resolve()
     if root.exists() and any(root.iterdir()): raise ValueError("rehearsal_root_not_empty")
     bundle, state_base = _paths(root); bundle.mkdir(parents=True)
@@ -188,19 +218,24 @@ def prepare(root: Path, *, fault: str | None = None) -> Mapping[str, Any]:
     deploy_local_model_catalog(handle, request, authority, catalog, [_publication(m) for m in catalog["models"]],
         now=lambda: "2026-09-24T12:00:00Z")
     proof = construct_authoritative_catalog_consumer_proof(handle).proof
-    pairs = [_identity_and_receipt(handle, model, artifact, proof)
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9)) if objective_scored else None
+    objective_bytes = (len(json.dumps({"answers": [3 * probe + 2 for probe in (7, 8, 9)]},
+        sort_keys=True, separators=(",", ":")).encode("utf-8")) if task is not None else 8)
+    pairs = [_identity_and_receipt(handle, model, artifact, proof,
+                 generation_max_new_tokens=objective_bytes)
              for model, artifact in zip(catalog["models"], artifacts)]
     handle.ensure_directory(handle.fixed_object("local-model/commissioning/receipts"))
     for _, receipt in pairs:
         handle.durable_create(handle.fixed_object(f"local-model/commissioning/receipts/{receipt['receipt_id']}.json"),
             (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode())
-    context = _context(); provenance = [ModelDevelopmentProvenance.create(item[0]) for item in pairs]
+    context = _context(task); provenance = [ModelDevelopmentProvenance.create(item[0]) for item in pairs]
     class Endpoint:
         def __init__(self, identity: CognitiveModelIdentity): self.identity = identity
         def current_identity(self) -> CognitiveModelIdentity: return self.identity
         def infer(self, **_: Any) -> Mapping[str, Any]: raise RuntimeError("prepare_performs_zero_inference")
     experiment = DevelopmentalModelReplacementExperiment(context=context, model_a=Endpoint(pairs[0][0]),
-        model_b=Endpoint(pairs[1][0]), artifact_root=bundle, model_a_provenance=provenance[0], model_b_provenance=provenance[1])
+        model_b=Endpoint(pairs[1][0]), artifact_root=bundle, model_a_provenance=provenance[0],
+        model_b_provenance=provenance[1], objective_task=task)
     experiment.store.persist_provenance(provenance[0]); experiment.store.persist_provenance(provenance[1])
     experiment.store.persist_protocol(experiment.protocol)
     campaign = DevelopmentalModelReplacementCampaign.create(experiment=experiment, artifact_root=bundle,
@@ -208,7 +243,9 @@ def prepare(root: Path, *, fault: str | None = None) -> Mapping[str, Any]:
     activation = handle.root / "local-model/activation/active.json"; activation.parent.mkdir(parents=True)
     atomic_write_json(activation, {"sentinel": "canonical-activation-unchanged"})
     scenario: dict[str, Any] = {"schema_version": SCENARIO_SCHEMA, "scenario_name": "developmental-model-replacement-system-rehearsal",
-        "fault": fault, "installation_identity": handle.identity.value, "context": asdict(context),
+        "fault": fault, "objective_scored": objective_scored,
+        "objective_task": (task.specification() if task is not None else None),
+        "installation_identity": handle.identity.value, "context": asdict(context),
         "provenance_a": asdict(provenance[0]), "provenance_b": asdict(provenance[1]),
         "protocol_id": experiment.protocol.protocol_id, "protocol_digest": experiment.protocol.protocol_digest,
         "campaign_id": campaign.protocol.campaign_id, "campaign_digest": campaign.protocol.campaign_digest,
@@ -259,6 +296,16 @@ def _approval(intent: Mapping[str, Any], suffix: str) -> dict[str, Any]:
     value["approval_digest"] = semantic_digest(value); return value
 
 
+def _task(scenario: Mapping[str, Any]) -> ObjectivePredictionTask | None:
+    raw = scenario.get("objective_task")
+    if raw is None:
+        return None
+    probes = raw.get("probe_inputs")
+    return (ObjectivePredictionTask(raw["multiplier"], raw["offset"], probes[0], tuple(probes[1:]))
+        if isinstance(probes, list) else
+        ObjectivePredictionTask(raw["multiplier"], raw["offset"], raw["probe_input"]))
+
+
 def run_next(root: Path, *, resource_context_owner: ProductionChatResourceContextOwner | None = None) -> Mapping[str, Any]:
     bundle, handle, scenario, context, pa, pb = _load(root)
     controller = ExperimentalModelServingController(handle, ControlPlaneKernel(decisions_path=bundle / "intent-decisions.jsonl"),
@@ -273,7 +320,9 @@ def run_next(root: Path, *, resource_context_owner: ProductionChatResourceContex
         if fault == "model_b_load_failure" and constructed[0] == 2: raise RuntimeError("injected_model_b_load_failure")
         identity = _read(handle.root / "local-model/commissioning/receipts" / ((scenario["commissioning_receipt_a"] if constructed[0] == 1 else scenario["commissioning_receipt_b"]) + ".json"))["observed_active_model_identity"]
         if fault == "loaded_identity_drift": identity = {**identity, "configuration_digest": "sha256:loaded-drift"}
-        return _Worker(identity, fail_currentness=fault == "inference_currentness_failure" and constructed[0] == 1)
+        return _Worker(identity,
+            fail_currentness=fault == "inference_currentness_failure" and constructed[0] == 1,
+            truncate_objective_output=fault == "truncated_objective_output")
     runner = DevelopmentalModelReplacementProductionTrialRunner(handle,
         ControlPlaneKernel(decisions_path=bundle / "run-decisions.jsonl"), campaign_artifact_root=bundle,
         experiment_artifact_root=bundle, model_factory=factory, allow_synthetic_evidence_for_tests=True,
@@ -284,7 +333,8 @@ def run_next(root: Path, *, resource_context_owner: ProductionChatResourceContex
         serving_correlation_a="rehearsal-serving-a", serving_correlation_b="rehearsal-serving-b",
         serving_approval_a=_approval(ia, "a"), serving_approval_b=_approval(ib, "b"),
         invocation_correlation="rehearsal-run-one", observation_time=FIXED_TIME, context=context,
-        provenance_a=pa, provenance_b=pb, evidence_posture="synthetic_test_trial")
+        provenance_a=pa, provenance_b=pb, evidence_posture="synthetic_test_trial",
+        objective_task=_task(scenario))
     if result["status"] == "completed_one_trial":
         target = bundle / "trial_receipts" / f"{result['receipt']['trial_id']}.json"; target.parent.mkdir(exist_ok=True)
         atomic_write_json(target, dict(result["receipt"]))
@@ -298,13 +348,28 @@ def verify(root: Path) -> Mapping[str, Any]:
         def current_identity(self) -> CognitiveModelIdentity: return self.identity
         def infer(self, **_: Any) -> Mapping[str, Any]: raise RuntimeError("verification_must_not_infer")
     protocol = ModelReplacementArtifactStore(bundle).load_verified_protocol(scenario["protocol_id"], scenario["protocol_digest"])
+    task = _task(scenario)
     experiment = DevelopmentalModelReplacementExperiment(context=context, model_a=Endpoint(protocol.model_a_identity),
-        model_b=Endpoint(protocol.model_b_identity), artifact_root=bundle, model_a_provenance=pa, model_b_provenance=pb)
+        model_b=Endpoint(protocol.model_b_identity), artifact_root=bundle, model_a_provenance=pa,
+        model_b_provenance=pb, objective_task=task)
     campaign = DevelopmentalModelReplacementCampaign.reconstruct(experiment=experiment, artifact_root=bundle,
         campaign_id=scenario["campaign_id"]); state = campaign.store.load_state(campaign.protocol)
     receipts = sorted((bundle / "trial_receipts").glob("*.json")) if (bundle / "trial_receipts").exists() else []
     values = [_read(path) for path in receipts]
-    for value in values: verify_production_trial_receipt(value)
+    completed_refs = {(item["trial_id"], item["run_id"], item["run_digest"])
+        for item in state.get("completed_trials", [])}
+    expected_plan_digest = campaign.protocol.objective_task_plan_digest
+    for value in values:
+        verify_production_trial_receipt(value)
+        if (value.get("campaign_id") != campaign.protocol.campaign_id
+                or value.get("campaign_digest") != campaign.protocol.campaign_digest
+                or value.get("objective_task_plan_digest") != expected_plan_digest
+                or (value.get("trial_id"), value.get("run_id"), value.get("run_digest")) not in completed_refs):
+            raise ValueError("rehearsal_production_receipt_campaign_binding_invalid")
+        run = experiment.store.load_verified_run(str(value["run_id"]), str(value["run_digest"]))
+        if (run.get("protocol", {}).get("protocol_id") != scenario["protocol_id"]
+                or run.get("protocol", {}).get("protocol_digest") != scenario["protocol_digest"]):
+            raise ValueError("rehearsal_production_receipt_run_binding_invalid")
     activation = _snapshot(handle.root / "local-model/activation/active.json")
     serving = _snapshot(handle.root / "local-model/serving/active.json")
     if activation != scenario["activation_baseline"]: raise ValueError("canonical_activation_changed")
@@ -335,12 +400,14 @@ def verify(root: Path) -> Mapping[str, Any]:
 def summarize(root: Path) -> Mapping[str, Any]:
     bundle, _, scenario, context, pa, pb = _load(root)
     protocol = ModelReplacementArtifactStore(bundle).load_verified_protocol(scenario["protocol_id"], scenario["protocol_digest"])
+    task = _task(scenario)
     class E:
         def __init__(self, i: CognitiveModelIdentity): self.i = i
         def current_identity(self) -> CognitiveModelIdentity: return self.i
         def infer(self, **_: Any) -> Mapping[str, Any]: raise RuntimeError("summary_must_not_infer")
     experiment = DevelopmentalModelReplacementExperiment(context=context, model_a=E(protocol.model_a_identity),
-        model_b=E(protocol.model_b_identity), artifact_root=bundle, model_a_provenance=pa, model_b_provenance=pb)
+        model_b=E(protocol.model_b_identity), artifact_root=bundle, model_a_provenance=pa,
+        model_b_provenance=pb, objective_task=task)
     report = DevelopmentalModelReplacementCampaign.reconstruct(experiment=experiment, artifact_root=bundle,
         campaign_id=scenario["campaign_id"]).summarize()
     atomic_write_json(bundle / "campaign_summary.json", report); return cast(Mapping[str, Any], report)

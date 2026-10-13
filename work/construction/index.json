@@ -899,6 +899,17 @@
       "sha256": "b475c890e11766505ff3840341501166baba254a4260a4288c33b80d76f10503",
       "source_commit": "b9ce905af905920d0c21e260eef73de6a9708ac5",
       "source_tree": "deb351e76e9cf50b4720c66bbbd25bd6a521914b"
+    },
+    {
+      "bytes": 3772,
+      "evidence_path": "work/construction/evidence/0105-bind-objective-scoring-to-real-serving.json",
+      "evidence_sha256": "a910eab5481c559d51221d79caf8b3142ab91ff8b4b652d38ce1c331d077691e",
+      "path": "work/construction/segments/0105-bind-objective-scoring-to-real-serving.md",
+      "predecessor": "segment-sha256:b475c890e11766505ff3840341501166baba254a4260a4288c33b80d76f10503",
+      "sequence": 105,
+      "sha256": "d367880b1761cc5fce2c5a138bba3a55cf82baa68caff3f32da4cf2d3a0fa12d",
+      "source_commit": "86516b5b7f44bee8821b74390ffc06e070659555",
+      "source_tree": "c3344fa9eb9e52b307705fc4683f7acd97124714"
     }
   ],
   "source_acquisition": {

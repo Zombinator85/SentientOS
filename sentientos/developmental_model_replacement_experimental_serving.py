@@ -114,6 +114,48 @@ def _loaded_identity(evidence: VerifiedCommissionedModel, observed: Mapping[str,
         active_model_identity=payload, active_model_identity_digest=_digest(payload))
 
 
+def _commissioned_generation(evidence: VerifiedCommissionedModel) -> GenerationConfig:
+    """Rebuild the exact commissioning-time inference ceiling, never widen it."""
+    authority = evidence.receipt.get("authority_map")
+    ceilings: Mapping[str, Any] | None = None
+    if (isinstance(authority, Mapping)
+            and authority.get("map_digest") == evidence.receipt.get("authority_map_digest")
+            and isinstance(authority.get("records"), list)):
+        identity = evidence.cognitive_identity
+        records = [row for row in authority["records"] if isinstance(row, Mapping)
+            and row.get("semantic_artifact_identity") == identity.semantic_artifact_identity
+            and row.get("model_content_sha256") == identity.model_content_sha256
+            and row.get("artifact_size_bytes") == identity.artifact_size_bytes
+            and row.get("configuration_digest") == identity.configuration_digest]
+        if len(records) == 1 and isinstance(records[0].get("generation_ceilings"), Mapping):
+            ceilings = records[0]["generation_ceilings"]
+    if ceilings is None:
+        # Hardened commissioning receipts bind the exact smoke request and its
+        # actual generated parameters. This also supports historical v3
+        # receipts, whose fixed ceiling was eight tokens and whose schema did
+        # not copy the full authority map into the receipt.
+        smoke = evidence.receipt.get("smoke_evidence")
+        request = smoke.get("request") if isinstance(smoke, Mapping) else None
+        budget = request.get("budget") if isinstance(request, Mapping) else None
+        generation = smoke.get("generation_config") if isinstance(smoke, Mapping) else None
+        actual = generation.get("actual_generation_parameters") if isinstance(generation, Mapping) else None
+        requested = budget.get("max_new_tokens") if isinstance(budget, Mapping) else None
+        if (not isinstance(smoke, Mapping) or smoke.get("status") != "admitted_completed"
+                or smoke.get("fallback_occurred") is not False or type(requested) is not int
+                or not isinstance(actual, Mapping) or actual.get("max_new_tokens") != requested):
+            raise ExperimentalModelServingError("commissioned_generation_authority_missing")
+        ceilings = {"max_new_tokens": requested, "temperature": 0, "top_p": 1,
+            "top_k": None, "repetition_penalty": None}
+    try:
+        config = GenerationConfig(**dict(ceilings))
+    except (TypeError, ValueError) as exc:
+        raise ExperimentalModelServingError("commissioned_generation_authority_invalid") from exc
+    if (type(config.max_new_tokens) is not int or not 1 <= config.max_new_tokens <= 512
+            or config.temperature != 0 or config.top_p != 1):
+        raise ExperimentalModelServingError("commissioned_generation_authority_invalid")
+    return config
+
+
 class ExperimentalModelServingController:
     """Own exact workers outside canonical activation and production-serving custody."""
     def __init__(self, installation_handle: InstallationStateHandle, control_plane_kernel: ControlPlaneKernel,
@@ -209,7 +251,7 @@ class ExperimentalModelServingController:
                     {"gpu_layers": int(load_configuration["n_gpu_layers"])})],
                 default_engine="llama_cpp",
                 max_context_tokens=int(load_configuration["n_ctx"]),
-                generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1),
+                generation=_commissioned_generation(commissioned),
             )
             invocation_authority = build_local_model_authority_map(
                 invocation_config,
@@ -261,6 +303,10 @@ class ExperimentalModelServingController:
                 or linkage.get("experimental_serving_receipt_digest") != serving_digest
                 or linkage.get("model_serving_admission_ref") != serving.get("model_serving_admission_ref")
                 or inference.get("output_digest") != observation.get("output_digest")
+                or inference.get("output_truncated") is not observation.get("output_truncated")
+                or not isinstance(inference.get("generation_config"), Mapping)
+                or inference["generation_config"].get("actual_generation_parameters")
+                    != observation.get("actual_generation_parameters")
                 or inference.get("status") != "admitted_completed"
                 or inference.get("fallback_occurred") is not False
                 or inference.get("admission_decision_ref") == serving.get("model_serving_admission_ref")):
@@ -404,7 +450,7 @@ class ExperimentalCognitiveEndpoint:
         config = ModelConfig([ModelCandidate(Path(self._evidence.artifact_path), "llama_cpp", str(receipt["model_id"]),
                     {"gpu_layers": int(receipt["load_configuration"]["n_gpu_layers"])})], default_engine="llama_cpp",
                     max_context_tokens=int(receipt["load_configuration"]["n_ctx"]),
-                    generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1))
+                    generation=_commissioned_generation(self._evidence))
         authority: LocalModelAuthorityMap = build_local_model_authority_map(config, allowed_roots=[Path(self._evidence.artifact_path).parent],
                                                                             observed_at="1970-01-01T00:00:00+00:00")
         if authority.map_digest != receipt["authority_map_digest"]:
@@ -449,6 +495,7 @@ class ExperimentalCognitiveEndpoint:
                 "invocation_model_id": request.model_id,
                 "invocation_authority_map_digest": request.authority_map_digest,
                 "output_digest": result.output_digest,
+                "output_truncated": result.output_truncated,
                 "actual_generation_parameters": result.generation_config.get("actual_generation_parameters", {}),
                 "resource_allocation_digest": result.resource_allocation_digest,
                 "resource_attempt_id": result.resource_attempt_id,

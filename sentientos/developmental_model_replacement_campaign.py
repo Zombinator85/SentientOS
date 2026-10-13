@@ -24,6 +24,7 @@ from .developmental_model_replacement_experiment import (
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v1"
+SCORED_PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v2"
 STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
 REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v1"
 MIN_TRIALS = 2
@@ -63,6 +64,15 @@ class CampaignProtocol:
     non_claims: tuple[str, ...] = CAMPAIGN_NON_CLAIMS
     grants_authority: bool = False
     schema_version: str = PROTOCOL_SCHEMA
+    objective_task_plan_digest: str | None = None
+
+    def semantic_payload(self) -> dict[str, Any]:
+        value = asdict(self)
+        value.pop("campaign_id"); value.pop("campaign_digest")
+        # Keep the historical v1 identity scope unchanged.
+        if self.schema_version == PROTOCOL_SCHEMA:
+            value.pop("objective_task_plan_digest")
+        return value
 
     @classmethod
     def create(cls, experiment: DevelopmentalModelReplacementExperiment,
@@ -75,24 +85,37 @@ class CampaignProtocol:
             if not trial_id or len(trial_id) > 128 or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for c in trial_id):
                 raise DevelopmentalModelReplacementError("trial_id_invalid")
         p, c = experiment.protocol, experiment.context
+        plan = experiment.objective_plan
+        plan_digest = str(plan["plan_digest"]) if plan is not None else None
+        if plan is not None:
+            # The oracle is immutable and available before campaign identity or
+            # any serving worker can be constructed.
+            experiment.store.persist_objective_plan(plan)
         raw = cls("", "", p.protocol_id, p.protocol_digest, c.context_id, c.context_digest,
                   p.model_a_identity.identity_digest, p.model_b_identity.identity_digest,
                   p.model_a_provenance_digest, p.model_b_provenance_digest,
                   c.history_record_set_digest, c.current_projection_digest,
                   dict(c.inference_budget), dict(c.generation_posture), p.condition_order,
-                  len(ids), ids)
-        payload = asdict(raw); payload.pop("campaign_id"); payload.pop("campaign_digest")
+                  len(ids), ids, schema_version=(SCORED_PROTOCOL_SCHEMA if plan is not None else PROTOCOL_SCHEMA),
+                  objective_task_plan_digest=plan_digest)
+        payload = raw.semantic_payload()
         digest = _digest(payload)
         return replace(raw, campaign_id="model-replacement-campaign-" + digest[7:31], campaign_digest=digest)
 
     def verify(self) -> None:
-        payload = asdict(self); payload.pop("campaign_id"); payload.pop("campaign_digest")
+        payload = self.semantic_payload()
         digest = _digest(payload)
         if (self.campaign_digest != digest or self.campaign_id != "model-replacement-campaign-" + digest[7:31]
-                or self.schema_version != PROTOCOL_SCHEMA or self.grants_authority
+                or self.schema_version not in {PROTOCOL_SCHEMA, SCORED_PROTOCOL_SCHEMA} or self.grants_authority
                 or self.condition_order != CONDITION_ORDER
                 or not MIN_TRIALS <= self.planned_trial_count <= MAX_TRIALS
-                or self.planned_trial_count != len(self.trial_ids) or len(set(self.trial_ids)) != len(self.trial_ids)):
+                or self.planned_trial_count != len(self.trial_ids) or len(set(self.trial_ids)) != len(self.trial_ids)
+                or (self.schema_version == PROTOCOL_SCHEMA and self.objective_task_plan_digest is not None)
+                or (self.schema_version == SCORED_PROTOCOL_SCHEMA and
+                    (not isinstance(self.objective_task_plan_digest, str)
+                     or len(self.objective_task_plan_digest) != 71
+                     or not self.objective_task_plan_digest.startswith("sha256:")
+                     or any(c not in "0123456789abcdef" for c in self.objective_task_plan_digest[7:])))):
             raise DevelopmentalModelReplacementError("campaign_protocol_invalid")
 
 
@@ -441,6 +464,14 @@ class DevelopmentalModelReplacementCampaign:
     @classmethod
     def create(cls, *, experiment: DevelopmentalModelReplacementExperiment,
                artifact_root: Path, trial_ids: Sequence[str]) -> "DevelopmentalModelReplacementCampaign":
+        # Freeze every identity, including a scored task plan, before campaign
+        # publication. A later runner can only reconstruct this exact bundle.
+        experiment.store.persist_context(experiment.context)
+        experiment.store.persist_protocol(experiment.protocol)
+        experiment.store.persist_provenance(experiment.provenance_a)
+        experiment.store.persist_provenance(experiment.provenance_b)
+        if experiment.objective_plan is not None:
+            experiment.store.persist_objective_plan(experiment.objective_plan)
         protocol, store = CampaignProtocol.create(experiment, trial_ids), CampaignStore(artifact_root)
         store.persist_protocol(protocol)
         state = store.write_state(protocol, {"completed_trials": [], "next_trial_id": protocol.trial_ids[0],
@@ -518,6 +549,11 @@ class DevelopmentalModelReplacementCampaign:
                       expected.history_record_set_digest, expected.current_projection_digest,
                       dict(expected.inference_budget), dict(expected.generation_posture), expected.condition_order)
         if bindings != registered: self._invalidate("campaign_control_drift"); raise DevelopmentalModelReplacementError("campaign_control_drift")
+        experiment_plan_digest = (self.experiment.objective_plan.get("plan_digest")
+            if self.experiment.objective_plan is not None else None)
+        if experiment_plan_digest != expected.objective_task_plan_digest:
+            self._invalidate("campaign_objective_task_drift")
+            raise DevelopmentalModelReplacementError("campaign_objective_task_drift")
 
     def _invalidate(self, reason: str, *, failure_evidence: Mapping[str, Any] | None = None) -> None:
         self.state = self.store.write_state(self.protocol, {**self.state, "validity": "invalid_incomplete", "failure_reason": reason})
@@ -573,6 +609,42 @@ class DevelopmentalModelReplacementCampaign:
             return sum(bool(run["differences"][key]) for run in runs)
         a, b = difference_count("history_effect_model_a"), difference_count("history_effect_model_b")
         restoration = difference_count("model_a_restoration")
+        objective_summary: dict[str, Any] | None = None
+        if self.protocol.objective_task_plan_digest is not None:
+            plan = self.experiment.objective_plan
+            if (not isinstance(plan, Mapping)
+                    or plan.get("plan_digest") != self.protocol.objective_task_plan_digest):
+                raise DevelopmentalModelReplacementError("campaign_objective_task_binding_invalid")
+            self.experiment.store.verify_objective_plan(self.experiment.protocol, plan)
+            by_condition: dict[str, list[dict[str, Any]]] = {name: [] for name in CONDITION_ORDER}
+            for run in runs:
+                rows = run.get("observations")
+                if not isinstance(rows, list) or len(rows) != len(CONDITION_ORDER):
+                    raise DevelopmentalModelReplacementError("campaign_objective_score_inventory_invalid")
+                for condition, row in zip(CONDITION_ORDER, rows):
+                    score = row.get("objective_task_score") if isinstance(row, Mapping) else None
+                    if not isinstance(score, Mapping) or score.get("plan_digest") != self.protocol.objective_task_plan_digest:
+                        raise DevelopmentalModelReplacementError("campaign_objective_score_binding_invalid")
+                    by_condition[condition].append(dict(score))
+            objective_summary = {"objective_task_plan_digest": self.protocol.objective_task_plan_digest,
+                "trial_count": count, "condition_status_counts": {
+                    condition: {status: sum(score.get("status") == status for score in scores)
+                        for status in ("correct", "incorrect", "invalid_answer", "output_unavailable", "output_truncated")}
+                    for condition, scores in by_condition.items()},
+                "condition_correct_count": {condition: sum(score.get("correct") is True for score in scores)
+                    for condition, scores in by_condition.items()},
+                "condition_scored_trial_count": {condition: sum(type(score.get("correct")) is bool for score in scores)
+                    for condition, scores in by_condition.items()},
+                "claim_scope": "observed_task_correctness_only",
+                "independence_or_improvement_claimed": False}
+            if plan.get("task", {}).get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+                objective_summary["condition_correct_probe_count"] = {
+                    condition: sum(score.get("correct_count") or 0 for score in scores)
+                    for condition, scores in by_condition.items()}
+                objective_summary["condition_scored_probe_count"] = {
+                    condition: sum(plan["task_descriptor"].get("probe_count", 0)
+                        for score in scores if type(score.get("correct_count")) is int)
+                    for condition, scores in by_condition.items()}
         semantic = {"campaign_id": self.protocol.campaign_id, "campaign_digest": self.protocol.campaign_digest,
             "planned_trial_count": count, "completed_valid_trial_count": count,
             "trial_artifacts": list(self.state["completed_trials"]),
@@ -591,6 +663,8 @@ class DevelopmentalModelReplacementCampaign:
             "all_condition_output_digests_identical_across_trials": all(v["unique_output_digest_count"] == 1 for v in conditions.values()),
             "claims_posture": "descriptive_exact_counts_only", "non_claims": list(CAMPAIGN_NON_CLAIMS),
             "validity": "valid_completed_replication_campaign", "schema_version": REPORT_SCHEMA}
+        if objective_summary is not None:
+            semantic["objective_evaluation"] = objective_summary
         digest = _digest(semantic); report = {**semantic, "report_id": "model-replacement-campaign-report-" + digest[7:31], "report_digest": digest}
         self.store.immutable(self.store.reports / f"{report['report_id']}.json", report)
         return report

@@ -77,6 +77,10 @@ def test_existing_campaign_and_five_condition_owners_are_reused() -> None:
     assert "DevelopmentalModelReplacementCampaign.reconstruct" in source
     assert "DevelopmentalModelReplacementExperiment(" in source
     assert "CONDITION_ORDER" not in source
+    assert "objective_task: ObjectivePredictionTask | None = None" in source
+    assert source.count("objective_task=objective_task") >= 2
+    assert "objective_task_plan_not_preregistered" in source
+    assert "campaign_objective_task_binding_invalid" in source
 
 
 def test_no_identity_or_improvement_claims() -> None:

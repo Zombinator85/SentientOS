@@ -1113,6 +1113,31 @@ class ModelReplacementArtifactStore:
             raise DevelopmentalModelReplacementError("objective_plan_binding_invalid")
         return value
 
+    def persist_objective_plan(self, plan: Mapping[str, Any]) -> dict[str, Any]:
+        """Publish one precomputed plan immutably before a campaign can serve."""
+        if self.read_only:
+            raise DevelopmentalModelReplacementError("artifact_store_read_only")
+        protocol_id = plan.get("protocol_id") if isinstance(plan, Mapping) else None
+        protocol_digest = plan.get("protocol_digest") if isinstance(plan, Mapping) else None
+        protocol = self.load_verified_protocol(str(protocol_id or ""), str(protocol_digest or ""))
+        try:
+            specification = plan["task"]
+            if specification.get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+                probes = specification["probe_inputs"]
+                task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                    probes[0], tuple(probes[1:]))
+            else:
+                task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                    specification["probe_input"])
+            canonical = _objective_plan(task, protocol)
+        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            raise DevelopmentalModelReplacementError("objective_plan_invalid") from exc
+        if dict(plan) != canonical:
+            raise DevelopmentalModelReplacementError("objective_plan_binding_invalid")
+        path = self.protocols / f"objective-task-plan-{protocol.protocol_id}.json"
+        self._write(path, canonical)
+        return self.verify_objective_plan(protocol, expected=canonical)
+
     def load_verified_run(self, run_id: str, run_digest: str) -> dict[str, Any]:
         run_prefix = "model-replacement-run-"
         if (not isinstance(run_id, str) or len(run_id) != len(run_prefix) + 24
@@ -1241,7 +1266,8 @@ class ModelReplacementArtifactStore:
             plan = self.verify_objective_plan(protocol)
             for observation in value["observations"]:
                 score = observation.get("objective_task_score")
-                _verify_objective_score(plan, score, observation.get("output_digest"))
+                _verify_objective_score(plan, score, observation.get("output_digest"),
+                    output_truncated=observation.get("output_truncated", False))
             if evaluation != _objective_evaluation(plan, value["observations"]):
                 raise DevelopmentalModelReplacementError("objective_evaluation_binding_invalid")
         return value
@@ -1517,7 +1543,8 @@ def _objective_plan(task: ObjectivePredictionTask, protocol: ModelReplacementPro
     return {**semantic, "plan_digest": _digest(semantic)}
 
 
-def _objective_score(plan: Mapping[str, Any], output: object, output_digest: object) -> dict[str, Any]:
+def _objective_score(plan: Mapping[str, Any], output: object, output_digest: object,
+                     *, output_truncated: bool = False) -> dict[str, Any]:
     task = plan["task"]
     is_suite = task.get("schema_version") == "sentientos.affine_prediction_task_suite:v2"
     if is_suite:
@@ -1531,7 +1558,13 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         expected = task["multiplier"] * task["probe_input"] + task["offset"]
     status, answer, correct = "output_unavailable", None, None
     correct_count: int | None = None
-    if output is not None:
+    if type(output_truncated) is not bool:
+        raise DevelopmentalModelReplacementError("objective_output_truncation_invalid")
+    if output_truncated:
+        if not isinstance(output_digest, str) or not output_digest:
+            raise DevelopmentalModelReplacementError("objective_output_digest_missing")
+        status = "output_truncated"
+    elif output is not None:
         if not isinstance(output, str) or len(output.encode("utf-8")) > (1024 if is_suite else 256):
             raise DevelopmentalModelReplacementError("objective_output_size_or_type_invalid")
         digest = _digest({"output": output})
@@ -1578,6 +1611,7 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         "output_retention_posture": (
             "live_bytes_digest_verified_not_retained" if status in {"correct", "incorrect"}
             else "live_bytes_invalid_answer_not_retained" if status == "invalid_answer"
+            else "output_bytes_truncated_before_scoring" if status == "output_truncated"
             else "output_bytes_unavailable"),
         "status": status, "answer": answer, "correct": correct,
         "evaluator": ("deterministic_exact_integer_suite_oracle_v2" if is_suite
@@ -1585,7 +1619,7 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
     if is_suite:
         semantic["probe_count"] = len(expected)
         semantic["correct_count"] = correct_count if correct_count is not None else 0
-        if status == "output_unavailable":
+        if status in {"output_unavailable", "output_truncated"}:
             semantic["correct_count"] = None
     return {**semantic, "score_digest": _digest(semantic)}
 
@@ -1616,11 +1650,14 @@ def _objective_score_legacy(plan: Mapping[str, Any], output: object,
 
 
 def _verify_objective_score(plan: Mapping[str, Any], score: object,
-                            expected_output_digest: object) -> dict[str, Any]:
+                            expected_output_digest: object, *,
+                            output_truncated: bool = False) -> dict[str, Any]:
     """Verify new digest-only scores and preserve compatibility with legacy v1 scores."""
     if not isinstance(score, Mapping):
         raise DevelopmentalModelReplacementError("objective_score_invalid")
     value = dict(score)
+    if type(output_truncated) is not bool:
+        raise DevelopmentalModelReplacementError("objective_output_truncation_invalid")
     # Historical score records include output_text. Verify them with their original
     # byte-retaining contract; newly produced records never include that field.
     if "output_text" in value:
@@ -1650,7 +1687,7 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
         raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
     status = value.get("status")
     if status in {"correct", "incorrect"}:
-        if value.get("output_digest") != expected_output_digest:
+        if output_truncated or value.get("output_digest") != expected_output_digest:
             raise DevelopmentalModelReplacementError("objective_score_output_digest_mismatch")
         answer_key = "answers" if is_suite else "answer"
         canonical_output = json.dumps({answer_key: value.get("answer")},
@@ -1664,16 +1701,25 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
     elif status == "invalid_answer":
         # Negative classifications are safe to retain without the raw invalid
         # bytes; they cannot confer success, and remain bound to the invocation.
-        if (value.get("output_digest") != expected_output_digest
+        if (output_truncated or value.get("output_digest") != expected_output_digest
                 or not isinstance(expected_output_digest, str)
                 or value.get("output_retention_posture") != "live_bytes_invalid_answer_not_retained"
                 or value.get("answer") is not None or value.get("correct") is not False
                 or (is_suite and value.get("correct_count") != 0)):
             raise DevelopmentalModelReplacementError("objective_score_invalid_output_binding")
     elif status == "output_unavailable":
+        if output_truncated:
+            raise DevelopmentalModelReplacementError("objective_score_truncation_binding_invalid")
         expected = _objective_score(plan, None, expected_output_digest)
         if value != expected:
             raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
+    elif status == "output_truncated":
+        if (not output_truncated or value.get("output_digest") != expected_output_digest
+                or not isinstance(expected_output_digest, str)
+                or value.get("output_retention_posture") != "output_bytes_truncated_before_scoring"
+                or value.get("answer") is not None or value.get("correct") is not None
+                or (is_suite and value.get("correct_count") is not None)):
+            raise DevelopmentalModelReplacementError("objective_score_truncated_output_binding_invalid")
     else:
         raise DevelopmentalModelReplacementError("objective_score_status_invalid")
     return value
@@ -1688,7 +1734,9 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
         "model_a_history_accuracy_delta": int(correctness[0]) - int(correctness[1]) if complete else None,
         "model_b_history_accuracy_delta": int(correctness[2]) - int(correctness[3]) if complete else None,
         "restoration_correctness_stable": correctness[0] == correctness[4] if complete else None,
-        "assessment": ("preregistered_probe_suite_scored"
+        "assessment": ("unscoreable_truncated_output" if any(
+            score.get("status") == "output_truncated" for score in scores) else
+            "preregistered_probe_suite_scored"
             if complete and plan["task"].get("schema_version") ==
                 "sentientos.affine_prediction_task_suite:v2"
             else "single_preregistered_task_scored" if complete
@@ -1873,6 +1921,12 @@ class DevelopmentalModelReplacementExperiment:
         if not isinstance(actual, Mapping) or actual.get("temperature") != 0:
             raise DevelopmentalModelReplacementError("experiment_generation_configuration_drift",
                 evidence=_inference_failure_evidence(receipt))
+        requested_tokens = self.context.inference_budget.get("max_new_tokens")
+        if (self.objective_plan is not None and
+                (type(requested_tokens) is not int
+                 or actual.get("max_new_tokens") != requested_tokens)):
+            raise DevelopmentalModelReplacementError("objective_generation_budget_drift",
+                evidence=_inference_failure_evidence(receipt))
         required = ("request_id", "request_digest", "inference_receipt_id",
                     "inference_receipt_digest", "output_digest")
         if not all(receipt.get(key) for key in required):
@@ -1902,12 +1956,16 @@ class DevelopmentalModelReplacementExperiment:
                     "inference_event_time_posture": ("invocation_receipt_metadata_unverified"
                         if receipt.get("observed_at") is not None else "unknown"),
                     "output_digest": receipt["output_digest"],
+                    "output_truncated": receipt.get("output_truncated", False),
                     "actual_generation_parameters": dict(actual),
                     "authority_record_digest": expected.authority_record_digest,
                     "correlation_id": correlation}
         if self.objective_plan is not None:
+            truncated = receipt.get("output_truncated", False)
+            if type(truncated) is not bool:
+                raise DevelopmentalModelReplacementError("objective_output_truncation_invalid")
             semantic["objective_task_score"] = _objective_score(self.objective_plan,
-                receipt.get("output_text"), receipt["output_digest"])
+                receipt.get("output_text"), receipt["output_digest"], output_truncated=truncated)
         semantic.update(_resource_receipt_binding(receipt))
         semantic.update(_model_serving_receipt_reference(receipt))
         semantic.update(_prior_cognition_bindings(self.context.current_projection_payload))
@@ -1977,8 +2035,11 @@ class DevelopmentalModelReplacementExperiment:
             raise DevelopmentalModelReplacementError("condition_observation_binding_invalid")
         score = value.get("objective_task_score")
         if self.objective_plan is not None:
+            if type(value.get("output_truncated")) is not bool:
+                raise DevelopmentalModelReplacementError("objective_output_truncation_invalid")
             self.store.verify_objective_plan(self.protocol, self.objective_plan)
-            _verify_objective_score(self.objective_plan, score, value.get("output_digest"))
+            _verify_objective_score(self.objective_plan, score, value.get("output_digest"),
+                output_truncated=value["output_truncated"])
         elif score is not None:
             raise DevelopmentalModelReplacementError("objective_task_oracle_missing")
         if serving_binding:

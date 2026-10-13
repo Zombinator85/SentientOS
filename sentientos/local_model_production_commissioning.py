@@ -212,9 +212,13 @@ def authorization_for(plan: Mapping[str, Any], *, operator_confirmed_plan_digest
 
 def _config(plan: Mapping[str, Any]) -> ModelConfig:
     chain, load = plan["chain"], plan["load_configuration"]
+    smoke = plan.get("smoke_contract", {})
+    max_new_tokens = smoke.get("max_new_tokens", 8) if isinstance(smoke, Mapping) else 8
+    if type(max_new_tokens) is not int or not 1 <= max_new_tokens <= 512:
+        raise ProductionCommissioningError("commissioning_generation_ceiling_invalid")
     return ModelConfig([ModelCandidate(Path(chain["artifact_path"]), "llama_cpp", str(chain["model_id"]),
         {"gpu_layers": int(load["n_gpu_layers"])})], default_engine="llama_cpp", max_context_tokens=int(load["n_ctx"]),
-        generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1))
+        generation=GenerationConfig(max_new_tokens=max_new_tokens, temperature=0, top_p=1))
 
 
 def commission(plan: Mapping[str, Any], compatibility: Mapping[str, Any], authorization: Mapping[str, Any], *,
@@ -249,9 +253,9 @@ def commission(plan: Mapping[str, Any], compatibility: Mapping[str, Any], author
         "operator_authorization_digest": authorization["authorization_digest"], "load_configuration": dict(plan["load_configuration"]),
         "active_model_identity": identity.to_dict(), "authority_map": authority.to_dict(),
         "smoke_request_digest": request.request_digest, "smoke_receipt_digest": smoke["receipt_digest"],
-        "smoke_evidence": {key: smoke[key] for key in ("request", "status", "reason_codes", "output_digest",
+        "smoke_evidence": {key: smoke[key] for key in ("schema_version", "request", "status", "reason_codes", "output_digest",
             "output_size_bytes", "generation_config", "admission_decision_ref", "purpose", "output_truncated",
-            "fallback_occurred", "effects", "receipt_id", "receipt_digest")},
+            "fallback_occurred", "effects", "observed_at", "receipt_id", "receipt_digest")},
         "smoke_prompt_id": SMOKE_PROMPT_ID, "smoke_inference_count": 1, "activated": False, **DENIED}
     receipt["receipt_semantic_digest"] = semantic_digest(receipt)
     root = Path(plan["output_root"]); root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -270,15 +274,17 @@ legacy_commission = commission
 
 
 def prepare_commissioning_intent(chain: Mapping[str, Any], *,
-        installation_handle: InstallationStateHandle, correlation_id: str) -> Mapping[str, Any]:
+        installation_handle: InstallationStateHandle, correlation_id: str,
+        max_new_tokens: int = 8) -> Mapping[str, Any]:
     """Revalidate evidence and return its canonical intent without model effects."""
     from .local_model_production_commissioning_authority import (
         CommissioningAuthorityError, build_intent,
     )
     try:
         fresh_chain = revalidate_chain(chain)
-        return cast(Mapping[str, Any], build_intent(
-            fresh_chain, installation_handle, correlation_id=correlation_id))
+        return build_intent(
+            fresh_chain, installation_handle, correlation_id=correlation_id,
+            max_new_tokens=max_new_tokens)
     except CommissioningAuthorityError as exc:
         raise ProductionCommissioningError(exc.code) from exc
 
@@ -286,6 +292,7 @@ def prepare_commissioning_intent(chain: Mapping[str, Any], *,
 def commission_production(chain: Mapping[str, Any], *, installation_handle: InstallationStateHandle,
         approval_evidence: Mapping[str, Any], control_plane_kernel: ControlPlaneKernel,
         correlation_id: str, observation_time: datetime | None = None,
+        max_new_tokens: int = 8,
         clock: Callable[[], datetime] | None = None,
         compatibility_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
         model_factory: Callable[[ModelConfig], Any] | None = None,
@@ -306,7 +313,8 @@ def commission_production(chain: Mapping[str, Any], *, installation_handle: Inst
     now = clock or (lambda: datetime.now(timezone.utc))
     try:
         intent = prepare_commissioning_intent(chain, installation_handle=installation_handle,
-                                              correlation_id=correlation_id)
+                                              correlation_id=correlation_id,
+                                              max_new_tokens=max_new_tokens)
         fresh_chain = revalidate_chain(chain)
         approval = verify_external_approval(approval_evidence, intent, observation_time=observation_time or now(),
             allow_synthetic_for_tests=allow_synthetic_approval_for_tests)
@@ -360,7 +368,9 @@ def commission_production(chain: Mapping[str, Any], *, installation_handle: Inst
     digest, size = _digest_file(Path(str(intent["artifact_custody_path"])))
     if (digest, size) != (intent["artifact_sha256"], intent["artifact_size_bytes"]):
         raise ProductionCommissioningError("artifact_changed_before_load")
-    config = _config({"chain": fresh_chain, "load_configuration": intent["load_configuration"]})
+    config = _config({"chain": fresh_chain,
+        "load_configuration": intent["load_configuration"],
+        "smoke_contract": intent["smoke_contract"]})
     model: Any | None = None
     smoke: dict[str, Any] | None = None
     request: Any | None = None
@@ -376,7 +386,8 @@ def commission_production(chain: Mapping[str, Any], *, installation_handle: Inst
         smoke_root = installation_handle.root / "local-model" / "commissioning" / "smoke" / str(intent["intent_id"])
         invoker = invoker_factory(model=model, authority_map=authority, kernel=control_plane_kernel, runtime_root=smoke_root)
         child = child_smoke_correlation(correlation_id, intent)
-        budget = LocalModelInvocationBudget(128, 128, 8, 20, 1)
+        budget = LocalModelInvocationBudget(128, 128,
+            int(intent["smoke_contract"]["max_new_tokens"]), 20, 1)
         request = invoker.build_request(purpose="local_model_commissioning_smoke", prompt=SMOKE_PROMPT, caller=PRINCIPAL,
             correlation_id=child, budget=budget, upstream_evidence={"parent_commissioning_correlation_id": correlation_id,
             "commissioning_intent_id": intent["intent_id"], "commissioning_intent_digest": intent["intent_semantic_digest"],

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime
 from pathlib import Path
 from types import MappingProxyType
@@ -13,7 +14,7 @@ from .developmental_model_replacement_campaign import DevelopmentalModelReplacem
 from .developmental_model_replacement_experiment import (
     CognitiveModelIdentity, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext,
-    ModelDevelopmentProvenance, ModelReplacementArtifactStore,
+    ModelDevelopmentProvenance, ModelReplacementArtifactStore, ObjectivePredictionTask,
 )
 from .developmental_model_replacement_experimental_serving import (
     ExperimentalModelServingController, ExperimentalCognitiveEndpoint,
@@ -28,6 +29,22 @@ from .production_chat_resource_context import ProductionChatResourceContextOwner
 RECEIPT_SCHEMA = "sentientos.developmental_model_replacement_production_trial_receipt:v1"
 POSTURES = {"production_experimental_trial", "synthetic_test_trial"}
 _ALIASES = {"", "current", "latest", "default", "any", "*"}
+
+
+def _objective_answer_bytes(task: ObjectivePredictionTask) -> int:
+    specification = task.specification()
+    if specification.get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+        answer = {"answers": [specification["multiplier"] * probe + specification["offset"]
+            for probe in specification["probe_inputs"]]}
+        maximum = 1024
+    else:
+        answer = {"answer": specification["multiplier"] * specification["probe_input"]
+            + specification["offset"]}
+        maximum = 256
+    size = len(json.dumps(answer, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+    if size > maximum:
+        raise ProductionTrialError("objective_answer_bound_exceeded")
+    return size
 
 
 class ProductionTrialError(RuntimeError):
@@ -51,6 +68,41 @@ def _exact(value: str, label: str) -> str:
     if not value or value.casefold() in _ALIASES or "*" in value or "/" in value or "\\" in value:
         raise ProductionTrialError(label + "_not_exact")
     return value
+
+
+def _max_generation_tokens(receipt: Mapping[str, Any], model_id: str) -> int:
+    if receipt.get("model_id") != model_id:
+        raise ProductionTrialError("commissioned_model_identity_invalid")
+    authority = receipt.get("authority_map")
+    cognitive = receipt.get("observed_active_model_identity")
+    if not isinstance(cognitive, Mapping):
+        raise ProductionTrialError("commissioned_model_identity_invalid")
+    ceiling: Any = None
+    if (isinstance(authority, Mapping)
+            and authority.get("map_digest") == receipt.get("authority_map_digest")
+            and isinstance(authority.get("records"), list)):
+        records = [row for row in authority["records"] if isinstance(row, Mapping)
+            and row.get("semantic_artifact_identity") == cognitive.get("semantic_artifact_identity")
+            and row.get("model_content_sha256") == cognitive.get("model_content_sha256")
+            and row.get("artifact_size_bytes") == cognitive.get("artifact_size_bytes")
+            and row.get("configuration_digest") == cognitive.get("configuration_digest")]
+        if len(records) == 1 and isinstance(records[0].get("generation_ceilings"), Mapping):
+            ceiling = records[0]["generation_ceilings"].get("max_new_tokens")
+    if ceiling is None:
+        smoke = receipt.get("smoke_evidence")
+        request = smoke.get("request") if isinstance(smoke, Mapping) else None
+        budget = request.get("budget") if isinstance(request, Mapping) else None
+        generation = smoke.get("generation_config") if isinstance(smoke, Mapping) else None
+        actual = generation.get("actual_generation_parameters") if isinstance(generation, Mapping) else None
+        requested = budget.get("max_new_tokens") if isinstance(budget, Mapping) else None
+        if (not isinstance(smoke, Mapping) or smoke.get("status") != "admitted_completed"
+                or smoke.get("fallback_occurred") is not False or type(requested) is not int
+                or not isinstance(actual, Mapping) or actual.get("max_new_tokens") != requested):
+            raise ProductionTrialError("commissioned_generation_authority_missing")
+        ceiling = requested
+    if type(ceiling) is not int or not 1 <= ceiling <= 512:
+        raise ProductionTrialError("commissioned_generation_authority_invalid")
+    return ceiling
 
 
 class DevelopmentalModelReplacementProductionTrialRunner:
@@ -79,13 +131,33 @@ class DevelopmentalModelReplacementProductionTrialRunner:
     def _preflight_campaign(self, campaign_id: str, campaign_digest: str, base_protocol_id: str,
                             base_protocol_digest: str, context: FrozenCausalContext,
                             provenance_a: ModelDevelopmentProvenance,
-                            provenance_b: ModelDevelopmentProvenance) -> tuple[DevelopmentalModelReplacementCampaign, str | None]:
+                            provenance_b: ModelDevelopmentProvenance,
+                            objective_task: ObjectivePredictionTask | None) -> tuple[DevelopmentalModelReplacementCampaign, str | None]:
         protocol = ModelReplacementArtifactStore(self._experiment_root).load_verified_protocol(base_protocol_id, base_protocol_digest)
         context.verify(); provenance_a.verify(protocol.model_a_identity); provenance_b.verify(protocol.model_b_identity)
+        descriptor = context.current_projection_payload.get("objective_task")
+        if objective_task is not None and (not isinstance(descriptor, Mapping)
+                or dict(descriptor) != objective_task.public_descriptor()):
+            raise ProductionTrialError("objective_task_context_binding_invalid")
+        if objective_task is not None:
+            output_bytes = _objective_answer_bytes(objective_task)
+            output_budget = context.inference_budget.get("max_output_chars")
+            token_budget = context.inference_budget.get("max_new_tokens")
+            output_limit = (1024 if objective_task.additional_probe_inputs else 256)
+            if (type(output_budget) is not int or not output_bytes <= output_budget <= output_limit):
+                raise ProductionTrialError("objective_output_budget_insufficient")
+            if type(token_budget) is not int or token_budget < output_bytes:
+                raise ProductionTrialError("objective_generation_budget_insufficient")
         preflight = DevelopmentalModelReplacementExperiment(context=context,
             model_a=_IdentityEndpoint(protocol.model_a_identity), model_b=_IdentityEndpoint(protocol.model_b_identity),
-            artifact_root=self._experiment_root, model_a_provenance=provenance_a, model_b_provenance=provenance_b)
+            artifact_root=self._experiment_root, model_a_provenance=provenance_a,
+            model_b_provenance=provenance_b, objective_task=objective_task)
         if preflight.protocol != protocol: raise ProductionTrialError("base_protocol_inputs_changed")
+        if preflight.objective_plan is not None:
+            try:
+                preflight.store.verify_objective_plan(protocol, preflight.objective_plan)
+            except DevelopmentalModelReplacementError as exc:
+                raise ProductionTrialError("objective_task_plan_not_preregistered") from exc
         campaign = DevelopmentalModelReplacementCampaign.reconstruct(experiment=preflight,
             artifact_root=self._campaign_root, campaign_id=campaign_id)
         if campaign.protocol.campaign_digest != campaign_digest: raise ProductionTrialError("campaign_digest_mismatch")
@@ -101,7 +173,8 @@ class DevelopmentalModelReplacementProductionTrialRunner:
                 serving_approval_a: Mapping[str, Any], serving_approval_b: Mapping[str, Any],
                 invocation_correlation: str, observation_time: datetime, context: FrozenCausalContext,
                 provenance_a: ModelDevelopmentProvenance, provenance_b: ModelDevelopmentProvenance,
-                evidence_posture: str) -> Mapping[str, Any]:
+                evidence_posture: str,
+                objective_task: ObjectivePredictionTask | None = None) -> Mapping[str, Any]:
         for value, label in ((campaign_id, "campaign_id"), (campaign_digest, "campaign_digest"),
             (base_protocol_id, "base_protocol_id"), (base_protocol_digest, "base_protocol_digest"),
             (commissioning_receipt_a, "commissioning_receipt_a"), (commissioning_receipt_b, "commissioning_receipt_b"),
@@ -110,7 +183,7 @@ class DevelopmentalModelReplacementProductionTrialRunner:
         if evidence_posture not in POSTURES: raise ProductionTrialError("evidence_posture_invalid")
         if serving_correlation_a == serving_correlation_b: raise ProductionTrialError("serving_correlations_not_distinct")
         campaign, trial_id = self._preflight_campaign(campaign_id, campaign_digest, base_protocol_id,
-            base_protocol_digest, context, provenance_a, provenance_b)
+            base_protocol_digest, context, provenance_a, provenance_b, objective_task)
         if trial_id is None:
             return MappingProxyType({"status": "campaign_already_complete", "campaign_id": campaign_id,
                                      "campaign_digest": campaign_digest, "effect_performed": False})
@@ -124,6 +197,13 @@ class DevelopmentalModelReplacementProductionTrialRunner:
         if evidence_b.cognitive_identity != protocol.model_b_identity: raise ProductionTrialError("model_b_identity_mismatch")
         if evidence_a.cognitive_identity.semantic_key() == evidence_b.cognitive_identity.semantic_key():
             raise ProductionTrialError("experimental_models_not_distinct")
+        if objective_task is not None:
+            requested_tokens = context.inference_budget.get("max_new_tokens")
+            if type(requested_tokens) is not int or not 1 <= requested_tokens <= 512:
+                raise ProductionTrialError("objective_generation_budget_invalid")
+            if (_max_generation_tokens(evidence_a.receipt, evidence_a.cognitive_identity.model_id) < requested_tokens
+                    or _max_generation_tokens(evidence_b.receipt, evidence_b.cognitive_identity.model_id) < requested_tokens):
+                raise ProductionTrialError("commissioned_generation_budget_insufficient")
         intent_a = self._controller.prepare_intent(protocol_id=base_protocol_id, protocol_digest=base_protocol_digest,
             model_role="model_a", commissioning_receipt_id=commissioning_receipt_a, correlation_id=serving_correlation_a)
         intent_b = self._controller.prepare_intent(protocol_id=base_protocol_id, protocol_digest=base_protocol_digest,
@@ -150,9 +230,14 @@ class DevelopmentalModelReplacementProductionTrialRunner:
             endpoint_a = self._controller.establish(intent=intent_a, approval=approval_a, observation_time=observation_time)
             endpoint_b = self._controller.establish(intent=intent_b, approval=approval_b, observation_time=observation_time)
             experiment = DevelopmentalModelReplacementExperiment(context=context, model_a=endpoint_a, model_b=endpoint_b,
-                artifact_root=self._experiment_root, model_a_provenance=provenance_a, model_b_provenance=provenance_b)
+                artifact_root=self._experiment_root, model_a_provenance=provenance_a,
+                model_b_provenance=provenance_b, objective_task=objective_task)
             campaign = DevelopmentalModelReplacementCampaign.reconstruct(experiment=experiment,
                 artifact_root=self._campaign_root, campaign_id=campaign_id)
+            if (campaign.protocol.objective_task_plan_digest
+                    != (experiment.objective_plan.get("plan_digest")
+                        if experiment.objective_plan is not None else None)):
+                raise ProductionTrialError("campaign_objective_task_binding_invalid")
             if campaign.state["next_trial_id"] != trial_id: raise ProductionTrialError("next_trial_changed_before_execution")
             run = campaign.run_next_trial()
         finally:
@@ -174,10 +259,12 @@ class DevelopmentalModelReplacementProductionTrialRunner:
             "model_a_commissioning_receipt_id": commissioning_receipt_a, "model_a_commissioning_receipt_digest": evidence_a.receipt["receipt_semantic_digest"],
             "model_b_commissioning_receipt_id": commissioning_receipt_b, "model_b_commissioning_receipt_digest": evidence_b.receipt["receipt_semantic_digest"],
             "model_a_identity_digest": evidence_a.cognitive_identity.identity_digest, "model_b_identity_digest": evidence_b.cognitive_identity.identity_digest,
+            "objective_task_plan_digest": (campaign.protocol.objective_task_plan_digest),
             "model_a_serving": {k: endpoint_a.serving_receipt[k] for k in ("receipt_id", "receipt_digest", "serving_lifetime_id", "model_serving_admission_ref")},
             "model_b_serving": {k: endpoint_b.serving_receipt[k] for k in ("receipt_id", "receipt_digest", "serving_lifetime_id", "model_serving_admission_ref")},
             "inference_receipts": [{k: item[k] for k in ("condition_id", "inference_receipt_id", "inference_receipt_digest")} for item in observations],
             "run_id": run["run_id"], "run_digest": run["run_digest"], "updated_campaign_state_digest": state["state_digest"],
+            "objective_task_plan_digest": campaign.protocol.objective_task_plan_digest,
             "evidence_posture": actual_posture, "canonical_activation_snapshot": before_activation,
             "canonical_production_serving_snapshot": before_serving, "developmental_history_record_set_digest": before_history,
             "activation_preserved": True, "production_serving_preserved": True, "developmental_history_preserved": True,
@@ -199,3 +286,8 @@ def verify_production_trial_receipt(value: Mapping[str, Any]) -> None:
         raise ProductionTrialError("production_trial_receipt_tampered")
     if body.get("evidence_posture") not in POSTURES or body.get("autonomous_repetition_performed") is not False:
         raise ProductionTrialError("production_trial_receipt_invalid")
+    plan_digest = body.get("objective_task_plan_digest")
+    if (plan_digest is not None and (not isinstance(plan_digest, str) or len(plan_digest) != 71
+            or not plan_digest.startswith("sha256:")
+            or any(character not in "0123456789abcdef" for character in plan_digest[7:]))):
+        raise ProductionTrialError("production_trial_objective_plan_reference_invalid")

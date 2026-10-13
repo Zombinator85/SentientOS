@@ -10,7 +10,7 @@ import pytest
 from sentientos.developmental_model_replacement_experiment import (
     CONDITION_ORDER, PURPOSE, CognitiveModelIdentity, DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext,
-    ModelDevelopmentClaim, ModelDevelopmentProvenance,
+    ModelDevelopmentClaim, ModelDevelopmentProvenance, ObjectivePredictionTask,
 )
 from sentientos.local_model_authority import digest_payload
 
@@ -43,9 +43,11 @@ def identity(name: str) -> CognitiveModelIdentity:
         active_model_identity_digest=digest(active))
 
 
-def context() -> FrozenCausalContext:
+def context(objective_task: ObjectivePredictionTask | None = None) -> FrozenCausalContext:
     current = {"facts": [{"fact_id": "fact-1", "payload": {"value": 1}}],
                "sources": [{"source_id": "source-1"}], "conflicts": []}
+    if objective_task is not None:
+        current["objective_task"] = objective_task.public_descriptor()
     history = ({"record_id": "record-1", "record_digest": digest({"record": 1}),
                 "interpretation": "bounded prior"},)
     instruction = "Observe current evidence with optional history; history is not truth or authority."
@@ -85,12 +87,15 @@ class FakeEndpoint:
         semantic = {"model": self.identity.model_id,
                     "history": history if self.history_effect else "ignored"}
         number = len(self.calls)
+        output_text = ('{"answer":7}' if kwargs.get("upstream_evidence", {}).get("objective_task_plan_digest")
+            else None)
+        output_digest = digest({"output": output_text}) if output_text is not None else digest(semantic)
         return {"status": "admitted_completed", "fallback_occurred": False,
                 "request_id": f"request-{self.identity.model_id}-{number}",
                 "request_digest": digest({"request": self.identity.model_id, "number": number}),
                 "inference_receipt_id": f"receipt-{self.identity.model_id}-{number}",
                 "inference_receipt_digest": digest({"receipt": self.identity.model_id, "number": number}),
-                "output_digest": digest(semantic),
+                "output_text": output_text, "output_digest": output_digest,
                 "actual_generation_parameters": {"temperature": 0, "max_new_tokens": 512}}
 
 
@@ -238,3 +243,37 @@ def test_tampered_trial_artifact_is_rejected_by_aggregation(tmp_path: Path) -> N
     (exp.store.runs / f"{first['run_id']}.json").write_text("{}", encoding="utf-8")
     with pytest.raises(DevelopmentalModelReplacementError, match="artifact_tampered"):
         subject.summarize()
+
+
+def test_scored_campaign_freezes_objective_before_execution_and_summarizes_scores(tmp_path: Path) -> None:
+    task = ObjectivePredictionTask(2, 1, 3)
+    a, b = FakeEndpoint(identity("scored-a")), FakeEndpoint(identity("scored-b"))
+    exp = DevelopmentalModelReplacementExperiment(context=context(task), model_a=a, model_b=b,
+        artifact_root=tmp_path, objective_task=task)
+    subject = DevelopmentalModelReplacementCampaign.create(experiment=exp,
+        artifact_root=tmp_path, trial_ids=("scored-1", "scored-2"))
+    assert subject.protocol.schema_version == "sentientos.developmental_model_replacement_campaign_protocol:v2"
+    assert subject.protocol.objective_task_plan_digest == exp.objective_plan["plan_digest"]
+    plan_path = exp.store.protocols / f"objective-task-plan-{exp.protocol.protocol_id}.json"
+    assert exp.store.verify_objective_plan(exp.protocol, exp.objective_plan) == exp.objective_plan
+    assert a.calls == b.calls == []
+    first = subject.run_next_trial()
+    assert all(item["objective_task_score"]["status"] == "correct"
+        for item in first["observations"])
+    assert plan_path.is_file()
+    subject.run_next_trial()
+    report = subject.summarize()
+    assert report["objective_evaluation"]["objective_task_plan_digest"] == exp.objective_plan["plan_digest"]
+    assert report["objective_evaluation"]["condition_correct_count"]["model_a_history_present"] == 2
+    assert report["objective_evaluation"]["independence_or_improvement_claimed"] is False
+
+
+def test_scored_campaign_rejects_missing_or_substituted_task_oracle(tmp_path: Path) -> None:
+    task = ObjectivePredictionTask(2, 1, 3)
+    with pytest.raises(DevelopmentalModelReplacementError, match="objective_task_oracle_missing"):
+        DevelopmentalModelReplacementExperiment(context=context(task), model_a=FakeEndpoint(identity("a")),
+            model_b=FakeEndpoint(identity("b")), artifact_root=tmp_path)
+    substituted = ObjectivePredictionTask(4, 1, 3)
+    with pytest.raises(DevelopmentalModelReplacementError, match="objective_task_context_binding_invalid"):
+        DevelopmentalModelReplacementExperiment(context=context(task), model_a=FakeEndpoint(identity("a")),
+            model_b=FakeEndpoint(identity("b")), artifact_root=tmp_path, objective_task=substituted)

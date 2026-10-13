@@ -12,7 +12,7 @@ import pytest
 from sentientos.developmental_model_replacement_experiment import (
     DevelopmentalModelReplacementError, DevelopmentalModelReplacementExperiment,
     FrozenCausalContext, ModelReplacementArtifactStore, ObjectivePredictionTask,
-    _objective_score_legacy, _verify_objective_score,
+    _objective_score, _objective_score_legacy, _verify_objective_score,
 )
 from tests.test_developmental_model_replacement_experiment import FakeEndpoint, context, digest, identity
 
@@ -421,3 +421,32 @@ def test_probe_suite_output_substitution_is_incomplete_and_never_replayed(tmp_pa
     recovered, a2, b2 = experiment(tmp_path, 'derive', task=task)
     assert recovered.run() == run
     assert a2.calls == b2.calls == []
+
+
+def test_truncated_output_is_unscorable_and_remains_receipt_bound(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7)
+    owner, _, _ = experiment(tmp_path, 'truncated', task=task)
+    truncated = '{"answer":23'
+    authenticated_full_output_digest = digest({"output": '{"answer":23} and trailing output'})
+    score = _objective_score(owner.objective_plan, truncated,
+        authenticated_full_output_digest, output_truncated=True)
+    assert score['status'] == 'output_truncated'
+    assert score['correct'] is None and score['answer'] is None
+    assert _verify_objective_score(owner.objective_plan, score,
+        authenticated_full_output_digest, output_truncated=True) == score
+    with pytest.raises(DevelopmentalModelReplacementError, match='truncated_output_binding_invalid'):
+        _verify_objective_score(owner.objective_plan, score, authenticated_full_output_digest,
+            output_truncated=False)
+
+
+def test_truncated_probe_suite_keeps_correctness_unknown(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    owner, _, _ = experiment(tmp_path, 'truncated-suite', task=task)
+    authenticated_full_output_digest = digest({"output": '{"answers":[23,26,29]} and trailing output'})
+    score = _objective_score(owner.objective_plan, '{"answers":[23,26,29]}',
+        authenticated_full_output_digest, output_truncated=True)
+    assert score['status'] == 'output_truncated'
+    assert score['correct'] is None and score['answer'] is None
+    assert score['correct_count'] is None
+    assert _verify_objective_score(owner.objective_plan, score,
+        authenticated_full_output_digest, output_truncated=True) == score

@@ -10,13 +10,24 @@ isolated bounded subprocess; and constructs llama.cpp in `vocab_only` mode. That
 does construct bounded model/vocabulary state, but performs zero generations and grants
 no commissioning or inference authority.
 
-Production v2 derives `n_gpu_layers=0` for CPU routes and a conservative single-layer
-offload for a verified accelerator route. The latter proves only a conservative
-accelerated construction, never full-model offload. Ambient torch/CUDA discovery is
-not used. A digest-bound authorization naming the exact commissioning-plan digest is
-required before load. Exactly one repository-owned smoke prompt then passes through
+The hardened production path uses commissioning intent/plan/receipt v3. It derives
+`n_gpu_layers=0` for CPU routes and a conservative single-layer offload for a verified
+accelerator route. The latter proves only a conservative accelerated construction,
+never full-model offload. Ambient torch/CUDA discovery is not used. A digest-bound
+authorization naming the exact intent and smoke contract is required before load.
+Exactly one repository-owned smoke prompt then passes through
 `GovernedLocalModelInvoker` and the control plane before a deterministic commissioning
 receipt can be written.
+
+The commissioning smoke generation ceiling is an explicit bounded contract. It
+defaults to 8 tokens for historical behavior; an operator may request a larger ceiling
+from 1 through 512 using the same `--max-new-tokens` value for both zero-effect intent
+preview and the later separately approved `commission` command. The ceiling is bound
+into the intent and its approval binding, configures the exact model authority map, and
+is checked against the actual smoke request. A mismatch blocks before model load. This
+does not enlarge existing invocations or grant experimental serving; it makes the
+commissioning-time generation cap inspectable and approvable for experiments whose
+preregistered response format needs more than eight tokens.
 
 Activation is a separate atomic replacement of one activation JSON file and performs
 no inference or daemon startup. Setting `SENTIENTOS_LOCAL_MODEL_ACTIVATION` to that file
@@ -93,6 +104,18 @@ python scripts/local_model_commissioning.py verify --state-root /custody/a --loa
 python scripts/local_model_commissioning.py doctor --state-root /custody/a --require-load-verification
 python scripts/local_model_commissioning.py handoff --state-root /custody/a
 ```
+
+The hardened intent commands consume the exact installation-scoped evidence files
+listed in `EVIDENCE_NAMES` in `scripts/local_model_commissioning.py`. When an approved
+commissioning requires a larger smoke ceiling, repeat the exact value in both stages:
+
+```console
+python scripts/local_model_commissioning.py intent --evidence-root /custody/evidence --installation-identity <identity> --correlation-id <unique-id> --max-new-tokens 32
+python scripts/local_model_commissioning.py commission --evidence-root /custody/evidence --installation-identity <identity> --correlation-id <same-id> --approval-json /custody/approval.json --max-new-tokens 32
+```
+
+The approval evidence must independently bind the emitted intent, including its smoke
+contract. The command does not issue approval or bypass control-plane admission.
 
 After a successful process-real proof, an operator may point
 `SENTIENTOS_MODEL_CONFIG` at `/custody/a/model-config.json` and invoke the existing
