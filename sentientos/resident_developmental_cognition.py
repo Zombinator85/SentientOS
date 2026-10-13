@@ -28,6 +28,7 @@ from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
     CONDITION_ORDER,
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
+    HISTORY_SELECTION_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA,
     OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMAS, make_protocol, objective_task_contamination_assessment, summarize,
     summarize_objective_task,
     PURPOSE as EXPERIMENT_PURPOSE,
@@ -415,7 +416,8 @@ def stored_objective_request_record(state_root: str | Path, *,
 def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
         writeback: ResidentDevelopmentalWritebackController,
         limit: int = MAX_HISTORY,
-        required_task_family_id: str | None = None) -> tuple[tuple[str, str], ...]:
+        required_task_family_id: str | None = None,
+        required_task_probe_inputs: tuple[int, ...] = ()) -> tuple[tuple[str, str], ...]:
     """Return admitted history named by completed cognition ticks, without repair.
 
     A valid record/receipt pair that has not yet been committed into the
@@ -467,6 +469,7 @@ def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
         raise ResidentDevelopmentalCognitionError(
             "checkpointed_history_identity_conflict")
     refs: list[tuple[str, str]] = []
+    relevance: dict[str, int] = {}
     seen: set[str] = set()
     seen_ticks: set[str] = set()
     for row in completed:
@@ -503,6 +506,15 @@ def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
                 for fact in selected_facts)
             if family_matches:
                 refs.append((record_id, pair[0].record_digest))
+                examples = [fact.get("payload", {}).get("acquisition_examples", ())
+                    for fact in selected_facts if isinstance(fact, Mapping)
+                    and isinstance(fact.get("payload"), Mapping)
+                    and fact["payload"].get("objective_task_family") == required_task_family_id]
+                probes = set(required_task_probe_inputs)
+                relevance[record_id] = len({item.get("probe_input") for rows in examples
+                    if isinstance(rows, (list, tuple)) for item in rows
+                    if isinstance(item, Mapping) and type(item.get("probe_input")) is int
+                    and item.get("probe_input") in probes})
         else:
             refs.append((record_id, pair[0].record_digest))
         seen.add(record_id)
@@ -510,6 +522,12 @@ def inspect_checkpointed_history_record_refs(state_path: str | Path, *,
     if required_task_family_id is not None and not refs:
         raise ResidentDevelopmentalCognitionError(
             "checkpointed_history_relevant_experience_missing")
+    if required_task_family_id is not None and required_task_probe_inputs:
+        checkpoint_order = {record_id: index for index, (record_id, _) in enumerate(refs)}
+        ranked = sorted(refs, key=lambda item: (
+            relevance.get(item[0], -1), checkpoint_order[item[0]]), reverse=True)
+        retained_ids = {record_id for record_id, _ in ranked[:limit]}
+        refs = [item for item in refs if item[0] in retained_ids]
     return tuple(refs[-limit:])
 
 
@@ -1604,15 +1622,17 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
             or selection.get("policy") != "most_recent_complete_record_suffix:v1"
             or selection.get("retrieval_policy_id") not in {
                 "completed_tick_recency_suffix:v1",
-                "task_family_relevant_then_recency_fill:v1"}
+                "task_family_relevant_then_recency_fill:v1",
+                "task_family_probe_overlap_then_recency_fill:v2"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
     family = selection.get("task_family_id")
     if family is not None and (not isinstance(family, str) or not family or len(family) > 96):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_family_invalid")
-    family_policy = selection.get("retrieval_policy_id") == \
-        "task_family_relevant_then_recency_fill:v1"
+    family_policy = selection.get("retrieval_policy_id") in {
+        "task_family_relevant_then_recency_fill:v1",
+        "task_family_probe_overlap_then_recency_fill:v2"}
     if family_policy != isinstance(family, str):
         raise ResidentDevelopmentalCognitionError(
             "developmental_history_selection_policy_family_mismatch")
@@ -3380,7 +3400,8 @@ class ResidentDevelopmentalCognitionOwner:
         _replace_cognition_state(self.state_path, {**semantic, "state_digest": _digest(semantic)})
 
     def _prior_projection(self, state: Mapping[str, Any], tick_id: str, *,
-            task_family_id: str | None = None) -> DevelopmentalHistoryProjection:
+            task_family_id: str | None = None,
+            task_probe_inputs: tuple[int, ...] = ()) -> DevelopmentalHistoryProjection:
         # Tick identifiers are opaque at this owner boundary. The durable,
         # digest-verified completed-checkpoint sequence establishes which
         # developmental records were committed before this cycle; wall-clock
@@ -3414,6 +3435,8 @@ class ResidentDevelopmentalCognitionOwner:
             # protocol-bound relevance metadata, not proof of correctness or
             # learning; the selected records retain their source qualifiers.
             relevant_newest_first: list[str] = []
+            probe_set = set(task_probe_inputs)
+            relevance: dict[str, int] = {}
             for record_id in reversed(ids):
                 try:
                     record = self.writeback.store.get(record_id)
@@ -3422,14 +3445,26 @@ class ResidentDevelopmentalCognitionOwner:
                         "task_relevant_history_recovery_failed") from exc
                 candidate = record.candidate
                 facts = candidate.get("selected_facts", ()) if isinstance(candidate, Mapping) else ()
-                if any(isinstance(fact, Mapping)
+                matching_facts = [fact for fact in facts if isinstance(fact, Mapping)
                         and isinstance(fact.get("payload"), Mapping)
-                        and fact["payload"].get("objective_task_family") == family
-                        for fact in facts):
+                        and fact["payload"].get("objective_task_family") == family]
+                if matching_facts:
                     relevant_newest_first.append(record_id)
-                    if len(relevant_newest_first) >= self.config.max_retrieved_records:
-                        break
-            selected = list(reversed(relevant_newest_first))
+                    overlap: set[int] = set()
+                    for fact in matching_facts:
+                        examples = fact["payload"].get("acquisition_examples", ())
+                        if isinstance(examples, (list, tuple)):
+                            for item in examples:
+                                if isinstance(item, Mapping):
+                                    probe_input = item.get("probe_input")
+                                    if type(probe_input) is int and probe_input in probe_set:
+                                        overlap.add(probe_input)
+                    relevance[record_id] = len(overlap)
+            # Exact public probe overlap ranks records; checkpoint order breaks ties.
+            # Evaluator correctness is not a filter, so adverse examples survive.
+            relevant_newest_first.sort(key=lambda record_id: (
+                relevance[record_id], ids.index(record_id)), reverse=True)
+            selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
             for record_id in reversed(ids):
                 if len(selected) >= self.config.max_retrieved_records:
@@ -3437,7 +3472,12 @@ class ResidentDevelopmentalCognitionOwner:
                 if record_id not in selected_set:
                     selected.append(record_id)
                     selected_set.add(record_id)
-            ids = list(reversed(selected))
+            if probe_set:
+                # Preserve checkpoint order after choosing the best bounded set.
+                ids = [record_id for record_id in ids if record_id in selected_set]
+            else:
+                # Keep the established family-only order for legacy callers.
+                ids = list(reversed(selected))
         ids = ids[-self.config.max_retrieved_records:]
         return self.writeback.retrieve(ids, limit=self.config.max_retrieved_records)
 
@@ -4028,7 +4068,7 @@ class ResidentDevelopmentalCognitionOwner:
         context["developmental_history_task_family_id"] = (
             task_family_id if isinstance(task_family_id, str) else None)
         context["developmental_history_retrieval_policy_id"] = (
-            "task_family_relevant_then_recency_fill:v1"
+            "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else "completed_tick_recency_suffix:v1")
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
@@ -4433,7 +4473,13 @@ class ResidentDevelopmentalCognitionOwner:
         task_descriptor = (objective_task.public_descriptor()
             if objective_task is not None else {})
         family_id = task_descriptor.get("task_family_id") if isinstance(task_descriptor, Mapping) else None
-        prior = self._prior_projection(state, tick_id, task_family_id=family_id)
+        task_probe_inputs = (tuple(task_descriptor.get("probe_inputs", ()))
+            if isinstance(task_descriptor, Mapping)
+            and isinstance(task_descriptor.get("probe_inputs", ()), (list, tuple))
+            and all(type(value) is int for value in task_descriptor.get("probe_inputs", ()))
+            else ())
+        prior = self._prior_projection(state, tick_id, task_family_id=family_id,
+            task_probe_inputs=task_probe_inputs)
         if objective_only and not prior.requested_record_ids:
             assert objective_request_id is not None and objective_request_digest is not None
             state["completed_ticks"].append({"tick_id": tick_id,
@@ -4497,9 +4543,48 @@ class ResidentDevelopmentalCognitionOwner:
                                     condition_id="with-history" if has_developmental_history else "prior-context",
                                     prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state))
             else:
-                records = tuple(self.writeback.store.get(rid) for rid in prior.requested_record_ids)
-                record_digests = tuple(r.record_digest for r in records)
-                record_set_digest = _digest({"record_ids":list(prior.requested_record_ids), "record_digests":list(record_digests)})
+                # Freeze the exact history that fits the real inference context
+                # before preregistering the comparison. Conditions rerun this
+                # same deterministic binder over the full available set; their
+                # selected suffix must equal the protocol's admitted history.
+                task_descriptor_for_preflight = (objective_task.public_descriptor()
+                    if objective_task is not None else
+                    self.objective_task.public_descriptor()
+                        if self.objective_task is not None else None)
+                family_for_preflight = (task_descriptor_for_preflight.get("task_family_id")
+                    if isinstance(task_descriptor_for_preflight, Mapping) else None)
+                preflight_context: dict[str, Any] = {
+                    "instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
+                    "current_evidence": current.semantic_payload(),
+                    "prior_self_model": asdict(prior_self_model)
+                        if prior_self_model is not None else None,
+                    "prior_epistemic_state": None,
+                    "developmental_history": [],
+                    "developmental_history_posture": "historical_interpretation_not_current_truth",
+                    "developmental_history_task_family_id": family_for_preflight,
+                    "developmental_history_retrieval_policy_id": (
+                        "task_family_probe_overlap_then_recency_fill:v2"
+                        if isinstance(family_for_preflight, str)
+                        else "completed_tick_recency_suffix:v1"),
+                }
+                if objective_task is not None:
+                    preflight_context["objective_task"] = dict(task_descriptor_for_preflight)
+                _, preflight_metadata, _, protocol_record_ids, record_digests = (
+                    _bind_history_and_epistemic_context(context=preflight_context,
+                        records=prior.records, projection=prior_epistemic_state,
+                        history_present=True))
+                preflight_selection = preflight_metadata.get(
+                    "developmental_history_selection")
+                if not isinstance(preflight_selection, Mapping):
+                    raise ResidentDevelopmentalCognitionError(
+                        "history_preflight_selection_missing")
+                if not protocol_record_ids:
+                    raise ResidentDevelopmentalCognitionError("history_context_budget_exhausted")
+                records = tuple(self.writeback.store.get(rid) for rid in protocol_record_ids)
+                if tuple(record.record_digest for record in records) != tuple(record_digests):
+                    raise ResidentDevelopmentalCognitionError("history_preflight_digest_mismatch")
+                record_set_digest = _digest({"record_ids":list(protocol_record_ids),
+                    "record_digests":list(record_digests)})
                 budget = LocalModelInvocationBudget(max_input_chars=16000, max_output_chars=4000,
                     max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
                 probe = self.invoker.build_request(purpose=EXPERIMENT_PURPOSE, prompt="protocol-control-probe",
@@ -4507,8 +4592,11 @@ class ResidentDevelopmentalCognitionOwner:
                     budget=budget, upstream_evidence={"control_probe":True}, linkage={"protocol_only":True})
                 protocol = make_protocol(snapshot_id=snapshot.snapshot_id, snapshot_digest=snapshot.digest,
                     current_projection_id=current.projection_id, current_projection_digest=current.projection_digest,
-                    current_fact_ids=current.fact_ids, record_ids=prior.requested_record_ids,
+                    current_fact_ids=current.fact_ids, record_ids=protocol_record_ids,
                     record_digests=record_digests, record_set_digest=record_set_digest, model_id=probe.model_id,
+                    history_selection_digest=preflight_selection.get("selection_digest"),
+                    history_available_records_digest=_digest(
+                        preflight_selection.get("available_records")),
                     model_artifact_digest=probe.model_artifact_digest,
                     active_model_identity=dict(getattr(probe, "active_model_identity", {})),
                     active_model_identity_digest=_digest(dict(getattr(probe, "active_model_identity", {}))),
@@ -4527,10 +4615,11 @@ class ResidentDevelopmentalCognitionOwner:
                     self_model_claim_ids=prior_self_model.selected_claim_ids if prior_self_model else (),
                     self_model_claim_digests=prior_self_model.selected_claim_digests if prior_self_model else (),
                     instruction_template_digest=_digest({"instruction":EXPERIMENT_CONTEXT_INSTRUCTION}),
-                    **({"schema_version": OBJECTIVE_SCHEMA,
+                    **({"schema_version": OBJECTIVE_HISTORY_SELECTION_SCHEMA,
                         "objective_task_digest": objective_task.public_descriptor()["task_digest"],
                         "objective_task_descriptor": objective_task.public_descriptor()}
-                        if objective_task is not None else {}))
+                        if objective_task is not None else {
+                            "schema_version": HISTORY_SELECTION_SCHEMA}))
                 self.experiments.persist_protocol(protocol)  # preregistration precedes the first inference
                 objective_plan = (self.experiments.persist_objective_task_plan(
                     protocol, objective_task) if objective_task is not None else None)
@@ -4554,9 +4643,8 @@ class ResidentDevelopmentalCognitionOwner:
                 restored_records = tuple(self.writeback.store.get(rid) for rid in protocol.record_ids)
                 if tuple(r.record_digest for r in restored_records) != protocol.record_digests:
                     raise ResidentDevelopmentalCognitionError("restored_history_digest_mismatch")
-                restored_projection = self.writeback.retrieve(protocol.record_ids, limit=self.config.max_retrieved_records)
                 restored = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
-                    projection=restored_projection, with_history=True, condition_id="history_restored",
+                    projection=prior, with_history=True, condition_id="history_restored",
                     purpose=EXPERIMENT_PURPOSE, protocol=protocol, prior_self_model=prior_self_model,
                     prior_epistemic_state=prior_epistemic_state, objective_plan=objective_plan)
                 observations.extend((present, withheld, restored))

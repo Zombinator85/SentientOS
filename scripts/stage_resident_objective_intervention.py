@@ -61,7 +61,9 @@ def stage_request(*, config_path: str | Path, request_id: str,
         and descriptor.get("requires_task_family_history") is True else None)
     refs = inspect_checkpointed_history_record_refs(
         config.state_root / "composition_state.json", writeback=writeback,
-        limit=config.max_retrieved_records, required_task_family_id=family)
+        limit=config.max_retrieved_records, required_task_family_id=family,
+        required_task_probe_inputs=tuple(descriptor.get("probe_inputs", ()))
+            if family is not None else ())
     if not refs:
         raise ResidentDevelopmentalCognitionError(
             "objective_intervention_requires_checkpointed_history")

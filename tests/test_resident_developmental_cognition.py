@@ -1270,7 +1270,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id not in withheld["retrieved_record_ids"]
     assert later.written_record_id in restored["retrieved_record_ids"]
     assert present["developmental_history_selection"]["retrieval_policy_id"] == \
-        "task_family_relevant_then_recency_fill:v1"
+        "task_family_probe_overlap_then_recency_fill:v2"
     assert present["developmental_history_selection"]["task_family_id"] == \
         "integer_affine_prediction"
     assert withheld["developmental_history_selection"]["treatment"] == "withheld"
@@ -1358,7 +1358,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert progression["execution_evidence_scope"] == (
         "authenticated_owner_receipts_not_independent_backend_observation")
     assert all(condition["execution_evidence_posture"] ==
-        "receipt_reports_simulation_or_no_backend_entry"
+        "receipt_does_not_establish_backend_entry"
         for condition in progression["episodes"][1]["conditions"])
     assert progression["learning_established"] is False
     cost = progression["execution_cost_summary"]

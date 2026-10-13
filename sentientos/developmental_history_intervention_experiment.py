@@ -20,7 +20,12 @@ LEGACY_SCHEMA = "sentientos.developmental_history_intervention_protocol:v1"
 SCHEMA = "sentientos.developmental_history_intervention_protocol:v2"
 LEGACY_OBJECTIVE_SCHEMA = "sentientos.developmental_history_intervention_protocol:v3"
 OBJECTIVE_SCHEMA = "sentientos.developmental_history_intervention_protocol:v4"
-OBJECTIVE_SCHEMAS = frozenset({LEGACY_OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMA})
+HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v5"
+OBJECTIVE_HISTORY_SELECTION_SCHEMA = "sentientos.developmental_history_intervention_protocol:v6"
+OBJECTIVE_SCHEMAS = frozenset({LEGACY_OBJECTIVE_SCHEMA, OBJECTIVE_SCHEMA,
+    OBJECTIVE_HISTORY_SELECTION_SCHEMA})
+HISTORY_SELECTION_SCHEMAS = frozenset({HISTORY_SELECTION_SCHEMA,
+    OBJECTIVE_HISTORY_SELECTION_SCHEMA})
 RUN_SCHEMA = "sentientos.developmental_history_intervention_run:v1"
 PURPOSE = "resident_developmental_history_intervention_experiment"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
@@ -74,6 +79,8 @@ class DevelopmentalHistoryInterventionProtocol:
     self_model_claim_digests: tuple[str, ...] = ()
     objective_task_digest: str | None = None
     objective_task_descriptor: Mapping[str, Any] | None = None
+    history_selection_digest: str | None = None
+    history_available_records_digest: str | None = None
     grants_authority: bool = False
     schema_version: str = SCHEMA
 
@@ -88,6 +95,9 @@ class DevelopmentalHistoryInterventionProtocol:
         if self.schema_version not in OBJECTIVE_SCHEMAS:
             value.pop("objective_task_digest", None)
             value.pop("objective_task_descriptor", None)
+        if self.schema_version not in HISTORY_SELECTION_SCHEMAS:
+            value.pop("history_selection_digest", None)
+            value.pop("history_available_records_digest", None)
         return value
 
 
@@ -103,7 +113,8 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
     digest = _digest(protocol.semantic_payload())
     if protocol.protocol_digest != digest or protocol.protocol_id != "devexp-protocol-" + digest[7:31]:
         raise DevelopmentalHistoryInterventionError("protocol_digest_mismatch")
-    if (protocol.schema_version not in {LEGACY_SCHEMA, SCHEMA, *OBJECTIVE_SCHEMAS}
+    if (protocol.schema_version not in {LEGACY_SCHEMA, SCHEMA,
+            HISTORY_SELECTION_SCHEMA, *OBJECTIVE_SCHEMAS}
             or protocol.condition_order != CONDITION_ORDER or protocol.inference_purpose != PURPOSE
             or protocol.grants_authority):
         raise DevelopmentalHistoryInterventionError("protocol_control_invalid")
@@ -114,6 +125,16 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
             raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
     elif protocol.objective_task_digest is not None or protocol.objective_task_descriptor is not None:
         raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
+    if protocol.schema_version in HISTORY_SELECTION_SCHEMAS:
+        if any(not isinstance(value, str) or len(value) != 71
+                or not value.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in value[7:])
+                for value in (protocol.history_selection_digest,
+                    protocol.history_available_records_digest)):
+            raise DevelopmentalHistoryInterventionError("history_selection_protocol_binding_invalid")
+    elif (protocol.history_selection_digest is not None
+            or protocol.history_available_records_digest is not None):
+        raise DevelopmentalHistoryInterventionError("history_selection_protocol_binding_invalid")
 
 
 def objective_task_contamination_assessment(
@@ -253,7 +274,7 @@ class DevelopmentalExperimentStore:
             "condition_order": list(CONDITION_ORDER),
             "rubric": "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1",
             "authority": False}
-        if protocol.schema_version == OBJECTIVE_SCHEMA:
+        if protocol.schema_version in {OBJECTIVE_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA}:
             semantic["task_commitment_nonce"] = task.commitment_nonce
             public_semantic = {key: value for key, value in semantic.items()
                 if key not in {"task", "task_commitment_nonce"}}
@@ -278,12 +299,12 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("objective_task_plan_missing") from exc
         expected = {"schema_version", "protocol_id", "protocol_digest", "task",
             "task_descriptor", "condition_order", "rubric", "authority", "plan_digest"}
-        if protocol.schema_version == OBJECTIVE_SCHEMA:
+        if protocol.schema_version in {OBJECTIVE_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA}:
             expected.add("task_commitment_nonce")
         if set(value) != expected:
             raise DevelopmentalHistoryInterventionError("objective_task_plan_invalid")
         semantic = dict(value); claimed = semantic.pop("plan_digest")
-        if protocol.schema_version == OBJECTIVE_SCHEMA:
+        if protocol.schema_version in {OBJECTIVE_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA}:
             public_semantic = {key: item for key, item in semantic.items()
                 if key not in {"task", "task_commitment_nonce"}}
         else:
@@ -322,11 +343,11 @@ class DevelopmentalExperimentStore:
                     probes[0], tuple(probes[1:]), task.get("task_family_id"),
                     task.get("requires_task_family_history", False),
                     **({"commitment_nonce": value["task_commitment_nonce"]}
-                        if protocol.schema_version == OBJECTIVE_SCHEMA else {}))
+                        if protocol.schema_version in {OBJECTIVE_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA} else {}))
             else:
                 reconstructed = ObjectivePredictionTask(task["multiplier"], task["offset"], task["probe_input"],
                     **({"commitment_nonce": value["task_commitment_nonce"]}
-                        if protocol.schema_version == OBJECTIVE_SCHEMA else {}))
+                        if protocol.schema_version in {OBJECTIVE_SCHEMA, OBJECTIVE_HISTORY_SELECTION_SCHEMA} else {}))
             reconstructed_descriptor = (reconstructed.legacy_public_descriptor()
                 if protocol.schema_version == LEGACY_OBJECTIVE_SCHEMA
                 else reconstructed.public_descriptor())
@@ -773,6 +794,8 @@ class DevelopmentalExperimentStore:
                 "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
                 "protocol_schema_version": protocol.schema_version,
                 "record_set_digest": protocol.record_set_digest,
+                **({"history_selection_digest": protocol.history_selection_digest}
+                    if protocol.schema_version in HISTORY_SELECTION_SCHEMAS else {}),
                 "history_record_ids": list(protocol.record_ids),
                 "history_record_digests": list(protocol.record_digests),
                 "model_id": protocol.model_id,
@@ -859,7 +882,7 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
     )
     full_controls = all(hasattr(item, "current_snapshot_digest")
                         and hasattr(item, "retrieved_record_digests") for item in observations)
-    if protocol.schema_version in {SCHEMA, *OBJECTIVE_SCHEMAS}:
+    if protocol.schema_version in {SCHEMA, HISTORY_SELECTION_SCHEMA, *OBJECTIVE_SCHEMAS}:
         # Versioned results are only controlled comparisons when each condition is a
         # canonical, digest-bound resident cognition observation.  Do not let a
         # lightweight caller object silently disable the invariant-context
@@ -909,8 +932,33 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                     if isinstance(task_descriptor, Mapping) else None)
                 expected_treatment = ("withheld" if semantic_observation.get("condition_id")
                     == "history_withheld" else "present")
-                if (not isinstance(selection, Mapping)
-                        or selection.get("available_records") != expected_records
+                if not isinstance(selection, Mapping):
+                    raise DevelopmentalHistoryInterventionError(
+                        "history_selection_protocol_binding_mismatch")
+                if protocol.schema_version in HISTORY_SELECTION_SCHEMAS:
+                    available_records = selection.get("available_records")
+                    selected_records = selection.get("selected_records")
+                    omitted_records = selection.get("omitted_records")
+                    selection_protocol_mismatch = (
+                        not isinstance(available_records, list)
+                        or not isinstance(selected_records, list)
+                        or not isinstance(omitted_records, list)
+                        or _digest(available_records)
+                            != protocol.history_available_records_digest
+                        or selected_records != (expected_records
+                            if expected_treatment == "present" else [])
+                        or omitted_records + selected_records != available_records
+                        or selection.get("omitted_records_digest") != _digest(omitted_records)
+                        or (expected_treatment == "present"
+                            and selection.get("selection_digest")
+                                != protocol.history_selection_digest)
+                        or selection.get("selection_digest") != _digest({key: value
+                            for key, value in selection.items()
+                            if key != "selection_digest"}))
+                else:
+                    selection_protocol_mismatch = (
+                        selection.get("available_records") != expected_records)
+                if (selection_protocol_mismatch
                         or selection.get("task_family_id") != expected_family
                         or selection.get("treatment") != expected_treatment):
                     raise DevelopmentalHistoryInterventionError(
