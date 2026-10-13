@@ -189,6 +189,52 @@ discernment-calibration doctor, not an experiment readiness assertion; its
 calibration fields now remain false until a process-real load verifies the exact
 active identity.
 
+#### Exact operator handoff
+
+Run these commands from the same supported POSIX installation that owns the
+daemon's cognition state and serving receipts. Replace each placeholder with
+the exact configured file/root and operator-selected model path:
+
+```sh
+python scripts/doctor_resident_objective_experiment.py \
+  --config <resident-cognition-config.json> \
+  --model-path <selected-model.gguf> \
+  --allowed-root <narrow-model-root>
+
+python scripts/stage_resident_objective_intervention.py \
+  --config <resident-cognition-config.json> \
+  --request-id <unique-request-id> \
+  --multiplier <operator-selected-integer> --offset <operator-selected-integer> \
+  --probe <held-out-integer> [--probe <additional-held-out-integer> ...]
+
+python scripts/inspect_resident_objective_result.py \
+  --config <resident-cognition-config.json> \
+  --serving-config <resident-model-serving-config.json> \
+  --request-id <staged-request-id> --request-digest <printed-request-digest>
+```
+
+Only `ready_for_operator_review` permits an operator to consider staging; the
+doctor deliberately never reports execution-ready because it cannot inspect the
+daemon's live tick, loaded identity, task contamination, effective generation
+parameters, or inference admission. Staging reports `staged_not_authorized` and
+waits for the already configured daemon's next ordinary tick. That owner still
+requires eligible retained history and all existing serving and per-call
+inference gates. Retain the request ID/digest from the staging output, then
+inspect the terminal result with those exact values. The inspector itself
+reports `model_invoked: false` and `write_performed: false`; repeated reads of
+the same request return the same measurement digest and cannot replay inference.
+The result's separate inference flag describes only whether the three
+historical invocation receipts independently reconcile to completed
+nonsynthetic local-model inference.
+
+Native Windows staging is unsupported; this command does not use a weaker
+fallback publisher. WSL is only a candidate supported host when both the daemon
+and all three commands run inside that same POSIX installation and share its
+exact custody roots. No cross-environment request copying or Windows/WSL
+handoff has been verified here. Model-serving activation and each inference
+remain subject to their existing independent authorization and custody paths;
+these commands create no grants.
+
 Every projection and observation declares historical context to be read-only,
 non-authoritative, non-policy, non-current-truth, and outside canonical explicit
 user retention. Developmental history uses a physically separate configured
