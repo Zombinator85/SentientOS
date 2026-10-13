@@ -413,8 +413,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
             # schema-v2 receipt paired with a ledger effect receipt must retain
             # its linkage fields. A crash between ledger reconciliation and
             # final receipt publication is incomplete custody, not legacy data.
-            if (invocation.get("schema_version")
-                    == "sentientos.local_model_invocation_receipt:v2"
+            if (invocation.get("schema_version") in {
+                    "sentientos.local_model_invocation_receipt:v2",
+                    "sentientos.local_model_invocation_receipt:v3"}
                     and any(isinstance(item, Mapping)
                         and item.get("state") == "reconciled"
                         and item.get("effect_receipt_digest") == invocation.get("receipt_digest")
@@ -771,7 +772,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
         payload["event_time_posture"] = (
             "invocation_receipt_created_at_semantic_digest_bound"
             if invocation_event_time is not None
-                and invocation.get("schema_version") == "sentientos.local_model_invocation_receipt:v2"
+                and invocation.get("schema_version") in {
+                    "sentientos.local_model_invocation_receipt:v2",
+                    "sentientos.local_model_invocation_receipt:v3"}
             else "invocation_receipt_observed_at_unbound_metadata"
                 if invocation_event_time is not None
                 else "historical_invocation_time_unknown")

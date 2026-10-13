@@ -81,6 +81,7 @@ class FakeInvoker:
         self.no_cognition_lesson = False
         self.unavailable_cognition_output = False
         self.effective_generation_ceiling: int | None = None
+        self.backend_completion_observation: dict[str, object] | None = None
         self.objective_mode = "derive_from_history"
         self.truncate_objective_output = False
         self.fail_objective_condition: str | None = None
@@ -224,16 +225,24 @@ class FakeInvoker:
                 and "objective_task_plan_digest" in request.upstream_evidence
                 and self.objective_mode == "substitute"):
             receipt_digest = digest_payload({"output": "different output"})
+        completion = (self.backend_completion_observation
+            if request.purpose == "resident_developmental_history_intervention_experiment"
+            and "objective_task_plan_digest" in request.upstream_evidence else None)
+        backend_truncated = isinstance(completion, dict) and completion.get("token_limit_reached") is True
         return LocalModelInvocationReceipt(request=receipt_request, status="admitted_completed",
-            reason_codes=("completed",), output_text=receipt_text, output_digest=receipt_digest,
+            reason_codes=(("completed", "backend_token_limit_reached") if backend_truncated
+                else ("completed",)), output_text=receipt_text, output_digest=receipt_digest,
             output_size_bytes=len(original_output.encode()), admission_decision_ref="local",
-            purpose=request.purpose, latency_ms=1, output_truncated=truncated, fallback_occurred=False,
+            purpose=request.purpose, latency_ms=1, output_truncated=truncated or backend_truncated, fallback_occurred=False,
             effects={"local_model_inference":True}, observed_at="2026-01-01T00:00:00+00:00",
             generation_config={"actual_generation_parameters":{
                 "temperature":0,
                 "max_new_tokens": (self.effective_generation_ceiling
                     if self.effective_generation_ceiling is not None
-                    else request.budget.max_new_tokens)}} if request.purpose == "resident_developmental_history_intervention_experiment" else {})
+                    else request.budget.max_new_tokens)}} if request.purpose == "resident_developmental_history_intervention_experiment" else {},
+            schema_version=("sentientos.local_model_invocation_receipt:v3"
+                if completion is not None else "sentientos.local_model_invocation_receipt:v2"),
+            backend_completion=completion)
 
 
 class SessionBoundFakeInvoker(FakeInvoker):
@@ -283,6 +292,8 @@ class SessionBoundFakeInvoker(FakeInvoker):
             "request": receipt.request, "status": receipt.status,
             "output_digest": receipt.output_digest, "output_truncated": receipt.output_truncated,
             "generation_config": dict(receipt.generation_config),
+            "backend_completion": (dict(receipt.backend_completion)
+                if receipt.backend_completion is not None else None),
             "observed_at": receipt.observed_at}
 
 
@@ -521,6 +532,35 @@ def test_explicit_objective_request_runs_once_without_developmental_writeback(tm
             tick_id="one-shot-objective-replay", objective_task=task,
             request_id=request["request_id"], request_digest=request["request_digest"])
     assert len(fake.requests) == before
+
+
+def test_backend_token_limit_receipt_prevents_a_parseable_objective_score(tmp_path: Path) -> None:
+    fake = SessionBoundFakeInvoker()
+    fake.backend_completion_observation = {
+        "schema_version": "sentientos.llama_cpp_completion_observation:v1",
+        "backend": "llama_cpp", "finish_reason": "length",
+        "completion_tokens": 512, "prompt_tokens": 120, "token_limit_reached": True}
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="backend-limit-seed").written_record_id
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9))
+    stage_objective_request(tmp_path / "state", request_id="backend-limit-objective", task=task)
+    request = load_objective_request(tmp_path / "state")
+    assert request is not None
+    result = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="backend-limit-objective-tick", objective_task=objective_task_for_request(request),
+        request_id=request["request_id"], request_digest=request["request_digest"])
+    run = cognition.experiments.load_run(result.changed_cognition_measurement_id)
+    assert all(row["score"]["status"] == "output_truncated"
+        for row in run["objective_scores"])
+    assert run["objective_evaluation"]["assessment"] == "unscoreable_truncated_output"
+    report = cognition.verified_objective_measurement_summary(
+        measurement_id=result.changed_cognition_measurement_id, request=request)
+    assert report["actual_nonsynthetic_inference_verified"] is False
+    assert all(row["backend_completion"]["finish_reason"] == "length"
+        and row["backend_completion"]["token_limit_reached"] is True
+        and row["generation_budget"]["posture"] == "effective_ceiling_matches_preregistered_request"
+        for row in report["conditions"])
 
 
 def test_objective_request_digest_collision_and_no_history_are_terminal(tmp_path: Path) -> None:

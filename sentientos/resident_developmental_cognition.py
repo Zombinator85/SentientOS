@@ -1378,6 +1378,9 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             actual_inference = actual_inference and completed
             receipt_status = ("admitted_local_model_inference" if completed
                 else "not_completed_or_generation_budget_unverified")
+        backend_completion = (receipt.get("backend_completion")
+            if isinstance(receipt, Mapping)
+            and isinstance(receipt.get("backend_completion"), Mapping) else None)
         score = wrapper.get("score")
         if not isinstance(score, Mapping):
             raise ResidentDevelopmentalCognitionError("objective_outcome_score_invalid")
@@ -1389,6 +1392,11 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             "score_status": score.get("status"), "correct": score.get("correct"),
             "correct_count": score.get("correct_count"),
             "output_truncated": wrapper.get("output_truncated", False),
+            "backend_completion": (dict(backend_completion)
+                if backend_completion is not None else None),
+            "backend_completion_posture": ("receipt_bound_backend_report"
+                if backend_completion is not None else
+                "legacy_or_backend_completion_reason_unavailable"),
             "generation_budget": {
                 "preregistered_max_new_tokens": requested_tokens,
                 "effective_max_new_tokens": effective_tokens,

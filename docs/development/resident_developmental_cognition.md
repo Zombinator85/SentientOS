@@ -134,9 +134,14 @@ flag false, and failure to render this optional summary does not change the
 already completed trial result. For each condition it also compares the
 receipt-bound effective `max_new_tokens` ceiling with the preregistered request
 budget and reports output-byte truncation. A reduced ceiling is visible in the
-result; the backend does not provide a verified natural-stop reason, so this
+result; there is no independent verification of a natural-stop reason, so this
 summary does not claim that the model used the entire budget or stopped before
-the token ceiling.
+the token ceiling. When the llama.cpp response includes its own completion
+reason and token usage, the governed v3 invocation receipt retains those
+bounded backend-reported values. A reported `length` finish is treated as
+truncated and cannot produce a valid objective score; the receipt binds this
+report but does not make the backend an independent observer. Older receipts
+and backends without completion metadata retain an explicit unavailable posture.
 
 An operator can retrieve the same result after the transient daemon feedback is
 gone, using the exact request ID and digest printed by staging:

@@ -23,6 +23,16 @@ class FakeModel:
         self.calls += 1; return self.text
 
 
+class BackendMetadataModel(FakeModel):
+    def __init__(self, text: str, completion: dict[str, object]) -> None:
+        super().__init__(text)
+        self.completion = completion
+
+    def generate_governed_with_metadata(self, prompt: str, **kwargs: object):
+        self.calls += 1
+        return self.text, self.completion
+
+
 def _invoker(tmp_path: Path, text: str = "ok"):
     model_path = tmp_path / "m.gguf"; model_path.write_bytes(b"bytes")
     cfg = ModelConfig(candidates=[ModelCandidate(path=model_path, engine="llama_cpp", name="m")], generation=GenerationConfig(max_new_tokens=8))
@@ -45,6 +55,35 @@ def test_admitted_chat_receipt_is_digest_bound(tmp_path: Path) -> None:
     payload["effects"]["tool"] = True
     ok, reasons = validate_receipt(payload)
     assert not ok
+
+
+def test_backend_reported_token_limit_is_bound_and_makes_output_unscoreable(tmp_path: Path) -> None:
+    model_path = tmp_path / "m.gguf"; model_path.write_bytes(b"bytes")
+    cfg = ModelConfig(candidates=[ModelCandidate(path=model_path, engine="llama_cpp", name="m")],
+        generation=GenerationConfig(max_new_tokens=8))
+    authority = build_local_model_authority_map(cfg, allowed_roots=[tmp_path])
+    completion = {"schema_version":"sentientos.llama_cpp_completion_observation:v1",
+        "backend":"llama_cpp", "finish_reason":"length", "completion_tokens":8,
+        "prompt_tokens":20, "token_limit_reached":True}
+    fake = BackendMetadataModel('{"answer":23}', completion)
+    inv = GovernedLocalModelInvoker(model=fake, authority_map=authority,
+        kernel=ControlPlaneKernel(phase=LifecyclePhase.RUNTIME,
+            decisions_path=tmp_path / "decisions.jsonl"), runtime_root=tmp_path / "runtime")
+    request = inv.build_request(purpose="local_user_chat", prompt="predict",
+        caller="test", correlation_id="backend-token-limit",
+        budget=LocalModelInvocationBudget(max_new_tokens=8))
+    receipt = inv.invoke(request)
+    assert receipt.schema_version == "sentientos.local_model_invocation_receipt:v3"
+    assert receipt.output_truncated is True
+    assert "backend_token_limit_reached" in receipt.reason_codes
+    payload = receipt.to_dict()
+    assert payload["backend_completion"] == completion
+    valid, reasons = validate_receipt(payload)
+    assert valid, reasons
+    payload["backend_completion"]["token_limit_reached"] = False
+    valid, reasons = validate_receipt(payload)
+    assert not valid
+    assert "receipt_digest_mismatch" in reasons
 
 
 def test_denied_duplicate_does_not_call_backend_twice(tmp_path: Path) -> None:

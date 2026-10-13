@@ -146,7 +146,9 @@ def test_local_model_gguf_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp_p
 
         def create_chat_completion(self, *, messages: list[dict[str, str]], **kwargs: object) -> dict:
             calls.append(kwargs)
-            return {"choices": [{"message": {"content": f"Mistral echoes: {messages[0]['content']}"}}]}
+            return {"choices": [{"message": {"content": f"Mistral echoes: {messages[0]['content']}"},
+                "finish_reason": "length"}],
+                "usage": {"completion_tokens": 8, "prompt_tokens": 5}}
 
     monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=DummyLlama))
 
@@ -161,6 +163,10 @@ def test_local_model_gguf_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp_p
               "required": ["answer"], "additionalProperties": False}
     model.generate_governed("structured", structured_output_schema=schema)
     assert calls[-1]["response_format"] == {"type": "json_object", "schema": schema}
+    _, completion = model.generate_governed_with_metadata("metadata", max_new_tokens=8)
+    assert completion == {"schema_version": "sentientos.llama_cpp_completion_observation:v1",
+        "backend": "llama_cpp", "finish_reason": "length", "completion_tokens": 8,
+        "prompt_tokens": 5, "token_limit_reached": True}
 
 
 def test_transformers_backend_defaults_trust_remote_code_false(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

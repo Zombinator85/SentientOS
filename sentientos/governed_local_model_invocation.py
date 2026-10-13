@@ -29,6 +29,8 @@ MODEL_REPLACEMENT_PURPOSE = "resident_developmental_model_replacement_experiment
 SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, "resident_developmental_model_replacement_experiment"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
 INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
+INVOCATION_RECEIPT_SCHEMA_V3 = "sentientos.local_model_invocation_receipt:v3"
+LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v1"
 MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
 MAX_INVOCATION_RECEIPTS = 256
 RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
@@ -149,15 +151,20 @@ class LocalModelInvocationReceipt:
     resource_consumption_receipt_digests: tuple[str, ...] = ()
     resource_linkage_digest: str | None = None
     schema_version: str = INVOCATION_RECEIPT_SCHEMA
+    backend_completion: Mapping[str, Any] | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
-        return {"schema_version": self.schema_version, "request": dict(self.request),
+        payload = {"schema_version": self.schema_version, "request": dict(self.request),
             "status": self.status, "reason_codes": list(self.reason_codes),
             "output_digest": self.output_digest, "output_size_bytes": self.output_size_bytes,
             "generation_config": dict(self.generation_config),
             "admission_decision_ref": self.admission_decision_ref, "purpose": self.purpose,
             "output_truncated": self.output_truncated, "fallback_occurred": self.fallback_occurred,
             "effects": dict(self.effects), "observed_at": self.observed_at}
+        if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V3:
+            payload["backend_completion"] = (dict(self.backend_completion)
+                if self.backend_completion is not None else None)
+        return payload
 
     @property
     def receipt_digest(self) -> str: return _digest_text(self.semantic_payload())
@@ -184,9 +191,28 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
         # Historical v1 receipts intentionally omit schema_version and bind
         # exactly the pre-v2 field set. An explicit null is not legacy.
         semantic = {key: payload.get(key) for key in legacy_semantic_keys}
-    elif schema == INVOCATION_RECEIPT_SCHEMA:
+    elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3}:
         semantic = {key: payload.get(key) for key in (
             "schema_version", *legacy_semantic_keys, "observed_at")}
+        if schema == INVOCATION_RECEIPT_SCHEMA_V3:
+            semantic["backend_completion"] = payload.get("backend_completion")
+            completion = payload.get("backend_completion")
+            if (not isinstance(completion, Mapping)
+                    or set(completion) != {"schema_version", "backend", "finish_reason",
+                        "completion_tokens", "prompt_tokens", "token_limit_reached"}
+                    or completion.get("schema_version") != LLAMA_COMPLETION_OBSERVATION_SCHEMA
+                    or completion.get("backend") != "llama_cpp"
+                    or completion.get("finish_reason") not in {"stop", "length", "unknown"}
+                    or any(completion.get(name) is not None and (type(completion.get(name)) is not int
+                        or not 0 <= completion[name] <= 131072)
+                        for name in ("completion_tokens", "prompt_tokens"))
+                    or completion.get("token_limit_reached") is not (
+                        True if completion.get("finish_reason") == "length" else
+                        False if completion.get("finish_reason") == "stop" else None)):
+                reasons.append("backend_completion_observation_invalid")
+            elif (completion.get("finish_reason") == "length"
+                    and payload.get("output_truncated") is not True):
+                reasons.append("backend_completion_truncation_mismatch")
         observed_at = payload.get("observed_at")
         try:
             timestamp = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
@@ -281,7 +307,7 @@ class GovernedLocalModelInvoker:
                pre_effect_guard: Callable[[], None] | None = None,
                post_effect_guard: Callable[[], None] | None = None,
                resource_context: GovernedLocalModelResourceInvocationContext | None = None) -> LocalModelInvocationReceipt:
-        started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False
+        started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False; backend_completion: Mapping[str, Any] | None = None
         decision_payload: dict[str, Any] = {}; attempt_id: str | None = None; backend_entered = False
         receipt_persistence_confirmed = False
         resource_linkage_persistence_confirmed: bool | None = (
@@ -368,16 +394,42 @@ class GovernedLocalModelInvoker:
                         if resource_context is not None and attempt_id is not None:
                             resource_context.allocator.record_backend_entry(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
                             backend_entered = True
-                        def _call_model() -> str:
+                        def _call_model() -> tuple[str, Mapping[str, Any] | None]:
+                            metadata_generator = getattr(self.model, "generate_governed_with_metadata", None)
+                            if callable(metadata_generator):
+                                response = metadata_generator(request.prompt, **gen_kwargs)
+                                if (isinstance(response, tuple) and len(response) == 2
+                                        and isinstance(response[0], str)
+                                        and (response[1] is None or isinstance(response[1], Mapping))):
+                                    return response[0], response[1]
+                                raise ValueError("backend_completion_response_invalid")
                             governed_generate = getattr(self.model, "generate_governed", None)
-                            if governed_generate is not None: return cast(str, governed_generate(request.prompt, **gen_kwargs))
-                            try: return cast(str, self.model.generate(request.prompt, **gen_kwargs))
-                            except TypeError: return cast(str, self.model.generate(request.prompt))
+                            if governed_generate is not None:
+                                return cast(str, governed_generate(request.prompt, **gen_kwargs)), None
+                            try: return cast(str, self.model.generate(request.prompt, **gen_kwargs)), None
+                            except TypeError: return cast(str, self.model.generate(request.prompt)), None
                         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(_call_model)
-                            try: output = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
+                            try: output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
                             except concurrent.futures.TimeoutError as exc:
                                 future.cancel(); raise TimeoutError() from exc
+                        if backend_completion is not None:
+                            if (set(backend_completion) != {"schema_version", "backend", "finish_reason",
+                                    "completion_tokens", "prompt_tokens", "token_limit_reached"}
+                                    or backend_completion.get("schema_version") != LLAMA_COMPLETION_OBSERVATION_SCHEMA
+                                    or backend_completion.get("backend") != "llama_cpp"
+                                    or backend_completion.get("finish_reason") not in {"stop", "length", "unknown"}
+                                    or any(backend_completion.get(name) is not None
+                                        and (type(backend_completion.get(name)) is not int
+                                            or not 0 <= backend_completion[name] <= 131072)
+                                        for name in ("completion_tokens", "prompt_tokens"))
+                                    or backend_completion.get("token_limit_reached") is not (
+                                        True if backend_completion.get("finish_reason") == "length" else
+                                        False if backend_completion.get("finish_reason") == "stop" else None)):
+                                raise ValueError("backend_completion_observation_invalid")
+                            if backend_completion.get("token_limit_reached") is True:
+                                truncated = True
+                                reasons.append("backend_token_limit_reached")
                         generated_output = output
                         if post_effect_guard is not None:
                             try: post_effect_guard()
@@ -396,7 +448,7 @@ class GovernedLocalModelInvoker:
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
         effect_occurred = generated_output is not None
         receipt_output = generated_output if effect_occurred else output
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat())
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None else INVOCATION_RECEIPT_SCHEMA, backend_completion=backend_completion)
         if persist:
             try:
                 self._persist(request, receipt, decision_payload,
@@ -493,7 +545,7 @@ class GovernedLocalModelInvoker:
         if not required.issubset(data): return False
         blob = json.dumps(data).lower()
         forbidden = ["import ", "subprocess", "shell", "git ", "openai", "huggingface", "http://", "https://", "adoptionrite", "specbinder", "write_file", "memory"]
-        
+
         try:
             from .genesis_model_advice import parse_advice_output
             payload, reasons = parse_advice_output(text)
