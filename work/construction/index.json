@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "eccc58693ad28e462d74de8aeaacf0f5bc7eab35f896dc4ccc6cb2ea72869a3f",
-    "latest_segment_sequence": 157,
-    "latest_segment_sha256": "1ff70b23ebe2ebd7564aa7807c0dcdca91b9c946d680a9fb4fdc7d0779abde48",
-    "source_commit": "fae8d77d86fcb1ca6b12f058c10fcb54c842f802",
-    "source_tree": "a84d707c09c246871028a4bb3ff9f7dc30280d55"
+    "checkpoint_sha256": "179c0c330cbac7bcb2bafdda08ca1aeec1fbeedb2529fda3f4af55f519364b04",
+    "latest_segment_sequence": 158,
+    "latest_segment_sha256": "ca5ec7afea715a8bae281834c44c0d7ad83f3515419076cc36511635500336a2",
+    "source_commit": "d40f008dd72ba736292f0dcb6702f97640ce9ff9",
+    "source_tree": "383dc4a0c87b6b2de44ad9eef1d2af65bb94c916"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -1524,6 +1524,18 @@
       "evidence_path": "work/construction/evidence/0157-task-family-history-relevance.json",
       "evidence_bytes": 1962,
       "evidence_sha256": "18881b18c6538485077ee9f2d9d673a0f4726adb62c96922256892ca39b99fcc"
+    },
+    {
+      "sequence": 158,
+      "path": "work/construction/segments/0158-three-episode-recovery.md",
+      "bytes": 1146,
+      "sha256": "ca5ec7afea715a8bae281834c44c0d7ad83f3515419076cc36511635500336a2",
+      "predecessor": "segment-sha256:1ff70b23ebe2ebd7564aa7807c0dcdca91b9c946d680a9fb4fdc7d0779abde48",
+      "source_commit": "d40f008dd72ba736292f0dcb6702f97640ce9ff9",
+      "source_tree": "383dc4a0c87b6b2de44ad9eef1d2af65bb94c916",
+      "evidence_path": "work/construction/evidence/0158-three-episode-recovery.json",
+      "evidence_bytes": 1880,
+      "evidence_sha256": "4a06406646323ad50cd22923d61500a83644f2d83d374cc26b20beb8318d2a31"
     }
   ],
   "source_acquisition": {

@@ -1,0 +1,30 @@
+{
+  "assertions": [
+    "three distinct task instances retain exact evidence family record lineage",
+    "initial baseline lacks relevant family history; later two episodes retrieve one then two admitted family records",
+    "withheld conditions exclude family records and restoration retrieves exact IDs",
+    "fresh cognition owner reconstructs identical report without inference replay"
+  ],
+  "checks": {
+    "focused_test": {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-recon8-acquisition-g2 SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-recon8-acquisition-r2 SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-recon8-acquisition-f2 SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-recon8-acquisition-k2 PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-recon8-acquisition-t2 PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-recon8-acquisition-t2/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "result": "1 passed in 67.56s",
+      "scope": "deterministic session-bound fake invoker; no live model"
+    },
+    "python_compile": "passed: sentientos/resident_developmental_cognition.py, tests/test_resident_developmental_cognition.py"
+  },
+  "not_established": [
+    "actual local-model acquisition",
+    "real transfer",
+    "performance improvement",
+    "production inference"
+  ],
+  "predecessor_sequence": 157,
+  "predecessor_source_commit": "fae8d77d86fcb1ca6b12f058c10fcb54c842f802",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 158,
+  "source_commit": "d40f008dd72ba736292f0dcb6702f97640ce9ff9",
+  "source_tree": "383dc4a0c87b6b2de44ad9eef1d2af65bb94c916",
+  "title": "integrated task-family episode recovery",
+  "unverified_for_production": true
+}
