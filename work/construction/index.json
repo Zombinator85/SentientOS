@@ -910,6 +910,17 @@
       "sha256": "d367880b1761cc5fce2c5a138bba3a55cf82baa68caff3f32da4cf2d3a0fa12d",
       "source_commit": "86516b5b7f44bee8821b74390ffc06e070659555",
       "source_tree": "c3344fa9eb9e52b307705fc4683f7acd97124714"
+    },
+    {
+      "bytes": 3047,
+      "evidence_path": "work/construction/evidence/0106-recover-truncated-history-scores.json",
+      "evidence_sha256": "7f3dd9906c0554667680b47df95f9c3dfbb888cf5f8d6023f19d8814314b59e6",
+      "path": "work/construction/segments/0106-recover-truncated-history-scores.md",
+      "predecessor": "segment-sha256:d367880b1761cc5fce2c5a138bba3a55cf82baa68caff3f32da4cf2d3a0fa12d",
+      "sequence": 106,
+      "sha256": "29ecfada29d7485ac869d95b529c86bbfb54a411d02310480bf1a0c49c3806aa",
+      "source_commit": "14336df14a9dd9a5aebd6f1f2ef01879ad4bbdd3",
+      "source_tree": "912dc5e789f784988fbbcd5293783a84df7048b0"
     }
   ],
   "source_acquisition": {

@@ -1441,6 +1441,7 @@ class ResidentDevelopmentalCognitionOwner:
                     "inference_receipt_id": raw["inference_receipt_id"],
                     "inference_receipt_digest": raw["inference_receipt_digest"],
                     "invocation_output_digest": raw["output_digest"],
+                    "output_truncated": checkpoint.get("output_truncated", False),
                     "score": dict(checkpoint["score"])})
             if missing_checkpoint:
                 continue
@@ -1491,12 +1492,12 @@ class ResidentDevelopmentalCognitionOwner:
             refs.append((run_id, run_digest))
         return tuple(refs)
 
-    def _verify_observation_invocation(self, observation: Mapping[str, Any]) -> None:
+    def _verify_observation_invocation(self, observation: Mapping[str, Any]) -> Mapping[str, Any] | None:
         """Reconcile a session-bound cognition row to its exact governed receipt."""
         session_id = observation.get("serving_session_id")
         session_binding = observation.get("serving_session_binding")
         if session_id is None and session_binding is None:
-            return  # Historical v2 and non-session invocations remain explicitly unbound.
+            return None  # Historical v2 and non-session invocations remain explicitly unbound.
         verifier = getattr(self.invoker, "verify_persisted_invocation_receipt", None)
         if not callable(verifier) or not isinstance(session_binding, Mapping):
             raise ResidentDevelopmentalCognitionError("cognition_invocation_receipt_verifier_unavailable")
@@ -1536,6 +1537,7 @@ class ResidentDevelopmentalCognitionOwner:
                     and receipt.get("observed_at") != observation.get("observed_at"))
                 or not isinstance(serving, Mapping) or dict(serving) != expected_serving):
             raise ResidentDevelopmentalCognitionError("cognition_invocation_receipt_binding_mismatch")
+        return cast(Mapping[str, Any], receipt)
 
     def _recover_observation_ticks(self, *, include_records: bool = False) -> Any:
         try:
@@ -2631,6 +2633,7 @@ class ResidentDevelopmentalCognitionOwner:
                 "inference_receipt_id": receipt.receipt_id,
                 "inference_receipt_digest": receipt.receipt_digest,
                 "invocation_output_digest": receipt.output_digest,
+                "output_truncated": receipt.output_truncated,
                 "score": score,
             }
         if (lesson_payload is not None and isinstance(lesson_payload.get("lesson_candidate"), Mapping)

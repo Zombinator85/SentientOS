@@ -78,6 +78,7 @@ class FakeInvoker:
         self.no_cognition_lesson = False
         self.unavailable_cognition_output = False
         self.objective_mode = "derive_from_history"
+        self.truncate_objective_output = False
         self.fail_objective_condition: str | None = None
         self.objective_plan_root: Path | None = None
         self.history_interpretation = "bounded history"
@@ -169,12 +170,15 @@ class FakeInvoker:
             response = {"answers": answers} if suite else {"answer": answers[0]}
             output = ("{\"answer\":23,\"answer\":0}" if self.objective_mode == "malformed"
                 else json.dumps(response, sort_keys=True, separators=(",", ":")))
+            original_output = output
+            if self.truncate_objective_output:
+                output = output[:max(1, len(output) // 2)]
+                truncated = True
             if self.objective_mode == "unavailable":
                 receipt_text = None
             else:
                 receipt_text = output
             text = output
-            original_output = output
         elif request.expected_output_format == "json" and request.structured_output_schema:
             upstream = request.upstream_evidence
             consumed = (upstream.get("record_ids") or upstream.get("current_fact_ids")
@@ -269,7 +273,8 @@ class SessionBoundFakeInvoker(FakeInvoker):
         assert receipt.request["active_model_identity"] == expected["expected_active_model_identity"]
         return {"receipt_id": receipt.receipt_id, "receipt_digest": receipt.receipt_digest,
             "request": receipt.request, "status": receipt.status,
-            "output_digest": receipt.output_digest, "observed_at": receipt.observed_at}
+            "output_digest": receipt.output_digest, "output_truncated": receipt.output_truncated,
+            "observed_at": receipt.observed_at}
 
 
 def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(tmp_path: Path) -> None:
@@ -380,6 +385,26 @@ print(json.dumps(run["objective_evaluation"], sort_keys=True))
     with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
         restarted.run_tick(snapshot=snapshot(), tick_id="objective-history-comparison")
     assert len(fake.requests) == replay_requests
+
+
+def test_same_model_truncated_objective_output_recovers_as_unscoreable(tmp_path: Path) -> None:
+    fake = SessionBoundFakeInvoker()
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7,
+        additional_probe_inputs=(8, 9))
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    cognition.run_tick(snapshot=snapshot(), tick_id="truncated-objective-seed")
+    fake.truncate_objective_output = True
+    result = cognition.run_tick(snapshot=snapshot(), tick_id="truncated-objective-run")
+    run = cognition.experiments.load_run(result.changed_cognition_measurement_id)
+    assert run["objective_evaluation"]["assessment"] == "unscoreable_truncated_output"
+    assert run["objective_evaluation"]["history_correct_probe_delta"] is None
+    assert [row["score"]["status"] for row in run["objective_scores"]] == [
+        "output_truncated", "output_truncated", "output_truncated"]
+    assert all(row["score"]["correct_count"] is None for row in run["objective_scores"])
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
+    assert restarted.experiments.load_run(run["run_id"])["objective_evaluation"] == run["objective_evaluation"]
 
 
 def test_same_model_probe_suite_partial_scores_reach_later_cognition(tmp_path: Path) -> None:

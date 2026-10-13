@@ -303,12 +303,16 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("objective_condition_receipt_binding_invalid")
         if output_digest != observation.get("output_digest"):
             raise DevelopmentalHistoryInterventionError("objective_condition_output_binding_invalid")
-        if output_text is not None and digest_payload({"output": output_text}) != output_digest:
+        output_truncated = getattr(receipt, "output_truncated", False)
+        if type(output_truncated) is not bool:
+            raise DevelopmentalHistoryInterventionError("objective_condition_truncation_invalid")
+        if (output_text is not None and not output_truncated
+                and digest_payload({"output": output_text}) != output_digest):
             raise DevelopmentalHistoryInterventionError("objective_condition_output_digest_invalid")
         from .developmental_model_replacement_experiment import _objective_score
         try:
             score = _objective_score(verified_plan, output_text,
-                output_digest)
+                output_digest, output_truncated=output_truncated)
         except (TypeError, ValueError) as exc:
             raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid") from exc
         semantic = {"schema_version": "sentientos.objective_condition_score:v1",
@@ -320,7 +324,8 @@ class DevelopmentalExperimentStore:
             "request_digest": observation.get("request_digest"),
             "inference_receipt_id": receipt_id,
             "inference_receipt_digest": receipt_digest,
-            "output_digest": output_digest, "score": score}
+            "output_digest": output_digest, "output_truncated": output_truncated,
+            "score": score}
         digest = _digest(semantic)
         record = {**semantic, "score_record_id": "devscore-" + digest[7:31],
             "score_record_digest": digest}
@@ -345,10 +350,23 @@ class DevelopmentalExperimentStore:
             if key not in {"score_record_id", "score_record_digest"}}
         claimed = value.get("score_record_digest")
         expected_digest = _digest(semantic)
-        if (set(value) != {"schema_version", "protocol_id", "protocol_digest", "plan_digest",
+        expected_fields = {"schema_version", "protocol_id", "protocol_digest", "plan_digest",
                 "condition_id", "observation_id", "observation_digest", "request_id",
                 "request_digest", "inference_receipt_id", "inference_receipt_digest",
                 "output_digest", "score", "score_record_id", "score_record_digest"}
+        if "output_truncated" in value:
+            expected_fields.add("output_truncated")
+        output_truncated = value.get("output_truncated", False)
+        verified_receipt = None
+        if callable(self._invocation_verifier):
+            verified_receipt = self._invocation_verifier(observation)
+        if (type(output_truncated) is not bool
+                or (isinstance(verified_receipt, Mapping)
+                    and verified_receipt.get("output_truncated") is not output_truncated)
+                or (observation.get("serving_session_id") is not None
+                    and not isinstance(verified_receipt, Mapping))
+                or (output_truncated and not isinstance(verified_receipt, Mapping))
+                or set(value) != expected_fields
                 or value.get("schema_version") != "sentientos.objective_condition_score:v1"
                 or value.get("protocol_id") != protocol.protocol_id
                 or value.get("protocol_digest") != protocol.protocol_digest
@@ -369,7 +387,8 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid")
         from .developmental_model_replacement_experiment import _verify_objective_score
         try:
-            _verify_objective_score(plan, score, value["output_digest"])
+            _verify_objective_score(plan, score, value["output_digest"],
+                output_truncated=output_truncated)
         except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalHistoryInterventionError("objective_condition_score_invalid") from exc
         return value
@@ -456,6 +475,7 @@ class DevelopmentalExperimentStore:
             recomputed = summarize(protocol, observations)
         except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalHistoryInterventionError("run_artifact_control_invalid") from exc
+        verified_invocations: dict[str, Mapping[str, Any]] = {}
         for observation in observations:
             if observation.serving_session_id is None:
                 continue
@@ -463,7 +483,9 @@ class DevelopmentalExperimentStore:
                 raise DevelopmentalHistoryInterventionError(
                     "run_artifact_invocation_verifier_unavailable")
             try:
-                self._invocation_verifier(asdict(observation))
+                verified_receipt = self._invocation_verifier(asdict(observation))
+                if isinstance(verified_receipt, Mapping):
+                    verified_invocations[observation.condition_id] = verified_receipt
             except Exception as exc:
                 raise DevelopmentalHistoryInterventionError(
                     "run_artifact_invocation_receipt_invalid") from exc
@@ -485,10 +507,17 @@ class DevelopmentalExperimentStore:
                 if isinstance(item, Mapping)}
             for condition_id, wrapper in zip(CONDITION_ORDER, scores):
                 observation_payload = by_condition.get(condition_id)
+                verified_receipt = verified_invocations.get(condition_id)
+                output_truncated = (verified_receipt.get("output_truncated", False)
+                    if verified_receipt is not None else False)
                 if (not isinstance(wrapper, Mapping)
-                        or set(wrapper) != {"condition_id", "inference_receipt_id",
+                        or set(wrapper) not in ({"condition_id", "inference_receipt_id",
                             "inference_receipt_digest", "invocation_output_digest", "score"}
+                            , {"condition_id", "inference_receipt_id",
+                            "inference_receipt_digest", "invocation_output_digest",
+                            "output_truncated", "score"})
                         or wrapper.get("condition_id") != condition_id
+                        or wrapper.get("output_truncated", False) is not output_truncated
                         or not isinstance(observation_payload, Mapping)
                         or wrapper.get("inference_receipt_id") != observation_payload.get("inference_receipt_id")
                         or wrapper.get("inference_receipt_digest") != observation_payload.get("inference_receipt_digest")
@@ -497,7 +526,8 @@ class DevelopmentalExperimentStore:
                     raise DevelopmentalHistoryInterventionError("objective_score_receipt_binding_invalid")
                 try:
                     expected_score = _verify_objective_score(plan, wrapper["score"],
-                        wrapper["invocation_output_digest"])
+                        wrapper["invocation_output_digest"],
+                        output_truncated=output_truncated)
                 except (KeyError, TypeError, ValueError) as exc:
                     code = ("objective_score_binding_invalid"
                         if "binding_invalid" in str(exc) else "objective_score_invalid")
@@ -720,6 +750,8 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
     correctness = [row["score"].get("correct") if isinstance(row.get("score"), Mapping) else None
         for row in scores]
     complete = all(type(value) is bool for value in correctness)
+    truncated = any(isinstance(row.get("score"), Mapping)
+        and row["score"].get("status") == "output_truncated" for row in scores)
     delta = ((1 if correctness[0] is True else 0) - (1 if correctness[1] is True else 0)
         if complete else None)
     restored_stable = correctness[0] == correctness[2] if complete else None
@@ -728,7 +760,8 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
             for row in scores if isinstance(row.get("score"), Mapping)],
         "history_accuracy_delta": delta,
         "restoration_correctness_stable": restored_stable,
-        "assessment": "single_preregistered_task_scored" if complete else "unscoreable_missing_output",
+        "assessment": ("single_preregistered_task_scored" if complete else
+            "unscoreable_truncated_output" if truncated else "unscoreable_missing_output"),
         "scope": "same_model_task_correctness_not_general_learning_or_weight_change",
         "model_behavior_posture": "resident_endpoint_receipts_not_independent_model_attestation"}
     if plan.get("task", {}).get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
@@ -743,6 +776,6 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
             "condition_correct_counts": counts,
             "history_correct_probe_delta": history_delta,
             "restoration_correct_probe_delta": restoration_delta,
-            "assessment": ("preregistered_probe_suite_scored" if complete
-                else "unscoreable_missing_output")})
+            "assessment": ("preregistered_probe_suite_scored" if complete else
+                "unscoreable_truncated_output" if truncated else "unscoreable_missing_output")})
     return evaluation
