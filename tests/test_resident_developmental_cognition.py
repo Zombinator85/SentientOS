@@ -897,6 +897,14 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     assert later.written_record_id in present["retrieved_record_ids"]
     assert later.written_record_id not in withheld["retrieved_record_ids"]
     assert later.written_record_id in restored["retrieved_record_ids"]
+    assert present["developmental_history_selection"]["retrieval_policy_id"] == \
+        "task_family_relevant_then_recency_fill:v1"
+    assert present["developmental_history_selection"]["task_family_id"] == \
+        "integer_affine_prediction"
+    assert withheld["developmental_history_selection"]["treatment"] == "withheld"
+    assert withheld["developmental_history_selection"]["selected_records"] == []
+    assert withheld["developmental_history_selection"]["omitted_records"] == \
+        present["developmental_history_selection"]["available_records"]
     assert recovered["objective_evaluation"]["history_correct_probe_delta"] == 3
     assert recovered["objective_evaluation"]["restoration_correct_probe_delta"] == 0
 
@@ -3706,6 +3714,7 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     value.pop("observation_digest")
     selection = value["developmental_history_selection"]
     selection["retrieval_policy_id"] = "task_family_relevant_then_recency_fill:v1"
+    selection["task_family_id"] = "integer_affine_prediction"
     selection_semantic = {key: item for key, item in selection.items()
         if key != "selection_digest"}
     selection["selection_digest"] = "sha256:" + digest_payload(selection_semantic)

@@ -1341,6 +1341,11 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
     family = selection.get("task_family_id")
     if family is not None and (not isinstance(family, str) or not family or len(family) > 96):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_family_invalid")
+    family_policy = selection.get("retrieval_policy_id") == \
+        "task_family_relevant_then_recency_fill:v1"
+    if family_policy != isinstance(family, str):
+        raise ResidentDevelopmentalCognitionError(
+            "developmental_history_selection_policy_family_mismatch")
     collections = []
     for field_name in ("available_records", "selected_records", "omitted_records"):
         rows = selection.get(field_name)

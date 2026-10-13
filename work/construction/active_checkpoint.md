@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 140 continues from verified source `ff3cf897e9c52f3f3bb6b66928c50632e64ad8e4`, tree `c860533b1ddeff23a516c2b8b802845dc1301ea6`. Cognition observations now persist a canonical v6 retrieval-selection binding through the invocation request and writeback provenance: exact bounded policy, task family where configured, available/selected/omitted record identities, and omission rationale. The withheld control does not disclose omitted history identities in its model prompt. Restart checks selection digests and session-bound invocation receipt linkage. Historical v2–v5 records retain their original identity shape.
+Sequence 141 continues from verified source `4d58ea80244714fee5564f1a8b44be31e36b395b`, tree `3cb63df4aa7a97bc1b04e4253f224b38b6a39d28`. Retrieval-policy identity is now checked against the optional task-family identity, and each v6 experiment condition’s eligible history set is reconciled to the preregistered protocol. The history-withheld arm remains a control over the same exact set and does not expose its identities in the prompt.
 
-Seven focused owner suites passed (**168 passed, 10 skipped**); changed Python compiled. Targeted mypy remains non-clean with 23 existing diagnostics across the cognition/writeback modules; no new v6-specific diagnostics remained. Construction and fixture evidence only; no real-model performance or production verification.
+Focused regression groups passed (2 and 3 tests, with one overlap); changed Python compiled. Targeted mypy reports 15 existing diagnostics in cognition; no new selection-binding diagnostic. Construction only; no real model performance or production verification.
 
-Latest segment: `work/construction/segments/0140-durable-history-selection-binding.md`
-SHA-256: `f4bfe0504ec71cc18258a8305f003bf24a66a048b058aaad2a2ea4cc47b6ed0e`
-Evidence: `work/construction/evidence/0140-durable-history-selection-binding.json`
-Evidence SHA-256: `1b7617c0ba3b986b2e79682ca697c2d029cd37541e376e543d40f42904b459e2`
-Sequence: 140
+Latest segment: `work/construction/segments/0141-history-policy-protocol-binding.md`
+SHA-256: `d84ea467029b216f91208001a4959b1a3d8e873649195748992502d8376ddf7b`
+Evidence: `work/construction/evidence/0141-history-policy-protocol-binding.json`
+Evidence SHA-256: `351cc0452677a1cb1dead437730a03c66dfb878cd498d5d2798a03c1d674b161`
+Sequence: 141
 
-Next: verify the operator-facing POSIX doctor → stage → configured daemon → read-only inspector contracts against one installation identity and custody root. Existing tools already report that running daemon/model state is not observed; do not create a parallel operator framework. Then continue with the next source-supported acquisition/transfer evidence gap. A genuine local-model episode still requires an operator-selected artifact and existing serving authorization, neither present in this isolated workspace.
+Next: bind authenticated invocation resource linkage (allocation, attempt, consumption receipt IDs/digests, and effect-receipt linkage) into cognition observations and experiment records when actually present. Preserve unlinked historical receipts and represent absent measurements as unknown. The operator-facing POSIX sequence is already documented and reports live daemon/model state as unobserved; no real local artifact or serving authorization is available here.

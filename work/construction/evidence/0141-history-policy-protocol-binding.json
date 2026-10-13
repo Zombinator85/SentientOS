@@ -1,0 +1,48 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "compile_command": "python -m py_compile sentientos/resident_developmental_cognition.py sentientos/developmental_history_intervention_experiment.py tests/test_resident_developmental_cognition.py",
+    "fixture_only": true,
+    "focused_test_runs": [
+      {
+        "command": "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-campaign/governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-campaign/federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-campaign/kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-campaign/pulse-trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-campaign/pulse-trust/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context tests/test_resident_developmental_cognition.py::test_v6_history_selection_recovery_reconciles_the_invocation_receipt",
+        "passed": 2
+      },
+      {
+        "command": "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-campaign/governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-campaign/federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-campaign/kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-campaign/pulse-trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-campaign/pulse-trust/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context tests/test_developmental_history_intervention_experiment.py::test_stable_difference_and_no_difference_are_bounded_descriptions",
+        "passed": 3
+      }
+    ],
+    "mypy_command": ".venv/bin/mypy --follow-imports=silent --ignore-missing-imports sentientos/resident_developmental_cognition.py sentientos/developmental_history_intervention_experiment.py",
+    "mypy_result": "failed with 15 existing diagnostics in resident_developmental_cognition.py; no new selection-binding diagnostics",
+    "production_acceptance": "deferred"
+  },
+  "changed_files": {
+    "sentientos/developmental_history_intervention_experiment.py": {
+      "bytes": 57140,
+      "git_blob": "bb085640e7364897c214878d1986c1f6ee34fa3d",
+      "sha256": "e462b34ad24e9e3a07e8279282e2c8955bc99ccedd402f5d973c825a2a0fb7d5"
+    },
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 258881,
+      "git_blob": "34bdc85bf3582d650172fb93d9b0189883984fa9",
+      "sha256": "1d0e1c1e0e202a789aefe2ea00696fcd6946559ac38042c605fe86269829f4c5"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 244629,
+      "git_blob": "58b3cf09874d1f710fb8ecc9f267c847b6e0b4e5",
+      "sha256": "81a6f9a68fe0eeaa2f81e0dd2642eb3dfa9532dca9bddb6f3519f0bd0d9421f4"
+    }
+  },
+  "implementation": {
+    "authority_posture": "Read-only experiment verification and retrieval metadata only; no activation, inference authority, or model behavior claim.",
+    "negative_control": "A substituted task-family policy with locally recomputed selection and observation digests is rejected against the exact invocation receipt.",
+    "policy_semantics": "task_family_relevant_then_recency_fill:v1 is valid only with a bounded task_family_id; completed_tick_recency_suffix:v1 is valid only without one.",
+    "protocol_binding": "The v6 experiment summarizer requires each condition\u2019s available record IDs and digests and task family to equal the preregistered protocol. Withheld remains a treatment over that same record set."
+  },
+  "objective": "Ensure persisted retrieval policy labels describe the implemented selector and the exact eligible history set is the set bound by the preregistered experiment.",
+  "schema_version": 1,
+  "sequence": 141,
+  "source_commit": "4d58ea80244714fee5564f1a8b44be31e36b395b",
+  "source_tree": "3cb63df4aa7a97bc1b04e4253f224b38b6a39d28"
+}

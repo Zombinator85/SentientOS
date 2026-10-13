@@ -779,6 +779,22 @@ def summarize(protocol: DevelopmentalHistoryInterventionProtocol, observations: 
                     or observation_digest != calculated
                     or observation_id != "devcog-" + calculated[7:31]):
                 raise DevelopmentalHistoryInterventionError("observation_identity_mismatch")
+            if schema_version == "sentientos.resident_cognition_observation:v6":
+                selection = semantic_observation.get("developmental_history_selection")
+                expected_records = [{"record_id": record_id,
+                    "record_digest": record_digest} for record_id, record_digest in zip(
+                        protocol.record_ids, protocol.record_digests)]
+                task_descriptor = protocol.objective_task_descriptor
+                expected_family = (task_descriptor.get("task_family_id")
+                    if isinstance(task_descriptor, Mapping) else None)
+                expected_treatment = ("withheld" if semantic_observation.get("condition_id")
+                    == "history_withheld" else "present")
+                if (not isinstance(selection, Mapping)
+                        or selection.get("available_records") != expected_records
+                        or selection.get("task_family_id") != expected_family
+                        or selection.get("treatment") != expected_treatment):
+                    raise DevelopmentalHistoryInterventionError(
+                        "history_selection_protocol_binding_mismatch")
         if not full_controls:
             raise DevelopmentalHistoryInterventionError("observation_controls_missing")
     if full_controls:
