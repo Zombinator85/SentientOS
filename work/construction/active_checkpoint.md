@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Last independently verified implementation commit `e7a004e010d66f54149cbcc6a992157f00c9c94e`, tree `ec07c2688db3a06fc17a4d2a715655440c9d1fc1`. Sequence 110 adds a bounded, read-only operator result command for exact staged objective request identities and shares serving receipt verification through authenticated read-only installation custody.
+Last independently verified implementation commit `ac264e0b3860717a71551a752e036dff9494856a`, tree `29fa8b16400d03571069513bfe5f21748b92f8be`. Sequence 111 records cold-restart result inspection and makes task-specific contamination status explicitly unknown in objective result custody.
 
-Latest segment: `work/construction/segments/0110-read-only-objective-result-inspection.md`
-SHA-256: `7dd368c758fc151e93a38899dd7de33dffa5efb682dd489f50ca02801139d049`
-Evidence: `work/construction/evidence/0110-read-only-objective-result-inspection.json`
-Evidence SHA-256: `54a5dde75e5895d114e7693cda03cd01110324ce2dc8cce62781ddfe5ee2489e`
-Sequence: 110
+Latest segment: `work/construction/segments/0111-recoverable-outcome-contamination-posture.md`
+SHA-256: `9a1e977e2bc1c2669f353ae0d9a131bd78db2a9b687efb9e2b16edab6efbe8f6`
+Evidence: `work/construction/evidence/0111-recoverable-outcome-contamination-posture.json`
+Evidence SHA-256: `cde19310b5c0311b87fc15b4f178e6efa9105041729f1f8d99f3bf811f133ae8`
+Sequence: 111
 
-Focused acceptance: 117 passed; 0 failed; 0 skipped. Changed Python compilation, CLI help, and whitespace checks passed. A byte-for-byte fixture check confirmed the result inspector did not mutate custody. Fixture execution remains synthetic/unbound; no model or production behavior was verified. Remote expected-HEAD publication and changed-source readback succeeded; hosted checks were absent.
+Focused acceptance: 112 passed; 0 failed; 0 skipped. Changed Python compiled; whitespace scan passed. Cold-restart owner recovery plus read-only result inspection was exercised with a deterministic fixture and caused no repeated inference or custody mutation. This is not real model or production verification.
 
-Next dependency: demonstrate cold-restart result inspection after canonical recovery of a fully checkpointed interrupted score without triggering inference, then resolve the truthful Windows/WSL staging handoff only through supported custody owners. The repository model artifact in this workspace remains an LFS pointer; external Windows/CUDA state remains unobserved.
+Next dependency: trace configured generation/output limits from resident cognition through governed invocation, serving, and backend completion. Bind actual effective limits and truncation to the preregistered task constraints without claiming model capability from a fake invoker. The repository candidate remains an LFS pointer; external Windows/CUDA readiness remains unknown.
