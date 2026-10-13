@@ -114,6 +114,25 @@ def verify_protocol(protocol: DevelopmentalHistoryInterventionProtocol) -> None:
         raise DevelopmentalHistoryInterventionError("objective_task_protocol_binding_invalid")
 
 
+def objective_task_contamination_assessment(
+        protocol: DevelopmentalHistoryInterventionProtocol) -> dict[str, Any]:
+    """Bind an explicit unknown posture; this owner does not certify task cleanliness."""
+    if protocol.schema_version != OBJECTIVE_SCHEMA or not protocol.objective_task_digest:
+        raise DevelopmentalHistoryInterventionError("objective_task_protocol_required")
+    return {
+        "schema_version": "sentientos.objective_task_contamination_assessment:v1",
+        "status": "not_assessed",
+        "reason_code": "task_specific_history_and_current_context_leakage_unverified",
+        "objective_task_digest": protocol.objective_task_digest,
+        "current_projection_id": protocol.current_projection_id,
+        "current_projection_digest": protocol.current_projection_digest,
+        "current_projection_shared_across_conditions": True,
+        "history_examples_absent_from_current_context": None,
+        "oracle_answer_absent_from_current_context": None,
+        "authority": False,
+    }
+
+
 class DevelopmentalExperimentStore:
     def __init__(self, root: Path, *,
                  invocation_verifier: Callable[[Mapping[str, Any]], Any] | None = None) -> None:
@@ -441,7 +460,8 @@ class DevelopmentalExperimentStore:
         expected_fields = {"schema_version", "protocol", "conditions", "summary",
             "validity", "contamination_reasons", "run_id", "run_digest"}
         protocol_raw, conditions = value.get("protocol"), value.get("conditions")
-        if (not set(value).issubset(expected_fields | {"objective_scores", "objective_evaluation"})
+        if (not set(value).issubset(expected_fields | {"objective_scores", "objective_evaluation",
+                    "contamination_assessment"})
                 or not expected_fields.issubset(value) or not isinstance(protocol_raw, Mapping)
                 or not isinstance(conditions, list) or not isinstance(value.get("summary"), Mapping)
                 or value.get("validity") != "valid_controlled_observation"
@@ -456,6 +476,11 @@ class DevelopmentalExperimentStore:
                 protocol_payload[key] = tuple(protocol_payload.get(key, ()))
             protocol = DevelopmentalHistoryInterventionProtocol(**protocol_payload)
             verify_protocol(protocol)
+            assessment = value.get("contamination_assessment")
+            if (assessment is not None
+                    and (protocol.schema_version != OBJECTIVE_SCHEMA
+                        or assessment != objective_task_contamination_assessment(protocol))):
+                raise ValueError("objective_task_contamination_assessment_invalid")
             from .resident_developmental_cognition import ResidentCognitionObservation
             observation_tuple_fields = ("current_fact_ids", "retrieved_record_ids",
                 "retrieved_record_digests", "self_model_claim_ids", "self_model_claim_digests",

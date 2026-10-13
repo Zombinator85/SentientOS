@@ -27,7 +27,7 @@ from .canonical_memory import sentientos_memory_dir
 from .developmental_history_intervention_experiment import (
     CONDITION_ORDER,
     DevelopmentalExperimentStore, DevelopmentalHistoryInterventionError,
-    OBJECTIVE_SCHEMA, make_protocol, summarize,
+    OBJECTIVE_SCHEMA, make_protocol, objective_task_contamination_assessment, summarize,
     summarize_objective_task,
     PURPOSE as EXPERIMENT_PURPOSE,
 )
@@ -1371,6 +1371,11 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
         "protocol_digest": protocol.protocol_digest,
         "objective_task_plan_digest": plan.get("plan_digest"),
         "objective_evaluation": dict(evaluation), "conditions": outputs,
+        "contamination_assessment": run.get("contamination_assessment", {
+            "schema_version": "sentientos.objective_task_contamination_assessment:v1",
+            "status": "legacy_not_recorded",
+            "reason_code": "historical_run_predates_explicit_contamination_posture",
+            "authority": False}),
         "actual_nonsynthetic_inference_verified": actual_inference,
         "raw_prompt_output_and_oracle_retained_in_report": False,
         "authority": False, "canonical_explicit_user_retention": False}
@@ -1772,7 +1777,8 @@ class ResidentDevelopmentalCognitionOwner:
                     "conditions": [asdict(value) for value in observation_values],
                     "summary": summary, "validity": "valid_controlled_observation",
                     "contamination_reasons": [], "objective_scores": score_values,
-                    "objective_evaluation": evaluation}
+                    "objective_evaluation": evaluation,
+                    "contamination_assessment": objective_task_contamination_assessment(protocol)}
                 run_id = self.experiments.persist_run(run_payload)
                 run = self.experiments.load_run(run_id)
             except (DevelopmentalHistoryInterventionError, TypeError, ValueError) as exc:
@@ -3260,6 +3266,8 @@ class ResidentDevelopmentalCognitionOwner:
                     "conditions":[asdict(x) for x in observations], "summary":summary,
                     "validity":"valid_controlled_observation", "contamination_reasons":[]}
                 if objective_plan is not None:
+                    run_payload["contamination_assessment"] = (
+                        objective_task_contamination_assessment(protocol))
                     objective_scores = [self._pending_objective_scores.pop(item.observation_id)
                         for item in observations]
                     run_payload["objective_scores"] = objective_scores

@@ -338,6 +338,13 @@ def test_same_model_history_intervention_uses_preregistered_objective_oracle(
     second = cognition.run_tick(snapshot=snapshot(), tick_id="objective-history-comparison")
     assert second.changed_cognition_measurement_id is not None
     run = cognition.experiments.load_run(second.changed_cognition_measurement_id)
+    contamination = run["contamination_assessment"]
+    assert contamination["status"] == "not_assessed"
+    assert contamination["objective_task_digest"] == task.public_descriptor()["task_digest"]
+    assert contamination["current_projection_digest"] == run["protocol"]["current_projection_digest"]
+    assert contamination["history_examples_absent_from_current_context"] is None
+    assert contamination["oracle_answer_absent_from_current_context"] is None
+    assert contamination["authority"] is False
     evaluation = run["objective_evaluation"]
     projected = cognition.experiments.world_state_records(run_refs=((run["run_id"], run["run_digest"]),))
     assert len(projected) == 1 and projected[0]["observed_at"] is None
@@ -362,6 +369,14 @@ def test_same_model_history_intervention_uses_preregistered_objective_oracle(
         "history_present", "history_withheld", "history_restored"]
     reopened_store = DevelopmentalExperimentStore(tmp_path / "state")
     assert reopened_store.load_run(run["run_id"])["objective_evaluation"] == evaluation
+    corrupted = {key: value for key, value in run.items()
+        if key not in {"run_id", "run_digest"}}
+    corrupted["contamination_assessment"] = {**contamination,
+        "current_projection_digest": "sha256:" + "0" * 64}
+    corrupt_id = reopened_store.persist_run(corrupted)
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+            match="run_artifact_control_invalid"):
+        reopened_store.load_run(corrupt_id)
     if mode == "derive_from_history":
         assert [row["score"]["answer"] for row in run["objective_scores"]] == [23, 0, 23]
         requests = [request for request in fake.requests
@@ -580,6 +595,8 @@ def test_recovered_one_shot_score_is_returned_without_replaying_inference(
     assert inspected["status"] == "verified_objective_measurement"
     assert inspected["measurement_digest"] == outcome["measurement_digest"]
     assert inspected["recovery_posture"] == "completed_run_loaded_without_inference_replay"
+    assert inspected["contamination_assessment"]["status"] == "not_assessed"
+    assert inspected["contamination_assessment"]["objective_task_digest"] == task.public_descriptor()["task_digest"]
     assert inspected["actual_nonsynthetic_inference_verified"] is False
     assert after == before
     assert len(fake.requests) == calls_at_interruption

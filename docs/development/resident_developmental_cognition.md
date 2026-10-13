@@ -117,7 +117,11 @@ context; the staging command does not manufacture training examples or certify
 that scientific-contamination check. The answer oracle remains private to the
 durable plan and is not included in the model's task descriptor. This handoff
 makes the existing trial path callable; it does not demonstrate actual model
-acquisition or performance.
+acquisition or performance. New objective run records and the result inspector
+carry a task- and current-projection-bound `not_assessed` contamination posture;
+the intervention owner does not claim that historical examples or answers are
+absent from other context. Older runs without that field are reported as legacy
+with no recorded contamination assessment.
 
 After a completed request, daemon feedback includes a bounded score summary
 reloaded through the existing run verifier and the configured invocation-receipt
