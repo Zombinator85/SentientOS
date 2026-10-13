@@ -646,6 +646,7 @@ def _model_replacement_interpretation_projection(
                 and delta_valid(objective.get("model_b_history_accuracy_delta"))
                 and type(objective.get("restoration_correctness_stable")) in {bool, type(None)}
                 and objective.get("assessment") in {"single_preregistered_task_scored",
+                    "preregistered_probe_suite_scored",
                     "unscoreable_missing_output"}
                 and objective.get("scope") == "task_correctness_not_general_learning_or_weight_change"
                 and objective.get("model_behavior_posture") ==

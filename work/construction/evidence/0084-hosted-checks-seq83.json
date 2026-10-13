@@ -1,0 +1,44 @@
+{
+  "checks": [
+    {
+      "conclusion": "success",
+      "job_id": 115063179014,
+      "name": "Source validation (unprivileged)",
+      "run_id": 38325528841,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "job_id": 115063179134,
+      "name": "helm-k8s-test",
+      "run_id": 38325528841,
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "failed_step": "Run invariant tests",
+      "job_id": 115063178458,
+      "name": "invariants",
+      "run_id": 38325528844,
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "failed_step": "Run python -m scripts.lock install",
+      "job_id": 115063179230,
+      "name": "self-check",
+      "run_id": 38325528841,
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "failed_step": "Run make docs",
+      "job_id": 115063179173,
+      "name": "docs",
+      "run_id": 38325528841,
+      "status": "completed"
+    }
+  ],
+  "commit": "cb992dbef5a96712b5a256061701179dc6801f25",
+  "tree": "ffb8deecb991e23177f9918c60f17e1493f44bcc"
+}

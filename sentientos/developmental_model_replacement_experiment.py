@@ -1097,10 +1097,17 @@ class ModelReplacementArtifactStore:
             invalid_code="objective_plan_invalid")
         try:
             specification = value["task"]
-            task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
-                specification["probe_input"])
+            if specification.get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+                probes = specification["probe_inputs"]
+                if not isinstance(probes, list) or not probes:
+                    raise ValueError("objective_probe_suite_invalid")
+                task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                    probes[0], tuple(probes[1:]))
+            else:
+                task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                    specification["probe_input"])
             canonical = _objective_plan(task, protocol)
-        except (KeyError, TypeError) as exc:
+        except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalModelReplacementError("objective_plan_invalid") from exc
         if value != canonical or (expected is not None and value != expected):
             raise DevelopmentalModelReplacementError("objective_plan_binding_invalid")
@@ -1464,39 +1471,69 @@ class ObjectivePredictionTask:
     multiplier: int
     offset: int
     probe_input: int
+    additional_probe_inputs: tuple[int, ...] = ()
 
     def specification(self) -> dict[str, Any]:
         if any(type(value) is not int or abs(value) > 1_000_000
                for value in (self.multiplier, self.offset, self.probe_input)):
             raise DevelopmentalModelReplacementError("objective_task_parameters_invalid")
-        return {"schema_version": "sentientos.affine_prediction_task:v1",
+        if (not isinstance(self.additional_probe_inputs, tuple)
+                or len(self.additional_probe_inputs) > 15
+                or any(type(value) is not int or abs(value) > 1_000_000
+                    for value in self.additional_probe_inputs)
+                or self.probe_input in self.additional_probe_inputs
+                or len(set(self.additional_probe_inputs)) != len(self.additional_probe_inputs)):
+            raise DevelopmentalModelReplacementError("objective_task_parameters_invalid")
+        if not self.additional_probe_inputs:
+            return {"schema_version": "sentientos.affine_prediction_task:v1",
             "multiplier": self.multiplier, "offset": self.offset,
             "probe_input": self.probe_input,
+            "oracle_scope": "deterministic_fixture_not_physical_measurement"}
+        return {"schema_version": "sentientos.affine_prediction_task_suite:v2",
+            "multiplier": self.multiplier, "offset": self.offset,
+            "probe_inputs": [self.probe_input, *self.additional_probe_inputs],
             "oracle_scope": "deterministic_fixture_not_physical_measurement"}
 
     def public_descriptor(self) -> dict[str, Any]:
         task_digest = _digest(self.specification())
+        if self.additional_probe_inputs:
+            inputs = [self.probe_input, *self.additional_probe_inputs]
+            return {"task_digest": task_digest,
+                "question": f"Predict the outputs for inputs {inputs} from the historical examples.",
+                "answer_format": 'Exactly one JSON object: {"answers": [<integer>, ...]}',
+                "probe_inputs": inputs, "probe_count": len(inputs)}
         return {"task_digest": task_digest,
             "question": f"Predict the output for input {self.probe_input} from the historical examples.",
             "answer_format": 'Exactly one JSON object: {"answer": <integer>}'}
 
 
 def _objective_plan(task: ObjectivePredictionTask, protocol: ModelReplacementProtocol) -> dict[str, Any]:
+    suite = task.specification().get("schema_version") == "sentientos.affine_prediction_task_suite:v2"
     semantic = {"schema_version": "sentientos.objective_task_plan:v1",
         "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
         "causal_context_digest": protocol.causal_context_digest,
         "task": task.specification(), "task_descriptor": task.public_descriptor(),
         "condition_order": list(CONDITION_ORDER),
-        "rubric": "exact_integer_answer_v1", "authority": False}
+        "rubric": "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1",
+        "authority": False}
     return {**semantic, "plan_digest": _digest(semantic)}
 
 
 def _objective_score(plan: Mapping[str, Any], output: object, output_digest: object) -> dict[str, Any]:
     task = plan["task"]
-    expected = task["multiplier"] * task["probe_input"] + task["offset"]
+    is_suite = task.get("schema_version") == "sentientos.affine_prediction_task_suite:v2"
+    if is_suite:
+        probes = task.get("probe_inputs")
+        if (not isinstance(probes, list) or not 2 <= len(probes) <= 16
+                or any(type(value) is not int or abs(value) > 1_000_000 for value in probes)
+                or len(set(probes)) != len(probes)):
+            raise DevelopmentalModelReplacementError("objective_task_plan_invalid")
+        expected = [task["multiplier"] * probe + task["offset"] for probe in probes]
+    else:
+        expected = task["multiplier"] * task["probe_input"] + task["offset"]
     status, answer, correct = "output_unavailable", None, None
     if output is not None:
-        if not isinstance(output, str) or len(output.encode("utf-8")) > 256:
+        if not isinstance(output, str) or len(output.encode("utf-8")) > (1024 if is_suite else 256):
             raise DevelopmentalModelReplacementError("objective_output_size_or_type_invalid")
         digest = _digest({"output": output})
         if output_digest not in {digest, digest[7:]}:
@@ -1510,10 +1547,17 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
             return result
         try:
             parsed = json.loads(output, object_pairs_hook=unique_object)
-            if not isinstance(parsed, dict) or set(parsed) != {"answer"} or type(parsed["answer"]) is not int:
+            expected_key = "answers" if is_suite else "answer"
+            if not isinstance(parsed, dict) or set(parsed) != {expected_key}:
                 raise ValueError("answer_shape_invalid")
-            answer = parsed["answer"]
-            if output != json.dumps({"answer": answer}, sort_keys=True, separators=(",", ":")):
+            answer = parsed[expected_key]
+            if is_suite:
+                if (not isinstance(answer, list) or len(answer) != len(expected)
+                        or any(type(item) is not int for item in answer)):
+                    raise ValueError("answer_shape_invalid")
+            elif type(answer) is not int:
+                raise ValueError("answer_shape_invalid")
+            if output != json.dumps({expected_key: answer}, sort_keys=True, separators=(",", ":")):
                 raise ValueError("answer_encoding_not_canonical")
             correct = answer == expected
             status = "correct" if correct else "incorrect"
@@ -1523,7 +1567,8 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         "task_digest": plan["task_descriptor"]["task_digest"],
         "output_text": output, "output_digest": output_digest,
         "status": status, "answer": answer, "correct": correct,
-        "evaluator": "deterministic_exact_integer_oracle_v1"}
+        "evaluator": ("deterministic_exact_integer_suite_oracle_v2" if is_suite
+            else "deterministic_exact_integer_oracle_v1")}
     return {**semantic, "score_digest": _digest(semantic)}
 
 
@@ -1536,7 +1581,11 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
         "model_a_history_accuracy_delta": int(correctness[0]) - int(correctness[1]) if complete else None,
         "model_b_history_accuracy_delta": int(correctness[2]) - int(correctness[3]) if complete else None,
         "restoration_correctness_stable": correctness[0] == correctness[4] if complete else None,
-        "assessment": "single_preregistered_task_scored" if complete else "unscoreable_missing_output",
+        "assessment": ("preregistered_probe_suite_scored"
+            if complete and plan["task"].get("schema_version") ==
+                "sentientos.affine_prediction_task_suite:v2"
+            else "single_preregistered_task_scored" if complete
+            else "unscoreable_missing_output"),
         "scope": "task_correctness_not_general_learning_or_weight_change",
         "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation"}
 

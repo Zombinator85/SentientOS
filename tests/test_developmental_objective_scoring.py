@@ -51,16 +51,22 @@ class TaskEndpoint(FakeEndpoint):
         assert 'multiplier' not in json.dumps(prompt['current_evidence'])
         assert 'objective_task' not in prompt['current_evidence']
         assert prompt['objective_task'] == plan['task_descriptor']
-        answer = 0
+        descriptor = prompt['objective_task']
+        suite = descriptor.get('probe_count', 1) > 1
+        probes = descriptor['probe_inputs'] if 'probe_inputs' in descriptor else [
+            int(descriptor['question'].split('input ')[1].split(' ')[0].rstrip('.'))]
+        answers = [0 for _ in probes]
         if history:
             a, b = history
             multiplier = (b['output'] - a['output']) // (b['input'] - a['input'])
             offset = a['output'] - multiplier * a['input']
-            answer = multiplier * 7 + offset
-        if self.mode == 'ignore': answer = 0
-        if self.mode == 'degrade': answer = 0 if history else 23
-        if self.mode == 'unstable' and len(self.calls) == 3: answer = 0
-        output = json.dumps({'answer': answer}, sort_keys=True, separators=(',', ':'))
+            answers = [multiplier * probe + offset for probe in probes]
+        if self.mode == 'ignore': answers = [0 for _ in probes]
+        if self.mode == 'degrade': answers = ([0 for _ in probes] if history
+            else [23] if not suite else [0 for _ in probes])
+        if self.mode == 'unstable' and len(self.calls) == 3: answers = [0 for _ in probes]
+        response = {'answers': answers} if suite else {'answer': answers[0]}
+        output = json.dumps(response, sort_keys=True, separators=(',', ':'))
         if self.mode == 'malformed': output = '{"answer":23,"answer":0}'
         receipt.update(output_text=output, output_digest=digest({'output': output}))
         if self.mode == 'unavailable': receipt.pop('output_text')
@@ -69,8 +75,8 @@ class TaskEndpoint(FakeEndpoint):
         return receipt
 
 
-def experiment(root, mode='derive', *, model_b_mode=None):
-    task = ObjectivePredictionTask(3, 2, 7)
+def experiment(root, mode='derive', *, model_b_mode=None, task=None):
+    task = task or ObjectivePredictionTask(3, 2, 7)
     a = TaskEndpoint('a', root, mode=mode)
     b = TaskEndpoint('b', root, mode=mode if model_b_mode is None else model_b_mode)
     return DevelopmentalModelReplacementExperiment(context=task_context(task),
@@ -287,3 +293,52 @@ def test_model_specific_objective_outcome_survives_later_cognition(tmp_path):
     retrieval = next(request for request in invoker.requests
         if request.purpose == 'resident_developmental_retrieval_cognition')
     assert first.written_record_id in retrieval.upstream_evidence['record_ids']
+
+
+def test_preregistered_probe_suite_scores_transfer_and_recovers_without_replay(tmp_path):
+    task = ObjectivePredictionTask(3, 2, 7, (8, 9, 10))
+    owner, a, b = experiment(tmp_path, 'derive', model_b_mode='ignore', task=task)
+    run = owner.run()
+    assert run['objective_evaluation']['assessment'] == 'preregistered_probe_suite_scored'
+    assert run['objective_evaluation']['model_a_history_accuracy_delta'] == 1
+    assert run['objective_evaluation']['model_b_history_accuracy_delta'] == 0
+    assert len(a.calls) == 3 and len(b.calls) == 2
+    plan = owner.store.verify_objective_plan(owner.protocol)
+    assert plan['task']['probe_inputs'] == [7, 8, 9, 10]
+    a_history = run['observations'][0]['objective_task_score']
+    a_withheld = run['observations'][1]['objective_task_score']
+    b_history = run['observations'][2]['objective_task_score']
+    assert a_history['answer'] == [23, 26, 29, 32] and a_history['correct'] is True
+    assert a_withheld['correct'] is False and b_history['correct'] is False
+    assert a_history['evaluator'] == 'deterministic_exact_integer_suite_oracle_v2'
+    recovered, a2, b2 = experiment(tmp_path, 'derive', model_b_mode='ignore', task=task)
+    assert recovered.run() == run
+    assert a2.calls == b2.calls == []
+    from sentientos.world_state_board import WorldStateBoardBuilder
+    from tests.test_resident_developmental_cognition import owner as developmental_owner
+    snapshot = WorldStateBoardBuilder().build(owner.store.world_state_records(
+        run_refs=((run['run_id'], run['run_digest']),)))
+    cognition_root = tmp_path / 'cognition'
+    cognition, _ = developmental_owner(cognition_root,
+        allowed_source_kinds=('embodiment',), max_selected_facts=1)
+    first = cognition.run_tick(snapshot=snapshot, tick_id='tick-suite-1')
+    assert first.status == 'completed' and first.written_record_id
+    persisted = cognition.writeback.store.get(first.written_record_id)
+    packet = persisted.candidate['selected_facts'][0]['payload']
+    assert packet['objective_evaluation']['assessment'] == 'preregistered_probe_suite_scored'
+    assert packet['objective_evaluation']['model_a_history_accuracy_delta'] == 1
+    assert packet['objective_evaluation']['model_b_history_accuracy_delta'] == 0
+    assert len(packet['objective_evaluation']['condition_score_digests']) == 5
+    later_owner, invoker = developmental_owner(cognition_root,
+        allowed_source_kinds=('embodiment',), max_selected_facts=1)
+    later = later_owner.run_tick(snapshot=snapshot, tick_id='tick-suite-2')
+    assert first.written_record_id in later.prior_record_ids
+    retrieval = next(request for request in invoker.requests
+        if request.purpose == 'resident_developmental_retrieval_cognition')
+    assert first.written_record_id in retrieval.upstream_evidence['record_ids']
+
+
+@pytest.mark.parametrize('additional', [tuple(range(7, 23)), (7, 7), (7.5,)])
+def test_probe_suite_bounds_and_identity_are_validated(additional):
+    with pytest.raises(DevelopmentalModelReplacementError, match='objective_task_parameters_invalid'):
+        ObjectivePredictionTask(3, 2, 7, additional).specification()

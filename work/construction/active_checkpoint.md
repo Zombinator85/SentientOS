@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote baseline `e6ede1f203b2f4dfdd39d6c503eb17d445093117`, tree `e58f037e6aa856ce580b30e4c98547cf76c36c54`. Sequence 83 checks the existing model-replacement objective path with different A/B outcomes and verifies condition-to-model/history attribution in durable developmental history and later-tick cognition. Focused fixture tests pass; real-model and production behavior remain unverified.
+Last independently verified remote baseline `cb992dbef5a96712b5a256061701179dc6801f25`, tree `ffb8deecb991e23177f9918c60f17e1493f44bcc`. Sequence 84 adds a bounded, immutable multi-probe objective task to the existing model-replacement scorer; historical single-probe task identities remain unchanged. Four held-out deterministic fixture probes were scored and traced through World-State, developmental history, and later-tick cognition. Fixture construction tested; production unverified.
 
-Latest segment: work/construction/segments/0083-model-specific-objective-later-cognition.md
-SHA-256: 396c0f1a8ac9852a5ca1979398977171a00b7084c975bb2fc815a40155eea958
-Sequence: 83
+Latest segment: work/construction/segments/0084-objective-probe-suite-and-loaded-code-boundary.md
+SHA-256: b71fca977678e4c26229bb32b8a989adb844846f4afb44b8be317c05ded65403
+Sequence: 84
 
-Actual-model readiness remains externally blocked: tracked model artifacts are Git LFS pointers, no explicit runtime configuration/installation is selected, and the existing exact commissioning receipt and non-synthetic approval are absent. Do not load or invoke a model.
+Loaded-code identity remains `not_independently_attested`: the current launcher verifies source bundle and process handoff but no composed issuer independently observes loaded Python modules. Existing local model paths remain LFS pointers; no commissioned artifact, serving protocol, or exact operator approval is available. Do not load/invoke a model. Seq83 hosted Source Validation and Helm smoke passed; invariants, self-check, and docs failed.
 
-Next: inspect whether the objective trial can support repeatable multi-example or held-out transfer scoring using its existing protocol and recovery owners. Preserve task preregistration, endpoint attribution, interruption no-replay, and uncertainty; do not infer real-model learning from fixtures.
+Next: inspect only concrete adjacent behavioral gaps in existing experimental/recovery owners; maintain the explicit local-model prerequisite packet and defer real-model trial until actual artifact custody and exact existing approvals are present.
