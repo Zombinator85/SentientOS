@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "source_commit": "e7a004e010d66f54149cbcc6a992157f00c9c94e",
+  "source_tree": "ec07c2688db3a06fc17a4d2a715655440c9d1fc1",
+  "parent_commit": "3aa63f206887a6cf2f60b984303599937b7983c9",
+  "parent_tree": "959f51fd31a1ee4066cf206082bb45c78339642e",
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": {
+      "git_blob": "2e5884cb87a789190bf6bb4c0fbaa0cf3aa1c27d",
+      "sha256": "79a2a038e8730a77a3333e1a63004d72d53404b98a4a91a4f5a1767ac25da986"
+    },
+    "sentientos/resident_cognitive_model_serving.py": {
+      "git_blob": "1f589b185ed3ae3ef87aaf37e0d38a664602f7a0",
+      "sha256": "4537e53262d8b8ca0f7ef32c099f72d948f4b8cc423011c36b0c22ce0abe1ac4"
+    },
+    "scripts/inspect_resident_objective_result.py": {
+      "git_blob": "6b07e98b2f68a96e284f508132e808ee12ad9e34",
+      "sha256": "aa65fa015fc477f425e2d411598a1c0f0da0903556cfdb0f70680e35716694f1"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "git_blob": "9e30c65a8cb9145f68bf10c244d446975717d0ec",
+      "sha256": "50cb4c11343aa24e6e4125c4b42e22eb164691689b1da222f10cc22733bf29fe"
+    },
+    "tests/test_resident_cognitive_model_serving.py": {
+      "git_blob": "6e094434b41a75af9232877960077f9b79a6b9c2",
+      "sha256": "0858d29c2528e3b3edbe05185d8f69ed80006bd1cb179a983a1d7fc253d7f89b"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "git_blob": "66f4fb5da01b6fc8d27108ecbef8d687404d4b80",
+      "sha256": "6168e4d64e2bf3995560ff8a1fad3bf818ddb8d011d86f34b21d32f9f3522df0"
+    }
+  },
+  "validation": {
+    "focused_tests": {
+      "passed": 117,
+      "failed": 0,
+      "skipped": 0,
+      "suites": [
+        "resident developmental cognition",
+        "developmental history intervention experiment",
+        "developmental objective scoring",
+        "resident cognitive model serving"
+      ]
+    },
+    "py_compile": "passed for changed Python files and tests",
+    "cli_help": "passed for scripts/inspect_resident_objective_result.py",
+    "read_only_inspection": "fixture path set and file bytes unchanged before/after",
+    "whitespace_check": "passed",
+    "remote_branch_cas": "succeeded with expected parent 3aa63f206887a6cf2f60b984303599937b7983c9",
+    "remote_branch_readback": "e7a004e010d66f54149cbcc6a992157f00c9c94e",
+    "hosted_workflow_runs": [],
+    "combined_status_checks": [],
+    "actual_model_invoked": false,
+    "production_verified": false
+  },
+  "boundaries": {
+    "model_loaded": false,
+    "inference_replayed": false,
+    "custody_repair": false,
+    "new_authority": false,
+    "production_activation": false
+  }
+}

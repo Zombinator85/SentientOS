@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Last independently verified implementation commit `ee3a4563063d34edb890cd200b40719df0e8f4f5`, tree `acd5ddea19f94b04328de0be588ed2ff6b190baf`. Sequence 109 adds request-bound, score-bound objective outcome retrieval and restart summary through existing daemon feedback; the recovered owner method is singular and verifies the recovered run digest.
+Last independently verified implementation commit `e7a004e010d66f54149cbcc6a992157f00c9c94e`, tree `ec07c2688db3a06fc17a4d2a715655440c9d1fc1`. Sequence 110 adds a bounded, read-only operator result command for exact staged objective request identities and shares serving receipt verification through authenticated read-only installation custody.
 
-Latest segment: `work/construction/segments/0109-recover-and-surface-objective-outcomes.md`
-SHA-256: `143814898d0ca5bcaa2fc49d1fff8b59ae23374f8e0b605acc712fe057afa177`
-Evidence: `work/construction/evidence/0109-recover-and-surface-objective-outcomes.json`
-Evidence SHA-256: `1cf9f89ea45b6bbc5a54b8f0d7af18413921b8a58f444b389233b11ccf7d5aaa`
-Sequence: 109
+Latest segment: `work/construction/segments/0110-read-only-objective-result-inspection.md`
+SHA-256: `7dd368c758fc151e93a38899dd7de33dffa5efb682dd489f50ca02801139d049`
+Evidence: `work/construction/evidence/0110-read-only-objective-result-inspection.json`
+Evidence SHA-256: `54a5dde75e5895d114e7693cda03cd01110324ce2dc8cce62781ddfe5ee2489e`
+Sequence: 110
 
-Focused acceptance: 111 passed; 0 failed; 0 skipped. Changed Python compilation passed. No actual model or production behavior was exercised. Remote branch ref and changed source blobs were independently verified; no hosted workflow runs/status checks were returned for the new commit.
+Focused acceptance: 117 passed; 0 failed; 0 skipped. Changed Python compilation, CLI help, and whitespace checks passed. A byte-for-byte fixture check confirmed the result inspector did not mutate custody. Fixture execution remains synthetic/unbound; no model or production behavior was verified. Remote expected-HEAD publication and changed-source readback succeeded; hosted checks were absent.
 
-Next dependency: create a durable operator read-only result retrieval path that reuses the configured receipt/run verifiers after transient daemon feedback is gone, without creating a parallel scorer or recovery owner. Then complete the exact local-host handoff. Actual model payload/runtime/admission and the external Windows/CUDA host remain unobserved.
+Next dependency: demonstrate cold-restart result inspection after canonical recovery of a fully checkpointed interrupted score without triggering inference, then resolve the truthful Windows/WSL staging handoff only through supported custody owners. The repository model artifact in this workspace remains an LFS pointer; external Windows/CUDA state remains unobserved.
