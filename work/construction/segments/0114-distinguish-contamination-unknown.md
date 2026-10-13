@@ -1,0 +1,10 @@
+# 0114 — distinguish unreviewed contamination from no findings
+
+- Continued from remotely verified checkpoint `918cee38ead78933327c54132b9637e2df587f00`; source commit `9edc22313e6f111f3f82773f5f1479fba989fc0f`, tree `674cfdce1ccc9aab2c50b352ea978c6dc0bf6200`.
+- New task-specific objective runs now store `contamination_reasons: null` together with their protocol-bound `not_assessed` contamination record. The store rejects a null contamination status without the corresponding assessment, and rejects assessments that disagree with the exact objective task or current World-State projection. Older records with an empty list remain compatible and the summary marks their assessment as `legacy_not_recorded`.
+- The distinction prevents an empty list from reading as a clean contamination review; no automated semantic leakage detector or operator-cleanliness certification is claimed.
+- Focused resident cognition, intervention, and objective scoring: **113 passed**, 0 failed, 0 skipped. Changed Python compiled. No actual model or production inference was run.
+- Source blobs: `sentientos/developmental_history_intervention_experiment.py` `8d175afa415be18b23aa662d77ac3501158b4106` / SHA-256 `155277bbb0336e31c1d79c9dcb4c19ced6b1d266eb07622fc07bf4be52ea23a8`; `sentientos/resident_developmental_cognition.py` `8a580a872ee9b19f5ba1396a06c5a55a97611e12` / `6d49e03b6ab53cf79aef99ed2ee9bef94c6d4efba93bdc0761d575f7be6a63b8`; `tests/test_resident_developmental_cognition.py` `8d92b1a40510a47da2dd18ceb2baa692a483151e` / `15ed68c2fb1e089aa0b0245c4570f3ca56e7845aac7856f75e07703322a40148`.
+- Expected-HEAD CAS succeeded from `918cee38ead78933327c54132b9637e2df587f00`; independent branch/file readback pending checkpoint. Hosted checks not yet queried for this commit. Construction remains unverified for production.
+
+Next: verify the published operator command chain and platform blockers against the actual source, then assess whether an authenticated Windows/WSL staging path already exists. If not, leave staging explicitly POSIX-only rather than adding a parallel authority or custody path. No genuine model/runtime/admission evidence is available in this environment.
