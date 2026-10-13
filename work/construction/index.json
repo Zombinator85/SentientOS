@@ -1430,8 +1430,8 @@
       "source_tree": "b1ec482c9da738f2ae4cc9b46f1c20b2932b9cdb"
     },
     {
-      "bytes": null,
-      "evidence_bytes": null,
+      "bytes": 1958,
+      "evidence_bytes": 3076,
       "evidence_path": "work/construction/evidence/0150-objective-receipt-cost-posture.json",
       "evidence_sha256": "202f162799b05ab22beaa35922d96a2075fec86b89dfdd6e3ab6d6bfa4ec5c17",
       "path": "work/construction/segments/0150-objective-receipt-cost-posture.md",
