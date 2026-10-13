@@ -6,7 +6,7 @@ import os
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence, cast
 
 from .local_model_authority import digest_payload
 from .canonical_memory import sentientos_memory_dir
@@ -735,10 +735,14 @@ def summarize_objective_task(plan: Mapping[str, Any], scores: Sequence[Mapping[s
         counts = [row["score"].get("correct_count")
             if isinstance(row.get("score"), Mapping) else None for row in scores]
         count_complete = len(counts) == 3 and all(type(value) is int for value in counts)
+        history_delta = (cast(int, counts[0]) - cast(int, counts[1])
+            if count_complete else None)
+        restoration_delta = (cast(int, counts[0]) - cast(int, counts[2])
+            if count_complete else None)
         evaluation.update({"probe_count": len(plan["task"]["probe_inputs"]),
             "condition_correct_counts": counts,
-            "history_correct_probe_delta": counts[0] - counts[1] if count_complete else None,
-            "restoration_correct_probe_delta": counts[0] - counts[2] if count_complete else None,
+            "history_correct_probe_delta": history_delta,
+            "restoration_correct_probe_delta": restoration_delta,
             "assessment": ("preregistered_probe_suite_scored" if complete
                 else "unscoreable_missing_output")})
     return evaluation

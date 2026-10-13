@@ -302,7 +302,7 @@ class DevelopmentalModelReplacementError(ValueError):
 
 
 def _digest(value: Any) -> str:
-    return "sha256:" + digest_payload(value)
+    return "sha256:" + cast(str, digest_payload(value))
 
 
 def _is_sha256_digest(value: Any, *, allow_unprefixed: bool = False) -> bool:

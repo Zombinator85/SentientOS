@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Last independently verified remote HEAD `3b11f26bc7d32c213945ffaa55f0425718bc14bb`, tree `adcc1a10562e82135b9c2e6c0e7c5a95d1c4c917`. Sequence 102 changes newly written objective score artifacts to digest-only v2: valid bounded answers are retained and canonically reconstructed against the authenticated output digest; malformed output bytes are discarded after a negative classification; missing output remains unscoreable. Historical v1 records retain their old reader. Interrupted scoring and no-replay behavior remain covered.
+Last independently verified remote HEAD `da44db5c4f847f32855115a81a37e9d27435b69f`, tree `4a28e970d9b28c0355113fb923164109e7c43148`. Sequence 103 clears the focused mypy diagnostics in the digest-only objective-score and history-intervention owners. The exact modules now pass with imports skipped; the ordinary transitive repository check remains non-clean at 507 findings across 87 files.
 
-Latest segment: work/construction/segments/0102-digest-only-objective-scores.md
-SHA-256: 623856eb859910a2e0fa0f59f82c3a5d07cc7ce6cab32789d3fd670b3f789f31
-Sequence: 102
+Latest segment: work/construction/segments/0103-clean-targeted-experiment-types.md
+SHA-256: b1f6b32ab8d0526a2b6d7e0575612222c48c017157dd6ad138bf43156e19cfe8
+Sequence: 103
 
-Focused fixture suites: 123 passed; changed files compiled. Targeted mypy remains non-clean due three diagnostics at existing lines. No model/provider invocation or production verification occurred.
+Focused tests selected: 5 passed; both changed modules compile. No runtime behavior changed, no model/provider was invoked, and no production verification occurred.
 
-Next exact dependency: legitimate commissioned model artifacts, runtime receipts, and preregistered operator approval remain unavailable, so real-model transfer is still unmeasured. Continue to inspect adjacent experiment custody and consequence attribution paths without fabricating acquisition or performance.
+Next exact dependency: observe the final hosted status for sequence 102 without rerunning protected jobs, then inspect the next source-backed experimental attribution dependency. Real-model transfer still requires commissioned artifacts, receipts, and explicit approval.

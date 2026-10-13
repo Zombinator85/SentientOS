@@ -1,0 +1,28 @@
+{
+  "base_commit": "da44db5c4f847f32855115a81a37e9d27435b69f",
+  "base_tree": "4a28e970d9b28c0355113fb923164109e7c43148",
+  "behavior_changed": false,
+  "compilation": "passed",
+  "focused_test_selection": {
+    "passed": 5,
+    "selection": "objective score treatments, digest-only score, historical v1 compatibility, and probe-suite transfer recovery"
+  },
+  "mypy": {
+    "command": ".venv/bin/python -m mypy --follow-imports=skip sentientos/developmental_model_replacement_experiment.py sentientos/developmental_history_intervention_experiment.py",
+    "diagnostics": 0,
+    "files_checked": 2,
+    "status": "passed"
+  },
+  "ordinary_import_following_mypy": {
+    "diagnostics": 507,
+    "files": 87,
+    "status": "not_clean_repository_import_graph"
+  },
+  "production_verified": false,
+  "schema_version": 1,
+  "changed_file_sha256": {
+    "sentientos/developmental_model_replacement_experiment.py": "bef471c6e3fd32146e96918b796459c0aa0c25e08782d4a446854e86f6e10564",
+    "sentientos/developmental_history_intervention_experiment.py": "b5e6821a353baab320084cf4799a1c42002c0b3843301e45c427054cc11c5b51",
+    "work/construction/segments/0103-clean-targeted-experiment-types.md": "b1f6b32ab8d0526a2b6d7e0575612222c48c017157dd6ad138bf43156e19cfe8"
+  }
+}
