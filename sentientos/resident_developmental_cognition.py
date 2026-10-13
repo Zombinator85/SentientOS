@@ -1338,10 +1338,32 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
         raise ResidentDevelopmentalCognitionError("objective_outcome_condition_set_invalid")
     outputs: list[dict[str, Any]] = []
     actual_inference = True
+    requested_tokens = protocol.inference_budget.get("max_new_tokens")
+    requested_output_bytes = protocol.inference_budget.get("max_output_chars")
     for condition in CONDITION_ORDER:
         observation = condition_rows[condition]
         wrapper = score_by_condition[condition]
         receipt = verify_observation(observation)
+        observed_generation = observation.get("generation_config")
+        verified_generation = (receipt.get("generation_config")
+            if isinstance(receipt, Mapping) else None)
+        generation_binding_verified = (isinstance(observed_generation, Mapping)
+            and isinstance(verified_generation, Mapping)
+            and dict(observed_generation) == dict(verified_generation))
+        actual_parameters = (verified_generation.get("actual_generation_parameters")
+            if generation_binding_verified else None)
+        effective_tokens = (actual_parameters.get("max_new_tokens")
+            if isinstance(actual_parameters, Mapping) else None)
+        if type(effective_tokens) is int and type(requested_tokens) is int:
+            budget_posture = ("effective_ceiling_matches_preregistered_request"
+                if effective_tokens == requested_tokens else
+                "effective_ceiling_reduced" if effective_tokens < requested_tokens else
+                "effective_ceiling_exceeds_preregistered_request")
+        else:
+            budget_posture = "effective_ceiling_unverified"
+        if budget_posture == "effective_ceiling_exceeds_preregistered_request":
+            raise ResidentDevelopmentalCognitionError(
+                "objective_outcome_generation_ceiling_conflict")
         if receipt is None:
             actual_inference = False
             receipt_status = "historical_invocation_unbound"
@@ -1350,10 +1372,12 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             completed = (receipt.get("status") == "admitted_completed"
                 and receipt.get("fallback_occurred") is False
                 and isinstance(effects, Mapping)
-                and effects.get("local_model_inference") is True)
+                and effects.get("local_model_inference") is True
+                and generation_binding_verified
+                and budget_posture != "effective_ceiling_exceeds_preregistered_request")
             actual_inference = actual_inference and completed
             receipt_status = ("admitted_local_model_inference" if completed
-                else "not_completed_nonsynthetic_local_model_inference")
+                else "not_completed_or_generation_budget_unverified")
         score = wrapper.get("score")
         if not isinstance(score, Mapping):
             raise ResidentDevelopmentalCognitionError("objective_outcome_score_invalid")
@@ -1364,7 +1388,15 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             "score_digest": score.get("score_digest"),
             "score_status": score.get("status"), "correct": score.get("correct"),
             "correct_count": score.get("correct_count"),
-            "output_truncated": wrapper.get("output_truncated", False)})
+            "output_truncated": wrapper.get("output_truncated", False),
+            "generation_budget": {
+                "preregistered_max_new_tokens": requested_tokens,
+                "effective_max_new_tokens": effective_tokens,
+                "posture": budget_posture,
+                "preregistered_max_output_bytes": requested_output_bytes,
+                "output_truncated": wrapper.get("output_truncated", False),
+                "backend_completion_reason_verified": False,
+            }})
     return {"status": "verified_objective_measurement", "measurement_id": measurement_id,
         "measurement_digest": run.get("run_digest"), "request_id": request["request_id"],
         "request_digest": request["request_digest"], "protocol_id": protocol.protocol_id,

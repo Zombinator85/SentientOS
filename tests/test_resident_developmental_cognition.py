@@ -80,6 +80,7 @@ class FakeInvoker:
         self.cross_cognition_request_identity = False
         self.no_cognition_lesson = False
         self.unavailable_cognition_output = False
+        self.effective_generation_ceiling: int | None = None
         self.objective_mode = "derive_from_history"
         self.truncate_objective_output = False
         self.fail_objective_condition: str | None = None
@@ -228,7 +229,11 @@ class FakeInvoker:
             output_size_bytes=len(original_output.encode()), admission_decision_ref="local",
             purpose=request.purpose, latency_ms=1, output_truncated=truncated, fallback_occurred=False,
             effects={"local_model_inference":True}, observed_at="2026-01-01T00:00:00+00:00",
-            generation_config={"actual_generation_parameters":{"temperature":0}} if request.purpose == "resident_developmental_history_intervention_experiment" else {})
+            generation_config={"actual_generation_parameters":{
+                "temperature":0,
+                "max_new_tokens": (self.effective_generation_ceiling
+                    if self.effective_generation_ceiling is not None
+                    else request.budget.max_new_tokens)}} if request.purpose == "resident_developmental_history_intervention_experiment" else {})
 
 
 class SessionBoundFakeInvoker(FakeInvoker):
@@ -277,6 +282,7 @@ class SessionBoundFakeInvoker(FakeInvoker):
         return {"receipt_id": receipt.receipt_id, "receipt_digest": receipt.receipt_digest,
             "request": receipt.request, "status": receipt.status,
             "output_digest": receipt.output_digest, "output_truncated": receipt.output_truncated,
+            "generation_config": dict(receipt.generation_config),
             "observed_at": receipt.observed_at}
 
 
@@ -304,6 +310,21 @@ def test_session_bound_observation_recovery_reconciles_exact_invocation_receipt(
     assert projected[0]["payload"]["event_time_posture"] == "all_condition_invocation_receipt_times_verified"
     assert projected == first.experiments.world_state_records(run_refs=((
         loaded["run_id"], loaded["run_digest"]),))
+    from sentientos.developmental_history_intervention_experiment import _digest
+    substituted = {key: value for key, value in loaded.items()
+        if key not in {"run_id", "run_digest"}}
+    for condition in substituted["conditions"]:
+        semantic = {key: value for key, value in condition.items()
+            if key not in {"observation_id", "observation_digest"}}
+        semantic["generation_config"] = {**condition["generation_config"],
+            "actual_generation_parameters": {"temperature": 0, "max_new_tokens": 1}}
+        digest = _digest(semantic)
+        condition.update(semantic, observation_id="devcog-" + digest[7:31],
+            observation_digest=digest)
+    substituted_id = first.experiments.persist_run(substituted)
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+            match="run_artifact_generation_config_mismatch"):
+        first.experiments.load_run(substituted_id)
     with pytest.raises(DevelopmentalHistoryInterventionError,
                        match="run_artifact_invocation_verifier_unavailable"):
         DevelopmentalExperimentStore(tmp_path / "state").load_run(
@@ -426,7 +447,8 @@ def test_same_model_truncated_objective_output_recovers_as_unscoreable(tmp_path:
 
 
 def test_explicit_objective_request_runs_once_without_developmental_writeback(tmp_path: Path) -> None:
-    fake = FakeInvoker()
+    fake = SessionBoundFakeInvoker()
+    fake.effective_generation_ceiling = 128
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
     cognition, _ = owner(tmp_path, comparison=True, invoker=fake)
@@ -466,6 +488,14 @@ def test_explicit_objective_request_runs_once_without_developmental_writeback(tm
     assert report["status"] == "verified_objective_measurement"
     assert report["actual_nonsynthetic_inference_verified"] is False
     assert report["objective_evaluation"] == run["objective_evaluation"]
+    assert [row["generation_budget"]["preregistered_max_new_tokens"]
+        for row in report["conditions"]] == [512, 512, 512]
+    assert [row["generation_budget"]["effective_max_new_tokens"]
+        for row in report["conditions"]] == [128, 128, 128]
+    assert all(row["generation_budget"]["posture"] == "effective_ceiling_reduced"
+        for row in report["conditions"])
+    assert all(row["generation_budget"]["backend_completion_reason_verified"] is False
+        for row in report["conditions"])
     assert [row["condition_id"] for row in report["conditions"]] == [
         "history_present", "history_withheld", "history_restored"]
     assert all("output_text" not in row and "answer" not in row

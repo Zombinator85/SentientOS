@@ -131,7 +131,12 @@ does not include prompts, output text, or the oracle. After restart, a fully
 checkpointed interrupted trial can be reconstructed and summarized without
 repeating inference. Missing or unbound receipts leave the actual-inference
 flag false, and failure to render this optional summary does not change the
-already completed trial result.
+already completed trial result. For each condition it also compares the
+receipt-bound effective `max_new_tokens` ceiling with the preregistered request
+budget and reports output-byte truncation. A reduced ceiling is visible in the
+result; the backend does not provide a verified natural-stop reason, so this
+summary does not claim that the model used the entire budget or stopped before
+the token ceiling.
 
 An operator can retrieve the same result after the transient daemon feedback is
 gone, using the exact request ID and digest printed by staging:

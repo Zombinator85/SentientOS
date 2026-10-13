@@ -509,11 +509,16 @@ class DevelopmentalExperimentStore:
                     "run_artifact_invocation_verifier_unavailable")
             try:
                 verified_receipt = self._invocation_verifier(asdict(observation))
-                if isinstance(verified_receipt, Mapping):
-                    verified_invocations[observation.condition_id] = verified_receipt
             except Exception as exc:
                 raise DevelopmentalHistoryInterventionError(
                     "run_artifact_invocation_receipt_invalid") from exc
+            if isinstance(verified_receipt, Mapping):
+                verified_generation = verified_receipt.get("generation_config")
+                if (isinstance(verified_generation, Mapping)
+                        and dict(verified_generation) != dict(observation.generation_config)):
+                    raise DevelopmentalHistoryInterventionError(
+                        "run_artifact_generation_config_mismatch")
+                verified_invocations[observation.condition_id] = verified_receipt
         def canonical(item: object) -> str:
             return json.dumps(item, sort_keys=True, separators=(",", ":"),
                 ensure_ascii=False)
