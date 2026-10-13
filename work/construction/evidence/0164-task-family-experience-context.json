@@ -1,0 +1,48 @@
+{
+  "schema_version": "sentientos.construction.acceptance_evidence:v1",
+  "purpose": "Source-bound task-family examples reach later cognition",
+  "baseline": {
+    "parent_commit": "dc4497c803ed2dbb442c26b03da69eef804e1630",
+    "parent_tree": "5cc04364f6ecb6a1d3a763ae4d29eb734537e2c4"
+  },
+  "publication": {
+    "source_commit": "ca78478f7032ceb390753bccebdb3b20573586fa",
+    "source_tree": "22fcba424f8fc37ac7d4e540ec0df78a9147c34f",
+    "parent": "dc4497c803ed2dbb442c26b03da69eef804e1630"
+  },
+  "changed_blobs": {
+    "sentientos/resident_developmental_cognition.py": "67ae1c5c4f433265f57b8c36c2ae5ab462965a5b",
+    "tests/test_resident_developmental_cognition.py": "caed229931cfb233193ec36f174765048d1311f3"
+  },
+  "checks": [
+    {
+      "command": "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "result": "passed"
+    },
+    {
+      "command": "bounded trailing-whitespace scan of both changed Python files",
+      "result": "passed"
+    },
+    {
+      "command": "focused task-family source projection, second held-out episode after owner reconstruction, adverse transfer, and progression group",
+      "result": "4 passed"
+    }
+  ],
+  "episode": {
+    "source": "deterministically scored task-family benchmark observation",
+    "normal_world_state_and_writeback": true,
+    "official_staging_for_later_task": true,
+    "distinct_second_probe_set": true,
+    "history_present_correct": "3/3",
+    "history_withheld_correct": "0/3",
+    "history_restored_correct": "3/3",
+    "owner_reconstructed_in_process": true,
+    "fresh_process_second_inference": false,
+    "fixture_only": true
+  },
+  "claims": {
+    "actual_local_model_learning": false,
+    "production_acceptance": false,
+    "authority_expanded": false
+  }
+}
