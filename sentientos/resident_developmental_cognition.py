@@ -1909,6 +1909,11 @@ class ResidentDevelopmentalCognitionOwner:
             if row.get("experiment_recovery_posture") != (
                     "complete_scored_run_recovered_without_inference_replay"):
                 continue
+            # Ordinary configured comparisons have no one-shot request
+            # identity. They remain available through their existing explicit
+            # recovery interface but cannot enter this staged-request bridge.
+            if row.get("objective_request_id") is None and row.get("objective_request_digest") is None:
+                continue
             run_id, run_digest = (row.get("recovered_experiment_run_id"),
                 row.get("recovered_experiment_run_digest"))
             if not isinstance(run_id, str) or not isinstance(run_digest, str):

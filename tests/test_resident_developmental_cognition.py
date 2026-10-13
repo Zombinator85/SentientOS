@@ -1024,6 +1024,7 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     restarted, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
     refs = restarted.recovered_objective_experiment_run_refs()
     assert len(refs) == 1
+    assert restarted.inspect_completed_objective_experiment_run_refs() == ()
     run_id, run_digest = refs[0]
     run = restarted.experiments.load_run(run_id)
     assert run["run_digest"] == run_digest

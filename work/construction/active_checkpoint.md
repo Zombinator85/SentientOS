@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 123 continues from exact remote commit `ffe0e6c80146b078165776e8050aae801c9e717e`, tree `7758097d99d3c727e1588fa6043a107d451d51b5`. Completed, receipt-verified one-shot objective runs now flow from the resident cognition owner's fixed completion state through the existing World-State projector into a later snapshot, where configured cognition can consume the historical score evidence. Inspection is read-only; incomplete or non-real inference results do not qualify. Focused cognition/experiment suites passed 90 cases and daemon runtime closure passed 28 cases on local CPython 3.12 fixtures. No real model, GPU, Windows host, or production execution occurred.
+Sequence 124 continues from exact remote commit `38032b1f6dea0b68b7f47e0906e1552a429f1100`, tree `23b7384c142137e9da19d17dd77605f289951d34`. Recovered comparison runs without a staged one-shot request are now excluded from one-shot World-State projection, while partially bound requests still fail closed. Focused cognition/experiment tests passed 90 cases and daemon runtime closure passed 28 cases on local CPython 3.12 fixtures. Construction is unverified for production; no real model, GPU, or Windows/WSL execution occurred.
 
-Latest segment: `work/construction/segments/0123-project-verified-objective-runs-to-world-state.md`
-SHA-256: `228785c626cb91759f4a2ad1de030b5e3020471dafe4fe128d49815a174488a9`
-Evidence: `work/construction/evidence/0123-project-verified-objective-runs-to-world-state.json`
-Evidence SHA-256: `4bfa1a2f6ee440fd731872371da46ffe05b12d74c78ac73bf6114eabc87be705`
-Sequence: 123
+Latest segment: `work/construction/segments/0124-exclude-unrequested-recovered-runs.md`
+SHA-256: `e466658264edd93bdf47edcce858a22c3930782d7a49f8974886489d0486332b`
+Evidence: `work/construction/evidence/0124-exclude-unrequested-recovered-runs.json`
+Evidence SHA-256: `b5591e25b01e981bdc6421bbdaef17bd49f3119deafff464f008fc543a5a1976`
+Sequence: 124
 
-Construction remains unverified for production. Mypy still reports the existing 229 diagnostics in the large owner modules. The tested path does not bootstrap an empty history; the first source-backed experience with empty history remains the next implementation dependency.
+Mypy remains at 229 established owner diagnostics. Next: close the empty-history first-source experience path without manufacturing or promoting fixture experience.
