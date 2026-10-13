@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import inspect
 import json
 import os
+import platform
 import sys
 from pathlib import Path
 from typing import Any
@@ -22,10 +24,83 @@ from sentientos.resident_developmental_cognition import (
     load_config as load_cognition_config,
 )
 from sentientos.resident_developmental_writeback import DevelopmentalHistoryStore
+from sentientos.platform_fcntl import FLOCK_SUPPORTED
+
+
+def _custody_status(os_name: str, primitives: dict[str, bool]) -> str:
+    if os_name != "posix":
+        return "unsupported_by_current_experiment_custody"
+    if all(primitives.values()):
+        return "required_posix_primitives_available_filesystem_unverified"
+    return "required_posix_primitive_missing"
+
+
+def inspect_host_runtime() -> dict[str, Any]:
+    """Report runtime prerequisites without importing or starting a model.
+
+    The custody result describes Python's exposed POSIX primitives only. It
+    does not prove the selected filesystem, WSL GPU path, or daemon admission
+    will work. In particular, presence of ``llama_cpp`` is not CUDA evidence.
+    """
+    dir_fd: set[Any] = getattr(os, "supports_dir_fd", set())
+    try:
+        replace_signature = inspect.signature(os.replace)
+        replace_dir_fd = {"src_dir_fd", "dst_dir_fd"}.issubset(replace_signature.parameters)
+    except (TypeError, ValueError):
+        replace_dir_fd = False
+    required = {
+        "open_dir_fd": os.open in dir_fd,
+        "mkdir_dir_fd": os.mkdir in dir_fd,
+        "link_dir_fd": os.link in dir_fd,
+        # CPython exposes os.replace's dir_fd keywords even though it is not
+        # itself listed in supports_dir_fd (os.rename is listed separately).
+        "replace_dir_fd": replace_dir_fd,
+        "no_follow": hasattr(os, "O_NOFOLLOW"),
+        "directory_open": hasattr(os, "O_DIRECTORY"),
+        "file_and_directory_fsync": callable(getattr(os, "fsync", None)),
+        "cross_process_flock": FLOCK_SUPPORTED,
+    }
+    system = platform.system()
+    release = platform.release()
+    wsl_indicated = bool(system == "Linux" and (
+        "microsoft" in release.lower() or os.environ.get("WSL_INTEROP")
+        or os.environ.get("WSL_DISTRO_NAME")))
+    try:
+        backend_available = importlib.util.find_spec("llama_cpp") is not None
+    except (ImportError, ValueError):
+        backend_available = False
+    custody_status = _custody_status(os.name, required)
+    return {
+        "platform": {
+            "system": system,
+            "release": release[:160],
+            "machine": platform.machine()[:80],
+            "wsl_indicated": wsl_indicated,
+            "wsl_gpu_status": "not_observed",
+        },
+        "python": {
+            "implementation": sys.implementation.name,
+            "version": platform.python_version(),
+            "executable": sys.executable,
+            "project_requires_python": ">=3.8",
+        },
+        "local_backend": {
+            "engine": "llama_cpp",
+            "python_package_available": backend_available,
+            "cuda_or_gpu_offload_status": "not_observed",
+        },
+        "experiment_custody": {
+            "status": custody_status,
+            "posix_primitives": required,
+            "filesystem_crash_durability": "not_observed",
+            "serving_and_inference_admission": "not_observed",
+        },
+    }
 
 
 def inspect_readiness(config_path: Path, model_path: Path,
                       allowed_root: Path) -> dict[str, Any]:
+    host_runtime = inspect_host_runtime()
     findings: dict[str, Any] = {
         "schema_version": "sentientos.resident_objective_experiment_readiness:v1",
         "readiness_scope": "read_only_preflight_not_execution_readiness",
@@ -40,6 +115,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
             "authority_granted": False,
         },
         "findings": {},
+        "host_runtime": host_runtime,
         "unobserved_runtime_gates": [
             "daemon_world_state_and_tick_not_observed",
             "resident_invoker_model_identity_not_observed",
@@ -79,8 +155,13 @@ def inspect_readiness(config_path: Path, model_path: Path,
         }
 
     findings["findings"]["request_custody_platform"] = {
-        "status": "supported" if os.name == "posix" else "unsupported",
-        "reason_code": None if os.name == "posix" else "resident_request_publisher_posix_only",
+        "status": ("required_primitives_available" if host_runtime["experiment_custody"]["status"]
+            == "required_posix_primitives_available_filesystem_unverified" else "unsupported"),
+        "reason_code": (None if host_runtime["experiment_custody"]["status"]
+            == "required_posix_primitives_available_filesystem_unverified" else
+            ("resident_request_publisher_posix_only" if os.name != "posix"
+                else "required_posix_custody_primitive_missing")),
+        "filesystem_durability": "not_observed",
     }
     try:
         artifact = inspect_artifact(model_path, allowed_root=allowed_root)
@@ -109,7 +190,7 @@ def inspect_readiness(config_path: Path, model_path: Path,
     config_ready = observed.get("resident_configuration", {}).get("status") == "enabled"
     history_ready = observed.get("developmental_history", {}).get("status") == "eligible_history_present"
     artifact_ready = observed.get("explicit_model_artifact", {}).get("status") == "verified_local_candidate"
-    platform_ready = observed["request_custody_platform"]["status"] == "supported"
+    platform_ready = observed["request_custody_platform"]["status"] == "required_primitives_available"
     if not config_ready or not history_ready or not platform_ready:
         status = "preflight_blocked"
     elif not artifact_ready:

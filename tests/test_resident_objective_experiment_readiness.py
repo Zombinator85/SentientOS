@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -92,7 +93,7 @@ def test_readiness_cli_uses_only_explicit_paths_and_never_authorizes(tmp_path: P
 
 
 def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
-        monkeypatch) -> None:
+        monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "runtime"
     root.mkdir()
     config = _config(tmp_path / "cognition.json", root)
@@ -118,3 +119,31 @@ def test_readiness_names_review_state_without_claiming_execution(tmp_path: Path,
     assert report["findings"]["developmental_history"]["verified_record_count"] == 1
     assert report["findings"]["explicit_model_artifact"]["identity_scope"] == \
         "operator_selected_file_not_resident_loaded_model"
+
+
+def test_host_runtime_report_is_observational_and_does_not_infer_gpu_or_admission() -> None:
+    report = readiness.inspect_host_runtime()
+
+    assert report["python"]["version"]
+    assert report["python"]["executable"]
+    assert report["local_backend"]["engine"] == "llama_cpp"
+    assert report["local_backend"]["cuda_or_gpu_offload_status"] == "not_observed"
+    assert report["platform"]["wsl_gpu_status"] == "not_observed"
+    assert report["experiment_custody"]["filesystem_crash_durability"] == "not_observed"
+    assert report["experiment_custody"]["serving_and_inference_admission"] == "not_observed"
+    if os.name == "posix":
+        assert report["experiment_custody"]["status"] in {
+            "required_posix_primitives_available_filesystem_unverified",
+            "required_posix_primitive_missing",
+        }
+
+
+def test_non_posix_runtime_is_not_mistaken_for_supported_experiment_custody() -> None:
+    primitives = {"open_dir_fd": True, "cross_process_flock": True}
+
+    assert readiness._custody_status("nt", primitives) == \
+        "unsupported_by_current_experiment_custody"
+    assert readiness._custody_status("posix", primitives) == \
+        "required_posix_primitives_available_filesystem_unverified"
+    assert readiness._custody_status("posix", {**primitives, "no_follow": False}) == \
+        "required_posix_primitive_missing"

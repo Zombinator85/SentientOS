@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Last independently verified implementation commit `ced99339a345181f1d357f32f84e160ef7e87f4c`, tree `7c85facbfeec967cfd1bb47d016ceac581349ae5`. Sequence 115 documents and checks the exact operator handoff; the actual local preflight returns a blocked result because local model artifacts are LFS pointers and eligible history is unavailable.
+Last independently verified source `b99f6175aba4fbf74be8b650a6818110890fb6b4`, tree `6a92eaf0637ac318a939e9ce6777a144781c0fb1`. Sequence 116 adds read-only host-runtime/custody diagnostics and documents the existing first-history path. Focused tests, targeted typing, compilation, CLI help, and whitespace checks passed; remote publication and hosted checks remain pending.
 
-Latest segment: `work/construction/segments/0115-exact-objective-operator-handoff.md`
-SHA-256: `2bbdd7aa3436b8a4125e9bf1ddd243551bf418dab0be63c4a8176d3790cef9d5`
-Evidence: `work/construction/evidence/0115-exact-objective-operator-handoff.json`
-Evidence SHA-256: `b7f0b1d92d9a897f0c069e4f17cbb86df038f704a416683565184acdbed641ef`
-Sequence: 115
+Latest segment: `work/construction/segments/0116-read-only-host-runtime-preflight.md`
+SHA-256: `df5ebc017f18c512ec071be2232134b7e68f47a6fd8b31a77a9181bf1a8e8f9e`
+Evidence: `work/construction/evidence/0116-read-only-host-runtime-preflight.json`
+Evidence SHA-256: `9517b24f34c14a43283cf56b72ebfd5867aa973f27f95a85956cdf7d598d201e`
+Sequence: 116
 
-CLI help passed for readiness, staging, and result inspection. Explicit read-only preflight was blocked by the 127-byte LFS pointer and empty eligible-history fixture. No daemon or model was activated. Earlier focused construction tests remain 113 passed; current changes are documentation and read-only inspection only.
+The cloud process reports Linux/CPython 3.12, no `llama_cpp`, and no WSL indication. Required POSIX APIs are visible, but this does not verify a specific filesystem's crash behavior. No local model or production execution occurred.
 
-Next dependency: external authenticated model payload/runtime, eligible history, and existing authorized serving/inference evidence on a supported host. External Windows/CUDA readiness remains unknown; no real-model transfer experiment has occurred.
+Next dependency: prove the ordinary first-history acquisition and successor-tick delivery with existing exact owner tests, then bind a genuine prior task/outcome source to the held-out transfer without answer leakage.

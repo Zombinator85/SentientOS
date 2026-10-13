@@ -176,6 +176,13 @@ python scripts/doctor_resident_objective_experiment.py \
 The doctor reads the configured developmental-history collection through its
 existing verifier and checks the selected artifact through
 `local_model_commissioning.inspect_artifact`; it never searches model roots.
+It also reports the current Python executable/version, operating-system and
+architecture identifiers, whether the `llama_cpp` package is discoverable, and
+whether the process exposes the POSIX descriptor, no-follow, fsync, and flock
+primitives used by existing custody owners. The WSL field is only a host-marker
+observation. GPU offload, filesystem crash durability, daemon identity, serving,
+and inference admission remain explicitly unobserved; a listed primitive does
+not prove that a particular mount implements the required durability.
 `ready_for_operator_review` means only that these preflight observations passed.
 The report always sets `trial_execution_ready` false because this separate
 process cannot observe the daemon's World-State tick, its actual loaded model
@@ -188,6 +195,30 @@ host. The existing `scripts/local_model_commissioning.py doctor` is a legacy
 discernment-calibration doctor, not an experiment readiness assertion; its
 calibration fields now remain false until a process-real load verifies the exact
 active identity.
+
+#### Acquiring the first retained record
+
+The staged history-intervention request is deliberately not a history-seeding
+operation. With no eligible prior record it terminates without scoring and does
+not write developmental history. The existing way to acquire a first record is
+an ordinary configured resident-cognition tick: after a real source owner has
+published a fact to the same tick's World-State, `ResidentDevelopmentalCognitionOwner`
+selects only unprocessed facts from configured `allowed_source_kinds`, obtains
+one bounded interpretation through the governed local invoker, and passes the
+candidate through the existing writeback admission and durable-history owner.
+The candidate and admission receipt are separate from the source event; neither
+turns the interpretation into current truth, policy, authority, or a measured
+task outcome. A later completed tick may retrieve the retained record.
+
+For an acquisition-and-transfer study, the World-State fact must already carry
+the actual earlier task or consequence and its independently observed outcome.
+The repository does not expose a generic command that can manufacture such an
+event; use its real source owner. If no suitable source fact is present or its
+kind is not configured, no initial record is produced. Do not stage the
+three-condition objective request to seed history or hand-edit the history
+store. The bounded history-present/withheld/restored experiment starts only
+after the first record and its source and writeback custody have been
+independently inspected.
 
 #### Exact operator handoff
 
