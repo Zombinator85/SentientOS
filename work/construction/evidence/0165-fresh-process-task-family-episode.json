@@ -1,0 +1,51 @@
+{
+  "schema_version": "sentientos.construction.acceptance_evidence:v1",
+  "purpose": "Fresh-process task-family episode composition",
+  "baseline": {
+    "parent_commit": "ab95b9fe7a2fa93d3fb8ef96811d8c18f60bbe1b",
+    "parent_tree": "64c0817a95f928805bd5de5286064b23b9f14113"
+  },
+  "publication": {
+    "source_commit": "08ba1cf4494cad863beaffd9a464ab4c4185e5e8",
+    "source_tree": "bd3e132c8fc619e82ce0d6e799299b6d247a41c8",
+    "parent": "ab95b9fe7a2fa93d3fb8ef96811d8c18f60bbe1b"
+  },
+  "changed_blobs": {
+    "tests/test_resident_developmental_cognition.py": "abbe7fe19849daa73994e786157bd854e90518cd"
+  },
+  "checks": [
+    {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gov-experiment-165 .venv/bin/python -m pytest -q tests/test_resident_developmental_cognition.py::test_admitted_family_example_supports_second_heldout_episode_after_restart tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only",
+      "result": "4 passed"
+    },
+    {
+      "command": ".venv/bin/python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "result": "passed"
+    },
+    {
+      "command": "UTF-8 decode, no-NUL, and trailing-whitespace scan of changed Python test file",
+      "result": "passed"
+    }
+  ],
+  "episode": {
+    "type": "deterministic task-family benchmark fixture",
+    "second_heldout_episode_in_fresh_interpreter": true,
+    "reused_parent_process_invoker": false,
+    "receipt_fixture_custody_max_bytes": 4194304,
+    "receipt_fixture_custody_sha256_bound": true,
+    "history_present_correct": "3/3",
+    "history_withheld_correct": "0/3",
+    "history_restored_correct": "3/3",
+    "substituted_score_binding_omitted": true,
+    "substituted_source_digest_omitted": true,
+    "adverse_examples_preserved": true,
+    "actual_local_model_behavior": false,
+    "fixture_receipt_verifier": true
+  },
+  "claims": {
+    "actual_local_model_learning": false,
+    "performance_improvement_established": false,
+    "production_acceptance": false,
+    "authority_expanded": false
+  }
+}
