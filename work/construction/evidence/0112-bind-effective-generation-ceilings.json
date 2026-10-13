@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "source_commit": "f3b8e80b1d54ef56fcfadba1fc86b848d9dfa748",
+  "source_tree": "564b197bd26d4c08df25b00f5604ff44fb04b7ec",
+  "parent_commit": "dc4bea0be713bf739bd1c8afd244e162a3404d79",
+  "parent_tree": "2f3479722e2e3de06c8a74ab5a48c1b15d456323",
+  "changed_files": {
+    "sentientos/developmental_history_intervention_experiment.py": {
+      "git_blob": "b494167004ed24bc9858b7306ca204a93538ee3f",
+      "sha256": "fa3cc51ffdb6a3481ae4e59ad675cad10ebf230a0fcef580a248612a1ff887ad"
+    },
+    "sentientos/resident_developmental_cognition.py": {
+      "git_blob": "bba23fa4ae3813ecdf8780d838f6f2eba1628a42",
+      "sha256": "e7c4c733f1acdf183989d2d8e48d9424369549cf7a21a985b86d7114b6d40c2b"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "git_blob": "c76c6d6151ea455dcf52b1f411bdf63f6eca6bb6",
+      "sha256": "ac4af51a9396fb7e0f72868a2284cc5dc648cffd78fbe97f44a0093c2d80c5ae"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "git_blob": "3d966a7af97e1097f8a03b278b34c9592bfdd99c",
+      "sha256": "31e03b20ba1839d3bdeeda16e3a8b236207c0d05bec16f217f9dbe63f43e8c64"
+    }
+  },
+  "validation": {
+    "focused_tests": {
+      "passed": 117,
+      "failed": 0,
+      "skipped": 0,
+      "suites": [
+        "resident developmental cognition",
+        "developmental history intervention experiment",
+        "developmental objective scoring",
+        "resident cognitive model serving"
+      ]
+    },
+    "py_compile": "passed for changed Python modules and tests",
+    "generation_ceiling_control": "synthetic receipt fixture reported 128 effective against 512 preregistered",
+    "substitution_control": "rehash-and-substitute generation ceiling rejected by verified receipt comparison",
+    "actual_nonsynthetic_inference": false,
+    "production_verified": false,
+    "expected_head_cas": {
+      "expected": "dc4bea0be713bf739bd1c8afd244e162a3404d79",
+      "published": "f3b8e80b1d54ef56fcfadba1fc86b848d9dfa748",
+      "succeeded": true
+    },
+    "hosted_checks": "not yet queried"
+  },
+  "boundaries": {
+    "backend_stop_reason_verified": false,
+    "new_authority": false,
+    "production_activation": false
+  }
+}
