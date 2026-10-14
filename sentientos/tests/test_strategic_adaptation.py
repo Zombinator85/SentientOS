@@ -89,6 +89,32 @@ def test_proposal_generation_is_deterministic_and_bounded(tmp_path: Path) -> Non
             assert abs(float(item.new) - float(item.old)) <= proposal.guardrails.max_weight_delta_per_proposal
 
 
+def test_repeated_block_proposal_groups_evidence_but_targets_only_blocked_goals(tmp_path: Path) -> None:
+    _seed_goal_graph(tmp_path)
+    _seed_pulse(tmp_path)
+    persist_goal_state(tmp_path, {
+        "integrity_core": GoalStateRecord(1, 0.2, "blocked", None, "failed",
+            ("glow/evidence/integrity.json",), "shared_failure|glow/evidence/integrity.json", 2),
+        "feature_delivery": GoalStateRecord(1, 0.1, "blocked", None, "failed",
+            ("glow/evidence/feature.json",), "shared_failure|glow/evidence/feature.json", 2),
+    })
+
+    proposal, _ = create_adjustment_proposal(tmp_path)
+
+    repeated = next(item for item in proposal.inputs_summary["top_block_reasons"]
+        if item["reason"] == "shared_failure")
+    assert repeated["count"] == 2
+    assert repeated["goal_ids"] == ["feature_delivery", "integrity_core"]
+    assert repeated["evidence_paths"] == [
+        "glow/evidence/feature.json", "glow/evidence/integrity.json"]
+    assert repeated["outcome_posture"] == "executor_recorded_not_independently_verified"
+    repeated_adjustment = next(item for item in proposal.adjustments
+        if item.reason == "repeated_block:shared_failure")
+    assert repeated_adjustment.goal_id == "feature_delivery"
+    assert repeated_adjustment.evidence_paths == (
+        "glow/evidence/feature.json", "glow/evidence/integrity.json")
+
+
 def test_approval_apply_writes_change_and_updates_goal_graph(tmp_path: Path) -> None:
     _seed_goal_graph(tmp_path)
     _seed_pulse(tmp_path)
