@@ -1,15 +1,13 @@
 # Active construction checkpoint
 
-Sequence 207 records exact identities from a retained successful run of the five-event canonical trajectory. It binds chronological source event IDs and digests to admitted developmental record, fact, and scoped writeback receipt identities; it also binds the frozen selected/omitted event manifests and protocol files.
+Sequence 208 corrects the sequence-207 evidence extraction error. The original evidence remains unchanged; its five `writeback_receipt_digest` values had copied the corresponding `record_digest`. The retained installation's read-only owner inventory verified eight complete record/receipt pairs and recovered all five actual receipt identities without generating a new run. See the append-only sequence-208 erratum.
 
-The run records score feedback as a new review-only developmental source and recovers it through a distinct post-restart resident retrieval invocation. Fixture run only; no independently verified applicability, physical effect, or model improvement is claimed.
+Latest source commit: 534aca931dcf80d19c0947feb07b7dcc4ad44bc1
+Latest source tree: 1fb7a8e07d2c271f36d3fd86e475896d989440e7
+Latest segment: work/construction/segments/0208-sequence-207-receipt-digest-erratum.md
+Evidence: work/construction/evidence/0208-sequence-207-receipt-digest-erratum.json
+Sequence: 208
 
-Latest source commit: 3c63ef443d7b1c8c6043abdef0d8dd9d07fae888
-Latest source tree: b53dab0c7457d5991943c947b5265583bd641f6b
-Latest segment: work/construction/segments/0207-exact-run-identities.md
-Evidence: work/construction/evidence/0207-exact-run-identities.json
-Sequence: 207
+Validation: focused receipt-evidence regression passed (1 test) in the isolated inherited checkout. No provider inference, physical effect, or model improvement is claimed.
 
-Validation: retained integrated node passed; affected suites 121 passed; compileall and diff check passed.
-
-Next: continue any remaining source-backed custody and maintainability work without changing authority boundaries.
+Next: continue the operator-executable, multi-situation Codex history-transfer pilot and retain scorer privacy.

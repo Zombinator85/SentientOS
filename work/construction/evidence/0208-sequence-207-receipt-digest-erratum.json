@@ -1,0 +1,163 @@
+{
+  "sequence": 208,
+  "title": "Sequence-207 receipt digest evidence erratum",
+  "status": "verified correction of extraction error",
+  "starting_head": "3145233854cb2d3ae9a46084e5e1c687c9f305ed",
+  "starting_tree": "97fcf4408e85715017551e5b4ac318ccfa2f3819",
+  "source_commit": "534aca931dcf80d19c0947feb07b7dcc4ad44bc1",
+  "source_tree": "1fb7a8e07d2c271f36d3fd86e475896d989440e7",
+  "source_paths": [
+    {
+      "path": "tests/test_resident_developmental_writeback.py",
+      "blob": "e9f4520d0fbcfb8fdd2bc02243f2c43a06d39827"
+    }
+  ],
+  "historical_evidence": {
+    "path": "work/construction/evidence/0207-exact-run-identities.json",
+    "git_blob": "ad2fb3d245241dbb527bd255d011e218d3bba79f",
+    "sha256": "6ed4acc68e5a5c72d2fcb2833932b6101145e62c76b5e5bed7e17c7a4891a86b",
+    "preserved_unchanged": true,
+    "affected_field": "fixture_run.chronological_events[*].writeback_receipt_digest",
+    "original_values_are_corresponding_record_digest": true
+  },
+  "root_cause": "Evidence extraction copied record.record_digest into the writeback_receipt_digest field. No serialization or durable receipt integrity defect was found.",
+  "verification": {
+    "retained_run_root": "/tmp/sentientos-seq207-run/test_admitted_embodied_consequ0/resident",
+    "new_run_generated": false,
+    "read_only_owner_inventory": "ResidentDevelopmentalWritebackController.inspect_completed_records()",
+    "verified_inventory_count": 8,
+    "affected_records_verified": 5,
+    "checks": [
+      "owner inventory revalidated record digest and receipt digest under devrec and devreceipt identity domains",
+      "stored receipt files matched owner inventory receipt IDs, digests, and semantic payload identities",
+      "receipt record links matched record IDs and digests",
+      "candidate IDs and digests matched record candidate identities",
+      "admission IDs and binding digests matched record admission bindings",
+      "source fact IDs and source IDs/digests matched original consequence events"
+    ],
+    "rows": [
+      {
+        "order": 1,
+        "role": "initial_adverse",
+        "event_id": "consequence:6f08831eb44fcb9f3923a426",
+        "record_id": "devrec-3fe2b830dae6c42174aa9c0a",
+        "record_digest": "sha256:3fe2b830dae6c42174aa9c0ee34355d1ff5b51084b9684a909c35a07c6e4d25",
+        "original_evidence_receipt_digest": "sha256:3fe2b830dae6c42174aa9c0ee34355d1ff5b51084b9684a909c35a07c6e4d25",
+        "record_file_sha256": "f82c5874d782946826a00faa4ca0a32532e0f0e7ed120f27cfda8fa1a94df18b",
+        "receipt_id": "devreceipt-b0e8cc931bd5c10660fffd72",
+        "receipt_digest": "sha256:b0e8cc931bd5c10660fffd728abb70f03ba426a1b59ef712931addab8746618e",
+        "receipt_file_sha256": "98f96e2065c9bc208fb36c17d0d18f45d1c837e25ee2c18f69b435d5e8177784",
+        "candidate_id": "devcand-117acf4e529fc421a1e17974",
+        "candidate_digest": "sha256:117acf4e529fc421a1e179741343eef867bb8ee6b0071e410525a7226b25b70a",
+        "admission_id": "resident-admission-devcand-117acf4e529fc421a1e17974-1",
+        "admission_binding_digest": "sha256:21a2a1d95a16a18d88eb383720705304bc4ce0f61b38e148de3087728aa5e58d",
+        "source_fact_id": "fact-f20c3e4de5b5f522",
+        "source_id": "consequence:6f08831eb44fcb9f3923a426",
+        "source_digest": "8d838a208dec6f43fec5dd27393647bd453601089984cc9fbf6f96ae32ad9bf0",
+        "source_payload_identity": "consequence:6f08831eb44fcb9f3923a426",
+        "source_payload_digest": "sha256:6f08831eb44fcb9f3923a4266947b06246173f2f8f9453c4c4c1ce43c861b2d3"
+      },
+      {
+        "order": 2,
+        "role": "corrective",
+        "event_id": "consequence:daafcd72c03debe8c036a75b",
+        "record_id": "devrec-9229c42653d9d5f3786ac967",
+        "record_digest": "sha256:9229c42653d9d5f3786ac9673dd714d4794e71d9f9fa758b6f25d1491a13b2a8",
+        "original_evidence_receipt_digest": "sha256:9229c42653d9d5f3786ac9673dd714d4794e71d9f9fa758b6f25d1491a13b2a8",
+        "record_file_sha256": "329badcaa36565f0299dbfdd970dd8903901907d2955b7dcf0c00b38177a5c3a",
+        "receipt_id": "devreceipt-fae8901e32d154172b19a4af",
+        "receipt_digest": "sha256:fae8901e32d154172b19a4afc31dfeb79ab478a012a85a594cf53568d261b9c4",
+        "receipt_file_sha256": "b3ae9046a35e32fb580042a892c850a3469ecfd60defdf3eb8f201a3dc50901a",
+        "candidate_id": "devcand-2e5c5ec829e4999e9130d99e",
+        "candidate_digest": "sha256:2e5c5ec829e4999e9130d99e914ae1106891d88741126651d56417f0c2cc1031",
+        "admission_id": "resident-admission-devcand-2e5c5ec829e4999e9130d99e-2",
+        "admission_binding_digest": "sha256:376a336770e9d5832dbf5d423131eefa4708beb5d571a477d5ad2b513df599cd",
+        "source_fact_id": "fact-2b7e5de013307b12",
+        "source_id": "consequence:daafcd72c03debe8c036a75b",
+        "source_digest": "bcb3f43eba153003a5ae4fa9a68320e735d9791c90f38697ce1d027eb0e2b105",
+        "source_payload_identity": "consequence:daafcd72c03debe8c036a75b",
+        "source_payload_digest": "sha256:daafcd72c03debe8c036a75b5df3d8c94ce99d6f7f3d4bda329309ec34133c54"
+      },
+      {
+        "order": 3,
+        "role": "newer_unrelated",
+        "event_id": "consequence:c3a642dc8139e6fb07754b6b",
+        "record_id": "devrec-f65de716a755082e16dcedd7",
+        "record_digest": "sha256:f65de716a755082e16dcedd71737873878063407d2e1554895ad0218f0803814",
+        "original_evidence_receipt_digest": "sha256:f65de716a755082e16dcedd71737873878063407d2e1554895ad0218f0803814",
+        "record_file_sha256": "290b583d96b89fcb0c38e3cd76bb98a5af671cca1f71576f93e686668d63ced0",
+        "receipt_id": "devreceipt-e8c266b374e2d4d8b27ba5f3",
+        "receipt_digest": "sha256:e8c266b374e2d4d8b27ba5f3563ddc38ac6f40f001cbc9a65306c604423d766e",
+        "receipt_file_sha256": "7b4bcb5db803438bc7d989fae19b66bd77c2eb915ac8f06a109f74b310ca0e60",
+        "candidate_id": "devcand-34a304b537c766353a2290be",
+        "candidate_digest": "sha256:34a304b537c766353a2290be5bf09c15a931799eb729b3a0250d049846255a93",
+        "admission_id": "resident-admission-devcand-34a304b537c766353a2290be-3",
+        "admission_binding_digest": "sha256:5c0b4fbffd33ccf586e92c886574f02ab18f6df1d4290955032a996f5f212a96",
+        "source_fact_id": "fact-6535bcedc1c5d4b3",
+        "source_id": "consequence:c3a642dc8139e6fb07754b6b",
+        "source_digest": "9d26a9129ad4a60d226637d11093a3ac142c4250af92ecd79d9a873137f2c708",
+        "source_payload_identity": "consequence:c3a642dc8139e6fb07754b6b",
+        "source_payload_digest": "sha256:c3a642dc8139e6fb07754b6b45bbc853ca5a3a14a7c9532b42bc2e79b52cae7a"
+      },
+      {
+        "order": 4,
+        "role": "unresolved_renderer_only",
+        "event_id": "consequence:fe3478a49a37c177c6119773",
+        "record_id": "devrec-712365609668f1d07ded2e0b",
+        "record_digest": "sha256:712365609668f1d07ded2e0bbcb0440b0f69c98a4288c0708bd681b5bf620b38",
+        "original_evidence_receipt_digest": "sha256:712365609668f1d07ded2e0bbcb0440b0f69c98a4288c0708bd681b5bf620b38",
+        "record_file_sha256": "533055170ebd38bd5c6f3fb3b209e7734baed177bb0760c44c82231bcf154c6b",
+        "receipt_id": "devreceipt-2da51de12f83f4b40d9ec68d",
+        "receipt_digest": "sha256:2da51de12f83f4b40d9ec68dd00ce524503476c82c636a241a7f00e9a5d66eca",
+        "receipt_file_sha256": "99c8b13d08c11ef1158a1ebca4528f29b770e222ba628a199960800f269694a1",
+        "candidate_id": "devcand-d2e57a9802e993e6bf4b3aab",
+        "candidate_digest": "sha256:d2e57a9802e993e6bf4b3aab5c5f0e4f7256699beb93c78d07bc7feca2885954",
+        "admission_id": "resident-admission-devcand-d2e57a9802e993e6bf4b3aab-4",
+        "admission_binding_digest": "sha256:18aa8bd7cf54c9ac0bc843bb16f3f92121e51911a429bc785d7dc8c6c58ac095",
+        "source_fact_id": "fact-3f023ee384860ea0",
+        "source_id": "consequence:fe3478a49a37c177c6119773",
+        "source_digest": "96727520b238714f6e09cc2d042c90c78874a6e0c395d6d4140a369462fb04f3",
+        "source_payload_identity": "consequence:fe3478a49a37c177c6119773",
+        "source_payload_digest": "sha256:fe3478a49a37c177c6119773ca9fa0b3b7df1ccfd7dad4110da75daa85a90450"
+      },
+      {
+        "order": 5,
+        "role": "later_challenge",
+        "event_id": "consequence:854fa2d2256e51cdb6891741",
+        "record_id": "devrec-665d53e1a32d3c4a381b1c25",
+        "record_digest": "sha256:665d53e1a32d3c4a381b1c25b51fcb6d3683e4abd30cca9c5624d4b8bcfa3996",
+        "original_evidence_receipt_digest": "sha256:665d53e1a32d3c4a381b1c25b51fcb6d3683e4abd30cca9c5624d4b8bcfa3996",
+        "record_file_sha256": "63aae026b100e83cff7074b0361ff8fcefbb831b7cf5a2fb6f4ac39c059aeac9",
+        "receipt_id": "devreceipt-6cfbc0a82cf104a21cfc77a3",
+        "receipt_digest": "sha256:6cfbc0a82cf104a21cfc77a3358dcc6d20736e6c328ad78311952493a089501f",
+        "receipt_file_sha256": "54febdccf852b367ce34c23a75b5fa4595ea64a83779a3b854871344ef9b10ba",
+        "candidate_id": "devcand-a76172e279a145ee2be8b8d7",
+        "candidate_digest": "sha256:a76172e279a145ee2be8b8d7f337c68c22b5a79f0a404a2eca01d5793451daf9",
+        "admission_id": "resident-admission-devcand-a76172e279a145ee2be8b8d7-5",
+        "admission_binding_digest": "sha256:f613e6ee6ffbf96b6f1dba3d3723d2ba0291d4755d09e714791aded6cdd4cb1c",
+        "source_fact_id": "fact-2fb8fa56eae82bd2",
+        "source_id": "consequence:854fa2d2256e51cdb6891741",
+        "source_digest": "b6604f5b3e8d0377a70a7cf7e06f7c02cd11ac8c0024d84e4dab2df31d8ff0fc",
+        "source_payload_identity": "consequence:854fa2d2256e51cdb6891741",
+        "source_payload_digest": "sha256:854fa2d2256e51cdb689174111f6b91835be799c4b8d8107fa367f05a11bed82"
+      }
+    ],
+    "authority_posture": {
+      "inventory_read_only": true,
+      "fixture_receipts_are_provider_inference_receipts": false,
+      "physical_effect_established": false,
+      "model_improvement_claimed": false
+    }
+  },
+  "regression_test": {
+    "path": "tests/test_resident_developmental_writeback.py",
+    "name": "test_completed_inventory_exports_receipt_digest_from_receipt_identity",
+    "result": "passed (1 test) in isolated inherited checkout",
+    "test_blob": "e9f4520d0fbcfb8fdd2bc02243f2c43a06d39827"
+  },
+  "validation": {
+    "focused_node": "1 passed",
+    "test_only_source_change": true,
+    "exact_remote_full_suite": "not run"
+  }
+}
