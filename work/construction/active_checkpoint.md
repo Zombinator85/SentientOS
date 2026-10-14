@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 212 hardens the persisted work-plan execution boundary. Serialized diagnostic and verification commands must match fixed command identities and execute as argument vectors with the current Python interpreter and shell disabled. Fetch/doc-update tasks reject injected commands. Mutation authority derives from task kind, so a serialized forge_apply cannot clear its destructive classification.
+Sequence 213 removes false completion signals from maintenance planning. Fetch and documentation task kinds have no executor; they now return skipped with task_kind_not_implemented and no claimed artifacts. Added coverage for these explicit omissions. The goal-state transition tests now supply the required execution context and isolate completion-check outcomes so they exercise the intended transition logic.
 
-Latest source commit: f65f14a2d1dc2bace7a480c5aa44ef376f2fcfd2
-Latest source tree: dee214f7aafd7d2c48eb0d874e69a20796e7a5b5
-Latest segment: work/construction/segments/0212-work-plan-execution-boundary.md
-Evidence: work/construction/evidence/0212-work-plan-execution-boundary.json
-Sequence: 212
+Latest source commit: 232a3c9a70e242799369bd0a0dde21aa642fc977
+Latest source tree: e9e989072f1788d4509456ed99ac9bba2f51d4ee
+Latest segment: work/construction/segments/0213-unimplemented-plan-task-honesty.md
+Evidence: work/construction/evidence/0213-unimplemented-plan-task-honesty.json
+Sequence: 213
 
-Validation: 7 focused executor planning/run tests passed; changed source and test modules compiled; diff checks passed. An adjacent goal-state suite exposed two test invocation errors: both omit required keyword-only parameters from update_goal_state_from_run. No production activation or external provider access occurred.
+Validation: 10 executor planning, execution, and goal-state tests passed. All three changed Python modules compiled; diff checks passed. No external provider or production authority was used.
 
-Next: continue source-backed whole-system construction beyond the Codex pilot. Reassess runtime/resource attribution and post-adoption consequence feedback from current source, then implement the strongest bounded owner-to-owner dependency. Preserve hosted authority and operator custody.
+Next: reassess runtime/world-state causal retention and post-adoption consequence feedback against the seq213 source, then address a demonstrable integration or behavioral gap. Keep the Codex pilot an independent operator workstream.
