@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 223 closes a causal introspection continuity gap: captured provider failures and unresolved projection conflicts now survive into later-generation World-State as a bounded, read-only diagnostic row with source snapshot identity and event time. Omission counts preserve the fact that larger diagnostics were bounded. Authority and effect claims remain false.
+Sequence 224 connects the new causal-introspection diagnostic row to epistemic development. Snapshot diagnostics preserve canonical snapshot lineage and bounded conflict/finding details, but are handled only as historical context: freshness remains unknown, the evidence relation contextualizes, and epistemic dependency remains unknown.
 
-Latest source commit: 2525931e905a45511a9d073a3e956ce982748595
-Latest source tree: ea620cbb7104a95640cb407d5dd3012247e48da4
-Latest segment: work/construction/segments/0223-introspection-snapshot-diagnostics.md
-Evidence: work/construction/evidence/0223-introspection-snapshot-diagnostics.json
-Sequence: 223
+Latest source commit: 4ea053c9a81d02092b331fc737b38b06a18b0ea0
+Latest source tree: 8ab02996511db81842be7f9a5e3574e217f5382c
+Latest segment: work/construction/segments/0224-introspection-epistemic-history.md
+Evidence: work/construction/evidence/0224-introspection-epistemic-history.json
+Sequence: 224
 
-Validation: 41 causal introspection and daemon composition tests passed. Two affected files compiled and diff check passed.
+Validation: 62 causal-introspection, epistemic-development, and daemon composition tests passed. Four files compiled; diff check passed.
 
-Next: inspect resource evidence retention across a fresh process. Verify that original receipt identity and measurement-unavailable posture remain distinct in later developmental context; extend the existing resource lineage integration only where a tested gap remains.
+Next: inspect resource evidence retention across a fresh process. Verify that original receipt identity and measurement-unavailable posture remain distinct in later developmental context; extend existing resource lineage only if a source-backed gap remains.

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "sequence": 224,
+  "title": "Keep snapshot diagnostics historical in epistemic development",
+  "source_commit": "4ea053c9a81d02092b331fc737b38b06a18b0ea0",
+  "source_tree": "8ab02996511db81842be7f9a5e3574e217f5382c",
+  "source_files": [
+    {
+      "path": "sentientos/causal_introspection.py",
+      "git_blob_sha": "14242e6c76efa5f0b143f1033261ea8eb02a6e41"
+    },
+    {
+      "path": "sentientos/resident_epistemic_development.py",
+      "git_blob_sha": "1aa7af5db43b706d4879537fceeb88ff2cf93704"
+    },
+    {
+      "path": "tests/test_resident_epistemic_development.py",
+      "git_blob_sha": "b989f5e9665c87b82b3839a822f95ead245ee645"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "tests/test_causal_introspection.py",
+      "tests/test_resident_epistemic_development.py",
+      "tests/test_sentientosd_causal_introspection_composition.py"
+    ],
+    "passed_test_count": 62,
+    "compiled": [
+      "sentientos/causal_introspection.py",
+      "sentientos/resident_epistemic_development.py",
+      "tests/test_causal_introspection.py",
+      "tests/test_resident_epistemic_development.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "snapshot diagnostics preserve canonical snapshot lineage",
+      "epistemic provenance retains bounded conflict identities and provider error classes",
+      "snapshot diagnostics remain historical_or_unknown even when recently retrieved",
+      "freshness remains unknown and relation contextualizes",
+      "no truth or authority is asserted"
+    ]
+  },
+  "authority": {
+    "automatic_epistemic_admission": false,
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:aec54ce86851b513ec7764cf4e07d40a6d559b585a9fd29f2c852aa7b8cec01d"
+}
