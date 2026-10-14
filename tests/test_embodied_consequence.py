@@ -17,7 +17,7 @@ from sentientos.embodied_consequence import (
     WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, run_strategy_experiment,
     build_operator_codex_strategy_packets, score_operator_codex_strategy_responses,
     score_strategy_experiment, validate_world_state_projection_config, world_state_records,
-    _history_evidence_scope,
+    score_strategy_consequence_set, _history_evidence_scope,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.operator_codex_response_journal import (OperatorResponseJournalError,
@@ -753,3 +753,58 @@ def test_operator_cli_exposes_complete_one_shot_surface():
     assert {"plan-validate","readiness","run-one","candidate-status","adopt","rollback","renderer-handoff","lineage",
             "renderer-report-validate","observation-validate","consequence-evaluate","consequence-show",
             "developmental-assimilate","strategy-experiment"} <= set(choices)
+
+
+def test_multiple_consequence_set_preserves_events_and_unverified_applicability():
+    *_, adverse, _=chain("idle")
+    *_, corrective, _=chain("wave")
+    assert adverse["attribution_id"]!=corrective["attribution_id"]
+    situation={"situation_binding":"later-wave-two","body_generation":2,
+        "environment":"controlled fixture situation"}
+
+    def event(attribution, record_id, fact_id, posture, relation=None):
+        body={"event_id":attribution["attribution_id"],
+            "event_digest":attribution["attribution_digest"],
+            "situation_digest":digest(situation),"relation":relation,"posture":posture,
+            "declared_by":"fixture-operator" if posture=="operator_declared_unverified" else None,
+            "declared_at":T2 if posture=="operator_declared_unverified" else None,
+            "rationale":"operator asserted similarity" if posture==
+                "operator_declared_unverified" else None}
+        return {"attribution":attribution,"source_record_id":record_id,
+            "source_record_digest":"sha256:"+record_id,"source_fact_id":fact_id,
+            "applicability":{**body,"declaration_digest":digest(body)}}
+
+    events=[event(adverse,"record-adverse","fact-adverse",
+            "operator_declared_unverified","same_action_class"),
+        event(corrective,"record-corrective","fact-corrective","unresolved")]
+
+    def proposal(citations):
+        return make_strategy_proposal(situation_binding=situation["situation_binding"],
+            body_generation=2,relevant_consequence_ids=tuple(citations),
+            proposed_next_action_class="observe",requested_pose="wave",
+            requested_expression="neutral",retry_prior_strategy=False,alter_body_or_rig=False,
+            more_observation_required=True,distinguishes_renderer_and_observer=True,
+            rationale="preserve separate event provenance",uncertainty="high",factual_assertions=())
+
+    result=score_strategy_consequence_set(proposals=(proposal([adverse["attribution_id"]]),
+        proposal([corrective["attribution_id"]]),proposal([])),situation=situation,events=events)
+    assert result["schema_version"]=="sentientos.embodied_strategy_consequence_set:v1"
+    assert [row["event_id"] for row in result["events"]]==[
+        adverse["attribution_id"],corrective["attribution_id"]]
+    assert result["events"][0]["classification"]!=result["events"][1]["classification"]
+    assert all(row["admission_verified"] is False and
+        row["applicability_independently_verified"] is False for row in result["events"])
+    assert result["proposals"][0]["operator_declared_applicable_event_ids"]==[
+        adverse["attribution_id"]]
+    assert result["proposals"][0]["established_applicable_event_ids"]==[]
+    assert result["synthetic_event_created"] is False
+    assert result["improvement_claimed"] is False
+
+    tampered={**events[0],"applicability":{**events[0]["applicability"],
+        "event_digest":corrective["attribution_digest"]}}
+    with pytest.raises(EmbodiedConsequenceError,match="strategy_consequence_applicability_invalid"):
+        score_strategy_consequence_set(proposals=(proposal([]),)*3,situation=situation,
+            events=[tampered,events[1]])
+    with pytest.raises(EmbodiedConsequenceError,match="strategy_consequence_event_identity_duplicate"):
+        score_strategy_consequence_set(proposals=(proposal([]),)*3,situation=situation,
+            events=[events[0],events[0]])

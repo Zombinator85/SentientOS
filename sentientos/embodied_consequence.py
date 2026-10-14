@@ -971,6 +971,109 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], 
     payload["score_digest"]=digest(payload); return payload
 
 
+STRATEGY_CONSEQUENCE_SET_SCHEMA = "sentientos.embodied_strategy_consequence_set:v1"
+
+
+def score_strategy_consequence_set(*, proposals: Sequence[EmbodiedStrategyProposal],
+        situation: Mapping[str, Any], events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Preserve multiple event identities while keeping unverified applicability explicit.
+
+    This is a descriptive bridge: digest-valid consequence records establish event
+    identity, not admission custody or applicability to the current situation.
+    """
+    if (len(proposals) != 3 or not isinstance(situation, Mapping)
+            or not isinstance(situation.get("situation_binding"), str)
+            or not situation.get("situation_binding") or not isinstance(events, (list, tuple))
+            or not 1 <= len(events) <= 12):
+        raise EmbodiedConsequenceError("strategy_consequence_set_inputs_invalid")
+    for proposal in proposals:
+        verify_strategy_proposal(proposal)
+    situation_digest = digest(dict(situation))
+    event_rows: list[dict[str, Any]] = []
+    event_ids: set[str] = set()
+    for item in events:
+        if (not isinstance(item, Mapping)
+                or set(item) != {"attribution", "source_record_id", "source_record_digest",
+                    "source_fact_id", "applicability"}
+                or not isinstance(item.get("attribution"), Mapping)
+                or not isinstance(item.get("applicability"), Mapping)):
+            raise EmbodiedConsequenceError("strategy_consequence_event_schema_invalid")
+        attribution = dict(item["attribution"])
+        _verify_consequence_attribution(attribution)
+        event_id = attribution["attribution_id"]
+        if event_id in event_ids:
+            raise EmbodiedConsequenceError("strategy_consequence_event_identity_duplicate")
+        event_ids.add(event_id)
+        for key in ("source_record_id", "source_record_digest", "source_fact_id"):
+            if not isinstance(item.get(key), str) or not item[key]:
+                raise EmbodiedConsequenceError("strategy_consequence_source_identity_invalid")
+        applicability = dict(item["applicability"])
+        required = {"event_id", "event_digest", "situation_digest", "relation",
+            "posture", "declared_by", "declared_at", "rationale", "declaration_digest"}
+        if (set(applicability) != required or applicability.get("event_id") != event_id
+                or applicability.get("event_digest") != attribution["attribution_digest"]
+                or applicability.get("situation_digest") != situation_digest
+                or applicability.get("posture") not in {
+                    "operator_declared_unverified", "unresolved", "not_applicable"}
+                or (applicability.get("posture") == "operator_declared_unverified"
+                    and (applicability.get("relation") not in {
+                            "same_action_class", "same_environment_condition",
+                            "shared_causal_mechanism", "operator_other"}
+                        or not isinstance(applicability.get("declared_by"), str)
+                        or not applicability["declared_by"]
+                        or not isinstance(applicability.get("declared_at"), str)
+                        or not applicability["declared_at"]
+                        or not isinstance(applicability.get("rationale"), str)
+                        or not 1 <= len(applicability["rationale"]) <= 500))
+                or (applicability.get("posture") != "operator_declared_unverified"
+                    and (applicability.get("relation") is not None
+                        or applicability.get("declared_by") is not None
+                        or applicability.get("declared_at") is not None
+                        or applicability.get("rationale") is not None))):
+            raise EmbodiedConsequenceError("strategy_consequence_applicability_invalid")
+        if applicability.get("posture") == "operator_declared_unverified":
+            _time(applicability["declared_at"])
+        declaration_body = {key: value for key, value in applicability.items()
+            if key != "declaration_digest"}
+        if applicability["declaration_digest"] != digest(declaration_body):
+            raise EmbodiedConsequenceError("strategy_consequence_applicability_digest_mismatch")
+        event_rows.append({"event_id": event_id,
+            "event_digest": attribution["attribution_digest"],
+            "source_record_id": item["source_record_id"],
+            "source_record_digest": item["source_record_digest"],
+            "source_fact_id": item["source_fact_id"],
+            "source_event_digest_verified": True,
+            "admission_verified": False,
+            "classification": attribution["classification"],
+            "causal_attribution_posture": attribution["causal_attribution_posture"],
+            "evaluated_at": attribution["evaluated_at"],
+            "applicability": applicability,
+            "applicability_independently_verified": False})
+    known = {row["event_id"] for row in event_rows}
+    proposal_rows = []
+    for proposal in proposals:
+        cited = set(proposal.relevant_consequence_ids)
+        proposal_rows.append({"strategy_id": proposal.strategy_id,
+            "cited_event_ids": sorted(cited),
+            "known_event_citations": sorted(cited & known),
+            "unknown_event_citations": sorted(cited - known),
+            "operator_declared_applicable_event_ids": sorted(row["event_id"]
+                for row in event_rows if row["applicability"]["posture"] ==
+                    "operator_declared_unverified" and row["event_id"] in cited),
+            "established_applicable_event_ids": [],
+            "applicability_truth_established": False,
+            "improvement_claimed": False})
+    payload = {"schema_version": STRATEGY_CONSEQUENCE_SET_SCHEMA,
+        "situation_digest": situation_digest, "events": event_rows,
+        "proposals": proposal_rows,
+        "status": "event_identity_preserved_applicability_unverified",
+        "event_count": len(event_rows), "synthetic_event_created": False,
+        "admission_verified": False, "improvement_claimed": False,
+        "authority": dict(FALSE_AUTHORITY)}
+    payload["score_digest"] = digest(payload)
+    return payload
+
+
 OPERATOR_CODEX_STRATEGY_PACKET_SCHEMA = "sentientos.operator_codex_strategy_packet:v1"
 OPERATOR_CODEX_STRATEGY_CONDITIONS = ("history_present", "history_withheld", "history_restored")
 
