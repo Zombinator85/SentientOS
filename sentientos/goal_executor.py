@@ -77,6 +77,13 @@ class GoalExecutor:
 
             prior_state = journal.state(task.task_id)
             if prior_state is not None:
+                prior_result = journal.result(task.task_id)
+                if prior_result is not None:
+                    task_runs.append(prior_result)
+                    effective_task_status[task.task_id] = prior_result.status
+                    if prior_result.status in {"failed", "skipped"} and prior_result.reason:
+                        reasons.append(prior_result.reason)
+                    continue
                 status = "skipped"
                 reason = ("prior_attempt_outcome_unknown" if prior_state == "interrupted"
                     else f"prior_terminal_{prior_state}_not_replayed")
@@ -95,12 +102,13 @@ class GoalExecutor:
                 status = "skipped"
                 reason = "dependency_not_satisfied:" + ",".join(blocked_dependencies)
                 journal.start(task.task_id)
-                journal.finish(task.task_id, status=status, reason=reason)
                 effective_task_status[task.task_id] = status
                 finished = _iso_now()
-                task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id,
+                task_run = TaskRun(task_id=task.task_id, goal_id=task.goal_id,
                     kind=task.kind, status=status, reason=reason, started_at=started,
-                    finished_at=finished, duration_ms=0, artifacts=(), destructive=destructive))
+                    finished_at=finished, duration_ms=0, artifacts=(), destructive=destructive)
+                journal.finish(task.task_id, status=status, reason=reason, result=task_run)
+                task_runs.append(task_run)
                 reasons.append(reason)
                 continue
 
@@ -116,9 +124,12 @@ class GoalExecutor:
                 status, reason, artifacts = self._execute_task(task)
             finished = _iso_now()
             duration_ms = max(0, int((time.monotonic() - started_mono) * 1000))
-            journal.finish(task.task_id, status=status, reason=reason)
             effective_task_status[task.task_id] = status
-            task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id, kind=task.kind, status=status, reason=reason, started_at=started, finished_at=finished, duration_ms=duration_ms, artifacts=artifacts, destructive=destructive))
+            task_run = TaskRun(task_id=task.task_id, goal_id=task.goal_id, kind=task.kind,
+                status=status, reason=reason, started_at=started, finished_at=finished,
+                duration_ms=duration_ms, artifacts=artifacts, destructive=destructive)
+            journal.finish(task.task_id, status=status, reason=reason, result=task_run)
+            task_runs.append(task_run)
             if status in {"failed", "skipped"} and reason:
                 reasons.append(reason)
 

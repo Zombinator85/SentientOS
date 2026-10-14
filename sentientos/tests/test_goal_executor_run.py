@@ -9,7 +9,7 @@ import sentientos.goal_executor as goal_executor
 
 from sentientos.goal_executor import ExecutorState, GoalExecutor
 from sentientos.risk_budget import RiskBudget
-from sentientos.work_plan import Task, WorkPlan
+from sentientos.work_plan import Task, WorkPlan, persist_work_run
 
 
 def _plan() -> WorkPlan:
@@ -111,6 +111,26 @@ def test_allowlisted_plan_command_uses_argv_without_shell(tmp_path: Path, monkey
     assert calls[0][1]["timeout"] == goal_executor.PLAN_COMMAND_TIMEOUT_SECONDS
 
 
+def test_terminal_task_replay_reuses_original_run_artifact(tmp_path: Path, monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(goal_executor, "_run_commands",
+        lambda *_args, **_kwargs: (calls.append("run") or "success", None,
+            ("glow/contracts/contract_status.json",)))
+    task = Task(1, "t1", "g1", "diagnostic",
+        ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False)
+    plan = _single_task_plan(task)
+    state = _state(tmp_path)
+
+    original = GoalExecutor(repo_root=tmp_path).execute_plan(plan, state)
+    path = persist_work_run(tmp_path, original)
+    recovered = GoalExecutor(repo_root=tmp_path).execute_plan(plan, state)
+
+    assert calls == ["run"]
+    assert recovered == original
+    assert persist_work_run(tmp_path, recovered) == path
+    assert len((tmp_path / "pulse/work_runs.jsonl").read_text().splitlines()) == 1
+
+
 def test_allowlisted_plan_command_timeout_is_a_failed_task(tmp_path: Path, monkeypatch) -> None:
     calls = []
 
@@ -172,9 +192,8 @@ def test_completed_task_is_not_reexecuted_when_same_plan_is_recovered(
 
     assert calls == ["g1:propose"]
     assert first.task_runs[0].status == "success"
-    assert second.task_runs[0].status == "skipped"
-    assert second.task_runs[0].reason == "prior_terminal_success_not_replayed"
-    assert second.task_runs[0].artifacts == ()
+    assert second.task_runs[0] == first.task_runs[0]
+    assert second.status == first.status
 
 
 def test_interrupted_task_stays_unknown_while_independent_task_continues(
