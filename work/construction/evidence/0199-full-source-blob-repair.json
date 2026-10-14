@@ -1,0 +1,26 @@
+{
+  "sequence": 199,
+  "title": "Restore full multi-event score feedback source artifacts",
+  "status": "source repair and continuation",
+  "starting_head": "c3bf3e3fa86b093223323b174c352d5b1b662c95",
+  "starting_tree": "95f244d4f09cc11724cac830ef2f2153b705521a",
+  "source_commit": "f6b835c49e541ca7f489e5988aa043d35b4cd8ce",
+  "source_tree": "e3642c4b5455004722df4a49fe75a219d10a2f13",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"6c648d7b734d9d28433acf9e251098b7be6b3b3c","sha256":"3615d74917e0aad512043de8bd61a8424c09e69a7e031a3325847944e487900b"},
+    {"path":"sentientos/resident_developmental_writeback.py","blob":"5700f9d60d70ef5acad7548e6927998e7dbe7198","sha256":"9add596ad40db86eb33feb4581797650d98e8570c97629c2ed91cbfc625fb85f"},
+    {"path":"tests/test_embodied_consequence.py","blob":"eedc4fcd5940fc24423e177a9d72f6ef95e3ea3a","sha256":"030954b4128fcbd7fc72415245be1fb272b20800751a78009e20229e17dfb6f2"},
+    {"path":"tests/test_resident_developmental_cognition.py","blob":"da553734e34ae4fab638b0a937ee167bc8a31599","sha256":"7c075dab07c113a5dfc89f02eddfe70a6b54cac6009fe144cada6511635f8c23"}
+  ],
+  "validation": {
+    "affected_history_progression_suites":"121 passed before final child-scoring assertion",
+    "fresh_process_strategy_score":"1 passed after adding independent rubric scoring for the distinct post-restart task",
+    "compileall":"passed",
+    "diff_check":"passed",
+    "remote_git_blob_readback":"all four full blob SHA-1 identities match local git hash-object",
+    "fresh_test_file_line_count":5861
+  },
+  "repair_note":"The prior sequence-198 upload split base64 at non-aligned boundaries. The earlier evidence remains immutable; this increment replaces the affected source tree entries with complete blobs and verifies their identities.",
+  "acceptance_status":"PARTIAL: post-restart distinct-task proposal is scored, but new governed invocation and completed-condition replay adversary remain",
+  "authority_posture":{"synthetic_fixture":true,"proposal_executed":false,"physical_effect_established":false,"real_model_improvement_established":false,"aggregate_utility_score":null}
+}

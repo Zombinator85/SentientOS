@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 198 adds a recomputing World-State projection for the preregistered multi-event decision-quality vector and admits that review-only source through ordinary scoped developmental writeback. The dedicated selected-evidence ceiling is 12 KB for the exact schema and preserves false authority, execution, and physical-effect postures. The fresh process now recovers this score feedback with the original consequence and proposal records, then reconstructs a distinct-task bounded history packet.
+Sequence 199 repaired four source/test blobs from sequence 198 after independent readback showed their base64 uploads were truncated. Full local files now match their remote Git blob identities. The integrated child process also scores the distinct post-restart fixture proposal with the frozen multi-event vector rubric.
 
-Latest source commit: 393a4cbdd8066e43b9e70a658c774225899e46fd
-Latest source tree: 8c7d3bdd1a85cd4d0ed27d5fe622006e604083e0
-Latest segment: work/construction/segments/0198-multievent-score-feedback-admission.md
-Evidence: work/construction/evidence/0198-multievent-score-feedback-admission.json
-Sequence: 198
+Latest source commit: f6b835c49e541ca7f489e5988aa043d35b4cd8ce
+Latest source tree: e3642c4b5455004722df4a49fe75a219d10a2f13
+Latest segment: work/construction/segments/0199-full-source-blob-repair.md
+Evidence: work/construction/evidence/0199-full-source-blob-repair.json
+Sequence: 199
 
-Validation: 121 affected tests passed; compileall and diff check passed. Acceptance remains partial because post-restart cognition is a deterministic fixture proposal rather than a new governed invocation, and completed-condition replay recovery remains untested.
+Validation: 121 affected tests passed before the final child-scoring assertion; the extended integrated node passed afterward. Compilation and diff check passed. Acceptance remains partial pending a fresh-process governed invocation and completed-condition replay adversary.
