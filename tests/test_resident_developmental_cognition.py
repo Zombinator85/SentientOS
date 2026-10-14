@@ -4750,6 +4750,181 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
         composition._recover_observation_ticks(include_records=True)
 
 
+def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
+        tmp_path: Path) -> None:
+    """A real admitted developmental record reaches the existing review-only strategy experiment."""
+    from dataclasses import asdict
+    from datetime import timedelta
+    from sentientos.avatar_authoring import renderer_handoff
+    from sentientos.embodied_consequence import (
+        ConsequenceStore, SyntheticIndependentObserver, SyntheticRenderer,
+        evaluate_consequence, make_expectation, run_strategy_experiment,
+        make_strategy_proposal, strategy_prompt_schema_digest,
+        world_state_records as consequence_world_state_records,
+        digest as consequence_digest,
+    )
+
+    event_start = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+    event_observed = (datetime.now(timezone.utc) - timedelta(minutes=9)).isoformat()
+    handoff = renderer_handoff({"installation_identity": "fixture-installation",
+        "body_identity": "fixture-body", "body_generation": 2,
+        "artifact_sha256": "sha256:artifact", "manifest_digest": "sha256:manifest",
+        "pointer_digest": "sha256:pointer"}, renderer_interface_id="renderer:fixture:v1",
+        requested_pose="wave", requested_expression="neutral",
+        correlation_id="developmental-strategy-source", commanded_at=event_start)
+    expectation = make_expectation(installation_body_id="fixture-installation",
+        body_id="fixture-body", body_generation=2, body_manifest_digest="sha256:manifest",
+        handoff_id=handoff["handoff_id"], handoff_digest=handoff["handoff_digest"],
+        renderer_interface_id="renderer:fixture:v1", requested={"pose": "wave"},
+        predicted_observables={"pose": "wave"}, observable_fields=("pose",),
+        comparison_policy={"pose": {"kind": "exact"}},
+        expected_observation_source_class="synthetic_independent_fixture",
+        correlation_id="developmental-strategy-source", causal_principal_binding_digest=None,
+        created_at=event_start,
+        expires_at=(datetime.now(timezone.utc) + timedelta(days=1)).isoformat())
+    report = SyntheticRenderer(applied={"pose": "wave"}, started_at=event_start,
+        completed_at=(datetime.now(timezone.utc) - timedelta(minutes=9, seconds=30)).isoformat()
+        ).render_test(handoff)
+    observation = SyntheticIndependentObserver(observer_id="separate-fixture-observer",
+        observed={"pose": "idle"}, observed_at=event_observed).observe(
+            expectation=expectation, handoff=handoff, report=report)
+    attribution, comparison = evaluate_consequence(expectation=expectation,
+        handoff=handoff, current_body={"installation_identity": "fixture-installation",
+            "body_identity": "fixture-body", "body_generation": 2,
+            "artifact_sha256": "sha256:artifact", "manifest_digest": "sha256:manifest",
+            "pointer_digest": "sha256:pointer"}, renderer_report=report,
+        observation=observation, evaluated_at=event_observed)
+    assert attribution["classification"] == "expectation_contradicted"
+    assert attribution["causal_attribution_posture"] == "external_interference_possible"
+    assert attribution["effect_proven"] is False
+
+    source_records = consequence_world_state_records(
+        expectation=expectation, handoff=handoff, renderer_report=report,
+        observation=observation, attribution=attribution, comparison=comparison)
+    source_world = WorldStateBoardBuilder().build([row for row in source_records
+        if row.get("source_id") == attribution["attribution_id"]])
+    cognition, _ = owner(tmp_path / "resident", invoker=SessionBoundFakeInvoker(),
+        allowed_source_kinds=("embodiment",), max_selected_facts=16)
+    admitted = cognition.run_tick(snapshot=source_world,
+        tick_id="strategy-consequence-admission")
+    assert admitted.written_record_id
+    durable_record = cognition.writeback.store.get(admitted.written_record_id)
+    history_record = asdict(durable_record)
+    source_facts = [fact for fact in history_record["candidate"]["selected_facts"]
+        if fact.get("source", {}).get("source_id") == attribution["attribution_id"]]
+    assert len(source_facts) == 1
+    assert source_facts[0]["payload"] == attribution
+    assert history_record["current_truth"] is False
+    assert history_record["authority"] is False
+    assert history_record["epistemic_posture"] == \
+        "historical_interpretation_not_current_truth"
+    import copy
+    from sentientos.embodied_consequence import _strategy_prior_consequence_binding
+    substituted_source = copy.deepcopy(history_record)
+    substituted_source["candidate"]["selected_facts"][0]["source"]["digest"] = "f" * 64
+    assert _strategy_prior_consequence_binding(substituted_source, attribution)["posture"] == \
+        "contradictory_history_source_digest"
+
+    later_snapshot = snapshot(42)
+    current_projection = cognition._current_projection(later_snapshot)
+    situation = {"situation_binding": "distinct-later-wave-situation",
+        "body_generation": 2, "reported_current_pose": "idle"}
+    budget = {"max_input_chars": 16000, "max_output_chars": 4000,
+        "max_new_tokens": 512, "timeout_seconds": 30}
+    protocol = {"protocol_id": "fixture-developmental-strategy",
+        "snapshot_digest": later_snapshot.digest, "body_generation": 2,
+        "model_id": "fixture-strategy-model", "model_artifact_digest": "sha256:model",
+        "inference_budget_digest": consequence_digest(budget),
+        "prompt_schema_digest": strategy_prompt_schema_digest(),
+        "renderer_situation_digest": consequence_digest(situation),
+        "software_generation": "fixture-source-generation",
+        "environment_fixture_digest": "sha256:fixture-environment"}
+
+    class HistoryConditionedStrategyFixture:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def propose(self, *, condition, history, situation):
+            self.calls.append(condition)
+            present = bool(history)
+            return make_strategy_proposal(
+                situation_binding=situation["situation_binding"], body_generation=2,
+                relevant_consequence_ids=(attribution["attribution_id"],) if present else (),
+                proposed_next_action_class="observe_then_retry" if present else "retry",
+                requested_pose="wave", requested_expression="neutral",
+                retry_prior_strategy=not present, alter_body_or_rig=False,
+                more_observation_required=present, distinguishes_renderer_and_observer=present,
+                rationale="fixture proposal conditioned on admitted contradiction" if present
+                    else "fixture baseline proposal without the historical record",
+                uncertainty="high", factual_assertions=({"source_id": attribution["attribution_id"],
+                    "claim": "contradiction_recorded"},) if present else ())
+
+    backend = HistoryConditionedStrategyFixture()
+    store = ConsequenceStore(tmp_path / "strategy-store")
+    experiment = run_strategy_experiment(protocol=protocol, history_record=history_record,
+        situation=situation, backend=backend, consequence=attribution, store=store,
+        cognitive_context={"current_tick": 42, "tick_id": "strategy-later-tick",
+            "snapshot": later_snapshot, "current_projection": current_projection,
+            "prior_self_model": None, "prior_epistemic_state": None})
+    assert experiment["history_record_identity_consistent"] is True
+    assert experiment["consequence_context_binding"]["posture"] == \
+        "verified_prior_selected_history"
+    assert experiment["world_state_binding_posture"] == \
+        "verified_resident_snapshot_and_current_projection"
+    present, withheld, restored = experiment["proposals"]
+    assert present == restored and present != withheld
+    assert experiment["scoring"]["outcome"] == "changed"
+    assert experiment["scoring"]["improvement_claimed"] is False
+    present_score, withheld_score, restored_score = experiment["scoring"]["proposal_scores"]
+    assert present_score["prior_consequence_cited_correctly"] is True
+    assert present_score["repeats_previously_contradicted_action"] is False
+    assert present_score["requests_more_evidence_under_unresolved_attribution"] is True
+    assert withheld_score["repeats_previously_contradicted_action"] is True
+    assert withheld_score["requests_more_evidence_under_unresolved_attribution"] is False
+    assert restored_score == present_score
+    assert backend.calls == ["history_present", "history_withheld", "history_restored"]
+    assert all(authority is False for authority in experiment["authority"].values())
+
+    restarted_backend = HistoryConditionedStrategyFixture()
+    recovered = run_strategy_experiment(protocol=protocol, history_record=history_record,
+        situation=situation, backend=restarted_backend, consequence=attribution,
+        store=ConsequenceStore(tmp_path / "strategy-store"),
+        cognitive_context={"current_tick": 42, "tick_id": "strategy-later-tick",
+            "snapshot": later_snapshot, "current_projection": current_projection,
+            "prior_self_model": None, "prior_epistemic_state": None})
+    assert recovered["experiment_result_id"] == experiment["experiment_result_id"]
+    assert restarted_backend.calls == []
+
+    # The later proposal returns through the ordinary historical source and
+    # admission path as proposal evidence, with no implied effect or authority.
+    proposal_rows = store.world_state_records(
+        experiment_result_ids=(experiment["experiment_result_id"],))
+    projected_proposals = [row for row in proposal_rows
+        if row.get("subject_kind") == "embodied_strategy_proposal"]
+    assert len(projected_proposals) == 3
+    assert {row["payload"]["condition"] for row in projected_proposals} == {
+        "history_present", "history_withheld", "history_restored"}
+    assert all(row["payload"]["effect_proven"] is False
+        and row["payload"]["current_truth"] is False
+        and all(value is False for value in row["payload"]["authority"].values())
+        for row in projected_proposals)
+    present_proposal = next(row for row in projected_proposals
+        if row["payload"]["condition"] == "history_present")
+    proposal_world = WorldStateBoardBuilder().build([present_proposal])
+    next_cognition, _ = owner(tmp_path / "strategy-proposal-cycle",
+        invoker=SessionBoundFakeInvoker(), allowed_source_kinds=("embodiment",),
+        max_selected_facts=16)
+    next_record = next_cognition.run_tick(snapshot=proposal_world,
+        tick_id="strategy-proposal-next-developmental-cycle")
+    assert next_record.written_record_id
+    next_history = asdict(next_cognition.writeback.store.get(next_record.written_record_id))
+    admitted_proposal_ids = {fact["source"]["source_id"]
+        for fact in next_history["candidate"]["selected_facts"]
+        if fact.get("source", {}).get("source_id") == present_proposal["source_id"]}
+    assert admitted_proposal_ids == {present_proposal["source_id"]}
+    assert next_history["authority"] is False
+
+
 def test_resource_linkage_cannot_bypass_serving_receipt_verification(tmp_path: Path) -> None:
     composition, _ = owner(tmp_path)
     receipt_digest = "a" * 64

@@ -1201,7 +1201,9 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
     history_binding_verified=(record_digest==calculated_record_digest
                               and history_record.get("record_id")==calculated_record_id
                               and isinstance(history_record.get("candidate"),Mapping)
-                              and history_record["candidate"].get("epistemic_posture")=="historical_interpretation_not_current_truth"
+                              and (history_record.get("epistemic_posture")
+                                  or history_record["candidate"].get("epistemic_posture"))
+                                  =="historical_interpretation_not_current_truth"
                               and history_record.get("current_truth") is False
                               and history_record.get("authority") is False
                               and history_record.get("policy") is False)
@@ -1558,6 +1560,13 @@ def _strategy_prior_consequence_binding(history_record: Mapping[str, Any],
         return {"posture":"selected_history_fact_limit_exceeded",
             "attribution_id":consequence.get("attribution_id"),
             "attribution_digest":consequence.get("attribution_digest")}
+    selected_sources = candidate.get("selected_sources") if isinstance(candidate, Mapping) else None
+    if not isinstance(selected_sources, (tuple, list)) or len(selected_sources) > 16:
+        return {"posture":"selected_history_source_bindings_unavailable",
+            "attribution_id":consequence.get("attribution_id"),
+            "attribution_digest":consequence.get("attribution_digest")}
+    source_by_id = {str(item.get("source_id")): item for item in selected_sources
+        if isinstance(item, Mapping) and isinstance(item.get("source_id"), str)}
     attribution_id = consequence.get("attribution_id")
     attribution_digest = consequence.get("attribution_digest")
     exact_matches: list[Mapping[str, Any]] = []
@@ -1570,9 +1579,12 @@ def _strategy_prior_consequence_binding(history_record: Mapping[str, Any],
         payload = fact.get("payload")
         if not isinstance(source, Mapping) or source.get("source_id") != attribution_id:
             continue
-        if (source.get("digest") != attribution_digest
-                or source.get("schema_version") != consequence.get("schema_version")
-                or source.get("kind") not in {"embodiment", "fulfillment"}):
+        source_binding = source_by_id.get(str(attribution_id))
+        if (source.get("schema_version") != consequence.get("schema_version")
+                or source.get("kind") not in {"embodiment", "fulfillment"}
+                or not isinstance(source_binding, Mapping)
+                or source_binding.get("digest") != source.get("digest")
+                or source_binding.get("kind") != source.get("kind")):
             conflicting_source = True
             continue
         if not isinstance(payload, Mapping):

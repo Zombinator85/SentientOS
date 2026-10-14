@@ -285,7 +285,9 @@ def test_present_withheld_restored_strategy_experiment_and_external_score(tmp_pa
         "kind":"embodiment"},"subject":{"subject_id":"body-a",
         "subject_kind":"embodied_consequence_attribution"},"payload":attribution}
     record={"candidate":{"epistemic_posture":"historical_interpretation_not_current_truth",
-        "selected_fact_ids":[fact["fact_id"]],"selected_facts":[fact]},
+        "selected_fact_ids":[fact["fact_id"]],"selected_facts":[fact],
+        "selected_sources":[{"source_id":attribution["attribution_id"],
+            "digest":attribution["attribution_digest"],"kind":"embodiment"}]},
         "created_at":TX,"current_truth":False,"authority":False,"policy":False}
     record["record_digest"]=digest(record)
     record["record_id"]="devrec-"+record["record_digest"][7:31]
