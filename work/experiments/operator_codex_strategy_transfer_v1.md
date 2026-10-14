@@ -58,3 +58,20 @@ The scorer rejects substituted packets or mismatched preregistration. It preserv
 ## Interpretation limits
 
 This measures external-model strategic recommendation under supplied historical context. It does not demonstrate durable change in Codex weights, local SentientOS invocation, or production behavior. A `changed` score means structured proposals differ under the intervention; it is not automatically improvement. Fixture attribution and caller-asserted observations remain limited to their source posture. Actual sessions and independent preregistration custody are operator-controlled.
+
+## Prepare multiple distinct situations
+
+For a descriptive repeatability pilot, provide at least two and at most twelve separately frozen situation objects with distinct `situation_binding` values. Each situation gets its own independently randomized present/withheld/restored packet set and its own inner preregistration, all bound to the same verified source consequence and model settings. The outer preregistration binds every situation digest, sub-registration, and packet digest before subjects run.
+
+```sh
+python -m scripts.build_codex_strategy_multitrial \
+  --config /path/to/resident-developmental-cognition.json \
+  --history-record-id devrec-verified-record-id \
+  --trials /private/trial/frozen-situations.json \
+  --model-settings /private/trial/model-settings.json \
+  --subject-output-dir /private/strategy-multitrial-subject-packets \
+  --scorer-manifest-output /private/evaluator/multitrial-scorer.json \
+  --preregistration-output /private/archive/multitrial-preregistration.json
+```
+
+Use a separate fresh session for every packet, including when the same condition recurs in another situation. Record each response with the `record_codex_strategy_response` command above; the response journal accepts the outer preregistration and rejects packet reuse. Score with `python -m scripts.score_codex_strategy_multitrial` and the same scorer, preregistration, packet directory, and response-journal arguments as the single-situation scorer. The report lists each situation separately and includes scoreable-task numerator/denominator and outcome counts. Counts remain descriptive: two situations are not adequate evidence of statistical significance or broad transfer, and this protocol still uses one historical consequence source.

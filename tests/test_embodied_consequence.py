@@ -22,6 +22,8 @@ from sentientos.embodied_consequence import (
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.operator_codex_response_journal import (OperatorResponseJournalError,
     record_operator_codex_response, recover_operator_codex_responses)
+from sentientos.codex_strategy_multitrial import (build_operator_codex_strategy_multitrial,
+    score_operator_codex_strategy_multitrial)
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
 from sentientos.world_state_board import WorldStateBoardBuilder
 from scripts.avatar_authoring import parser as avatar_cli_parser
@@ -354,6 +356,60 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     assert all(not any(label in json.dumps(packet) for label in
         ("history_present", "history_withheld", "history_restored"))
         for packet in packets.values())
+    multitrial=build_operator_codex_strategy_multitrial(writeback=VerifiedWritebackFixture(),
+        history_record_id=record.record_id,trials={
+            "wave_a":situation,"wave_b":{**situation,"situation_binding":"later-wave-b",
+                "environment":"A distinct later synthetic renderer situation."}},
+        model_settings=settings)
+    assert len(multitrial["subject_packets"])==6
+    multitrial_responses={}
+    template={"situation_binding":"unused-template","body_generation":2,
+        "proposed_next_action_class":"observe","requested_pose":"wave",
+        "requested_expression":"neutral","retry_prior_strategy":False,
+        "alter_body_or_rig":False,"more_observation_required":True,
+        "distinguishes_renderer_and_observer":True,"rationale":"bounded test fixture",
+        "uncertainty":"high","relevant_consequence_ids":[],"factual_assertions":[]}
+    for _trial_id,trial_manifest in multitrial["scorer_manifest"]["scorer_manifest_by_trial"].items():
+        for packet_id in trial_manifest["condition_by_packet_id"]:
+            trial_proposal={**template,"situation_binding":
+                trial_manifest["situation"]["situation_binding"]}
+            multitrial_responses[packet_id]={"packet_id":packet_id,
+                "session_id":"multi-session-"+packet_id,"timestamp":TX,
+                "visible_model_name":settings["visible_model_name"],
+                "effort_setting":settings["effort_setting"],
+                "generation_settings":settings["generation_settings"],
+                "raw_output":json.dumps(trial_proposal)}
+    multitrial_score=score_operator_codex_strategy_multitrial(
+        scorer_manifest=multitrial["scorer_manifest"],
+        preregistration=multitrial["preregistration"],
+        subject_packets=multitrial["subject_packets"],responses=multitrial_responses)
+    assert multitrial_score["status"]=="scored"
+    assert multitrial_score["scoreable_task_fraction"]=={"numerator":2,"denominator":2}
+    assert len(multitrial_score["trial_results"])==2
+    assert multitrial_score["statistical_significance_claimed"] is False
+    duplicated_multi=dict(multitrial_responses)
+    first_multi,second_multi=list(duplicated_multi)[:2]
+    duplicated_multi[second_multi]={**duplicated_multi[second_multi],
+        "session_id":duplicated_multi[first_multi]["session_id"]}
+    duplicate_multi_score=score_operator_codex_strategy_multitrial(
+        scorer_manifest=multitrial["scorer_manifest"],
+        preregistration=multitrial["preregistration"],
+        subject_packets=multitrial["subject_packets"],responses=duplicated_multi)
+    assert duplicate_multi_score["status"]=="not_scored_duplicate_session_across_trials"
+    tampered_multi={**multitrial["preregistration"],"packet_digests":{}}
+    with pytest.raises(EmbodiedConsequenceError,match="operator_strategy_multitrial_preregistration_mismatch"):
+        score_operator_codex_strategy_multitrial(scorer_manifest=multitrial["scorer_manifest"],
+            preregistration=tampered_multi,subject_packets=multitrial["subject_packets"],
+            responses=multitrial_responses)
+    multi_journal=tmp_path/"multi-response-journal"; multi_journal.mkdir()
+    multi_packet=next(iter(multitrial_responses))
+    record_operator_codex_response(journal_dir=multi_journal,
+        preregistration=multitrial["preregistration"],packet_id=multi_packet,
+        response=multitrial_responses[multi_packet])
+    recovered_multi,multi_disposition=recover_operator_codex_responses(
+        journal_dir=multi_journal,preregistration=multitrial["preregistration"])
+    assert recovered_multi=={multi_packet:multitrial_responses[multi_packet]}
+    assert multi_disposition["status"]=="partial_or_corrupt"
     responses={}
     for packet_id,condition in result["scorer_manifest"]["condition_by_packet_id"].items():
         has_history=condition!="history_withheld"
@@ -505,6 +561,35 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     assert strategy_builder.main()==0
     assert len(list(cli_subject.glob("*.json")))==3
     assert cli_scorer.exists() and cli_prereg.exists()
+    import scripts.build_codex_strategy_multitrial as multitrial_builder
+    monkeypatch.setattr(multitrial_builder,"load_config",lambda _path:type("Config",(),{
+        "history_root":tmp_path/"history","state_root":tmp_path/"state"})())
+    monkeypatch.setattr(multitrial_builder,"AdmissionLedger",Ledger)
+    monkeypatch.setattr(multitrial_builder,"RuntimeAdmissionVerifier",Verifier)
+    monkeypatch.setattr(multitrial_builder,"ResidentDevelopmentalWritebackController",Writeback)
+    monkeypatch.setattr(multitrial_builder,"build_operator_codex_strategy_multitrial",
+        lambda **_kwargs:multitrial)
+    trials_path=tmp_path/"trials.json"; trials_path.write_text(json.dumps({
+        "wave_a":situation,"wave_b":{**situation,"situation_binding":"later-wave-b"}}),
+        encoding="utf-8")
+    multi_subject=tmp_path/"multi-subject"; multi_scorer=tmp_path/"multi-private"/"manifest.json"
+    multi_prereg=tmp_path/"multi-archive"/"preregistration.json"
+    monkeypatch.setattr(sys,"argv",["build_codex_strategy_multitrial","--config",
+        "isolated-test-config.json","--history-record-id",record.record_id,
+        "--trials",str(trials_path),"--model-settings",str(settings_path),
+        "--subject-output-dir",str(multi_subject),"--scorer-manifest-output",str(multi_scorer),
+        "--preregistration-output",str(multi_prereg)])
+    assert multitrial_builder.main()==0
+    assert len(list(multi_subject.glob("*.json")))==6
+    multi_responses_path=tmp_path/"multi-responses.json"
+    multi_responses_path.write_text(json.dumps(multitrial_responses),encoding="utf-8")
+    multi_score_path=tmp_path/"multi-scores.json"
+    multi_cli=subprocess.run([sys.executable,"-m","scripts.score_codex_strategy_multitrial",
+        "--scorer-manifest",str(multi_scorer),"--preregistration",str(multi_prereg),
+        "--subject-packets",str(multi_subject),"--responses",str(multi_responses_path),
+        "--output",str(multi_score_path)],check=True,capture_output=True,text=True,
+        cwd=Path(__file__).resolve().parents[1])
+    assert json.loads(multi_cli.stdout)["scoreable_task_fraction"]=={"numerator":2,"denominator":2}
 
 
 def test_resource_citation_binds_source_but_never_verifies_claim_semantics():

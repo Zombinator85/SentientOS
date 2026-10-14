@@ -24,6 +24,9 @@ _RESPONSE_FIELDS = {"packet_id", "session_id", "timestamp", "visible_model_name"
     "effort_setting", "generation_settings", "raw_output"}
 _JOURNAL_FIELDS = {"schema_version", "packet_id", "preregistration_digest",
     "packet_digest", "response", "response_digest"}
+_SUPPORTED_PREREGISTRATIONS = {
+    "sentientos.operator_codex_strategy_preregistration:v1",
+    "sentientos.operator_codex_strategy_multitrial_preregistration:v1"}
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -40,8 +43,7 @@ def record_operator_codex_response(*, journal_dir: str | Path,
         response: Mapping[str, Any]) -> dict[str, Any]:
     """Write one immutable response envelope, refusing overwrite and symlinks."""
     if (not isinstance(preregistration, Mapping)
-            or preregistration.get("schema_version")
-                != "sentientos.operator_codex_strategy_preregistration:v1"
+            or preregistration.get("schema_version") not in _SUPPORTED_PREREGISTRATIONS
             or not isinstance(preregistration.get("packet_digests"), Mapping)
             or not isinstance(packet_id, str) or not _PACKET_ID.fullmatch(packet_id)
             or packet_id not in preregistration["packet_digests"]
@@ -90,7 +92,7 @@ def recover_operator_codex_responses(*, journal_dir: str | Path,
     packet_digests = preregistration.get("packet_digests")
     if (not isinstance(packet_digests, Mapping) or not packet_digests
             or preregistration.get("schema_version")
-            != "sentientos.operator_codex_strategy_preregistration:v1"):
+            not in _SUPPORTED_PREREGISTRATIONS):
         raise OperatorResponseJournalError("external_response_preregistration_invalid")
     packet_ids = set(packet_digests)
     directory = Path(journal_dir)
