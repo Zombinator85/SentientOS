@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 216 hardens persisted goal-plan parsing. Version-1 plans now require an exact envelope and task shape; malformed rows, duplicate identities, unselected-goal references, type coercions, and inconsistent destructive classifications fail closed. Valid version-1 serialized plans round-trip.
+Sequence 217 makes persisted work-plan and work-run identities write once. Exact retries do not rewrite bytes or add duplicate pulse entries; conflicting content under an existing identity fails closed. This preserves completed outcome custody across replay. Partial task execution still does not have a restart journal.
 
-Latest source commit: 1dbe11ea91ce6f63dbf978030c4c60ab88d35eb9
-Latest source tree: 3e948e29c7c40d7da98624cc27cd718c1e052e86
-Latest segment: work/construction/segments/0216-work-plan-parse-integrity.md
-Evidence: work/construction/evidence/0216-work-plan-parse-integrity.json
-Sequence: 216
+Latest source commit: 78709ab27191effcfeae8022217e3dcb329fd203
+Latest source tree: 37fedbfc158a3bd4fed472ed1cd8233c9646651c
+Latest segment: work/construction/segments/0217-write-once-work-plan-custody.md
+Evidence: work/construction/evidence/0217-write-once-work-plan-custody.json
+Sequence: 217
 
-Validation: 17 parser, executor planning, execution, and goal-state tests passed. Changed modules compiled and diff check passed.
+Validation: 19 work-plan parsing/persistence and goal executor tests passed. Changed modules compiled and diff check passed.
 
-Next: continue Campaign C5 with an interrupted multi-step plan, then reconstruct in a fresh executor. Establish current durable work-run behavior, fix replay or false progress only where demonstrated, and preserve independent authorized work when one dependency blocks. Also inspect the goal-executor caller for clear fail-closed reporting of invalid persisted plans.
+Next: inspect the orchestrator's interruption window between task effect and final work-run persistence. Add only a bounded journal mechanism if existing owner contracts can distinguish attempted, completed, and unknown steps without replaying effects; ensure blocked dependencies do not consume independent authorized work.
