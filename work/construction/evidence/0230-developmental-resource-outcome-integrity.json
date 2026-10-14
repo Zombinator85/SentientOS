@@ -1,0 +1,52 @@
+{
+  "sequence": 230,
+  "title": "Developmental resource outcome integrity",
+  "source_commit": "bf0618c6d9feb0da4a6d3ebdd1e2c7863cdf2ece",
+  "source_tree": "f105723cefe14c58aae36ead6720acf02c485fe5",
+  "source_parent_commit": "fd071714d262bdc83fbfcb0dbe5877cb916068a5",
+  "source_parent_tree": "b46cbbd2e6471701b562e7cb8d04e29ad8d99b4e",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "fd071714d262bdc83fbfcb0dbe5877cb916068a5",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7230,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched"
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/host_resource_runtime.py",
+      "sha": "38e1e42749c1b214065b7fd0468921cf8b9f3593",
+      "mode": "100644"
+    },
+    {
+      "path": "sentientos/resident_developmental_writeback.py",
+      "sha": "2196e8de9c04637d5d969512201bc3ec3ee22616",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/test_strategy_resource_lineage_integration.py",
+      "sha": "1310bcafcfada02d0abf80471098aada8dc19dab",
+      "mode": "100644"
+    },
+    {
+      "path": "tests/test_developmental_model_replacement_resource_lineage_integration.py",
+      "sha": "ae4d1fb3801a8793d24ceec369f579b9c6fb3479",
+      "mode": "100644"
+    }
+  ],
+  "validation": {
+    "resident_developmental_cognition": "92 passed",
+    "resource_lineage_writeback_model_replacement": "48 passed",
+    "python_compile": "passed: sentientos/host_resource_runtime.py, sentientos/resident_developmental_writeback.py",
+    "git_diff_check": "passed",
+    "pytest_mode": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 with isolated PYTHONPATH and writable temporary runtime roots",
+    "canonical_install": "blocked: setuptools bootstrap unavailable through unreachable proxy"
+  },
+  "limitations": [
+    "fixtures do not provide measured token or shared CPU/GPU attribution",
+    "all model/resource developmental inference remains fixture-backed; no production model or host action was used"
+  ]
+}
