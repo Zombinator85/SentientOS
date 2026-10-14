@@ -1,0 +1,9 @@
+## 2026-10-14 checkpoint — adverse and corrective evidence across episodes
+
+- Built on sequence-176 evidence HEAD `b1fa9b50e168d12afadd2f157083c06f50f419c8` (tree `7aea6506e402a396f2725be6c6ec02b7ad6f2aae`). Published test commit `763aae0555eb50b07cd19f41ee3ed9225d2b615c` (tree `d0061f7e28e0f0d2163c068fc71813f9e9d76b69`).
+- Extended the source-backed task-family transfer test into a four-episode chronology: an adverse acquisition/transfer, a later corrective scored episode, its ordinary admitted writeback, then a fresh owner doing a distinct held-out task with both earlier records available. The adverse examples remain intact and the corrective record follows them in the prompt's chronological history.
+- The fixture first exposed a limitation in its simple consumer: it fit the first two (adverse) examples and produced zeros. The test now uses an explicitly named fixture mode that fits the latest two admitted examples; it receives no oracle parameters and derives the mapping from the admitted facts. This is a deterministic test backend behavior, not a production retrieval-policy or model change.
+- Corrective episode: history-present and withheld each scored 2/2; no history effect is claimed for that episode. Final distinct probes: history-present/restored scored 2/2 and withheld scored 0/2. The progression reports four episodes and distinct probe sets, while `learning_established` and `performance_improvement_established` remain false. All conditions are fixture-only and backend inference is not independently observed.
+- The full targeted packet, embodied strategy, positive held-out, adverse/corrective progression, and recovery bundle passed (36 passed); Python compilation and diff checks passed.
+
+Next: use the operator packet with fresh isolated Codex sessions after collecting qualifying canonical positive, irrelevant, and adverse writeback records. Longer episode counts and real-model behavior remain unmeasured.

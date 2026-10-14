@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 176 adds a blinded operator-mediated Codex transfer packet builder and separate exact scorer. It requires canonical history records with matching immutable writeback receipts, preserves positive/adverse examples, enforces held-out probe disjointness, and separates subject packets from scorer keys. Applicability across hidden mappings remains an explicit operator-declared assumption. No Codex session, real-model behavior, or production effect has been observed.
+Sequence 177 adds one chronological four-episode adverse/corrective sequence. An adverse task-family record remains admitted; a later corrective episode is separately scored and written back; after owner reconstruction, a distinct held-out task retrieves both records. A test-only fixture fitted its latest two examples and scored 2/2 present/restored versus 0/2 withheld. The correction episode itself was 2/2 in both present and withheld. No production change, learning claim, or independent backend observation is made.
 
-Latest source commit: 14c03a5c849f6859ea0701901790f0d63582093b
-Latest source tree: 212abd52ac819141150a0ec42a26d9a62b973630
-Latest segment: work/construction/segments/0176-operator-codex-transfer-packet.md
-Segment SHA-256: 02c3d47bcd4a764f896ab404aa87f0ac64d141c238e0ff6bc76c8f6cc07009c1
-Evidence: work/construction/evidence/0176-operator-codex-transfer-packet.json
-Evidence SHA-256: a7436e00308ce45067be55c02f91082757ce7c3a4e30b0ed45b3a949db764a88
-Sequence: 176
+Latest source commit: 763aae0555eb50b07cd19f41ee3ed9225d2b615c
+Latest source tree: d0061f7e28e0f0d2163c068fc71813f9e9d76b69
+Latest segment: work/construction/segments/0177-adverse-correction-longitudinal-cycle.md
+Segment SHA-256: 8630b962740a22f3d67ea048f9e73ec1ee7618bcd64e310a136243650273d022
+Evidence: work/construction/evidence/0177-adverse-correction-longitudinal-cycle.json
+Evidence SHA-256: b143e3fbebd9a8bea1015b65b119ac73a4b69195255262614b1e8a771f137505
+Sequence: 177
 
-Next: strengthen chronological multi-episode correction/recovery across positive, adverse, and corrective experience in one canonical developmental chain. Run the operator packet only in fresh uncontaminated sessions with qualifying durable source records and a preregistered mapping-applicability basis.
+Next: collect three qualifying canonical records and run the sequence-176 operator packet in fresh isolated Codex sessions. Preserve source applicability uncertainty and do not treat fixture contrasts as real-model or production evidence.

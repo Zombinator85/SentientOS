@@ -1,0 +1,40 @@
+{
+  "episodes": [
+    {
+      "admitted_record": "source-score-bound incorrect examples retained",
+      "effect": "history-present fixture score delta -3 then -2 on different probes",
+      "kind": "adverse acquisition and transfer"
+    },
+    {
+      "admitted_record": "later all-correct examples written through ordinary developmental path",
+      "effect": "history-present=2/2, withheld=2/2; unchanged",
+      "kind": "corrective episode"
+    },
+    {
+      "effect": "history-present=2/2, withheld=0/2, restored=2/2",
+      "kind": "post-restart held-out transfer",
+      "retrieved_records": "adverse and corrective records both present; chronological evidence retained"
+    }
+  ],
+  "fixture_limitations": {
+    "consumer": "latest-two-example fixture mode is explicitly condition-agnostic about answer and derives from supplied examples",
+    "independent_backend_observation": false,
+    "learning_established": false,
+    "performance_improvement_established": false,
+    "real_backend_inference": false
+  },
+  "remaining": "No real-model outcome; fixture chronology and scoring cannot establish model learning or durable weight changes.",
+  "sequence": 177,
+  "source_commit": "763aae0555eb50b07cd19f41ee3ed9225d2b615c",
+  "source_path": "tests/test_resident_developmental_cognition.py",
+  "source_tree": "d0061f7e28e0f0d2163c068fc71813f9e9d76b69",
+  "starting_head": "b1fa9b50e168d12afadd2f157083c06f50f419c8",
+  "starting_tree": "7aea6506e402a396f2725be6c6ec02b7ad6f2aae",
+  "status": "[untested] construction; deterministic fixture evidence only",
+  "title": "adverse correction longitudinal cycle",
+  "validation": {
+    "diff_check": "passed",
+    "py_compile": "passed",
+    "targeted_bundle": "36 passed"
+  }
+}
