@@ -11,7 +11,9 @@ from typing import Any, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 from .resident_developmental_cognition import _task_family_history_examples
-from .resident_developmental_writeback import DevelopmentalHistoryStore, DevelopmentalRecord
+from .resident_developmental_writeback import (
+    DevelopmentalRecord, ResidentDevelopmentalWritebackController,
+)
 
 PACKET_SCHEMA = "sentientos.operator_codex_transfer_packet:v1"
 CONDITIONS = ("history_present", "history_withheld", "history_restored",
@@ -48,20 +50,7 @@ def _record_examples(record: DevelopmentalRecord, *, family: str) -> list[dict[s
     return result
 
 
-def _admitted_record(store: DevelopmentalHistoryStore, record_id: str) -> DevelopmentalRecord:
-    record = store.get(record_id)
-    receipts = [receipt for receipt in store.receipts()
-        if receipt.record_id == record.record_id
-        and receipt.record_digest == record.record_digest
-        and receipt.admission_id == record.admission_id
-        and receipt.admission_binding_digest == record.admission_binding_digest
-        and receipt.storage_verified is True and receipt.grants_authority is False]
-    if not receipts:
-        raise CodexTransferPacketError("history_record_writeback_receipt_missing")
-    return record
-
-
-def build_codex_transfer_packets(*, history_store: DevelopmentalHistoryStore,
+def build_codex_transfer_packets(*, writeback: ResidentDevelopmentalWritebackController,
         history_record_id: str, irrelevant_record_id: str, adverse_record_id: str,
         family: str, irrelevant_family: str, probe_inputs: Sequence[int],
         multiplier: int, offset: int, applicability_basis: str,
@@ -94,9 +83,16 @@ def build_codex_transfer_packets(*, history_store: DevelopmentalHistoryStore,
             or not model_settings.get("effort_setting")
             or not isinstance(model_settings.get("generation_settings"), Mapping)):
         raise CodexTransferPacketError("model_settings_incomplete")
-    history_record = _admitted_record(history_store, history_record_id)
-    irrelevant_record = _admitted_record(history_store, irrelevant_record_id)
-    adverse_record = _admitted_record(history_store, adverse_record_id)
+    # The existing read-only owner validates canonical record, receipt,
+    # candidate/source lineage, and the recorded runtime admission.
+    verified = writeback.inspect_completed_records()
+    records_by_id = {record.record_id: record for record, _receipt in verified}
+    try:
+        history_record = records_by_id[history_record_id]
+        irrelevant_record = records_by_id[irrelevant_record_id]
+        adverse_record = records_by_id[adverse_record_id]
+    except KeyError as exc:
+        raise CodexTransferPacketError("history_record_not_in_verified_admission_inventory") from exc
     if len({history_record.record_id, irrelevant_record.record_id,
             adverse_record.record_id}) != 3:
         raise CodexTransferPacketError("history_control_records_must_be_distinct")

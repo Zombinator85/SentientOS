@@ -67,6 +67,19 @@ def _stored_record(root: Path, name: str, family: str,
     return store.get(record_id)
 
 
+class _VerifiedWritebackFixture:
+    def __init__(self, store: DevelopmentalHistoryStore) -> None:
+        self.store = store
+
+    def inspect_completed_records(self):
+        receipts = self.store.receipts()
+        return tuple((record, receipt) for record in self.store.records()
+            for receipt in receipts if receipt.record_id == record.record_id
+            and receipt.record_digest == record.record_digest
+            and receipt.admission_id == record.admission_id
+            and receipt.admission_binding_digest == record.admission_binding_digest)
+
+
 def test_blinded_packets_keep_history_and_scorer_custody_separate(tmp_path: Path) -> None:
     store = DevelopmentalHistoryStore(tmp_path / "history")
     positive = _stored_record(tmp_path / "history", "positive", "affine-v1",
@@ -75,7 +88,7 @@ def test_blinded_packets_keep_history_and_scorer_custody_separate(tmp_path: Path
         [(4, 2, True)])
     adverse = _stored_record(tmp_path / "history", "adverse", "affine-v1",
         [(6, 20, False), (7, 23, True)])
-    result = build_codex_transfer_packets(history_store=store,
+    result = build_codex_transfer_packets(writeback=_VerifiedWritebackFixture(store),
         history_record_id=positive.record_id, irrelevant_record_id=irrelevant.record_id,
         adverse_record_id=adverse.record_id, family="affine-v1",
         irrelevant_family="color-sequence", probe_inputs=(10, 11, 12),
@@ -145,7 +158,7 @@ def test_packet_builder_rejects_overlapping_heldout_inputs_and_bad_history(tmp_p
     positive = _stored_record(store_root, "positive", "affine-v1", [(1, 5, True)])
     irrelevant = _stored_record(store_root, "irrelevant", "color-sequence", [(4, 2, True)])
     adverse = _stored_record(store_root, "adverse", "affine-v1", [(6, 20, False)])
-    kwargs = dict(history_store=store, history_record_id=positive.record_id,
+    kwargs = dict(writeback=_VerifiedWritebackFixture(store), history_record_id=positive.record_id,
         irrelevant_record_id=irrelevant.record_id, adverse_record_id=adverse.record_id,
         family="affine-v1", irrelevant_family="color-sequence", probe_inputs=(1, 11),
         multiplier=3, offset=2, applicability_basis="same preregistered fixture mapping",
@@ -158,7 +171,7 @@ def test_packet_builder_rejects_overlapping_heldout_inputs_and_bad_history(tmp_p
             "model_settings": {"visible_model_name": "Codex"}})
 
 
-def test_packet_builder_requires_verified_writeback_receipt(tmp_path: Path) -> None:
+def test_packet_builder_requires_verified_admission_inventory(tmp_path: Path) -> None:
     root = tmp_path / "history"
     store = DevelopmentalHistoryStore(root)
     positive = _stored_record(root, "positive", "affine-v1", [(1, 5, True)])
@@ -167,8 +180,8 @@ def test_packet_builder_requires_verified_writeback_receipt(tmp_path: Path) -> N
     for receipt in store.receipts():
         if receipt.record_id == positive.record_id:
             (store.receipts_root / f"{receipt.receipt_id}.json").unlink()
-    with pytest.raises(CodexTransferPacketError, match="history_record_writeback_receipt_missing"):
-        build_codex_transfer_packets(history_store=store,
+    with pytest.raises(CodexTransferPacketError, match="history_record_not_in_verified_admission_inventory"):
+        build_codex_transfer_packets(writeback=_VerifiedWritebackFixture(store),
             history_record_id=positive.record_id, irrelevant_record_id=irrelevant.record_id,
             adverse_record_id=adverse.record_id, family="affine-v1",
             irrelevant_family="color-sequence", probe_inputs=(10, 11),

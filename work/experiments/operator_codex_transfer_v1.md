@@ -4,7 +4,7 @@ This protocol prepares controlled subject packets from canonical admitted develo
 
 ## Prepare
 
-1. Select three distinct record IDs from the canonical `DevelopmentalHistoryStore`: a positive record and an adverse record for the target family, plus an irrelevant record from a different family. Each record must contain source-score-bound admitted examples. The builder loads them from the canonical history store and requires matching immutable writeback receipts, record identity, and historical-only posture.
+1. Select three distinct record IDs from configured developmental history: a positive record and an adverse record for the target family, plus an irrelevant record from a different family. Each record must contain source-score-bound admitted examples. The builder uses the existing read-only writeback inventory, including runtime-admission verification, immutable receipt checks, record identity, and historical-only posture.
 2. Freeze the mapping and held-out inputs before packet creation. Choose inputs absent from every source example. The operator must write a concrete applicability basis explaining why this target mapping is the same one represented by the source examples. The builder records this as operator-declared and unverified; a family label alone is not evidence of shared truth.
 3. Write the exact visible Codex model name, effort setting, and generation settings to a private JSON file, for example:
 
@@ -47,7 +47,7 @@ Example invocation (replace record IDs and local paths):
 
 ```sh
 python -m scripts.build_codex_transfer_packet \
-  --history-root /path/to/canonical/developmental-history \
+  --config /path/to/resident-developmental-cognition.json \
   --history-record-id devrec-positive \
   --irrelevant-record-id devrec-irrelevant \
   --adverse-record-id devrec-adverse \
