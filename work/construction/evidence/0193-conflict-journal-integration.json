@@ -1,0 +1,28 @@
+{
+  "sequence": 193,
+  "title": "Integrate conflicting history with write-once response scoring",
+  "status": "[untested] construction",
+  "starting_head": "213c12772a25713ffe143b1a3e92d5aefa878bbf",
+  "starting_tree": "4853ef9670db398ee8fd9e19077e2a8e446afb58",
+  "source_commit": "30eba917dc04dd5052faa12244d5a84657ccbf84",
+  "source_tree": "0fc58f73c59f0a634c329f29e2b65ab4caa84926",
+  "source_paths": [
+    {"path":"tests/test_embodied_consequence.py","blob":"ff16ee84c02dbfaef9743baf4ea221bc4a24a21c","sha256":"d91df7c877b112f577997da067ee9dc2bdba9b4bbaeea0d6df2f0416d56dc56e"}
+  ],
+  "validation": {
+    "embodied_and_transfer_packet_tests":"35 passed",
+    "conflicting_history_present":"criterion fail for low uncertainty and no observation request",
+    "conflicting_history_restored":"criterion pass for high uncertainty and observation request",
+    "conflicting_history_withheld":"criterion indeterminate when no event cited",
+    "distinct_source_event_and_record_identities":"preserved",
+    "scorer_process":"fresh CLI process using persisted response journal",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "authority_posture": {
+    "fixture_only":true,
+    "real_model_improvement_established":false,
+    "execution_authority_added":false
+  },
+  "limitations":"The fixture exercises protocol composition and evaluator semantics. It does not establish model behavior, physical causation, or general strategy quality."
+}
