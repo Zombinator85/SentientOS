@@ -5314,8 +5314,8 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     present_proposal = next(row for row in projected_proposals
         if row["payload"]["condition"] == "history_present")
     proposal_world = WorldStateBoardBuilder().build([present_proposal])
-    next_cognition, _ = owner(tmp_path / "strategy-proposal-cycle",
-        invoker=SessionBoundFakeInvoker(), allowed_source_kinds=("embodiment",),
+    next_cognition, _ = owner(tmp_path / "resident",
+        invoker=cognition_invoker, allowed_source_kinds=("embodiment",),
         max_selected_facts=16)
     next_record = next_cognition.run_tick(snapshot=proposal_world,
         tick_id="strategy-proposal-next-developmental-cycle")
@@ -5326,6 +5326,63 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
         if fact.get("source", {}).get("source_id") == present_proposal["source_id"]}
     assert admitted_proposal_ids == {present_proposal["source_id"]}
     assert next_history["authority"] is False
+
+    # A new interpreter reopens the configured persistence roots and verifies
+    # receipt custody before rebuilding a later bounded strategy packet.
+    receipt_path = tmp_path / "canonical-loop-fixture-receipts.json"
+    receipt_bytes = json.dumps({key: value.to_dict()
+        for key, value in cognition_invoker.receipts.items()}, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")
+    receipt_path.write_bytes(receipt_bytes)
+    child_code = r'''
+import hashlib,json,sys
+from pathlib import Path
+from sentientos.codex_task_authority_admission import RESIDENT_DEVELOPMENTAL_WRITEBACK,RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION
+from sentientos.governed_local_model_invocation import validate_receipt
+from sentientos.runtime_admission import AdmissionLedger,RuntimeAdmissionAuthority,RuntimeAdmissionVerifier
+from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionConfig,ResidentDevelopmentalCognitionOwner
+from sentientos.embodied_consequence import build_operator_codex_strategy_multi_event_packets,make_strategy_proposal
+root,receipt_path=Path(sys.argv[1]),Path(sys.argv[2]); raw=receipt_path.read_bytes(); assert hashlib.sha256(raw).hexdigest()==sys.argv[3]; receipts=json.loads(raw)
+ledger=AdmissionLedger(root/"state"/"runtime_admissions.json"); defs={RESIDENT_DEVELOPMENTAL_WRITEBACK:RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
+def current(): return max((x.issued_sequence for x in ledger.load()[0]),default=1)
+def following():
+ a,r=ledger.load(); return max([x.issued_sequence for x in a]+[x.sequence for x in r]+[0])+1
+class Verifier:
+ def verify_persisted_invocation_receipt(self,rid,rdigest,**expected):
+  v=receipts[rid]; valid,reasons=validate_receipt(v); assert valid,reasons; q=v["request"]
+  assert v["receipt_id"]==rid and v["receipt_digest"]==rdigest and q["request_id"]==expected["expected_request_id"] and q["request_digest"]==expected["expected_request_digest"] and q["active_model_identity"]==expected["expected_active_model_identity"]
+  assert q["linkage"]["resident_cognitive_serving"]["session_id"]==expected["expected_session_id"]
+  return {k:v[k] for k in ("receipt_id","receipt_digest","request","status","output_digest","output_truncated","generation_config","output_size_bytes","backend_completion","observed_at") if k in v}
+wb=ResidentDevelopmentalWritebackController(history_root=root/"history",admission_verifier=RuntimeAdmissionVerifier(definitions=defs,ledger=ledger),current_sequence=current)
+owner=ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(root/"history",root/"state",("embodiment",),16,4,True),writeback=wb,admission_authority=RuntimeAdmissionAuthority(definitions=defs,ledger=ledger),invoker=Verifier(),current_sequence=following)
+inventory=owner.writeback.inspect_completed_records(); byid={r.record_id:r for r,_ in inventory}
+assert all(x in byid for x in sys.argv[4:8])
+situation,settings,applicability=(json.loads(sys.argv[i]) for i in (8,9,10))
+bundle=build_operator_codex_strategy_multi_event_packets(writeback=owner.writeback,history_record_ids=sys.argv[4:7],situation=situation,model_settings=settings,max_event_count=2,applicability_by_event=applicability)
+manifest=bundle["scorer_manifest"]; events={e["attribution"]["attribution_id"] for e in manifest["events"]}
+omitted={e["event_id"] for e in bundle["preregistration"]["omitted_event_identities"]}
+assert events==set(sys.argv[11:13]) and omitted=={sys.argv[13]}
+packet=next(p for p in bundle["subject_packets"].values() if p["historical_evidence"]); history=packet["historical_evidence"]
+proposal=make_strategy_proposal(situation_binding=situation["situation_binding"],body_generation=situation["body_generation"],relevant_consequence_ids=tuple(e["event_id"] for e in history),proposed_next_action_class="observe",requested_pose="wave",requested_expression="neutral",retry_prior_strategy=False,alter_body_or_rig=False,more_observation_required=True,distinguishes_renderer_and_observer=True,rationale="preserve source identities and request observation",uncertainty="high",factual_assertions=())
+print(json.dumps({"record_ids":sorted(byid),"event_ids":[e["event_id"] for e in history],"proposal_id":proposal.strategy_id,"omitted_ids":sorted(omitted),"source_times":[e["evaluated_at"] for e in history]},sort_keys=True))
+'''
+    child=subprocess.run([sys.executable,"-c",child_code,str(tmp_path/"resident"),
+        str(receipt_path),hashlib.sha256(receipt_bytes).hexdigest(),durable_record.record_id,
+        correction_record.record_id,irrelevant_record_id,next_record.written_record_id,
+        json.dumps(strategy_situation,sort_keys=True),json.dumps(strategy_settings,sort_keys=True),
+        json.dumps(applicability,sort_keys=True),attribution["attribution_id"],
+        correction_attribution["attribution_id"],unrelated_attribution["attribution_id"]],
+        check=True,capture_output=True,text=True,
+        env={**__import__("os").environ,"PYTHONPATH":str(Path(__file__).resolve().parents[1]),
+            "SENTIENTOS_GOVERNOR_ROOT":str(tmp_path/"child-governor")})
+    recovered=json.loads(child.stdout)
+    assert set(recovered["event_ids"])=={attribution["attribution_id"],correction_attribution["attribution_id"]}
+    assert recovered["omitted_ids"]==[unrelated_attribution["attribution_id"]]
+    assert set(recovered["record_ids"])=={durable_record.record_id,correction_record.record_id,
+        irrelevant_record_id,next_record.written_record_id}
+    assert sorted(recovered["source_times"])==sorted([attribution["evaluated_at"],
+        correction_attribution["evaluated_at"]])
 
 
 def test_resource_linkage_cannot_bypass_serving_receipt_verification(tmp_path: Path) -> None:
