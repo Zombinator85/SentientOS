@@ -15,6 +15,7 @@ from sentientos.goal_graph import Goal, GoalGraph, GoalStateRecord, default_goal
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import Task, TaskOmission, TaskRun, WorkPlan, WorkPlanRun
+from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +65,7 @@ class GoalExecutor:
     def execute_plan(self, plan: WorkPlan, state: ExecutorState) -> WorkPlanRun:
         task_runs: list[TaskRun] = []
         reasons: list[str] = []
+        journal = WorkPlanExecutionJournal(self.repo_root, plan)
         for task in plan.tasks:
             started = _iso_now()
             started_mono = time.monotonic()
@@ -71,6 +73,20 @@ class GoalExecutor:
             reason: str | None = None
             artifacts: tuple[str, ...] = ()
             destructive = task.destructive or task.kind == "forge_apply"
+
+            prior_state = journal.state(task.task_id)
+            if prior_state is not None:
+                status = "skipped"
+                reason = ("prior_attempt_outcome_unknown" if prior_state == "interrupted"
+                    else f"prior_terminal_{prior_state}_not_replayed")
+                finished = _iso_now()
+                task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id,
+                    kind=task.kind, status=status, reason=reason, started_at=started,
+                    finished_at=finished, duration_ms=0, artifacts=(), destructive=destructive))
+                reasons.append(reason)
+                continue
+
+            journal.start(task.task_id)
 
             if destructive and (state.quarantine_active or not state.allow_mutation):
                 status = "skipped"
@@ -82,6 +98,7 @@ class GoalExecutor:
                 status, reason, artifacts = self._execute_task(task)
             finished = _iso_now()
             duration_ms = max(0, int((time.monotonic() - started_mono) * 1000))
+            journal.finish(task.task_id, status=status, reason=reason)
             task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id, kind=task.kind, status=status, reason=reason, started_at=started, finished_at=finished, duration_ms=duration_ms, artifacts=artifacts, destructive=destructive))
             if status in {"failed", "skipped"} and reason:
                 reasons.append(reason)
