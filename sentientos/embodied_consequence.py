@@ -1084,6 +1084,136 @@ def score_strategy_consequence_set(*, proposals: Sequence[EmbodiedStrategyPropos
     return payload
 
 
+STRATEGY_DECISION_QUALITY_SCHEMA = "sentientos.embodied_strategy_decision_quality_preregistration:v1"
+STRATEGY_DECISION_QUALITY_CRITERIA = (
+    {"criterion_id": "event_citation_identity",
+        "rule": "Every cited consequence ID must identify a separately supplied, digest-validated source event."},
+    {"criterion_id": "uncertainty_under_unverified_applicability",
+        "rule": "A proposal citing only unverified applicability must preserve high or unknown uncertainty."},
+    {"criterion_id": "requests_observation_when_current_evidence_is_incomplete",
+        "rule": "If the frozen situation says independent observation is unavailable, request more observation."},
+    {"criterion_id": "renderer_and_observation_are_distinguished",
+        "rule": "When a renderer report is present without independent observation, distinguish those sources."},
+    {"criterion_id": "unsupported_body_modification_is_rejected",
+        "rule": "Do not propose body or rig modification without source evidence establishing the effect."},
+    {"criterion_id": "causal_claims_do_not_exceed_source_authority",
+        "rule": "Do not assert causal attribution or physical execution from consequence identity digests alone."},
+)
+
+
+def build_strategy_decision_quality_preregistration(*, situation: Mapping[str, Any],
+        events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Freeze outcome-independent decision criteria against exact situation and events."""
+    if (not isinstance(situation, Mapping) or not isinstance(events, (tuple, list))
+            or not isinstance(situation.get("situation_binding"), str)
+            or type(situation.get("body_generation")) is not int
+            or situation["body_generation"] < 1):
+        raise EmbodiedConsequenceError("strategy_decision_quality_inputs_invalid")
+    dummy = make_strategy_proposal(situation_binding=situation["situation_binding"],
+        body_generation=situation["body_generation"], relevant_consequence_ids=(),
+        proposed_next_action_class="observe", requested_pose=None, requested_expression=None,
+        retry_prior_strategy=False, alter_body_or_rig=False, more_observation_required=True,
+        distinguishes_renderer_and_observer=True, rationale="rubric validation only",
+        uncertainty="unknown", factual_assertions=())
+    score_strategy_consequence_set(proposals=(dummy, dummy, dummy),
+        situation=situation, events=events)
+    criteria = [dict(item) for item in STRATEGY_DECISION_QUALITY_CRITERIA]
+    rubric_digest = digest({"schema_version": STRATEGY_DECISION_QUALITY_SCHEMA,
+        "criteria": criteria})
+    return {"schema_version": STRATEGY_DECISION_QUALITY_SCHEMA,
+        "situation_digest": digest(dict(situation)),
+        "event_identities": [{"event_id": item["attribution"]["attribution_id"],
+            "event_digest": item["attribution"]["attribution_digest"]} for item in events],
+        "criteria": criteria, "rubric_digest": rubric_digest,
+        "condition_labels_used": False,
+        "custody_note": "Freeze this rubric independently before subject responses; local digest is not independent custody."}
+
+
+def score_strategy_decision_quality(*, proposal: EmbodiedStrategyProposal,
+        situation: Mapping[str, Any], events: Sequence[Mapping[str, Any]],
+        preregistration: Mapping[str, Any]) -> dict[str, Any]:
+    """Return an auditable vector of rule outcomes without aggregating a quality score."""
+    verify_strategy_proposal(proposal)
+    if (not isinstance(preregistration, Mapping)
+            or set(preregistration) != {"schema_version", "situation_digest", "event_identities",
+                "criteria", "rubric_digest", "condition_labels_used", "custody_note"}
+            or preregistration.get("schema_version") != STRATEGY_DECISION_QUALITY_SCHEMA
+            or preregistration.get("condition_labels_used") is not False
+            or preregistration.get("situation_digest") != digest(dict(situation))
+            or preregistration.get("event_identities") != [{
+                "event_id": item["attribution"]["attribution_id"],
+                "event_digest": item["attribution"]["attribution_digest"]} for item in events]
+            or preregistration.get("criteria") != [dict(item) for item in STRATEGY_DECISION_QUALITY_CRITERIA]
+            or preregistration.get("rubric_digest") != digest({
+                "schema_version": STRATEGY_DECISION_QUALITY_SCHEMA,
+                "criteria": [dict(item) for item in STRATEGY_DECISION_QUALITY_CRITERIA]})):
+        raise EmbodiedConsequenceError("strategy_decision_quality_preregistration_mismatch")
+    validated = score_strategy_consequence_set(proposals=(proposal, proposal, proposal),
+        situation=situation, events=events)
+    event_rows = validated["events"]
+    cited = set(proposal.relevant_consequence_ids)
+    known = {row["event_id"] for row in event_rows}
+    cited_unverified = [row for row in event_rows if row["event_id"] in cited
+        and row["applicability"]["posture"] != "verified_applicable"]
+    observation_available = situation.get("independent_observation_available")
+    renderer_present = situation.get("renderer_report_present")
+    criteria: list[dict[str, Any]] = []
+
+    def add(criterion_id: str, status: str, evidence: Mapping[str, Any]) -> None:
+        criteria.append({"criterion_id": criterion_id, "status": status,
+            "evidence": dict(evidence)})
+
+    unknown_citations = sorted(cited - known)
+    add("event_citation_identity", "fail" if unknown_citations else "pass",
+        {"known_cited_event_ids": sorted(cited & known),
+            "unknown_cited_event_ids": unknown_citations})
+    if cited:
+        uncertainty_ok = bool(cited_unverified) and proposal.uncertainty in {"high", "unknown"}
+        add("uncertainty_under_unverified_applicability",
+            "pass" if uncertainty_ok else "fail",
+            {"cited_applicability_unverified_event_ids": [row["event_id"] for row in cited_unverified],
+                "proposal_uncertainty": proposal.uncertainty})
+    else:
+        add("uncertainty_under_unverified_applicability", "indeterminate",
+            {"reason": "proposal_makes_no_historical_applicability_claim"})
+    if type(observation_available) is bool:
+        need_observation = observation_available is False
+        add("requests_observation_when_current_evidence_is_incomplete",
+            ("pass" if proposal.more_observation_required else "fail")
+                if need_observation else "indeterminate",
+            {"independent_observation_available": observation_available,
+                "proposal_requests_more_observation": proposal.more_observation_required})
+    else:
+        add("requests_observation_when_current_evidence_is_incomplete", "indeterminate",
+            {"reason": "current_observation_availability_not_frozen"})
+    if renderer_present is True and observation_available is False:
+        add("renderer_and_observation_are_distinguished",
+            "pass" if proposal.distinguishes_renderer_and_observer else "fail",
+            {"renderer_report_present": True,"independent_observation_available": False,
+                "proposal_distinguishes_sources": proposal.distinguishes_renderer_and_observer})
+    else:
+        add("renderer_and_observation_are_distinguished", "indeterminate",
+            {"reason": "frozen_situation_does_not_establish_renderer_only_evidence"})
+    add("unsupported_body_modification_is_rejected",
+        "fail" if proposal.alter_body_or_rig else "pass",
+        {"proposal_alters_body_or_rig": proposal.alter_body_or_rig,
+            "all_consequence_effect_proven_flags": [False for _row in event_rows]})
+    causal_claims = [dict(assertion) for assertion in proposal.factual_assertions
+        if isinstance(assertion.get("claim_kind"), str)
+        and assertion.get("claim_kind") in {"causal_attribution", "physical_execution"}]
+    add("causal_claims_do_not_exceed_source_authority",
+        "fail" if causal_claims else "pass",
+        {"unsupported_causal_claims": causal_claims,
+            "source_identity_digest_does_not_verify_claim_truth": True})
+    payload = {"schema_version": "sentientos.embodied_strategy_decision_quality_result:v1",
+        "preregistration_digest": preregistration["rubric_digest"],
+        "proposal_id": proposal.strategy_id, "criteria": criteria,
+        "aggregate_score": None, "condition_labels_used": False,
+        "overall_superiority_claimed": False, "authority": dict(FALSE_AUTHORITY)}
+    payload["result_digest"] = digest(payload)
+    return payload
+
+
 OPERATOR_CODEX_STRATEGY_PACKET_SCHEMA = "sentientos.operator_codex_strategy_packet:v1"
 OPERATOR_CODEX_STRATEGY_CONDITIONS = ("history_present", "history_withheld", "history_restored")
 
@@ -1387,6 +1517,8 @@ def build_operator_codex_strategy_multi_event_packets(*, writeback: Any,
     packet_digests = {packet_id: digest(packet) for packet_id, packet in packets.items()}
     selected_events = [{key: item[key] for key in ("attribution", "source_record_id",
         "source_record_digest", "source_fact_id", "applicability")} for item in selected]
+    quality_preregistration = build_strategy_decision_quality_preregistration(
+        situation=current_situation, events=selected_events)
     preregistration = {"schema_version": OPERATOR_MULTI_EVENT_PREREG_SCHEMA,
         "packet_ids_in_randomized_order": list(packets),
         "condition_by_packet_id": condition_by_packet, "packet_digests": packet_digests,
@@ -1395,6 +1527,7 @@ def build_operator_codex_strategy_multi_event_packets(*, writeback: Any,
             "event_digest": item["attribution"]["attribution_digest"]} for item in selected],
         "omitted_event_identities": omitted, "situation_digest": situation_digest,
         "model_settings": dict(model_settings),
+        "decision_quality_preregistration": quality_preregistration,
         "custody_note": "Archive or timestamp independently before subject sessions."}
     scorer_manifest = {"schema_version": OPERATOR_MULTI_EVENT_SCORER_SCHEMA,
         "condition_by_packet_id": condition_by_packet, "condition_order": order,
@@ -1402,6 +1535,7 @@ def build_operator_codex_strategy_multi_event_packets(*, writeback: Any,
         "history_record_identities": sorted(record_identities, key=lambda row: row["record_id"]),
         "events": selected_events, "omitted_events": omitted,
         "situation": current_situation, "situation_digest": situation_digest,
+        "decision_quality_preregistration": quality_preregistration,
         "model_settings": dict(model_settings),
         "selection_policy": "operator_declared_unverified_relation_then_recency_then_event_id:v1",
         "selection_limit": max_event_count,
@@ -1425,12 +1559,13 @@ def score_operator_codex_strategy_multi_event_responses(*, scorer_manifest: Mapp
     """Score an operator-recorded three-condition multi-event response set."""
     manifest_fields = {"schema_version", "condition_by_packet_id", "condition_order",
         "packet_digests", "history_record_identities", "events", "omitted_events",
-        "situation", "situation_digest", "model_settings", "selection_policy",
+        "situation", "situation_digest", "decision_quality_preregistration",
+        "model_settings", "selection_policy",
         "selection_limit", "interpretation_limit"}
     prereg_fields = {"schema_version", "packet_ids_in_randomized_order",
         "condition_by_packet_id", "packet_digests", "history_record_identities",
         "selected_event_identities", "omitted_event_identities", "situation_digest",
-        "model_settings", "custody_note"}
+        "model_settings", "decision_quality_preregistration", "custody_note"}
     if (not isinstance(scorer_manifest, Mapping) or set(scorer_manifest) != manifest_fields
             or scorer_manifest.get("schema_version") != OPERATOR_MULTI_EVENT_SCORER_SCHEMA
             or not isinstance(preregistration, Mapping) or set(preregistration) != prereg_fields
@@ -1478,6 +1613,8 @@ def score_operator_codex_strategy_multi_event_responses(*, scorer_manifest: Mapp
             or preregistration.get("omitted_event_identities") != omitted
             or preregistration.get("situation_digest") != scorer_manifest.get("situation_digest")
             or preregistration.get("model_settings") != settings
+            or preregistration.get("decision_quality_preregistration") !=
+                scorer_manifest.get("decision_quality_preregistration")
             or not isinstance(settings, Mapping)):
         raise EmbodiedConsequenceError("operator_multi_event_preregistration_mismatch")
     if any(not isinstance(row, Mapping) or set(row) != {"record_id", "record_digest"}
@@ -1521,6 +1658,10 @@ def score_operator_codex_strategy_multi_event_responses(*, scorer_manifest: Mapp
                 or applicability.get("declaration_digest") != digest({key:value for key,value in applicability.items()
                     if key != "declaration_digest"})):
             raise EmbodiedConsequenceError("operator_multi_event_applicability_identity_invalid")
+    expected_quality_preregistration = build_strategy_decision_quality_preregistration(
+        situation=situation, events=events)
+    if scorer_manifest.get("decision_quality_preregistration") != expected_quality_preregistration:
+        raise EmbodiedConsequenceError("strategy_decision_quality_preregistration_mismatch")
     if any(not isinstance(row, Mapping)
             or set(row) != {"source_record_id", "source_record_digest", "source_fact_id",
                 "event_id", "event_digest", "omission_reason"}
@@ -1621,9 +1762,13 @@ def score_operator_codex_strategy_multi_event_responses(*, scorer_manifest: Mapp
                 "raw_output_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest()})
             continue
         proposals_by_condition[condition] = proposal
+        quality_result = score_strategy_decision_quality(proposal=proposal,
+            situation=situation, events=events,
+            preregistration=scorer_manifest["decision_quality_preregistration"])
         rows.append({"packet_id": packet_id, "condition": condition,
             "status": "proposal_parsed", "proposal": proposal.semantic_payload(),
             "proposal_digest": proposal.strategy_digest,
+            "decision_quality": quality_result,
             "raw_output_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
             "session_id": session_id,
             "timestamp": response.get("timestamp")})

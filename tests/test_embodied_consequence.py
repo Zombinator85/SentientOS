@@ -380,7 +380,8 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
         def inspect_completed_records(self):
             return ((record,object()),(corrective_record,object()))
     multi_situation={**situation,"situation_binding":"later-wave-multi",
-        "requested_at":"2035-01-01T00:00:03+00:00"}
+        "requested_at":"2035-01-01T00:00:03+00:00",
+        "renderer_report_present":True,"independent_observation_available":False}
     multi_events=build_operator_codex_strategy_multi_event_packets(
         writeback=VerifiedMultiWritebackFixture(),
         history_record_ids=[record.record_id,corrective_record.record_id],
@@ -484,12 +485,22 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
         "rationale":"bounded fixture response","uncertainty":"high",
         "relevant_consequence_ids":[selected_id],"factual_assertions":[]}
     for packet_id in multi_event_manifest["condition_by_packet_id"]:
+        condition=multi_event_manifest["condition_by_packet_id"][packet_id]
+        proposal_for_condition=dict(proposal_output)
+        if condition=="history_present":
+            proposal_for_condition.update({"uncertainty":"low",
+                "more_observation_required":False,"distinguishes_renderer_and_observer":False,
+                "alter_body_or_rig":True,"factual_assertions":[{
+                    "claim_kind":"causal_attribution","claim":"the event establishes the cause",
+                    "source_id":selected_id,
+                    "source_digest":multi_event_manifest["events"][0]["attribution"][
+                        "attribution_digest"]}]})
         multi_event_responses[packet_id]={"packet_id":packet_id,
             "session_id":"multi-event-session-"+packet_id,"timestamp":TX,
             "visible_model_name":settings["visible_model_name"],
             "effort_setting":settings["effort_setting"],
             "generation_settings":settings["generation_settings"],
-            "raw_output":json.dumps(proposal_output)}
+            "raw_output":json.dumps(proposal_for_condition)}
     multi_event_journal=tmp_path/"multi-event-response-journal";multi_event_journal.mkdir()
     first_two=list(multi_event_responses)[:2]
     for packet_id in first_two:
@@ -519,6 +530,18 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     assert json.loads(resumed_event_cli.stdout)["strategy_scoring_status"]=="scored"
     assert complete_event_result["scoreable_task_fraction"]=={"numerator":1,"denominator":1}
     assert complete_event_result["event_score"]["events"][0]["applicability_independently_verified"] is False
+    quality_by_condition={row["condition"]:row["decision_quality"]["criteria"]
+        for row in complete_event_result["condition_results"]}
+    present_quality={row["criterion_id"]:row["status"] for row in
+        quality_by_condition["history_present"]}
+    withheld_quality={row["criterion_id"]:row["status"] for row in
+        quality_by_condition["history_withheld"]}
+    assert present_quality["event_citation_identity"]=="pass"
+    assert present_quality["uncertainty_under_unverified_applicability"]=="fail"
+    assert present_quality["unsupported_body_modification_is_rejected"]=="fail"
+    assert withheld_quality["requests_observation_when_current_evidence_is_incomplete"]=="pass"
+    assert withheld_quality["renderer_and_observation_are_distinguished"]=="pass"
+    assert all(status!="fail" for status in withheld_quality.values())
     with pytest.raises(OperatorResponseJournalError,match="external_response_packet_already_recorded"):
         record_operator_codex_response(journal_dir=multi_event_journal,
             preregistration=multi_event_prereg,packet_id=first_two[0],
@@ -556,6 +579,14 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     with pytest.raises(EmbodiedConsequenceError,match="operator_multi_event_preregistration_mismatch"):
         score_operator_codex_strategy_multi_event_responses(scorer_manifest=multi_event_manifest,
             preregistration=bad_multi_prereg,subject_packets=multi_event_packets,
+            responses=multi_event_responses)
+    altered_quality={**multi_event_manifest["decision_quality_preregistration"],
+        "criteria":multi_event_manifest["decision_quality_preregistration"]["criteria"][:-1]}
+    altered_manifest={**multi_event_manifest,"decision_quality_preregistration":altered_quality}
+    altered_prereg={**multi_event_prereg,"decision_quality_preregistration":altered_quality}
+    with pytest.raises(EmbodiedConsequenceError,match="strategy_decision_quality_preregistration_mismatch"):
+        score_operator_codex_strategy_multi_event_responses(scorer_manifest=altered_manifest,
+            preregistration=altered_prereg,subject_packets=multi_event_packets,
             responses=multi_event_responses)
     corrupt_journal=tmp_path/"multi-event-corrupt-journal";corrupt_journal.mkdir()
     corrupt_packet=first_two[0]
