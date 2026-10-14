@@ -4895,7 +4895,8 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
         observation=observation, attribution=attribution, comparison=comparison)
     source_world = WorldStateBoardBuilder().build([row for row in source_records
         if row.get("source_id") == attribution["attribution_id"]])
-    cognition, _ = owner(tmp_path / "resident", invoker=SessionBoundFakeInvoker(),
+    cognition_invoker = SessionBoundFakeInvoker()
+    cognition, _ = owner(tmp_path / "resident", invoker=cognition_invoker,
         allowed_source_kinds=("embodiment",), max_selected_facts=16)
     admitted = cognition.run_tick(snapshot=source_world,
         tick_id="strategy-consequence-admission")
@@ -4910,6 +4911,79 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     assert history_record["authority"] is False
     assert history_record["epistemic_posture"] == \
         "historical_interpretation_not_current_truth"
+
+    # A distinct later source event supplies corrective evidence through the
+    # same World-State, interpretation, scoped admission, and durable store.
+    correction_start = (datetime.now(timezone.utc) - timedelta(minutes=8)).isoformat()
+    correction_reported = (datetime.now(timezone.utc) - timedelta(minutes=7, seconds=30)).isoformat()
+    correction_observed = (datetime.now(timezone.utc) - timedelta(minutes=7)).isoformat()
+    correction_handoff = renderer_handoff({
+        "installation_identity":"fixture-installation","body_identity":"fixture-body",
+        "body_generation":2,"artifact_sha256":"sha256:artifact",
+        "manifest_digest":"sha256:manifest","pointer_digest":"sha256:pointer"},
+        renderer_interface_id="renderer:fixture:v1",requested_pose="wave",
+        requested_expression="neutral",correlation_id="developmental-strategy-correction",
+        commanded_at=correction_start)
+    correction_expectation = make_expectation(
+        installation_body_id="fixture-installation",body_id="fixture-body",body_generation=2,
+        body_manifest_digest="sha256:manifest",handoff_id=correction_handoff["handoff_id"],
+        handoff_digest=correction_handoff["handoff_digest"],
+        renderer_interface_id="renderer:fixture:v1",requested={"pose":"wave"},
+        predicted_observables={"pose":"wave"},observable_fields=("pose",),
+        comparison_policy={"pose":{"kind":"exact"}},
+        expected_observation_source_class="synthetic_independent_fixture",
+        correlation_id="developmental-strategy-correction",causal_principal_binding_digest=None,
+        created_at=correction_start,
+        expires_at=(datetime.now(timezone.utc)+timedelta(days=1)).isoformat())
+    correction_renderer_report = SyntheticRenderer(applied={"pose":"wave"},
+        started_at=correction_start,completed_at=correction_reported).render_test(correction_handoff)
+    correction_observation = SyntheticIndependentObserver(
+        observer_id="separate-correction-fixture-observer",observed={"pose":"wave"},
+        observed_at=correction_observed).observe(expectation=correction_expectation,
+            handoff=correction_handoff,report=correction_renderer_report)
+    correction_attribution, correction_comparison = evaluate_consequence(
+        expectation=correction_expectation,handoff=correction_handoff,
+        current_body={"installation_identity":"fixture-installation",
+            "body_identity":"fixture-body","body_generation":2,
+            "artifact_sha256":"sha256:artifact","manifest_digest":"sha256:manifest",
+            "pointer_digest":"sha256:pointer"},renderer_report=correction_renderer_report,
+        observation=correction_observation,evaluated_at=correction_observed)
+    assert correction_attribution["classification"] == "expectation_satisfied"
+    assert correction_attribution["attribution_id"] != attribution["attribution_id"]
+    correction_records = consequence_world_state_records(
+        expectation=correction_expectation,handoff=correction_handoff,
+        renderer_report=correction_renderer_report,observation=correction_observation,
+        attribution=correction_attribution,comparison=correction_comparison)
+    correction_world = WorldStateBoardBuilder().build([row for row in correction_records
+        if row.get("source_id")==correction_attribution["attribution_id"]])
+    correction_tick = cognition.run_tick(snapshot=correction_world,
+        tick_id="strategy-corrective-consequence-admission")
+    assert correction_tick.written_record_id
+    correction_record = cognition.writeback.store.get(correction_tick.written_record_id)
+    correction_source_facts = [fact for fact in correction_record.candidate["selected_facts"]
+        if fact.get("source",{}).get("source_id")==correction_attribution["attribution_id"]]
+    assert len(correction_source_facts)==1
+    assert correction_source_facts[0]["payload"]==correction_attribution
+    assert correction_record.created_at > durable_record.created_at
+    assert correction_record.current_truth is False and correction_record.authority is False
+
+    # Re-open canonical persistence and ask its real read-only verifier for
+    # the completed inventory. No record or receipt is reconstructed by hand.
+    reopened_inventory_owner, _ = owner(tmp_path / "resident",invoker=cognition_invoker,
+        allowed_source_kinds=("embodiment",),max_selected_facts=16)
+    verified_inventory = reopened_inventory_owner.writeback.inspect_completed_records()
+    recovered_by_event = {}
+    for recovered_record, recovered_receipt in verified_inventory:
+        source_events = [fact["payload"] for fact in recovered_record.candidate["selected_facts"]
+            if fact.get("payload",{}).get("schema_version") == attribution["schema_version"]]
+        for source_event in source_events:
+            recovered_by_event[source_event["attribution_id"]]=(recovered_record,recovered_receipt)
+    assert set(recovered_by_event)=={attribution["attribution_id"],
+        correction_attribution["attribution_id"]}
+    assert recovered_by_event[attribution["attribution_id"]][0].record_id==durable_record.record_id
+    assert recovered_by_event[correction_attribution["attribution_id"]][0].record_id==\
+        correction_record.record_id
+    assert all(receipt.storage_verified for _,receipt in recovered_by_event.values())
     import copy
     from sentientos.embodied_consequence import _strategy_prior_consequence_binding
     substituted_source = copy.deepcopy(history_record)
