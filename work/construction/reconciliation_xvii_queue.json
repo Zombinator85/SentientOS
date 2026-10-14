@@ -1,0 +1,26 @@
+{
+  "schema": "sentientos.reconciliation_queue:v1",
+  "last_checkpoint_sequence": 232,
+  "completed_nodes": [
+    "A2/A4 first vertical slice: explicitly selected, owner-recovered campaign outcomes feed governed improvement signals with classification-sensitive bounded routes and source limitations preserved."
+  ],
+  "current_source_commit": "d429354dc3072317e3ed2fdb555e75ade7e48fdf",
+  "current_source_tree": "5e42b331fac5a31525e19f1666d56595ccd01ba6",
+  "next_executable_nodes": [
+    {"program": "A", "node": "A5-A8", "work": "Multiple campaigns, duplicates, contradictions, correction, cold recovery, and admitted runtime ordering."},
+    {"program": "B", "node": "B1-B8", "work": "Trace signal output into existing bounded proposal consumers; preserve historical finding/source limitations through later planning."},
+    {"program": "C", "node": "C2-C8", "work": "Historical resource event identity, restart, incomplete consumption, and evidence-informed later strategy."},
+    {"program": "D", "node": "D1-D8", "work": "Conflicting source identities, admissible persistent revision, temporal consistency, and causal introspection."},
+    {"program": "E", "node": "E1-E8", "work": "Multi-task partial progress, interruption recovery, omissions, and later outcome-informed planning."},
+    {"program": "F", "node": "F1-F8", "work": "Longitudinal strategy correction, negative transfer, source attribution, and fixture model continuity."},
+    {"program": "Integration", "node": "X1-X4", "work": "Join at least one maintenance/resource/epistemic/goal trajectory across process recovery."}
+  ],
+  "known_test_failures": [
+    "Three stale campaign tests assert production readiness or call an adapter without its required owner argument.",
+    "Runtime closure tests include read-only /glow setup and admission-fixture assumptions.",
+    "Targeted mypy still reports existing repository baseline errors."
+  ],
+  "external_blockers": [
+    "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
+  ]
+}
