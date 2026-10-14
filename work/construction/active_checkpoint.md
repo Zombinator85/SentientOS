@@ -1,17 +1,13 @@
 # Active construction checkpoint
 
-Sequence 184 repairs later cognition rejecting source records whose owner receipts were recorded but could not be independently matched to a serving session. Those cases retain `receipt_identity_verified=false`, `receipt_unbound_or_identity_mismatch`, source receipt IDs/digests, an incomplete/unverified aggregate posture, and `independent_backend_observation=false`. They now pass through the exact evidence budget without changing admission or execution policy.
+Sequence 185 extends multi-trial response-journal recovery: partial scoring retains a 0/2 task denominator, an existing response cannot be replaced, and later reconstruction must produce the same aggregate score digest as the original complete packet response set.
 
-Sequence 183 added multi-situation strategy packets and per-task descriptive reports; sequence 182 added write-once response journaling; sequence 181 added the operator-mediated strategy experiment. Sequences 179–180 repaired affine packet integrity and output isolation.
+Latest source commit: 4a6551a027db4ce735686a4bcfe80206541507e2
+Latest source tree: 7f568ef601b3e5e2546dce48f9212066664f3d34
+Latest segment: work/construction/segments/0185-multitrial-journal-resume.md
+Evidence: work/construction/evidence/0185-multitrial-journal-resume.json
+Sequence: 185
 
-Latest source commit: 9f90356316d50aeef58e4912be1bd93098f686f6
-Latest source tree: 86ab46ae1abf3cfad74ff0371adf0fa0c863acb3
-Latest segment: work/construction/segments/0184-unverified-receipt-history-projection.md
-Evidence: work/construction/evidence/0184-unverified-receipt-history-projection.json
-Sequence: 184
+Validation: changed test and relevant journal/multi-trial modules compile; diff check passes. Focused test collection is blocked because pytest is absent and the repository test runner reports missing jinja2. This increment is [untested]. No real external sessions were run.
 
-Validation: six staging/progression/restart tests passed; 73 focused packet/history/writeback/strategy/consequence tests passed; compileall, changed-region typing inspection, and diff checks passed. Whole-file mypy still reports existing issues outside the edited regions.
-
-Known blockers: strategy resource-lineage integration cannot collect because `cryptography` is absent. No fresh Codex subject sessions or real-model results were produced. A broad cognition integration defect was repaired here; no remaining reproduction is known for that path.
-
-Next: test multi-trial journal-backed scoring with incomplete task sets, then determine whether more than one verified consequence can be included while preserving event-level causal applicability and independent scoring.
+Next: extend strategy evaluation to multiple distinct, independently sourced consequences with explicit event applicability and uncertainty, then continue to decision-quality criteria and connected longitudinal recovery.

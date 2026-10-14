@@ -1,0 +1,14 @@
+{
+  "sequence": 185,
+  "title": "Resume multi-trial operator response journal without replay",
+  "status": "[untested] construction",
+  "starting_head": "1ae45cdd776c56ef9909cefaaa3b3f8fd5eade4b",
+  "starting_tree": "64b35fc7f158af93ea09a1134754b52d299d871f",
+  "source_commit": "4a6551a027db4ce735686a4bcfe80206541507e2",
+  "source_tree": "7f568ef601b3e5e2546dce48f9212066664f3d34",
+  "source_paths": [{"path":"tests/test_embodied_consequence.py","blob":"84ca6107f0218aa4c4fe08a1af70477afb90d1f2","sha256":"9edb55e80e4fe8eeb2b02ced8bbb95fa620300393354ee3fe095c11c89da3dd4"}],
+  "validation": {"compileall":"passed for changed test and journal/multi-trial modules","diff_check":"passed","focused_tests":"blocked before collection: repository runner reports missing jinja2; direct pytest module missing"},
+  "remote_readback": {"branch_head":"4a6551a027db4ce735686a4bcfe80206541507e2","tree":"7f568ef601b3e5e2546dce48f9212066664f3d34","changed_blob":"84ca6107f0218aa4c4fe08a1af70477afb90d1f2 fetched independently and matched payload SHA"},
+  "authority_posture": {"recorded_responses_create_once":true,"missing_responses_not_scored_as_zero":true,"history_or_execution_authority_changed":false,"real_subject_sessions":false},
+  "limitations":"Test-only increment; fixture-backed protocol test not executed because the configured environment lacks test dependencies. No real external responses or model claims."
+}
