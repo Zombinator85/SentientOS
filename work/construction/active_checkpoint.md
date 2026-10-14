@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 222 records a custody correction for sequence 221. Remote readback caught an invalid UTF-8 source blob while the tests and continuation records were intact. The source was re-encoded without semantic changes, and the corrected remote blob now matches local Git identity. The sequence 221 strategic proposal behavior was rerun and passed.
+Sequence 223 closes a causal introspection continuity gap: captured provider failures and unresolved projection conflicts now survive into later-generation World-State as a bounded, read-only diagnostic row with source snapshot identity and event time. Omission counts preserve the fact that larger diagnostics were bounded. Authority and effect claims remain false.
 
-Latest source commit: d058c89523141f511b7fa8ce1ab71c20dd47b20e
-Latest source tree: 616d5a2a9fc4a229b96023b44af048b942bdd9a5
-Latest segment: work/construction/segments/0222-seq221-source-blob-correction.md
-Evidence: work/construction/evidence/0222-seq221-source-blob-correction.json
-Sequence: 222
+Latest source commit: 2525931e905a45511a9d073a3e956ce982748595
+Latest source tree: ea620cbb7104a95640cb407d5dd3012247e48da4
+Latest segment: work/construction/segments/0223-introspection-snapshot-diagnostics.md
+Evidence: work/construction/evidence/0223-introspection-snapshot-diagnostics.json
+Sequence: 223
 
-Validation: 9 strategic adaptation, goal progress, and goal-state tests passed. Two files compiled, diff check passed, and corrected source blob independently read back as UTF-8.
+Validation: 41 causal introspection and daemon composition tests passed. Two affected files compiled and diff check passed.
 
-Next: inspect a separate cross-owner seam in causal introspection. Verify whether resource or goal evidence summaries preserve event identity and verification posture when projected for later operators, then implement a focused behavioral correction.
+Next: inspect resource evidence retention across a fresh process. Verify that original receipt identity and measurement-unavailable posture remain distinct in later developmental context; extend the existing resource lineage integration only where a tested gap remains.
