@@ -95,7 +95,7 @@ class GoalExecutor:
         if task.kind in {"fetch", "doc_update"}:
             if task.commands:
                 return "failed", "command_not_allowlisted", ()
-            return "success", None, task.expected_artifacts
+            return "skipped", "task_kind_not_implemented", ()
         if task.kind == "forge_propose":
             goal_name = _goal_to_forge_goal(task.goal_id)
             forge = CathedralForge(repo_root=self.repo_root)

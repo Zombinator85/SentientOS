@@ -122,3 +122,14 @@ def test_forge_apply_kind_is_destructive_even_if_plan_claims_otherwise(tmp_path:
     assert run.task_runs[0].status == "skipped"
     assert run.task_runs[0].reason == "mode_disallows_destructive:recovery"
     assert run.task_runs[0].destructive is True
+
+
+def test_unimplemented_plan_tasks_do_not_claim_success(tmp_path: Path) -> None:
+    for kind in ("fetch", "doc_update"):
+        task = Task(1, "t1", "g1", kind, (), None, 0, 0, {}, ("uncreated-artifact",), False)
+
+        run = GoalExecutor(repo_root=tmp_path).execute_plan(_single_task_plan(task), _state(tmp_path))
+
+        assert run.task_runs[0].status == "skipped"
+        assert run.task_runs[0].reason == "task_kind_not_implemented"
+        assert run.task_runs[0].artifacts == ()
