@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 181 adds an operator-mediated blinded strategy-transfer packet/scorer using the existing verified consequence history and independent strategy evaluator. It separates subject packets from evaluator material, binds conditions to packet/source identity, audits unsupported execution and observation claims, and never executes proposals. Sequences 179–180 repaired the affine packet/scorer integrity and isolated subject/scorer output destinations.
+Sequence 182 adds create-once, preregistration-bound per-packet custody for external Codex strategy responses. Recovery explicitly identifies missing, corrupt, and unknown entries without rerunning sessions. The scorer can consume the journal while keeping the score artifact independent of the recovery summary. Sequences 179–181 repaired affine packet/scorer integrity, isolated subject/scorer files, and prepared blinded strategy-transfer packets.
 
-Latest source commit: 75656820765a24803d6b2f52e09d7efdb7bc6a40
-Latest source tree: 8ba9abb56ddabdf2e1a3099dd2c930aff0328212
-Latest segment: work/construction/segments/0181-blinded-strategy-transfer.md
-Evidence: work/construction/evidence/0181-blinded-strategy-transfer.json
-Sequence: 181
+Latest source commit: a4c6bab5770427e176d9463a59b2325960f13742
+Latest source tree: f4a731cfe0ef4d483c0338d10dbe683fb623db14
+Latest segment: work/construction/segments/0182-external-response-journal.md
+Evidence: work/construction/evidence/0182-external-response-journal.json
+Sequence: 182
 
-Validation: 73 focused packet, staging, writeback, strategy, and consequence tests passed; four additional staging/progression/restart tests passed; targeted CLI mypy, compileall, CLI help, and diff checks passed. Changed source-section mypy filtering found no diagnostics; the whole source file has older findings elsewhere.
+Validation: strategy-transfer integration test passed; changed files compile; targeted mypy on the journal and two CLIs passed; CLI help and diff checks passed.
 
 Known blockers: broad resident cognition test still fails downstream writeback with `developmental_history_execution_condition_invalid`; strategy resource-lineage integration cannot collect because `cryptography` is absent. No fresh Codex subject sessions or real-model results were produced.
 
-Next: build crash-safe custody and recovery for partially completed external subject sessions, preserving raw output hashes and preregistration binding without replaying sessions or treating operator observations as authenticated inference receipts.
+Next: extend strategy transfer to multiple separately preregistered situations, with per-task consequence identity, fresh isolated sessions, and explicit per-task and aggregate denominators. Do not call the pilot statistically significant.
