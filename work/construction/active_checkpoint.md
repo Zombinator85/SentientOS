@@ -1,13 +1,15 @@
 # Active construction checkpoint
 
-Sequence 227 verifies persisted work-run recovery across a child-process boundary. A legacy v1 terminal journal and exact pre-existing run artifact recover without re-execution; artifact path and run result remain stable and journal pulse count remains one.
+Sequence 228 makes finite task-budget decisions visible. GoalExecutor now records a TaskOmission for each generated task excluded by cumulative risk or throughput limits, retaining goal/task identity and the exceeded budget reason. Unsupported-operation omissions remain present.
 
-Latest source commit: 580f71cd9cfb097d5ff0de193b7f68ecac34b4b3
-Latest source tree: 72478a3795ed565b67f52faf1e0cddbc331128a2
-Latest segment: work/construction/segments/0227-legacy-process-run-recovery.md
-Evidence: work/construction/evidence/0227-legacy-process-run-recovery.json
-Sequence: 227
+Latest source commit: 38c39a6b6a06da6516002794bef982486a4fd07f
+Latest source tree: fe50e419825063ef46762ffdc6287f489784e90c
+Latest segment: work/construction/segments/0228-budget-task-omission-evidence.md
+Evidence: work/construction/evidence/0228-budget-task-omission-evidence.json
+Sequence: 228
 
-Validation: 36 focused executor, dependency, goal-state, journal, plan-load, and orchestrator tests passed; six affected files compiled and targeted diff check passed. Fixture-only.
+Validation: 36 focused goal executor, dependency, goal-state, plan-load, journal, and orchestrator tests passed. Two changed files compiled and targeted diff check passed. Tests used the explicit naked-pytest opt-in because canonical editable-install bootstrap required unavailable setuptools through the blocked proxy.
 
-Next: reacquire a complete isolated checkout at the live branch head before touching further source. The available workspace is stale at seq195. Then inspect the embodiment consequence attribution to developmental-history connection for a concrete gap and continue across another source-backed region.
+Recovery: local clean clone from ancestor 5195beadb32a199ae362c248357c6d39d80fd576; 136 changed paths hydrated and each blob identity verified. Reconstructed root tree exactly matched 0ea8c9e8b385ad05cdc81e8057e811fe4354bef0. Local commit c75885ee is a synthetic recovery snapshot, not the upstream commit. Original stale checkout was left untouched.
+
+Next: inspect the bridge from admitted resource-consumption history into later bounded resource/goal proposals. Existing observation and retention paths are already composed; find a concrete decision-flow gap before implementing.
