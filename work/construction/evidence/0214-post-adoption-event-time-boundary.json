@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "sequence": 214,
+  "title": "Keep post-adoption campaign time unverified",
+  "source_commit": "abc785eb77e1c6e04adc5cbc3f3e023a0171b9f4",
+  "source_tree": "590fad1d16d21b1ab36459ae036d7142a102c103",
+  "source_files": [
+    {
+      "path": "sentientos/resident_epistemic_development.py",
+      "git_blob_sha": "dddf23ab71f6a2e8fe2929e86274318f1fb31b06"
+    },
+    {
+      "path": "tests/test_resident_epistemic_development.py",
+      "git_blob_sha": "fadea727c050c80ba07ef35260952bebe7c7edd7"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "tests/test_resident_epistemic_development.py"
+    ],
+    "passed_test_count": 20,
+    "compiled": [
+      "sentientos/resident_epistemic_development.py",
+      "tests/test_resident_epistemic_development.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "caller-declared post-adoption completion time remains separate from retrieved World-State time",
+      "epistemic adapter records the declaration with explicit unverified issuer and time posture",
+      "binding remains undated, unknown freshness, contextual only, and without dependency group"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false,
+    "adoption_authority": false
+  },
+  "predecessor": "segment-sha256:8b46b289753dbea289b6a54877076a2b29008d6ae3d16603d11e8cab91daea92"
+}
