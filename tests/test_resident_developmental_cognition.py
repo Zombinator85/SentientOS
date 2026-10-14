@@ -32,6 +32,7 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import (
     CONFIG_SCHEMA, ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
+    _bind_history_and_epistemic_context,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
 )
@@ -4018,6 +4019,106 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     assert result.changed_cognition_measurement_id is not None
 
 
+def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_identity(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Variable packet sizes cannot make a newer weak record displace stronger history."""
+    import sentientos.resident_developmental_cognition as cognition_module
+
+    # The tuple represents checkpoint order after task relevance ranking:
+    # recent irrelevant filler, a disjoint family example, a positive overlap,
+    # then a more recent adverse example tied on overlap with the older one.
+    records = (
+        {"record_id": "unrelated-recent", "record_digest": "u" * 71,
+            "padding": 5200, "outcome": "unrelated"},
+        {"record_id": "family-disjoint", "record_digest": "d" * 71,
+            "padding": 350, "outcome": "correct-no-overlap"},
+        {"record_id": "older-positive-overlap", "record_digest": "p" * 71,
+            "padding": 900, "outcome": "correct-overlap"},
+        {"record_id": "newer-adverse-overlap", "record_digest": "a" * 71,
+            "padding": 1600, "outcome": "incorrect-overlap"},
+    )
+
+    def packet(record, *, include_source_evidence_context=True,
+            compact_for_input_budget=False, task_family_id=None):
+        del include_source_evidence_context, task_family_id
+        padding = record["padding"]
+        if compact_for_input_budget:
+            padding = min(padding, 1200)
+        return {"record_id": record["record_id"],
+            "record_digest": record["record_digest"],
+            "task_relevant_experience": [{"evaluator_correct":
+                record["outcome"].startswith("correct"), "outcome": record["outcome"]}],
+            "packet_payload": "x" * padding}
+
+    monkeypatch.setattr(cognition_module, "_history_context_packet", packet)
+    context = {"instruction": "Use history as non-authoritative evidence.",
+        "current_evidence": {"held_out_probe": 17},
+        "developmental_history": [],
+        "developmental_history_task_family_id": "integer_affine_prediction",
+        "developmental_history_retrieval_policy_id":
+            "task_family_probe_overlap_then_recency_fill:v2"}
+
+    def bind(capacity: int, present: bool = True):
+        monkeypatch.setattr(cognition_module, "MAX_RESIDENT_COGNITION_INPUT_CHARS", capacity)
+        return _bind_history_and_epistemic_context(context=context, records=records,
+            projection=None, history_present=present)
+
+    def minimum_capacity_for(count: int) -> int:
+        low, high = 1, 16_000
+        while low < high:
+            middle = (low + high) // 2
+            try:
+                selected = bind(middle)[3]
+            except ResidentDevelopmentalCognitionError as exc:
+                if str(exc) != "cognition_input_budget_exceeded":
+                    raise
+                selected = ()
+            if len(selected) >= count:
+                high = middle
+            else:
+                low = middle + 1
+        return low
+
+    prior_ids = tuple(record["record_id"] for record in records)
+    observed_counts = []
+    for count in (1, 2, 3, 4):
+        capacity = minimum_capacity_for(count)
+        bound, metadata, prompt, selected_ids, selected_digests = bind(capacity)
+        assert len(selected_ids) == count
+        assert selected_ids == prior_ids[-count:]
+        selection = metadata["developmental_history_selection"]
+        assert tuple(item["record_id"] for item in selection["selected_records"]) == selected_ids
+        assert tuple(item["record_id"] for item in selection["omitted_records"]) == prior_ids[:-count]
+        assert selection["omission_reason"] == ("inference_input_budget"
+            if count < len(records) else None)
+        assert selection["omitted_records_digest"] == "sha256:" + digest_payload(
+            selection["omitted_records"])
+        assert all(digest == record["record_digest"] for digest, record in
+            zip(selected_digests, records[-count:]))
+        prompt_value = json.loads(prompt)
+        admitted_packets = prompt_value["developmental_history"]
+        assert tuple(item["record_id"] for item in admitted_packets) == selected_ids
+        admitted_outcomes = [item["task_relevant_experience"][0]["outcome"]
+            for item in admitted_packets]
+        assert admitted_outcomes == [record["outcome"] for record in records[-count:]]
+        assert not (set(record["outcome"] for record in records[:-count])
+            & set(admitted_outcomes))
+        assert bound["developmental_history_selection"]["selected_records"] == \
+            selection["selected_records"]
+        repeated = bind(capacity)
+        assert repeated[1]["developmental_history_selection"] == selection
+        observed_counts.append(count)
+    assert observed_counts == [1, 2, 3, 4]
+
+    withheld_bound, withheld_metadata, withheld_prompt, withheld_ids, _ = bind(
+        minimum_capacity_for(1), present=False)
+    assert withheld_ids == ()
+    assert withheld_bound["developmental_history"] == []
+    assert all(record_id not in withheld_prompt for record_id in prior_ids)
+    assert withheld_metadata["developmental_history_selection"]["selected_records"] == []
+    assert len(withheld_metadata["developmental_history_selection"]["omitted_records"]) == 4
+
+
 def test_tick_n_admitted_developmental_writeback_is_durable_and_bounded(tmp_path: Path) -> None:
     composition, fake = owner(tmp_path)
     result = composition.run_tick(snapshot=snapshot(), tick_id="tick-n")
@@ -4600,6 +4701,41 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     selection_semantic = {key: item for key, item in selection.items()
         if key != "selection_digest"}
     selection["selection_digest"] = "sha256:" + digest_payload(selection_semantic)
+    digest = "sha256:" + digest_payload(value)
+    observation_id = "devcog-" + digest[7:31]
+    value["observation_id"] = observation_id
+    value["observation_digest"] = digest
+    substituted_path = path.with_name(observation_id + ".json")
+    substituted_path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    path.unlink()
+
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="cognition_history_selection_invocation_binding_mismatch"):
+        composition._recover_observation_ticks(include_records=True)
+
+
+def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation(
+        tmp_path: Path) -> None:
+    invoker = SessionBoundFakeInvoker()
+    composition, _ = owner(tmp_path, comparison=True, invoker=invoker)
+    composition.run_tick(snapshot=snapshot(), tick_id="selection-source")
+    composition.run_tick(snapshot=snapshot(2), tick_id="selection-comparison")
+    path = next(path for path in composition.observations_root.glob("*.json")
+        if json.loads(path.read_text(encoding="utf-8")).get("condition_id") == "history_present")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v7"
+    selection = value["developmental_history_selection"]
+    assert len(selection["selected_records"]) == 1
+    replacement = "sha256:" + "0" * 64
+    selection["available_records"][0]["record_digest"] = replacement
+    selection["selected_records"][0]["record_digest"] = replacement
+    value["retrieved_record_digests"][0] = replacement
+    selection_semantic = {key: item for key, item in selection.items()
+        if key != "selection_digest"}
+    selection["selection_digest"] = "sha256:" + digest_payload(selection_semantic)
+    value.pop("observation_id")
+    value.pop("observation_digest")
     digest = "sha256:" + digest_payload(value)
     observation_id = "devcog-" + digest[7:31]
     value["observation_id"] = observation_id

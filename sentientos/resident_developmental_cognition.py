@@ -3035,7 +3035,8 @@ class ResidentDevelopmentalCognitionOwner:
                         != receipt.get("resource_linkage_digest")):
                 raise ResidentDevelopmentalCognitionError(
                     "cognition_resource_linkage_invocation_mismatch")
-        if observation.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V6:
+        if observation.get("schema_version") in {
+                COGNITION_OBSERVATION_SCHEMA_V6, COGNITION_OBSERVATION_SCHEMA_V7}:
             upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
             if (not isinstance(upstream, Mapping)
                     or upstream.get("developmental_history_selection")
