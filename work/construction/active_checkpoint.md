@@ -1,11 +1,11 @@
 # Active construction checkpoint
 
-Sequence 199 repaired four source/test blobs from sequence 198 after independent readback showed their base64 uploads were truncated. Full local files now match their remote Git blob identities. The integrated child process also scores the distinct post-restart fixture proposal with the frozen multi-event vector rubric.
+Sequence 200 strengthens restart recovery by independently loading the frozen preregistration, scorer manifest, and score vectors in the child process. Rebuilt history must match the frozen selected and omitted source identities, admitted record IDs, situation digest, and rubric identity. The distinct post-restart task is rescored with the original vector rubric while retaining randomized opaque packet assignments.
 
-Latest source commit: f6b835c49e541ca7f489e5988aa043d35b4cd8ce
-Latest source tree: e3642c4b5455004722df4a49fe75a219d10a2f13
-Latest segment: work/construction/segments/0199-full-source-blob-repair.md
-Evidence: work/construction/evidence/0199-full-source-blob-repair.json
-Sequence: 199
+Latest source commit: 7a832e6c98c05358e018196142bda82cc8b699bb
+Latest source tree: e7e154b176fa8bcfb34d3cb958c4832af5dceff9
+Latest segment: work/construction/segments/0200-frozen-score-recovery.md
+Evidence: work/construction/evidence/0200-frozen-score-recovery.json
+Sequence: 200
 
-Validation: 121 affected tests passed before the final child-scoring assertion; the extended integrated node passed afterward. Compilation and diff check passed. Acceptance remains partial pending a fresh-process governed invocation and completed-condition replay adversary.
+Validation: focused integrated node passed; compileall and diff check passed. Acceptance remains partial pending fresh-process governed inference and completed-condition replay handling.
