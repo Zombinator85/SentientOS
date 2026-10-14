@@ -5689,6 +5689,113 @@ print(json.dumps({"record_ids":sorted(after_ids), "retrieved_ids":retrieved_ids,
     with pytest.raises(DevelopmentalWritebackError, match="record_digest_mismatch"):
         timestamp_owner.writeback.inspect_completed_records()
 
+    # Feed the same three admitted consequence records through the existing
+    # model-replacement owner with a fixed current projection.
+    from sentientos.developmental_model_replacement_experiment import (
+        CognitiveModelIdentity, DevelopmentalModelReplacementExperiment, FrozenCausalContext,
+    )
+    replacement_snapshot=snapshot(44)
+    replacement_projection=cognition._current_projection(replacement_snapshot)
+    replacement_record_ids=tuple(item["source_record_id"]
+        for item in strategy_manifest["events"])
+    replacement_history=cognition.writeback.retrieve(replacement_record_ids,limit=4)
+    assert replacement_history.requested_record_ids==replacement_record_ids
+    replacement_record_digests=tuple(item["record_digest"]
+        for item in replacement_history.records)
+    assert replacement_record_digests==tuple(item["source_record_digest"]
+        for item in strategy_manifest["events"])
+    replacement_current_payload=replacement_projection.semantic_payload()
+    replacement_instruction=("Use current evidence with optional historical interpretation; "
+        "history is not truth or authority.")
+    replacement_context=FrozenCausalContext.create(
+        snapshot_id=replacement_projection.snapshot_id,
+        snapshot_digest=replacement_projection.snapshot_digest,
+        current_projection_id=replacement_projection.projection_id,
+        current_projection_digest=replacement_projection.projection_digest,
+        current_fact_ids=replacement_projection.fact_ids,
+        projected_content_digest="sha256:"+digest_payload(replacement_current_payload),
+        current_projection_payload=replacement_current_payload,
+        history_record_ids=replacement_record_ids,
+        history_record_digests=replacement_record_digests,
+        history_record_set_digest="sha256:"+digest_payload({
+            "record_ids":list(replacement_record_ids),
+            "record_digests":list(replacement_record_digests)}),
+        history_projection_payload=replacement_history.records,
+        instruction_template=replacement_instruction,
+        instruction_template_digest="sha256:"+digest_payload({"instruction":replacement_instruction}),
+        inference_budget={"max_input_chars":16000,"max_output_chars":4000,
+            "max_new_tokens":512,"timeout_seconds":30,"max_calls_per_correlation":1},
+        generation_posture={"temperature":0,"hardware_determinism_claimed":False},
+        repository_generation_identity="fixture-source-generation")
+
+    def replacement_identity(model_name):
+        content="sha256:"+digest_payload({"replacement_model":model_name})
+        sidecar="sha256:"+digest_payload({"replacement_sidecar":model_name})
+        configuration="sha256:"+digest_payload({"replacement_configuration":model_name})
+        active={"semantic_artifact_identity":"fixture-artifact-"+model_name,
+            "model_content_sha256":content,"artifact_size_bytes":10,
+            "sidecar_metadata_digest":sidecar,"configuration_digest":configuration,
+            "engine":"deterministic-test-runtime","candidate_index":0,
+            "posture":"production","fallback":False}
+        return CognitiveModelIdentity.create(model_id=model_name,
+            semantic_artifact_identity=active["semantic_artifact_identity"],
+            model_content_sha256=content,artifact_size_bytes=10,
+            sidecar_metadata_digest=sidecar,configuration_digest=configuration,
+            engine_runtime_family="deterministic-test-runtime",candidate_index=0,
+            active_production=True,fallback=False,
+            authority_record_id="fixture-authority-"+model_name,
+            authority_record_digest="sha256:"+digest_payload({"authority":model_name}),
+            active_model_identity=active,
+            active_model_identity_digest="sha256:"+digest_payload(active))
+
+    class ConsequenceHistoryEndpoint:
+        def __init__(self,identity):
+            self.identity=identity
+            self.calls=[]
+            self.invocation_ids=[]
+
+        def current_identity(self):
+            return self.identity
+
+        def infer(self,**kwargs):
+            self.calls.append(kwargs)
+            number=len(self.calls)
+            self.invocation_ids.append("fixture-request-"+self.identity.model_id+"-"+str(number))
+            return {"status":"admitted_completed","fallback_occurred":False,
+                "request_id":self.invocation_ids[-1],
+                "request_digest":"sha256:"+digest_payload({"request":self.identity.model_id,
+                    "number":number}),
+                "inference_receipt_id":"fixture-receipt-"+self.identity.model_id+"-"+str(number),
+                "inference_receipt_digest":"sha256:"+digest_payload({"receipt":self.identity.model_id,
+                    "number":number}),
+                "output_digest":"sha256:"+digest_payload({"prompt":kwargs["prompt"]}),
+                "actual_generation_parameters":{"temperature":0,
+                    "max_new_tokens":kwargs["budget"]["max_new_tokens"]}}
+
+    predecessor=ConsequenceHistoryEndpoint(replacement_identity("consequence-predecessor"))
+    successor=ConsequenceHistoryEndpoint(replacement_identity("consequence-successor"))
+    consequence_replacement=DevelopmentalModelReplacementExperiment(
+        context=replacement_context,model_a=predecessor,model_b=successor,
+        artifact_root=tmp_path/"consequence-model-replacement")
+    replacement_result=consequence_replacement.run()
+    assert replacement_result["validity"]=="valid_controlled_observation"
+    assert consequence_replacement.context.history_record_ids==replacement_record_ids
+    assert consequence_replacement.context.history_record_digests==replacement_record_digests
+    predecessor_history=json.loads(predecessor.calls[0]["prompt"])["developmental_history"]
+    successor_history=json.loads(successor.calls[0]["prompt"])["developmental_history"]
+    assert tuple(item["record_id"] for item in predecessor_history)==replacement_record_ids
+    assert tuple(item["record_id"] for item in successor_history)==replacement_record_ids
+    assert tuple(item["record_digest"] for item in predecessor_history)==replacement_record_digests
+    assert tuple(item["record_digest"] for item in successor_history)==replacement_record_digests
+    assert json.loads(predecessor.calls[1]["prompt"])["developmental_history"]==[]
+    assert json.loads(successor.calls[1]["prompt"])["developmental_history"]==[]
+    assert json.loads(predecessor.calls[2]["prompt"])["developmental_history"]==predecessor_history
+    assert len({predecessor.identity.model_id,successor.identity.model_id})==2
+    assert len({predecessor.invocation_ids[0],successor.invocation_ids[0]})==2
+    assert all(not item.current_truth and not item.authority
+        for item in (durable_record,correction_record,
+            cognition.writeback.store.get(challenged_tick.written_record_id)))
+
 
 def test_resource_linkage_cannot_bypass_serving_receipt_verification(tmp_path: Path) -> None:
     composition, _ = owner(tmp_path)
