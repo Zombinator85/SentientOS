@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import hashlib
+import json
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -10,6 +14,7 @@ import sentientos.goal_executor as goal_executor
 from sentientos.goal_executor import ExecutorState, GoalExecutor
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_plan import Task, WorkPlan, persist_work_run
+from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 
 
 def _plan() -> WorkPlan:
@@ -188,12 +193,50 @@ def test_completed_task_is_not_reexecuted_when_same_plan_is_recovered(
         calls.append(row.task_id) or ("success", None, ("glow/forge/plan.json",))))
 
     first = GoalExecutor(repo_root=tmp_path).execute_plan(plan, _state(tmp_path))
-    second = GoalExecutor(repo_root=tmp_path).execute_plan(plan, _state(tmp_path))
-
+    path = persist_work_run(tmp_path, first)
     assert calls == ["g1:propose"]
     assert first.task_runs[0].status == "success"
-    assert second.task_runs[0] == first.task_runs[0]
-    assert second.status == first.status
+
+    journal = WorkPlanExecutionJournal(tmp_path, plan)
+    legacy_rows = []
+    previous_digest = "0" * 64
+    for line in journal.path.read_text(encoding="utf-8").splitlines():
+        old = json.loads(line)
+        semantic = {key: old[key] for key in (
+            "sequence", "plan_id", "plan_digest", "task_id", "event", "status",
+            "reason", "recorded_at")}
+        semantic = {"schema_version": 1, **semantic, "previous_digest": previous_digest}
+        digest = hashlib.sha256(json.dumps(semantic, sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+        legacy_rows.append({**semantic, "digest": digest})
+        previous_digest = digest
+    journal.path.write_text("".join(json.dumps(row, sort_keys=True,
+        separators=(",", ":")) + "\n" for row in legacy_rows), encoding="utf-8")
+
+    child = r'''
+import json, sys
+from pathlib import Path
+from sentientos.goal_executor import ExecutorState, GoalExecutor
+from sentientos.risk_budget import RiskBudget
+from sentientos.work_plan import Task, WorkPlan, persist_work_run
+root = Path(sys.argv[1])
+plan = WorkPlan(1, "recover-completed", "2026-01-01T00:00:00Z", "manual", ("g1",),
+    (Task(1, "g1:propose", "g1", "forge_propose", (), None, 0, 0, {}, (), False),))
+state = ExecutorState(root, plan.created_at, "manual", "normal", False, True, "h", "a", RiskBudget())
+def forbidden(self, task):
+    raise AssertionError("persisted work run must recover before task execution")
+GoalExecutor._execute_task = forbidden
+run = GoalExecutor(repo_root=root).execute_plan(plan, state)
+path = persist_work_run(root, run)
+print(json.dumps({"run": run.to_dict(), "path": path}, sort_keys=True))
+'''
+    completed = subprocess.run([sys.executable, "-c", child, str(tmp_path)],
+        cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True,
+        check=True, timeout=15)
+    recovered = json.loads(completed.stdout.strip().splitlines()[-1])
+    assert recovered["run"] == first.to_dict()
+    assert recovered["path"] == path
+    assert len((tmp_path / "pulse/work_runs.jsonl").read_text().splitlines()) == 1
 
 
 def test_interrupted_task_stays_unknown_while_independent_task_continues(
