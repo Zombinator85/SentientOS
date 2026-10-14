@@ -1,13 +1,11 @@
 # Active construction checkpoint
 
-Sequence 201 completes the connected canonical developmental loop in the isolated synthetic fixture composition. After score feedback is admitted, a fresh interpreter reconstructs the resident owner and verifies durable receipts, source identities, frozen score/rubric custody, and exact omissions. A distinct later resident retrieval invocation consumes the admitted score feedback through the canonical history channel; no completed history-intervention condition is replayed.
+Sequence 200 strengthens restart recovery by independently loading the frozen preregistration, scorer manifest, and score vectors in the child process. Rebuilt history must match the frozen selected and omitted source identities, admitted record IDs, situation digest, and rubric identity. The distinct post-restart task is rescored with the original vector rubric while retaining randomized opaque packet assignments.
 
-Latest source commit: 891421bb4debefd232128575fba971fcc24a14f8
-Latest source tree: d0ae80093846503628a44cbd29773fe30d040978
-Latest segment: work/construction/segments/0201-integrated-loop-restart.md
-Evidence: work/construction/evidence/0201-integrated-loop-restart.json
-Sequence: 201
+Latest source commit: 7a832e6c98c05358e018196142bda82cc8b699bb
+Latest source tree: e7e154b176fa8bcfb34d3cb958c4832af5dceff9
+Latest segment: work/construction/segments/0200-frozen-score-recovery.md
+Evidence: work/construction/evidence/0200-frozen-score-recovery.json
+Sequence: 200
 
-Validation: 121 affected tests passed; compileall and diff check passed. INTEGRATED_ACCEPTANCE_PASSED for synthetic fixtures. Applicability remains unverified; no physical effects or production model improvement are claimed.
-
-Next: increase relevance competition and add targeted recovery mutations, starting with source timestamp substitution and duplicate-admission rejection.
+Validation: focused integrated node passed; compileall and diff check passed. Acceptance remains partial pending fresh-process governed inference and completed-condition replay handling.

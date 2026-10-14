@@ -5034,10 +5034,54 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     unrelated_tick=cognition.run_tick(snapshot=unrelated_world,
         tick_id="strategy-unrelated-consequence-admission")
     assert unrelated_tick.written_record_id
+
+    # A fourth genuinely admitted event is unresolved because only the
+    # renderer reports completion; no independent observer is supplied.
+    unresolved_start=(datetime.now(timezone.utc)-timedelta(minutes=3)).isoformat()
+    unresolved_reported=(datetime.now(timezone.utc)-timedelta(minutes=2,seconds=30)).isoformat()
+    unresolved_eval=(datetime.now(timezone.utc)-timedelta(minutes=2)).isoformat()
+    unresolved_handoff=renderer_handoff({
+        "installation_identity":"fixture-installation","body_identity":"fixture-body",
+        "body_generation":2,"artifact_sha256":"sha256:artifact",
+        "manifest_digest":"sha256:manifest","pointer_digest":"sha256:pointer"},
+        renderer_interface_id="renderer:fixture:unobserved:v1",
+        requested_pose="turn",requested_expression="neutral",
+        correlation_id="developmental-strategy-unobserved",commanded_at=unresolved_start)
+    unresolved_expectation=make_expectation(
+        installation_body_id="fixture-installation",body_id="fixture-body",body_generation=2,
+        body_manifest_digest="sha256:manifest",handoff_id=unresolved_handoff["handoff_id"],
+        handoff_digest=unresolved_handoff["handoff_digest"],
+        renderer_interface_id="renderer:fixture:unobserved:v1",
+        requested={"pose":"turn"},predicted_observables={"pose":"turn"},
+        observable_fields=("pose",),comparison_policy={"pose":{"kind":"exact"}},
+        expected_observation_source_class="synthetic_independent_fixture",
+        correlation_id="developmental-strategy-unobserved",causal_principal_binding_digest=None,
+        created_at=unresolved_start,
+        expires_at=(datetime.now(timezone.utc)+timedelta(days=1)).isoformat())
+    unresolved_report=SyntheticRenderer(applied={"pose":"turn"},started_at=unresolved_start,
+        completed_at=unresolved_reported).render_test(unresolved_handoff)
+    unresolved_attribution,unresolved_comparison=evaluate_consequence(
+        expectation=unresolved_expectation,handoff=unresolved_handoff,
+        current_body={"installation_identity":"fixture-installation",
+            "body_identity":"fixture-body","body_generation":2,
+            "artifact_sha256":"sha256:artifact","manifest_digest":"sha256:manifest",
+            "pointer_digest":"sha256:pointer"},renderer_report=unresolved_report,
+        observation=None,evaluated_at=unresolved_eval)
+    assert unresolved_attribution["classification"]=="renderer_report_only"
+    unresolved_records=consequence_world_state_records(
+        expectation=unresolved_expectation,handoff=unresolved_handoff,
+        renderer_report=unresolved_report,observation=None,
+        attribution=unresolved_attribution,comparison=unresolved_comparison)
+    unresolved_world=WorldStateBoardBuilder().build([row for row in unresolved_records
+        if row.get("source_id")==unresolved_attribution["attribution_id"]])
+    unresolved_tick=cognition.run_tick(snapshot=unresolved_world,
+        tick_id="strategy-unresolved-consequence-admission")
+    assert unresolved_tick.written_record_id
     reopened_inventory_owner, _ = owner(tmp_path / "resident",invoker=cognition_invoker,
         allowed_source_kinds=("embodiment",),max_selected_facts=16)
-    three_event_inventory=reopened_inventory_owner.writeback.inspect_completed_records()
-    assert len(three_event_inventory)==3
+    four_event_inventory=reopened_inventory_owner.writeback.inspect_completed_records()
+    assert len(four_event_inventory)==4
+    assert len({record.record_id for record,_ in four_event_inventory})==4
     irrelevant_record_id=unrelated_tick.written_record_id
 
     strategy_situation={"situation_binding":"later-distinct-surface-transfer",
@@ -5054,11 +5098,11 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
         "declared_by":"scoped-test-operator","declared_at":strategy_situation["requested_at"],
         "rationale":"newer event occurred under a changed renderer interface"}
     assert set(strategy_settings)=={"visible_model_name","effort_setting","generation_settings"}
-    assert len({source_record.record_id for source_record,_receipt in three_event_inventory})==3
+    assert len({source_record.record_id for source_record,_receipt in four_event_inventory})==4
     strategy_bundle=build_operator_codex_strategy_multi_event_packets(
         writeback=reopened_inventory_owner.writeback,
         history_record_ids=[source_record.record_id
-            for source_record,_receipt in three_event_inventory],
+            for source_record,_receipt in four_event_inventory],
         situation=strategy_situation,model_settings=strategy_settings,max_event_count=2,
         applicability_by_event=applicability)
     strategy_manifest=strategy_bundle["scorer_manifest"]
@@ -5077,16 +5121,26 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     assert all(row["applicability"]["posture"]=="operator_declared_unverified"
         for row in strategy_manifest["events"])
     omission=strategy_bundle["preregistration"]["omitted_event_identities"]
-    assert len(omission)==1 and omission[0]["event_id"]==unrelated_attribution["attribution_id"]
-    assert omission[0]["source_record_id"]==irrelevant_record_id
-    assert omission[0]["event_digest"]==unrelated_attribution["attribution_digest"]
-    omitted_record=next(source_record for source_record,_receipt in three_event_inventory
+    assert {row["event_id"] for row in omission}=={
+        unrelated_attribution["attribution_id"],unresolved_attribution["attribution_id"]}
+    omission_by_event={row["event_id"]:row for row in omission}
+    assert omission_by_event[unrelated_attribution["attribution_id"]]["source_record_id"]==irrelevant_record_id
+    assert omission_by_event[unresolved_attribution["attribution_id"]]["source_record_id"]==unresolved_tick.written_record_id
+    assert omission_by_event[unrelated_attribution["attribution_id"]]["event_digest"]==unrelated_attribution["attribution_digest"]
+    assert omission_by_event[unresolved_attribution["attribution_id"]]["event_digest"]==unresolved_attribution["attribution_digest"]
+    omitted_record=next(source_record for source_record,_receipt in four_event_inventory
         if source_record.record_id==irrelevant_record_id)
     omitted_fact=next(fact for fact in omitted_record.candidate["selected_facts"]
         if fact.get("source",{}).get("source_id")==unrelated_attribution["attribution_id"])
-    assert omission[0]["source_record_digest"]==omitted_record.record_digest
-    assert omission[0]["source_fact_id"]==omitted_fact["fact_id"]
-    assert omission[0]["omission_reason"]=="bounded_event_selection"
+    assert omission_by_event[unrelated_attribution["attribution_id"]]["source_record_digest"]==omitted_record.record_digest
+    assert omission_by_event[unrelated_attribution["attribution_id"]]["source_fact_id"]==omitted_fact["fact_id"]
+    unresolved_record=next(source_record for source_record,_receipt in four_event_inventory
+        if source_record.record_id==unresolved_tick.written_record_id)
+    unresolved_fact=next(fact for fact in unresolved_record.candidate["selected_facts"]
+        if fact.get("source",{}).get("source_id")==unresolved_attribution["attribution_id"])
+    assert omission_by_event[unresolved_attribution["attribution_id"]]["source_record_digest"]==unresolved_record.record_digest
+    assert omission_by_event[unresolved_attribution["attribution_id"]]["source_fact_id"]==unresolved_fact["fact_id"]
+    assert all(row["omission_reason"]=="bounded_event_selection" for row in omission)
     packets=strategy_bundle["subject_packets"]
     condition_by_packet=strategy_manifest["condition_by_packet_id"]
     assert len({consequence_digest(packet["current_situation"]) for packet in packets.values()})==1
@@ -5429,11 +5483,12 @@ assert len(by_id) == len(inventory)
 assert sys.argv[4] in by_id and sys.argv[5] in by_id and sys.argv[6] in by_id
 assert sys.argv[7] in by_id
 assert sys.argv[8] in by_id
+assert sys.argv[16] in by_id
 situation, settings, applicability = (json.loads(sys.argv[i]) for i in (9,10,11))
-bundle = build_operator_codex_strategy_multi_event_packets(writeback=owner.writeback, history_record_ids=[sys.argv[4], sys.argv[5], sys.argv[6]], situation=situation, model_settings=settings, max_event_count=2, applicability_by_event=applicability)
+bundle = build_operator_codex_strategy_multi_event_packets(writeback=owner.writeback, history_record_ids=[sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[16]], situation=situation, model_settings=settings, max_event_count=2, applicability_by_event=applicability)
 manifest = bundle["scorer_manifest"]
 assert {row["attribution"]["attribution_id"] for row in manifest["events"]} == {sys.argv[12], sys.argv[13]}
-assert {row["event_id"] for row in bundle["preregistration"]["omitted_event_identities"]} == {sys.argv[14]}
+assert {row["event_id"] for row in bundle["preregistration"]["omitted_event_identities"]} == {sys.argv[14], sys.argv[17]}
 packet = next(packet for packet in bundle["subject_packets"].values() if packet["historical_evidence"])
 history = packet["historical_evidence"]
 proposal = make_strategy_proposal(situation_binding=situation["situation_binding"], body_generation=situation["body_generation"], relevant_consequence_ids=tuple(row["event_id"] for row in history), proposed_next_action_class="observe", requested_pose="wave", requested_expression="neutral", retry_prior_strategy=False, alter_body_or_rig=False, more_observation_required=True, distinguishes_renderer_and_observer=True, rationale="fresh process preserves conflicting event provenance and requests observation", uncertainty="high", factual_assertions=())
@@ -5478,7 +5533,8 @@ print(json.dumps({"record_ids":sorted(after_ids), "retrieved_ids":retrieved_ids,
         json.dumps(strategy_situation, sort_keys=True), json.dumps(strategy_settings, sort_keys=True),
         json.dumps(applicability, sort_keys=True), attribution["attribution_id"],
         correction_attribution["attribution_id"], unrelated_attribution["attribution_id"],
-        str(protocol_root)],
+        str(protocol_root), unresolved_tick.written_record_id,
+        unresolved_attribution["attribution_id"]],
         check=False, capture_output=True, text=True,
         env={**__import__("os").environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
             "SENTIENTOS_GOVERNOR_ROOT": str(tmp_path / "child-governor")})
@@ -5486,12 +5542,14 @@ print(json.dumps({"record_ids":sorted(after_ids), "retrieved_ids":retrieved_ids,
     recovered_child = json.loads(child.stdout)
     assert set(recovered_child["event_ids"]) == {
         attribution["attribution_id"], correction_attribution["attribution_id"]}
-    assert recovered_child["omitted_ids"] == [unrelated_attribution["attribution_id"]]
+    assert set(recovered_child["omitted_ids"]) == {
+        unrelated_attribution["attribution_id"], unresolved_attribution["attribution_id"]}
     assert {
         durable_record.record_id, correction_record.record_id, irrelevant_record_id,
-        next_record.written_record_id, feedback_tick.written_record_id} <= set(
+        unresolved_tick.written_record_id, next_record.written_record_id,
+        feedback_tick.written_record_id} <= set(
             recovered_child["record_ids"])
-    assert len(recovered_child["record_ids"]) == 6
+    assert len(recovered_child["record_ids"]) == 7
     assert recovered_child["post_restart_tick_record_id"] in recovered_child["record_ids"]
     assert feedback_tick.written_record_id in recovered_child["retrieved_ids"]
     assert sorted(recovered_child["source_times"]) == sorted([
@@ -5504,7 +5562,6 @@ print(json.dumps({"record_ids":sorted(after_ids), "retrieved_ids":retrieved_ids,
         "post_restart_invocation_purposes"]
     assert "resident_developmental_history_intervention_experiment" not in recovered_child[
         "post_restart_invocation_purposes"]
-    assert len(recovered_child["record_ids"]) == 6
 
 
 def test_resource_linkage_cannot_bypass_serving_receipt_verification(tmp_path: Path) -> None:
