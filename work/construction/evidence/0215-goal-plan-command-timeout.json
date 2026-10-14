@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "sequence": 215,
+  "title": "Bound goal plan subprocess execution time",
+  "source_commit": "9b1c63cf50a1ef7802c27f13bf61c4380f2b0343",
+  "source_tree": "e9a22dafe4d5aa9e4965b9128218c9a2a0526b18",
+  "source_files": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "git_blob_sha": "c3c1b8688ce5f1f98072a1af4d2be3ff45223756"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_run.py",
+      "git_blob_sha": "2fae8278ca99bfda675dd922c8b757f06355c9b0"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_state_update.py"
+    ],
+    "passed_test_count": 11,
+    "compiled": [
+      "sentientos/goal_executor.py",
+      "sentientos/tests/test_goal_executor_run.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "allowlisted subprocesses receive a fixed 300 second timeout",
+      "timed out command is recorded as failed with command_timeout and no artifacts",
+      "execution remains shell-free and existing destructive mode and quarantine checks remain active"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:b6a2a5580fbd4f3a401c28c3335b521d1ca28048d60778a62d33735efbe82a47"
+}
