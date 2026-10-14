@@ -14,7 +14,7 @@ from sentientos.goal_completion import CompletionContext, eval_check, persist_co
 from sentientos.goal_graph import Goal, GoalGraph, GoalStateRecord, default_goal_state_record
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
-from sentientos.work_plan import Task, TaskRun, WorkPlan, WorkPlanRun
+from sentientos.work_plan import Task, TaskOmission, TaskRun, WorkPlan, WorkPlanRun
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,12 +39,14 @@ class GoalExecutor:
     def build_plan(self, allocation: AllocationDecision, state: ExecutorState, graph: GoalGraph) -> WorkPlan:
         goals_by_id = {goal.goal_id: goal for goal in graph.goals}
         tasks: list[Task] = []
+        omissions: list[TaskOmission] = []
         spent_risk = 0
         spent_throughput = 0
         for goal_id in allocation.selected:
             goal = goals_by_id.get(goal_id)
             if goal is None:
                 continue
+            omissions.extend(_goal_task_omissions(goal=goal, state=state))
             for task in _map_goal_to_tasks(goal=goal, state=state):
                 if spent_risk + task.risk_cost > state.risk_budget.router_k_max:
                     continue
@@ -55,7 +57,9 @@ class GoalExecutor:
                 spent_throughput += task.throughput_cost
 
         plan_id = _plan_id(state.created_at, state.goal_graph_hash, state.allocation_id)
-        return WorkPlan(schema_version=1, plan_id=plan_id, created_at=state.created_at, context=state.context, selected_goals=tuple(allocation.selected), tasks=tuple(tasks))
+        return WorkPlan(schema_version=1, plan_id=plan_id, created_at=state.created_at,
+            context=state.context, selected_goals=tuple(allocation.selected), tasks=tuple(tasks),
+            omissions=tuple(omissions))
 
     def execute_plan(self, plan: WorkPlan, state: ExecutorState) -> WorkPlanRun:
         task_runs: list[TaskRun] = []
@@ -199,19 +203,26 @@ def _map_goal_to_tasks(*, goal: Goal, state: ExecutorState) -> tuple[Task, ...]:
     plan: list[Task] = []
     plan.append(_task(goal, "diagnostic", 1, 1, destructive=False, commands=("python -m scripts.contract_drift",), expected=("glow/contracts/contract_status.json",)))
     plan.append(_task(goal, "verify", 1, 1, destructive=False, commands=("python -m scripts.run_tests -q",), expected=()))
-    if any(tag in {"external", "federation", "fetch"} for tag in goal.tags):
-        plan.append(_task(goal, "fetch", 0, 1, destructive=False, commands=(), expected=()))
-
     plan.append(_task(goal, "forge_propose", 1, 0, destructive=False, commands=(), expected=("glow/forge",)))
 
     allow_apply = state.operating_mode == "normal" and state.allow_mutation and not state.quarantine_active and state.risk_budget.forge_max_files_changed > 0
     close_to_done = goal.completion_check_name in {"check_forge_last_run_ok", "check_mypy_forge_ok"}
     if allow_apply and close_to_done:
         plan.append(_task(goal, "forge_apply", max(1, goal.risk_cost_estimate), max(1, goal.throughput_cost_estimate), destructive=True, commands=(), expected=("glow/forge",)))
-    else:
-        plan.append(_task(goal, "doc_update", 0, 1, destructive=False, commands=(), expected=()))
-
     return tuple(plan)
+
+
+def _goal_task_omissions(*, goal: Goal, state: ExecutorState) -> tuple[TaskOmission, ...]:
+    omissions: list[TaskOmission] = []
+    if any(tag in {"external", "federation", "fetch"} for tag in goal.tags):
+        omissions.append(TaskOmission(goal.goal_id, "fetch", "task_kind_not_implemented"))
+    allow_apply = (state.operating_mode == "normal" and state.allow_mutation
+        and not state.quarantine_active and state.risk_budget.forge_max_files_changed > 0)
+    close_to_done = goal.completion_check_name in {
+        "check_forge_last_run_ok", "check_mypy_forge_ok"}
+    if not (allow_apply and close_to_done):
+        omissions.append(TaskOmission(goal.goal_id, "doc_update", "task_kind_not_implemented"))
+    return tuple(omissions)
 
 
 def _task(goal: Goal, kind: str, risk_cost: int, throughput_cost: int, *, destructive: bool, commands: tuple[str, ...], expected: tuple[str, ...]) -> Task:

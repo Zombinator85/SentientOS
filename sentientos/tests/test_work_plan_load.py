@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from sentientos.work_plan import (
-    Task, TaskRun, WorkPlan, WorkPlanError, WorkPlanRun, load_work_plan,
+    Task, TaskOmission, TaskRun, WorkPlan, WorkPlanError, WorkPlanRun, load_work_plan,
     persist_work_plan, persist_work_run,
 )
 
@@ -26,6 +26,34 @@ def test_version_one_plan_round_trips_without_coercion(tmp_path: Path) -> None:
     path = tmp_path / persist_work_plan(tmp_path, plan)
 
     assert load_work_plan(path) == plan
+
+
+def test_legacy_version_one_plan_without_omissions_remains_readable(tmp_path: Path) -> None:
+    payload = _plan().to_dict()
+    payload.pop("omissions")
+    path = tmp_path / "legacy-v1.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert load_work_plan(path) == _plan()
+
+
+def test_planning_omissions_round_trip_as_non_executable_evidence(tmp_path: Path) -> None:
+    plan = replace(_plan(), omissions=(
+        TaskOmission("goal-1", "fetch", "task_kind_not_implemented"),))
+    path = tmp_path / persist_work_plan(tmp_path, plan)
+
+    assert load_work_plan(path) == plan
+
+
+def test_malformed_planning_omission_rejects_plan(tmp_path: Path) -> None:
+    payload = _plan().to_dict()
+    payload["omissions"] = [{"goal_id": "goal-1", "kind": [],
+        "reason": "task_kind_not_implemented"}]
+    path = tmp_path / "malformed-omission.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(WorkPlanError, match="work_plan_omissions_invalid"):
+        load_work_plan(path)
 
 
 def test_persisted_plan_identity_is_write_once(tmp_path: Path) -> None:

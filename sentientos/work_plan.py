@@ -11,10 +11,21 @@ WORK_PLAN_PULSE_PATH = Path("pulse/work_plans.jsonl")
 _PLAN_FIELDS = {"schema_version", "plan_id", "created_at", "context", "selected_goals", "tasks"}
 _TASK_FIELDS = {"schema_version", "task_id", "goal_id", "kind", "commands", "callable_ref",
     "risk_cost", "throughput_cost", "preconditions", "expected_artifacts", "destructive"}
+_OMISSION_FIELDS = {"goal_id", "kind", "reason"}
 
 
 class WorkPlanError(ValueError):
     """A persisted plan is malformed or internally inconsistent."""
+
+
+@dataclass(frozen=True, slots=True)
+class TaskOmission:
+    goal_id: str
+    kind: str
+    reason: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {"goal_id": self.goal_id, "kind": self.kind, "reason": self.reason}
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +57,7 @@ class WorkPlan:
     context: str
     selected_goals: tuple[str, ...]
     tasks: tuple[Task, ...]
+    omissions: tuple[TaskOmission, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -55,6 +67,7 @@ class WorkPlan:
             "context": self.context,
             "selected_goals": list(self.selected_goals),
             "tasks": [task.to_dict() for task in self.tasks],
+            "omissions": [omission.to_dict() for omission in self.omissions],
         }
 
 
@@ -168,7 +181,7 @@ def load_work_plan(path: Path) -> WorkPlan:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise WorkPlanError("work_plan_unreadable") from exc
-    if (not isinstance(payload, dict) or set(payload) != _PLAN_FIELDS
+    if (not isinstance(payload, dict) or set(payload) not in (_PLAN_FIELDS, _PLAN_FIELDS | {"omissions"})
             or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1
             or any(not isinstance(payload.get(key), str) or not payload[key] or len(payload[key]) > 512
                 for key in ("plan_id", "created_at", "context"))
@@ -209,6 +222,21 @@ def load_work_plan(path: Path) -> WorkPlan:
             callable_ref=row["callable_ref"], risk_cost=row["risk_cost"],
             throughput_cost=row["throughput_cost"], preconditions=dict(row["preconditions"]),
             expected_artifacts=tuple(row["expected_artifacts"]), destructive=row["destructive"]))
+    omissions_raw = payload.get("omissions", [])
+    if not isinstance(omissions_raw, list) or len(omissions_raw) > 256:
+        raise WorkPlanError("work_plan_omissions_invalid")
+    omissions: list[TaskOmission] = []
+    omission_ids: set[tuple[str, str]] = set()
+    for row in omissions_raw:
+        if (not isinstance(row, dict) or set(row) != _OMISSION_FIELDS
+                or not isinstance(row.get("goal_id"), str) or row["goal_id"] not in goals
+                or not isinstance(row.get("kind"), str)
+                or row["kind"] not in {"fetch", "doc_update"}
+                or row.get("reason") != "task_kind_not_implemented"
+                or (row["goal_id"], row["kind"]) in omission_ids):
+            raise WorkPlanError("work_plan_omissions_invalid")
+        omission_ids.add((row["goal_id"], row["kind"]))
+        omissions.append(TaskOmission(row["goal_id"], row["kind"], row["reason"]))
     return WorkPlan(
         schema_version=payload["schema_version"],
         plan_id=payload["plan_id"],
@@ -216,6 +244,7 @@ def load_work_plan(path: Path) -> WorkPlan:
         context=payload["context"],
         selected_goals=tuple(payload["selected_goals"]),
         tasks=tuple(tasks),
+        omissions=tuple(omissions),
     )
 
 
@@ -231,6 +260,7 @@ def _safe_id(value: str) -> str:
 
 __all__ = [
     "Task",
+    "TaskOmission",
     "TaskRun",
     "WorkPlan",
     "WorkPlanRun",
