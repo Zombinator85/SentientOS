@@ -27,6 +27,8 @@ def main() -> int:
         help="JSON mapping trial IDs to event applicability declarations")
     parser.add_argument("--decision-basis-by-trial",
         help="scorer-only JSON mapping trial IDs to evidence-sufficiency/action criteria")
+    parser.add_argument("--max-event-count", type=int, default=3,
+        help="bounded selected historical event count per situation (default: 3)")
     parser.add_argument("--trials", required=True,
         help="private JSON mapping at least two opaque trial IDs to frozen situations")
     parser.add_argument("--model-settings", required=True)
@@ -59,7 +61,7 @@ def main() -> int:
     result = build_operator_codex_strategy_multitrial(writeback=writeback,
         history_record_id=args.history_record_id, history_record_ids_by_trial=record_ids,
         applicability_by_trial=applicability, decision_basis_by_trial=decision_basis,
-        trials=trials, model_settings=settings)
+        trials=trials, model_settings=settings, max_event_count=args.max_event_count)
     subject_dir = Path(args.subject_output_dir).resolve()
     scorer_path = Path(args.scorer_manifest_output).resolve()
     prereg_path = Path(args.preregistration_output).resolve()

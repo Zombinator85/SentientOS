@@ -2,6 +2,24 @@
 
 This is a proposal-only external-model experiment layered onto the existing `EmbodiedStrategyProposal`, `STRATEGY_PROMPT_SCHEMA`, and `score_strategy_experiment` contracts. It does not call an inference provider, create a local-model inference receipt, execute a proposal, admit external results, or establish physical-world truth.
 
+## Build a fresh, source-backed six-session pilot
+
+Use the one-command preparer instead of selecting record IDs or creating fixture JSON by hand. Run it from a complete SentientOS checkout with its test dependencies installed, and choose a new output directory outside the checkout:
+
+```sh
+python -m scripts.prepare_codex_strategy_pilot \
+  --output-root /absolute/private/path/codex-pilot-001 \
+  --visible-model-name 'the exact model label shown in Codex' \
+  --effort-setting 'the exact effort label shown in Codex' \
+  --generation-settings '{"temperature":null,"temperature_posture":"not_exposed"}'
+```
+
+The command runs `test_admitted_embodied_consequence_conditions_later_strategy_comparison` in a fresh pytest subprocess and a new isolated writeback root. It then reopens the root through the read-only owner inventory, checks distinct `devrec` and `devreceipt` identities, and builds a private corpus with five admitted consequence records (adverse, corrective, challenge, an unrelated renderer situation, and an unresolved renderer-only report) plus an admitted decision-feedback record. The conflict situation declares the adverse, corrective, and challenge events relevant; the supported situation declares only the correction relevant. These applicability declarations remain operator assertions. It refuses an existing output root or a fixture that fails those checks.
+
+The result contains six opaque subject packets, randomized order, a scorer manifest, frozen preregistration, a response-journal directory, and a private custody manifest with exact source blob, record, receipt, event, and packet digests. The private manifest records that no model sessions have run. `subject-packets/` is sibling to `operator-private/`; only the former belongs in subject chats. The situations use one conflict case and one case with a current bounded observation, each with history-present, history-withheld, and history-restored packets. The scoring basis and condition map stay in `operator-private/scorer/`.
+
+Before any session, archive or timestamp `operator-private/preregistration/frozen-preregistration.json` independently. The prepared manifest marks this as pending because a local digest does not establish independent custody. Use six separate fresh Codex conversations, follow the opaque IDs in `operator-private/operator/run-order.txt`, and paste one matching packet file per conversation. Preserve the visible model and effort settings and record unavailable settings as unavailable. Save each exact response and session identity, then use the response recorder and multi-trial scorer below. The conversations are external operator-mediated observations, not authenticated provider receipts.
+
 ## Prepare a bounded trial
 
 1. Use `python -m scripts.list_codex_transfer_records --config ...` to discover candidate records. Select a record containing one prior embodied consequence that the read-only writeback owner verifies. The strategy builder independently calls `inspect_completed_records()` and requires the consequence payload to match exactly one source fact, with the source event preceding the record.

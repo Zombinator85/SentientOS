@@ -34,6 +34,7 @@ def _inventory(completed: tuple[Any, ...]) -> dict[str, Any]:
                     events.append({"fact_id":fact.get("fact_id"),
                         "event_id":payload.get("attribution_id"),
                         "event_digest":payload.get("attribution_digest"),
+                        "record_correlation_id":getattr(record, "correlation_id", None),
                         "classification":payload.get("classification"),
                         "causal_attribution_posture":payload.get("causal_attribution_posture"),
                         "evaluated_at":payload.get("evaluated_at")})
@@ -51,6 +52,7 @@ def _inventory(completed: tuple[Any, ...]) -> dict[str, Any]:
         if not events and not strategy_feedback:
             continue
         rows.append({"record_id":record.record_id,"record_digest":record.record_digest,
+            "record_correlation_id":getattr(record, "correlation_id", None),
             "receipt_id":receipt.receipt_id,"receipt_digest":receipt.receipt_digest,
             "admission_id":record.admission_id,
             "admission_binding_digest":record.admission_binding_digest,

@@ -22,9 +22,11 @@ def build_operator_codex_strategy_multitrial(*, writeback: Any,
         history_record_id: str | None = None,
         history_record_ids_by_trial: Mapping[str, Sequence[str]] | None = None,
         applicability_by_trial: Mapping[str, Mapping[str, Mapping[str, Any]]] | None = None,
-        decision_basis_by_trial: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
+        decision_basis_by_trial: Mapping[str, Mapping[str, Any]] | None = None,
+        max_event_count: int = 3) -> dict[str, Any]:
     """Freeze at least two distinct situations, each with a full three-condition set."""
     if (not isinstance(trials, Mapping) or not 2 <= len(trials) <= 12
+            or type(max_event_count) is not int or not 1 <= max_event_count <= 12
             or any(not isinstance(key, str) or not _TRIAL_ID.fullmatch(key)
                 or not isinstance(value, Mapping) for key, value in trials.items())):
         raise EmbodiedConsequenceError("operator_strategy_multitrial_set_invalid")
@@ -63,6 +65,7 @@ def build_operator_codex_strategy_multitrial(*, writeback: Any,
             result = build_operator_codex_strategy_multi_event_packets(writeback=writeback,
                 history_record_ids=history_record_ids_by_trial[trial_id],
                 situation=trials[trial_id], model_settings=model_settings,
+                max_event_count=max_event_count,
                 applicability_by_event=applicability_by_trial[trial_id],
                 decision_basis=(decision_basis_by_trial.get(trial_id)
                     if decision_basis_by_trial is not None else None))
