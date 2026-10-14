@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 import hashlib
+import subprocess
+import sys
 from dataclasses import asdict, replace
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +15,7 @@ from sentientos.embodied_consequence import (
     ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
     SyntheticRenderer, digest, evaluate_consequence, make_expectation, make_strategy_proposal,
     WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, run_strategy_experiment,
+    build_operator_codex_strategy_packets, score_operator_codex_strategy_responses,
     score_strategy_experiment, validate_world_state_projection_config, world_state_records,
     _history_evidence_scope,
 )
@@ -309,6 +313,149 @@ def test_present_withheld_restored_strategy_experiment_and_external_score(tmp_pa
         backend=recovered_backend,consequence=attribution,store=ConsequenceStore(tmp_path))
     assert recovered["experiment_result_id"]==result["experiment_result_id"]
     assert recovered_backend.calls==[]
+
+
+def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    *_, consequence, _ = chain()
+    fact={"fact_id":"fact:causal","source":{"source_id":consequence["attribution_id"],
+        "digest":consequence["attribution_digest"],"schema_version":consequence["schema_version"],
+        "kind":"embodiment"},"subject":{"subject_id":"body-a",
+        "subject_kind":"embodied_consequence_attribution"},"payload":consequence}
+    candidate={"epistemic_posture":"historical_interpretation_not_current_truth",
+        "selected_fact_ids":[fact["fact_id"]],"selected_facts":[fact],
+        "selected_sources":[{"source_id":consequence["attribution_id"],
+            "digest":consequence["attribution_digest"],"kind":"embodiment"}]}
+    from sentientos.resident_developmental_writeback import DevelopmentalRecord
+    raw=DevelopmentalRecord(record_id="",record_digest="",candidate=candidate,
+        admission_id="admission-fixture",admission_binding_digest="sha256:"+"a"*64,
+        principal="fixture",operation_id="fixture",correlation_id="fixture",
+        created_at=TX)
+    record_digest=digest({key:value for key,value in raw.semantic_payload().items()})
+    record=replace(raw,record_id="devrec-"+record_digest[7:31],record_digest=record_digest)
+    class VerifiedWritebackFixture:
+        def inspect_completed_records(self):
+            return ((record, object()),)
+    situation={"situation_binding":"later-wave","body_generation":2,
+        "environment":"The next recommendation concerns a later synthetic renderer situation."}
+    settings={"visible_model_name":"Codex test subject","effort_setting":"medium",
+        "generation_settings":{"temperature":None}}
+    result=build_operator_codex_strategy_packets(writeback=VerifiedWritebackFixture(),
+        history_record_id=record.record_id,situation=situation,model_settings=settings)
+    packets=result["subject_packets"]
+    assert len(packets)==3
+    by_condition={condition:packets[packet_id] for packet_id,condition in
+        result["scorer_manifest"]["condition_by_packet_id"].items()}
+    assert by_condition["history_present"]["historical_evidence"] == \
+        by_condition["history_restored"]["historical_evidence"]
+    assert by_condition["history_withheld"]["historical_evidence"] == []
+    assert all(not any(label in json.dumps(packet) for label in
+        ("history_present", "history_withheld", "history_restored"))
+        for packet in packets.values())
+    responses={}
+    for packet_id,condition in result["scorer_manifest"]["condition_by_packet_id"].items():
+        has_history=condition!="history_withheld"
+        proposal={"situation_binding":"later-wave","body_generation":2,
+            "proposed_next_action_class":"observe_then_retry" if has_history else "retry",
+            "requested_pose":"wave","requested_expression":"neutral",
+            "retry_prior_strategy":not has_history,"alter_body_or_rig":False,
+            "more_observation_required":has_history,
+            "distinguishes_renderer_and_observer":has_history,
+            "rationale":"Fixture response; no physical action is performed.",
+            "uncertainty":"high",
+            "relevant_consequence_ids":[consequence["attribution_id"]] if has_history else [],
+            "factual_assertions":([
+                {"claim_kind":"physical_execution","claim":"The prior proposal was physically carried out.",
+                    "source_id":consequence["attribution_id"],
+                    "source_digest":consequence["attribution_digest"]},
+                {"claim_kind":"independent_observation","claim":"The renderer report is independent observation.",
+                    "source_id":consequence["renderer_report_id"],
+                    "source_digest":consequence["renderer_report_digest"]},
+            ] if has_history else [])}
+        responses[packet_id]={"packet_id":packet_id,"session_id":"session-"+packet_id,
+            "timestamp":TX,"visible_model_name":settings["visible_model_name"],
+            "effort_setting":settings["effort_setting"],
+            "generation_settings":settings["generation_settings"],
+            "raw_output":json.dumps(proposal)}
+    scored=score_operator_codex_strategy_responses(scorer_manifest=result["scorer_manifest"],
+        preregistration=result["preregistration"],subject_packets=packets,responses=responses)
+    assert scored["strategy_scoring"]["status"]=="scored"
+    assert scored["strategy_scoring"]["outcome"]=="unsupported"
+    present_row=next(row for row in scored["conditions"] if row["condition"]=="history_present")
+    assert present_row["factual_assertion_audit"][0]["unsupported_under_recorded_evidence"] is True
+    assert present_row["factual_assertion_audit"][1][
+        "renderer_report_confused_with_independent_observation"] is True
+    assert scored["strategy_scoring"]["improvement_claimed"] is False
+    assert scored["model_settings_independently_verified"] is False
+    assert scored["subject_session_posture"] == \
+        "operator_reported_external_sessions_not_independently_verified"
+    assert all(not value for value in scored["execution_authority"].values())
+    packet_id=next(iter(packets))
+    substituted=dict(packets); substituted[packet_id]={**packets[packet_id],
+        "current_situation":{"situation_binding":"substituted","body_generation":2}}
+    with pytest.raises(EmbodiedConsequenceError,match="operator_strategy_packet_digest_mismatch"):
+        score_operator_codex_strategy_responses(scorer_manifest=result["scorer_manifest"],
+            preregistration=result["preregistration"],subject_packets=substituted,responses=responses)
+    incomplete=dict(responses); incomplete.pop(packet_id)
+    partial=score_operator_codex_strategy_responses(scorer_manifest=result["scorer_manifest"],
+        preregistration=result["preregistration"],subject_packets=packets,responses=incomplete)
+    assert partial["strategy_scoring"]["status"]=="not_scored_incomplete_or_unscoreable_subject_set"
+    duplicate=dict(responses); second=next(key for key in duplicate if key!=packet_id)
+    duplicate[second]={**duplicate[second],"session_id":responses[packet_id]["session_id"]}
+    duplicate_score=score_operator_codex_strategy_responses(scorer_manifest=result["scorer_manifest"],
+        preregistration=result["preregistration"],subject_packets=packets,responses=duplicate)
+    assert duplicate_score["strategy_scoring"]["status"]=="not_scored_incomplete_or_unscoreable_subject_set"
+    assert any(row["status"]=="duplicate_session_submission"
+        for row in duplicate_score["conditions"])
+    incomparable=dict(responses); incomparable[packet_id]={**responses[packet_id],
+        "effort_setting":"high"}
+    setting_score=score_operator_codex_strategy_responses(scorer_manifest=result["scorer_manifest"],
+        preregistration=result["preregistration"],subject_packets=packets,responses=incomparable)
+    assert setting_score["strategy_scoring"]["status"]=="not_scored_incomparable_subject_settings"
+    packet_dir=tmp_path/"subject-packets"; packet_dir.mkdir()
+    for packet_id,packet in packets.items():
+        (packet_dir/f"{packet_id}.json").write_text(json.dumps(packet),encoding="utf-8")
+    scorer_path=tmp_path/"scorer.json"
+    prereg_path=tmp_path/"preregistration.json"
+    response_path=tmp_path/"responses.json"
+    score_path=tmp_path/"scores.json"
+    scorer_path.write_text(json.dumps(result["scorer_manifest"]),encoding="utf-8")
+    prereg_path.write_text(json.dumps(result["preregistration"]),encoding="utf-8")
+    response_path.write_text(json.dumps(responses),encoding="utf-8")
+    process=subprocess.run([sys.executable,"-m","scripts.score_codex_strategy_transfer_packet",
+        "--scorer-manifest",str(scorer_path),"--preregistration",str(prereg_path),
+        "--subject-packets",str(packet_dir),"--responses",str(response_path),
+        "--output",str(score_path)],check=True,capture_output=True,text=True,
+        cwd=Path(__file__).resolve().parents[1])
+    assert json.loads(process.stdout)["strategy_scoring_status"]=="scored"
+    assert json.loads(score_path.read_text(encoding="utf-8"))["strategy_scoring"]["outcome"]=="unsupported"
+
+    import scripts.build_codex_strategy_transfer_packet as strategy_builder
+    class Ledger:
+        current_sequence=1
+        def __init__(self, _path): pass
+    class Verifier:
+        def __init__(self, **_kwargs): pass
+    class Writeback:
+        def __init__(self, **_kwargs): pass
+        def inspect_completed_records(self): return ((record, object()),)
+    monkeypatch.setattr(strategy_builder,"load_config",lambda _path:type("Config",(),{
+        "history_root":tmp_path/"history","state_root":tmp_path/"state"})())
+    monkeypatch.setattr(strategy_builder,"AdmissionLedger",Ledger)
+    monkeypatch.setattr(strategy_builder,"RuntimeAdmissionVerifier",Verifier)
+    monkeypatch.setattr(strategy_builder,"ResidentDevelopmentalWritebackController",Writeback)
+    situation_path=tmp_path/"situation.json"; situation_path.write_text(json.dumps(situation),encoding="utf-8")
+    settings_path=tmp_path/"settings.json"; settings_path.write_text(json.dumps(settings),encoding="utf-8")
+    cli_subject=tmp_path/"cli-subject"; cli_scorer=tmp_path/"cli-private"/"manifest.json"
+    cli_prereg=tmp_path/"archive"/"preregistration.json"
+    monkeypatch.setattr(sys,"argv",["build_codex_strategy_transfer_packet",
+        "--config","isolated-test-config.json","--history-record-id",record.record_id,
+        "--situation",str(situation_path),"--model-settings",str(settings_path),
+        "--subject-output-dir",str(cli_subject),"--scorer-manifest-output",str(cli_scorer),
+        "--preregistration-output",str(cli_prereg)])
+    assert strategy_builder.main()==0
+    assert len(list(cli_subject.glob("*.json")))==3
+    assert cli_scorer.exists() and cli_prereg.exists()
 
 
 def test_resource_citation_binds_source_but_never_verifies_claim_semantics():
