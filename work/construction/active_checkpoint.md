@@ -1,14 +1,14 @@
 # Active construction checkpoint
 
-Seq233 closes the next Program B consumer gap. The maintenance candidate collector now promotes only signals carrying eligible proposal routes; diagnostic and blocked signals stay out of later planning. Campaign-derived candidates preserve their source references and authority restrictions and carry low confidence while source issuers remain unverified.
+Seq234 adds cross-campaign outcome comparison scoped to the retained proposal identity. Repeated adverse observations remain consistent; an independently recorded positive correction conflicts with them while both histories remain durable and blocked for manual triage. Duplicate retrieval deduplicates. Confounded, null/interrupted, and insufficient outcomes remain distinct and do not route to amendment proposals.
 
-Latest source commit: 92930ab6f3620c40651eb592a71dac4cc453a427
-Latest source tree: 07d7576343692b7996eedb2cef1b22c87bd8620c
-Latest segment: work/construction/segments/0233-route-qualified-maintenance-candidates.md
-Evidence: work/construction/evidence/0233-route-qualified-maintenance-candidates.json
+Latest source commit: c709da507d505fca6177110a6da79626aa28d634
+Latest source tree: a79a269c7bd7743838617cb16921e4aff49c6770
+Latest segment: work/construction/segments/0234-cross-campaign-outcome-contradiction.md
+Evidence: work/construction/evidence/0234-cross-campaign-outcome-contradiction.json
 Queue: work/construction/reconciliation_xvii_queue.json
-Sequence: 233
+Sequence: 234
 
-Validation: 19 collector, selector, and campaign-to-candidate tests passed. Targeted mypy and compilation passed for changed candidate modules; `git diff --check` passed. The fixture closed loop is synthetic and non-production.
+Validation: 26 campaign, signal-plane, collector, selector, and candidate tests passed. Changed files compile, targeted candidate mypy passed, and `git diff --check` passed. All campaign observations are synthetic; control-source issuers remain unverified.
 
-Next: continue A5-A8 duplicate/contradiction/correction and restart behavior, then B3-B8 historical failure to later candidate selection. Resource, epistemic, goal-progression, and developmental-strategy nodes remain executable in parallel sequence.
+Next: extend runtime projection and restart ordering, then construct the later proposal-selection trajectory and continue into resource-informed decisions, epistemic revision, goal progression, and developmental strategy.

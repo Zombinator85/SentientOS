@@ -1,24 +1,25 @@
 {
   "schema": "sentientos.reconciliation_queue:v1",
-  "last_checkpoint_sequence": 233,
+  "last_checkpoint_sequence": 234,
   "completed_nodes": [
-    "A2/A4: explicitly selected, owner-recovered campaign outcomes feed governed signals; classifications retain source limitations and route to review, diagnostic, or blocked dispositions.",
-    "B1/B2: the existing SpecAmender and maintenance candidate consumers are traced; proposal candidates require route eligibility and retain exact historical references with provenance-qualified confidence."
+    "A2/A4: explicitly selected owner-recovered outcomes feed governed signals with source limitations and classification-sensitive routes.",
+    "A5: repeated same-proposal campaigns deduplicate; adverse and positive correction conflict without erasure; confounded, null/interrupted, and insufficient outcomes remain distinct across fresh-process reconstruction.",
+    "B1/B2: proposal consumers are traced; only route-eligible signals become maintenance candidates; campaign candidates preserve historical references with low provenance-qualified confidence."
   ],
-  "current_source_commit": "92930ab6f3620c40651eb592a71dac4cc453a427",
-  "current_source_tree": "07d7576343692b7996eedb2cef1b22c87bd8620c",
+  "current_source_commit": "c709da507d505fca6177110a6da79626aa28d634",
+  "current_source_tree": "a79a269c7bd7743838617cb16921e4aff49c6770",
   "next_executable_nodes": [
-    {"program": "A", "node": "A5-A8", "work": "Repeated campaigns, duplicate retrieval, contradictions, correction, cold recovery, and runtime temporal ordering."},
-    {"program": "B", "node": "B3-B8", "work": "Build an unsuccessful-improvement trajectory to a later candidate-selection episode; preserve applicability uncertainty, corrections, and source limits."},
-    {"program": "C", "node": "C2-C8", "work": "Historical resource identity, restart, malformed or incomplete consumption, and evidence-informed later computational decisions."},
-    {"program": "D", "node": "D1-D8", "work": "Conflicting evidence identities, admissible epistemic revision, temporal boundaries, and causal introspection."},
+    {"program": "A", "node": "A6-A8", "work": "Fresh-process runtime projection ordering, duplicate selections/retrieval, and no-side-effect recovery."},
+    {"program": "B", "node": "B3-B8", "work": "Later candidate selection after a synthetic unsuccessful improvement; preserve negative transfer, correction, and applicability uncertainty."},
+    {"program": "C", "node": "C2-C8", "work": "Resource event identity across rereads/restart, incomplete consumption, and later strategy recommendation."},
+    {"program": "D", "node": "D1-D8", "work": "Conflicting evidence identities, admissible persistent revision, temporal boundaries, and causal introspection."},
     {"program": "E", "node": "E1-E8", "work": "Multi-task partial progress, interruption recovery, budget omissions, and outcome-informed selection."},
     {"program": "F", "node": "F1-F8", "work": "Longitudinal strategy correction, negative transfer, authorship, and model-identity continuity fixtures."},
-    {"program": "Integration", "node": "X1-X4", "work": "Connect maintenance, resource, epistemic, or goal histories across owner and process boundaries."}
+    {"program": "Integration", "node": "X1-X4", "work": "Connect maintenance/resource/epistemic/goal histories across owner and process boundaries."}
   ],
   "known_test_failures": [
     "Five pre-existing seq232 broad-suite failures: stale production-readiness and adapter-signature assertions, read-only /glow setup, runtime admission fixture mismatch, and production campaign readiness expectation.",
-    "The two changed candidate source modules pass targeted mypy; mypy on earlier broad runtime files still reports pre-existing repository baseline errors."
+    "Mypy on older broad runtime files still reports repository baseline errors; the changed candidate modules pass targeted mypy."
   ],
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
