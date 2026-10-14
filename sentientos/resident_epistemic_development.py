@@ -226,6 +226,12 @@ class ResidentEpistemicDevelopmentRuntime:
             and fact.subject.subject_kind == "causal_resources")
         historical_unverified_owner_record = (fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "post_adoption_attribution_campaign")
+        if historical_unverified_owner_record:
+            # The World-State row is a retrieval of a campaign record, not the
+            # campaign's outcome event. Its declared completion time is
+            # caller supplied and cannot be promoted to an epistemic event
+            # timestamp without an authenticated source.
+            observed = None
         historical_introspection_recovery_failure = (
             fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "causal_introspection_recovery")
@@ -712,6 +718,12 @@ class ResidentEpistemicDevelopmentRuntime:
                 else "source_time_unverified" if unverified_embodiment_observation
                 else "source_time_missing" if missing_source_time
                 else "source_observed"}
+        if historical_unverified_owner_record and isinstance(fact.payload, Mapping):
+            provenance_values["post_adoption_campaign_time_claim"] = {
+                "declared_completed_at": fact.payload.get("declared_completed_at"),
+                "event_time_posture": fact.payload.get("event_time_posture"),
+                "source_issuer_posture": fact.payload.get("source_issuer_posture"),
+            }
         introspection_lineage_fields = (
             "introspection_snapshot_id", "introspection_snapshot_digest",
             "introspection_snapshot_generation", "introspection_snapshot_predecessor_digest",

@@ -485,6 +485,52 @@ def test_introspection_recovery_failure_is_contextual_and_undated(tmp_path):
     assert binding.dependency_group is None
 
 
+def test_post_adoption_campaign_retrieval_time_is_not_outcome_time(tmp_path):
+    _owner, proposition, _ledger, runtime = fixture(tmp_path)
+    declared_time = "2026-01-10T00:00:00Z"
+    record = {
+        "source_kind": "owner_introspection",
+        "source_id": "post-adoption-attribution:campaign-result-1",
+        "schema_version": "sentientos.maintenance_post_adoption_attribution_campaign_result:v1",
+        "subject_kind": "post_adoption_attribution_campaign",
+        "subject_id": "campaign-result-1",
+        "stage": "observation",
+        "disposition": "repeated_target_contradiction_under_matched_controls",
+        "evidence_strength": "digest_verified_campaign_custody_unverified_sources",
+        "observed_at": NOW,
+        "payload": {
+            "campaign_id": "attribution-campaign:0123456789abcdef01234567",
+            "result_id": "campaign-result-1", "result_digest": "a" * 64,
+            "declared_completed_at": declared_time,
+            "event_time_posture": "caller_declared_campaign_completion_time",
+            "source_issuer_posture": "unverified_caller_supplied_sources",
+            "production_ready": False, "current_truth": False,
+            "authority": {"effect_authority": False, "adoption_authority": False,
+                "observation_authority": False, "goal_authority": False,
+                "authoring_authority": False, "execution_authority": False},
+        },
+        "effect_claimed": False, "effect_proven": False,
+    }
+    board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    rule = EpistemicDevelopmentRule("post-adoption-history", proposition.proposition_id,
+        proposition.proposition_digest, {}, "supports", "unknown_dependency", "campaign_history")
+
+    proof, binding = runtime._adapt(board, board.facts[0], rule)
+    provenance = json.loads(proof.provenance_id)
+
+    assert provenance["post_adoption_campaign_time_claim"] == {
+        "declared_completed_at": declared_time,
+        "event_time_posture": "caller_declared_campaign_completion_time",
+        "source_issuer_posture": "unverified_caller_supplied_sources",
+    }
+    assert proof.recorded_at == "undated"
+    assert binding.observation_time == "undated"
+    assert binding.freshness == "unknown"
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.dependency_group is None
+
+
 def test_introspection_provenance_survives_epistemic_receipt_recovery(tmp_path):
     owner, proposition, ledger, runtime = fixture(tmp_path)
     rule = EpistemicDevelopmentRule("introspection-chain", proposition.proposition_id,
