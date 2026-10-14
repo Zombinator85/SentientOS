@@ -1,0 +1,31 @@
+{
+  "sequence": 188,
+  "title": "Connect separate consequence events to strategy scoring",
+  "status": "[untested] construction",
+  "starting_head": "0c9560a40a86f24dc7f2494fd738086c0bba8be8",
+  "starting_tree": "fc8cca0ee5980e5db916446623c06d830c7ff5ab",
+  "source_commit": "6209a829e12317e4ae0619dc499c304c2e38c0c0",
+  "source_tree": "006cf48ee3ac7a615a20c49aa30530d59aba2ff3",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"5488638b9ce5e1ae6b90966eae11792c636f95cd","sha256":"ff1815ec70bf0597fcd9223e0b35c88f53d18706892906e34aeba252cb5d0a65"},
+    {"path":"tests/test_embodied_consequence.py","blob":"016656f87689d99e04dfe623764ff7b893ae751e","sha256":"0d68bdf654a30cd2348f0e71426ac05f4472da2860442b493fb25d5e44160623"}
+  ],
+  "validation": {
+    "embodied_and_transfer_packet":"35 passed",
+    "multi_event_positive_and_adversarial":"passed",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "remote_readback": {
+    "branch_head":"6209a829e12317e4ae0619dc499c304c2e38c0c0",
+    "tree":"006cf48ee3ac7a615a20c49aa30530d59aba2ff3",
+    "changed_blobs":"both exact source/test identities independently present in recursive tree"
+  },
+  "authority_posture": {
+    "source_record_admission_verified":false,
+    "applicability_independently_verified":false,
+    "improvement_claimed":false,
+    "execution_authority_added":false
+  },
+  "limitations":"External operator packets still use the single-consequence v1 builder; this increment only connects the bounded multi-event scorer into the canonical strategy scorer."
+}

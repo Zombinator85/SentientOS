@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 187 added a versioned, bounded multi-consequence scorer to the existing embodied consequence owner. It preserves each event and source identity, binds a situation-specific applicability declaration, and keeps unverified declarations separate from verified admission or established relevance. No synthetic event or improvement claim is produced.
+Sequence 188 routes the bounded multi-consequence scorer through the existing `score_strategy_experiment` API. The single-event path remains intact; mixed inputs fail closed. The resulting event-set report keeps each consequence distinct and leaves admission/applicability truth unresolved.
 
-Latest source commit: 918a30f4933a34c7d205882ceb05142449136e19
-Latest source tree: 8369d6a0a58a59044dac5caaa770cd80a3429c2e
-Latest segment: work/construction/segments/0187-multiple-consequence-applicability.md
-Evidence: work/construction/evidence/0187-multiple-consequence-applicability.json
-Sequence: 187
+Latest source commit: 6209a829e12317e4ae0619dc499c304c2e38c0c0
+Latest source tree: 006cf48ee3ac7a615a20c49aa30530d59aba2ff3
+Latest segment: work/construction/segments/0188-strategy-scorer-event-set.md
+Evidence: work/construction/evidence/0188-strategy-scorer-event-set.json
+Sequence: 188
 
-Validation: 35 embodied/transfer packet tests; 2 resource-lineage integrations; 92 resident cognition tests with writable governor storage; compileall and diff checks passed. The available assertions are fixture-backed; applicability and developmental admission remain unverified in the new multi-event contract.
+Validation: 35 embodied/transfer tests passed; positive/adversarial event-set test passed; compileall and diff checks passed. External strategy packets still consume one consequence. Fixture behavior only.
 
-Next: integrate separate admitted events into strategy packet history, preserve condition isolation, then add event-level decision-quality criteria for contradictory, corrective, and irrelevant history.
+Next: integrate deterministic multiple-record selection and omission evidence into the existing operator packet builder. Maintain exact event identities, condition withholding, and unverified applicability posture.
