@@ -919,8 +919,18 @@ class GovernedStrategyCognitionBackend:
         return result
 
 
-def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal], consequence: Mapping[str, Any],
-                              resource_evidence_bindings: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
+def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal],
+        consequence: Mapping[str, Any] | None = None,
+        resource_evidence_bindings: Sequence[Mapping[str, Any]] = (),
+        consequence_events: Sequence[Mapping[str, Any]] | None = None,
+        situation: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    if consequence_events is not None:
+        if consequence is not None or resource_evidence_bindings or situation is None:
+            raise EmbodiedConsequenceError("strategy_consequence_set_inputs_invalid")
+        return score_strategy_consequence_set(proposals=proposals,
+            situation=situation, events=consequence_events)
+    if consequence is None:
+        raise EmbodiedConsequenceError("strategy_consequence_missing")
     if len(proposals)!=3: raise EmbodiedConsequenceError("strategy_condition_count_invalid")
     _verify_consequence_attribution(consequence)
     for proposal in proposals: verify_strategy_proposal(proposal)

@@ -17,7 +17,7 @@ from sentientos.embodied_consequence import (
     WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, run_strategy_experiment,
     build_operator_codex_strategy_packets, score_operator_codex_strategy_responses,
     score_strategy_experiment, validate_world_state_projection_config, world_state_records,
-    score_strategy_consequence_set, _history_evidence_scope,
+    _history_evidence_scope,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.operator_codex_response_journal import (OperatorResponseJournalError,
@@ -786,8 +786,9 @@ def test_multiple_consequence_set_preserves_events_and_unverified_applicability(
             more_observation_required=True,distinguishes_renderer_and_observer=True,
             rationale="preserve separate event provenance",uncertainty="high",factual_assertions=())
 
-    result=score_strategy_consequence_set(proposals=(proposal([adverse["attribution_id"]]),
-        proposal([corrective["attribution_id"]]),proposal([])),situation=situation,events=events)
+    result=score_strategy_experiment(proposals=(proposal([adverse["attribution_id"]]),
+        proposal([corrective["attribution_id"]]),proposal([])),situation=situation,
+        consequence_events=events)
     assert result["schema_version"]=="sentientos.embodied_strategy_consequence_set:v1"
     assert [row["event_id"] for row in result["events"]]==[
         adverse["attribution_id"],corrective["attribution_id"]]
@@ -803,8 +804,8 @@ def test_multiple_consequence_set_preserves_events_and_unverified_applicability(
     tampered={**events[0],"applicability":{**events[0]["applicability"],
         "event_digest":corrective["attribution_digest"]}}
     with pytest.raises(EmbodiedConsequenceError,match="strategy_consequence_applicability_invalid"):
-        score_strategy_consequence_set(proposals=(proposal([]),)*3,situation=situation,
-            events=[tampered,events[1]])
+        score_strategy_experiment(proposals=(proposal([]),)*3,situation=situation,
+            consequence_events=[tampered,events[1]])
     with pytest.raises(EmbodiedConsequenceError,match="strategy_consequence_event_identity_duplicate"):
-        score_strategy_consequence_set(proposals=(proposal([]),)*3,situation=situation,
-            events=[events[0],events[0]])
+        score_strategy_experiment(proposals=(proposal([]),)*3,situation=situation,
+            consequence_events=[events[0],events[0]])
