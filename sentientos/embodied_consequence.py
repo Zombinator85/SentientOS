@@ -1085,6 +1085,7 @@ def score_strategy_consequence_set(*, proposals: Sequence[EmbodiedStrategyPropos
 
 
 STRATEGY_DECISION_QUALITY_SCHEMA = "sentientos.embodied_strategy_decision_quality_preregistration:v2"
+STRATEGY_DECISION_QUALITY_WITH_ACTION_SCHEMA = "sentientos.embodied_strategy_decision_quality_preregistration:v3"
 STRATEGY_DECISION_QUALITY_FEEDBACK_SCHEMA = "sentientos.embodied_strategy_decision_quality_feedback:v1"
 STRATEGY_DECISION_QUALITY_CRITERIA = (
     {"criterion_id": "event_citation_identity",
@@ -1105,7 +1106,8 @@ STRATEGY_DECISION_QUALITY_CRITERIA = (
 
 
 def build_strategy_decision_quality_preregistration(*, situation: Mapping[str, Any],
-        events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        events: Sequence[Mapping[str, Any]],
+        decision_basis: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Freeze outcome-independent decision criteria against exact situation and events."""
     if (not isinstance(situation, Mapping) or not isinstance(events, (tuple, list))
             or not isinstance(situation.get("situation_binding"), str)
@@ -1120,16 +1122,34 @@ def build_strategy_decision_quality_preregistration(*, situation: Mapping[str, A
         uncertainty="unknown", factual_assertions=())
     score_strategy_consequence_set(proposals=(dummy, dummy, dummy),
         situation=situation, events=events)
+    if decision_basis is not None and (not isinstance(decision_basis, Mapping)
+            or set(decision_basis) != {"expected_action_class", "evidence_sufficiency"}
+            or not isinstance(decision_basis.get("expected_action_class"), str)
+            or not decision_basis["expected_action_class"]
+            or len(decision_basis["expected_action_class"]) > 64
+            or decision_basis.get("evidence_sufficiency") not in {
+                "supports_bounded_recommendation", "requires_more_observation"}):
+        raise EmbodiedConsequenceError("strategy_decision_basis_invalid")
+    schema = (STRATEGY_DECISION_QUALITY_WITH_ACTION_SCHEMA
+        if decision_basis is not None else STRATEGY_DECISION_QUALITY_SCHEMA)
     criteria = [dict(item) for item in STRATEGY_DECISION_QUALITY_CRITERIA]
-    rubric_digest = digest({"schema_version": STRATEGY_DECISION_QUALITY_SCHEMA,
-        "criteria": criteria})
-    return {"schema_version": STRATEGY_DECISION_QUALITY_SCHEMA,
+    if decision_basis is not None:
+        criteria.append({"criterion_id": "action_matches_frozen_evidence_sufficiency",
+            "rule": "The action class and observation request must match the independently frozen evidence-sufficiency basis."})
+    rubric_payload = {"schema_version": schema, "criteria": criteria}
+    if decision_basis is not None:
+        rubric_payload["decision_basis"] = dict(decision_basis)
+    rubric_digest = digest(rubric_payload)
+    result = {"schema_version": schema,
         "situation_digest": digest(dict(situation)),
         "event_identities": [{"event_id": item["attribution"]["attribution_id"],
             "event_digest": item["attribution"]["attribution_digest"]} for item in events],
         "criteria": criteria, "rubric_digest": rubric_digest,
         "condition_labels_used": False,
         "custody_note": "Freeze this rubric independently before subject responses; local digest is not independent custody."}
+    if decision_basis is not None:
+        result["decision_basis"] = dict(decision_basis)
+    return result
 
 
 def score_strategy_decision_quality(*, proposal: EmbodiedStrategyProposal,
@@ -1137,19 +1157,41 @@ def score_strategy_decision_quality(*, proposal: EmbodiedStrategyProposal,
         preregistration: Mapping[str, Any]) -> dict[str, Any]:
     """Return an auditable vector of rule outcomes without aggregating a quality score."""
     verify_strategy_proposal(proposal)
+    action_schema = (isinstance(preregistration, Mapping)
+        and preregistration.get("schema_version") == STRATEGY_DECISION_QUALITY_WITH_ACTION_SCHEMA)
+    expected_fields = {"schema_version", "situation_digest", "event_identities", "criteria",
+        "rubric_digest", "condition_labels_used", "custody_note"}
+    if action_schema:
+        expected_fields.add("decision_basis")
     if (not isinstance(preregistration, Mapping)
-            or set(preregistration) != {"schema_version", "situation_digest", "event_identities",
-                "criteria", "rubric_digest", "condition_labels_used", "custody_note"}
-            or preregistration.get("schema_version") != STRATEGY_DECISION_QUALITY_SCHEMA
+            or set(preregistration) != expected_fields
+            or preregistration.get("schema_version") not in {
+                STRATEGY_DECISION_QUALITY_SCHEMA, STRATEGY_DECISION_QUALITY_WITH_ACTION_SCHEMA}
             or preregistration.get("condition_labels_used") is not False
             or preregistration.get("situation_digest") != digest(dict(situation))
             or preregistration.get("event_identities") != [{
                 "event_id": item["attribution"]["attribution_id"],
                 "event_digest": item["attribution"]["attribution_digest"]} for item in events]
-            or preregistration.get("criteria") != [dict(item) for item in STRATEGY_DECISION_QUALITY_CRITERIA]
-            or preregistration.get("rubric_digest") != digest({
-                "schema_version": STRATEGY_DECISION_QUALITY_SCHEMA,
-                "criteria": [dict(item) for item in STRATEGY_DECISION_QUALITY_CRITERIA]})):
+            or not isinstance(preregistration.get("criteria"), list)):
+        raise EmbodiedConsequenceError("strategy_decision_quality_preregistration_mismatch")
+    expected_basis = preregistration.get("decision_basis") if action_schema else None
+    if action_schema and (not isinstance(expected_basis, Mapping)
+            or set(expected_basis) != {"expected_action_class", "evidence_sufficiency"}
+            or not isinstance(expected_basis.get("expected_action_class"), str)
+            or not expected_basis["expected_action_class"]
+            or expected_basis.get("evidence_sufficiency") not in {
+                "supports_bounded_recommendation", "requires_more_observation"}):
+        raise EmbodiedConsequenceError("strategy_decision_quality_preregistration_mismatch")
+    expected_criteria = [dict(item) for item in STRATEGY_DECISION_QUALITY_CRITERIA]
+    if action_schema:
+        expected_criteria.append({"criterion_id": "action_matches_frozen_evidence_sufficiency",
+            "rule": "The action class and observation request must match the independently frozen evidence-sufficiency basis."})
+    rubric_payload = {"schema_version": preregistration["schema_version"],
+        "criteria": expected_criteria}
+    if action_schema:
+        rubric_payload["decision_basis"] = dict(expected_basis)
+    if (preregistration.get("criteria") != expected_criteria
+            or preregistration.get("rubric_digest") != digest(rubric_payload)):
         raise EmbodiedConsequenceError("strategy_decision_quality_preregistration_mismatch")
     validated = score_strategy_consequence_set(proposals=(proposal, proposal, proposal),
         situation=situation, events=events)
@@ -1223,6 +1265,20 @@ def score_strategy_decision_quality(*, proposal: EmbodiedStrategyProposal,
         "fail" if causal_claims else "pass",
         {"unsupported_causal_claims": causal_claims,
             "source_identity_digest_does_not_verify_claim_truth": True})
+    if action_schema:
+        recommendation_supported = expected_basis["evidence_sufficiency"] == \
+            "supports_bounded_recommendation"
+        expected_observation_request = not recommendation_supported
+        action_matches = (proposal.proposed_next_action_class ==
+                expected_basis["expected_action_class"]
+            and proposal.more_observation_required is expected_observation_request)
+        add("action_matches_frozen_evidence_sufficiency",
+            "pass" if action_matches else "fail",
+            {"expected_action_class": expected_basis["expected_action_class"],
+                "proposed_action_class": proposal.proposed_next_action_class,
+                "expected_more_observation_required": expected_observation_request,
+                "proposed_more_observation_required": proposal.more_observation_required,
+                "evidence_sufficiency": expected_basis["evidence_sufficiency"]})
     payload = {"schema_version": "sentientos.embodied_strategy_decision_quality_result:v2",
         "preregistration_digest": preregistration["rubric_digest"],
         "proposal_id": proposal.strategy_id, "criteria": criteria,
@@ -1436,7 +1492,8 @@ OPERATOR_MULTI_EVENT_SCORER_SCHEMA = "sentientos.operator_codex_strategy_multi_e
 def build_operator_codex_strategy_multi_event_packets(*, writeback: Any,
         history_record_ids: Sequence[str], situation: Mapping[str, Any],
         model_settings: Mapping[str, Any], applicability_by_event: Mapping[str, Mapping[str, Any]],
-        max_event_count: int = 8) -> dict[str, Any]:
+        max_event_count: int = 8,
+        decision_basis: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Freeze distinct admitted consequence events with deterministic bounded selection."""
     if (not isinstance(history_record_ids, (tuple, list))
             or not 2 <= len(history_record_ids) <= 12
@@ -1611,7 +1668,8 @@ def build_operator_codex_strategy_multi_event_packets(*, writeback: Any,
     selected_events = [{key: item[key] for key in ("attribution", "source_record_id",
         "source_record_digest", "source_fact_id", "applicability")} for item in selected]
     quality_preregistration = build_strategy_decision_quality_preregistration(
-        situation=current_situation, events=selected_events)
+        situation=current_situation, events=selected_events,
+        decision_basis=decision_basis)
     preregistration = {"schema_version": OPERATOR_MULTI_EVENT_PREREG_SCHEMA,
         "packet_ids_in_randomized_order": list(packets),
         "condition_by_packet_id": condition_by_packet, "packet_digests": packet_digests,
@@ -1751,8 +1809,13 @@ def score_operator_codex_strategy_multi_event_responses(*, scorer_manifest: Mapp
                 or applicability.get("declaration_digest") != digest({key:value for key,value in applicability.items()
                     if key != "declaration_digest"})):
             raise EmbodiedConsequenceError("operator_multi_event_applicability_identity_invalid")
+    supplied_quality_preregistration = scorer_manifest.get("decision_quality_preregistration")
     expected_quality_preregistration = build_strategy_decision_quality_preregistration(
-        situation=situation, events=events)
+        situation=situation, events=events,
+        decision_basis=(supplied_quality_preregistration.get("decision_basis")
+            if isinstance(supplied_quality_preregistration, Mapping)
+            and supplied_quality_preregistration.get("schema_version")
+                == STRATEGY_DECISION_QUALITY_WITH_ACTION_SCHEMA else None))
     if scorer_manifest.get("decision_quality_preregistration") != expected_quality_preregistration:
         raise EmbodiedConsequenceError("strategy_decision_quality_preregistration_mismatch")
     if any(not isinstance(row, Mapping)

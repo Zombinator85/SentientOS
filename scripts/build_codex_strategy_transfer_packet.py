@@ -26,6 +26,8 @@ def main() -> int:
     history.add_argument("--history-record-ids", nargs="+",
         help="two or more admitted record IDs for versioned multi-event packets")
     parser.add_argument("--applicability", help="operator-declared event applicability JSON, keyed by event ID")
+    parser.add_argument("--decision-basis",
+        help="scorer-only JSON basis for action adequacy; never copied into subject packets")
     parser.add_argument("--max-event-count", type=int, default=8)
     parser.add_argument("--situation", required=True,
         help="operator-authored current situation JSON, identical across three conditions")
@@ -48,13 +50,15 @@ def main() -> int:
     if args.history_record_ids:
         applicability = json.loads(Path(args.applicability).read_text(encoding="utf-8")) \
             if args.applicability else {}
+        decision_basis = json.loads(Path(args.decision_basis).read_text(encoding="utf-8")) \
+            if args.decision_basis else None
         result = build_operator_codex_strategy_multi_event_packets(writeback=writeback,
             history_record_ids=args.history_record_ids, situation=situation,
             model_settings=settings, applicability_by_event=applicability,
-            max_event_count=args.max_event_count)
+            max_event_count=args.max_event_count, decision_basis=decision_basis)
     else:
-        if args.applicability:
-            parser.error("--applicability requires --history-record-ids")
+        if args.applicability or args.decision_basis:
+            parser.error("--applicability and --decision-basis require --history-record-ids")
         if args.max_event_count != 8:
             parser.error("--max-event-count requires --history-record-ids")
         result = build_operator_codex_strategy_packets(writeback=writeback,

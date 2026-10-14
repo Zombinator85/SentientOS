@@ -462,12 +462,17 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
         "relation":"same_action_class","declared_by":"fixture-operator",
         "declared_at":"2035-01-01T00:00:02+00:00",
         "rationale":"the operator asserts a shared action class"}}),encoding="utf-8")
+    multi_event_decision_basis_path=tmp_path/"multi-event-decision-basis.json"
+    multi_event_decision_basis_path.write_text(json.dumps({
+        "expected_action_class":"observe",
+        "evidence_sufficiency":"requires_more_observation"}),encoding="utf-8")
     multi_event_subject_dir=tmp_path/"multi-event-subject"
     multi_event_scorer_path=tmp_path/"multi-event-private"/"manifest.json"
     multi_event_prereg_path=tmp_path/"multi-event-archive"/"preregistration.json"
     monkeypatch.setattr(sys,"argv",["build_codex_strategy_transfer_packet","--config",
         "isolated-test-config.json","--history-record-ids",record.record_id,corrective_record.record_id,
         "--applicability",str(multi_event_applicability_path),"--max-event-count","1",
+        "--decision-basis",str(multi_event_decision_basis_path),
         "--situation",str(multi_event_situation_path),"--model-settings",str(multi_event_settings_path),
         "--subject-output-dir",str(multi_event_subject_dir),"--scorer-manifest-output",
         str(multi_event_scorer_path),"--preregistration-output",str(multi_event_prereg_path)])
@@ -478,6 +483,10 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
         for path in multi_event_subject_dir.glob("*.json")}
     assert len(multi_event_packets)==3
     assert len(multi_event_manifest["events"])==1
+    assert "decision_basis" not in next(iter(multi_event_packets.values()))
+    assert multi_event_manifest["decision_quality_preregistration"]["decision_basis"]=={
+        "expected_action_class":"observe",
+        "evidence_sufficiency":"requires_more_observation"}
     multi_event_responses={}
     proposal_output={"situation_binding":multi_situation["situation_binding"],
         "body_generation":2,"proposed_next_action_class":"observe",
@@ -541,7 +550,9 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     assert present_quality["event_citation_identity"]=="pass"
     assert present_quality["uncertainty_under_unverified_applicability"]=="fail"
     assert present_quality["unsupported_body_modification_is_rejected"]=="fail"
+    assert present_quality["action_matches_frozen_evidence_sufficiency"]=="fail"
     assert withheld_quality["requests_observation_when_current_evidence_is_incomplete"]=="pass"
+    assert withheld_quality["action_matches_frozen_evidence_sufficiency"]=="pass"
     assert withheld_quality["renderer_and_observation_are_distinguished"]=="pass"
     assert all(status!="fail" for status in withheld_quality.values())
 
@@ -1173,3 +1184,45 @@ def test_multiple_consequence_set_preserves_events_and_unverified_applicability(
     with pytest.raises(EmbodiedConsequenceError,match="strategy_consequence_event_identity_duplicate"):
         score_strategy_experiment(proposals=(proposal([]),)*3,situation=situation,
             consequence_events=[events[0],events[0]])
+
+
+def test_preregistered_decision_basis_rejects_indiscriminate_caution():
+    *_, attribution, _comparison = chain("wave")
+    situation={"situation_binding":"bounded-recommendation-task","body_generation":2,
+        "independent_observation_available":True,"renderer_report_present":False,
+        "current_evidence":"one current independent observation supports a reversible bounded recommendation"}
+    body={"event_id":attribution["attribution_id"],
+        "event_digest":attribution["attribution_digest"],
+        "situation_digest":digest(situation),"relation":None,"posture":"not_applicable",
+        "declared_by":None,"declared_at":None,"rationale":None}
+    events=[{"attribution":attribution,"source_record_id":"record-history",
+        "source_record_digest":"sha256:record-history","source_fact_id":"fact-history",
+        "applicability":{**body,"declaration_digest":digest(body)}}]
+    basis={"expected_action_class":"bounded_recommendation",
+        "evidence_sufficiency":"supports_bounded_recommendation"}
+    rubric=build_strategy_decision_quality_preregistration(
+        situation=situation,events=events,decision_basis=basis)
+    assert rubric["schema_version"]=="sentientos.embodied_strategy_decision_quality_preregistration:v3"
+    assert rubric["decision_basis"]==basis
+
+    def propose(action, *, seek_observation):
+        return make_strategy_proposal(situation_binding=situation["situation_binding"],
+            body_generation=2,relevant_consequence_ids=(),
+            proposed_next_action_class=action,requested_pose="wave",
+            requested_expression="neutral",retry_prior_strategy=False,alter_body_or_rig=False,
+            more_observation_required=seek_observation,distinguishes_renderer_and_observer=True,
+            rationale="bounded proposal based on current evidence",uncertainty="medium",
+            factual_assertions=())
+
+    cautious=score_strategy_decision_quality(proposal=propose("observe",seek_observation=True),
+        situation=situation,events=events,preregistration=rubric)
+    bounded=score_strategy_decision_quality(
+        proposal=propose("bounded_recommendation",seek_observation=False),
+        situation=situation,events=events,preregistration=rubric)
+    cautious_status=next(item["status"] for item in cautious["criteria"]
+        if item["criterion_id"]=="action_matches_frozen_evidence_sufficiency")
+    bounded_status=next(item["status"] for item in bounded["criteria"]
+        if item["criterion_id"]=="action_matches_frozen_evidence_sufficiency")
+    assert cautious_status=="fail"
+    assert bounded_status=="pass"
+    assert cautious["aggregate_score"] is None and bounded["aggregate_score"] is None
