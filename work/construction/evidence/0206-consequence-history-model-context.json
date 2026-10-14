@@ -1,0 +1,38 @@
+{
+  "sequence": 206,
+  "title": "Compose admitted multi-event history with model-replacement owner",
+  "status": "passed",
+  "starting_head": "e3e40845ac5d052f7ec0626fbab2ca0b8aa08c65",
+  "starting_tree": "a1165ddbac714175da242de43d84193b36477d59",
+  "source_commit": "3c63ef443d7b1c8c6043abdef0d8dd9d07fae888",
+  "source_tree": "b53dab0c7457d5991943c947b5265583bd641f6b",
+  "source_paths": [
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "blob": "747105e3d00d5367fc0e2c1daaf41595052ac0dc",
+      "sha256": "7371ac5bd9aa1dd1f5a9056beb126ccba926513f9b83bcab2934264556c6631b"
+    }
+  ],
+  "composition": {
+    "canonical_admitted_consequence_records": 3,
+    "exact_ordered_record_ids_and_digests_bound": true,
+    "fixed_current_projection_shared": true,
+    "predecessor_and_successor_history_identical": true,
+    "empty_history_controls_empty": true,
+    "model_and_fixture_invocation_identities_distinct": true,
+    "authority_and_truth_posture_preserved": true
+  },
+  "validation": {
+    "integrated_and_cross_model_nodes": "passed",
+    "affected_suites": "121 passed",
+    "compileall": "passed",
+    "diff_check": "passed"
+  },
+  "empirical_limits": {
+    "endpoint_behavior": "deterministic test fixtures",
+    "real_model_succession": false,
+    "actual_provider_receipts": false,
+    "weight_adaptation": false,
+    "model_improvement_claimed": false
+  }
+}

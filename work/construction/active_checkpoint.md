@@ -1,11 +1,13 @@
 # Active construction checkpoint
 
-Sequence 200 strengthens restart recovery by independently loading the frozen preregistration, scorer manifest, and score vectors in the child process. Rebuilt history must match the frozen selected and omitted source identities, admitted record IDs, situation digest, and rubric identity. The distinct post-restart task is rescored with the original vector rubric while retaining randomized opaque packet assignments.
+Sequence 206 composes the three canonical selected consequence records with the existing model-replacement A/B owner. The exact admitted IDs and digests plus one fixed current projection are frozen in a shared context; predecessor and successor fixtures receive identical ordered history, and empty-history controls remain empty. Source, model, and fixture invocation identities remain separate.
 
-Latest source commit: 7a832e6c98c05358e018196142bda82cc8b699bb
-Latest source tree: e7e154b176fa8bcfb34d3cb958c4832af5dceff9
-Latest segment: work/construction/segments/0200-frozen-score-recovery.md
-Evidence: work/construction/evidence/0200-frozen-score-recovery.json
-Sequence: 200
+Latest source commit: 3c63ef443d7b1c8c6043abdef0d8dd9d07fae888
+Latest source tree: b53dab0c7457d5991943c947b5265583bd641f6b
+Latest segment: work/construction/segments/0206-consequence-history-model-context.md
+Evidence: work/construction/evidence/0206-consequence-history-model-context.json
+Sequence: 206
 
-Validation: focused integrated node passed; compileall and diff check passed. Acceptance remains partial pending fresh-process governed inference and completed-condition replay handling.
+Validation: affected suites 121 passed; compileall and diff check passed. Synthetic endpoint fixtures only; no succession or learning claim.
+
+Next: inspect remaining feasible external experiment custody and cross-owner maintainability dependencies.
