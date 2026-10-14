@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 185 extends multi-trial response-journal recovery: partial scoring retains a 0/2 task denominator, an existing response cannot be replaced, and later reconstruction must produce the same aggregate score digest as the original complete packet response set.
+Sequence 186 restored the missing consequence-strategy packet and scoring source contracts from the isolated workspace and bound multitrial situation digests, model settings, packet grouping, and explicit task denominators. The exact source identities are recorded below.
 
-Latest source commit: 4a6551a027db4ce735686a4bcfe80206541507e2
-Latest source tree: 7f568ef601b3e5e2546dce48f9212066664f3d34
-Latest segment: work/construction/segments/0185-multitrial-journal-resume.md
-Evidence: work/construction/evidence/0185-multitrial-journal-resume.json
-Sequence: 185
+Latest source commit: 8241caa3d5922651b95a58530f760d43fb398344
+Latest source tree: d918f76476e433f346135918026b382339939b25
+Latest segment: work/construction/segments/0186-strategy-source-recovery.md
+Evidence: work/construction/evidence/0186-strategy-source-recovery.json
+Sequence: 186
 
-Validation: changed test and relevant journal/multi-trial modules compile; diff check passes. Focused test collection is blocked because pytest is absent and the repository test runner reports missing jinja2. This increment is [untested]. No real external sessions were run.
+Validation: 34 focused embodied/transfer tests and 92 resident developmental cognition tests passed. The cognition suite requires `SENTIENTOS_GOVERNOR_ROOT` to point into writable workspace storage in this environment; all 9 initial /glow write failures passed after that override. Compileall and diff checks passed. Construction fixtures only; no real Codex sessions or production activity.
 
-Next: extend strategy evaluation to multiple distinct, independently sourced consequences with explicit event applicability and uncertainty, then continue to decision-quality criteria and connected longitudinal recovery.
+Next: adversarial multi-trial journal recovery, then multiple consequence applicability and objective decision-quality evaluation.
