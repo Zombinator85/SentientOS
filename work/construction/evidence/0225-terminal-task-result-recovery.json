@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "sequence": 225,
+  "title": "Reconstruct terminal task outcomes from the journal",
+  "source_commit": "d179a36ef257257c409bdff2bc40af0f2f3c0333",
+  "source_tree": "bdf4840210c2dabebca7cbd1ab3fc61ea4b6b9ad",
+  "source_files": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "git_blob_sha": "8b1f1e6e41127cf5be6bb21625ad4ad04ceafe14"
+    },
+    {
+      "path": "sentientos/work_plan_execution_journal.py",
+      "git_blob_sha": "774d321dea9067a905b8a9721db199dde4a08815"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_run.py",
+      "git_blob_sha": "1303b8caf896257055517ac7c2cb2ae216ac6539"
+    },
+    {
+      "path": "sentientos/tests/test_work_plan_execution_journal.py",
+      "git_blob_sha": "b28fff7a6035b42a916093f4f7233d2e674be262"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_state_update.py",
+      "sentientos/tests/test_work_plan_load.py",
+      "sentientos/tests/test_work_plan_execution_journal.py",
+      "sentientos/tests/test_orchestrator_goal_execution.py"
+    ],
+    "passed_test_count": 34,
+    "compiled": [
+      "sentientos/goal_executor.py",
+      "sentientos/work_plan_execution_journal.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_work_plan_execution_journal.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "terminal TaskRun metadata is hash-bound into journal events",
+      "fresh executor reconstructs original task outcome without rerunning",
+      "write-once work-run identity and pulse log remain idempotent",
+      "schema-v1 started journal remains readable and unknown",
+      "failed or interrupted prerequisites continue to block dependent tasks"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:5f0f97c32c9ca3bbfecf063e1d9a20ed3c01f41087e6d36c563eb5655e108591"
+}
