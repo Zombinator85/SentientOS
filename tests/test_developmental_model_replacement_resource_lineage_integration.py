@@ -396,6 +396,19 @@ print(json.dumps({"status": result.status, "prior_record_ids": list(result.prior
         assert recovered["upstream_evidence"]["self_model_projection_id"] == recovered["self_model_projection_id"]
         assert first_fixture.requests
 
+        # The projection omits private source fields, so its observation hash
+        # cannot be recomputed from the projection. The retained ID must still
+        # remain bound to the original, correctly formatted observation digest.
+        altered_identity_records = deepcopy(replacement_records)
+        altered_identity_records[0]["payload"]["observations"][0]["observation_id"] = \
+            "model-replacement-observation-" + "f" * 24
+        altered_identity_records[0]["digest"] = record_digest(altered_identity_records[0])
+        altered_identity = resource_invocation_proposal_lineage_records(
+            [*resource_records, *altered_identity_records])
+        assert any(row["disposition"] == "degraded"
+            and "model_replacement_observation_binding_invalid"
+                in row["payload"]["lineage_findings"] for row in altered_identity)
+
         # A fully re-digested but ledger-substituted attempt remains degraded.
         altered_records = deepcopy(replacement_records)
         altered_observations = altered_records[0]["payload"]["observations"]

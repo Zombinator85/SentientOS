@@ -961,6 +961,20 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                     original.get("model_replacement_condition"))
                 count = task_outcome.get("correct_count")
                 probes = task_outcome.get("probe_count")
+                score_status = task_outcome.get("score_status")
+                correct = task_outcome.get("correct")
+                score_semantics_valid = (
+                    (score_status == "correct" and correct is True)
+                    or (score_status in {"incorrect", "invalid_answer"} and correct is False)
+                    or (score_status in {"output_unavailable", "output_truncated"}
+                        and correct is None))
+                if score_semantics_valid and count is not None:
+                    score_semantics_valid = (
+                        (score_status == "correct" and count == probes)
+                        or (score_status in {"incorrect", "invalid_answer"}
+                            and count < probes)
+                        or (score_status in {"output_unavailable", "output_truncated"}
+                            and count == 0))
                 if (set(task_outcome) != expected_outcome
                         or task_outcome.get("condition_id") != condition_id
                         or task_outcome.get("inference_receipt_id") != original.get(
@@ -974,7 +988,7 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                         or not isinstance(task_outcome.get("score_digest"), str)
                         or len(task_outcome["score_digest"]) != 71
                         or not task_outcome["score_digest"].startswith("sha256:")
-                        or not isinstance(task_outcome.get("score_status"), str)
+                        or not score_semantics_valid
                         or (task_outcome.get("correct") is not None
                             and type(task_outcome.get("correct")) is not bool)
                         or not ((count is None and probes is None) or (

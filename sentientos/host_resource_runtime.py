@@ -1381,6 +1381,32 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         raise ValueError("resource_proposal_join_bound_invalid")
     from sentientos.local_model_authority import digest_payload
 
+    def score_projection_is_consistent(score: Mapping[str, Any]) -> bool:
+        """Check the retained score summary's status/result semantics."""
+        status = score.get("status")
+        correct = score.get("correct")
+        if status not in {"correct", "incorrect", "invalid_answer",
+                "output_unavailable", "output_truncated"}:
+            return False
+        if ((status in {"correct"} and correct is not True)
+                or (status in {"incorrect", "invalid_answer"} and correct is not False)
+                or (status in {"output_unavailable", "output_truncated"}
+                    and correct is not None)):
+            return False
+        correct_count, probe_count = score.get("correct_count"), score.get("probe_count")
+        if correct_count is None and probe_count is None:
+            return True
+        if (type(correct_count) is not int or type(probe_count) is not int
+                or not 0 <= correct_count <= probe_count <= 16):
+            return False
+        if status == "correct" and correct_count != probe_count:
+            return False
+        if status in {"incorrect", "invalid_answer"} and correct_count >= probe_count:
+            return False
+        if status in {"output_unavailable", "output_truncated"} and correct_count != 0:
+            return False
+        return True
+
     resource_rows = [dict(item) for item in records
         if item.get("source_kind") == WorldStateSourceKind.RESOURCE_GOVERNOR.value
         and item.get("subject_kind") == "causal_resource_consumption"]
@@ -1444,9 +1470,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     if (not isinstance(score.get("score_digest"), str)
                             or not score["score_digest"].startswith("sha256:")
                             or len(score["score_digest"]) != 71
-                            or not isinstance(score.get("status"), str)
-                            or (score.get("correct") is not None
-                                and type(score.get("correct")) is not bool)
+                            or not score_projection_is_consistent(score)
                             or not valid_counts):
                         candidate_findings.append(
                             "developmental_experiment_condition_score_invalid")
@@ -1478,7 +1502,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "consumption_receipt_digests": list(consumption),
                 "linkage_digest": resource_linkage_digest,
                 "effect_receipt_id": condition.get("inference_receipt_id"),
-                "effect_receipt_digest": condition.get("inference_receipt_digest")}
+                "effect_receipt_digest": condition.get("inference_receipt_digest"),
+                "_lineage_findings": candidate_findings}
             history_candidate_payload: dict[str, Any] = {
                 "resource_linkage": history_linkage,
                 "invocation_request_context_linkage": request_context,
@@ -1521,12 +1546,19 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 if not isinstance(observation, Mapping) or observation.get(
                         "resource_attribution_posture") != "linkage_digest_bound_ledger_reconciliation_pending":
                     continue
-                semantic_observation = {key: value for key, value in observation.items()
-                    if key not in {"observation_id", "observation_digest"}}
                 candidate_findings = []
-                if (run.get("digest") != record_digest(run)
-                        or observation.get("observation_digest") != "sha256:" + digest_payload(semantic_observation)):
-                    candidate_findings.append("model_replacement_source_binding_invalid")
+                if run.get("digest") != record_digest(run):
+                    candidate_findings.append("model_replacement_run_source_binding_invalid")
+                observation_digest = observation.get("observation_digest")
+                observation_id = observation.get("observation_id")
+                if (not isinstance(observation_digest, str)
+                        or len(observation_digest) != 71
+                        or not observation_digest.startswith("sha256:")
+                        or any(character not in "0123456789abcdef"
+                            for character in observation_digest[7:])
+                        or observation_id != "model-replacement-observation-"
+                            + observation_digest[7:31]):
+                    candidate_findings.append("model_replacement_observation_binding_invalid")
                 consumption = observation.get("resource_consumption_receipt_digests")
                 if not isinstance(consumption, (list, tuple)):
                     candidate_findings.append("model_replacement_resource_linkage_shape_invalid")
@@ -1548,9 +1580,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                             or not isinstance(raw_score.get("score_digest"), str)
                             or len(raw_score["score_digest"]) != 71
                             or not raw_score["score_digest"].startswith("sha256:")
-                            or not isinstance(raw_score.get("status"), str)
-                            or (raw_score.get("correct") is not None
-                                and type(raw_score.get("correct")) is not bool)
+                            or not score_projection_is_consistent(raw_score)
                             or not valid_counts):
                         candidate_findings.append(
                             "model_replacement_condition_score_invalid")
@@ -1583,7 +1613,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     "consumption_receipt_digests": list(consumption),
                     "linkage_digest": observation.get("resource_linkage_digest"),
                     "effect_receipt_id": observation.get("inference_receipt_id"),
-                    "effect_receipt_digest": observation.get("inference_receipt_digest")}
+                    "effect_receipt_digest": observation.get("inference_receipt_digest"),
+                    "_lineage_findings": candidate_findings}
                 candidate_id = str(observation.get("observation_id") or "")
                 synthetic = {"source_kind": "embodiment",
                     "source_id": "model-replacement-invocation-candidate:" + candidate_id,

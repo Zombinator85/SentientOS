@@ -284,7 +284,7 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
         "conditions": [condition],
         "objective_task_descriptor": {"task_family_id": "fixture-affine"},
         "objective_scores": [{"condition_id": "history_present",
-            "score_digest": "sha256:" + "a" * 64, "status": "scored",
+            "score_digest": "sha256:" + "a" * 64, "status": "correct",
             "correct": True, "correct_count": 2, "probe_count": 2}],
     }
     developmental_record = {"source_kind": "embodiment",
@@ -308,7 +308,7 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
         "inference_receipt_id": developmental_receipt.receipt_id,
         "inference_receipt_digest": developmental_receipt.receipt_digest,
         "output_digest": developmental_receipt.output_digest,
-        "score_digest": "sha256:" + "a" * 64, "score_status": "scored",
+        "score_digest": "sha256:" + "a" * 64, "score_status": "correct",
         "correct": True, "correct_count": 2, "probe_count": 2,
         "oracle_answer_retained": False, "causal_effect_established": False}
     assert history_lineage["payload"]["resource_measurement_posture"] == "verified_ledger_receipt_values"
@@ -347,6 +347,22 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
         and fact["payload"]["task_outcome"]["score_digest"] == outcome["score_digest"]
         for fact in admitted.candidate["selected_facts"])
     assert fixture_model.requests
+
+    # A self-rehashed source record cannot turn an unknown score status into a
+    # qualified outcome. Resource custody remains visible, while the outcome
+    # is excluded from developmental interpretation.
+    invalid_score = json.loads(json.dumps(developmental_record))
+    invalid_score["payload"]["objective_scores"][0]["status"] = "scored"
+    invalid_score["digest"] = record_digest(invalid_score)
+    invalid_join = resource_invocation_proposal_lineage_records(
+        [*all_resource_records, invalid_score])
+    invalid_history = next(row for row in invalid_join
+        if row["subject_kind"] == "developmental_history_invocation_resource_lineage")
+    assert invalid_history["disposition"] == "degraded"
+    assert "developmental_experiment_condition_score_invalid" in \
+        invalid_history["payload"]["lineage_findings"]
+    assert invalid_history["payload"]["task_outcome"] == {
+        "posture": "score_binding_invalid"}
 
     substituted = json.loads(json.dumps(developmental_record))
     substituted["payload"]["conditions"][0]["resource_attempt_id"] = "substituted-attempt"
