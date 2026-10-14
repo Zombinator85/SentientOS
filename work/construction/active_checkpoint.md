@@ -1,13 +1,15 @@
 # Active construction checkpoint
 
-Sequence 230 corrects downstream developmental resource evidence. The join validates retained task-score statuses against result and probe-count semantics and carries malformed score findings into the resource-lineage posture. It also preserves valid model-replacement observations after source-owner projection: omitted private fields prevent recomputation of the original observation hash, so the join verifies digest shape and identity suffix while retaining the verified run and World-State projection bindings.
+Seq230 hardened resource-to-developmental outcome projection. It validates task score status/result consistency, preserves only qualified score summaries, carries malformed-score findings into degraded lineage, and validates model replacement observation IDs against the source digest without rehashing deliberately omitted private fields.
 
-Latest source commit: bf0618c6d9feb0da4a6d3ebdd1e2c7863cdf2ece
-Latest source tree: f105723cefe14c58aae36ead6720acf02c485fe5
-Latest segment: work/construction/segments/0230-developmental-resource-outcome-integrity.md
-Evidence: work/construction/evidence/0230-developmental-resource-outcome-integrity.json
-Sequence: 230
+Seq231 repaired the next integration dependency: budget-based plan omissions now survive durable work-plan reload. Omission reasons and task kinds are validated as pairs, so invalid or unknown omission claims remain rejected.
 
-Validation: 92 resident developmental cognition tests and 48 resource lineage, writeback, and model-replacement tests passed. Changed modules compiled and `git diff --check` passed. The test environment used explicit project opt-in and isolated temporary roots; canonical editable-install bootstrap remains blocked by proxy/dependency availability.
+Latest source commit: 8fb4b5e21cf79c09546182ec6167f78febdf8707
+Latest source tree: ed0ce8dcce931caeef0dd24d916dee9d83d61108
+Latest segment: work/construction/segments/0231-budget-omission-plan-reload.md
+Evidence: work/construction/evidence/0231-budget-omission-plan-reload.json
+Sequence: 231
 
-Next: examine persistent epistemic revision and post-adoption attribution as inputs to a later bounded engineering proposal. Preserve qualified, adverse, and missing/confounded outcomes across restart; do not turn historical interpretation into deployment authority.
+Validation: seq230 passed 92 resident cognition tests plus 48 resource lineage, writeback, and model-replacement tests. Seq231 passed 38 goal planning, reload, journal, run/state, and orchestrator tests. Changed Python modules compiled, and both increments passed `git diff --check`.
+
+Next: inspect a later decision path where verified maintenance outcome or persistent epistemic history can change a bounded proposal. Keep successful, adverse, and confounded outcomes distinct; preserve current source and effect authority restrictions.
