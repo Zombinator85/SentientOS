@@ -18,7 +18,8 @@ from sentientos.embodied_consequence import (
     build_operator_codex_strategy_packets, build_operator_codex_strategy_multi_event_packets,
     score_operator_codex_strategy_responses,
     score_operator_codex_strategy_multi_event_responses,
-    score_strategy_experiment, validate_world_state_projection_config, world_state_records,
+    score_strategy_experiment, build_strategy_decision_quality_preregistration,
+    score_strategy_decision_quality, validate_world_state_projection_config, world_state_records,
     _history_evidence_scope,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
@@ -570,7 +571,9 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     assert malformed_score["condition_results"]
     assert malformed_score["scoreable_task_fraction"]=={"numerator":0,"denominator":1}
     substituted_packets=dict(multi_event_packets)
-    substituted_packets[first_packet]={**substituted_packets[first_packet],"historical_evidence":[]}
+    present_packet=next(packet_id for packet_id,condition in
+        multi_event_manifest["condition_by_packet_id"].items() if condition=="history_present")
+    substituted_packets[present_packet]={**substituted_packets[present_packet],"historical_evidence":[]}
     with pytest.raises(EmbodiedConsequenceError,match="operator_multi_event_packet_identity_mismatch"):
         score_operator_codex_strategy_multi_event_responses(scorer_manifest=multi_event_manifest,
             preregistration=multi_event_prereg,subject_packets=substituted_packets,
@@ -1007,7 +1010,8 @@ def test_multiple_consequence_set_preserves_events_and_unverified_applicability(
     *_, corrective, _=chain("wave")
     assert adverse["attribution_id"]!=corrective["attribution_id"]
     situation={"situation_binding":"later-wave-two","body_generation":2,
-        "environment":"controlled fixture situation"}
+        "environment":"controlled fixture situation",
+        "independent_observation_available":False,"renderer_report_present":True}
 
     def event(attribution, record_id, fact_id, posture, relation=None):
         body={"event_id":attribution["attribution_id"],
@@ -1025,13 +1029,15 @@ def test_multiple_consequence_set_preserves_events_and_unverified_applicability(
             "operator_declared_unverified","same_action_class"),
         event(corrective,"record-corrective","fact-corrective","unresolved")]
 
-    def proposal(citations):
+    def proposal(citations, *, uncertainty="high", more_observation_required=True):
         return make_strategy_proposal(situation_binding=situation["situation_binding"],
             body_generation=2,relevant_consequence_ids=tuple(citations),
             proposed_next_action_class="observe",requested_pose="wave",
             requested_expression="neutral",retry_prior_strategy=False,alter_body_or_rig=False,
-            more_observation_required=True,distinguishes_renderer_and_observer=True,
-            rationale="preserve separate event provenance",uncertainty="high",factual_assertions=())
+            more_observation_required=more_observation_required,
+            distinguishes_renderer_and_observer=True,
+            rationale="preserve separate event provenance",uncertainty=uncertainty,
+            factual_assertions=())
 
     result=score_strategy_experiment(proposals=(proposal([adverse["attribution_id"]]),
         proposal([corrective["attribution_id"]]),proposal([])),situation=situation,
@@ -1047,6 +1053,28 @@ def test_multiple_consequence_set_preserves_events_and_unverified_applicability(
     assert result["proposals"][0]["established_applicable_event_ids"]==[]
     assert result["synthetic_event_created"] is False
     assert result["improvement_claimed"] is False
+
+    rubric=build_strategy_decision_quality_preregistration(situation=situation,events=events)
+    cautious=make_strategy_proposal(situation_binding=situation["situation_binding"],
+        body_generation=2,relevant_consequence_ids=(adverse["attribution_id"],
+            corrective["attribution_id"]),proposed_next_action_class="observe",
+        requested_pose="wave",requested_expression="neutral",retry_prior_strategy=False,
+        alter_body_or_rig=False,more_observation_required=True,
+        distinguishes_renderer_and_observer=True,rationale="conflicting outcomes; gather evidence",
+        uncertainty="high",factual_assertions=())
+    cautious_result=score_strategy_decision_quality(proposal=cautious,situation=situation,
+        events=events,preregistration=rubric)
+    cautious_criteria={row["criterion_id"]:row["status"]
+        for row in cautious_result["criteria"]}
+    assert cautious_criteria["uncertainty_under_conflicting_historical_outcomes"]=="pass"
+    overconfident=proposal([adverse["attribution_id"],corrective["attribution_id"]],
+        uncertainty="low",more_observation_required=False)
+    overconfident_result=score_strategy_decision_quality(proposal=overconfident,
+        situation=situation,events=events,preregistration=rubric)
+    overconfident_criteria={row["criterion_id"]:row["status"]
+        for row in overconfident_result["criteria"]}
+    assert overconfident_criteria["uncertainty_under_conflicting_historical_outcomes"]=="fail"
+    assert overconfident_result["aggregate_score"] is None
 
     tampered={**events[0],"applicability":{**events[0]["applicability"],
         "event_digest":corrective["attribution_digest"]}}

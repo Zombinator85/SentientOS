@@ -1084,12 +1084,14 @@ def score_strategy_consequence_set(*, proposals: Sequence[EmbodiedStrategyPropos
     return payload
 
 
-STRATEGY_DECISION_QUALITY_SCHEMA = "sentientos.embodied_strategy_decision_quality_preregistration:v1"
+STRATEGY_DECISION_QUALITY_SCHEMA = "sentientos.embodied_strategy_decision_quality_preregistration:v2"
 STRATEGY_DECISION_QUALITY_CRITERIA = (
     {"criterion_id": "event_citation_identity",
         "rule": "Every cited consequence ID must identify a separately supplied, digest-validated source event."},
     {"criterion_id": "uncertainty_under_unverified_applicability",
         "rule": "A proposal citing only unverified applicability must preserve high or unknown uncertainty."},
+    {"criterion_id": "uncertainty_under_conflicting_historical_outcomes",
+        "rule": "When separately supplied historical outcomes conflict, a proposal relying on any of them must preserve uncertainty and request more observation."},
     {"criterion_id": "requests_observation_when_current_evidence_is_incomplete",
         "rule": "If the frozen situation says independent observation is unavailable, request more observation."},
     {"criterion_id": "renderer_and_observation_are_distinguished",
@@ -1176,6 +1178,21 @@ def score_strategy_decision_quality(*, proposal: EmbodiedStrategyProposal,
     else:
         add("uncertainty_under_unverified_applicability", "indeterminate",
             {"reason": "proposal_makes_no_historical_applicability_claim"})
+    outcome_classes = {row["classification"] for row in event_rows}
+    has_conflicting_outcomes = ("expectation_satisfied" in outcome_classes
+        and "expectation_contradicted" in outcome_classes)
+    if has_conflicting_outcomes and cited:
+        add("uncertainty_under_conflicting_historical_outcomes",
+            "pass" if proposal.uncertainty in {"high", "unknown"}
+                and proposal.more_observation_required else "fail",
+            {"conflicting_event_ids": [row["event_id"] for row in event_rows
+                if row["classification"] in {"expectation_satisfied", "expectation_contradicted"}],
+                "proposal_uncertainty": proposal.uncertainty,
+                "proposal_requests_more_observation": proposal.more_observation_required})
+    else:
+        add("uncertainty_under_conflicting_historical_outcomes", "indeterminate",
+            {"conflicting_outcomes_supplied": has_conflicting_outcomes,
+                "proposal_cites_historical_events": bool(cited)})
     if type(observation_available) is bool:
         need_observation = observation_available is False
         add("requests_observation_when_current_evidence_is_incomplete",
@@ -1205,7 +1222,7 @@ def score_strategy_decision_quality(*, proposal: EmbodiedStrategyProposal,
         "fail" if causal_claims else "pass",
         {"unsupported_causal_claims": causal_claims,
             "source_identity_digest_does_not_verify_claim_truth": True})
-    payload = {"schema_version": "sentientos.embodied_strategy_decision_quality_result:v1",
+    payload = {"schema_version": "sentientos.embodied_strategy_decision_quality_result:v2",
         "preregistration_digest": preregistration["rubric_digest"],
         "proposal_id": proposal.strategy_id, "criteria": criteria,
         "aggregate_score": None, "condition_labels_used": False,
