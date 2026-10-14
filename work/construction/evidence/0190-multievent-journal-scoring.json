@@ -1,0 +1,35 @@
+{
+  "sequence": 190,
+  "title": "Journal-backed multi-event strategy scoring and CLI recovery",
+  "status": "[untested] construction",
+  "starting_head": "53ead93fc754f3af6bc371de9300455a15aea771",
+  "starting_tree": "7a77a27736020849194d220afb12e162c809b48c",
+  "source_commit": "dccdfdc40fb428d60c9925358e34970424bd7941",
+  "source_tree": "3848ecaa77e10bf66dd57a7610f8bce6a414dd07",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"00547fc426afd46706242c3da05fa6cde35efff3","sha256":"9e3fc910dbe9dc88c150028c917ae8b0fc82cdd5cae49004cbdd1285a6da9285"},
+    {"path":"sentientos/operator_codex_response_journal.py","blob":"e29d1550df439b7eede938adb1729e3bc0d37a6a","sha256":"cc9ccfdce6b55ce14cbfc1610c1d6e5b7b89bc4ef7e4bb89b9047f0ba33bf016"},
+    {"path":"scripts/build_codex_strategy_transfer_packet.py","blob":"027ff440e657076119f4eab1b5a341cb9e53f414","sha256":"3b07fef9f758ab2900322685357bbfca1e424d81562e518217f1c281acb0c67b"},
+    {"path":"scripts/score_codex_strategy_transfer_packet.py","blob":"ef3a61d0a943e56797bbf454dd8023c946051980","sha256":"56525aaa4ef69e38c7fcf038021c896d74c6eb6c00b47bba4aa5460d290bf549"},
+    {"path":"tests/test_embodied_consequence.py","blob":"5bb2c9a82cfac7f4f39c53fdf9a562271681dfa6","sha256":"1cdceb66d5f035a77db231246fa366dabc9be28330c237a0e5b5b5bc84b14048"}
+  ],
+  "validation": {
+    "embodied_and_transfer_packet_cli_journal":"35 passed",
+    "partial_to_complete_cli_recovery":"passed; scoreable denominator preserved as 1",
+    "corrupt_duplicate_session_settings_packet_and_preregistration_adversaries":"passed",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "remote_readback": {
+    "branch_head":"dccdfdc40fb428d60c9925358e34970424bd7941",
+    "tree":"3848ecaa77e10bf66dd57a7610f8bce6a414dd07",
+    "changed_blobs":"all five exact source/test blobs independently present in recursive tree"
+  },
+  "authority_posture": {
+    "response_provenance":"operator_recorded_unverified_external_output",
+    "backend_execution_authenticated":false,
+    "history_admission_rules_weakened":false,
+    "execution_authority_added":false
+  },
+  "limitations":"Fixture-driven CLI proof only. Applicability claims remain unverified and the new decision-quality rubric is not yet implemented."
+}
