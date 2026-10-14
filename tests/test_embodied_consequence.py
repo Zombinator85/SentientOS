@@ -1226,3 +1226,140 @@ def test_preregistered_decision_basis_rejects_indiscriminate_caution():
     assert cautious_status=="fail"
     assert bounded_status=="pass"
     assert cautious["aggregate_score"] is None and bounded["aggregate_score"] is None
+
+
+def test_multitrial_multi_event_transfer_scores_two_distinct_decision_bases():
+    from sentientos.resident_developmental_writeback import DevelopmentalRecord
+
+    *_, adverse, _ = chain("idle")
+    *_, corrective, _ = chain("wave")
+
+    def admitted_fixture_record(attribution, suffix):
+        fact={"fact_id":"fact:"+suffix,"source":{
+            "source_id":attribution["attribution_id"],
+            "digest":attribution["attribution_digest"],
+            "schema_version":attribution["schema_version"],"kind":"embodiment"},
+            "subject":{"subject_id":"body-a",
+                "subject_kind":"embodied_consequence_attribution"},"payload":attribution}
+        candidate={"epistemic_posture":"historical_interpretation_not_current_truth",
+            "selected_fact_ids":[fact["fact_id"]],"selected_facts":[fact],
+            "selected_sources":[{"source_id":attribution["attribution_id"],
+                "digest":attribution["attribution_digest"],"kind":"embodiment"}]}
+        raw=DevelopmentalRecord(record_id="",record_digest="",candidate=candidate,
+            admission_id="admission-"+suffix,admission_binding_digest="sha256:"+suffix*64,
+            principal="fixture",operation_id="operation-"+suffix,
+            correlation_id="correlation-"+suffix,created_at=TX)
+        record_digest=digest(raw.semantic_payload())
+        return replace(raw,record_id="devrec-"+record_digest[7:31],
+            record_digest=record_digest)
+
+    records=(admitted_fixture_record(adverse,"a"),
+        admitted_fixture_record(corrective,"b"))
+    class Inventory:
+        def inspect_completed_records(self):
+            return tuple((record,object()) for record in records)
+
+    conflict={"situation_binding":"pilot-conflict","body_generation":2,
+        "requested_at":"2035-01-01T00:00:03+00:00",
+        "renderer_report_present":True,"independent_observation_available":False,
+        "current_evidence":"causal attribution remains unresolved"}
+    supported={**conflict,"situation_binding":"pilot-supported-action",
+        "renderer_report_present":False,"independent_observation_available":True,
+        "current_evidence":"a current independent observation supports a reversible bounded recommendation"}
+    trials={"conflict":conflict,"supported":supported}
+    basis={"conflict":{"expected_action_class":"observe",
+            "evidence_sufficiency":"requires_more_observation"},
+        "supported":{"expected_action_class":"bounded_recommendation",
+            "evidence_sufficiency":"supports_bounded_recommendation"}}
+    settings={"visible_model_name":"Codex pilot","effort_setting":"medium",
+        "generation_settings":{"temperature":None}}
+    packet_set=build_operator_codex_strategy_multitrial(writeback=Inventory(),
+        trials=trials,model_settings=settings,
+        history_record_ids_by_trial={key:[record.record_id for record in records]
+            for key in trials},
+        applicability_by_trial={key:{} for key in trials},
+        decision_basis_by_trial=basis)
+    assert len(packet_set["subject_packets"])==6
+    assert all("decision_basis" not in packet
+        for packet in packet_set["subject_packets"].values())
+    assert all(not any(label in json.dumps(packet) for label in
+        ("history_present","history_withheld","history_restored"))
+        for packet in packet_set["subject_packets"].values())
+
+    responses={}
+    scorer=packet_set["scorer_manifest"]
+    for trial_id in scorer["trial_order"]:
+        manifest=scorer["scorer_manifest_by_trial"][trial_id]
+        decision=basis[trial_id]
+        for packet_id,condition in manifest["condition_by_packet_id"].items():
+            action=decision["expected_action_class"]
+            request_observation=decision["evidence_sufficiency"]=="requires_more_observation"
+            if trial_id=="supported" and condition=="history_present":
+                action="observe"
+                request_observation=True
+            proposal={"situation_binding":trials[trial_id]["situation_binding"],
+                "body_generation":2,"proposed_next_action_class":action,
+                "requested_pose":"wave","requested_expression":"neutral",
+                "retry_prior_strategy":False,"alter_body_or_rig":False,
+                "more_observation_required":request_observation,
+                "distinguishes_renderer_and_observer":True,
+                "rationale":"fixture decision for frozen scenario",
+                "uncertainty":"high","relevant_consequence_ids":[],
+                "factual_assertions":[]}
+            responses[packet_id]={"packet_id":packet_id,
+                "session_id":"subject-"+packet_id,"timestamp":TX,
+                **settings,"raw_output":json.dumps(proposal)}
+    scored=score_operator_codex_strategy_multitrial(
+        scorer_manifest=packet_set["scorer_manifest"],
+        preregistration=packet_set["preregistration"],
+        subject_packets=packet_set["subject_packets"],responses=responses)
+    assert scored["status"]=="scored"
+    assert scored["scoreable_task_fraction"]=={"numerator":2,"denominator":2}
+    by_trial={row["trial_id"]:row for row in scored["trial_results"]}
+    assert by_trial["conflict"]["decision_quality_by_condition"]["history_present"][-1]["status"]=="pass"
+    supported_quality=by_trial["supported"]["decision_quality_by_condition"]
+    assert supported_quality["history_present"][-1]["status"]=="fail"
+    assert supported_quality["history_withheld"][-1]["status"]=="pass"
+    assert supported_quality["history_restored"][-1]["status"]=="pass"
+
+
+def test_operator_strategy_inventory_keeps_verified_receipt_digest_separate():
+    from types import SimpleNamespace
+    from scripts.list_codex_strategy_records import _inventory
+    from sentientos.embodied_consequence import STRATEGY_DECISION_QUALITY_FEEDBACK_SCHEMA
+
+    event={"schema_version":"sentientos.embodied_consequence_attribution:v1",
+        "attribution_id":"consequence:fixture","attribution_digest":"sha256:event",
+        "classification":"expectation_contradicted",
+        "causal_attribution_posture":"external_interference_possible",
+        "evaluated_at":T2}
+    fact={"fact_id":"fact:fixture","payload":event}
+    record=SimpleNamespace(record_id="devrec-fixture",record_digest="sha256:record",
+        admission_id="admission-fixture",admission_binding_digest="sha256:binding",
+        candidate={"selected_facts":[fact]},epistemic_posture="historical_interpretation_not_current_truth",
+        current_truth=False,authority=False,policy=False)
+    receipt=SimpleNamespace(receipt_id="devreceipt-fixture",receipt_digest="sha256:receipt")
+    feedback_payload={"schema_version":STRATEGY_DECISION_QUALITY_FEEDBACK_SCHEMA,
+        "feedback_id":"strategy-quality-feedback:fixture",
+        "feedback_digest":"sha256:feedback","proposal_identity":{
+            "proposal_id":"strategy:fixture","proposal_digest":"sha256:proposal"},
+        "decision_quality_result":{"result_digest":"sha256:quality"},
+        "execution_occurred":False,"physical_effect_established":False,
+        "improvement_claimed":False}
+    feedback_record=SimpleNamespace(record_id="devrec-feedback",record_digest="sha256:feedback-record",
+        admission_id="admission-feedback",admission_binding_digest="sha256:feedback-binding",
+        candidate={"selected_facts":[{"fact_id":"fact:feedback","payload":feedback_payload}]},
+        epistemic_posture="historical_interpretation_not_current_truth",current_truth=False,
+        authority=False,policy=False)
+    feedback_receipt=SimpleNamespace(receipt_id="devreceipt-feedback",
+        receipt_digest="sha256:feedback-receipt")
+    report=_inventory(((record,receipt),(feedback_record,feedback_receipt)))
+    row=next(item for item in report["records"] if item["record_id"]==record.record_id)
+    feedback_row=next(item for item in report["records"]
+        if item["record_id"]==feedback_record.record_id)
+    assert row["record_digest"]=="sha256:record"
+    assert row["receipt_digest"]=="sha256:receipt"
+    assert row["receipt_digest"]!=row["record_digest"]
+    assert report["read_only"] is True
+    assert feedback_row["strategy_feedback"][0]["quality_result_digest"]=="sha256:quality"
+    assert feedback_row["strategy_feedback"][0]["execution_occurred"] is False

@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import re
 import secrets
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from .embodied_consequence import (OPERATOR_CODEX_STRATEGY_CONDITIONS,
     EmbodiedConsequenceError, build_operator_codex_strategy_packets, canonical_bytes,
-    digest, score_operator_codex_strategy_responses)
+    build_operator_codex_strategy_multi_event_packets, digest,
+    score_operator_codex_strategy_multi_event_responses,
+    score_operator_codex_strategy_responses)
 
 
 MULTITRIAL_SCORER_SCHEMA = "sentientos.operator_codex_strategy_multitrial_scorer:v1"
@@ -15,13 +17,34 @@ MULTITRIAL_PREREG_SCHEMA = "sentientos.operator_codex_strategy_multitrial_prereg
 _TRIAL_ID = re.compile(r"[a-z][a-z0-9_-]{0,31}\Z")
 
 
-def build_operator_codex_strategy_multitrial(*, writeback: Any, history_record_id: str,
-        trials: Mapping[str, Mapping[str, Any]], model_settings: Mapping[str, Any]) -> dict[str, Any]:
+def build_operator_codex_strategy_multitrial(*, writeback: Any,
+        trials: Mapping[str, Mapping[str, Any]], model_settings: Mapping[str, Any],
+        history_record_id: str | None = None,
+        history_record_ids_by_trial: Mapping[str, Sequence[str]] | None = None,
+        applicability_by_trial: Mapping[str, Mapping[str, Mapping[str, Any]]] | None = None,
+        decision_basis_by_trial: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
     """Freeze at least two distinct situations, each with a full three-condition set."""
     if (not isinstance(trials, Mapping) or not 2 <= len(trials) <= 12
             or any(not isinstance(key, str) or not _TRIAL_ID.fullmatch(key)
                 or not isinstance(value, Mapping) for key, value in trials.items())):
         raise EmbodiedConsequenceError("operator_strategy_multitrial_set_invalid")
+    if history_record_ids_by_trial is not None:
+        if (history_record_id is not None
+                or not isinstance(history_record_ids_by_trial, Mapping)
+                or set(history_record_ids_by_trial) != set(trials)
+                or any(not isinstance(values, (list, tuple)) or not 2 <= len(values) <= 12
+                    or any(not isinstance(value, str) or not value for value in values)
+                    or len(set(values)) != len(values)
+                    for values in history_record_ids_by_trial.values())
+                or not isinstance(applicability_by_trial, Mapping)
+                or set(applicability_by_trial) != set(trials)
+                or (decision_basis_by_trial is not None
+                    and (not isinstance(decision_basis_by_trial, Mapping)
+                        or set(decision_basis_by_trial) != set(trials)))):
+            raise EmbodiedConsequenceError("operator_strategy_multievent_trial_inputs_invalid")
+    elif (not isinstance(history_record_id, str) or not history_record_id
+            or applicability_by_trial is not None or decision_basis_by_trial is not None):
+        raise EmbodiedConsequenceError("operator_strategy_multievent_trial_inputs_invalid")
     situation_digests = {key: digest(value) for key, value in trials.items()}
     bindings = [value.get("situation_binding") for value in trials.values()]
     if len(set(bindings)) != len(bindings) or len(set(situation_digests.values())) != len(trials):
@@ -32,9 +55,17 @@ def build_operator_codex_strategy_multitrial(*, writeback: Any, history_record_i
     all_packets: dict[str, dict[str, Any]] = {}
     all_digests: dict[str, str] = {}
     for trial_id in trial_order:
-        result = build_operator_codex_strategy_packets(writeback=writeback,
-            history_record_id=history_record_id, situation=trials[trial_id],
-            model_settings=model_settings)
+        if history_record_ids_by_trial is None:
+            result = build_operator_codex_strategy_packets(writeback=writeback,
+                history_record_id=history_record_id, situation=trials[trial_id],
+                model_settings=model_settings)
+        else:
+            result = build_operator_codex_strategy_multi_event_packets(writeback=writeback,
+                history_record_ids=history_record_ids_by_trial[trial_id],
+                situation=trials[trial_id], model_settings=model_settings,
+                applicability_by_event=applicability_by_trial[trial_id],
+                decision_basis=(decision_basis_by_trial.get(trial_id)
+                    if decision_basis_by_trial is not None else None))
         packet_ids = set(result["subject_packets"])
         if packet_ids & set(all_packets):
             raise EmbodiedConsequenceError("operator_strategy_multitrial_packet_identity_collision")
@@ -133,16 +164,34 @@ def score_operator_codex_strategy_multitrial(*, scorer_manifest: Mapping[str, An
         expected_packet_ids.update(trial_packets)
         trial_responses = {packet_id: responses[packet_id] for packet_id in trial_packets
             if packet_id in responses}
-        score = score_operator_codex_strategy_responses(scorer_manifest=trials[trial_id],
-            preregistration=subregistrations[trial_id], subject_packets=trial_packets,
-            responses=trial_responses)
-        rows.append({"trial_id": trial_id,
+        if trials[trial_id].get("schema_version") == \
+                "sentientos.operator_codex_strategy_multi_event_scorer:v1":
+            score = score_operator_codex_strategy_multi_event_responses(
+                scorer_manifest=trials[trial_id], preregistration=subregistrations[trial_id],
+                subject_packets=trial_packets, responses=trial_responses)
+            row = {"trial_id": trial_id,
+                "situation_digest": scorer_manifest["situation_digest_by_trial"][trial_id],
+                "status": score["status"], "outcome": None,
+                "submitted_proposal_count": sum(item.get("proposal") is not None
+                    for item in score["condition_results"]),
+                "condition_count": len(score["condition_results"]),
+                "score_digest": score["score_digest"],
+                "decision_quality_by_condition": {item["condition"]:
+                    item.get("decision_quality", {}).get("criteria")
+                    for item in score["condition_results"]},
+                "source_event_score": score.get("event_score")}
+        else:
+            score = score_operator_codex_strategy_responses(scorer_manifest=trials[trial_id],
+                preregistration=subregistrations[trial_id], subject_packets=trial_packets,
+                responses=trial_responses)
+            row = {"trial_id": trial_id,
             "situation_digest": scorer_manifest["situation_digest_by_trial"][trial_id],
             "status": score["strategy_scoring"]["status"],
             "outcome": score["strategy_scoring"].get("outcome"),
             "submitted_proposal_count": score["submitted_proposal_count"],
             "condition_count": len(score["conditions"]), "score_digest": score["score_digest"],
-            "conditions": score["conditions"]})
+            "conditions": score["conditions"]}
+        rows.append(row)
     packet_group_count = sum(len(packets_by_trial[trial_id]) for trial_id in order)
     if expected_packet_ids != set(packet_map) or packet_group_count != len(expected_packet_ids):
         raise EmbodiedConsequenceError("operator_strategy_multitrial_packet_grouping_invalid")

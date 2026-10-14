@@ -19,7 +19,14 @@ from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionVerifi
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", default=os.environ.get(CONFIG_ENV))
-    parser.add_argument("--history-record-id", required=True)
+    history = parser.add_mutually_exclusive_group(required=True)
+    history.add_argument("--history-record-id")
+    history.add_argument("--history-record-ids-by-trial",
+        help="JSON mapping opaque trial IDs to two or more verified record IDs")
+    parser.add_argument("--applicability-by-trial",
+        help="JSON mapping trial IDs to event applicability declarations")
+    parser.add_argument("--decision-basis-by-trial",
+        help="scorer-only JSON mapping trial IDs to evidence-sufficiency/action criteria")
     parser.add_argument("--trials", required=True,
         help="private JSON mapping at least two opaque trial IDs to frozen situations")
     parser.add_argument("--model-settings", required=True)
@@ -38,8 +45,21 @@ def main() -> int:
             ledger=ledger), current_sequence=ledger.current_sequence)
     trials = json.loads(Path(args.trials).read_text(encoding="utf-8"))
     settings = json.loads(Path(args.model_settings).read_text(encoding="utf-8"))
+    if args.history_record_ids_by_trial:
+        if not args.applicability_by_trial:
+            parser.error("--history-record-ids-by-trial requires --applicability-by-trial")
+        record_ids = json.loads(Path(args.history_record_ids_by_trial).read_text(encoding="utf-8"))
+        applicability = json.loads(Path(args.applicability_by_trial).read_text(encoding="utf-8"))
+        decision_basis = (json.loads(Path(args.decision_basis_by_trial).read_text(encoding="utf-8"))
+            if args.decision_basis_by_trial else None)
+    else:
+        if args.applicability_by_trial or args.decision_basis_by_trial:
+            parser.error("multi-event maps require --history-record-ids-by-trial")
+        record_ids = applicability = decision_basis = None
     result = build_operator_codex_strategy_multitrial(writeback=writeback,
-        history_record_id=args.history_record_id, trials=trials, model_settings=settings)
+        history_record_id=args.history_record_id, history_record_ids_by_trial=record_ids,
+        applicability_by_trial=applicability, decision_basis_by_trial=decision_basis,
+        trials=trials, model_settings=settings)
     subject_dir = Path(args.subject_output_dir).resolve()
     scorer_path = Path(args.scorer_manifest_output).resolve()
     prereg_path = Path(args.preregistration_output).resolve()
