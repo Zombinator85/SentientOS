@@ -1,0 +1,12 @@
+{
+  "sequence": 227,
+  "title": "Legacy process-boundary recovery",
+  "source_commit": "580f71cd9cfb097d5ff0de193b7f68ecac34b4b3",
+  "source_tree": "72478a3795ed565b67f52faf1e0cddbc331128a2",
+  "tests": {
+    "command": "python -m pytest -q sentientos/tests/test_goal_executor_run.py sentientos/tests/test_goal_executor_plan.py sentientos/tests/test_goal_state_update.py sentientos/tests/test_work_plan_load.py sentientos/tests/test_work_plan_execution_journal.py sentientos/tests/test_orchestrator_goal_execution.py",
+    "passed": 36
+  },
+  "validation": ["six-file py_compile", "targeted git diff --check"],
+  "scope": "synthetic fixture; child process recovery from v1 terminal journal and exact existing run artifact; task execution prohibited"
+}

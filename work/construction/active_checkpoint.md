@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 226 makes work-run recovery artifact-aware. Before task execution, the executor validates an existing bounded canonical run artifact against the exact plan, task ordering and identity, task outcomes, and destructive classification. Terminal journal status and v2 full task results must agree; malformed or substituted artifacts fail closed. This also preserves existing v1 run artifacts whose journals lack full task details.
+Sequence 227 verifies persisted work-run recovery across a child-process boundary. A legacy v1 terminal journal and exact pre-existing run artifact recover without re-execution; artifact path and run result remain stable and journal pulse count remains one.
 
-Latest source commit: 2c51cff889f2489eda60429fe71f14101b6900a2
-Latest source tree: 2397ac4798155bb17f3d1ba7305316591a3b26d7
-Latest segment: work/construction/segments/0226-work-run-artifact-recovery.md
-Evidence: work/construction/evidence/0226-work-run-artifact-recovery.json
-Sequence: 226
+Latest source commit: 580f71cd9cfb097d5ff0de193b7f68ecac34b4b3
+Latest source tree: 72478a3795ed565b67f52faf1e0cddbc331128a2
+Latest segment: work/construction/segments/0227-legacy-process-run-recovery.md
+Evidence: work/construction/evidence/0227-legacy-process-run-recovery.json
+Sequence: 227
 
-Validation: 36 focused executor, dependency, goal-state, journal, plan-load, and orchestrator tests passed. Six affected files compiled and diff check passed.
+Validation: 36 focused executor, dependency, goal-state, journal, plan-load, and orchestrator tests passed; six affected files compiled and targeted diff check passed. Fixture-only.
 
-Next: exercise this recovery across an actual child-process boundary with a legacy journal and existing write-once run, then inspect another independent causal bridge for a source-backed gap.
+Next: reacquire a complete isolated checkout at the live branch head before touching further source. The available workspace is stale at seq195. Then inspect the embodiment consequence attribution to developmental-history connection for a concrete gap and continue across another source-backed region.
