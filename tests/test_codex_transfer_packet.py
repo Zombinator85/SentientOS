@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -9,7 +12,8 @@ import pytest
 pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.codex_transfer_packet import (
-    CodexTransferPacketError, build_codex_transfer_packets, packet_json_bytes,
+    CodexTransferPacketError, build_codex_transfer_packets, discover_codex_transfer_records,
+    packet_json_bytes,
     score_codex_transfer_responses,
 )
 from sentientos.local_model_authority import digest_payload
@@ -87,7 +91,7 @@ def test_blinded_packets_keep_history_and_scorer_custody_separate(tmp_path: Path
     irrelevant = _stored_record(tmp_path / "history", "irrelevant", "color-sequence",
         [(4, 2, True)])
     adverse = _stored_record(tmp_path / "history", "adverse", "affine-v1",
-        [(6, 20, False), (7, 23, True)])
+        [(6, 19, False), (7, 23, True)])
     result = build_codex_transfer_packets(writeback=_VerifiedWritebackFixture(store),
         history_record_id=positive.record_id, irrelevant_record_id=irrelevant.record_id,
         adverse_record_id=adverse.record_id, family="affine-v1",
@@ -103,10 +107,10 @@ def test_blinded_packets_keep_history_and_scorer_custody_separate(tmp_path: Path
     assert by_condition["history_present"]["historical_examples"] == \
         by_condition["history_restored"]["historical_examples"]
     assert by_condition["history_withheld"]["historical_examples"] == []
-    assert by_condition["history_withheld"]["source_facts"] == []
+    assert by_condition["history_withheld"]["source_fact_projections"] == []
     assert len(by_condition["history_present"]["historical_examples"]) == 2
-    assert len(by_condition["history_present"]["source_facts"]) == 1
-    source_fact = by_condition["history_present"]["source_facts"][0]["source_fact"]
+    assert len(by_condition["history_present"]["source_fact_projections"]) == 1
+    source_fact = by_condition["history_present"]["source_fact_projections"][0]
     assert source_fact["fact_id"] == by_condition["history_present"]["historical_examples"][0]["source_fact_id"]
     assert [item["evaluator_correct"] for item in
         by_condition["adverse_history"]["historical_examples"]] == [False, True]
@@ -115,6 +119,7 @@ def test_blinded_packets_keep_history_and_scorer_custody_separate(tmp_path: Path
         encoded = packet_json_bytes(packet).decode()
         assert '"multiplier"' not in encoded and '"offset"' not in encoded
         assert '"answer_key"' not in encoded
+        assert '"nonce"' not in encoded and '"source_fact"' not in encoded
         assert "treatment_condition" not in packet and "condition_label" not in packet
         assert not any(label in packet["instructions"] for label in (
             "history_present", "history_withheld", "history_restored",
@@ -125,12 +130,14 @@ def test_blinded_packets_keep_history_and_scorer_custody_separate(tmp_path: Path
     assert manifest["applicability"]["posture"] == \
         "operator_declared_shared_mapping_not_independently_verified"
     assert manifest["source_record_identities"][0]["record_digest"] == positive.record_digest
-    responses = {packet_id: {"raw_output": '{"answers": [32, 35, 38]}',
+    responses = {packet_id: {"packet_id": packet_id,
+        "raw_output": '{"answers": [32, 35, 38]}',
         "session_id": "fresh-" + packet_id, "timestamp": "2026-10-14T00:00:00Z",
         "visible_model_name": "Codex", "effort_setting": "medium",
         "generation_settings": {"temperature": 0}}
         for packet_id in packets}
-    scored = score_codex_transfer_responses(scorer_manifest=manifest, responses=responses)
+    scored = score_codex_transfer_responses(scorer_manifest=manifest, responses=responses,
+        subject_packets=packets, preregistration=result["preregistration"])
     assert all(row["correct_count"] == 3 and row["denominator"] == 3
         and row["full_task_correct"] is True
         and row["reported_settings_match_preregistration"] is True
@@ -139,17 +146,58 @@ def test_blinded_packets_keep_history_and_scorer_custody_separate(tmp_path: Path
     malformed[next(iter(malformed))] = {**malformed[next(iter(malformed))],
         "raw_output": '{"answers": [32, true, 38]}'}
     malformed_scores = score_codex_transfer_responses(scorer_manifest=manifest,
-        responses=malformed)
+        responses=malformed, subject_packets=packets, preregistration=result["preregistration"])
     assert next(row for row in malformed_scores["conditions"]
         if row["packet_id"] == next(iter(malformed)))["status"] == \
-        "unscoreable_malformed_output"
+        "unscoreable_noninteger_answers"
+    test_id = next(iter(responses))
+    for raw_output, expected_status in (("{\"answers\":[32", "unscoreable_partial_output"),
+            ('{"answers": [32, 35, 38, 41]}', "unscoreable_wrong_length_output"),
+            ('{"answer": [32, 35, 38]}', "unscoreable_malformed_schema"),
+            ("x" * 8193, "unscoreable_missing_or_oversized_output")):
+        bad = dict(responses)
+        bad[test_id] = {**responses[test_id], "raw_output": raw_output}
+        score = score_codex_transfer_responses(scorer_manifest=manifest,
+            responses=bad, subject_packets=packets, preregistration=result["preregistration"])
+        assert next(row for row in score["conditions"]
+            if row["packet_id"] == test_id)["status"] == expected_status
     interrupted = dict(responses)
     interrupted_id = next(iter(interrupted))
     interrupted.pop(interrupted_id)
     interrupted_scores = score_codex_transfer_responses(scorer_manifest=manifest,
-        responses=interrupted)
+        responses=interrupted, subject_packets=packets, preregistration=result["preregistration"])
     assert next(row for row in interrupted_scores["conditions"]
         if row["packet_id"] == interrupted_id)["status"] == "interrupted_or_not_run"
+
+
+def test_exact_subject_contract_is_scorable_and_packet_digest_is_bound(tmp_path: Path) -> None:
+    root = tmp_path / "history"
+    store = DevelopmentalHistoryStore(root)
+    positive = _stored_record(root, "positive", "affine-v1", [(1, 5, True)])
+    irrelevant = _stored_record(root, "irrelevant", "other", [(4, 2, True)])
+    adverse = _stored_record(root, "adverse", "affine-v1", [(6, 19, False)])
+    result = build_codex_transfer_packets(writeback=_VerifiedWritebackFixture(store),
+        history_record_id=positive.record_id, irrelevant_record_id=irrelevant.record_id,
+        adverse_record_id=adverse.record_id, family="affine-v1", irrelevant_family="other",
+        probe_inputs=(10, 11), multiplier=3, offset=2,
+        applicability_basis="operator-declared shared fixture mapping",
+        model_settings={"visible_model_name": "Codex", "effort_setting": "medium",
+            "generation_settings": {"temperature": None}}, nonce="2" * 64)
+    packet_id, packet = next(iter(result["subject_packets"].items()))
+    assert "state uncertainty in a separate" not in packet["instructions"]
+    assert "Do not add prose" in packet["instructions"]
+    scored = score_codex_transfer_responses(scorer_manifest=result["scorer_manifest"],
+        subject_packets=result["subject_packets"],
+        preregistration=result["preregistration"],
+        responses={packet_id: {"packet_id": packet_id,
+            "raw_output": json.dumps({"answers": [32, 35]}),
+            "session_id": "s1"}})
+    assert next(row for row in scored["conditions"] if row["packet_id"] == packet_id)["status"] == "scored"
+    altered = dict(result["subject_packets"])
+    altered[packet_id] = {**packet, "instructions": packet["instructions"] + " altered"}
+    with pytest.raises(CodexTransferPacketError, match="subject_packet_identity_or_digest_mismatch"):
+        score_codex_transfer_responses(scorer_manifest=result["scorer_manifest"],
+            subject_packets=altered, preregistration=result["preregistration"], responses={})
 
 
 def test_packet_builder_rejects_overlapping_heldout_inputs_and_bad_history(tmp_path: Path) -> None:
@@ -157,7 +205,7 @@ def test_packet_builder_rejects_overlapping_heldout_inputs_and_bad_history(tmp_p
     store = DevelopmentalHistoryStore(store_root)
     positive = _stored_record(store_root, "positive", "affine-v1", [(1, 5, True)])
     irrelevant = _stored_record(store_root, "irrelevant", "color-sequence", [(4, 2, True)])
-    adverse = _stored_record(store_root, "adverse", "affine-v1", [(6, 20, False)])
+    adverse = _stored_record(store_root, "adverse", "affine-v1", [(6, 19, False)])
     kwargs = dict(writeback=_VerifiedWritebackFixture(store), history_record_id=positive.record_id,
         irrelevant_record_id=irrelevant.record_id, adverse_record_id=adverse.record_id,
         family="affine-v1", irrelevant_family="color-sequence", probe_inputs=(1, 11),
@@ -171,12 +219,79 @@ def test_packet_builder_rejects_overlapping_heldout_inputs_and_bad_history(tmp_p
             "model_settings": {"visible_model_name": "Codex"}})
 
 
+def test_packet_builder_rejects_adverse_label_that_matches_shared_oracle(tmp_path: Path) -> None:
+    root = tmp_path / "history"
+    store = DevelopmentalHistoryStore(root)
+    positive = _stored_record(root, "positive", "affine-v1", [(1, 5, True)])
+    irrelevant = _stored_record(root, "irrelevant", "other", [(4, 2, True)])
+    inconsistent = _stored_record(root, "inconsistent", "affine-v1", [(6, 20, False)])
+    with pytest.raises(CodexTransferPacketError,
+            match="source_evaluator_label_conflicts_with_declared_target_mapping:adverse"):
+        build_codex_transfer_packets(writeback=_VerifiedWritebackFixture(store),
+            history_record_id=positive.record_id, irrelevant_record_id=irrelevant.record_id,
+            adverse_record_id=inconsistent.record_id, family="affine-v1",
+            irrelevant_family="other", probe_inputs=(10, 11), multiplier=3, offset=2,
+            applicability_basis="operator declared a shared mapping",
+            model_settings={"visible_model_name": "Codex", "effort_setting": "medium",
+                "generation_settings": {}})
+
+
+def test_scorer_cli_verifies_preregistration_and_original_packet_set(tmp_path: Path) -> None:
+    root = tmp_path / "history"
+    store = DevelopmentalHistoryStore(root)
+    positive = _stored_record(root, "positive", "affine-v1", [(1, 5, True)])
+    irrelevant = _stored_record(root, "irrelevant", "other", [(4, 2, True)])
+    adverse = _stored_record(root, "adverse", "affine-v1", [(6, 19, False)])
+    result = build_codex_transfer_packets(writeback=_VerifiedWritebackFixture(store),
+        history_record_id=positive.record_id, irrelevant_record_id=irrelevant.record_id,
+        adverse_record_id=adverse.record_id, family="affine-v1", irrelevant_family="other",
+        probe_inputs=(10, 11), multiplier=3, offset=2,
+        applicability_basis="operator-declared shared fixture mapping",
+        model_settings={"visible_model_name": "Codex", "effort_setting": "medium",
+            "generation_settings": {}})
+    packets_dir = tmp_path / "subject_packets"
+    packets_dir.mkdir()
+    for packet_id, packet in result["subject_packets"].items():
+        (packets_dir / f"{packet_id}.json").write_bytes(packet_json_bytes(packet))
+    scorer = tmp_path / "scorer_manifest.json"
+    prereg = tmp_path / "preregistration.json"
+    responses_path = tmp_path / "responses.json"
+    output = tmp_path / "scores.json"
+    scorer.write_bytes(packet_json_bytes(result["scorer_manifest"]))
+    prereg.write_bytes(packet_json_bytes(result["preregistration"]))
+    responses_path.write_text(json.dumps({packet_id: {"packet_id": packet_id,
+        "session_id": "session-" + packet_id, "raw_output": '{"answers": [32, 35]}'}
+        for packet_id in result["subject_packets"]}), encoding="utf-8")
+    subprocess.run([sys.executable, "-m", "scripts.score_codex_transfer_packet",
+        "--scorer-manifest", str(scorer), "--preregistration", str(prereg),
+        "--subject-packets", str(packets_dir), "--responses", str(responses_path),
+        "--output", str(output)], check=True, capture_output=True, text=True,
+        cwd=Path(__file__).resolve().parents[1])
+    scores = json.loads(output.read_text(encoding="utf-8"))
+    assert len(scores["conditions"]) == 5
+    assert all(row["status"] == "scored" for row in scores["conditions"])
+
+
+def test_discovery_reports_verified_provenance_without_source_answers(tmp_path: Path) -> None:
+    root = tmp_path / "history"
+    store = DevelopmentalHistoryStore(root)
+    positive = _stored_record(root, "positive", "affine-v1", [(1, 5, True), (2, 8, True)])
+    _stored_record(root, "adverse", "affine-v1", [(6, 19, False)])
+    report = discover_codex_transfer_records(writeback=_VerifiedWritebackFixture(store))
+    entry = next(item for item in report if item["record_id"] == positive.record_id)
+    assert entry["positive_count"] == 2
+    assert entry["adverse_count"] == 0
+    assert entry["admission_verification"] == "verified_by_read_only_writeback_owner"
+    assert entry["mapping_compatibility"].endswith("does_not_prove_shared_truth")
+    assert "observed_answer" not in json.dumps(report)
+
+
 def test_packet_builder_requires_verified_admission_inventory(tmp_path: Path) -> None:
     root = tmp_path / "history"
     store = DevelopmentalHistoryStore(root)
     positive = _stored_record(root, "positive", "affine-v1", [(1, 5, True)])
     irrelevant = _stored_record(root, "irrelevant", "color-sequence", [(4, 2, True)])
-    adverse = _stored_record(root, "adverse", "affine-v1", [(6, 20, False)])
+    adverse = _stored_record(root, "adverse", "affine-v1", [(6, 19, False)])
     for receipt in store.receipts():
         if receipt.record_id == positive.record_id:
             (store.receipts_root / f"{receipt.receipt_id}.json").unlink()

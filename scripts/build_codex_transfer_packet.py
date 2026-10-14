@@ -41,15 +41,20 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     output = Path(args.output_dir)
     subject_dir = output / "subject_packets"
     scorer_dir = output / "scorer_only"
+    prereg_dir = output / "preregistration"
     subject_dir.mkdir(parents=True, exist_ok=False)
     scorer_dir.mkdir(parents=True, exist_ok=False)
+    prereg_dir.mkdir(parents=True, exist_ok=False)
     for packet_id, packet in result["subject_packets"].items():
         (subject_dir / f"{packet_id}.json").write_bytes(packet_json_bytes(packet))
     (scorer_dir / "scorer_manifest.json").write_bytes(
         packet_json_bytes(result["scorer_manifest"]))
+    (prereg_dir / "preregistration.json").write_bytes(
+        packet_json_bytes(result["preregistration"]))
     return {"packet_count": len(result["subject_packets"]),
         "subject_packet_dir": str(subject_dir),
         "scorer_manifest": str(scorer_dir / "scorer_manifest.json"),
+        "preregistration": str(prereg_dir / "preregistration.json"),
         "commitment": result["scorer_manifest"]["task_commitment"],
         "warning": "Keep scorer_only separate from every subject session."}
 
