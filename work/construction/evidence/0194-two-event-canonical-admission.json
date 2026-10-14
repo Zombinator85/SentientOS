@@ -1,0 +1,30 @@
+{
+  "sequence": 194,
+  "title": "Admit two distinct embodied consequences through canonical owners",
+  "status": "[untested] construction",
+  "starting_head": "49bea74021772ad7d622490ecf46847b94ed8b5d",
+  "starting_tree": "92a0e662b50a77ae162bbe616a3157068fc5628b",
+  "source_commit": "eac1ef8d3ff3e3a033c2029987ce37752bb2a3ab",
+  "source_tree": "3ddda4df6c263bff8f00012c70bc94581b238a4a",
+  "source_paths": [
+    {"path":"tests/test_resident_developmental_cognition.py","blob":"e4da2a0deb040035680b238c27957d275a9e006d","sha256":"5a4503a2d8ee7604343c1d94ea5af5b017a0d641eea9019d2826d7a55006a594"}
+  ],
+  "validation": {
+    "canonical_admitted_embodied_consequence_strategy_test":"1 passed",
+    "actual_world_state_projection":"both distinct events",
+    "ordinary_interpretation_and_writeback":"two successful resident ticks",
+    "read_only_inventory_reopen":"two distinct records; receipts verified",
+    "source_payload_identity_and_chronology":"preserved",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "authority_posture": {
+    "scoped_test_admission":"used existing resident writeback owner",
+    "history_inventory_mocked":false,
+    "physical_observation":"synthetic independent fixture only",
+    "production_inference_claimed":false,
+    "execution_authority_added":false
+  },
+  "acceptance_status":"PARTIAL: milestone A passed; milestones B-E remain",
+  "limitations":"The test invoker is a deterministic fixture. The next strategy task is not yet consuming both records; no model improvement or physical causation is established."
+}
