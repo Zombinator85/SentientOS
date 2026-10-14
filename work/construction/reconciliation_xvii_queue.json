@@ -1,25 +1,25 @@
 {
   "schema": "sentientos.reconciliation_queue:v1",
-  "last_checkpoint_sequence": 234,
+  "last_checkpoint_sequence": 235,
   "completed_nodes": [
-    "A2/A4: explicitly selected owner-recovered outcomes feed governed signals with source limitations and classification-sensitive routes.",
-    "A5: repeated same-proposal campaigns deduplicate; adverse and positive correction conflict without erasure; confounded, null/interrupted, and insufficient outcomes remain distinct across fresh-process reconstruction.",
-    "B1/B2: proposal consumers are traced; only route-eligible signals become maintenance candidates; campaign candidates preserve historical references with low provenance-qualified confidence."
+    "A2/A4-A5: verified campaign outcomes route with source uncertainty; repeated, duplicate, conflicting, corrected, confounded, null, and inconclusive histories remain distinguishable across restart.",
+    "B1/B2: only proposal-routed signals become later maintenance candidates; campaign uncertainty and exact source references survive adaptation.",
+    "C2: repeated resource projection after ledger restart preserves event identity and does not debit a completed consumption again."
   ],
-  "current_source_commit": "c709da507d505fca6177110a6da79626aa28d634",
-  "current_source_tree": "a79a269c7bd7743838617cb16921e4aff49c6770",
+  "current_source_commit": "afb2fcb3367b90aa51dfc4fc2c38a82678f908e8",
+  "current_source_tree": "454372cb8c6ca659f81aa62e0f3a0dc94eb38ed6",
   "next_executable_nodes": [
-    {"program": "A", "node": "A6-A8", "work": "Fresh-process runtime projection ordering, duplicate selections/retrieval, and no-side-effect recovery."},
-    {"program": "B", "node": "B3-B8", "work": "Later candidate selection after a synthetic unsuccessful improvement; preserve negative transfer, correction, and applicability uncertainty."},
-    {"program": "C", "node": "C2-C8", "work": "Resource event identity across rereads/restart, incomplete consumption, and later strategy recommendation."},
+    {"program": "C", "node": "C3-C8", "work": "Malformed/incomplete resource outcome admission, retained identity, then a distinct later task with an evidence-supported strategy recommendation."},
+    {"program": "A", "node": "A6-A8", "work": "Runtime projection ordering, duplicate recovery behavior, and no-side-effect cold reconstruction."},
+    {"program": "B", "node": "B3-B8", "work": "Later candidate selection after an unsuccessful synthetic improvement; preserve negative transfer, correction, and applicability uncertainty."},
     {"program": "D", "node": "D1-D8", "work": "Conflicting evidence identities, admissible persistent revision, temporal boundaries, and causal introspection."},
     {"program": "E", "node": "E1-E8", "work": "Multi-task partial progress, interruption recovery, budget omissions, and outcome-informed selection."},
     {"program": "F", "node": "F1-F8", "work": "Longitudinal strategy correction, negative transfer, authorship, and model-identity continuity fixtures."},
-    {"program": "Integration", "node": "X1-X4", "work": "Connect maintenance/resource/epistemic/goal histories across owner and process boundaries."}
+    {"program": "Integration", "node": "X1-X4", "work": "Connect maintenance, resource, epistemic, or goal histories across owner and process boundaries."}
   ],
   "known_test_failures": [
     "Five pre-existing seq232 broad-suite failures: stale production-readiness and adapter-signature assertions, read-only /glow setup, runtime admission fixture mismatch, and production campaign readiness expectation.",
-    "Mypy on older broad runtime files still reports repository baseline errors; the changed candidate modules pass targeted mypy."
+    "Mypy on older broad runtime files still reports repository baseline errors; candidate modules pass targeted mypy."
   ],
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
