@@ -17,6 +17,7 @@ from sentientos.embodied_consequence import (
     WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, run_strategy_experiment,
     build_operator_codex_strategy_packets, build_operator_codex_strategy_multi_event_packets,
     score_operator_codex_strategy_responses,
+    score_operator_codex_strategy_multi_event_responses,
     score_strategy_experiment, validate_world_state_projection_config, world_state_records,
     _history_evidence_scope,
 )
@@ -435,6 +436,142 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
                 "relation":"same_action_class","declared_by":"fixture-operator",
                 "declared_at":"2035-01-01T00:00:02+00:00",
                 "rationale":"the operator asserts a shared action class"}})
+    import scripts.build_codex_strategy_transfer_packet as multievent_builder
+    class MultiLedger:
+        current_sequence=1
+        def __init__(self, _path): pass
+    class MultiVerifier:
+        def __init__(self, **_kwargs): pass
+    class MultiWriteback:
+        def __init__(self, **_kwargs): pass
+        def inspect_completed_records(self): return ((record,object()),(corrective_record,object()))
+    monkeypatch.setattr(multievent_builder,"load_config",lambda _path:type("Config",(),{
+        "history_root":tmp_path/"history","state_root":tmp_path/"state"})())
+    monkeypatch.setattr(multievent_builder,"AdmissionLedger",MultiLedger)
+    monkeypatch.setattr(multievent_builder,"RuntimeAdmissionVerifier",MultiVerifier)
+    monkeypatch.setattr(multievent_builder,"ResidentDevelopmentalWritebackController",MultiWriteback)
+    multi_event_situation_path=tmp_path/"multi-event-situation.json"
+    multi_event_situation_path.write_text(json.dumps(multi_situation),encoding="utf-8")
+    multi_event_settings_path=tmp_path/"multi-event-settings.json"
+    multi_event_settings_path.write_text(json.dumps(settings),encoding="utf-8")
+    multi_event_applicability_path=tmp_path/"multi-event-applicability.json"
+    multi_event_applicability_path.write_text(json.dumps({selected_id:{
+        "relation":"same_action_class","declared_by":"fixture-operator",
+        "declared_at":"2035-01-01T00:00:02+00:00",
+        "rationale":"the operator asserts a shared action class"}}),encoding="utf-8")
+    multi_event_subject_dir=tmp_path/"multi-event-subject"
+    multi_event_scorer_path=tmp_path/"multi-event-private"/"manifest.json"
+    multi_event_prereg_path=tmp_path/"multi-event-archive"/"preregistration.json"
+    monkeypatch.setattr(sys,"argv",["build_codex_strategy_transfer_packet","--config",
+        "isolated-test-config.json","--history-record-ids",record.record_id,corrective_record.record_id,
+        "--applicability",str(multi_event_applicability_path),"--max-event-count","1",
+        "--situation",str(multi_event_situation_path),"--model-settings",str(multi_event_settings_path),
+        "--subject-output-dir",str(multi_event_subject_dir),"--scorer-manifest-output",
+        str(multi_event_scorer_path),"--preregistration-output",str(multi_event_prereg_path)])
+    assert multievent_builder.main()==0
+    multi_event_manifest=json.loads(multi_event_scorer_path.read_text(encoding="utf-8"))
+    multi_event_prereg=json.loads(multi_event_prereg_path.read_text(encoding="utf-8"))
+    multi_event_packets={path.stem:json.loads(path.read_text(encoding="utf-8"))
+        for path in multi_event_subject_dir.glob("*.json")}
+    assert len(multi_event_packets)==3
+    assert len(multi_event_manifest["events"])==1
+    multi_event_responses={}
+    proposal_output={"situation_binding":multi_situation["situation_binding"],
+        "body_generation":2,"proposed_next_action_class":"observe",
+        "requested_pose":"wave","requested_expression":"neutral",
+        "retry_prior_strategy":False,"alter_body_or_rig":False,
+        "more_observation_required":True,"distinguishes_renderer_and_observer":True,
+        "rationale":"bounded fixture response","uncertainty":"high",
+        "relevant_consequence_ids":[selected_id],"factual_assertions":[]}
+    for packet_id in multi_event_manifest["condition_by_packet_id"]:
+        multi_event_responses[packet_id]={"packet_id":packet_id,
+            "session_id":"multi-event-session-"+packet_id,"timestamp":TX,
+            "visible_model_name":settings["visible_model_name"],
+            "effort_setting":settings["effort_setting"],
+            "generation_settings":settings["generation_settings"],
+            "raw_output":json.dumps(proposal_output)}
+    multi_event_journal=tmp_path/"multi-event-response-journal";multi_event_journal.mkdir()
+    first_two=list(multi_event_responses)[:2]
+    for packet_id in first_two:
+        record_operator_codex_response(journal_dir=multi_event_journal,
+            preregistration=multi_event_prereg,packet_id=packet_id,
+            response=multi_event_responses[packet_id])
+    multi_event_partial_cli=subprocess.run([sys.executable,"-m",
+        "scripts.score_codex_strategy_transfer_packet","--scorer-manifest",str(multi_event_scorer_path),
+        "--preregistration",str(multi_event_prereg_path),"--subject-packets",str(multi_event_subject_dir),
+        "--response-journal",str(multi_event_journal),"--output",str(tmp_path/"multi-event-partial.json")],
+        capture_output=True,text=True,cwd=Path(__file__).resolve().parents[1])
+    assert multi_event_partial_cli.returncode==0,multi_event_partial_cli.stderr
+    partial_event_result=json.loads((tmp_path/"multi-event-partial.json").read_text(encoding="utf-8"))
+    assert partial_event_result["status"]=="partial_or_incomparable"
+    assert partial_event_result["scoreable_task_fraction"]=={"numerator":0,"denominator":1}
+    missing_multi_event_packet=(set(multi_event_responses)-set(first_two)).pop()
+    record_operator_codex_response(journal_dir=multi_event_journal,
+        preregistration=multi_event_prereg,packet_id=missing_multi_event_packet,
+        response=multi_event_responses[missing_multi_event_packet])
+    resumed_event_cli=subprocess.run([sys.executable,"-m",
+        "scripts.score_codex_strategy_transfer_packet","--scorer-manifest",str(multi_event_scorer_path),
+        "--preregistration",str(multi_event_prereg_path),"--subject-packets",str(multi_event_subject_dir),
+        "--response-journal",str(multi_event_journal),"--output",str(tmp_path/"multi-event-complete.json")],
+        capture_output=True,text=True,cwd=Path(__file__).resolve().parents[1])
+    assert resumed_event_cli.returncode==0,resumed_event_cli.stderr
+    complete_event_result=json.loads((tmp_path/"multi-event-complete.json").read_text(encoding="utf-8"))
+    assert json.loads(resumed_event_cli.stdout)["strategy_scoring_status"]=="scored"
+    assert complete_event_result["scoreable_task_fraction"]=={"numerator":1,"denominator":1}
+    assert complete_event_result["event_score"]["events"][0]["applicability_independently_verified"] is False
+    with pytest.raises(OperatorResponseJournalError,match="external_response_packet_already_recorded"):
+        record_operator_codex_response(journal_dir=multi_event_journal,
+            preregistration=multi_event_prereg,packet_id=first_two[0],
+            response={**multi_event_responses[first_two[0]],"raw_output":"{}"})
+    duplicate_multi_event_responses=dict(multi_event_responses)
+    first_packet,second_packet=list(duplicate_multi_event_responses)[:2]
+    duplicate_multi_event_responses[second_packet]={**duplicate_multi_event_responses[second_packet],
+        "session_id":duplicate_multi_event_responses[first_packet]["session_id"]}
+    duplicate_multi_event_score=score_operator_codex_strategy_multi_event_responses(
+        scorer_manifest=multi_event_manifest,preregistration=multi_event_prereg,
+        subject_packets=multi_event_packets,responses=duplicate_multi_event_responses)
+    assert duplicate_multi_event_score["status"]=="partial_or_incomparable"
+    assert duplicate_multi_event_score["scoreable_task_fraction"]=={"numerator":0,"denominator":1}
+    bad_settings_responses={**multi_event_responses,second_packet:{
+        **multi_event_responses[second_packet],"visible_model_name":"substituted-model"}}
+    bad_settings_score=score_operator_codex_strategy_multi_event_responses(
+        scorer_manifest=multi_event_manifest,preregistration=multi_event_prereg,
+        subject_packets=multi_event_packets,responses=bad_settings_responses)
+    assert bad_settings_score["subject_settings_comparable"] is False
+    assert bad_settings_score["event_score"] is None
+    malformed_responses={**multi_event_responses,second_packet:{
+        **multi_event_responses[second_packet],"raw_output":"{\"incomplete\":"}}
+    malformed_score=score_operator_codex_strategy_multi_event_responses(
+        scorer_manifest=multi_event_manifest,preregistration=multi_event_prereg,
+        subject_packets=multi_event_packets,responses=malformed_responses)
+    assert malformed_score["condition_results"]
+    assert malformed_score["scoreable_task_fraction"]=={"numerator":0,"denominator":1}
+    substituted_packets=dict(multi_event_packets)
+    substituted_packets[first_packet]={**substituted_packets[first_packet],"historical_evidence":[]}
+    with pytest.raises(EmbodiedConsequenceError,match="operator_multi_event_packet_identity_mismatch"):
+        score_operator_codex_strategy_multi_event_responses(scorer_manifest=multi_event_manifest,
+            preregistration=multi_event_prereg,subject_packets=substituted_packets,
+            responses=multi_event_responses)
+    bad_multi_prereg={**multi_event_prereg,"selected_event_identities":[]}
+    with pytest.raises(EmbodiedConsequenceError,match="operator_multi_event_preregistration_mismatch"):
+        score_operator_codex_strategy_multi_event_responses(scorer_manifest=multi_event_manifest,
+            preregistration=bad_multi_prereg,subject_packets=multi_event_packets,
+            responses=multi_event_responses)
+    corrupt_journal=tmp_path/"multi-event-corrupt-journal";corrupt_journal.mkdir()
+    corrupt_packet=first_two[0]
+    record_operator_codex_response(journal_dir=corrupt_journal,
+        preregistration=multi_event_prereg,packet_id=corrupt_packet,
+        response=multi_event_responses[corrupt_packet])
+    (corrupt_journal/f"{corrupt_packet}.json").write_text("{corrupt",encoding="utf-8")
+    corrupt_cli=subprocess.run([sys.executable,"-m","scripts.score_codex_strategy_transfer_packet",
+        "--scorer-manifest",str(multi_event_scorer_path),"--preregistration",str(multi_event_prereg_path),
+        "--subject-packets",str(multi_event_subject_dir),"--response-journal",str(corrupt_journal),
+        "--output",str(tmp_path/"multi-event-corrupt.json")],capture_output=True,text=True,
+        cwd=Path(__file__).resolve().parents[1])
+    assert corrupt_cli.returncode==0,corrupt_cli.stderr
+    assert json.loads(corrupt_cli.stdout)["response_journal_recovery"]["status"]=="partial_or_corrupt"
+    assert json.loads((tmp_path/"multi-event-corrupt.json").read_text(encoding="utf-8"))[
+        "scoreable_task_fraction"]=={"numerator":0,"denominator":1}
     multitrial=build_operator_codex_strategy_multitrial(writeback=VerifiedWritebackFixture(),
         history_record_id=record.record_id,trials={
             "wave_a":situation,"wave_b":{**situation,"situation_binding":"later-wave-b",

@@ -1410,6 +1410,242 @@ def build_operator_codex_strategy_multi_event_packets(*, writeback: Any,
         "scorer_manifest": scorer_manifest}
 
 
+def _unique_strategy_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def score_operator_codex_strategy_multi_event_responses(*, scorer_manifest: Mapping[str, Any],
+        preregistration: Mapping[str, Any], subject_packets: Mapping[str, Mapping[str, Any]],
+        responses: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """Score an operator-recorded three-condition multi-event response set."""
+    manifest_fields = {"schema_version", "condition_by_packet_id", "condition_order",
+        "packet_digests", "history_record_identities", "events", "omitted_events",
+        "situation", "situation_digest", "model_settings", "selection_policy",
+        "selection_limit", "interpretation_limit"}
+    prereg_fields = {"schema_version", "packet_ids_in_randomized_order",
+        "condition_by_packet_id", "packet_digests", "history_record_identities",
+        "selected_event_identities", "omitted_event_identities", "situation_digest",
+        "model_settings", "custody_note"}
+    if (not isinstance(scorer_manifest, Mapping) or set(scorer_manifest) != manifest_fields
+            or scorer_manifest.get("schema_version") != OPERATOR_MULTI_EVENT_SCORER_SCHEMA
+            or not isinstance(preregistration, Mapping) or set(preregistration) != prereg_fields
+            or preregistration.get("schema_version") != OPERATOR_MULTI_EVENT_PREREG_SCHEMA
+            or not isinstance(subject_packets, Mapping) or not isinstance(responses, Mapping)):
+        raise EmbodiedConsequenceError("operator_multi_event_scorer_artifact_invalid")
+    condition_by_packet = scorer_manifest.get("condition_by_packet_id")
+    order = scorer_manifest.get("condition_order")
+    packet_order = preregistration.get("packet_ids_in_randomized_order")
+    digests = scorer_manifest.get("packet_digests")
+    events = scorer_manifest.get("events")
+    omitted = scorer_manifest.get("omitted_events")
+    records = scorer_manifest.get("history_record_identities")
+    situation = scorer_manifest.get("situation")
+    settings = scorer_manifest.get("model_settings")
+    if (not isinstance(condition_by_packet, Mapping)
+            or set(condition_by_packet.values()) != set(OPERATOR_CODEX_STRATEGY_CONDITIONS)
+            or len(condition_by_packet) != 3
+            or set(subject_packets) != set(condition_by_packet)
+            or not isinstance(order, list) or len(order) != 3
+            or set(order) != set(OPERATOR_CODEX_STRATEGY_CONDITIONS)
+            or not isinstance(packet_order, list) or len(packet_order) != 3
+            or set(packet_order) != set(condition_by_packet)
+            or [condition_by_packet[packet_id] for packet_id in packet_order] != order
+            or not isinstance(digests, Mapping) or set(digests) != set(condition_by_packet)
+            or not isinstance(events, list) or not 1 <= len(events) <= 12
+            or not isinstance(omitted, list) or not isinstance(records, list)
+            or type(scorer_manifest.get("selection_limit")) is not int
+            or not 1 <= scorer_manifest["selection_limit"] <= 12
+            or len(events) > scorer_manifest["selection_limit"]
+            or scorer_manifest.get("selection_policy") !=
+                "operator_declared_unverified_relation_then_recency_then_event_id:v1"
+            or not isinstance(situation, Mapping)
+            or scorer_manifest.get("situation_digest") != digest(situation)
+            or preregistration.get("condition_by_packet_id") != condition_by_packet
+            or not isinstance(packet_order, list) or len(packet_order) != 3
+            or set(packet_order) != set(condition_by_packet)
+            or [condition_by_packet[packet_id] for packet_id in packet_order] != order
+            or preregistration.get("packet_digests") != digests
+            or preregistration.get("history_record_identities") != records
+            or preregistration.get("selected_event_identities") != [
+                {"event_id": item.get("attribution", {}).get("attribution_id"),
+                    "event_digest": item.get("attribution", {}).get("attribution_digest")}
+                for item in events]
+            or preregistration.get("omitted_event_identities") != omitted
+            or preregistration.get("situation_digest") != scorer_manifest.get("situation_digest")
+            or preregistration.get("model_settings") != settings
+            or not isinstance(settings, Mapping)):
+        raise EmbodiedConsequenceError("operator_multi_event_preregistration_mismatch")
+    if any(not isinstance(row, Mapping) or set(row) != {"record_id", "record_digest"}
+            or not isinstance(row.get("record_id"), str) or not row["record_id"]
+            or not isinstance(row.get("record_digest"), str) or not row["record_digest"]
+            for row in records):
+        raise EmbodiedConsequenceError("operator_multi_event_record_identity_invalid")
+    record_digests = {row["record_id"]: row["record_digest"] for row in records}
+    if len(record_digests) != len(records):
+        raise EmbodiedConsequenceError("operator_multi_event_record_identity_invalid")
+    event_ids: set[str] = set()
+    requested_at = _time(str(situation.get("requested_at", "")))
+    for item in events:
+        if (not isinstance(item, Mapping)
+                or set(item) != {"attribution", "source_record_id", "source_record_digest",
+                    "source_fact_id", "applicability"}
+                or item.get("source_record_id") not in record_digests
+                or item.get("source_record_digest") != record_digests.get(item.get("source_record_id"))
+                or not isinstance(item.get("source_fact_id"), str) or not item["source_fact_id"]):
+            raise EmbodiedConsequenceError("operator_multi_event_source_identity_invalid")
+        attribution = item.get("attribution")
+        if not isinstance(attribution, Mapping):
+            raise EmbodiedConsequenceError("operator_multi_event_source_identity_invalid")
+        _verify_consequence_attribution(attribution)
+        event_id = attribution["attribution_id"]
+        if _time(attribution["evaluated_at"]) >= requested_at:
+            raise EmbodiedConsequenceError("operator_multi_event_source_not_historical")
+        if event_id in event_ids:
+            raise EmbodiedConsequenceError("operator_multi_event_duplicate_source_event")
+        event_ids.add(event_id)
+        applicability = item.get("applicability")
+        required_applicability_fields = {"event_id", "event_digest", "situation_digest",
+            "relation", "posture", "declared_by", "declared_at", "rationale", "declaration_digest"}
+        if (not isinstance(applicability, Mapping)
+                or set(applicability) != required_applicability_fields
+                or applicability.get("event_id") != event_id
+                or applicability.get("event_digest") != attribution["attribution_digest"]
+                or applicability.get("situation_digest") != scorer_manifest.get("situation_digest")
+                or applicability.get("posture") not in {
+                    "operator_declared_unverified", "unresolved", "not_applicable"}
+                or applicability.get("declaration_digest") != digest({key:value for key,value in applicability.items()
+                    if key != "declaration_digest"})):
+            raise EmbodiedConsequenceError("operator_multi_event_applicability_identity_invalid")
+    if any(not isinstance(row, Mapping)
+            or set(row) != {"source_record_id", "source_record_digest", "source_fact_id",
+                "event_id", "event_digest", "omission_reason"}
+            or row.get("source_record_id") not in record_digests
+            or row.get("source_record_digest") != record_digests.get(row.get("source_record_id"))
+            or not isinstance(row.get("source_fact_id"), str)
+            or not isinstance(row.get("event_id"), str)
+            or not isinstance(row.get("event_digest"), str)
+            or row.get("omission_reason") != "bounded_event_selection"
+            for row in omitted):
+        raise EmbodiedConsequenceError("operator_multi_event_omission_evidence_invalid")
+    expected_history = [{"event_id": item["attribution"]["attribution_id"],
+        "event_digest": item["attribution"]["attribution_digest"],
+        "source_record_id": item["source_record_id"],
+        "source_record_digest": item["source_record_digest"],
+        "source_fact_id": item["source_fact_id"],
+        "classification": item["attribution"]["classification"],
+        "causal_attribution_posture": item["attribution"]["causal_attribution_posture"],
+        "commanded_value": item["attribution"].get("commanded_value"),
+        "predicted_value": item["attribution"].get("predicted_value"),
+        "renderer_reported_value": item["attribution"].get("renderer_reported_value"),
+        "recorded_observation": item["attribution"].get("independently_observed_value"),
+        "observation_independence_posture": item["attribution"].get("observation_independence_posture"),
+        "evaluated_at": item["attribution"]["evaluated_at"],
+        "applicability": item["applicability"],
+        "applicability_independently_verified": False} for item in events]
+    for packet_id, packet in subject_packets.items():
+        condition = condition_by_packet[packet_id]
+        expected = expected_history if condition in {"history_present", "history_restored"} else []
+        if (not isinstance(packet, Mapping)
+                or set(packet) != {"schema_version", "packet_id", "model_settings", "instructions",
+                    "historical_evidence", "current_situation", "proposal_schema", "authority_boundary"}
+                or packet.get("schema_version") != OPERATOR_MULTI_EVENT_PACKET_SCHEMA
+                or packet.get("packet_id") != packet_id or digests.get(packet_id) != digest(packet)
+                or packet.get("model_settings") != settings
+                or packet.get("current_situation") != situation
+                or packet.get("historical_evidence") != expected):
+            raise EmbodiedConsequenceError("operator_multi_event_packet_identity_mismatch")
+    if not set(responses) <= set(condition_by_packet):
+        raise EmbodiedConsequenceError("operator_multi_event_response_packet_unknown")
+    session_ids: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    proposals_by_condition: dict[str, EmbodiedStrategyProposal] = {}
+    settings_match = True
+    for packet_id, condition in condition_by_packet.items():
+        response = responses.get(packet_id)
+        if response is None:
+            rows.append({"packet_id": packet_id, "condition": condition,
+                "status": "missing_response", "proposal": None})
+            continue
+        if (not isinstance(response, Mapping) or set(response) - {"packet_id", "session_id",
+                "timestamp", "visible_model_name", "effort_setting", "generation_settings", "raw_output"}
+                or response.get("packet_id") != packet_id):
+            raise EmbodiedConsequenceError("operator_multi_event_response_identity_invalid")
+        session_id = response.get("session_id")
+        if not isinstance(session_id, str) or not session_id:
+            rows.append({"packet_id": packet_id, "condition": condition,
+                "status": "session_identity_missing", "proposal": None})
+            continue
+        if session_id in session_ids:
+            rows.append({"packet_id": packet_id, "condition": condition,
+                "status": "duplicate_session_submission", "proposal": None})
+            continue
+        session_ids.add(session_id)
+        actual_settings = {"visible_model_name": response.get("visible_model_name"),
+            "effort_setting": response.get("effort_setting"),
+            "generation_settings": response.get("generation_settings")}
+        if actual_settings != settings:
+            settings_match = False
+        raw = response.get("raw_output")
+        if not isinstance(raw, str) or len(raw.encode("utf-8", errors="replace")) > 16384:
+            rows.append({"packet_id": packet_id, "condition": condition,
+                "status": "missing_or_oversized_output", "proposal": None})
+            continue
+        try:
+            parsed = json.loads(raw, object_pairs_hook=_unique_strategy_object)
+        except (ValueError, TypeError):
+            rows.append({"packet_id": packet_id, "condition": condition,
+                "status": "malformed_or_duplicate_key_json", "proposal": None,
+                "raw_output_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest()})
+            continue
+        if (not isinstance(parsed, Mapping)
+                or set(parsed) != set(STRATEGY_PROMPT_SCHEMA["proposal_fields"])):
+            rows.append({"packet_id": packet_id, "condition": condition,
+                "status": "malformed_proposal_schema", "proposal": None,
+                "raw_output_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest()})
+            continue
+        try:
+            proposal = make_strategy_proposal(**{**dict(parsed),
+                "relevant_consequence_ids": tuple(parsed["relevant_consequence_ids"]),
+                "factual_assertions": tuple(parsed["factual_assertions"])})
+            verify_strategy_proposal(proposal,
+                situation_binding=situation["situation_binding"],
+                body_generation=situation["body_generation"])
+        except (EmbodiedConsequenceError, KeyError, TypeError, ValueError):
+            rows.append({"packet_id": packet_id, "condition": condition,
+                "status": "malformed_or_mismatched_proposal", "proposal": None,
+                "raw_output_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest()})
+            continue
+        proposals_by_condition[condition] = proposal
+        rows.append({"packet_id": packet_id, "condition": condition,
+            "status": "proposal_parsed", "proposal": proposal.semantic_payload(),
+            "proposal_digest": proposal.strategy_digest,
+            "raw_output_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+            "session_id": session_id,
+            "timestamp": response.get("timestamp")})
+    conditions_complete = set(proposals_by_condition) == set(OPERATOR_CODEX_STRATEGY_CONDITIONS)
+    event_score = None
+    if conditions_complete and settings_match:
+        event_score = score_strategy_experiment(proposals=tuple(
+            proposals_by_condition[name] for name in OPERATOR_CODEX_STRATEGY_CONDITIONS),
+            consequence_events=events, situation=situation)
+    status = "scored" if event_score is not None else "partial_or_incomparable"
+    result = {"schema_version": "sentientos.operator_codex_strategy_multi_event_scores:v1",
+        "status": status, "scoreable_task_fraction": {"numerator": int(event_score is not None),
+            "denominator": 1}, "conditions_complete": conditions_complete,
+        "subject_settings_comparable": settings_match,
+        "condition_results": rows, "event_score": event_score,
+        "selected_event_identities": preregistration["selected_event_identities"],
+        "omitted_event_identities": preregistration["omitted_event_identities"],
+        "improvement_claimed": False, "authority": dict(FALSE_AUTHORITY)}
+    result["score_digest"] = digest(result)
+    return result
+
+
 def score_operator_codex_strategy_responses(*, scorer_manifest: Mapping[str, Any],
         preregistration: Mapping[str, Any], subject_packets: Mapping[str, Mapping[str, Any]],
         responses: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:

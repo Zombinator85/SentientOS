@@ -26,7 +26,8 @@ _JOURNAL_FIELDS = {"schema_version", "packet_id", "preregistration_digest",
     "packet_digest", "response", "response_digest"}
 _SUPPORTED_PREREGISTRATIONS = {
     "sentientos.operator_codex_strategy_preregistration:v1",
-    "sentientos.operator_codex_strategy_multitrial_preregistration:v1"}
+    "sentientos.operator_codex_strategy_multitrial_preregistration:v1",
+    "sentientos.operator_codex_strategy_multi_event_preregistration:v1"}
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

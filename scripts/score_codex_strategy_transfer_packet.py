@@ -6,7 +6,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from sentientos.embodied_consequence import canonical_bytes, score_operator_codex_strategy_responses
+from sentientos.embodied_consequence import (canonical_bytes,
+    score_operator_codex_strategy_responses,
+    score_operator_codex_strategy_multi_event_responses)
 from sentientos.operator_codex_response_journal import recover_operator_codex_responses
 
 
@@ -45,11 +47,17 @@ def main() -> int:
     packet_dir = Path(args.subject_packets)
     packets = {path.stem: json.loads(path.read_text(encoding="utf-8"),
         object_pairs_hook=_unique_object) for path in packet_dir.glob("*.json")}
-    scores = score_operator_codex_strategy_responses(scorer_manifest=manifest,
-        preregistration=preregistration, subject_packets=packets, responses=responses)
+    if manifest.get("schema_version") == "sentientos.operator_codex_strategy_multi_event_scorer:v1":
+        scores = score_operator_codex_strategy_multi_event_responses(scorer_manifest=manifest,
+            preregistration=preregistration, subject_packets=packets, responses=responses)
+        scoring_status = scores["status"]
+    else:
+        scores = score_operator_codex_strategy_responses(scorer_manifest=manifest,
+            preregistration=preregistration, subject_packets=packets, responses=responses)
+        scoring_status = scores["strategy_scoring"]["status"]
     Path(args.output).write_bytes(canonical_bytes(scores) + b"\n")
     print(json.dumps({"score_digest": scores["score_digest"],
-        "strategy_scoring_status": scores["strategy_scoring"]["status"],
+        "strategy_scoring_status": scoring_status,
         "response_journal_recovery": journal_recovery,
         "output": args.output}, sort_keys=True, indent=2))
     return 0
