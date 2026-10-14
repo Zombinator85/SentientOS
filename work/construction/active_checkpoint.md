@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 191 adds a frozen, versioned vector rubric to the multi-event operator strategy path. It binds criteria to exact situation and event identities, does not use treatment labels, and reports independent criterion results without an aggregate quality score. It remains available as condition-level diagnostic evidence when the overall response set is incomplete.
+Sequence 192 extends the versioned strategy decision-quality vector to score uncertainty under conflicting satisfied and contradicted historical outcomes. Cited conflict passes only when the proposal preserves uncertainty and requests additional observation. A separate test hardens randomized packet substitution by targeting the history-present arm.
 
-Latest source commit: 4c0ad56e428ceb4f4561acaec076ac218fff04b9
-Latest source tree: df676d1ca1a1030bc58a9ad17ec98aeeb2d13c04
-Latest segment: work/construction/segments/0191-decision-quality-vector.md
-Evidence: work/construction/evidence/0191-decision-quality-vector.json
-Sequence: 191
+Latest source commit: 06bc9eca84f1c31237cbbb2671043b4e402d9a77
+Latest source tree: 1dafd6e14012434fd3cc618379287410de4b93a7
+Latest segment: work/construction/segments/0192-conflicting-outcome-quality.md
+Evidence: work/construction/evidence/0192-conflicting-outcome-quality.json
+Sequence: 192
 
-Validation: 35 embodied/transfer tests passed, including a history-present adverse response versus a safe withheld response and rubric tamper rejection. Compileall and diff checks passed. Fixture evidence only; no real model improvement or physical causation claim.
+Validation: 35 embodied/transfer packet tests passed; changed files compiled and diff check passed. Fixture evidence only. No real subject sessions, physical causation, or improvement claim.
 
-Next: exercise historical contradiction/correction under distinct environmental conditions and connect multi-episode continuation with restart reconstruction.
+Next: connect adverse, corrective, and environmentally distinct events to multi-event retrieval across a fresh process, then continue available recovery, relevance, and integration work.

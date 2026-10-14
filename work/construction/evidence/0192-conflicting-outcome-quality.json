@@ -1,0 +1,28 @@
+{
+  "sequence": 192,
+  "title": "Score uncertainty under conflicting historical outcomes",
+  "status": "[untested] construction",
+  "starting_head": "65b7266886d23aa1c809309eeafd31923e02ec0c",
+  "starting_tree": "5836b5046b064286643c04d4d1fe4faffd0dd5f2",
+  "source_commit": "06bc9eca84f1c31237cbbb2671043b4e402d9a77",
+  "source_tree": "1dafd6e14012434fd3cc618379287410de4b93a7",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"40ec88cff192841302586aecca85efb7a1b5e281","sha256":"d17936693b594ff62caaccf46a9f842a6f8f1749f8caea3213f8beb44f14d0dd"},
+    {"path":"tests/test_embodied_consequence.py","blob":"cdc2d8f3d168caa8c66366d45a432c0208ba7db6","sha256":"418d70b676649b5347b12afed4df3f5bd390d56fdf9eeca0e4c012e973e822fe"}
+  ],
+  "validation": {
+    "embodied_and_transfer_packet_tests":"35 passed",
+    "conflicting_adverse_corrective_outcomes":"cautious proposal passed; overconfident proposal failed",
+    "randomized_packet_substitution_adversary":"now deterministically targets history-present packet",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "authority_posture": {
+    "fixture_only":true,
+    "aggregate_quality_score":null,
+    "physical_causation_claimed":false,
+    "real_model_improvement_established":false,
+    "execution_authority_added":false
+  },
+  "limitations":"The rubric is an auditable experimental rule set, not a validated universal utility function. Applicability and real-world causal relevance remain unverified."
+}
