@@ -1,0 +1,24 @@
+{
+  "sequence": 229,
+  "title": "Exact source recovery fallback",
+  "source_commit": "38c39a6b6a06da6516002794bef982486a4fd07f",
+  "source_tree": "fe50e419825063ef46762ffdc6287f489784e90c",
+  "procedure_path": "work/construction/source_recovery_fallback.md",
+  "procedure_scope": "construction-only; GitHub integration transport; exact source/tree custody",
+  "exercise": {
+    "baseline_commit": "5195beadb32a199ae362c248357c6d39d80fd576",
+    "baseline_tree": "45f2f2b6928de5bedc9fe31ed0126bab509ac89e",
+    "target_commit": "746069f470ab868390fd7c6d0051bbc76c5a6283",
+    "target_tree": "0ea8c9e8b385ad05cdc81e8057e811fe4354bef0",
+    "changed_paths": 136,
+    "blob_identities_verified": 136,
+    "mode_identities_verified": 136,
+    "reconstructed_tree": "0ea8c9e8b385ad05cdc81e8057e811fe4354bef0",
+    "local_synthetic_commit": "c75885ee6d8d16abbc159bc0cd2e1f308cbb6213"
+  },
+  "transport": {
+    "git_fetch": "proxy_unreachable",
+    "pip_build_isolation": "setuptools_unavailable_and_proxy_unreachable"
+  },
+  "limitations": ["procedure is not a generalized Git client", "local synthetic commit is not upstream identity"]
+}
