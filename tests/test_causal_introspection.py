@@ -20,6 +20,7 @@ from sentientos.causal_introspection import (
     SemanticTraceDimension,
     build_projection,
     validate_projection,
+    MAX_PROJECTIONS,
     MAX_SNAPSHOT_GENERATIONS,
     MAX_SNAPSHOT_CUSTODY_BYTES,
     _snapshot_capacity_error,
@@ -129,10 +130,21 @@ def test_conflict_is_preserved_without_winner(tmp_path):
         ProviderRegistration("a", "model_serving", _provider("a", "model_serving", True, key="shared.test.key")),
         ProviderRegistration("b", "runtime_supervision", _provider("b", "runtime_supervision", False, key="shared.test.key")),
     )
-    snapshot = _runtime(tmp_path, regs).capture(CaptureContext("tick", capture_posture="synthetic_test"))
+    runtime = _runtime(tmp_path, regs)
+    snapshot = runtime.capture(CaptureContext("tick", capture_posture="synthetic_test"))
     assert snapshot.conflicts[0].observation_key == "shared.test.key"
     assert len(snapshot.conflicts[0].projection_ids) == 2
     assert [item.bounded_value for projection in snapshot.projections for item in projection.observations] == [True, False]
+    diagnostic, = [row for row in runtime.world_state_records(before_generation=2)
+        if row["subject_kind"] == "snapshot_diagnostics"]
+    assert diagnostic["observed_at"] == "tick"
+    assert diagnostic["payload"]["conflicts"] == [{
+        "observation_key": "shared.test.key",
+        "projection_ids": list(snapshot.conflicts[0].projection_ids),
+    }]
+    assert diagnostic["payload"]["conflict_posture"] == "unresolved_no_winner_selected"
+    assert diagnostic["payload"]["authority"] is False
+    assert diagnostic["effect_claimed"] is False and diagnostic["effect_proven"] is False
 
 
 def test_partial_capture_preserves_successful_projection(tmp_path):
@@ -142,12 +154,22 @@ def test_partial_capture_preserves_successful_projection(tmp_path):
             raise RuntimeError("sensitive traceback detail")
     regs = (ProviderRegistration("good", "model_serving", _provider("good", "model_serving")),
             ProviderRegistration("bad", "runtime_supervision", Broken()))
-    snapshot = _runtime(tmp_path, regs, required=("model_serving", "runtime_supervision")).capture(
-        CaptureContext("tick", capture_posture="synthetic_test"))
+    runtime = _runtime(tmp_path, regs, required=("model_serving", "runtime_supervision"))
+    snapshot = runtime.capture(CaptureContext("tick", capture_posture="synthetic_test"))
     assert snapshot.completion_posture == "partial"
     assert [item.owner_id for item in snapshot.projections] == ["good"]
     serialized = json.dumps(snapshot, default=lambda value: value.__dict__)
     assert "sensitive traceback detail" not in serialized
+    diagnostic, = [row for row in runtime.world_state_records(before_generation=2)
+        if row["subject_kind"] == "snapshot_diagnostics"]
+    assert diagnostic["disposition"] == "incomplete"
+    assert diagnostic["payload"]["snapshot_completion_posture"] == "partial"
+    assert diagnostic["payload"]["capture_findings"][:1] == [{
+        "owner_id": "bad", "domain": "runtime_supervision",
+        "error_code": "provider_projection_failed", "error_class": "RuntimeError",
+    }]
+    assert diagnostic["payload"]["capture_findings"][1]["error_code"] == "required_provider_missing"
+    assert "sensitive traceback detail" not in json.dumps(diagnostic)
 
 
 def test_memory_privacy_and_resource_unknown_are_preserved(tmp_path):

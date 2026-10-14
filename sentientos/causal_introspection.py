@@ -755,6 +755,44 @@ class CausalIntrospectionRuntime:
                 "observed_at": projection.capture_tick,
                 "effect_claimed": False, "effect_proven": False,
             })
+        if snapshot.capture_findings or snapshot.conflicts:
+            retained_findings = snapshot.capture_findings[:MAX_PROJECTIONS]
+            retained_conflicts = snapshot.conflicts[:MAX_PROJECTIONS]
+            records.append({
+                "source_kind": "owner_introspection",
+                "source_id": f"introspection-diagnostics:{snapshot.snapshot_id}",
+                "schema_version": snapshot.schema_version,
+                "subject_id": "causal-introspection-snapshot",
+                "subject_kind": "snapshot_diagnostics",
+                "stage": "observation",
+                "disposition": "incomplete" if snapshot.capture_findings else "recorded",
+                "evidence_strength": "snapshot_integrity_metadata",
+                "payload": {
+                    "introspection_snapshot_id": snapshot.snapshot_id,
+                    "introspection_snapshot_digest": snapshot.snapshot_digest,
+                    "introspection_snapshot_generation": snapshot.generation,
+                    "introspection_snapshot_predecessor_digest": snapshot.predecessor_snapshot_digest,
+                    "introspection_capture_tick": snapshot.capture_tick,
+                    "snapshot_completion_posture": snapshot.completion_posture,
+                    "capture_findings": [{
+                        "owner_id": item.owner_id, "domain": item.domain,
+                        "error_code": item.error_code, "error_class": item.error_class,
+                    } for item in retained_findings],
+                    "omitted_capture_finding_count": len(snapshot.capture_findings) - len(retained_findings),
+                    "conflicts": [{
+                        "observation_key": item.observation_key,
+                        "projection_ids": list(item.projection_ids),
+                    } for item in retained_conflicts],
+                    "omitted_conflict_count": len(snapshot.conflicts) - len(retained_conflicts),
+                    "conflict_count": len(snapshot.conflicts),
+                    "conflict_posture": "unresolved_no_winner_selected" if snapshot.conflicts else "none",
+                    "read_only": True, "current_truth": False, "authority": False,
+                },
+                # These are diagnostics about the captured snapshot, timed at
+                # the capture itself and exposed only through a later generation.
+                "observed_at": snapshot.capture_tick,
+                "effect_claimed": False, "effect_proven": False,
+            })
         return records
 
 
