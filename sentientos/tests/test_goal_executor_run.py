@@ -106,6 +106,26 @@ def test_allowlisted_plan_command_uses_argv_without_shell(tmp_path: Path, monkey
     assert calls[0][0] == ([goal_executor.sys.executable, "-m", "scripts.contract_drift"],)
     assert calls[0][1]["shell"] is False
     assert calls[0][1]["cwd"] == tmp_path.resolve()
+    assert calls[0][1]["timeout"] == goal_executor.PLAN_COMMAND_TIMEOUT_SECONDS
+
+
+def test_allowlisted_plan_command_timeout_is_a_failed_task(tmp_path: Path, monkeypatch) -> None:
+    calls = []
+
+    def timeout(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise goal_executor.subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+
+    monkeypatch.setattr(goal_executor.subprocess, "run", timeout)
+    task = Task(1, "t1", "g1", "diagnostic", ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False)
+
+    run = GoalExecutor(repo_root=tmp_path).execute_plan(
+        _single_task_plan(task), _state(tmp_path))
+
+    assert len(calls) == 1
+    assert run.task_runs[0].status == "failed"
+    assert run.task_runs[0].reason == "command_timeout"
+    assert run.task_runs[0].artifacts == ()
 
 
 def test_forge_apply_kind_is_destructive_even_if_plan_claims_otherwise(tmp_path: Path, monkeypatch) -> None:

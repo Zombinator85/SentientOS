@@ -224,12 +224,17 @@ _SAFE_PLAN_COMMANDS: dict[str, tuple[str, str]] = {
     "verify": ("python -m scripts.run_tests -q", ("-m", "scripts.run_tests", "-q")),
 }
 
+PLAN_COMMAND_TIMEOUT_SECONDS = 300
+
 
 def _run_commands(argv_tail: tuple[str, ...], *, repo_root: Path) -> tuple[str, str | None, tuple[str, ...]]:
     argv = [sys.executable, *argv_tail]
     try:
         proc = subprocess.run(argv, shell=False, cwd=repo_root,
-            capture_output=True, text=True, check=False)
+            capture_output=True, text=True, check=False,
+            timeout=PLAN_COMMAND_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        return "failed", "command_timeout", ()
     except OSError as exc:
         return "failed", f"command_launch_failed:{type(exc).__name__}", ()
     if proc.returncode != 0:
