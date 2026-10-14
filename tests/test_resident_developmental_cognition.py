@@ -5402,6 +5402,7 @@ writeback = ResidentDevelopmentalWritebackController(history_root=root / "histor
 owner = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(root / "history", root / "state", ("embodiment",), 16, 4, True), writeback=writeback, admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger), invoker=Verifier(), current_sequence=next_sequence)
 inventory = owner.writeback.inspect_completed_records()
 by_id = {record.record_id:record for record, _ in inventory}
+assert len(by_id) == len(inventory)
 assert sys.argv[4] in by_id and sys.argv[5] in by_id and sys.argv[6] in by_id
 assert sys.argv[7] in by_id
 assert sys.argv[8] in by_id
@@ -5413,7 +5414,22 @@ assert {row["event_id"] for row in bundle["preregistration"]["omitted_event_iden
 packet = next(packet for packet in bundle["subject_packets"].values() if packet["historical_evidence"])
 history = packet["historical_evidence"]
 proposal = make_strategy_proposal(situation_binding=situation["situation_binding"], body_generation=situation["body_generation"], relevant_consequence_ids=tuple(row["event_id"] for row in history), proposed_next_action_class="observe", requested_pose="wave", requested_expression="neutral", retry_prior_strategy=False, alter_body_or_rig=False, more_observation_required=True, distinguishes_renderer_and_observer=True, rationale="fresh process preserves conflicting event provenance and requests observation", uncertainty="high", factual_assertions=())
-frozen_manifest=json.loads(Path(sys.argv[15]).read_text(encoding="utf-8"))
+protocol_root=Path(sys.argv[15])
+frozen_manifest=json.loads((protocol_root/"scorer_manifest.json").read_text(encoding="utf-8"))
+frozen_prereg=json.loads((protocol_root/"preregistration.json").read_text(encoding="utf-8"))
+score_archive=json.loads((protocol_root/"fixture_scores.json").read_text(encoding="utf-8"))
+assert bundle["preregistration"]["selected_event_identities"] == frozen_prereg["selected_event_identities"], "reconstructed_selected_history_changed"
+assert bundle["preregistration"]["omitted_event_identities"] == frozen_prereg["omitted_event_identities"], "reconstructed_omission_manifest_changed"
+assert bundle["preregistration"]["history_record_identities"] == frozen_prereg["history_record_identities"], "reconstructed_record_set_changed"
+assert bundle["preregistration"]["situation_digest"] == frozen_prereg["situation_digest"], "reconstructed_situation_changed"
+assert bundle["scorer_manifest"]["decision_quality_preregistration"] == frozen_manifest["decision_quality_preregistration"], "reconstructed_rubric_changed"
+assert score_archive["selected_event_identities"] == frozen_prereg["selected_event_identities"], "archived_selected_identities_changed"
+assert score_archive["omitted_event_identities"] == frozen_prereg["omitted_event_identities"], "archived_omitted_identities_changed"
+assert score_archive["condition_by_packet_id"] == frozen_manifest["condition_by_packet_id"], "archived_condition_assignment_changed"
+for archived in score_archive["decision_quality"].values():
+    assert archived["preregistration_digest"] == frozen_manifest["decision_quality_preregistration"]["rubric_digest"]
+    assert archived["aggregate_score"] is None
+    assert archived["condition_labels_used"] is False
 quality=score_strategy_decision_quality(proposal=proposal,situation=situation,
     events=frozen_manifest["events"],
     preregistration=frozen_manifest["decision_quality_preregistration"])
@@ -5427,7 +5443,7 @@ print(json.dumps({"record_ids":sorted(by_id), "event_ids":[row["event_id"] for r
         json.dumps(strategy_situation, sort_keys=True), json.dumps(strategy_settings, sort_keys=True),
         json.dumps(applicability, sort_keys=True), attribution["attribution_id"],
         correction_attribution["attribution_id"], unrelated_attribution["attribution_id"],
-        str(protocol_root / "scorer_manifest.json")],
+        str(protocol_root)],
         check=False, capture_output=True, text=True,
         env={**__import__("os").environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
             "SENTIENTOS_GOVERNOR_ROOT": str(tmp_path / "child-governor")})
