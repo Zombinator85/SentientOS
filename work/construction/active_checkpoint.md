@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 194 passes primary milestone A for the canonical developmental loop. Two distinct synthetic consequence events were separately projected through World-State and admitted through ordinary resident interpretation/writeback cycles. A reopened configured owner verified both durable records and receipts through its real read-only inventory, preserving exact source event identities, timestamps, and classifications.
+Sequence 195 advances primary milestones B/C. The canonical owner admitted three distinct synthetic consequence records. The actual read-only inventory feeds bounded multi-event packet construction for a later changed-interface situation. Two older operator-declared same-action-class events are selected; a newer unrelated event is omitted with exact record/fact/event identities. Present, withheld, and restored packets share current situation/settings and expose no condition labels to the deterministic cognitive fixture. Negative-transfer and conflict-aware proposals receive independent preregistered criterion vectors.
 
-Latest source commit: eac1ef8d3ff3e3a033c2029987ce37752bb2a3ab
-Latest source tree: 3ddda4df6c263bff8f00012c70bc94581b238a4a
-Latest segment: work/construction/segments/0194-two-event-canonical-admission.md
-Evidence: work/construction/evidence/0194-two-event-canonical-admission.json
-Sequence: 194
+Latest source commit: 3a1c620b08fc0ef7777e7924354b3cc9a288360b
+Latest source tree: 65ec24a91466e8f163c6998374c409503528a016
+Latest segment: work/construction/segments/0195-canonical-multievent-retrieval.md
+Evidence: work/construction/evidence/0195-canonical-multievent-retrieval.json
+Sequence: 195
 
-Validation: the canonical admitted embodied-consequence strategy test passed; changed test compiled and diff check passed. Fixtures only, no real-model or physical-world claims.
+Validation: canonical admitted multi-event strategy integration node passed; test compilation and diff check passed. Synthetic fixtures only.
 
-Next: connect the verified two-record inventory to a distinct later three-arm strategy decision with exact selected/omitted history, no condition-label answer branching, and preregistered vector evaluation. Then project feedback through ordinary admission and reconstruct it in a fresh process.
+Next: connect the multi-event evaluated result to its lawful World-State projection and ordinary admission, then reconstruct all event and score identities in a genuinely fresh Python process before another distinct task. Acceptance remains partial.
