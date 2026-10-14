@@ -92,6 +92,7 @@ from sentientos.embodied_consequence import (ConsequenceStore,
 from sentientos.developmental_model_replacement_experiment import ModelReplacementArtifactStore
 from sentientos.maintenance_post_adoption_attribution_campaign import (
     MaintenancePostAdoptionAttributionCampaignOwner,
+    campaign_improvement_signal_record,
     validate_world_state_projection_config as validate_post_adoption_projection_config,
 )
 from sentientos.host_resource_runtime import (HostResourceRuntimeCoordinator,
@@ -1354,7 +1355,17 @@ class RuntimeMaintenanceSurfaces:
             raise ValueError("registered_invocation_receipts_publication_failed") from exc
 
     def identify_improvement_signals(self) -> SignalPlaneEvaluation:
-        records = collect_repository_evidence(repo_root=self._repo_root, artifacts=self._improvement_evidence_sources)
+        campaign_records: list[Mapping[str, Any]] = []
+        if self._post_adoption_attribution_owner is not None:
+            for campaign_id in self._post_adoption_attribution_campaign_ids:
+                result = self._post_adoption_attribution_owner.result(campaign_id)
+                protocol = self._post_adoption_attribution_owner.protocol(campaign_id)
+                signal = campaign_improvement_signal_record(result, protocol=protocol,
+                    selection_config_digest=self._post_adoption_attribution_projection_status.get("config_digest"))
+                if signal is not None:
+                    campaign_records.append(signal)
+        records = collect_repository_evidence(repo_root=self._repo_root,
+            artifacts=self._improvement_evidence_sources, direct_records=campaign_records)
         evaluation = evaluate_signal_plane(records, repo_root=self._repo_root)
         artifacts = persist_runtime_artifacts(self._runtime_state_root, evaluation, tick_id=datetime.now(timezone.utc).isoformat())
         self._identify_admitted = True

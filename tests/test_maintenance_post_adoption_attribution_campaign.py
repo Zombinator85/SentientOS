@@ -78,6 +78,106 @@ def test_repeated_contradiction_retained_and_routes_distinct_proposal_only_signa
     assert normalize_record(signal).routing_eligible
 
 
+def test_signal_projection_preserves_verified_lineage_and_classification_posture(tmp_path):
+    owner, p, result = finish(tmp_path, ["target_expectation_contradicted"] * 2)
+    signal = campaign_improvement_signal_record(result, protocol=owner.protocol(p.campaign_id),
+        selection_config_digest=digest({"campaign_ids": [p.campaign_id]}))
+    assert signal is not None
+    refs = set(signal["evidence_refs"])
+    assert "campaign_digest:" + result.campaign_digest in refs
+    assert "result_digest:" + result.result_digest in refs
+    assert {"evaluation_id:" + item for item in result.evaluation_ids} <= refs
+    assert {"control_id:" + item for item in result.control_ids} <= refs
+    assert "classification:" + result.classification in refs
+    assert "source_posture:control_source_issuers_unverified" in refs
+    assert "selection_campaign_id:" + p.campaign_id in refs
+    assert "selection_config_digest:" + digest({"campaign_ids": [p.campaign_id]}) in refs
+    assert "read_only_projection:true" in refs
+    assert signal["observed_at"] == result.completed_at
+    assert signal["severity"] == "medium"
+
+
+def test_completed_positive_or_mixed_campaigns_are_diagnostic_only(tmp_path):
+    _, _, positive = finish(tmp_path / "positive", ["target_expectation_satisfied"] * 2)
+    _, _, mixed = finish(tmp_path / "mixed", ["target_expectation_satisfied", "target_expectation_contradicted"])
+    _, _, protected = finish(tmp_path / "protected",
+        ["target_expectation_satisfied", "new_regression_observed"])
+    positive_signal = campaign_improvement_signal_record(positive)
+    mixed_signal = campaign_improvement_signal_record(mixed)
+    protected_signal = campaign_improvement_signal_record(protected)
+    assert positive_signal is not None and positive_signal["finding_kind"] == "diagnostic"
+    assert mixed_signal is not None and mixed_signal["finding_kind"] == "diagnostic"
+    assert protected_signal is not None and protected_signal["finding_kind"] == "recurring_failure"
+    assert protected_signal["severity"] == "high"
+    assert protected.production_ready is False
+    assert "source_posture:control_source_issuers_unverified" in protected_signal["evidence_refs"]
+    assert normalize_record(positive_signal).severity == "medium"
+    assert normalize_record(mixed_signal).severity == "medium"
+
+
+def test_campaign_looking_json_is_not_an_authenticated_signal_artifact(tmp_path):
+    from sentientos.governed_improvement_signal_plane import records_from_artifact
+
+    path = tmp_path / "forged.json"
+    path.write_text(json.dumps({"campaign_id": "attribution-campaign:" + "a" * 24,
+        "classification": "protected_regression_observed", "severity": "high"}), encoding="utf-8")
+    with pytest.raises(ValueError, match="unknown_artifact_source"):
+        records_from_artifact("post_adoption_attribution_campaign", path, repo_root=tmp_path)
+
+
+def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_path, monkeypatch):
+    from sentientosd import RuntimeMaintenanceSurfaces
+    from sentientos.runtime_governor import reset_runtime_governor
+    from sentientos.control_plane_kernel import (AuthorityClass, ControlActionRequest,
+        ControlPlaneKernel, LifecyclePhase)
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    reset_runtime_governor()
+
+    store = tmp_path / "campaign-store"
+    writer, protocol_value, result = finish(store, ["target_expectation_contradicted"] * 2)
+    selected = MaintenancePostAdoptionAttributionCampaignOwner(store, read_only=True)
+    config_digest = digest({"enabled": True, "store_root": str(store),
+        "campaign_ids": [protocol_value.campaign_id]})
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "runtime",
+        post_adoption_attribution_owner=selected,
+        post_adoption_attribution_campaign_ids=(protocol_value.campaign_id,),
+        post_adoption_attribution_projection_status={"status": "verified",
+            "config_digest": config_digest, "read_only": True, "effect_authority": False})
+    class AllowProposalEvaluation:
+        def admit_action(self, _action_class, _actor, correlation_id, *, metadata):
+            return type("Decision", (), {"allowed": True, "reason": "fixture_admitted",
+                "correlation_id": correlation_id, "to_dict": lambda self: {"allowed": True}})()
+
+    kernel = ControlPlaneKernel(runtime_governor=AllowProposalEvaluation(),
+        decisions_path=tmp_path / "decisions.jsonl")
+    kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="test")
+    decision, evaluation_value = kernel.admit_and_execute(ControlActionRequest(
+        action_kind="identify_improvement_signals", authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+        actor="test", target_subsystem="governed_improvement_signal_plane",
+        requested_phase=LifecyclePhase.MAINTENANCE,
+        metadata={"correlation_id": "campaign-signal-test"}),
+        execute=surfaces.identify_improvement_signals)
+
+    assert len(evaluation_value.batch.signals) == 1
+    signal = evaluation_value.batch.signals[0]
+    assert signal.source_kind == "post_adoption_attribution_campaign"
+    assert signal.source_digest == result.result_digest
+    assert signal.observed_at == result.completed_at
+    assert "campaign_digest:" + result.campaign_digest in signal.evidence_refs
+    assert "control_id:" + result.control_ids[0] in signal.evidence_refs
+    assert "selection_config_digest:" + config_digest in signal.evidence_refs
+    assert evaluation_value.receipts[0].disposition == "spec_amendment_candidate"
+    assert evaluation_value.amendment_inputs[0]["metadata"]["source_digest"] == result.result_digest
+    assert evaluation_value.summary["adoption_performed"] is False
+    assert evaluation_value.summary["repository_mutation_performed"] is False
+    assert evaluation_value.summary["provider_network_git_operation_performed"] is False
+    assert selected.verify() == writer.verify()
+    assert decision.allowed is True
+    reset_runtime_governor()
+
+
 @pytest.mark.parametrize(("outcomes","expected"), [
     (["target_expectation_satisfied","new_regression_observed"],"protected_regression_observed"),
     (["no_detectable_change"]*2,"no_detectable_target_change"),

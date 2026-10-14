@@ -739,18 +739,47 @@ def developmental_evidence_record(result: CampaignResult,
         "interpretation_performed":False, "authority":dict(FALSE_AUTHORITY)}
 
 
-def campaign_improvement_signal_record(result: CampaignResult) -> Mapping[str, Any] | None:
+def campaign_improvement_signal_record(
+        result: CampaignResult, *, protocol: CampaignProtocol | None = None,
+        selection_config_digest: str | None = None) -> Mapping[str, Any] | None:
     kinds = {"repeated_target_contradiction_under_matched_controls":"recurring_failure",
-        "protected_regression_observed":"recurring_failure", "heterogeneous_repeated_outcome":"recurring_failure",
+        "protected_regression_observed":"recurring_failure", "heterogeneous_repeated_outcome":"diagnostic",
         "environmental_confound_detected":"telemetry_gap", "insufficient_control_evidence":"telemetry_gap",
-        "insufficient_target_evidence":"telemetry_gap", "measurement_failure":"telemetry_gap"}
+        "insufficient_target_evidence":"telemetry_gap", "measurement_failure":"telemetry_gap",
+        "repeated_association_under_matched_controls":"diagnostic",
+        "no_detectable_target_change":"diagnostic", "interrupted_or_invalid_trial":"diagnostic",
+        "indeterminate":"diagnostic"}
     kind = kinds.get(result.classification)
     if kind is None: return None
+    refs = [*result.reconstruction_lineage, "campaign_digest:" + result.campaign_digest,
+        "result_digest:" + result.result_digest,
+        *("evaluation_id:" + value for value in result.evaluation_ids),
+        *("control_id:" + value for value in result.control_ids),
+        "classification:" + result.classification,
+        "evidence_class:" + result.evidence_class,
+        "source_posture:control_source_issuers_unverified",
+        "read_only_projection:true"]
+    if protocol is not None:
+        if protocol.campaign_id != result.campaign_id or protocol.campaign_digest != result.campaign_digest:
+            raise AttributionCampaignError("campaign_signal_protocol_mismatch")
+        refs.extend(("protocol_schema:" + protocol.schema_version,
+            "selection_campaign_id:" + protocol.campaign_id,
+            "selection_maintenance_task_id:" + protocol.maintenance_task_id,
+            "selection_proposal_id:" + protocol.proposal_id,
+            "selection_successor_generation:" + str(protocol.successor_generation),
+            "selection_successor_revision:" + protocol.successor_revision,
+            "selection_successor_tree:" + protocol.successor_tree))
+    if selection_config_digest is not None:
+        if (not isinstance(selection_config_digest, str) or len(selection_config_digest) != 71
+                or not selection_config_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in selection_config_digest[7:])):
+            raise AttributionCampaignError("campaign_signal_selection_digest_invalid")
+        refs.append("selection_config_digest:" + selection_config_digest)
     return {"source_kind":"post_adoption_attribution_campaign", "finding_kind":kind,
         "severity":"high" if result.classification == "protected_regression_observed" else "medium",
         "description":f"Campaign-level {result.classification} for {result.campaign_id}",
         "spec_id":result.campaign_id, "source_artifact":result.result_id, "source_digest":result.result_digest,
-        "evidence_refs":list(result.reconstruction_lineage), "observed_at":result.completed_at,
+        "evidence_refs":sorted(set(refs)), "observed_at":result.completed_at,
         "declared_constraints":["proposal_only","campaign_level_distinct_finding","no_repository_mutation","no_adoption","no_rollback"],
         "signal_handoff_only":True, "repository_mutation_performed":False, "adoption_performed":False,
         "provider_or_network_or_git_operation_performed":False, "trial_performed":False}

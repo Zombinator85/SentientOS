@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "79ab1cd3b131714380a674493ea3b4992bd5cb14",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_plane_uses_only_selected_recovered_campaign_results",
+      "rationale": "Admitted runtime signal evaluation recovers only explicitly selected immutable results and preserves exact lineage without effects."
+    },
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_signal_projection_preserves_verified_lineage_and_classification_posture",
+      "rationale": "Signal projection preserves classification, source limitations, result and control identities, protocol selection, and original completion time."
+    },
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_completed_positive_or_mixed_campaigns_are_diagnostic_only",
+      "rationale": "Positive and heterogeneous outcomes remain available as diagnostic history without stronger proposal routing."
+    },
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_campaign_looking_json_is_not_an_authenticated_signal_artifact",
+      "rationale": "A campaign-shaped JSON artifact cannot bypass campaign-owner recovery and verification."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_plane_uses_only_selected_recovered_campaign_results"
+  ]
+}
