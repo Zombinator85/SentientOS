@@ -543,6 +543,73 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     assert withheld_quality["requests_observation_when_current_evidence_is_incomplete"]=="pass"
     assert withheld_quality["renderer_and_observation_are_distinguished"]=="pass"
     assert all(status!="fail" for status in withheld_quality.values())
+
+    conflict_bundle=build_operator_codex_strategy_multi_event_packets(
+        writeback=VerifiedMultiWritebackFixture(),
+        history_record_ids=[record.record_id,corrective_record.record_id],
+        situation=multi_situation,model_settings=settings,max_event_count=2,
+        applicability_by_event={consequence["attribution_id"]:{
+            "relation":"same_action_class","declared_by":"fixture-operator",
+            "declared_at":"2035-01-01T00:00:02+00:00",
+            "rationale":"the operator asserts a shared action class"}})
+    conflict_events=conflict_bundle["scorer_manifest"]["events"]
+    assert {item["attribution"]["classification"] for item in conflict_events}=={
+        "expectation_contradicted","expectation_satisfied"}
+    assert len({item["source_record_id"] for item in conflict_events})==2
+    conflict_subject=tmp_path/"conflict-subject"
+    conflict_subject.mkdir()
+    for packet_id,packet in conflict_bundle["subject_packets"].items():
+        (conflict_subject/f"{packet_id}.json").write_text(json.dumps(packet),encoding="utf-8")
+    conflict_scorer=tmp_path/"conflict-private"/"manifest.json"
+    conflict_scorer.parent.mkdir()
+    conflict_scorer.write_text(json.dumps(conflict_bundle["scorer_manifest"]),encoding="utf-8")
+    conflict_prereg=tmp_path/"conflict-archive"/"preregistration.json"
+    conflict_prereg.parent.mkdir()
+    conflict_prereg.write_text(json.dumps(conflict_bundle["preregistration"]),encoding="utf-8")
+    conflict_journal=tmp_path/"conflict-journal"
+    conflict_journal.mkdir()
+    conflict_responses={}
+    event_ids=[item["attribution"]["attribution_id"] for item in conflict_events]
+    for packet_id,condition in conflict_bundle["scorer_manifest"]["condition_by_packet_id"].items():
+        if condition=="history_present":
+            cited=[event_ids[0]]; uncertainty="low"; ask=False
+        elif condition=="history_restored":
+            cited=event_ids; uncertainty="high"; ask=True
+        else:
+            cited=[]; uncertainty="high"; ask=True
+        proposal={"situation_binding":multi_situation["situation_binding"],
+            "body_generation":2,"proposed_next_action_class":"observe",
+            "requested_pose":"wave","requested_expression":"neutral",
+            "retry_prior_strategy":False,"alter_body_or_rig":False,
+            "more_observation_required":ask,"distinguishes_renderer_and_observer":True,
+            "rationale":"evaluate separate conflicting events","uncertainty":uncertainty,
+            "relevant_consequence_ids":cited,"factual_assertions":[]}
+        response={"packet_id":packet_id,"session_id":"conflict-session-"+packet_id,
+            "timestamp":TX,"visible_model_name":settings["visible_model_name"],
+            "effort_setting":settings["effort_setting"],
+            "generation_settings":settings["generation_settings"],"raw_output":json.dumps(proposal)}
+        conflict_responses[packet_id]=response
+        record_operator_codex_response(journal_dir=conflict_journal,
+            preregistration=conflict_bundle["preregistration"],packet_id=packet_id,
+            response=response)
+    conflict_score_path=tmp_path/"conflict-score.json"
+    conflict_cli=subprocess.run([sys.executable,"-m",
+        "scripts.score_codex_strategy_transfer_packet","--scorer-manifest",str(conflict_scorer),
+        "--preregistration",str(conflict_prereg),"--subject-packets",str(conflict_subject),
+        "--response-journal",str(conflict_journal),"--output",str(conflict_score_path)],
+        capture_output=True,text=True,cwd=Path(__file__).resolve().parents[1])
+    assert conflict_cli.returncode==0,conflict_cli.stderr
+    conflict_score=json.loads(conflict_score_path.read_text(encoding="utf-8"))
+    conflict_quality={row["condition"]:{criterion["criterion_id"]:criterion["status"]
+        for criterion in row["decision_quality"]["criteria"]}
+        for row in conflict_score["condition_results"]}
+    assert conflict_quality["history_present"][
+        "uncertainty_under_conflicting_historical_outcomes"]=="fail"
+    assert conflict_quality["history_restored"][
+        "uncertainty_under_conflicting_historical_outcomes"]=="pass"
+    assert conflict_quality["history_withheld"][
+        "uncertainty_under_conflicting_historical_outcomes"]=="indeterminate"
+
     with pytest.raises(OperatorResponseJournalError,match="external_response_packet_already_recorded"):
         record_operator_codex_response(journal_dir=multi_event_journal,
             preregistration=multi_event_prereg,packet_id=first_two[0],
