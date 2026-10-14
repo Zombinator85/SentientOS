@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import json
+import os
 from pathlib import Path
+import stat
 from typing import Any
 
 
 WORK_PLAN_DIR = Path("glow/forge/work_plans")
 WORK_PLAN_PULSE_PATH = Path("pulse/work_plans.jsonl")
+WORK_RUN_DIR = Path("glow/forge/work_runs")
+MAX_WORK_RUN_BYTES = 1_048_576
 _PLAN_FIELDS = {"schema_version", "plan_id", "created_at", "context", "selected_goals", "tasks"}
 _TASK_FIELDS = {"schema_version", "task_id", "goal_id", "kind", "commands", "callable_ref",
     "risk_cost", "throughput_cost", "preconditions", "expected_artifacts", "destructive",
@@ -141,7 +145,7 @@ def persist_work_plan(repo_root: Path, plan: WorkPlan) -> str:
 
 def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
     root = repo_root.resolve()
-    run_path = root / "glow/forge/work_runs" / f"run_{_safe_id(run.created_at)}_{run.plan_id}.json"
+    run_path = root / WORK_RUN_DIR / f"run_{_safe_id(run.created_at)}_{run.plan_id}.json"
     if _write_json_once(run_path, run.to_dict()):
         _append_jsonl(
             root / "pulse/work_runs.jsonl",
@@ -157,6 +161,104 @@ def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
             },
         )
     return str(run_path.relative_to(root))
+
+
+def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPlanRun | None:
+    """Load a prior run only when its exact plan and task identities validate."""
+    if not isinstance(plan, WorkPlan) or not isinstance(created_at, str) or not created_at:
+        raise WorkPlanError("work_run_lookup_identity_invalid")
+    if created_at != plan.created_at:
+        raise WorkPlanError("work_run_lookup_plan_time_mismatch")
+    run_id = f"run_{_safe_id(created_at)}_{plan.plan_id}"
+    path = repo_root.resolve() / WORK_RUN_DIR / f"{run_id}.json"
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise WorkPlanError("work_run_artifact_unreadable") from exc
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_WORK_RUN_BYTES:
+        raise WorkPlanError("work_run_artifact_bounds_invalid")
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_WORK_RUN_BYTES):
+                raise WorkPlanError("work_run_artifact_changed_during_open")
+            chunks: list[bytes] = []
+            remaining = MAX_WORK_RUN_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+        finally:
+            os.close(descriptor)
+        if len(raw) > MAX_WORK_RUN_BYTES:
+            raise WorkPlanError("work_run_artifact_bounds_invalid")
+        payload = json.loads(raw.decode("utf-8"))
+    except WorkPlanError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkPlanError("work_run_artifact_unreadable") from exc
+    if (not isinstance(payload, dict) or set(payload) != {
+            "schema_version", "run_id", "plan_id", "created_at", "status",
+            "operating_mode", "quarantine_active", "task_runs", "reason_stack"}
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1
+            or payload.get("run_id") != run_id or payload.get("plan_id") != plan.plan_id
+            or payload.get("created_at") != created_at
+            or not isinstance(payload.get("operating_mode"), str)
+            or not payload["operating_mode"]
+            or type(payload.get("quarantine_active")) is not bool
+            or not isinstance(payload.get("task_runs"), list)
+            or len(payload["task_runs"]) != len(plan.tasks)
+            or not isinstance(payload.get("reason_stack"), list)
+            or len(payload["reason_stack"]) > 12
+            or any(not isinstance(item, str) for item in payload["reason_stack"])):
+        raise WorkPlanError("work_run_artifact_shape_invalid")
+    expected_task_fields = {"task_id", "goal_id", "kind", "status", "reason",
+        "started_at", "finished_at", "duration_ms", "artifacts", "destructive"}
+    task_runs: list[TaskRun] = []
+    for task, row in zip(plan.tasks, payload["task_runs"], strict=True):
+        if (not isinstance(row, dict) or set(row) != expected_task_fields
+                or row.get("task_id") != task.task_id or row.get("goal_id") != task.goal_id
+                or row.get("kind") != task.kind
+                or row.get("status") not in {"success", "failed", "skipped"}
+                or (row.get("reason") is not None and not isinstance(row["reason"], str))
+                or not isinstance(row.get("started_at"), str) or not row["started_at"]
+                or not isinstance(row.get("finished_at"), str) or not row["finished_at"]
+                or type(row.get("duration_ms")) is not int or row["duration_ms"] < 0
+                or not isinstance(row.get("artifacts"), list)
+                or any(not isinstance(item, str) or len(item) > 1024 for item in row["artifacts"])
+                or type(row.get("destructive")) is not bool
+                or row["destructive"] != (task.destructive or task.kind == "forge_apply")):
+            raise WorkPlanError("work_run_task_identity_invalid")
+        task_runs.append(TaskRun(task.task_id, task.goal_id, task.kind, row["status"],
+            row["reason"], row["started_at"], row["finished_at"], row["duration_ms"],
+            tuple(row["artifacts"]), row["destructive"]))
+    expected_reasons = [row.reason for row in task_runs
+        if row.status in {"failed", "skipped"} and row.reason][:12]
+    if payload["reason_stack"] != expected_reasons:
+        raise WorkPlanError("work_run_reason_stack_invalid")
+    if not task_runs or all(row.status == "skipped" for row in task_runs):
+        expected_status = "skipped"
+    elif any(row.status == "failed" for row in task_runs):
+        expected_status = "failed"
+    elif any(row.status == "skipped" for row in task_runs):
+        expected_status = "partial"
+    else:
+        expected_status = "ok"
+    if payload.get("status") != expected_status:
+        raise WorkPlanError("work_run_status_mismatch")
+    canonical = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if raw != canonical:
+        raise WorkPlanError("work_run_artifact_noncanonical")
+    return WorkPlanRun(1, run_id, plan.plan_id, created_at, expected_status,
+        payload["operating_mode"], payload["quarantine_active"], tuple(task_runs),
+        tuple(payload["reason_stack"]))
 
 
 def _write_json_once(path: Path, value: dict[str, object]) -> bool:
@@ -282,6 +384,7 @@ __all__ = [
     "WorkPlanRun",
     "WorkPlanError",
     "load_work_plan",
+    "load_work_run",
     "persist_work_plan",
     "persist_work_run",
 ]

@@ -14,7 +14,7 @@ from sentientos.goal_completion import CompletionContext, eval_check, persist_co
 from sentientos.goal_graph import Goal, GoalGraph, GoalStateRecord, default_goal_state_record
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
-from sentientos.work_plan import Task, TaskOmission, TaskRun, WorkPlan, WorkPlanRun
+from sentientos.work_plan import Task, TaskOmission, TaskRun, WorkPlan, WorkPlanError, WorkPlanRun, load_work_run
 from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 
 
@@ -67,6 +67,15 @@ class GoalExecutor:
         reasons: list[str] = []
         effective_task_status: dict[str, str] = {}
         journal = WorkPlanExecutionJournal(self.repo_root, plan)
+        persisted_run = load_work_run(self.repo_root, plan, created_at=state.created_at)
+        if persisted_run is not None:
+            for task_run in persisted_run.task_runs:
+                journal_state = journal.state(task_run.task_id)
+                journal_result = journal.result(task_run.task_id)
+                if (journal_state is not None and journal_state != task_run.status
+                        or journal_result is not None and journal_result != task_run):
+                    raise WorkPlanError("work_run_journal_identity_conflict")
+            return persisted_run
         for task in plan.tasks:
             started = _iso_now()
             started_mono = time.monotonic()

@@ -8,7 +8,7 @@ import pytest
 
 from sentientos.work_plan import (
     Task, TaskOmission, TaskRun, WorkPlan, WorkPlanError, WorkPlanRun, load_work_plan,
-    persist_work_plan, persist_work_run,
+    load_work_run, persist_work_plan, persist_work_run,
 )
 
 
@@ -98,6 +98,40 @@ def test_persisted_run_identity_is_write_once(tmp_path: Path) -> None:
     with pytest.raises(WorkPlanError, match="work_plan_artifact_identity_conflict"):
         persist_work_run(tmp_path, replace(run, status="failed"))
     assert path.read_bytes() == original
+
+
+def test_existing_run_artifact_recovers_against_exact_plan(tmp_path: Path) -> None:
+    plan = _plan()
+    run = WorkPlanRun(1, "run_2026-01-01T00-00-00Z_plan-1", plan.plan_id,
+        plan.created_at, "partial", "normal", False,
+        (TaskRun("goal-1:diagnostic", "goal-1", "diagnostic", "success", None,
+            "2026-01-01T00:00:01Z", "2026-01-01T00:00:02Z", 1000,
+            ("glow/contracts/contract_status.json",), False),
+         TaskRun("goal-1:forge_apply", "goal-1", "forge_apply", "skipped",
+            "mutation_disallowed", "2026-01-01T00:00:02Z", "2026-01-01T00:00:02Z",
+            0, (), True)), ("mutation_disallowed",))
+    persist_work_run(tmp_path, run)
+
+    assert load_work_run(tmp_path, plan, created_at=plan.created_at) == run
+
+
+def test_existing_run_artifact_rejects_substituted_task_identity(tmp_path: Path) -> None:
+    plan = _plan()
+    run = WorkPlanRun(1, "run_2026-01-01T00-00-00Z_plan-1", plan.plan_id,
+        plan.created_at, "partial", "normal", False,
+        (TaskRun("goal-1:diagnostic", "goal-1", "diagnostic", "success", None,
+            "2026-01-01T00:00:01Z", "2026-01-01T00:00:02Z", 1000, (), False),
+         TaskRun("goal-1:forge_apply", "goal-1", "forge_apply", "skipped",
+            "mutation_disallowed", "2026-01-01T00:00:02Z", "2026-01-01T00:00:02Z",
+            0, (), True)), ("mutation_disallowed",))
+    relative = persist_work_run(tmp_path, run)
+    path = tmp_path / relative
+    payload = json.loads(path.read_text())
+    payload["task_runs"][0]["task_id"] = "substituted"
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+    with pytest.raises(WorkPlanError, match="work_run_task_identity_invalid"):
+        load_work_run(tmp_path, plan, created_at=plan.created_at)
 
 
 def test_malformed_task_row_rejects_whole_plan(tmp_path: Path) -> None:
