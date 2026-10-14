@@ -102,7 +102,9 @@ def score_operator_codex_strategy_multitrial(*, scorer_manifest: Mapping[str, An
             or preregistration.get("packet_digests") != scorer_manifest.get("packet_digests")):
         raise EmbodiedConsequenceError("operator_strategy_multitrial_preregistration_mismatch")
     packet_map = scorer_manifest.get("packet_digests")
+    situation_digests = scorer_manifest.get("situation_digest_by_trial")
     if (not isinstance(packet_map, Mapping) or set(packet_map) != set(subject_packets)
+            or not isinstance(situation_digests, Mapping) or set(situation_digests) != set(order)
             or any(digest(subject_packets[key]) != packet_map[key] for key in packet_map)):
         raise EmbodiedConsequenceError("operator_strategy_multitrial_packet_set_mismatch")
     expected_packet_ids: set[str] = set()
@@ -124,6 +126,10 @@ def score_operator_codex_strategy_multitrial(*, scorer_manifest: Mapping[str, An
         trial_packets = packets_by_trial[trial_id]
         if not isinstance(trial_packets, Mapping):
             raise EmbodiedConsequenceError("operator_strategy_multitrial_trial_packets_invalid")
+        if (trials[trial_id].get("situation_digest") != situation_digests[trial_id]
+                or subregistrations[trial_id].get("situation_digest") != situation_digests[trial_id]
+                or trials[trial_id].get("model_settings") != scorer_manifest.get("model_settings")):
+            raise EmbodiedConsequenceError("operator_strategy_multitrial_trial_identity_mismatch")
         expected_packet_ids.update(trial_packets)
         trial_responses = {packet_id: responses[packet_id] for packet_id in trial_packets
             if packet_id in responses}
@@ -137,7 +143,8 @@ def score_operator_codex_strategy_multitrial(*, scorer_manifest: Mapping[str, An
             "submitted_proposal_count": score["submitted_proposal_count"],
             "condition_count": len(score["conditions"]), "score_digest": score["score_digest"],
             "conditions": score["conditions"]})
-    if expected_packet_ids != set(packet_map):
+    packet_group_count = sum(len(packets_by_trial[trial_id]) for trial_id in order)
+    if expected_packet_ids != set(packet_map) or packet_group_count != len(expected_packet_ids):
         raise EmbodiedConsequenceError("operator_strategy_multitrial_packet_grouping_invalid")
     scored = [row for row in rows if row["status"] == "scored"]
     status = "scored" if len(scored) == len(rows) else "partial_or_incomparable"
