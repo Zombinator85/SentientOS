@@ -410,6 +410,29 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
         journal_dir=multi_journal,preregistration=multitrial["preregistration"])
     assert recovered_multi=={multi_packet:multitrial_responses[multi_packet]}
     assert multi_disposition["status"]=="partial_or_corrupt"
+    partial_multi_score=score_operator_codex_strategy_multitrial(
+        scorer_manifest=multitrial["scorer_manifest"],
+        preregistration=multitrial["preregistration"],
+        subject_packets=multitrial["subject_packets"],responses=recovered_multi)
+    assert partial_multi_score["status"]=="partial_or_incomparable"
+    assert partial_multi_score["scoreable_task_fraction"]=={"numerator":0,"denominator":2}
+    with pytest.raises(OperatorResponseJournalError,match="external_response_packet_already_recorded"):
+        record_operator_codex_response(journal_dir=multi_journal,
+            preregistration=multitrial["preregistration"],packet_id=multi_packet,
+            response={**multitrial_responses[multi_packet],"raw_output":"{}"})
+    for packet_id,response in multitrial_responses.items():
+        if packet_id!=multi_packet:
+            record_operator_codex_response(journal_dir=multi_journal,
+                preregistration=multitrial["preregistration"],packet_id=packet_id,response=response)
+    resumed_multi,resumed_disposition=recover_operator_codex_responses(
+        journal_dir=multi_journal,preregistration=multitrial["preregistration"])
+    assert resumed_disposition["status"]=="complete"
+    assert resumed_multi==multitrial_responses
+    resumed_multi_score=score_operator_codex_strategy_multitrial(
+        scorer_manifest=multitrial["scorer_manifest"],
+        preregistration=multitrial["preregistration"],
+        subject_packets=multitrial["subject_packets"],responses=resumed_multi)
+    assert resumed_multi_score["score_digest"]==multitrial_score["score_digest"]
     responses={}
     for packet_id,condition in result["scorer_manifest"]["condition_by_packet_id"].items():
         has_history=condition!="history_withheld"
