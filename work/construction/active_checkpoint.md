@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 219 adds per-task durable execution journal records to the goal executor. The append-only hash chain records task start before execution and terminal status after; recovery skips completed tasks without replay and leaves an interrupted task's outcome explicitly unknown, while continuing unrelated tasks.
+Sequence 220 adds explicit prerequisites to work-plan tasks. The parser preserves compatibility with older version-one plans while validating dependency identity and order. Generated forge-apply work depends on validation and proposal; failed or interrupted prerequisites block dependent tasks, while independent tasks can proceed.
 
-Latest source commit: 9c1c01eddb320761d94f6e06485d01d91e7ab754
-Latest source tree: 6364b11e4b7f44fc675211f61f68231893beb8de
-Latest segment: work/construction/segments/0219-goal-interruption-journal.md
-Evidence: work/construction/evidence/0219-goal-interruption-journal.json
-Sequence: 219
+Latest source commit: 6812e0f73a44038e5ea382e0cb89e03ae138f5c0
+Latest source tree: 1e63b52befd78dbb2f3a1d4627e358a90b7b914f
+Latest segment: work/construction/segments/0220-goal-dependency-enforcement.md
+Evidence: work/construction/evidence/0220-goal-dependency-enforcement.json
+Sequence: 220
 
-Validation: 27 plan, executor, goal-state, and journal tests passed. Changed modules compiled and diff check passed. The journal is local digest-chain custody, not an independent signature.
+Validation: 30 focused plan, executor, goal-state, and execution-journal tests passed. Seven affected Python modules compiled and diff check passed. No production activation, provider access, or host actuation occurred.
 
-Next: represent plan dependencies explicitly. Make consequential tasks such as forge_apply depend on the required validation outcome, prove that a failed or unknown prerequisite blocks its dependent, and show unrelated authorized tasks can continue. Preserve dependency identity and recovery results in the persisted plan/run history.
+Next: inspect whether completed bounded maintenance outcomes can inform later goal selection without treating persisted task status as independently verified consequence. Trace outcome projection, developmental-context admission, and subsequent planner inputs; then add a tested cross-process slice that preserves provenance and uncertainty.
