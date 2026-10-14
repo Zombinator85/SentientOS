@@ -1,0 +1,35 @@
+{
+  "sequence": 196,
+  "title": "Reconstruct canonical strategy history after process restart",
+  "status": "[untested] construction",
+  "starting_head": "56be6bf8eb41f33737bbc94dad24d0b4cb6e77e3",
+  "starting_tree": "aa4a6a2e85a4e6089e27966660657e545e12976d",
+  "source_commit": "438d63932a17de702f14d277650050410cd38bc4",
+  "source_tree": "2886409c12cadb16212ce6821446ff6c52aad503",
+  "source_paths": [
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "blob": "88bf9765bbc9574a64f62c81e63957fd1b75f57a",
+      "sha256": "97f40711fd509eedcf4b302d26ab930e0a88e0a2213f42d9295e7752d557ef82"
+    }
+  ],
+  "validation": {
+    "canonical_integrated_strategy_node": "1 passed",
+    "fresh_process": "reconstructed admission and writeback owners; verified four durable records and receipts",
+    "later_task": "rebuilt multi-event packet from recovered three-consequence inventory and produced a distinct fixture proposal",
+    "selected_history": "adverse and corrective identities/digests preserved",
+    "omission": "newer unrelated event retained in exact omission identity",
+    "compilation": "passed",
+    "diff_check": "passed"
+  },
+  "authority_posture": {
+    "scoped_test_admission": "used",
+    "synthetic_environment_and_cognition": true,
+    "physical_effect_claimed": false,
+    "proposal_executed": false,
+    "real_model_improvement_established": false,
+    "aggregate_utility_score": null
+  },
+  "acceptance_status": "PARTIAL: integrated canonical history retrieval and restart reconstruction passed; multi-event score result still lacks its own World-State feedback projection/admission; fresh process does not perform a new governed inference",
+  "limitations": "Operator-declared applicability remains unverified; the distinct post-restart strategy proposal is a fixture result."
+}
