@@ -5377,11 +5377,34 @@ from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner
+from sentientos.governed_local_model_invocation import LocalModelInvocationReceipt
+from tests.test_resident_developmental_cognition import SessionBoundFakeInvoker, snapshot
 from sentientos.embodied_consequence import build_operator_codex_strategy_multi_event_packets, make_strategy_proposal, score_strategy_decision_quality
 root, receipt_path = Path(sys.argv[1]), Path(sys.argv[2])
 receipt_data = receipt_path.read_bytes()
 assert hashlib.sha256(receipt_data).hexdigest() == sys.argv[3]
 receipts = json.loads(receipt_data)
+invoker = SessionBoundFakeInvoker()
+for value in receipts.values():
+    receipt = LocalModelInvocationReceipt(
+        request=value["request"], status=value["status"],
+        reason_codes=tuple(value["reason_codes"]), output_text=None,
+        output_digest=value["output_digest"], output_size_bytes=value["output_size_bytes"],
+        generation_config=value["generation_config"],
+        admission_decision_ref=value.get("admission_decision_ref"),
+        purpose=value["purpose"], latency_ms=value.get("latency_ms", 0),
+        output_truncated=value["output_truncated"],
+        fallback_occurred=value["fallback_occurred"], effects=value["effects"],
+        observed_at=value["observed_at"],
+        resource_allocation_digest=value.get("resource_allocation_digest"),
+        resource_attempt_id=value.get("resource_attempt_id"),
+        resource_consumption_receipt_digests=tuple(value.get(
+            "resource_consumption_receipt_digests", ())),
+        resource_linkage_digest=value.get("resource_linkage_digest"),
+        schema_version=value["schema_version"],
+        backend_completion=value.get("backend_completion"))
+    assert receipt.to_dict() == value
+    invoker.receipts[receipt.receipt_id] = receipt
 ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
 definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
 def current_sequence():
@@ -5399,7 +5422,7 @@ class Verifier:
         assert request["linkage"]["resident_cognitive_serving"]["session_id"] == expected["expected_session_id"]
         return {key:value[key] for key in ("receipt_id", "receipt_digest", "request", "status", "output_digest", "output_truncated", "generation_config", "output_size_bytes", "backend_completion", "observed_at") if key in value}
 writeback = ResidentDevelopmentalWritebackController(history_root=root / "history", admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger), current_sequence=current_sequence)
-owner = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(root / "history", root / "state", ("embodiment",), 16, 4, True), writeback=writeback, admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger), invoker=Verifier(), current_sequence=next_sequence)
+owner = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(root / "history", root / "state", ("embodiment",), 16, 4, False), writeback=writeback, admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger), invoker=invoker, current_sequence=next_sequence)
 inventory = owner.writeback.inspect_completed_records()
 by_id = {record.record_id:record for record, _ in inventory}
 assert len(by_id) == len(inventory)
@@ -5433,7 +5456,19 @@ for archived in score_archive["decision_quality"].values():
 quality=score_strategy_decision_quality(proposal=proposal,situation=situation,
     events=frozen_manifest["events"],
     preregistration=frozen_manifest["decision_quality_preregistration"])
-print(json.dumps({"record_ids":sorted(by_id), "event_ids":[row["event_id"] for row in history], "proposal_id":proposal.strategy_id, "quality_result":quality, "omitted_ids":[row["event_id"] for row in bundle["preregistration"]["omitted_event_identities"]], "source_times":[row["evaluated_at"] for row in history]}, sort_keys=True))
+later = owner.run_tick(snapshot=snapshot(43), tick_id="post-restart-distinct-resident-task")
+assert later.written_record_id
+purposes = [request.purpose for request in invoker.requests]
+assert "resident_developmental_retrieval_cognition" in purposes
+assert "resident_developmental_history_intervention_experiment" not in purposes
+retrieval = next(request for request in invoker.requests
+    if request.purpose == "resident_developmental_retrieval_cognition")
+retrieved_ids = list(retrieval.upstream_evidence["record_ids"])
+assert sys.argv[8] in retrieved_ids
+after_inventory = owner.writeback.inspect_completed_records()
+after_ids = [record.record_id for record, _ in after_inventory]
+assert len(after_ids) == len(set(after_ids)) and later.written_record_id in after_ids
+print(json.dumps({"record_ids":sorted(after_ids), "retrieved_ids":retrieved_ids, "event_ids":[row["event_id"] for row in history], "proposal_id":proposal.strategy_id, "quality_result":quality, "post_restart_tick_record_id":later.written_record_id, "post_restart_invocation_purposes":purposes, "omitted_ids":[row["event_id"] for row in bundle["preregistration"]["omitted_event_identities"]], "source_times":[row["evaluated_at"] for row in history]}, sort_keys=True))
 '''
     child = subprocess.run([sys.executable, "-c", child_code,
         str(tmp_path / "resident"), str(receipt_path),
@@ -5452,14 +5487,24 @@ print(json.dumps({"record_ids":sorted(by_id), "event_ids":[row["event_id"] for r
     assert set(recovered_child["event_ids"]) == {
         attribution["attribution_id"], correction_attribution["attribution_id"]}
     assert recovered_child["omitted_ids"] == [unrelated_attribution["attribution_id"]]
-    assert set(recovered_child["record_ids"]) == {
+    assert {
         durable_record.record_id, correction_record.record_id, irrelevant_record_id,
-        next_record.written_record_id, feedback_tick.written_record_id}
+        next_record.written_record_id, feedback_tick.written_record_id} <= set(
+            recovered_child["record_ids"])
+    assert len(recovered_child["record_ids"]) == 6
+    assert recovered_child["post_restart_tick_record_id"] in recovered_child["record_ids"]
+    assert feedback_tick.written_record_id in recovered_child["retrieved_ids"]
     assert sorted(recovered_child["source_times"]) == sorted([
         attribution["evaluated_at"], correction_attribution["evaluated_at"]])
     assert recovered_child["quality_result"]["aggregate_score"] is None
     assert recovered_child["quality_result"]["condition_labels_used"] is False
     assert recovered_child["quality_result"]["result_digest"].startswith("sha256:")
+    assert recovered_child["post_restart_tick_record_id"]
+    assert "resident_developmental_retrieval_cognition" in recovered_child[
+        "post_restart_invocation_purposes"]
+    assert "resident_developmental_history_intervention_experiment" not in recovered_child[
+        "post_restart_invocation_purposes"]
+    assert len(recovered_child["record_ids"]) == 6
 
 
 def test_resource_linkage_cannot_bypass_serving_receipt_verification(tmp_path: Path) -> None:
