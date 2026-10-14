@@ -1,13 +1,15 @@
 # Active construction checkpoint
 
-Sequence 206 composes the three canonical selected consequence records with the existing model-replacement A/B owner. The exact admitted IDs and digests plus one fixed current projection are frozen in a shared context; predecessor and successor fixtures receive identical ordered history, and empty-history controls remain empty. Source, model, and fixture invocation identities remain separate.
+Sequence 207 records exact identities from a retained successful run of the five-event canonical trajectory. It binds chronological source event IDs and digests to admitted developmental record, fact, and scoped writeback receipt identities; it also binds the frozen selected/omitted event manifests and protocol files.
+
+The run records score feedback as a new review-only developmental source and recovers it through a distinct post-restart resident retrieval invocation. Fixture run only; no independently verified applicability, physical effect, or model improvement is claimed.
 
 Latest source commit: 3c63ef443d7b1c8c6043abdef0d8dd9d07fae888
 Latest source tree: b53dab0c7457d5991943c947b5265583bd641f6b
-Latest segment: work/construction/segments/0206-consequence-history-model-context.md
-Evidence: work/construction/evidence/0206-consequence-history-model-context.json
-Sequence: 206
+Latest segment: work/construction/segments/0207-exact-run-identities.md
+Evidence: work/construction/evidence/0207-exact-run-identities.json
+Sequence: 207
 
-Validation: affected suites 121 passed; compileall and diff check passed. Synthetic endpoint fixtures only; no succession or learning claim.
+Validation: retained integrated node passed; affected suites 121 passed; compileall and diff check passed.
 
-Next: inspect remaining feasible external experiment custody and cross-owner maintainability dependencies.
+Next: continue any remaining source-backed custody and maintainability work without changing authority boundaries.
