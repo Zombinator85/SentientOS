@@ -764,6 +764,7 @@ def campaign_improvement_signal_record(
             raise AttributionCampaignError("campaign_signal_protocol_mismatch")
         refs.extend(("protocol_schema:" + protocol.schema_version,
             "selection_campaign_id:" + protocol.campaign_id,
+            "selection_proposal_id:" + protocol.proposal_id,
             "selection_maintenance_task_id:" + protocol.maintenance_task_id,
             "selection_proposal_id:" + protocol.proposal_id,
             "selection_successor_generation:" + str(protocol.successor_generation),
@@ -777,7 +778,7 @@ def campaign_improvement_signal_record(
         refs.append("selection_config_digest:" + selection_config_digest)
     return {"source_kind":"post_adoption_attribution_campaign", "finding_kind":kind,
         "severity":"high" if result.classification == "protected_regression_observed" else "medium",
-        "description":f"Campaign-level {result.classification} for {result.campaign_id}",
+        "description":f"Campaign-level {result.classification} for {protocol.proposal_id if protocol else result.campaign_id}",
         "spec_id":result.campaign_id, "source_artifact":result.result_id, "source_digest":result.result_digest,
         "evidence_refs":sorted(set(refs)), "observed_at":result.completed_at,
         "declared_constraints":["proposal_only","campaign_level_distinct_finding","no_repository_mutation","no_adoption","no_rollback"],

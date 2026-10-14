@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "f957e8f1d20df840d2bf32760ec0b0b8d51efda7",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_repeated_campaigns_deduplicate_and_contradictory_correction_stays_bounded",
+      "rationale": "Distinct same-proposal histories retain adverse, correction, confounded, null, and inconclusive classifications; duplicate retrieval deduplicates, contradictions are blocked, and a fresh process reconstructs the same history."
+    },
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_plane_uses_only_selected_recovered_campaign_results",
+      "rationale": "Explicit selected historical campaign lineage reaches the admitted runtime signal and proposal-candidate boundaries without effect authority."
+    },
+    {
+      "node_id": "tests/test_governed_improvement_signal_plane.py::test_duplicate_contradiction_and_authority_claims_fail_closed",
+      "rationale": "Existing duplicate, contradiction, and authority-claim controls remain intact."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_post_adoption_attribution_campaign.py::test_repeated_campaigns_deduplicate_and_contradictory_correction_stays_bounded"
+  ]
+}

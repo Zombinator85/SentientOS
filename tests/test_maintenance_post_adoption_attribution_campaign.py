@@ -15,8 +15,8 @@ from sentientos.maintenance_post_adoption_evaluation import Evaluation, FALSE_AU
 pytestmark = pytest.mark.no_legacy_skip
 
 
-def protocol(*, evidence_class="synthetic"):
-    return make_campaign_protocol(maintenance_task_id="task-1", proposal_id="proposal-1", signal_ids=("signal-1",),
+def protocol(*, evidence_class="synthetic", task_id="task-1", proposal_id="proposal-1"):
+    return make_campaign_protocol(maintenance_task_id=task_id, proposal_id=proposal_id, signal_ids=("signal-1",),
         predecessor_generation=4, predecessor_revision="a"*40, predecessor_tree="b"*40,
         successor_generation=5, successor_revision="c"*40, successor_tree="d"*40,
         adoption_identity="adoption:exact", evaluation_protocol_ids=("p1","p2"),
@@ -46,8 +46,9 @@ def control(p, trial_id, *, match="matched", evidence_class=None):
         host_observation_binding="host-observation:1",evidence_class=evidence_class or p.evidence_class)
 
 
-def finish(tmp_path, outcomes, *, matches=None, evidence_class="synthetic"):
-    owner=MaintenancePostAdoptionAttributionCampaignOwner(tmp_path); p=owner.preregister(protocol(evidence_class=evidence_class))
+def finish(tmp_path, outcomes, *, matches=None, evidence_class="synthetic", task_id="task-1", proposal_id="proposal-1"):
+    owner=MaintenancePostAdoptionAttributionCampaignOwner(tmp_path); p=owner.preregister(protocol(evidence_class=evidence_class,
+        task_id=task_id, proposal_id=proposal_id))
     matches=matches or ["matched"]*len(outcomes)
     for index, outcome in enumerate(outcomes):
         trial=p.trial_ids[index]; ev=None if outcome is None else evaluation(p,index,outcome)
@@ -123,6 +124,86 @@ def test_campaign_looking_json_is_not_an_authenticated_signal_artifact(tmp_path)
         "classification": "protected_regression_observed", "severity": "high"}), encoding="utf-8")
     with pytest.raises(ValueError, match="unknown_artifact_source"):
         records_from_artifact("post_adoption_attribution_campaign", path, repo_root=tmp_path)
+
+
+def test_repeated_campaigns_deduplicate_and_contradictory_correction_stays_bounded(tmp_path):
+    import subprocess
+    import sys
+
+    from sentientos.governed_improvement_signal_plane import evaluate_signal_plane
+
+    first_owner, first_protocol, first = finish(tmp_path / "first",
+        ["target_expectation_contradicted"] * 2, task_id="task-first")
+    repeated_owner, repeated_protocol, repeated = finish(tmp_path / "repeated",
+        ["target_expectation_contradicted"] * 2, task_id="task-repeated")
+    correction_owner, correction_protocol, correction = finish(tmp_path / "correction",
+        ["target_expectation_satisfied"] * 2, task_id="task-correction")
+    confound_owner, confound_protocol, confound = finish(tmp_path / "confound",
+        ["target_expectation_satisfied"] * 2, matches=["matched", "out_of_envelope"],
+        task_id="task-confound")
+    null_owner, null_protocol, null = finish(tmp_path / "null",
+        [None, "target_expectation_contradicted"], task_id="task-null")
+    inconclusive_owner, inconclusive_protocol, inconclusive = finish(tmp_path / "inconclusive",
+        ["insufficient_evidence"] * 2, task_id="task-inconclusive")
+    first_signal = campaign_improvement_signal_record(first, protocol=first_owner.protocol(first_protocol.campaign_id))
+    repeated_signal = campaign_improvement_signal_record(repeated, protocol=repeated_owner.protocol(repeated_protocol.campaign_id))
+    correction_signal = campaign_improvement_signal_record(correction,
+        protocol=correction_owner.protocol(correction_protocol.campaign_id))
+    confound_signal = campaign_improvement_signal_record(confound,
+        protocol=confound_owner.protocol(confound_protocol.campaign_id))
+    null_signal = campaign_improvement_signal_record(null,
+        protocol=null_owner.protocol(null_protocol.campaign_id))
+    inconclusive_signal = campaign_improvement_signal_record(inconclusive,
+        protocol=inconclusive_owner.protocol(inconclusive_protocol.campaign_id))
+    assert first_signal and repeated_signal and correction_signal
+    assert confound_signal and null_signal and inconclusive_signal
+
+    consistent = evaluate_signal_plane([first_signal, repeated_signal, first_signal], repo_root=tmp_path)
+    assert consistent.batch.duplicate_signal_ids == (normalize_record(first_signal).signal_id,)
+    assert not consistent.batch.contradiction_ids
+    assert len(consistent.batch.signals) == 2
+
+    conflicting = evaluate_signal_plane([first_signal, repeated_signal, correction_signal], repo_root=tmp_path)
+    campaign_ids = {signal.signal_id for signal in conflicting.batch.signals}
+    assert set(conflicting.batch.contradiction_ids) == campaign_ids
+    assert {receipt.disposition for receipt in conflicting.receipts} == {"blocked_invalid"}
+    assert all("classification:repeated_target_contradiction_under_matched_controls"
+        in signal.evidence_refs or "classification:repeated_association_under_matched_controls"
+        in signal.evidence_refs for signal in conflicting.batch.signals)
+    assert evaluate_signal_plane([first_signal, repeated_signal, correction_signal],
+        repo_root=tmp_path).batch.batch_id == conflicting.batch.batch_id
+
+    confounded_plane = evaluate_signal_plane([confound_signal], repo_root=tmp_path)
+    null_plane = evaluate_signal_plane([null_signal], repo_root=tmp_path)
+    inconclusive_plane = evaluate_signal_plane([inconclusive_signal], repo_root=tmp_path)
+    assert confounded_plane.receipts[0].disposition == "blocked_invalid"
+    assert null_plane.receipts[0].disposition == "gap_seeker_diagnostic"
+    assert inconclusive_plane.receipts[0].disposition == "blocked_invalid"
+    assert not confounded_plane.amendment_inputs and not null_plane.amendment_inputs
+    assert not inconclusive_plane.amendment_inputs
+
+    script = (
+        "import json,sys; from sentientos.maintenance_post_adoption_attribution_campaign import "
+        "MaintenancePostAdoptionAttributionCampaignOwner as O; "
+        "print(json.dumps([O(root,read_only=True).result(cid).classification "
+        "for root,cid in zip(sys.argv[1::2],sys.argv[2::2])]))"
+    )
+    recovered = subprocess.run([sys.executable, "-c", script,
+        str(tmp_path / "first"), first_protocol.campaign_id,
+        str(tmp_path / "repeated"), repeated_protocol.campaign_id,
+        str(tmp_path / "correction"), correction_protocol.campaign_id,
+        str(tmp_path / "confound"), confound_protocol.campaign_id,
+        str(tmp_path / "null"), null_protocol.campaign_id,
+        str(tmp_path / "inconclusive"), inconclusive_protocol.campaign_id],
+        check=True, capture_output=True, text=True)
+    assert json.loads(recovered.stdout) == [
+        "repeated_target_contradiction_under_matched_controls",
+        "repeated_target_contradiction_under_matched_controls",
+        "repeated_association_under_matched_controls",
+        "environmental_confound_detected",
+        "interrupted_or_invalid_trial",
+        "insufficient_target_evidence",
+    ]
 
 
 def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_path, monkeypatch):
