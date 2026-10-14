@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 218 updates goal planning so unsupported fetch and documentation tasks are omitted from executable task lists and recorded as goal-specific planning omissions. The version-1 parser validates and persists those omissions while retaining compatibility with older plans.
+Sequence 219 adds per-task durable execution journal records to the goal executor. The append-only hash chain records task start before execution and terminal status after; recovery skips completed tasks without replay and leaves an interrupted task's outcome explicitly unknown, while continuing unrelated tasks.
 
-Latest source commit: 1cf2a1a8aa15baf11ca9e9161249388fdbe8b38a
-Latest source tree: efe3bcd21c3454d5dd52038ec3405ae5eb5fc908
-Latest segment: work/construction/segments/0218-plan-unsupported-omissions.md
-Evidence: work/construction/evidence/0218-plan-unsupported-omissions.json
-Sequence: 218
+Latest source commit: 9c1c01eddb320761d94f6e06485d01d91e7ab754
+Latest source tree: 6364b11e4b7f44fc675211f61f68231893beb8de
+Latest segment: work/construction/segments/0219-goal-interruption-journal.md
+Evidence: work/construction/evidence/0219-goal-interruption-journal.json
+Sequence: 219
 
-Validation: 23 plan, executor, goal-state, and persistence tests passed. Four changed Python modules compiled and diff check passed.
+Validation: 27 plan, executor, goal-state, and journal tests passed. Changed modules compiled and diff check passed. The journal is local digest-chain custody, not an independent signature.
 
-Next: continue Campaign C5 by examining the orchestrator's crash window after a task effect but before final work-run persistence. Determine whether a durable per-task intent/outcome journal can distinguish unknown interrupted outcomes from terminal successes, preserve partial progress, and allow unrelated work to continue without replaying uncertain effects.
+Next: represent plan dependencies explicitly. Make consequential tasks such as forge_apply depend on the required validation outcome, prove that a failed or unknown prerequisite blocks its dependent, and show unrelated authorized tasks can continue. Preserve dependency identity and recovery results in the persisted plan/run history.
