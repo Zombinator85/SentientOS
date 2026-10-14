@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "sequence": 218,
+  "title": "Record unsupported planning omissions",
+  "source_commit": "1cf2a1a8aa15baf11ca9e9161249388fdbe8b38a",
+  "source_tree": "efe3bcd21c3454d5dd52038ec3405ae5eb5fc908",
+  "source_files": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "git_blob_sha": "517a0701147c50722d12de23c3f7024ab6e91938"
+    },
+    {
+      "path": "sentientos/work_plan.py",
+      "git_blob_sha": "f2e0043b4dcb5c9ee0bbc674fb732fbd4b8f33a3"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_plan.py",
+      "git_blob_sha": "ed6b4a3dc1c1c86d0a0442a0c69bcfa2a3b83369"
+    },
+    {
+      "path": "sentientos/tests/test_work_plan_load.py",
+      "git_blob_sha": "983386401ff28dc874d651aeac4048be148cdb99"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_state_update.py",
+      "sentientos/tests/test_work_plan_load.py"
+    ],
+    "passed_test_count": 23,
+    "compiled": [
+      "sentientos/goal_executor.py",
+      "sentientos/work_plan.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_work_plan_load.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "unsupported fetch/doc_update kinds do not appear as executable tasks",
+      "goal-specific unsupported task omissions retain their reason in the persisted work plan",
+      "legacy version-1 plans without omissions remain readable",
+      "malformed omissions fail closed"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false,
+    "network_egress": false
+  },
+  "predecessor": "segment-sha256:cf6436adac78dfbbd4a588aced248cc4c3599b00c95230b98590381bbfa04270"
+}

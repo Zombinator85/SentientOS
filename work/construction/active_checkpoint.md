@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 217 makes persisted work-plan and work-run identities write once. Exact retries do not rewrite bytes or add duplicate pulse entries; conflicting content under an existing identity fails closed. This preserves completed outcome custody across replay. Partial task execution still does not have a restart journal.
+Sequence 218 updates goal planning so unsupported fetch and documentation tasks are omitted from executable task lists and recorded as goal-specific planning omissions. The version-1 parser validates and persists those omissions while retaining compatibility with older plans.
 
-Latest source commit: 78709ab27191effcfeae8022217e3dcb329fd203
-Latest source tree: 37fedbfc158a3bd4fed472ed1cd8233c9646651c
-Latest segment: work/construction/segments/0217-write-once-work-plan-custody.md
-Evidence: work/construction/evidence/0217-write-once-work-plan-custody.json
-Sequence: 217
+Latest source commit: 1cf2a1a8aa15baf11ca9e9161249388fdbe8b38a
+Latest source tree: efe3bcd21c3454d5dd52038ec3405ae5eb5fc908
+Latest segment: work/construction/segments/0218-plan-unsupported-omissions.md
+Evidence: work/construction/evidence/0218-plan-unsupported-omissions.json
+Sequence: 218
 
-Validation: 19 work-plan parsing/persistence and goal executor tests passed. Changed modules compiled and diff check passed.
+Validation: 23 plan, executor, goal-state, and persistence tests passed. Four changed Python modules compiled and diff check passed.
 
-Next: inspect the orchestrator's interruption window between task effect and final work-run persistence. Add only a bounded journal mechanism if existing owner contracts can distinguish attempted, completed, and unknown steps without replaying effects; ensure blocked dependencies do not consume independent authorized work.
+Next: continue Campaign C5 by examining the orchestrator's crash window after a task effect but before final work-run persistence. Determine whether a durable per-task intent/outcome journal can distinguish unknown interrupted outcomes from terminal successes, preserve partial progress, and allow unrelated work to continue without replaying uncertain effects.
