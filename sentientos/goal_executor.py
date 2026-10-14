@@ -50,8 +50,12 @@ class GoalExecutor:
             omissions.extend(_goal_task_omissions(goal=goal, state=state))
             for task in _map_goal_to_tasks(goal=goal, state=state):
                 if spent_risk + task.risk_cost > state.risk_budget.router_k_max:
+                    omissions.append(TaskOmission(
+                        goal_id=task.goal_id, kind=task.kind, reason="risk_budget_exceeded"))
                     continue
                 if spent_throughput + task.throughput_cost > state.risk_budget.router_m_max:
+                    omissions.append(TaskOmission(
+                        goal_id=task.goal_id, kind=task.kind, reason="throughput_budget_exceeded"))
                     continue
                 tasks.append(task)
                 spent_risk += task.risk_cost
