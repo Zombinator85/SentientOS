@@ -1,0 +1,38 @@
+{
+  "observed_behavior": {
+    "authority": "all false; no effect proven",
+    "history_conditions": [
+      "history_present",
+      "history_withheld",
+      "history_restored"
+    ],
+    "improvement_claimed": false,
+    "next_cycle": "projected proposal was readmitted through a fresh developmental owner tick",
+    "outcome": "changed",
+    "present_restored": "cited prior contradiction; avoided contradicted retry; requested more observation under unresolved attribution",
+    "recovery": "durable strategy result recovered without backend reinference",
+    "source": "SyntheticRenderer and SyntheticIndependentObserver with independently compared contradiction; canonical developmental writeback; fixture strategy backend",
+    "withheld": "repeated the previously contradicted action; did not request additional observation"
+  },
+  "remaining": "No real model was used; fixture backend is condition-aware. Improvement is not claimed. No physical event or execution is established.",
+  "sequence": 175,
+  "source_commit": "f770e573f7d366f051f14a692a09f3b8e96e4103",
+  "source_paths": [
+    "sentientos/embodied_consequence.py",
+    "tests/test_embodied_consequence.py",
+    "tests/test_resident_developmental_cognition.py"
+  ],
+  "source_tree": "1736db8a071dfbb94ebc80fe51da28a78b9ae8be",
+  "starting_head": "fe3af5dc69df936f5983e82367861efcde0ba0fb",
+  "starting_tree": "7011020d2333157d1cde38f520b4135409cb1566",
+  "status": "[untested] construction; deterministic fixture evidence only",
+  "title": "consequence-backed strategy cycle",
+  "validation": {
+    "diff_check": "passed",
+    "focused_strategy_pair": "2 passed",
+    "model_or_production_claim": false,
+    "py_compile": "passed",
+    "result": "26 passed",
+    "test_command": "PYTHONUSERBASE=.codex-userbase python -m scripts.run_tests -q tests/test_embodied_consequence.py tests/test_resident_developmental_cognition.py::test_admitted_embodied_consequence_conditions_later_strategy_comparison --tb=short"
+  }
+}

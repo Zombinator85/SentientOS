@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Task-family history is selected by exact public-probe overlap and checkpoint recency, with adverse outcomes retained. Prompt-budget suffix admission preserves the strongest-ranked packets as capacity shrinks, and sequence 174 validates variable-size packets, omissions, withheld prompts, and v7 selection-to-receipt custody under digest recomputation. Current validation remains fixture based.
+Sequence 175 connects independently compared synthetic consequence, normal developmental admission, later history-conditioned strategy comparison, durable restart, and a subsequent proposal admission cycle. The producer/consumer posture and source-digest binding defects discovered at this seam are repaired. Three strategy conditions showed fixture-level behavior differences; no improvement, real-model competence, or production effect is established.
 
-Latest source commit: beb2309ad717886e152514b2015ebcf279312b3c
-Latest source tree: ef66d4a582a222d1bf6825b40941fa0fba40b150
-Latest segment: work/construction/segments/0174-saturated-history-custody.md
-Segment SHA-256: b374d2fe66487ed12db4913cf2a163eade0e6747ba05df8059cdda92d14a5760
-Evidence: work/construction/evidence/0174-saturated-history-custody.json
-Evidence SHA-256: b1735d3203cff12cd823919f1571eaf8a75fe3291a44b670e12cbc76707ce743
-Sequence: 174
+Latest source commit: f770e573f7d366f051f14a692a09f3b8e96e4103
+Latest source tree: 1736db8a071dfbb94ebc80fe51da28a78b9ae8be
+Latest segment: work/construction/segments/0175-consequence-backed-strategy-cycle.md
+Segment SHA-256: d404ba175d557721f30dc54ecf4cf31d6848a064773a13a20ed79f8f0cb85e22
+Evidence: work/construction/evidence/0175-consequence-backed-strategy-cycle.json
+Evidence SHA-256: d25cee1c033a18de0d3d23f4a452ae18ab6ba6845488f677d82abe91dc9df758
+Sequence: 175
 
-Next: compose held-out transfer where all relevant historical probes are disjoint from the current task, with correct, contradictory, adverse, and irrelevant experiences under identical evaluator and task commitments. Then connect an existing consequence-backed strategy decision to the same admitted-history path. No real-model behavior or production effect was measured.
+Next: prepare a contamination-audited operator-mediated Codex packet with real admitted history, distinct held-out tasks, separate sealed evaluator instructions, and session contamination limits. Continue longitudinal causal and interruption coverage from actual canonical stores. Keep all inference and proposal effects non-authoritative.
