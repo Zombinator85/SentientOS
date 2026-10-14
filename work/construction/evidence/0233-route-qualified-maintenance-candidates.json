@@ -1,0 +1,37 @@
+{
+  "sequence": 233,
+  "title": "Route-qualified maintenance candidates",
+  "source_commit": "92930ab6f3620c40651eb592a71dac4cc453a427",
+  "source_tree": "07d7576343692b7996eedb2cef1b22c87bd8620c",
+  "source_parent_commit": "b05b563895e16bfe614d47e8d22b8cdfb340b6d4",
+  "source_parent_tree": "643c271513741679d75d96916b9fdf28869c5845",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "b05b563895e16bfe614d47e8d22b8cdfb340b6d4",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7239,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {"path": "sentientos/maintenance_candidate.py", "sha": "0e7ab4710335e2c18277a23aed209393d20e66e3", "mode": "100644"},
+    {"path": "sentientos/maintenance_candidate_collector.py", "sha": "e5bd67c921bf5837f03418569a22a6f130ace088", "mode": "100644"},
+    {"path": "tests/maintenance_watchdog_implementation_fixtures.py", "sha": "7d084f22304a4f3a4b3c3b5ce995f8bd8163eda2", "mode": "100644"},
+    {"path": "tests/test_maintenance_candidate_collector_closed_loop.py", "sha": "44ccac1cc766ef85466b57e388010655deec8124", "mode": "100644"},
+    {"path": "tests/test_maintenance_post_adoption_attribution_campaign.py", "sha": "1e5241b71030bf8bba06cbcb4d02843ac03e614f", "mode": "100644"},
+    {"path": "docs/development/campaign_signal_proposal_candidate_task_acceptance.json", "sha": "71c5c0d91d777f41c8257f86697df209020e11b2", "mode": "100644"}
+  ],
+  "validation": {
+    "focused_tests": "19 passed",
+    "targeted_mypy": "passed for sentientos/maintenance_candidate.py and sentientos/maintenance_candidate_collector.py",
+    "python_compile": "passed for affected Python files",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "Campaign outcomes remain synthetic fixtures and their control-source issuers are unverified.",
+    "The proposal candidate grants no task admission, execution, repository mutation, or adoption authority."
+  ]
+}
