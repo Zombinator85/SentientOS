@@ -18,6 +18,11 @@ _TASK_FIELDS = {"schema_version", "task_id", "goal_id", "kind", "commands", "cal
     "depends_on"}
 _LEGACY_TASK_FIELDS = _TASK_FIELDS - {"depends_on"}
 _OMISSION_FIELDS = {"goal_id", "kind", "reason"}
+_OMISSION_KINDS_BY_REASON = {
+    "task_kind_not_implemented": {"fetch", "doc_update"},
+    "risk_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
+    "throughput_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
+}
 
 
 class WorkPlanError(ValueError):
@@ -349,8 +354,8 @@ def load_work_plan(path: Path) -> WorkPlan:
         if (not isinstance(row, dict) or set(row) != _OMISSION_FIELDS
                 or not isinstance(row.get("goal_id"), str) or row["goal_id"] not in goals
                 or not isinstance(row.get("kind"), str)
-                or row["kind"] not in {"fetch", "doc_update"}
-                or row.get("reason") != "task_kind_not_implemented"
+                or not isinstance(row.get("reason"), str)
+                or row["kind"] not in _OMISSION_KINDS_BY_REASON.get(row["reason"], set())
                 or (row["goal_id"], row["kind"]) in omission_ids):
             raise WorkPlanError("work_plan_omissions_invalid")
         omission_ids.add((row["goal_id"], row["kind"]))

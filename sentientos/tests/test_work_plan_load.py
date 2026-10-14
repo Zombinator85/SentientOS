@@ -61,6 +61,17 @@ def test_malformed_planning_omission_rejects_plan(tmp_path: Path) -> None:
         load_work_plan(path)
 
 
+def test_omission_reason_must_match_task_kind(tmp_path: Path) -> None:
+    payload = _plan().to_dict()
+    payload["omissions"] = [{"goal_id": "goal-1", "kind": "diagnostic",
+        "reason": "task_kind_not_implemented"}]
+    path = tmp_path / "mismatched-omission.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(WorkPlanError, match="work_plan_omissions_invalid"):
+        load_work_plan(path)
+
+
 def test_missing_task_dependency_rejects_plan(tmp_path: Path) -> None:
     payload = _plan().to_dict()
     payload["tasks"][1]["depends_on"] = ["missing-task"]

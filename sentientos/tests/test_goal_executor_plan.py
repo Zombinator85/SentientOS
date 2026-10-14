@@ -6,6 +6,7 @@ from sentientos.goal_executor import ExecutorState, GoalExecutor
 from sentientos.goal_graph import Goal, GoalGraph
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
+from sentientos.work_plan import load_work_plan, persist_work_plan
 
 
 def test_build_plan_is_deterministic_and_budgeted(tmp_path: Path) -> None:
@@ -66,6 +67,7 @@ def test_build_plan_records_risk_budget_omissions(tmp_path: Path) -> None:
     ]
     assert ("g1", "doc_update", "task_kind_not_implemented") in {
         (item.goal_id, item.kind, item.reason) for item in plan.omissions}
+    assert load_work_plan(tmp_path / persist_work_plan(tmp_path, plan)) == plan
 
 
 def test_build_plan_records_throughput_budget_omissions(tmp_path: Path) -> None:
@@ -85,6 +87,7 @@ def test_build_plan_records_throughput_budget_omissions(tmp_path: Path) -> None:
         if item.reason == "throughput_budget_exceeded"] == [
         ("g1", "verify", "throughput_budget_exceeded"),
     ]
+    assert load_work_plan(tmp_path / persist_work_plan(tmp_path, plan)) == plan
 
 
 def test_plan_records_unimplemented_task_kinds_without_executable_rows(tmp_path: Path) -> None:
