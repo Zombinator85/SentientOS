@@ -1,0 +1,65 @@
+{
+  "empirical_status": {
+    "actual_model_behavior": false,
+    "fixture_results_only": true,
+    "production_effect": false,
+    "real_codex_subject_sessions": 0
+  },
+  "mechanism": {
+    "applicability": "operator-declared shared mapping; not independently verified",
+    "blindness": "opaque randomized packet order; condition mapping withheld from subject; fresh sessions require operator execution",
+    "conditions": [
+      "history_present",
+      "history_withheld",
+      "history_restored",
+      "irrelevant_history",
+      "adverse_history"
+    ],
+    "scoring": {
+      "key_custody": "separate scorer-only manifest with salted commitment",
+      "outcomes": [
+        "per-probe exactness",
+        "correct count and denominator",
+        "full-task result",
+        "malformed/unscoreable output",
+        "interrupted/not-run",
+        "reported setting match"
+      ]
+    },
+    "source_controls": [
+      "canonical history store record identity",
+      "matching immutable writeback receipt",
+      "source-score-bound examples",
+      "exact source facts and record/fact/source digests",
+      "held-out probes disjoint from all source inputs",
+      "adverse examples retained"
+    ]
+  },
+  "remaining": "Requires qualifying positive, irrelevant, and adverse canonical admitted records and operator-run fresh isolated Codex sessions. No cross-session contamination has been tested.",
+  "sequence": 176,
+  "source_commit": "14c03a5c849f6859ea0701901790f0d63582093b",
+  "source_paths": [
+    "sentientos/codex_transfer_packet.py",
+    "scripts/build_codex_transfer_packet.py",
+    "scripts/score_codex_transfer_packet.py",
+    "tests/test_codex_transfer_packet.py",
+    "work/experiments/operator_codex_transfer_v1.md"
+  ],
+  "source_tree": "212abd52ac819141150a0ec42a26d9a62b973630",
+  "starting_head": "65ab6af52e5785647b427b5a5faff5e10600a2c0",
+  "starting_tree": "bc933aab536bd6dddd55e1e4937a15815dc06daa",
+  "status": "[untested] construction; operator-run protocol only",
+  "title": "operator-mediated Codex transfer packet",
+  "validation": {
+    "cli_help": "builder and scorer passed",
+    "diff_check": "passed",
+    "groups": [
+      "packet/scorer adversarial tests",
+      "embodied consequence suite",
+      "source-backed held-out/adverse progression and restart",
+      "strategy consequence integration"
+    ],
+    "py_compile": "passed",
+    "tests": "32 passed"
+  }
+}
