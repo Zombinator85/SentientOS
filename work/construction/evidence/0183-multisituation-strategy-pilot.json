@@ -1,0 +1,34 @@
+{
+  "sequence": 183,
+  "title": "Multi-situation blinded strategy transfer pilot",
+  "status": "[untested] construction",
+  "starting_head": "bf58f0f259cf2ee53c5cea6763ba9f7032d324d7",
+  "starting_tree": "cf49aa903dbf777c62da0496f4a81c8072f1579b",
+  "source_commit": "c4f60a174f40bc70890fa9de70b4e580d7b6c31a",
+  "source_tree": "e40025d183464d5b1e820549012229affd23c0cb",
+  "source_paths": [
+    {"path":"sentientos/codex_strategy_multitrial.py","blob":"106063a2cdf44d5ac9e9e2bc2cf05ace296da10c","sha256":"ba04b59783f63113e7c86c075991a96136b853c15bc4579ecdf9bb9aed447bc3"},
+    {"path":"sentientos/operator_codex_response_journal.py","blob":"680339ebe8ec18c5ebab5b79f3d874590fea01d3","sha256":"a80abf7bd3db7198f68af0cf2dee488c8b1f83f31c5f1a8d3b2981f09d6a82a4"},
+    {"path":"scripts/build_codex_strategy_multitrial.py","blob":"4d8400224501fb577273f939917c74d06064c203","sha256":"7721c10d121ee129aea2679c99d59e7c8e2c6c7569e45305cda72dff176349c7"},
+    {"path":"scripts/score_codex_strategy_multitrial.py","blob":"a4e39b6e16c76d41581ef6079c9ed587505c7d34","sha256":"3bb63e367c43b5a120c86932fa53ca85287c5bcf06e950e684171e66168bb2fc"},
+    {"path":"tests/test_embodied_consequence.py","blob":"deb4e3a818e294e75c70b451bd9606db5cfc203b","sha256":"a5cfb3364778b440b2fd97bb45dffe2c9aa500d1d839703e9a7bc5ac3af83dd9"},
+    {"path":"work/experiments/operator_codex_strategy_transfer_v1.md","blob":"2a67ce8eea9ef01925a7159c53ca3e7e6593f4a7","sha256":"a1408dc819f9430962193983667201f85605b8fc90c44701603c455f6dbf9c73"}
+  ],
+  "behavior": {
+    "bounded_situation_count":{"minimum":2,"maximum":12},
+    "conditions_per_situation":["history_present","history_withheld","history_restored"],
+    "registration":"outer digest binds all situation identities, nested registrations, and packet digests",
+    "session_comparison":"globally duplicate external session IDs prevent aggregate score",
+    "report":"per-situation results and scoreable-task numerator/denominator; descriptive only"
+  },
+  "validation": {
+    "focused_bundle":"73 passed",
+    "multitrial_cli_fixture":"passed",
+    "compileall":"passed",
+    "targeted_mypy":"4 source and CLI files passed",
+    "cli_help":"passed",
+    "diff_check":"passed"
+  },
+  "remote_readback":{"branch_head":"c4f60a174f40bc70890fa9de70b4e580d7b6c31a","tree":"e40025d183464d5b1e820549012229affd23c0cb","changed_blobs":"all six paths resolved in recursive tree and independently fetched"},
+  "limitations":"Fixture-tested; zero real Codex sessions. One historic consequence is repeated across situations. Two situations do not support statistical significance or generalized transfer. Operator-reported serving identity and session settings are not independently authenticated. No effects or weight update are claimed."
+}
