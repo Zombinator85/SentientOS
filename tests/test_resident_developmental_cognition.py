@@ -2548,6 +2548,10 @@ print(json.dumps({"run_id":run["run_id"],"objective_evaluation":run["objective_e
         "selected_facts"][0]["payload"]
     assert retained["objective_evaluation"]["history_correct_probe_delta"] == 2
     assert [item["correct_count"] for item in retained["objective_scores"]] == [2, 0, 2]
+    assert retained["execution_evidence_posture"] == "incomplete_or_unverified_condition_receipts"
+    assert all(item["receipt_identity_verified"] is False
+        and item["posture"] == "receipt_unbound_or_identity_mismatch"
+        for item in retained["execution_evidence_conditions"])
     recovered, invoker = developmental_owner(downstream_root,
         allowed_source_kinds=("embodiment",), max_selected_facts=1)
     later = recovered.run_tick(snapshot=snapshot_value, tick_id="suite-history-tick-n-plus-one")

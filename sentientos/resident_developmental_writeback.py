@@ -1330,6 +1330,7 @@ def _developmental_history_interpretation_projection(
             "receipt_reports_simulation_or_no_backend_entry",
             "verified_owner_receipt_reports_backend_entry",
             "receipt_does_not_establish_backend_entry",
+            "receipt_unbound_or_identity_mismatch",
         }
         if (execution_present != execution_keys
                 or original.get("execution_evidence_scope") != (
@@ -1345,7 +1346,7 @@ def _developmental_history_interpretation_projection(
                 if row.get("condition_id") == expected_condition), None)
             if (not isinstance(item, Mapping)
                     or item.get("condition_id") != expected_condition
-                    or item.get("receipt_identity_verified") is not True
+                    or type(item.get("receipt_identity_verified")) is not bool
                     or item.get("posture") not in allowed_postures
                     or not isinstance(receipt_condition, Mapping)
                     or item.get("invocation_receipt_id")
@@ -1362,7 +1363,15 @@ def _developmental_history_interpretation_projection(
                         for character in (receipt_condition["inference_receipt_digest"][7:]
                             if len(receipt_condition["inference_receipt_digest"]) == 71
                             else receipt_condition["inference_receipt_digest"]))
-                    or not isinstance(item.get("receipt_status"), str)
+                    or (item.get("receipt_identity_verified") is True
+                        and not isinstance(item.get("receipt_status"), str))
+                    or (item.get("receipt_identity_verified") is False
+                        and (item.get("posture") != "receipt_unbound_or_identity_mismatch"
+                            or item.get("receipt_status") is not None
+                            or item.get("local_model_inference_effect") is not None
+                            or item.get("fallback_occurred") is not None))
+                    or (item.get("receipt_identity_verified") is True
+                        and item.get("posture") == "receipt_unbound_or_identity_mismatch")
                     or (item.get("local_model_inference_effect") is not None
                         and type(item.get("local_model_inference_effect")) is not bool)
                     or (item.get("fallback_occurred") is not None
@@ -1370,13 +1379,28 @@ def _developmental_history_interpretation_projection(
                     or item.get("independent_backend_observation") is not False):
                     raise DevelopmentalWritebackError(
                         "developmental_history_execution_condition_invalid")
-            execution_summary.append({key: item.get(key) for key in (
-                "condition_id", "receipt_identity_verified", "receipt_status",
-                "local_model_inference_effect", "fallback_occurred", "posture",
-                "independent_backend_observation")}
-                | {"invocation_receipt_digest": receipt_condition[
-                    "inference_receipt_digest"]})
+            if item["receipt_identity_verified"] is True:
+                execution_summary.append({key: item.get(key) for key in (
+                    "condition_id", "receipt_identity_verified", "receipt_status",
+                    "local_model_inference_effect", "fallback_occurred", "posture",
+                    "independent_backend_observation")}
+                    | {"invocation_receipt_id": receipt_condition["inference_receipt_id"],
+                        "invocation_receipt_digest": receipt_condition[
+                            "inference_receipt_digest"]})
+            else:
+                # Keep the recorded invocation identity and explicit unverified
+                # posture, but omit three unavailable null metadata fields.
+                execution_summary.append({"condition_id": expected_condition,
+                    "receipt_identity_verified": False,
+                    "posture": "receipt_unbound_or_identity_mismatch",
+                    "invocation_receipt_id": receipt_condition["inference_receipt_id"],
+                    "invocation_receipt_digest": receipt_condition[
+                        "inference_receipt_digest"]})
         expected_execution_posture = (
+            "incomplete_or_unverified_condition_receipts"
+            if any(item["receipt_identity_verified"] is not True
+                for item in execution_summary)
+            else
             "all_owner_receipts_report_backend_entry"
             if all(item["posture"] == "verified_owner_receipt_reports_backend_entry"
                 for item in execution_summary)

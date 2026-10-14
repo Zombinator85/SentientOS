@@ -1167,6 +1167,7 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 "receipt_reports_simulation_or_no_backend_entry",
                 "verified_owner_receipt_reports_backend_entry",
                 "receipt_does_not_establish_backend_entry",
+                "receipt_unbound_or_identity_mismatch",
             }
             expected_conditions = ("history_present", "history_withheld", "history_restored")
             for expected_condition, item, receipt_condition in zip(
@@ -1175,7 +1176,9 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         or not isinstance(receipt_condition, Mapping)
                         or item.get("condition_id") != expected_condition
                         or receipt_condition.get("condition_id") != expected_condition
-                        or item.get("receipt_identity_verified") is not True
+                        or type(item.get("receipt_identity_verified")) is not bool
+                        or item.get("invocation_receipt_id")
+                            != receipt_condition.get("inference_receipt_id")
                         or item.get("invocation_receipt_digest")
                             != receipt_condition.get("inference_receipt_digest")
                         or item.get("posture") not in allowed_condition_postures
@@ -1189,7 +1192,15 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                             for character in (receipt_condition["inference_receipt_digest"][7:]
                                 if len(receipt_condition["inference_receipt_digest"]) == 71
                                 else receipt_condition["inference_receipt_digest"]))
-                        or not isinstance(item.get("receipt_status"), str)
+                        or (item.get("receipt_identity_verified") is True
+                            and not isinstance(item.get("receipt_status"), str))
+                        or (item.get("receipt_identity_verified") is False
+                            and (item.get("posture") != "receipt_unbound_or_identity_mismatch"
+                                or item.get("receipt_status") is not None
+                                or item.get("local_model_inference_effect") is not None
+                                or item.get("fallback_occurred") is not None))
+                        or (item.get("receipt_identity_verified") is True
+                            and item.get("posture") == "receipt_unbound_or_identity_mismatch")
                         or (item.get("local_model_inference_effect") is not None
                             and type(item.get("local_model_inference_effect")) is not bool)
                         or (item.get("fallback_occurred") is not None
@@ -1199,6 +1210,7 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                     break
                 execution_conditions.append({
                     "condition_id": item.get("condition_id"),
+                    "receipt_identity_verified": item.get("receipt_identity_verified"),
                     "invocation_receipt_id": receipt_condition.get("inference_receipt_id"),
                     "invocation_receipt_digest": receipt_condition.get("inference_receipt_digest"),
                     **{key: item.get(key) for key in (
@@ -1208,6 +1220,10 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             if not valid:
                 continue
             derived_posture = (
+                "incomplete_or_unverified_condition_receipts"
+                if any(item["receipt_identity_verified"] is not True
+                    for item in execution_conditions)
+                else
                 "all_owner_receipts_report_backend_entry"
                 if all(item["posture"] == "verified_owner_receipt_reports_backend_entry"
                     for item in execution_conditions)
