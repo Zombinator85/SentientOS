@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from sentientos.work_plan import (
-    Task, WorkPlan, WorkPlanError, load_work_plan, persist_work_plan,
+    Task, TaskRun, WorkPlan, WorkPlanError, WorkPlanRun, load_work_plan,
+    persist_work_plan, persist_work_run,
 )
 
 
@@ -24,6 +26,35 @@ def test_version_one_plan_round_trips_without_coercion(tmp_path: Path) -> None:
     path = tmp_path / persist_work_plan(tmp_path, plan)
 
     assert load_work_plan(path) == plan
+
+
+def test_persisted_plan_identity_is_write_once(tmp_path: Path) -> None:
+    plan = _plan()
+    relative = persist_work_plan(tmp_path, plan)
+    path = tmp_path / relative
+    original = path.read_bytes()
+
+    assert persist_work_plan(tmp_path, plan) == relative
+    assert len((tmp_path / "pulse/work_plans.jsonl").read_text().splitlines()) == 1
+    with pytest.raises(WorkPlanError, match="work_plan_artifact_identity_conflict"):
+        persist_work_plan(tmp_path, replace(plan, context="changed"))
+    assert path.read_bytes() == original
+
+
+def test_persisted_run_identity_is_write_once(tmp_path: Path) -> None:
+    run = WorkPlanRun(1, "run-1", "plan-1", "2026-01-01T00:00:00Z", "ok",
+        "normal", False,
+        (TaskRun("task-1", "goal-1", "diagnostic", "success", None,
+            "2026-01-01T00:00:00Z", "2026-01-01T00:00:01Z", 1, (), False),), ())
+    relative = persist_work_run(tmp_path, run)
+    path = tmp_path / relative
+    original = path.read_bytes()
+
+    assert persist_work_run(tmp_path, run) == relative
+    assert len((tmp_path / "pulse/work_runs.jsonl").read_text().splitlines()) == 1
+    with pytest.raises(WorkPlanError, match="work_plan_artifact_identity_conflict"):
+        persist_work_run(tmp_path, replace(run, status="failed"))
+    assert path.read_bytes() == original
 
 
 def test_malformed_task_row_rejects_whole_plan(tmp_path: Path) -> None:

@@ -107,41 +107,60 @@ class WorkPlanRun:
 def persist_work_plan(repo_root: Path, plan: WorkPlan) -> str:
     root = repo_root.resolve()
     plan_path = root / WORK_PLAN_DIR / f"plan_{_safe_id(plan.created_at)}.json"
-    plan_path.parent.mkdir(parents=True, exist_ok=True)
-    plan_path.write_text(json.dumps(plan.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    _append_jsonl(
-        root / WORK_PLAN_PULSE_PATH,
-        {
-            "created_at": plan.created_at,
-            "plan_id": plan.plan_id,
-            "context": plan.context,
-            "selected_goals": list(plan.selected_goals),
-            "task_count": len(plan.tasks),
-            "path": str(plan_path.relative_to(root)),
-        },
-    )
+    if _write_json_once(plan_path, plan.to_dict()):
+        _append_jsonl(
+            root / WORK_PLAN_PULSE_PATH,
+            {
+                "created_at": plan.created_at,
+                "plan_id": plan.plan_id,
+                "context": plan.context,
+                "selected_goals": list(plan.selected_goals),
+                "task_count": len(plan.tasks),
+                "path": str(plan_path.relative_to(root)),
+            },
+        )
     return str(plan_path.relative_to(root))
 
 
 def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
     root = repo_root.resolve()
     run_path = root / "glow/forge/work_runs" / f"run_{_safe_id(run.created_at)}_{run.plan_id}.json"
-    run_path.parent.mkdir(parents=True, exist_ok=True)
-    run_path.write_text(json.dumps(run.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    _append_jsonl(
-        root / "pulse/work_runs.jsonl",
-        {
-            "created_at": run.created_at,
-            "run_id": run.run_id,
-            "plan_id": run.plan_id,
-            "status": run.status,
-            "operating_mode": run.operating_mode,
-            "quarantine_active": run.quarantine_active,
-            "task_count": len(run.task_runs),
-            "path": str(run_path.relative_to(root)),
-        },
-    )
+    if _write_json_once(run_path, run.to_dict()):
+        _append_jsonl(
+            root / "pulse/work_runs.jsonl",
+            {
+                "created_at": run.created_at,
+                "run_id": run.run_id,
+                "plan_id": run.plan_id,
+                "status": run.status,
+                "operating_mode": run.operating_mode,
+                "quarantine_active": run.quarantine_active,
+                "task_count": len(run.task_runs),
+                "path": str(run_path.relative_to(root)),
+            },
+        )
     return str(run_path.relative_to(root))
+
+
+def _write_json_once(path: Path, value: dict[str, object]) -> bool:
+    """Write an immutable artifact, allowing only an exact idempotent replay."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        with path.open("xb") as handle:
+            handle.write(encoded)
+            handle.flush()
+    except FileExistsError:
+        try:
+            existing = path.read_bytes()
+        except OSError as exc:
+            raise WorkPlanError("work_plan_artifact_unreadable") from exc
+        if existing != encoded:
+            raise WorkPlanError("work_plan_artifact_identity_conflict")
+        return False
+    except OSError as exc:
+        raise WorkPlanError("work_plan_artifact_write_failed") from exc
+    return True
 
 
 def load_work_plan(path: Path) -> WorkPlan:
