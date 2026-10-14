@@ -173,6 +173,13 @@ def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_
     assert evaluation_value.summary["adoption_performed"] is False
     assert evaluation_value.summary["repository_mutation_performed"] is False
     assert evaluation_value.summary["provider_network_git_operation_performed"] is False
+    from sentientos.maintenance_candidate import adapt_governed_signal
+    candidate = adapt_governed_signal(signal, base_repository_sha="b05b563895e16bfe614d47e8d22b8cdfb340b6d4")
+    assert candidate.confidence == "low"
+    assert candidate.source_reference == signal.signal_id
+    assert "result_digest:" + result.result_digest in candidate.evidence_references
+    assert "source_issuers_unverified" in candidate.declared_constraints
+    assert candidate.requested_authority_classes == ("proposal_selection_only",)
     assert selected.verify() == writer.verify()
     assert decision.allowed is True
     reset_runtime_governor()

@@ -22,7 +22,8 @@ pytestmark = pytest.mark.no_legacy_skip
 
 def test_process_real_governed_source_to_fake_publication_reaches_idle(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     cfg, roots, repo = setup(tmp_path, closed_loop=True,
-        validation_expectations=["pytest_node:tests/fake.py::test_corrected"])
+        validation_expectations=["pytest_node:tests/fake.py::test_corrected"],
+        extra_candidate_kinds=("test_failure",))
     # setup's candidate represents the forbidden operator relay; remove it before
     # producing the one canonical governed source revision.
     for path in roots["inbox"].glob("*.json"):
@@ -64,8 +65,9 @@ def test_process_real_governed_source_to_fake_publication_reaches_idle(tmp_path:
     source_root = tmp_path / "sources"; source_root.mkdir()
     work_root = tmp_path / "work-sources"; work_root.mkdir()
     signal = signal_plane.normalize_record({
-        "source_kind": "run_tests", "finding_kind": "code", "severity": "high",
+        "source_kind": "run_tests", "finding_kind": "test_failure", "severity": "high",
         "description": "Change allowed.txt deterministically", "subject_path": "allowed.txt",
+        "spec_id": "tests/fake.py::test_corrected",
         "source_artifact": "failure.json", "source_digest": "sha256:" + "1" * 64,
         "evidence_refs": ["operator:test"], "declared_validation_expectations": ["pytest_node:tests/fake.py::test_corrected"],
         "requested_authority_classes": policy["available_authority_classes"], "declared_constraints": ["bounded"],
@@ -105,3 +107,31 @@ def test_process_real_governed_source_to_fake_publication_reaches_idle(tmp_path:
     publication = next(t["effect_result"] for t in run["ticks"] if t["transition"] == "publish")
     assert all(publication[key] is False for key in ("force_push_used", "merge_performed", "hosted_checks_waited", "credential_bytes_inspected", "operator_message_relayed"))
     assert subprocess.run(["git", "ls-remote", "origin", "refs/heads/main"], cwd=repo, text=True, capture_output=True, check=True).stdout.split()[0] != cfg["base_sha"]
+
+
+def test_candidate_consumer_ignores_diagnostic_and_blocked_signal_routes(tmp_path: Path) -> None:
+    evaluation = signal_plane.evaluate_signal_plane([
+        {"source_kind": "post_adoption_attribution_campaign", "finding_kind": "diagnostic",
+         "severity": "high", "description": "confounded historical campaign", "spec_id": "campaign:one"},
+        {"source_kind": "telemetry", "finding_kind": "recurring_failure", "severity": "high",
+         "description": "no target spec exists"},
+    ], repo_root=tmp_path)
+    assert {receipt.disposition for receipt in evaluation.receipts} == {"gap_seeker_diagnostic", "blocked_invalid"}
+    assert collector._proposal_signal_records(evaluation.to_dict()) == []
+
+
+def test_campaign_source_uncertainty_survives_candidate_adaptation(tmp_path: Path) -> None:
+    signal = signal_plane.normalize_record({
+        "source_kind": "post_adoption_attribution_campaign", "finding_kind": "recurring_failure",
+        "severity": "high", "description": "campaign-level protected regression",
+        "spec_id": "attribution-campaign:fixture", "source_digest": "sha256:" + "a" * 64,
+        "evidence_refs": ["result_digest:sha256:" + "b" * 64,
+            "source_posture:control_source_issuers_unverified"],
+        "declared_constraints": ["proposal_only"],
+    }, repo_root=tmp_path)
+    candidate = collector.candidates.adapt_governed_signal(signal, base_repository_sha="f" * 40)
+    assert candidate.confidence == "low"
+    assert "result_digest:sha256:" + "b" * 64 in candidate.evidence_references
+    assert "source_posture:control_source_issuers_unverified" in candidate.evidence_references
+    assert "source_issuers_unverified" in candidate.declared_constraints
+    assert candidate.requested_authority_classes == ("proposal_selection_only",)
