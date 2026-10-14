@@ -1,15 +1,17 @@
 # Active construction checkpoint
 
-Sequence 183 extends the operator strategy experiment to 2–12 separately bound situations, with a randomized present/withheld/restored packet trio per situation, an outer preregistration binding all packets, per-task scoring and explicit aggregate denominators. Global session reuse blocks aggregate scoring. Sequence 182 added the create-once response journal; sequence 181 added the single-situation strategy proposal/scorer. Sequences 179–180 repaired affine packet integrity and isolated subject/scorer destinations.
+Sequence 184 repairs later cognition rejecting source records whose owner receipts were recorded but could not be independently matched to a serving session. Those cases retain `receipt_identity_verified=false`, `receipt_unbound_or_identity_mismatch`, source receipt IDs/digests, an incomplete/unverified aggregate posture, and `independent_backend_observation=false`. They now pass through the exact evidence budget without changing admission or execution policy.
 
-Latest source commit: c4f60a174f40bc70890fa9de70b4e580d7b6c31a
-Latest source tree: e40025d183464d5b1e820549012229affd23c0cb
-Latest segment: work/construction/segments/0183-multisituation-strategy-pilot.md
-Evidence: work/construction/evidence/0183-multisituation-strategy-pilot.json
-Sequence: 183
+Sequence 183 added multi-situation strategy packets and per-task descriptive reports; sequence 182 added write-once response journaling; sequence 181 added the operator-mediated strategy experiment. Sequences 179–180 repaired affine packet integrity and output isolation.
 
-Validation: all 73 focused packet, history-intervention, writeback, strategy, and consequence tests passed; multi-task success, registration-tampering, duplicate-session and partial-journal paths passed. Compileall, targeted mypy, CLI help, and diff checks passed.
+Latest source commit: 9f90356316d50aeef58e4912be1bd93098f686f6
+Latest source tree: 86ab46ae1abf3cfad74ff0371adf0fa0c863acb3
+Latest segment: work/construction/segments/0184-unverified-receipt-history-projection.md
+Evidence: work/construction/evidence/0184-unverified-receipt-history-projection.json
+Sequence: 184
 
-Known blockers: broad resident cognition test still fails downstream writeback with `developmental_history_execution_condition_invalid`; strategy resource-lineage integration cannot collect because `cryptography` is absent. No fresh Codex subject sessions or real-model results were produced.
+Validation: six staging/progression/restart tests passed; 73 focused packet/history/writeback/strategy/consequence tests passed; compileall, changed-region typing inspection, and diff checks passed. Whole-file mypy still reports existing issues outside the edited regions.
 
-Next: validate multi-trial partial completion and journal-backed scoring CLI, then determine whether multiple verified consequence records can be selected for this experiment without changing source applicability or frozen task identity.
+Known blockers: strategy resource-lineage integration cannot collect because `cryptography` is absent. No fresh Codex subject sessions or real-model results were produced. A broad cognition integration defect was repaired here; no remaining reproduction is known for that path.
+
+Next: test multi-trial journal-backed scoring with incomplete task sets, then determine whether more than one verified consequence can be included while preserving event-level causal applicability and independent scoring.
