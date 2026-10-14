@@ -397,3 +397,26 @@ def test_developmental_history_inventory_rejects_linked_json_file(tmp_path: Path
     with pytest.raises(DevelopmentalWritebackError):
         store.records()
     assert external.read_text(encoding="utf-8") == "{}"
+
+
+def test_completed_inventory_exports_receipt_digest_from_receipt_identity(tmp_path: Path) -> None:
+    ctrl, authority = controller(tmp_path)
+    _selection, candidate, _fake = candidate_for(ctrl)
+    record, receipt = ctrl.append(candidate, admission=issue(authority, candidate),
+        operation_id="op-1", correlation_id="receipt-evidence", created_at="fixed")
+
+    verified = ctrl.inspect_completed_records()
+    assert len(verified) == 1
+    inventory_record, inventory_receipt = verified[0]
+    assert inventory_record.record_id == record.record_id
+    assert inventory_receipt.receipt_id == receipt.receipt_id
+    evidence = {
+        "record_digest": inventory_record.record_digest,
+        "writeback_receipt_id": inventory_receipt.receipt_id,
+        "writeback_receipt_digest": inventory_receipt.receipt_digest,
+    }
+
+    assert evidence["record_digest"] == record.record_digest
+    assert evidence["writeback_receipt_digest"] == receipt.receipt_digest
+    assert evidence["writeback_receipt_digest"] != evidence["record_digest"]
+    assert evidence["writeback_receipt_id"].startswith("devreceipt-")
