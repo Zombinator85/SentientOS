@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "ebfec9abeb2fa00b89a6a705fac56d67d8c95eb1c95300d4eda85c007e77f32e",
-    "latest_segment_sequence": 171,
-    "latest_segment_sha256": "61bd62d0c49a76b6678384ae89812af0fc83bd6ceaf1cf2a68ff9eb7131d3573",
-    "source_commit": "cabb61b31de94c50b5375e2eedee70cd2e099069",
-    "source_tree": "49564edd7381f823a5836c3784147851db637d25"
+    "checkpoint_sha256": "69895abdff5e9bc9c54250f4076a2f946409328c0a93aebf7b5fe90aa94a7a19",
+    "latest_segment_sequence": 174,
+    "latest_segment_sha256": "b374d2fe66487ed12db4913cf2a163eade0e6747ba05df8059cdda92d14a5760",
+    "source_commit": "beb2309ad717886e152514b2015ebcf279312b3c",
+    "source_tree": "ef66d4a582a222d1bf6825b40941fa0fba40b150"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -1660,6 +1660,42 @@
       "evidence_path": "work/construction/evidence/0171-task-family-execution-posture.json",
       "evidence_bytes": 1612,
       "evidence_sha256": "89dcab7eb11c93ee9bef8061be8cacd30b3c34629ade953ad6ce2dd54e4bb114"
+    },
+    {
+      "sequence": 172,
+      "path": "work/construction/segments/0172-bounded-task-relevance-and-protocol-identity.md",
+      "bytes": 1860,
+      "sha256": "54cd1eb808dec1d9377e8bb85e4ee53daa53e88c293a0b47d06772083146c76c",
+      "predecessor": "segment-sha256:61bd62d0c49a76b6678384ae89812af0fc83bd6ceaf1cf2a68ff9eb7131d3573",
+      "source_commit": "32c1291a481416b207a8f6947f3f959df8982970",
+      "source_tree": "615c8439fc9607690c4498b982ed9973d0421059",
+      "evidence_path": "work/construction/evidence/0172-bounded-task-relevance-and-protocol-identity.json",
+      "evidence_bytes": 2689,
+      "evidence_sha256": "ead34c37a6e5819cd54d68dcc15b9355b5e7b48a61cc54566557d5ab599fae6f"
+    },
+    {
+      "sequence": 173,
+      "path": "work/construction/segments/0173-preserve-relevance-under-prompt-capacity.md",
+      "bytes": 1412,
+      "sha256": "9bf7d6b82963797f5f1d017f6d212a817852d6781fabaf000ab66e61e32bbab3",
+      "predecessor": "segment-sha256:54cd1eb808dec1d9377e8bb85e4ee53daa53e88c293a0b47d06772083146c76c",
+      "source_commit": "205a84168a4128df5cfbbb36435970481e1e5343",
+      "source_tree": "c3e346bc429e228b186ca345adbb986ad08b6607",
+      "evidence_path": "work/construction/evidence/0173-preserve-relevance-under-prompt-capacity.json",
+      "evidence_bytes": 2074,
+      "evidence_sha256": "c61c60f18f6273debca1c2325cbe8725933b4df26a5838f3d064105bb4782d93"
+    },
+    {
+      "sequence": 174,
+      "path": "work/construction/segments/0174-saturated-history-custody.md",
+      "bytes": 2106,
+      "sha256": "b374d2fe66487ed12db4913cf2a163eade0e6747ba05df8059cdda92d14a5760",
+      "predecessor": "segment-sha256:9bf7d6b82963797f5f1d017f6d212a817852d6781fabaf000ab66e61e32bbab3",
+      "source_commit": "beb2309ad717886e152514b2015ebcf279312b3c",
+      "source_tree": "ef66d4a582a222d1bf6825b40941fa0fba40b150",
+      "evidence_path": "work/construction/evidence/0174-saturated-history-custody.json",
+      "evidence_bytes": 3286,
+      "evidence_sha256": "b1735d3203cff12cd823919f1571eaf8a75fe3291a44b670e12cbc76707ce743"
     }
   ],
   "source_acquisition": {

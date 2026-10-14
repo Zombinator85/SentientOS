@@ -1,0 +1,54 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 174,
+  "source_commit": "beb2309ad717886e152514b2015ebcf279312b3c",
+  "source_tree": "ef66d4a582a222d1bf6825b40941fa0fba40b150",
+  "predecessor_segment_sha256": "9bf7d6b82963797f5f1d017f6d212a817852d6781fabaf000ab66e61e32bbab3",
+  "scope": "competitive task-history packet admission under shrinking input budgets and rehashed-v7 receipt reconciliation",
+  "changed_paths": [
+    "sentientos/resident_developmental_cognition.py",
+    "tests/test_resident_developmental_cognition.py"
+  ],
+  "changed_blobs": {
+    "sentientos/resident_developmental_cognition.py": "8b0469b4ea1570612cefc1f191d6dd45bd81098a",
+    "tests/test_resident_developmental_cognition.py": "69a4bc14b570885489b20675855ae4fb359ad953"
+  },
+  "behavioral_checks": {
+    "passed": [
+      "tests/test_resident_developmental_cognition.py::test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_identity",
+      "tests/test_resident_developmental_cognition.py::test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation",
+      "tests/test_resident_developmental_cognition.py::test_v6_history_selection_recovery_reconciles_the_invocation_receipt",
+      "tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer",
+      "tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only",
+      "tests/test_resident_developmental_cognition.py::test_objective_staging_arguments_can_require_exact_task_family_history",
+      "tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant"
+    ],
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "remote_tree_and_blob_readback": "passed",
+    "actual_model_behavior_measured": false,
+    "production_verification": false,
+    "performance_improvement_established": false
+  },
+  "scenario": {
+    "packet_order": [
+      "recent unrelated filler",
+      "family-matched example with disjoint probes",
+      "older positive example with exact probe overlap",
+      "newer adverse example tied on overlap"
+    ],
+    "packet_sizes": "different; capacities selected to admit one, two, three, and four complete suffix packets",
+    "withheld_condition": "zero selected history packets and no controlled packet content in prompt",
+    "restart_custody": "covered by existing source-backed task-family progression recovery test"
+  },
+  "design": {
+    "relevance_selection_filters_by_correctness": false,
+    "suffix_preserves_ranked_records_under_shrinking_capacity": true,
+    "omitted_record_identity_and_reason_bound": true,
+    "v7_selection_manifest_compared_to_invocation_upstream_evidence": true,
+    "rehashing_observation_and_selection_cannot_rebind_invocation": true,
+    "novel_mapping_transfer_established": false
+  },
+  "next_dependency": "source-backed held-out transfer across disjoint probes with correct, contradictory, adverse, and irrelevant history; then compose an existing consequence-backed strategy decision"
+}
