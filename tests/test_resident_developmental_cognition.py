@@ -1876,11 +1876,19 @@ def test_admitted_resident_history_is_shared_with_predecessor_and_successor_mode
     acquired = cognition.run_tick(snapshot=source_snapshot, tick_id="succession-history-source")
     assert acquired.written_record_id
     record = cognition.writeback.store.get(acquired.written_record_id)
-    projection = cognition._current_projection(source_snapshot)
+    acquired_later = cognition.run_tick(snapshot=snapshot(2),
+        tick_id="succession-history-source-later")
+    assert acquired_later.written_record_id
+    later_record = cognition.writeback.store.get(acquired_later.written_record_id)
+    assert later_record.record_id != record.record_id
+    assert later_record.record_digest != record.record_digest
+    projection = cognition._current_projection(snapshot(3))
     current_payload = projection.semantic_payload()
-    history = cognition.writeback.retrieve((record.record_id,), limit=4)
-    assert history.requested_record_ids == (record.record_id,)
-    assert history.records[0]["record_digest"] == record.record_digest
+    history_ids = (record.record_id, later_record.record_id)
+    history_digests = (record.record_digest, later_record.record_digest)
+    history = cognition.writeback.retrieve(history_ids, limit=4)
+    assert history.requested_record_ids == history_ids
+    assert tuple(item["record_digest"] for item in history.records) == history_digests
 
     context = FrozenCausalContext.create(
         snapshot_id=projection.snapshot_id, snapshot_digest=projection.snapshot_digest,
@@ -1889,9 +1897,9 @@ def test_admitted_resident_history_is_shared_with_predecessor_and_successor_mode
         current_fact_ids=projection.fact_ids,
         projected_content_digest="sha256:" + digest_payload(current_payload),
         current_projection_payload=current_payload,
-        history_record_ids=(record.record_id,), history_record_digests=(record.record_digest,),
+        history_record_ids=history_ids, history_record_digests=history_digests,
         history_record_set_digest="sha256:" + digest_payload({
-            "record_ids": [record.record_id], "record_digests": [record.record_digest]}),
+            "record_ids": list(history_ids), "record_digests": list(history_digests)}),
         history_projection_payload=history.records,
         instruction_template=("Use current evidence with optional historical interpretation; "
             "history is not truth or authority."),
@@ -1951,21 +1959,26 @@ def test_admitted_resident_history_is_shared_with_predecessor_and_successor_mode
         model_a=model_a, model_b=model_b, artifact_root=tmp_path / "replacement-experiment")
     result = experiment.run()
     assert result["validity"] == "valid_controlled_observation"
-    assert experiment.context.history_record_ids == (record.record_id,)
-    assert experiment.context.history_record_digests == (record.record_digest,)
+    assert experiment.context.history_record_ids == history_ids
+    assert experiment.context.history_record_digests == history_digests
     a_history = json.loads(model_a.calls[0]["prompt"])["developmental_history"]
     b_history = json.loads(model_b.calls[0]["prompt"])["developmental_history"]
-    assert a_history[0]["record_id"] == b_history[0]["record_id"] == record.record_id
-    assert a_history[0]["record_digest"] == b_history[0]["record_digest"] == record.record_digest
+    assert tuple(item["record_id"] for item in a_history) == history_ids
+    assert tuple(item["record_id"] for item in b_history) == history_ids
+    assert tuple(item["record_digest"] for item in a_history) == history_digests
+    assert tuple(item["record_digest"] for item in b_history) == history_digests
     assert json.loads(model_a.calls[1]["prompt"])["developmental_history"] == []
     assert json.loads(model_b.calls[1]["prompt"])["developmental_history"] == []
     assert json.loads(model_a.calls[2]["prompt"])["developmental_history"] == a_history
-    assert all(item["history_record_ids"] == [record.record_id]
+    assert all(item["history_record_ids"] == list(history_ids)
         for item in (result["observations"][0], result["observations"][2],
             result["observations"][4]))
     assert all(item["history_record_ids"] == []
         for item in (result["observations"][1], result["observations"][3]))
-    assert record.current_truth is False and record.authority is False
+    assert all(not item.current_truth and not item.authority for item in (record, later_record))
+    recovered_ids = {item.record_id for item, _receipt in
+        cognition.writeback.inspect_completed_records()}
+    assert set(history_ids) <= recovered_ids
 
 
 def test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only(
