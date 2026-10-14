@@ -112,6 +112,43 @@ def test_fail_closed_substitution_exhaustion_and_attempt_uniqueness(tmp_path: Pa
         allocation.epoch = 12
 
 
+def test_resource_world_state_reread_keeps_event_identity_and_never_redebits(tmp_path: Path) -> None:
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+
+    principal, authenticated, current, policy, ledger, allocator, allocation = context(tmp_path)
+    attempt = allocator.final_gate(allocation=allocation, principal=principal,
+        authenticated=authenticated, current=current, policy=policy, current_time=NOW,
+        durable_attempt_nonce="reread")
+    begun = allocator.record_backend_entry(allocation, attempt, observed_at="2026-09-21T08:30:00Z")
+    measured = allocator.append_receipt(allocation, attempt, state="measured_completed",
+        observed_at="2026-09-21T08:30:01Z", measurement=allocator.measurement(allocation,
+            generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=4,
+            returned_output_size_bytes=4, latency_ms=10, invocation_outcome="completed"))
+    allocator.append_receipt(allocation, attempt, state="reconciled",
+        observed_at="2026-09-21T08:30:02Z", measurement=allocator.measurement(allocation,
+            generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=4,
+            returned_output_size_bytes=4, latency_ms=10, invocation_outcome="completed"),
+        effect_receipt_digest="a" * 64)
+    before = ledger.snapshot_counts()
+    first = resource_consumption_world_state_records(ledger=ledger,
+        observed_at="2026-09-21T08:31:00Z")[0]
+
+    recovered = GovernedLocalModelResourceLedger(ledger.path)
+    second = resource_consumption_world_state_records(ledger=recovered,
+        observed_at="2026-09-22T08:31:00Z")[0]
+
+    assert first["digest"] == second["digest"]
+    assert first["observed_at"] is None and second["observed_at"] is None
+    assert first["retrieved_at"] != second["retrieved_at"]
+    assert first["payload"]["ledger_digest"] == second["payload"]["ledger_digest"]
+    assert [row["receipt_digest"] for row in first["payload"]["consumption_receipts"]] == [
+        row["receipt_digest"] for row in second["payload"]["consumption_receipts"]]
+    assert begun.receipt_digest in {row["receipt_digest"] for row in first["payload"]["consumption_receipts"]}
+    assert measured.receipt_digest in {row["receipt_digest"] for row in first["payload"]["consumption_receipts"]}
+    assert recovered.snapshot_counts() == before
+    assert recovered.remaining_calls(allocation.allocation_id) == 1
+
+
 @pytest.mark.parametrize("bad", [True, 0, -1])
 def test_integer_bounds_reject_bool_and_nonpositive(bad: object) -> None:
     with pytest.raises(GovernedLocalModelResourceError):
