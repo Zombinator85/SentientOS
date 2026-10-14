@@ -5431,6 +5431,7 @@ from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner
+from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
 from sentientos.governed_local_model_invocation import LocalModelInvocationReceipt
 from tests.test_resident_developmental_cognition import SessionBoundFakeInvoker, snapshot
 from sentientos.embodied_consequence import build_operator_codex_strategy_multi_event_packets, make_strategy_proposal, score_strategy_decision_quality
@@ -5513,6 +5514,15 @@ quality=score_strategy_decision_quality(proposal=proposal,situation=situation,
     preregistration=frozen_manifest["decision_quality_preregistration"])
 later = owner.run_tick(snapshot=snapshot(43), tick_id="post-restart-distinct-resident-task")
 assert later.written_record_id
+before_duplicate = owner.writeback.inspect_completed_records()
+try:
+    owner.run_tick(snapshot=snapshot(43), tick_id="post-restart-distinct-resident-task")
+except ResidentDevelopmentalCognitionError as exc:
+    assert "tick_already_completed" in str(exc)
+else:
+    raise AssertionError("completed_tick_replayed_after_restart")
+assert [record.record_id for record, _ in owner.writeback.inspect_completed_records()] == [
+    record.record_id for record, _ in before_duplicate]
 purposes = [request.purpose for request in invoker.requests]
 assert "resident_developmental_retrieval_cognition" in purposes
 assert "resident_developmental_history_intervention_experiment" not in purposes
@@ -5562,6 +5572,24 @@ print(json.dumps({"record_ids":sorted(after_ids), "retrieved_ids":retrieved_ids,
         "post_restart_invocation_purposes"]
     assert "resident_developmental_history_intervention_experiment" not in recovered_child[
         "post_restart_invocation_purposes"]
+
+    # A source timestamp edited after admission must fail the durable record
+    # identity check before it can change which history is considered prior.
+    import shutil
+    timestamp_root = tmp_path / "timestamp-substitution"
+    shutil.copytree(tmp_path / "resident", timestamp_root)
+    stored_path = timestamp_root / "history" / "records" / f"{durable_record.record_id}.json"
+    stored_value = json.loads(stored_path.read_text(encoding="utf-8"))
+    stored_fact = next(fact for fact in stored_value["candidate"]["selected_facts"]
+        if fact.get("payload", {}).get("attribution_id") == attribution["attribution_id"])
+    assert stored_fact["payload"]["evaluated_at"] != strategy_situation["requested_at"]
+    stored_fact["payload"]["evaluated_at"] = strategy_situation["requested_at"]
+    stored_path.write_text(json.dumps(stored_value, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8")
+    timestamp_owner, _ = owner(timestamp_root, allowed_source_kinds=("embodiment",),
+        max_selected_facts=16)
+    with pytest.raises(DevelopmentalWritebackError, match="record_digest_mismatch"):
+        timestamp_owner.writeback.inspect_completed_records()
 
 
 def test_resource_linkage_cannot_bypass_serving_receipt_verification(tmp_path: Path) -> None:

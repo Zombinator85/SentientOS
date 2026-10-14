@@ -1,13 +1,11 @@
 # Active construction checkpoint
 
-Sequence 202 extends the integrated developmental loop with four actually admitted consequence records under bounded history competition. The relevance selector retains the older adverse and corrective events and records the newer unrelated event plus unresolved renderer-report-only event as exact omissions. A fresh Python process reconstructs and matches selected/omitted identities against durable inventory and frozen protocol custody.
+Sequence 200 strengthens restart recovery by independently loading the frozen preregistration, scorer manifest, and score vectors in the child process. Rebuilt history must match the frozen selected and omitted source identities, admitted record IDs, situation digest, and rubric identity. The distinct post-restart task is rescored with the original vector rubric while retaining randomized opaque packet assignments.
 
-Latest source commit: 14b9ebc5b91c6fa7e7091f2859db59abdfeb6d62
-Latest source tree: 024e7f710ce4c94a76a10d3de77f510549659791
-Latest segment: work/construction/segments/0202-relevance-saturation.md
-Evidence: work/construction/evidence/0202-relevance-saturation.json
-Sequence: 202
+Latest source commit: 7a832e6c98c05358e018196142bda82cc8b699bb
+Latest source tree: e7e154b176fa8bcfb34d3cb958c4832af5dceff9
+Latest segment: work/construction/segments/0200-frozen-score-recovery.md
+Evidence: work/construction/evidence/0200-frozen-score-recovery.json
+Sequence: 200
 
-Validation: focused integration passed; affected suites 121 passed; compileall and diff check passed. Synthetic fixtures only; no physical effect, execution, or model improvement is claimed.
-
-Next: add timestamp-substitution and duplicate-admission recovery adversaries, then continue the extended construction program.
+Validation: focused integrated node passed; compileall and diff check passed. Acceptance remains partial pending fresh-process governed inference and completed-condition replay handling.
