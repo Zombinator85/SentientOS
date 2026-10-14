@@ -1,11 +1,13 @@
 # Active construction checkpoint
 
-Sequence 200 strengthens restart recovery by independently loading the frozen preregistration, scorer manifest, and score vectors in the child process. Rebuilt history must match the frozen selected and omitted source identities, admitted record IDs, situation digest, and rubric identity. The distinct post-restart task is rescored with the original vector rubric while retaining randomized opaque packet assignments.
+Sequence 203 adds recovery adversaries to the integrated developmental loop. After restart, changing an admitted consequence timestamp in copied durable state is rejected by record identity verification; replaying the completed new task is rejected without an extra admission. The separate new task still retrieves admitted strategy score feedback through canonical history.
 
-Latest source commit: 7a832e6c98c05358e018196142bda82cc8b699bb
-Latest source tree: e7e154b176fa8bcfb34d3cb958c4832af5dceff9
-Latest segment: work/construction/segments/0200-frozen-score-recovery.md
-Evidence: work/construction/evidence/0200-frozen-score-recovery.json
-Sequence: 200
+Latest source commit: 32b3868dde213403828720ec3dcc5e097e8d6a08
+Latest source tree: 2b9a60bfb5987574075c8470e079ccaf116d1483
+Latest segment: work/construction/segments/0203-recovery-adversaries.md
+Evidence: work/construction/evidence/0203-recovery-adversaries.json
+Sequence: 203
 
-Validation: focused integrated node passed; compileall and diff check passed. Acceptance remains partial pending fresh-process governed inference and completed-condition replay handling.
+Validation: affected suites 121 passed; compileall and diff check passed. Synthetic fixture scope only; no physical effects or model improvement are claimed.
+
+Next: extend repeated longitudinal correction and cross-model causal context composition with exact source identities and unchanged authority boundaries.

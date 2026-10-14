@@ -1,0 +1,35 @@
+{
+  "sequence": 203,
+  "title": "Timestamp substitution and duplicate tick recovery adversaries",
+  "status": "passed",
+  "starting_head": "a5597aba9ac79fcef2b0156ab7643e399ec2f7cd",
+  "starting_tree": "9e5996b6c2ade3c6530b5e1513d6c00053b8eb6d",
+  "source_commit": "32b3868dde213403828720ec3dcc5e097e8d6a08",
+  "source_tree": "2b9a60bfb5987574075c8470e079ccaf116d1483",
+  "source_paths": [
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "blob": "8f46e973ee717f201621ae8ef5170a61edab3f68",
+      "sha256": "174a3a6d24d37bd0d7199fb4e40d3e85fc8438294cbbd1f0e0dcf1ee8358ca99"
+    }
+  ],
+  "recovery_adversaries": {
+    "source_timestamp_substitution": "changed historical timestamp in a copied durable source record; read-only verified inventory rejected it with record_digest_mismatch",
+    "completed_tick_replay": "replayed post-restart task ID; rejected as tick_already_completed and admission inventory stayed unchanged",
+    "condition_replay": "no history-intervention condition inference was issued by the new distinct cognition task"
+  },
+  "validation": {
+    "integrated_adversarial_node": "passed",
+    "affected_suites": "121 passed",
+    "compileall": "passed",
+    "diff_check": "passed"
+  },
+  "authority_posture": {
+    "fixture_cognition": true,
+    "synthetic_observations": true,
+    "receipt_or_admission_authority_fabricated": false,
+    "physical_effect_established": false,
+    "model_improvement_claimed": false
+  },
+  "next": "Continue repeated longitudinal correction and cross-model causal context composition."
+}

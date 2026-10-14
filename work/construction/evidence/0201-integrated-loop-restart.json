@@ -1,0 +1,35 @@
+{
+  "sequence": 201,
+  "title": "Complete canonical multi-event developmental loop after restart",
+  "status": "integrated fixture acceptance",
+  "starting_head": "25f315b3456e6ccd28e6dad9deac1f6138f4acb0",
+  "starting_tree": "03d2a330319407886550924a49bfd9229a9ccc47",
+  "source_commit": "891421bb4debefd232128575fba971fcc24a14f8",
+  "source_tree": "d0ae80093846503628a44cbd29773fe30d040978",
+  "source_paths": [
+    {"path":"tests/test_resident_developmental_cognition.py","blob":"844d5f7599f3aa691b37dc7c1a4742d8efa8e28b","sha256":"3428164cd538805fd44fbeceab6eaeb36a4dfb9c0f0e08f3d33225a991e21d94"}
+  ],
+  "acceptance": {
+    "A_two_actual_source_event_admissions":"passed; distinct adverse and corrective synthetic consequences admitted through ordinary owner writeback",
+    "B_bounded_relevant_history":"passed; two relevant events selected, newer unrelated event omitted with exact identity and reason",
+    "C_preregistered_vector_scoring":"passed; negative-transfer and conflict-aware vectors, no aggregate utility score",
+    "D_multi_event_score_feedback_admission":"passed; recomputed vector projected to World-State and admitted through the same canonical resident owner",
+    "E_fresh_process_reconstruction":"passed; persisted receipt verification, six distinct records, original event and score identities recovered, new resident retrieval tick consumes admitted score feedback",
+    "completed_condition_replay":"no history-intervention inference was issued during the new comparison-disabled task"
+  },
+  "validation": {
+    "affected_suite":"121 passed",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "authority_posture": {
+    "synthetic_observation_and_cognition":true,
+    "applicability":"operator-declared_unverified",
+    "proposal_execution":false,
+    "physical_effect_established":false,
+    "production_inference_claimed":false,
+    "model_improvement_claimed":false,
+    "aggregate_utility_score":null
+  },
+  "acceptance_status":"INTEGRATED_ACCEPTANCE_PASSED for the isolated synthetic fixture composition; not evidence of production cognition or physical-world effects"
+}
