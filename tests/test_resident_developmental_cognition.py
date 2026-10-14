@@ -4852,6 +4852,8 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
         ConsequenceStore, SyntheticIndependentObserver, SyntheticRenderer,
         evaluate_consequence, make_expectation, run_strategy_experiment,
         make_strategy_proposal, strategy_prompt_schema_digest,
+        build_operator_codex_strategy_multi_event_packets,
+        score_strategy_experiment, score_strategy_decision_quality,
         world_state_records as consequence_world_state_records,
         digest as consequence_digest,
     )
@@ -4984,6 +4986,241 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     assert recovered_by_event[correction_attribution["attribution_id"]][0].record_id==\
         correction_record.record_id
     assert all(receipt.storage_verified for _,receipt in recovered_by_event.values())
+
+    # A newer event from a different renderer situation is retained as
+    # irrelevant competition. Explicit relations remain operator-declared and
+    # unverified; they may affect bounded selection without becoming truth.
+    unrelated_start=(datetime.now(timezone.utc)-timedelta(minutes=5)).isoformat()
+    unrelated_reported=(datetime.now(timezone.utc)-timedelta(minutes=4,seconds=30)).isoformat()
+    unrelated_observed=(datetime.now(timezone.utc)-timedelta(minutes=4)).isoformat()
+    unrelated_handoff=renderer_handoff({
+        "installation_identity":"fixture-installation","body_identity":"fixture-body",
+        "body_generation":2,"artifact_sha256":"sha256:artifact",
+        "manifest_digest":"sha256:manifest","pointer_digest":"sha256:pointer"},
+        renderer_interface_id="renderer:fixture:changed-environment:v1",
+        requested_pose="turn",requested_expression="neutral",
+        correlation_id="developmental-strategy-unrelated",commanded_at=unrelated_start)
+    unrelated_expectation=make_expectation(
+        installation_body_id="fixture-installation",body_id="fixture-body",body_generation=2,
+        body_manifest_digest="sha256:manifest",handoff_id=unrelated_handoff["handoff_id"],
+        handoff_digest=unrelated_handoff["handoff_digest"],
+        renderer_interface_id="renderer:fixture:changed-environment:v1",
+        requested={"pose":"turn"},predicted_observables={"pose":"turn"},
+        observable_fields=("pose",),comparison_policy={"pose":{"kind":"exact"}},
+        expected_observation_source_class="synthetic_independent_fixture",
+        correlation_id="developmental-strategy-unrelated",causal_principal_binding_digest=None,
+        created_at=unrelated_start,
+        expires_at=(datetime.now(timezone.utc)+timedelta(days=1)).isoformat())
+    unrelated_renderer_report=SyntheticRenderer(applied={"pose":"turn"},
+        started_at=unrelated_start,completed_at=unrelated_reported).render_test(unrelated_handoff)
+    unrelated_observation=SyntheticIndependentObserver(
+        observer_id="separate-unrelated-fixture-observer",observed={"pose":"idle"},
+        observed_at=unrelated_observed).observe(expectation=unrelated_expectation,
+            handoff=unrelated_handoff,report=unrelated_renderer_report)
+    unrelated_attribution,unrelated_comparison=evaluate_consequence(
+        expectation=unrelated_expectation,handoff=unrelated_handoff,
+        current_body={"installation_identity":"fixture-installation",
+            "body_identity":"fixture-body","body_generation":2,
+            "artifact_sha256":"sha256:artifact","manifest_digest":"sha256:manifest",
+            "pointer_digest":"sha256:pointer"},renderer_report=unrelated_renderer_report,
+        observation=unrelated_observation,evaluated_at=unrelated_observed)
+    unrelated_records=consequence_world_state_records(expectation=unrelated_expectation,
+        handoff=unrelated_handoff,renderer_report=unrelated_renderer_report,
+        observation=unrelated_observation,attribution=unrelated_attribution,
+        comparison=unrelated_comparison)
+    unrelated_world=WorldStateBoardBuilder().build([row for row in unrelated_records
+        if row.get("source_id")==unrelated_attribution["attribution_id"]])
+    unrelated_tick=cognition.run_tick(snapshot=unrelated_world,
+        tick_id="strategy-unrelated-consequence-admission")
+    assert unrelated_tick.written_record_id
+    reopened_inventory_owner, _ = owner(tmp_path / "resident",invoker=cognition_invoker,
+        allowed_source_kinds=("embodiment",),max_selected_facts=16)
+    three_event_inventory=reopened_inventory_owner.writeback.inspect_completed_records()
+    assert len(three_event_inventory)==3
+    irrelevant_record_id=unrelated_tick.written_record_id
+
+    strategy_situation={"situation_binding":"later-distinct-surface-transfer",
+        "body_generation":2,"requested_at":datetime.now(timezone.utc).isoformat(),
+        "environment":"changed renderer interface; new surface task",
+        "independent_observation_available":False,"renderer_report_present":True}
+    strategy_settings={"visible_model_name":"synthetic resident strategy fixture",
+        "effort_setting":"fixed","generation_settings":{"temperature":0}}
+    applicability={event_id:{"relation":"same_action_class",
+        "declared_by":"scoped-test-operator","declared_at":strategy_situation["requested_at"],
+        "rationale":"older event shares the later strategy action class"}
+        for event_id in (attribution["attribution_id"],correction_attribution["attribution_id"])}
+    applicability[unrelated_attribution["attribution_id"]]={"relation":"operator_other",
+        "declared_by":"scoped-test-operator","declared_at":strategy_situation["requested_at"],
+        "rationale":"newer event occurred under a changed renderer interface"}
+    assert set(strategy_settings)=={"visible_model_name","effort_setting","generation_settings"}
+    assert len({source_record.record_id for source_record,_receipt in three_event_inventory})==3
+    strategy_bundle=build_operator_codex_strategy_multi_event_packets(
+        writeback=reopened_inventory_owner.writeback,
+        history_record_ids=[source_record.record_id
+            for source_record,_receipt in three_event_inventory],
+        situation=strategy_situation,model_settings=strategy_settings,max_event_count=2,
+        applicability_by_event=applicability)
+    strategy_manifest=strategy_bundle["scorer_manifest"]
+    selected_event_ids=[row["attribution"]["attribution_id"] for row in strategy_manifest["events"]]
+    assert set(selected_event_ids)=={attribution["attribution_id"],
+        correction_attribution["attribution_id"]}
+    expected_event_digests={attribution["attribution_id"]:attribution["attribution_digest"],
+        correction_attribution["attribution_id"]:correction_attribution["attribution_digest"]}
+    assert {row["attribution"]["attribution_id"]:row["attribution"]["attribution_digest"]
+        for row in strategy_manifest["events"]}==expected_event_digests
+    assert {row["event_id"]:row["event_digest"]
+        for row in strategy_bundle["preregistration"]["selected_event_identities"]}==\
+            expected_event_digests
+    selected_source_record_ids={row["source_record_id"] for row in strategy_manifest["events"]}
+    assert selected_source_record_ids=={durable_record.record_id,correction_record.record_id}
+    assert all(row["applicability"]["posture"]=="operator_declared_unverified"
+        for row in strategy_manifest["events"])
+    omission=strategy_bundle["preregistration"]["omitted_event_identities"]
+    assert len(omission)==1 and omission[0]["event_id"]==unrelated_attribution["attribution_id"]
+    assert omission[0]["source_record_id"]==irrelevant_record_id
+    assert omission[0]["event_digest"]==unrelated_attribution["attribution_digest"]
+    omitted_record=next(source_record for source_record,_receipt in three_event_inventory
+        if source_record.record_id==irrelevant_record_id)
+    omitted_fact=next(fact for fact in omitted_record.candidate["selected_facts"]
+        if fact.get("source",{}).get("source_id")==unrelated_attribution["attribution_id"])
+    assert omission[0]["source_record_digest"]==omitted_record.record_digest
+    assert omission[0]["source_fact_id"]==omitted_fact["fact_id"]
+    assert omission[0]["omission_reason"]=="bounded_event_selection"
+    packets=strategy_bundle["subject_packets"]
+    condition_by_packet=strategy_manifest["condition_by_packet_id"]
+    assert len({consequence_digest(packet["current_situation"]) for packet in packets.values()})==1
+    assert all(packet["model_settings"]==strategy_settings for packet in packets.values())
+    assert all(not any(event_id in json.dumps(packet["current_situation"])
+        for event_id in selected_event_ids+[unrelated_attribution["attribution_id"]])
+        for packet in packets.values())
+    assert all(not any(label in json.dumps(packet)
+        for label in ("history_present","history_withheld","history_restored"))
+        for packet in packets.values())
+    assert {tuple(item["event_id"] for item in packet["historical_evidence"])
+        for packet_id,packet in packets.items()
+        if condition_by_packet[packet_id] in {"history_present","history_restored"}}=={
+            tuple(selected_event_ids)}
+    assert all(not packet["historical_evidence"] for packet_id,packet in packets.items()
+        if condition_by_packet[packet_id]=="history_withheld")
+
+    # Persist the preregistration and scorer custody before fixture cognition.
+    protocol_root=tmp_path/"canonical-multi-event-strategy"
+    protocol_root.mkdir()
+    (protocol_root/"preregistration.json").write_text(
+        json.dumps(strategy_bundle["preregistration"],sort_keys=True),encoding="utf-8")
+    (protocol_root/"scorer_manifest.json").write_text(
+        json.dumps(strategy_manifest,sort_keys=True),encoding="utf-8")
+    subject_root=protocol_root/"subject_packets"
+    subject_root.mkdir()
+    for packet_id,packet in packets.items():
+        (subject_root/f"{packet_id}.json").write_text(
+            json.dumps(packet,sort_keys=True),encoding="utf-8")
+    frozen_prereg=json.loads((protocol_root/"preregistration.json").read_text(encoding="utf-8"))
+    frozen_manifest=json.loads((protocol_root/"scorer_manifest.json").read_text(encoding="utf-8"))
+
+    class EvidenceOnlyStrategyFixture:
+        def propose(self, packet):
+            history=packet["historical_evidence"]
+            # This deliberately overgeneralizes the newest admitted outcome;
+            # it derives its mistake from supplied evidence and sees no label.
+            if history:
+                latest=max(history,key=lambda item:item["evaluated_at"])
+                cited=[latest["event_id"]]
+                repeats_success=(latest["classification"]=="expectation_satisfied")
+                uncertainty="low" if repeats_success else "high"
+                ask=not repeats_success
+                rationale=("repeat the latest recorded successful action" if repeats_success
+                    else "request observation after the latest contradiction")
+            else:
+                cited=[]
+                uncertainty="high"
+                ask=True
+                rationale="request observation without historical evidence"
+            return make_strategy_proposal(
+                situation_binding=packet["current_situation"]["situation_binding"],
+                body_generation=packet["current_situation"]["body_generation"],
+                relevant_consequence_ids=tuple(cited),
+                proposed_next_action_class=("repeat_latest" if history and repeats_success
+                    else "observe"),
+                requested_pose="wave",requested_expression="neutral",retry_prior_strategy=bool(history),
+                alter_body_or_rig=False,more_observation_required=ask,
+                distinguishes_renderer_and_observer=True,rationale=rationale,
+                uncertainty=uncertainty,factual_assertions=())
+
+    fixture=EvidenceOnlyStrategyFixture()
+    proposals_by_condition={}
+    for packet_id,packet in packets.items():
+        proposal=fixture.propose(packet)
+        proposals_by_condition[condition_by_packet[packet_id]]=proposal
+    assert proposals_by_condition["history_present"]==proposals_by_condition["history_restored"]
+    assert proposals_by_condition["history_present"]!=proposals_by_condition["history_withheld"]
+    selected_sources=[{key:item[key] for key in ("attribution","source_record_id",
+        "source_record_digest","source_fact_id","applicability")}
+        for item in frozen_manifest["events"]]
+    vector_results={condition:score_strategy_decision_quality(proposal=proposal,
+        situation=strategy_situation,events=selected_sources,
+        preregistration=frozen_manifest["decision_quality_preregistration"])
+        for condition,proposal in proposals_by_condition.items()}
+    adverse_vector={row["criterion_id"]:row["status"]
+        for row in vector_results["history_present"]["criteria"]}
+    withheld_vector={row["criterion_id"]:row["status"]
+        for row in vector_results["history_withheld"]["criteria"]}
+    assert adverse_vector["uncertainty_under_conflicting_historical_outcomes"]=="fail"
+    assert adverse_vector["requests_observation_when_current_evidence_is_incomplete"]=="fail"
+    assert withheld_vector["requests_observation_when_current_evidence_is_incomplete"]=="pass"
+    same_proposal_relabelled=score_strategy_decision_quality(
+        proposal=proposals_by_condition["history_withheld"],situation=strategy_situation,
+        events=selected_sources,preregistration=frozen_manifest["decision_quality_preregistration"])
+    assert same_proposal_relabelled==vector_results["history_withheld"]
+    source_relative_score=score_strategy_experiment(
+        proposals=(proposals_by_condition["history_present"],
+            proposals_by_condition["history_withheld"],
+            proposals_by_condition["history_restored"]),situation=strategy_situation,
+        consequence_events=selected_sources)
+    assert source_relative_score["synthetic_event_created"] is False
+    assert source_relative_score["improvement_claimed"] is False
+    score_archive={"score":source_relative_score,"decision_quality":{
+        condition:result for condition,result in vector_results.items()},
+        "condition_by_packet_id":condition_by_packet,
+        "selected_event_identities":frozen_prereg["selected_event_identities"],
+        "omitted_event_identities":frozen_prereg["omitted_event_identities"]}
+    (protocol_root/"fixture_scores.json").write_text(
+        json.dumps(score_archive,sort_keys=True),encoding="utf-8")
+    recovered_archive=json.loads((protocol_root/"fixture_scores.json").read_text(
+        encoding="utf-8"))
+    assert recovered_archive["selected_event_identities"]==\
+        frozen_prereg["selected_event_identities"]
+    assert recovered_archive["omitted_event_identities"]==\
+        frozen_prereg["omitted_event_identities"]
+
+    class ConflictAwareStrategyFixture:
+        def propose(self, packet):
+            history=packet["historical_evidence"]
+            cited=tuple(item["event_id"] for item in history)
+            return make_strategy_proposal(
+                situation_binding=packet["current_situation"]["situation_binding"],
+                body_generation=packet["current_situation"]["body_generation"],
+                relevant_consequence_ids=cited,proposed_next_action_class="observe",
+                requested_pose="wave",requested_expression="neutral",retry_prior_strategy=False,
+                alter_body_or_rig=False,more_observation_required=True,
+                distinguishes_renderer_and_observer=True,
+                rationale=("preserve conflicting event provenance and observe" if history
+                    else "observe without historical event claims"),
+                uncertainty="high",factual_assertions=())
+
+    positive_by_condition={condition:ConflictAwareStrategyFixture().propose(
+        packets[packet_id]) for packet_id,condition in condition_by_packet.items()}
+    positive_vectors={condition:score_strategy_decision_quality(proposal=proposal,
+        situation=strategy_situation,events=selected_sources,
+        preregistration=frozen_manifest["decision_quality_preregistration"])
+        for condition,proposal in positive_by_condition.items()}
+    positive_present={row["criterion_id"]:row["status"]
+        for row in positive_vectors["history_present"]["criteria"]}
+    positive_withheld={row["criterion_id"]:row["status"]
+        for row in positive_vectors["history_withheld"]["criteria"]}
+    assert positive_present["event_citation_identity"]=="pass"
+    assert positive_present["uncertainty_under_conflicting_historical_outcomes"]=="pass"
+    assert positive_withheld["uncertainty_under_conflicting_historical_outcomes"]=="indeterminate"
     import copy
     from sentientos.embodied_consequence import _strategy_prior_consequence_binding
     substituted_source = copy.deepcopy(history_record)
