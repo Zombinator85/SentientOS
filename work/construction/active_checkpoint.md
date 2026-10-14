@@ -1,17 +1,15 @@
 # Active construction checkpoint
 
-Sequence 180 physically separates subject-visible packet output, private scorer material, and preregistration. The builder rejects overlapping or existing destinations. Sequence 179 added the response/scorer integrity repairs and read-only admitted-history discovery.
+Sequence 181 adds an operator-mediated blinded strategy-transfer packet/scorer using the existing verified consequence history and independent strategy evaluator. It separates subject packets from evaluator material, binds conditions to packet/source identity, audits unsupported execution and observation claims, and never executes proposals. Sequences 179–180 repaired the affine packet/scorer integrity and isolated subject/scorer output destinations.
 
-Latest source commit: 747998e0d595b9a22d259f2a2464f2f2930cd126
-Latest source tree: f049ec96de3ed0754118509d8ae086cb55abd101
-Latest segment: work/construction/segments/0180-codex-output-isolation.md
-Segment SHA-256: fcb32a65f1bcd2021843c0c01c6476ca6e2c51f615ad114ce993930987055a62
-Evidence: work/construction/evidence/0180-codex-output-isolation.json
-Evidence SHA-256: 326b63e21e3c63fabdcba16de8b36deac30f9d648c53df134747003f45d57786
-Sequence: 180
+Latest source commit: 75656820765a24803d6b2f52e09d7efdb7bc6a40
+Latest source tree: 8ba9abb56ddabdf2e1a3099dd2c930aff0328212
+Latest segment: work/construction/segments/0181-blinded-strategy-transfer.md
+Evidence: work/construction/evidence/0181-blinded-strategy-transfer.json
+Sequence: 181
 
-Validation: 72 focused packet/scorer, history-intervention, writeback, strategy, and consequence tests passed; four additional task-family staging/admitted-history/progression/restart tests passed; builder output isolation and overlap rejection passed; targeted mypy, compilation, CLI help, and diff checks passed.
+Validation: 73 focused packet, staging, writeback, strategy, and consequence tests passed; four additional staging/progression/restart tests passed; targeted CLI mypy, compileall, CLI help, and diff checks passed. Changed source-section mypy filtering found no diagnostics; the whole source file has older findings elsewhere.
 
-Known blockers: a broader resident cognition test reproduces downstream rejection `developmental_history_execution_condition_invalid`; this was not weakened. The strategy resource-lineage integration test cannot collect without `cryptography`. No fresh Codex subject sessions or real-model results are available.
+Known blockers: broad resident cognition test still fails downstream writeback with `developmental_history_execution_condition_invalid`; strategy resource-lineage integration cannot collect because `cryptography` is absent. No fresh Codex subject sessions or real-model results were produced.
 
-Next: extend the existing embodied strategy proposal and scoring path to an operator-mediated, blinded external subject experiment, bound to verified admitted consequence history and a distinct current situation. Preserve the no-execution boundary and separate any scorer-only rubric.
+Next: build crash-safe custody and recovery for partially completed external subject sessions, preserving raw output hashes and preregistration binding without replaying sessions or treating operator observations as authenticated inference receipts.
