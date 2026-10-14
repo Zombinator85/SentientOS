@@ -31,6 +31,14 @@ class WorkPlanExecutionJournal:
         self._known_task_ids = {task.task_id for task in plan.tasks}
         if len(self._known_task_ids) != len(plan.tasks):
             raise WorkPlanJournalError("work_plan_task_identity_duplicate")
+        task_positions = {task.task_id: index for index, task in enumerate(plan.tasks)}
+        for index, task in enumerate(plan.tasks):
+            if (not isinstance(task.depends_on, tuple)
+                    or any(not isinstance(dependency, str) for dependency in task.depends_on)
+                    or len(task.depends_on) != len(set(task.depends_on))
+                    or any(dependency not in task_positions
+                        or task_positions[dependency] >= index for dependency in task.depends_on)):
+                raise WorkPlanJournalError("work_plan_task_dependencies_invalid")
         self._states: dict[str, str] = {}
         self._sequence = 0
         self._head = ZERO_DIGEST

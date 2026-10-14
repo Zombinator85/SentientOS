@@ -80,3 +80,23 @@ def test_plan_records_unimplemented_task_kinds_without_executable_rows(tmp_path:
         ("external-goal", "fetch", "task_kind_not_implemented"),
         ("external-goal", "doc_update", "task_kind_not_implemented"),
     ]
+
+
+def test_forge_apply_plan_declares_validation_and_proposal_dependencies(
+    tmp_path: Path,
+) -> None:
+    graph = GoalGraph(schema_version=1, goals=(
+        Goal("forge-goal", "apply only after checks", 1.0, 1, (),
+            "check_forge_last_run_ok", 2, 1, ("integrity",), True),))
+    allocation = AllocationDecision(selected=("forge-goal",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    state = ExecutorState(repo_root=tmp_path, created_at="2026-01-01T00:00:00Z",
+        context="manual", operating_mode="normal", quarantine_active=False,
+        allow_mutation=True, goal_graph_hash="abcd" * 16, allocation_id="allocation_1",
+        risk_budget=RiskBudget(router_k_max=8, router_m_max=8,
+            forge_max_files_changed=10))
+
+    plan = GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)
+    apply = next(task for task in plan.tasks if task.kind == "forge_apply")
+
+    assert apply.depends_on == ("forge-goal:verify", "forge-goal:forge_propose")

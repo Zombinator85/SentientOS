@@ -10,7 +10,9 @@ WORK_PLAN_DIR = Path("glow/forge/work_plans")
 WORK_PLAN_PULSE_PATH = Path("pulse/work_plans.jsonl")
 _PLAN_FIELDS = {"schema_version", "plan_id", "created_at", "context", "selected_goals", "tasks"}
 _TASK_FIELDS = {"schema_version", "task_id", "goal_id", "kind", "commands", "callable_ref",
-    "risk_cost", "throughput_cost", "preconditions", "expected_artifacts", "destructive"}
+    "risk_cost", "throughput_cost", "preconditions", "expected_artifacts", "destructive",
+    "depends_on"}
+_LEGACY_TASK_FIELDS = _TASK_FIELDS - {"depends_on"}
 _OMISSION_FIELDS = {"goal_id", "kind", "reason"}
 
 
@@ -41,11 +43,13 @@ class Task:
     preconditions: dict[str, object]
     expected_artifacts: tuple[str, ...]
     destructive: bool
+    depends_on: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["commands"] = list(self.commands)
         payload["expected_artifacts"] = list(self.expected_artifacts)
+        payload["depends_on"] = list(self.depends_on)
         return payload
 
 
@@ -195,7 +199,7 @@ def load_work_plan(path: Path) -> WorkPlan:
     task_ids: set[str] = set()
     goals = set(payload["selected_goals"])
     for row in payload["tasks"]:
-        if (not isinstance(row, dict) or set(row) != _TASK_FIELDS
+        if (not isinstance(row, dict) or set(row) not in (_TASK_FIELDS, _LEGACY_TASK_FIELDS)
                 or type(row.get("schema_version")) is not int or row["schema_version"] != 1
                 or any(not isinstance(row.get(key), str) or not row[key] or len(row[key]) > 256
                     for key in ("task_id", "goal_id", "kind"))
@@ -212,6 +216,12 @@ def load_work_plan(path: Path) -> WorkPlan:
                 or any(not isinstance(item, str) or len(item) > 1024 for item in row["expected_artifacts"])
                 or type(row.get("destructive")) is not bool):
             raise WorkPlanError("work_plan_task_invalid")
+        depends_on = row.get("depends_on", [])
+        if (not isinstance(depends_on, list)
+                or any(not isinstance(item, str) or not item or len(item) > 256
+                    for item in depends_on)
+                or len(depends_on) != len(set(depends_on))):
+            raise WorkPlanError("work_plan_task_dependencies_invalid")
         inferred_destructive = (row["kind"] == "forge_apply"
             or row["preconditions"].get("requires_mutation") is True)
         if row["destructive"] != inferred_destructive:
@@ -221,7 +231,13 @@ def load_work_plan(path: Path) -> WorkPlan:
             goal_id=row["goal_id"], kind=row["kind"], commands=tuple(row["commands"]),
             callable_ref=row["callable_ref"], risk_cost=row["risk_cost"],
             throughput_cost=row["throughput_cost"], preconditions=dict(row["preconditions"]),
-            expected_artifacts=tuple(row["expected_artifacts"]), destructive=row["destructive"]))
+            expected_artifacts=tuple(row["expected_artifacts"]), destructive=row["destructive"],
+            depends_on=tuple(depends_on)))
+    task_positions = {task.task_id: index for index, task in enumerate(tasks)}
+    for index, task in enumerate(tasks):
+        if any(dependency not in task_positions or task_positions[dependency] >= index
+                for dependency in task.depends_on):
+            raise WorkPlanError("work_plan_task_dependencies_invalid")
     omissions_raw = payload.get("omissions", [])
     if not isinstance(omissions_raw, list) or len(omissions_raw) > 256:
         raise WorkPlanError("work_plan_omissions_invalid")

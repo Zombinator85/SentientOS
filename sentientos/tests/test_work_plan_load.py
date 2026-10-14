@@ -17,7 +17,8 @@ def _plan() -> WorkPlan:
         Task(1, "goal-1:diagnostic", "goal-1", "diagnostic",
             ("python -m scripts.contract_drift",), None, 1, 1, {}, (), False),
         Task(1, "goal-1:forge_apply", "goal-1", "forge_apply", (), None,
-            1, 1, {"requires_mutation": True}, ("glow/forge",), True),
+            1, 1, {"requires_mutation": True}, ("glow/forge",), True,
+            ("goal-1:diagnostic",)),
     ))
 
 
@@ -31,10 +32,14 @@ def test_version_one_plan_round_trips_without_coercion(tmp_path: Path) -> None:
 def test_legacy_version_one_plan_without_omissions_remains_readable(tmp_path: Path) -> None:
     payload = _plan().to_dict()
     payload.pop("omissions")
+    for task in payload["tasks"]:
+        task.pop("depends_on")
     path = tmp_path / "legacy-v1.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
+    expected = replace(_plan(), tasks=tuple(replace(task, depends_on=())
+        for task in _plan().tasks))
 
-    assert load_work_plan(path) == _plan()
+    assert load_work_plan(path) == expected
 
 
 def test_planning_omissions_round_trip_as_non_executable_evidence(tmp_path: Path) -> None:
@@ -53,6 +58,16 @@ def test_malformed_planning_omission_rejects_plan(tmp_path: Path) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
     with pytest.raises(WorkPlanError, match="work_plan_omissions_invalid"):
+        load_work_plan(path)
+
+
+def test_missing_task_dependency_rejects_plan(tmp_path: Path) -> None:
+    payload = _plan().to_dict()
+    payload["tasks"][1]["depends_on"] = ["missing-task"]
+    path = tmp_path / "missing-dependency.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(WorkPlanError, match="work_plan_task_dependencies_invalid"):
         load_work_plan(path)
 
 

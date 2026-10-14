@@ -65,6 +65,7 @@ class GoalExecutor:
     def execute_plan(self, plan: WorkPlan, state: ExecutorState) -> WorkPlanRun:
         task_runs: list[TaskRun] = []
         reasons: list[str] = []
+        effective_task_status: dict[str, str] = {}
         journal = WorkPlanExecutionJournal(self.repo_root, plan)
         for task in plan.tasks:
             started = _iso_now()
@@ -79,6 +80,23 @@ class GoalExecutor:
                 status = "skipped"
                 reason = ("prior_attempt_outcome_unknown" if prior_state == "interrupted"
                     else f"prior_terminal_{prior_state}_not_replayed")
+                effective_task_status[task.task_id] = (
+                    "unknown" if prior_state == "interrupted" else prior_state)
+                finished = _iso_now()
+                task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id,
+                    kind=task.kind, status=status, reason=reason, started_at=started,
+                    finished_at=finished, duration_ms=0, artifacts=(), destructive=destructive))
+                reasons.append(reason)
+                continue
+
+            blocked_dependencies = tuple(dependency for dependency in task.depends_on
+                if effective_task_status.get(dependency) != "success")
+            if blocked_dependencies:
+                status = "skipped"
+                reason = "dependency_not_satisfied:" + ",".join(blocked_dependencies)
+                journal.start(task.task_id)
+                journal.finish(task.task_id, status=status, reason=reason)
+                effective_task_status[task.task_id] = status
                 finished = _iso_now()
                 task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id,
                     kind=task.kind, status=status, reason=reason, started_at=started,
@@ -99,6 +117,7 @@ class GoalExecutor:
             finished = _iso_now()
             duration_ms = max(0, int((time.monotonic() - started_mono) * 1000))
             journal.finish(task.task_id, status=status, reason=reason)
+            effective_task_status[task.task_id] = status
             task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id, kind=task.kind, status=status, reason=reason, started_at=started, finished_at=finished, duration_ms=duration_ms, artifacts=artifacts, destructive=destructive))
             if status in {"failed", "skipped"} and reason:
                 reasons.append(reason)
@@ -225,7 +244,10 @@ def _map_goal_to_tasks(*, goal: Goal, state: ExecutorState) -> tuple[Task, ...]:
     allow_apply = state.operating_mode == "normal" and state.allow_mutation and not state.quarantine_active and state.risk_budget.forge_max_files_changed > 0
     close_to_done = goal.completion_check_name in {"check_forge_last_run_ok", "check_mypy_forge_ok"}
     if allow_apply and close_to_done:
-        plan.append(_task(goal, "forge_apply", max(1, goal.risk_cost_estimate), max(1, goal.throughput_cost_estimate), destructive=True, commands=(), expected=("glow/forge",)))
+        plan.append(_task(goal, "forge_apply", max(1, goal.risk_cost_estimate),
+            max(1, goal.throughput_cost_estimate), destructive=True, commands=(),
+            expected=("glow/forge",),
+            depends_on=(f"{goal.goal_id}:verify", f"{goal.goal_id}:forge_propose")))
     return tuple(plan)
 
 
@@ -242,9 +264,12 @@ def _goal_task_omissions(*, goal: Goal, state: ExecutorState) -> tuple[TaskOmiss
     return tuple(omissions)
 
 
-def _task(goal: Goal, kind: str, risk_cost: int, throughput_cost: int, *, destructive: bool, commands: tuple[str, ...], expected: tuple[str, ...]) -> Task:
+def _task(goal: Goal, kind: str, risk_cost: int, throughput_cost: int, *, destructive: bool, commands: tuple[str, ...], expected: tuple[str, ...], depends_on: tuple[str, ...] = ()) -> Task:
     task_id = f"{goal.goal_id}:{kind}"
-    return Task(schema_version=1, task_id=task_id, goal_id=goal.goal_id, kind=kind, commands=commands, callable_ref=None, risk_cost=max(0, risk_cost), throughput_cost=max(0, throughput_cost), preconditions={"requires_mutation": destructive}, expected_artifacts=expected, destructive=destructive)
+    return Task(schema_version=1, task_id=task_id, goal_id=goal.goal_id, kind=kind,
+        commands=commands, callable_ref=None, risk_cost=max(0, risk_cost),
+        throughput_cost=max(0, throughput_cost), preconditions={"requires_mutation": destructive},
+        expected_artifacts=expected, destructive=destructive, depends_on=depends_on)
 
 
 _SAFE_PLAN_COMMANDS: dict[str, tuple[str, str]] = {

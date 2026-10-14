@@ -183,6 +183,8 @@ def test_interrupted_task_stays_unknown_while_independent_task_continues(
     calls = []
     tasks = (
         Task(1, "g1:propose", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+        Task(1, "g1:apply", "g1", "forge_apply", (), None, 1, 1,
+            {"requires_mutation": True}, (), True, ("g1:propose",)),
         Task(1, "g2:diagnostic", "g2", "diagnostic",
             ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False),
     )
@@ -204,5 +206,38 @@ def test_interrupted_task_stays_unknown_while_independent_task_continues(
     assert calls == ["g1:propose", "g2:diagnostic"]
     assert [(row.task_id, row.status, row.reason) for row in recovered.task_runs] == [
         ("g1:propose", "skipped", "prior_attempt_outcome_unknown"),
+        ("g1:apply", "skipped", "dependency_not_satisfied:g1:propose"),
         ("g2:diagnostic", "success", None),
     ]
+
+
+def test_failed_dependency_blocks_dependent_but_not_other_goals(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    tasks = (
+        Task(1, "g1:verify", "g1", "verify", ("python -m scripts.run_tests -q",),
+            None, 0, 0, {}, (), False),
+        Task(1, "g1:propose", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+        Task(1, "g1:apply", "g1", "forge_apply", (), None, 1, 1,
+            {"requires_mutation": True}, (), True, ("g1:verify", "g1:propose")),
+        Task(1, "g2:diagnostic", "g2", "diagnostic",
+            ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False),
+    )
+    plan = WorkPlan(1, "dependency-failure", "2026-01-01T00:00:00Z",
+        "manual", ("g1", "g2"), tasks)
+    calls = []
+
+    def execute(self, task):
+        calls.append(task.task_id)
+        if task.task_id == "g1:verify":
+            return "failed", "fixture_validation_failed", ()
+        return "success", None, ()
+
+    monkeypatch.setattr(GoalExecutor, "_execute_task", execute)
+    run = GoalExecutor(repo_root=tmp_path).execute_plan(plan, _state(tmp_path))
+
+    assert calls == ["g1:verify", "g1:propose", "g2:diagnostic"]
+    outcomes = {row.task_id: (row.status, row.reason) for row in run.task_runs}
+    assert outcomes["g1:apply"] == (
+        "skipped", "dependency_not_satisfied:g1:verify")
+    assert outcomes["g2:diagnostic"] == ("success", None)
