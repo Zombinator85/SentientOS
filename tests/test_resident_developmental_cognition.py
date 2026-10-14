@@ -4866,10 +4866,14 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
         evaluate_consequence, make_expectation, run_strategy_experiment,
         make_strategy_proposal, strategy_prompt_schema_digest,
         build_operator_codex_strategy_multi_event_packets,
+            build_strategy_decision_quality_preregistration,
         score_strategy_experiment, score_strategy_decision_quality,
         strategy_decision_quality_world_state_record,
         world_state_records as consequence_world_state_records,
         digest as consequence_digest,
+    )
+    from sentientos.resident_developmental_writeback import (
+        MAX_STRATEGY_QUALITY_SELECTED_EVIDENCE_BYTES,
     )
 
     event_start = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
@@ -5090,11 +5094,60 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     unresolved_tick=cognition.run_tick(snapshot=unresolved_world,
         tick_id="strategy-unresolved-consequence-admission")
     assert unresolved_tick.written_record_id
+
+    # A later independent observation challenges the earlier corrective
+    # result under the same action class, preserving the unresolved conflict.
+    challenged_start=(datetime.now(timezone.utc)-timedelta(minutes=1,seconds=30)).isoformat()
+    challenged_reported=(datetime.now(timezone.utc)-timedelta(minutes=1,seconds=15)).isoformat()
+    challenged_observed=(datetime.now(timezone.utc)-timedelta(minutes=1)).isoformat()
+    challenged_handoff=renderer_handoff({
+        "installation_identity":"fixture-installation","body_identity":"fixture-body",
+        "body_generation":2,"artifact_sha256":"sha256:artifact",
+        "manifest_digest":"sha256:manifest","pointer_digest":"sha256:pointer"},
+        renderer_interface_id="renderer:fixture:v1",requested_pose="wave",
+        requested_expression="neutral",correlation_id="developmental-strategy-challenge",
+        commanded_at=challenged_start)
+    challenged_expectation=make_expectation(
+        installation_body_id="fixture-installation",body_id="fixture-body",body_generation=2,
+        body_manifest_digest="sha256:manifest",handoff_id=challenged_handoff["handoff_id"],
+        handoff_digest=challenged_handoff["handoff_digest"],
+        renderer_interface_id="renderer:fixture:v1",requested={"pose":"wave"},
+        predicted_observables={"pose":"wave"},observable_fields=("pose",),
+        comparison_policy={"pose":{"kind":"exact"}},
+        expected_observation_source_class="synthetic_independent_fixture",
+        correlation_id="developmental-strategy-challenge",causal_principal_binding_digest=None,
+        created_at=challenged_start,
+        expires_at=(datetime.now(timezone.utc)+timedelta(days=1)).isoformat())
+    challenged_report=SyntheticRenderer(applied={"pose":"wave"},started_at=challenged_start,
+        completed_at=challenged_reported).render_test(challenged_handoff)
+    challenged_observation=SyntheticIndependentObserver(
+        observer_id="separate-challenge-fixture-observer",observed={"pose":"idle"},
+        observed_at=challenged_observed).observe(expectation=challenged_expectation,
+            handoff=challenged_handoff,report=challenged_report)
+    challenged_attribution,challenged_comparison=evaluate_consequence(
+        expectation=challenged_expectation,handoff=challenged_handoff,
+        current_body={"installation_identity":"fixture-installation",
+            "body_identity":"fixture-body","body_generation":2,
+            "artifact_sha256":"sha256:artifact","manifest_digest":"sha256:manifest",
+            "pointer_digest":"sha256:pointer"},renderer_report=challenged_report,
+        observation=challenged_observation,evaluated_at=challenged_observed)
+    assert challenged_attribution["classification"]=="expectation_contradicted"
+    assert challenged_attribution["attribution_id"] not in {
+        attribution["attribution_id"],correction_attribution["attribution_id"]}
+    challenged_records=consequence_world_state_records(
+        expectation=challenged_expectation,handoff=challenged_handoff,
+        renderer_report=challenged_report,observation=challenged_observation,
+        attribution=challenged_attribution,comparison=challenged_comparison)
+    challenged_world=WorldStateBoardBuilder().build([row for row in challenged_records
+        if row.get("source_id")==challenged_attribution["attribution_id"]])
+    challenged_tick=cognition.run_tick(snapshot=challenged_world,
+        tick_id="strategy-corrective-result-challenged-admission")
+    assert challenged_tick.written_record_id
     reopened_inventory_owner, _ = owner(tmp_path / "resident",invoker=cognition_invoker,
         allowed_source_kinds=("embodiment",),max_selected_facts=16)
-    four_event_inventory=reopened_inventory_owner.writeback.inspect_completed_records()
-    assert len(four_event_inventory)==4
-    assert len({record.record_id for record,_ in four_event_inventory})==4
+    five_event_inventory=reopened_inventory_owner.writeback.inspect_completed_records()
+    assert len(five_event_inventory)==5
+    assert len({record.record_id for record,_ in five_event_inventory})==5
     irrelevant_record_id=unrelated_tick.written_record_id
 
     strategy_situation={"situation_binding":"later-distinct-surface-transfer",
@@ -5106,31 +5159,34 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     applicability={event_id:{"relation":"same_action_class",
         "declared_by":"scoped-test-operator","declared_at":strategy_situation["requested_at"],
         "rationale":"older event shares the later strategy action class"}
-        for event_id in (attribution["attribution_id"],correction_attribution["attribution_id"])}
+        for event_id in (attribution["attribution_id"],correction_attribution["attribution_id"],
+            challenged_attribution["attribution_id"])}
     applicability[unrelated_attribution["attribution_id"]]={"relation":"operator_other",
         "declared_by":"scoped-test-operator","declared_at":strategy_situation["requested_at"],
         "rationale":"newer event occurred under a changed renderer interface"}
     assert set(strategy_settings)=={"visible_model_name","effort_setting","generation_settings"}
-    assert len({source_record.record_id for source_record,_receipt in four_event_inventory})==4
+    assert len({source_record.record_id for source_record,_receipt in five_event_inventory})==5
     strategy_bundle=build_operator_codex_strategy_multi_event_packets(
         writeback=reopened_inventory_owner.writeback,
         history_record_ids=[source_record.record_id
-            for source_record,_receipt in four_event_inventory],
-        situation=strategy_situation,model_settings=strategy_settings,max_event_count=2,
+            for source_record,_receipt in five_event_inventory],
+        situation=strategy_situation,model_settings=strategy_settings,max_event_count=3,
         applicability_by_event=applicability)
     strategy_manifest=strategy_bundle["scorer_manifest"]
     selected_event_ids=[row["attribution"]["attribution_id"] for row in strategy_manifest["events"]]
     assert set(selected_event_ids)=={attribution["attribution_id"],
-        correction_attribution["attribution_id"]}
+        correction_attribution["attribution_id"],challenged_attribution["attribution_id"]}
     expected_event_digests={attribution["attribution_id"]:attribution["attribution_digest"],
-        correction_attribution["attribution_id"]:correction_attribution["attribution_digest"]}
+        correction_attribution["attribution_id"]:correction_attribution["attribution_digest"],
+        challenged_attribution["attribution_id"]:challenged_attribution["attribution_digest"]}
     assert {row["attribution"]["attribution_id"]:row["attribution"]["attribution_digest"]
         for row in strategy_manifest["events"]}==expected_event_digests
     assert {row["event_id"]:row["event_digest"]
         for row in strategy_bundle["preregistration"]["selected_event_identities"]}==\
             expected_event_digests
     selected_source_record_ids={row["source_record_id"] for row in strategy_manifest["events"]}
-    assert selected_source_record_ids=={durable_record.record_id,correction_record.record_id}
+    assert selected_source_record_ids=={durable_record.record_id,correction_record.record_id,
+        challenged_tick.written_record_id}
     assert all(row["applicability"]["posture"]=="operator_declared_unverified"
         for row in strategy_manifest["events"])
     omission=strategy_bundle["preregistration"]["omitted_event_identities"]
@@ -5141,13 +5197,13 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     assert omission_by_event[unresolved_attribution["attribution_id"]]["source_record_id"]==unresolved_tick.written_record_id
     assert omission_by_event[unrelated_attribution["attribution_id"]]["event_digest"]==unrelated_attribution["attribution_digest"]
     assert omission_by_event[unresolved_attribution["attribution_id"]]["event_digest"]==unresolved_attribution["attribution_digest"]
-    omitted_record=next(source_record for source_record,_receipt in four_event_inventory
+    omitted_record=next(source_record for source_record,_receipt in five_event_inventory
         if source_record.record_id==irrelevant_record_id)
     omitted_fact=next(fact for fact in omitted_record.candidate["selected_facts"]
         if fact.get("source",{}).get("source_id")==unrelated_attribution["attribution_id"])
     assert omission_by_event[unrelated_attribution["attribution_id"]]["source_record_digest"]==omitted_record.record_digest
     assert omission_by_event[unrelated_attribution["attribution_id"]]["source_fact_id"]==omitted_fact["fact_id"]
-    unresolved_record=next(source_record for source_record,_receipt in four_event_inventory
+    unresolved_record=next(source_record for source_record,_receipt in five_event_inventory
         if source_record.record_id==unresolved_tick.written_record_id)
     unresolved_fact=next(fact for fact in unresolved_record.candidate["selected_facts"]
         if fact.get("source",{}).get("source_id")==unresolved_attribution["attribution_id"])
@@ -5229,12 +5285,32 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
         situation=strategy_situation,events=selected_sources,
         preregistration=frozen_manifest["decision_quality_preregistration"])
         for condition,proposal in proposals_by_condition.items()}
+    import copy
+    present_packet=next(packets[packet_id] for packet_id,condition in condition_by_packet.items()
+        if condition=="history_present")
+    before_challenge_packet=copy.deepcopy(present_packet)
+    before_challenge_packet["historical_evidence"]=[item
+        for item in before_challenge_packet["historical_evidence"]
+        if item["event_id"]!=challenged_attribution["attribution_id"]]
+    before_challenge_sources=[item for item in selected_sources
+        if item["attribution"]["attribution_id"]!=challenged_attribution["attribution_id"]]
+    before_challenge_proposal=EvidenceOnlyStrategyFixture().propose(before_challenge_packet)
+    before_challenge_prereg=build_strategy_decision_quality_preregistration(
+        situation=strategy_situation,events=before_challenge_sources)
+    before_challenge_vector=score_strategy_decision_quality(
+        proposal=before_challenge_proposal,situation=strategy_situation,
+        events=before_challenge_sources,
+        preregistration=before_challenge_prereg)
+    before_challenge_status={row["criterion_id"]:row["status"]
+        for row in before_challenge_vector["criteria"]}
     adverse_vector={row["criterion_id"]:row["status"]
         for row in vector_results["history_present"]["criteria"]}
     withheld_vector={row["criterion_id"]:row["status"]
         for row in vector_results["history_withheld"]["criteria"]}
-    assert adverse_vector["uncertainty_under_conflicting_historical_outcomes"]=="fail"
-    assert adverse_vector["requests_observation_when_current_evidence_is_incomplete"]=="fail"
+    assert adverse_vector["uncertainty_under_conflicting_historical_outcomes"]=="pass"
+    assert adverse_vector["requests_observation_when_current_evidence_is_incomplete"]=="pass"
+    assert before_challenge_status["uncertainty_under_conflicting_historical_outcomes"]=="fail"
+    assert before_challenge_status["requests_observation_when_current_evidence_is_incomplete"]=="fail"
     assert withheld_vector["requests_observation_when_current_evidence_is_incomplete"]=="pass"
     same_proposal_relabelled=score_strategy_decision_quality(
         proposal=proposals_by_condition["history_withheld"],situation=strategy_situation,
@@ -5249,6 +5325,9 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     assert source_relative_score["improvement_claimed"] is False
     score_archive={"score":source_relative_score,"decision_quality":{
         condition:result for condition,result in vector_results.items()},
+        "longitudinal_correction_comparison":{
+            "before_challenge":before_challenge_vector,
+            "after_challenge":vector_results["history_present"]},
         "condition_by_packet_id":condition_by_packet,
         "selected_event_identities":frozen_prereg["selected_event_identities"],
         "omitted_event_identities":frozen_prereg["omitted_event_identities"]}
@@ -5311,7 +5390,9 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     assert feedback_source["payload"]["execution_occurred"] is False
     assert feedback_source["payload"]["physical_effect_established"] is False
     assert "condition" not in feedback_source["payload"]
-    assert len(json.dumps(feedback_source, sort_keys=True, separators=(",", ":"))) < 6000
+    assert len(json.dumps(feedback_source, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")) <= \
+            MAX_STRATEGY_QUALITY_SELECTED_EVIDENCE_BYTES
     feedback_world = WorldStateBoardBuilder().build([feedback_source])
     feedback_tick = cognition.run_tick(snapshot=feedback_world,
         tick_id="multi-event-decision-quality-feedback-admission")
@@ -5322,7 +5403,6 @@ def test_admitted_embodied_consequence_conditions_later_strategy_comparison(
     assert len(admitted_feedback_facts) == 1
     assert admitted_feedback_facts[0]["payload"] == feedback_source["payload"]
     assert feedback_history["current_truth"] is False and feedback_history["authority"] is False
-    import copy
     from sentientos.embodied_consequence import _strategy_prior_consequence_binding
     substituted_source = copy.deepcopy(history_record)
     substituted_source["candidate"]["selected_facts"][0]["source"]["digest"] = "f" * 64
@@ -5498,10 +5578,11 @@ assert sys.argv[4] in by_id and sys.argv[5] in by_id and sys.argv[6] in by_id
 assert sys.argv[7] in by_id
 assert sys.argv[8] in by_id
 assert sys.argv[16] in by_id
+assert sys.argv[18] in by_id
 situation, settings, applicability = (json.loads(sys.argv[i]) for i in (9,10,11))
-bundle = build_operator_codex_strategy_multi_event_packets(writeback=owner.writeback, history_record_ids=[sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[16]], situation=situation, model_settings=settings, max_event_count=2, applicability_by_event=applicability)
+bundle = build_operator_codex_strategy_multi_event_packets(writeback=owner.writeback, history_record_ids=[sys.argv[4], sys.argv[5], sys.argv[6], sys.argv[16], sys.argv[18]], situation=situation, model_settings=settings, max_event_count=3, applicability_by_event=applicability)
 manifest = bundle["scorer_manifest"]
-assert {row["attribution"]["attribution_id"] for row in manifest["events"]} == {sys.argv[12], sys.argv[13]}
+assert {row["attribution"]["attribution_id"] for row in manifest["events"]} == {sys.argv[12], sys.argv[13], sys.argv[19]}
 assert {row["event_id"] for row in bundle["preregistration"]["omitted_event_identities"]} == {sys.argv[14], sys.argv[17]}
 packet = next(packet for packet in bundle["subject_packets"].values() if packet["historical_evidence"])
 history = packet["historical_evidence"]
@@ -5557,26 +5638,30 @@ print(json.dumps({"record_ids":sorted(after_ids), "retrieved_ids":retrieved_ids,
         json.dumps(applicability, sort_keys=True), attribution["attribution_id"],
         correction_attribution["attribution_id"], unrelated_attribution["attribution_id"],
         str(protocol_root), unresolved_tick.written_record_id,
-        unresolved_attribution["attribution_id"]],
+        unresolved_attribution["attribution_id"], challenged_tick.written_record_id,
+        challenged_attribution["attribution_id"]],
         check=False, capture_output=True, text=True,
         env={**__import__("os").environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
             "SENTIENTOS_GOVERNOR_ROOT": str(tmp_path / "child-governor")})
     assert child.returncode == 0, child.stderr
     recovered_child = json.loads(child.stdout)
     assert set(recovered_child["event_ids"]) == {
-        attribution["attribution_id"], correction_attribution["attribution_id"]}
+        attribution["attribution_id"], correction_attribution["attribution_id"],
+        challenged_attribution["attribution_id"]}
     assert set(recovered_child["omitted_ids"]) == {
         unrelated_attribution["attribution_id"], unresolved_attribution["attribution_id"]}
     assert {
         durable_record.record_id, correction_record.record_id, irrelevant_record_id,
-        unresolved_tick.written_record_id, next_record.written_record_id,
+        unresolved_tick.written_record_id, challenged_tick.written_record_id,
+        next_record.written_record_id,
         feedback_tick.written_record_id} <= set(
             recovered_child["record_ids"])
-    assert len(recovered_child["record_ids"]) == 7
+    assert len(recovered_child["record_ids"]) == 8
     assert recovered_child["post_restart_tick_record_id"] in recovered_child["record_ids"]
     assert feedback_tick.written_record_id in recovered_child["retrieved_ids"]
     assert sorted(recovered_child["source_times"]) == sorted([
-        attribution["evaluated_at"], correction_attribution["evaluated_at"]])
+        attribution["evaluated_at"], correction_attribution["evaluated_at"],
+        challenged_attribution["evaluated_at"]])
     assert recovered_child["quality_result"]["aggregate_score"] is None
     assert recovered_child["quality_result"]["condition_labels_used"] is False
     assert recovered_child["quality_result"]["result_digest"].startswith("sha256:")
