@@ -4,6 +4,7 @@ import hashlib
 import json
 import subprocess
 import sys
+from argparse import Namespace
 from dataclasses import replace
 from pathlib import Path
 
@@ -284,6 +285,50 @@ def test_discovery_reports_verified_provenance_without_source_answers(tmp_path: 
     assert entry["admission_verification"] == "verified_by_read_only_writeback_owner"
     assert entry["mapping_compatibility"].endswith("does_not_prove_shared_truth")
     assert "observed_answer" not in json.dumps(report)
+
+
+def test_builder_cli_writes_subject_scorer_and_preregistration_separately(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import scripts.build_codex_transfer_packet as builder_cli
+
+    class Ledger:
+        current_sequence = 1
+        def __init__(self, _path): pass
+
+    class Verifier:
+        def __init__(self, **_kwargs): pass
+
+    class Writeback:
+        def __init__(self, **_kwargs): pass
+
+    monkeypatch.setattr(builder_cli, "load_config", lambda _path: type("Config", (), {
+        "history_root": tmp_path / "history", "state_root": tmp_path / "state"})())
+    monkeypatch.setattr(builder_cli, "AdmissionLedger", Ledger)
+    monkeypatch.setattr(builder_cli, "RuntimeAdmissionVerifier", Verifier)
+    monkeypatch.setattr(builder_cli, "ResidentDevelopmentalWritebackController", Writeback)
+    monkeypatch.setattr(builder_cli, "build_codex_transfer_packets", lambda **_kwargs: {
+        "subject_packets": {"opaque": {"packet_id": "opaque"}},
+        "scorer_manifest": {"task_commitment": "private"},
+        "preregistration": {"schema_version": "registration"}})
+    settings = tmp_path / "settings.json"
+    settings.write_text("{}", encoding="utf-8")
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps({"probe_inputs": [10, 11], "multiplier": 3,
+        "offset": 2, "applicability_basis": "fixture"}), encoding="utf-8")
+    subject_dir, scorer_dir = tmp_path / "subject", tmp_path / "scorer"
+    prereg = tmp_path / "registration.json"
+    args = Namespace(config="configured-test.json", model_settings=str(settings),
+        scoring_plan=str(plan), history_record_id="positive", irrelevant_record_id="other",
+        adverse_record_id="adverse", family="affine", irrelevant_family="other",
+        output_dir=None, subject_output_dir=str(subject_dir), scorer_output_dir=str(scorer_dir),
+        preregistration_output=str(prereg))
+    builder_cli.build(args)
+    assert [path.name for path in subject_dir.iterdir()] == ["opaque.json"]
+    assert [path.name for path in scorer_dir.iterdir()] == ["scorer_manifest.json"]
+    assert prereg.exists()
+    overlapping = Namespace(**{**vars(args), "scorer_output_dir": str(subject_dir / "scorer")})
+    with pytest.raises(ValueError, match="destinations_must_be_separate"):
+        builder_cli.build(overlapping)
 
 
 def test_packet_builder_requires_verified_admission_inventory(tmp_path: Path) -> None:

@@ -38,23 +38,28 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         multiplier=scoring_plan["multiplier"], offset=scoring_plan["offset"],
         applicability_basis=scoring_plan["applicability_basis"],
         model_settings=model_settings)
-    output = Path(args.output_dir)
-    subject_dir = output / "subject_packets"
-    scorer_dir = output / "scorer_only"
-    prereg_dir = output / "preregistration"
+    subject_dir = Path(args.subject_output_dir).resolve()
+    scorer_dir = Path(args.scorer_output_dir).resolve()
+    prereg_path = Path(args.preregistration_output).resolve()
+    destinations = (subject_dir, scorer_dir, prereg_path)
+    if any(left == right or left in right.parents or right in left.parents
+            for index, left in enumerate(destinations)
+            for right in destinations[index + 1:]):
+        raise ValueError("subject_scorer_and_preregistration_destinations_must_be_separate")
+    if any(path.exists() for path in destinations):
+        raise FileExistsError("packet_output_destination_already_exists")
     subject_dir.mkdir(parents=True, exist_ok=False)
     scorer_dir.mkdir(parents=True, exist_ok=False)
-    prereg_dir.mkdir(parents=True, exist_ok=False)
+    prereg_path.parent.mkdir(parents=True, exist_ok=True)
     for packet_id, packet in result["subject_packets"].items():
         (subject_dir / f"{packet_id}.json").write_bytes(packet_json_bytes(packet))
     (scorer_dir / "scorer_manifest.json").write_bytes(
         packet_json_bytes(result["scorer_manifest"]))
-    (prereg_dir / "preregistration.json").write_bytes(
-        packet_json_bytes(result["preregistration"]))
+    prereg_path.write_bytes(packet_json_bytes(result["preregistration"]))
     return {"packet_count": len(result["subject_packets"]),
         "subject_packet_dir": str(subject_dir),
         "scorer_manifest": str(scorer_dir / "scorer_manifest.json"),
-        "preregistration": str(prereg_dir / "preregistration.json"),
+        "preregistration": str(prereg_path),
         "commitment": result["scorer_manifest"]["task_commitment"],
         "warning": "Keep scorer_only separate from every subject session."}
 
@@ -72,7 +77,12 @@ def main() -> int:
         help="Private JSON containing probe_inputs, multiplier, offset, and applicability_basis")
     parser.add_argument("--model-settings", required=True,
         help="JSON file recording the same visible model/effort/generation settings for all sessions")
-    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--subject-output-dir", required=True,
+        help="new directory containing subject-visible packet JSON only")
+    parser.add_argument("--scorer-output-dir", required=True,
+        help="new private directory for scorer-only material")
+    parser.add_argument("--preregistration-output", required=True,
+        help="separate preregistration artifact path to archive before subject sessions")
     args = parser.parse_args()
     if not args.config:
         parser.error(f"--config or {CONFIG_ENV} is required")

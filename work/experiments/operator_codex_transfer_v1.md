@@ -17,7 +17,7 @@ This protocol prepares controlled subject packets from canonical admitted develo
 }
 ```
 
-5. Run `python -m scripts.build_codex_transfer_packet` with the three record IDs, family declarations, held-out inputs, private affine scoring parameters, applicability basis, and settings file. The script creates five subject packets, `preregistration/preregistration.json` with packet digests/opaque condition assignments and randomized order, and `scorer_only/scorer_manifest.json` containing the answer key and private nonce. Before the first subject session, archive or timestamp the preregistration artifact independently. Its hash alone is not proof of independent custody. Keep the scoring plan and scorer directory unavailable to subject sessions.
+5. Run `python -m scripts.build_codex_transfer_packet` with the three record IDs, family declarations, held-out inputs, private affine scoring parameters, and settings file. Supply three distinct output destinations: `--subject-output-dir`, `--scorer-output-dir`, and `--preregistration-output`. The builder rejects overlapping destinations. The subject directory contains only five packet files; the scorer directory contains the answer key and private nonce. Before the first subject session, archive or timestamp the preregistration artifact independently. Its hash alone is not proof of independent custody. Keep the scoring plan and scorer directory unavailable to subject sessions.
 
 ## Run blinded sessions
 
@@ -55,5 +55,7 @@ python -m scripts.build_codex_transfer_packet \
   --family affine-v1 --irrelevant-family color-sequence \
   --scoring-plan /private/scorer/scoring-plan.json \
   --model-settings /private/scorer/model-settings.json \
-  --output-dir /private/experiment/packet-set
+  --subject-output-dir /private/subject-packets \
+  --scorer-output-dir /private/scorer-output \
+  --preregistration-output /private/preregistration.json
 ```
