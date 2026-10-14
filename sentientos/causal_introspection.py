@@ -773,6 +773,7 @@ class CausalIntrospectionRuntime:
                     "introspection_snapshot_generation": snapshot.generation,
                     "introspection_snapshot_predecessor_digest": snapshot.predecessor_snapshot_digest,
                     "introspection_capture_tick": snapshot.capture_tick,
+                    "introspection_snapshot_completion_posture": snapshot.completion_posture,
                     "snapshot_completion_posture": snapshot.completion_posture,
                     "capture_findings": [{
                         "owner_id": item.owner_id, "domain": item.domain,

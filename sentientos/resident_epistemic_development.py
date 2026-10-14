@@ -235,6 +235,9 @@ class ResidentEpistemicDevelopmentRuntime:
         historical_introspection_recovery_failure = (
             fact.source.kind == "owner_introspection"
             and fact.subject.subject_kind == "causal_introspection_recovery")
+        historical_introspection_diagnostics = (
+            fact.source.kind == "owner_introspection"
+            and fact.subject.subject_kind == "snapshot_diagnostics")
         historical_software_launch_observation = (
             fact.source.kind == "runtime_supervisor"
             and fact.subject.subject_kind == "observed_running_software_generation")
@@ -509,6 +512,7 @@ class ResidentEpistemicDevelopmentRuntime:
             or historical_chat_recovery_event or historical_chat_runtime_observation
             or historical_parent_lifecycle
             or historical_introspection_recovery_failure
+            or historical_introspection_diagnostics
             or historical_software_launch_observation
             or unverified_current_running_model_observation
             or historical_serving_operation_attempt or historical_serving_operation_history
@@ -713,6 +717,7 @@ class ResidentEpistemicDevelopmentRuntime:
                 if historical_resource_fact or historical_resource_introspection
                 or historical_undated_consequence or historical_unverified_owner_record
                 or historical_introspection_recovery_failure
+                or historical_introspection_diagnostics
                 or historical_strategy_proposal or historical_strategy_review
                 or source_integrity_conflict
                 else "source_time_unverified" if unverified_embodiment_observation
@@ -723,6 +728,42 @@ class ResidentEpistemicDevelopmentRuntime:
                 "declared_completed_at": fact.payload.get("declared_completed_at"),
                 "event_time_posture": fact.payload.get("event_time_posture"),
                 "source_issuer_posture": fact.payload.get("source_issuer_posture"),
+            }
+        if historical_introspection_diagnostics and isinstance(fact.payload, Mapping):
+            def diagnostic_rows(key: str, fields: tuple[str, ...]) -> list[dict[str, Any]]:
+                rows = fact.payload.get(key)
+                if not isinstance(rows, (list, tuple)):
+                    return []
+                retained: list[dict[str, Any]] = []
+                for row in rows[:16]:
+                    if not isinstance(row, Mapping):
+                        continue
+                    selected = {field: row.get(field) for field in fields}
+                    if all(isinstance(value, str) and value and len(value) <= 512
+                            for value in selected.values()):
+                        retained.append(selected)
+                return retained
+
+            conflict_rows: list[dict[str, Any]] = []
+            raw_conflicts = fact.payload.get("conflicts")
+            if isinstance(raw_conflicts, (list, tuple)):
+                for row in raw_conflicts[:16]:
+                    if (isinstance(row, Mapping)
+                            and isinstance(row.get("observation_key"), str)
+                            and isinstance(row.get("projection_ids"), (list, tuple))
+                            and all(isinstance(item, str) and item
+                                for item in row["projection_ids"][:64])):
+                        conflict_rows.append({"observation_key": row["observation_key"][:512],
+                            "projection_ids": list(row["projection_ids"][:64])})
+            provenance_values["causal_introspection_snapshot_diagnostics"] = {
+                "snapshot_completion_posture": fact.payload.get("snapshot_completion_posture"),
+                "conflict_count": fact.payload.get("conflict_count"),
+                "conflict_posture": fact.payload.get("conflict_posture"),
+                "omitted_conflict_count": fact.payload.get("omitted_conflict_count"),
+                "capture_findings": diagnostic_rows("capture_findings",
+                    ("owner_id", "domain", "error_code", "error_class")),
+                "conflicts": conflict_rows,
+                "omitted_capture_finding_count": fact.payload.get("omitted_capture_finding_count"),
             }
         introspection_lineage_fields = (
             "introspection_snapshot_id", "introspection_snapshot_digest",
@@ -742,6 +783,7 @@ class ResidentEpistemicDevelopmentRuntime:
         # healthy source may be represented as current.
         source_staleness = str(fact.source.staleness or "unknown").lower()
         if (not historical_resource_fact and not historical_resource_introspection
+                and not historical_introspection_diagnostics
                 and not historical_parent_lifecycle
                 and not historical_undated_consequence and not historical_unverified_owner_record
                 and not historical_transition_event and not historical_chat_recovery_event

@@ -456,6 +456,60 @@ def test_owner_introspection_snapshot_chain_survives_epistemic_binding(tmp_path)
     assert binding.freshness == "current"
 
 
+def test_introspection_snapshot_diagnostics_remain_historical_context(tmp_path):
+    _owner, proposition, _ledger, runtime = fixture(tmp_path)
+    record = {
+        "source_kind": "owner_introspection",
+        "source_id": "introspection-diagnostics:causal-introspection-fixture",
+        "schema_version": "sentientos.causal_introspection:v1",
+        "subject_kind": "snapshot_diagnostics",
+        "subject_id": "causal-introspection-snapshot",
+        "stage": "observation",
+        "disposition": "incomplete",
+        "evidence_strength": "snapshot_integrity_metadata",
+        "observed_at": NOW,
+        "payload": {
+            "introspection_snapshot_id": "causal-introspection-fixture",
+            "introspection_snapshot_digest": "a" * 64,
+            "introspection_snapshot_generation": 7,
+            "introspection_snapshot_predecessor_digest": "b" * 64,
+            "introspection_capture_tick": NOW,
+            "introspection_snapshot_completion_posture": "partial",
+            "snapshot_completion_posture": "partial",
+            "conflict_count": 1,
+            "conflict_posture": "unresolved_no_winner_selected",
+            "omitted_conflict_count": 0,
+            "omitted_capture_finding_count": 0,
+            "capture_findings": [{"owner_id": "serving", "domain": "model_serving",
+                "error_code": "provider_projection_failed", "error_class": "RuntimeError"}],
+            "conflicts": [{"observation_key": "shared.status",
+                "projection_ids": ["projection-a", "projection-b"]}],
+            "authority": False, "current_truth": False,
+        },
+        "effect_claimed": False, "effect_proven": False,
+    }
+    board = WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([record])
+    rule = EpistemicDevelopmentRule("introspection-diagnostics", proposition.proposition_id,
+        proposition.proposition_digest, {}, "supports", "unknown_dependency",
+        "historical_owner_introspection_diagnostics")
+
+    proof, binding = runtime._adapt(board, board.facts[0], rule)
+    provenance = json.loads(proof.provenance_id)
+
+    assert provenance["event_time_posture"] == "historical_or_unknown"
+    assert provenance["causal_introspection_snapshot_lineage"]["introspection_snapshot_id"] == (
+        "causal-introspection-fixture")
+    diagnostic = provenance["causal_introspection_snapshot_diagnostics"]
+    assert diagnostic["snapshot_completion_posture"] == "partial"
+    assert diagnostic["conflict_posture"] == "unresolved_no_winner_selected"
+    assert diagnostic["conflicts"] == [{"observation_key": "shared.status",
+        "projection_ids": ["projection-a", "projection-b"]}]
+    assert diagnostic["capture_findings"][0]["error_class"] == "RuntimeError"
+    assert binding.freshness == "unknown"
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+
+
 def test_introspection_recovery_failure_is_contextual_and_undated(tmp_path):
     _owner, proposition, _ledger, runtime = fixture(tmp_path)
     record = {
