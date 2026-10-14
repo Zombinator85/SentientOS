@@ -164,7 +164,8 @@ class FakeInvoker:
                     multiplier = (y2 - y1) // (x2 - x1)
                     offset = y1 - multiplier * x1
                     answers = [multiplier * probe + offset for probe in probes]
-            elif self.objective_mode == "derive_from_admitted_family":
+            elif self.objective_mode in {"derive_from_admitted_family",
+                    "derive_from_latest_admitted_family"}:
                 examples = []
                 for packet in history:
                     for experience in packet.get("task_relevant_experience", ()):
@@ -178,7 +179,10 @@ class FakeInvoker:
                                 and type(item.get("probe_input")) is int
                                 and type(item.get("observed_answer")) is int)
                 if len(examples) >= 2:
-                    (x1, y1), (x2, y2) = examples[:2]
+                    fitting_examples = (examples[-2:]
+                        if self.objective_mode == "derive_from_latest_admitted_family"
+                        else examples[:2])
+                    (x1, y1), (x2, y2) = fitting_examples
                     multiplier = (y2 - y1) // (x2 - x1)
                     offset = y1 - multiplier * x1
                     answers = [multiplier * probe + offset for probe in probes]
@@ -1522,6 +1526,90 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert transfer_retrieval["history_present"] == [retained.record_id]
     assert transfer_retrieval["history_withheld"] == []
     assert transfer_retrieval["history_restored"] == [retained.record_id]
+
+    # Continue chronologically: a later correct episode is admitted after the
+    # adverse one, then a fresh owner reconstructs both before a distinct task.
+    fake.objective_mode = "no_difference"
+    corrective_task = ObjectivePredictionTask(0, 23, 11, (12,),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    corrective_path, corrective_staged, corrective_eligible = stage_request(
+        config_path=config_path, request_id="adverse-then-corrective-episode",
+        task=corrective_task)
+    assert corrective_path.exists() and corrective_eligible >= 1
+    corrective_request = load_objective_request(tmp_path / "state")
+    assert corrective_request is not None
+    corrective_result = cognition.run_objective_intervention_once(snapshot=snapshot(11),
+        tick_id="adverse-then-corrective-episode",
+        objective_task=objective_task_for_request(corrective_request),
+        request_id=corrective_request["request_id"],
+        request_digest=corrective_request["request_digest"])
+    corrective_run = cognition.experiments.load_run(
+        corrective_result.changed_cognition_measurement_id)
+    corrective_scores = {row["condition_id"]: row["score"]
+        for row in corrective_run["objective_scores"]}
+    assert corrective_scores["history_present"]["correct_count"] == 2
+    assert corrective_scores["history_withheld"]["correct_count"] == 2
+    corrective_world = WorldStateBoardBuilder().build(cognition.experiments.world_state_records(
+        run_refs=((corrective_run["run_id"], corrective_run["run_digest"]),)))
+    corrective_feedback = cognition.run_tick(snapshot=corrective_world,
+        tick_id="corrective-episode-feedback")
+    assert corrective_feedback.written_record_id
+    corrective_record = cognition.writeback.store.get(corrective_feedback.written_record_id)
+    corrective_fact = next(fact for fact in corrective_record.candidate["selected_facts"]
+        if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
+    assert [item["evaluator_correct"] for item in
+        corrective_fact["payload"]["acquisition_examples"]] == [True, True]
+    assert corrective_record.record_id != retained.record_id
+
+    # Reconstruct owner state and retrieve the corrective and adverse episodes
+    # in source chronology; the evaluator's target is held fixed in this fixture.
+    # This fixture variant fits the newest two admitted examples while still
+    # retaining the earlier adverse record in the same chronological prompt.
+    fake.objective_mode = "derive_from_latest_admitted_family"
+    restarted, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    final_task = ObjectivePredictionTask(0, 23, 13, (14,),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    final_path, final_staged, final_eligible = stage_request(config_path=config_path,
+        request_id="post-correction-heldout-episode", task=final_task)
+    assert final_path.exists() and final_eligible >= 2
+    final_request = load_objective_request(tmp_path / "state")
+    assert final_request is not None
+    final_result = restarted.run_objective_intervention_once(snapshot=snapshot(13),
+        tick_id="post-correction-heldout-episode",
+        objective_task=objective_task_for_request(final_request),
+        request_id=final_request["request_id"], request_digest=final_request["request_digest"])
+    final_run = restarted.experiments.load_run(final_result.changed_cognition_measurement_id)
+    final_scores = {row["condition_id"]: row["score"]
+        for row in final_run["objective_scores"]}
+    final_prompt = next(json.loads(request.prompt) for request in reversed(fake.requests)
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and request.linkage.get("condition_id") == "history_present")
+    history_record_order = [packet.get("record_id")
+        for packet in final_prompt["developmental_history"]]
+    assert history_record_order.index(retained.record_id) < \
+        history_record_order.index(corrective_record.record_id)
+    assert final_scores["history_present"]["correct_count"] == 2
+    assert final_scores["history_withheld"]["correct_count"] == 0
+    assert final_scores["history_restored"]["correct_count"] == 2
+    final_conditions = final_run["conditions"]
+    assert corrective_record.record_id in final_conditions[0]["retrieved_record_ids"]
+    assert retained.record_id in final_conditions[0]["retrieved_record_ids"]
+    assert final_conditions[1]["retrieved_record_ids"] == []
+    final_progression = restarted.verified_objective_task_family_progression(request_refs=(
+        (staged["request_id"], staged["request_digest"]),
+        (later_request["request_id"], later_request["request_digest"]),
+        (corrective_request["request_id"], corrective_request["request_digest"]),
+        (final_request["request_id"], final_request["request_digest"])))
+    assert final_progression["episode_count"] == 4
+    assert final_progression["distinct_probe_sets"] is True
+    assert final_progression["episodes"][2]["task_family_history_record_ids"] == [retained.record_id]
+    assert set(final_progression["episodes"][3]["task_family_history_record_ids"]) == {
+        corrective_record.record_id, retained.record_id}
+    assert final_progression["episodes"][3]["score_contrasts"][
+        "history_present_minus_withheld_correct_count"] == 2
+    assert final_progression["learning_established"] is False
+    assert final_progression["performance_improvement_established"] is False
 
 
 def test_admitted_family_example_supports_second_heldout_episode_after_restart(
