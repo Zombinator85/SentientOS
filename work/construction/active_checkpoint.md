@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 177 adds one chronological four-episode adverse/corrective sequence. An adverse task-family record remains admitted; a later corrective episode is separately scored and written back; after owner reconstruction, a distinct held-out task retrieves both records. A test-only fixture fitted its latest two examples and scored 2/2 present/restored versus 0/2 withheld. The correction episode itself was 2/2 in both present and withheld. No production change, learning claim, or independent backend observation is made.
+Sequence 178 hardens the operator packet builder to consume only `inspect_completed_records()` output from the configured existing writeback owner. This includes read-only runtime admission, candidate/source lineage, immutable receipt, and record verification. The builder does not repair state or call inference. The prior positive/adverse/corrective tests remain fixture-only; no actual Codex sessions or production effects were observed.
 
-Latest source commit: 763aae0555eb50b07cd19f41ee3ed9225d2b615c
-Latest source tree: d0061f7e28e0f0d2163c068fc71813f9e9d76b69
-Latest segment: work/construction/segments/0177-adverse-correction-longitudinal-cycle.md
-Segment SHA-256: 8630b962740a22f3d67ea048f9e73ec1ee7618bcd64e310a136243650273d022
-Evidence: work/construction/evidence/0177-adverse-correction-longitudinal-cycle.json
-Evidence SHA-256: b143e3fbebd9a8bea1015b65b119ac73a4b69195255262614b1e8a771f137505
-Sequence: 177
+Latest source commit: 06c8da3b1bfd52776f74b06e50b095747b646607
+Latest source tree: d0f38e5d00f1c184f700e25ab66f79405f3b4811
+Latest segment: work/construction/segments/0178-codex-packet-admission-custody.md
+Segment SHA-256: d7fa5536f3cb251ee38ad2ed99ac288f386807a95922118fb50016ae4a4a6c95
+Evidence: work/construction/evidence/0178-codex-packet-admission-custody.json
+Evidence SHA-256: d9883251bf29687572e0bc43a4592b69e04e4037a88def338ad314931c1b5250
+Sequence: 178
 
-Next: collect three qualifying canonical records and run the sequence-176 operator packet in fresh isolated Codex sessions. Preserve source applicability uncertainty and do not treat fixture contrasts as real-model or production evidence.
+Next: run the packet with three qualifying canonical admitted records in fresh isolated Codex sessions, record model/effort/output exactly, and score through the separate manifest. This requires operator-controlled data and fresh subject sessions. Continue further source engineering if an independently verifiable discrepancy appears.

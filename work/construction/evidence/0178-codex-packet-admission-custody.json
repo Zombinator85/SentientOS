@@ -1,0 +1,30 @@
+{
+  "defect": "Packet construction formerly accepted a record plus matching self-consistent writeback receipt without revalidating runtime admission lineage.",
+  "limitations": "No Codex subject session, model behavior, weight change, provider call, or production effect was measured.",
+  "repair": "Build from ResidentDevelopmentalWritebackController.inspect_completed_records() using the configured runtime admission ledger. This inventory is read-only and verifies record, candidate/source, receipt, and admission bindings.",
+  "sequence": 178,
+  "source_commit": "06c8da3b1bfd52776f74b06e50b095747b646607",
+  "source_paths": [
+    "sentientos/codex_transfer_packet.py",
+    "scripts/build_codex_transfer_packet.py",
+    "tests/test_codex_transfer_packet.py",
+    "work/experiments/operator_codex_transfer_v1.md"
+  ],
+  "source_tree": "d0f38e5d00f1c184f700e25ab66f79405f3b4811",
+  "starting_head": "15027d7cc984dbe2baf76e79db30ea52bb6d427c",
+  "starting_tree": "1770fa24468f371c3f99b37263c5112a18344785",
+  "status": "[untested] construction",
+  "title": "Codex packet admission custody",
+  "validation": {
+    "cli_help": "builder and scorer passed",
+    "diff_check": "passed",
+    "includes": [
+      "packet/scorer adversarial tests",
+      "writeback admission recovery",
+      "embodied strategy tests",
+      "held-out/adverse/corrective progression tests"
+    ],
+    "py_compile": "passed",
+    "targeted_bundle": "56 passed"
+  }
+}
