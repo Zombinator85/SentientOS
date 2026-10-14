@@ -8,6 +8,13 @@ from typing import Any
 
 WORK_PLAN_DIR = Path("glow/forge/work_plans")
 WORK_PLAN_PULSE_PATH = Path("pulse/work_plans.jsonl")
+_PLAN_FIELDS = {"schema_version", "plan_id", "created_at", "context", "selected_goals", "tasks"}
+_TASK_FIELDS = {"schema_version", "task_id", "goal_id", "kind", "commands", "callable_ref",
+    "risk_cost", "throughput_cost", "preconditions", "expected_artifacts", "destructive"}
+
+
+class WorkPlanError(ValueError):
+    """A persisted plan is malformed or internally inconsistent."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,32 +145,57 @@ def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
 
 
 def load_work_plan(path: Path) -> WorkPlan:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkPlanError("work_plan_unreadable") from exc
+    if (not isinstance(payload, dict) or set(payload) != _PLAN_FIELDS
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1
+            or any(not isinstance(payload.get(key), str) or not payload[key] or len(payload[key]) > 512
+                for key in ("plan_id", "created_at", "context"))
+            or not isinstance(payload.get("selected_goals"), list)
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in payload["selected_goals"])
+            or len(payload["selected_goals"]) != len(set(payload["selected_goals"]))
+            or not isinstance(payload.get("tasks"), list)):
+        raise WorkPlanError("work_plan_shape_invalid")
     tasks = []
-    for row in payload.get("tasks", []):
-        if not isinstance(row, dict):
-            continue
-        tasks.append(
-            Task(
-                schema_version=int(row.get("schema_version", 1)),
-                task_id=str(row.get("task_id", "")),
-                goal_id=str(row.get("goal_id", "")),
-                kind=str(row.get("kind", "diagnostic")),
-                commands=tuple(str(item) for item in row.get("commands", []) if isinstance(item, str)),
-                callable_ref=str(row.get("callable_ref")) if isinstance(row.get("callable_ref"), str) else None,
-                risk_cost=max(0, int(row.get("risk_cost", 0))),
-                throughput_cost=max(0, int(row.get("throughput_cost", 0))),
-                preconditions={str(k): v for k, v in (row.get("preconditions") if isinstance(row.get("preconditions"), dict) else {}).items()},
-                expected_artifacts=tuple(str(item) for item in row.get("expected_artifacts", []) if isinstance(item, str)),
-                destructive=bool(row.get("destructive", False)),
-            )
-        )
+    task_ids: set[str] = set()
+    goals = set(payload["selected_goals"])
+    for row in payload["tasks"]:
+        if (not isinstance(row, dict) or set(row) != _TASK_FIELDS
+                or type(row.get("schema_version")) is not int or row["schema_version"] != 1
+                or any(not isinstance(row.get(key), str) or not row[key] or len(row[key]) > 256
+                    for key in ("task_id", "goal_id", "kind"))
+                or row["goal_id"] not in goals or row["task_id"] in task_ids
+                or not isinstance(row.get("commands"), list)
+                or any(not isinstance(item, str) or len(item) > 4096 for item in row["commands"])
+                or (row.get("callable_ref") is not None and not isinstance(row["callable_ref"], str))
+                or any(type(row.get(key)) is not int or row[key] < 0
+                    for key in ("risk_cost", "throughput_cost"))
+                or not isinstance(row.get("preconditions"), dict)
+                or ("requires_mutation" in row["preconditions"]
+                    and type(row["preconditions"]["requires_mutation"]) is not bool)
+                or not isinstance(row.get("expected_artifacts"), list)
+                or any(not isinstance(item, str) or len(item) > 1024 for item in row["expected_artifacts"])
+                or type(row.get("destructive")) is not bool):
+            raise WorkPlanError("work_plan_task_invalid")
+        inferred_destructive = (row["kind"] == "forge_apply"
+            or row["preconditions"].get("requires_mutation") is True)
+        if row["destructive"] != inferred_destructive:
+            raise WorkPlanError("work_plan_destructive_classification_mismatch")
+        task_ids.add(row["task_id"])
+        tasks.append(Task(schema_version=row["schema_version"], task_id=row["task_id"],
+            goal_id=row["goal_id"], kind=row["kind"], commands=tuple(row["commands"]),
+            callable_ref=row["callable_ref"], risk_cost=row["risk_cost"],
+            throughput_cost=row["throughput_cost"], preconditions=dict(row["preconditions"]),
+            expected_artifacts=tuple(row["expected_artifacts"]), destructive=row["destructive"]))
     return WorkPlan(
-        schema_version=int(payload.get("schema_version", 1)),
-        plan_id=str(payload.get("plan_id", "")),
-        created_at=str(payload.get("created_at", "")),
-        context=str(payload.get("context", "manual")),
-        selected_goals=tuple(str(item) for item in payload.get("selected_goals", []) if isinstance(item, str)),
+        schema_version=payload["schema_version"],
+        plan_id=payload["plan_id"],
+        created_at=payload["created_at"],
+        context=payload["context"],
+        selected_goals=tuple(payload["selected_goals"]),
         tasks=tuple(tasks),
     )
 
@@ -183,6 +215,7 @@ __all__ = [
     "TaskRun",
     "WorkPlan",
     "WorkPlanRun",
+    "WorkPlanError",
     "load_work_plan",
     "persist_work_plan",
     "persist_work_run",
