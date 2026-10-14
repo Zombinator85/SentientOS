@@ -1,0 +1,74 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 211,
+  "title": "Fresh canonical corpus and bounded Codex strategy pilot",
+  "starting_remote_head": "b2e97b47b2adb72bf0e974a2df69daa866e626ea",
+  "starting_remote_tree": "5bfa04f9534489edf843f85b3e6b8daddafb2f7f",
+  "source_commit": "802fca9d9d405df0b04e276dc4895c6a2ad9d987",
+  "source_tree": "261c35db38fdc88f5e96070e46c92b53d9ab60ba",
+  "source_blobs": {
+    "scripts/prepare_codex_strategy_pilot.py": "b3f5461bbdc00428ac679029f19fa4b8ac134b08",
+    "scripts/list_codex_strategy_records.py": "9feb19b91c7104455994f3aa8eda119aa1a7ab04",
+    "scripts/build_codex_strategy_multitrial.py": "d87140275e9a652dede4d71a2319761460959e86",
+    "sentientos/codex_strategy_multitrial.py": "682faa7083e91204aed81c260f357776d36aa38a",
+    "work/experiments/operator_codex_strategy_transfer_v1.md": "a263c0e65b9ed057f6647688a3ee76befec2451b"
+  },
+  "implementation": {
+    "fresh_fixture_subprocess": true,
+    "uses_canonical_scoped_admission": true,
+    "read_only_owner_inventory": true,
+    "receipt_identity_separation_checked": true,
+    "bounded_history_events_per_situation": 3,
+    "conflict_task_selects": [
+      "adverse",
+      "corrective",
+      "challenge"
+    ],
+    "conflict_task_omits": [
+      "unrelated_renderer_situation",
+      "unresolved_renderer_only"
+    ],
+    "second_task_selects": "corrective history plus bounded distractors",
+    "interventions": [
+      "history_present",
+      "history_withheld",
+      "history_restored"
+    ],
+    "situation_count": 2,
+    "packet_count": 6,
+    "subject_packets_separate_from_operator_and_scorer_material": true,
+    "custody_manifest_contains_exact_source_record_receipt_event_packet_identities": true
+  },
+  "fixture_run": {
+    "verified_completed_record_count": 8,
+    "consequence_record_count": 5,
+    "consequence_event_count": 5,
+    "decision_feedback_record_count": 1,
+    "source_events_are_synthetic_fixture_evidence": true
+  },
+  "preregistration": {
+    "frozen_before_subject_sessions": true,
+    "independently_archived": false,
+    "independent_archive_action": "Operator must archive or timestamp the exact preregistration outside the workspace before sessions."
+  },
+  "validation": {
+    "test_command": "python -m pytest -q tests/test_embodied_consequence.py tests/test_codex_transfer_packet.py tests/test_resident_developmental_writeback.py::test_completed_inventory_exports_receipt_digest_from_receipt_identity tests/test_resident_developmental_cognition.py::test_admitted_embodied_consequence_conditions_later_strategy_comparison",
+    "tests_passed": 40,
+    "tests_failed": 0,
+    "fresh_subprocess_capsule_preparation": "passed; six packets and custody manifest produced",
+    "compilation": "passed",
+    "diff_check": "passed"
+  },
+  "real_subject_sessions_run": 0,
+  "limitations": [
+    "No authorized launcher for fresh isolated Codex sessions was available.",
+    "Operator applicability declarations remain unverified.",
+    "Fixture invocation receipts are not provider inference receipts.",
+    "No measured model benefit, developmental transfer, or production behavior is claimed."
+  ],
+  "authority": {
+    "production_modified": false,
+    "provider_egress_added": false,
+    "proposal_execution": false
+  }
+}
