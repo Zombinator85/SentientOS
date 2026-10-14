@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 190 connects multi-event history packet construction to the write-once response journal and CLI scorer. Partial responses remain diagnostic with a denominator of 1; complete responses score through separate event identity and applicability rows. Corrupt journals, duplicate sessions, changed settings, substituted packets/preregistrations, and response replacement are rejected or retained as incomplete evidence.
+Sequence 191 adds a frozen, versioned vector rubric to the multi-event operator strategy path. It binds criteria to exact situation and event identities, does not use treatment labels, and reports independent criterion results without an aggregate quality score. It remains available as condition-level diagnostic evidence when the overall response set is incomplete.
 
-Latest source commit: dccdfdc40fb428d60c9925358e34970424bd7941
-Latest source tree: 3848ecaa77e10bf66dd57a7610f8bce6a414dd07
-Latest segment: work/construction/segments/0190-multievent-journal-scoring.md
-Evidence: work/construction/evidence/0190-multievent-journal-scoring.json
-Sequence: 190
+Latest source commit: 4c0ad56e428ceb4f4561acaec076ac218fff04b9
+Latest source tree: df676d1ca1a1030bc58a9ad17ec98aeeb2d13c04
+Latest segment: work/construction/segments/0191-decision-quality-vector.md
+Evidence: work/construction/evidence/0191-decision-quality-vector.json
+Sequence: 191
 
-Validation: 35 embodied/transfer packet tests passed; partial-to-complete CLI journal recovery and adversarial controls passed; compileall and diff checks passed. Fixture driven, no real subject sessions or backend authentication.
+Validation: 35 embodied/transfer tests passed, including a history-present adverse response versus a safe withheld response and rubric tamper rejection. Compileall and diff checks passed. Fixture evidence only; no real model improvement or physical causation claim.
 
-Next: create a frozen decision-quality rubric independent of condition labels and connect it to the same proposals and separate history events. Then continue longitudinal contradiction/correction and fresh-process recovery.
+Next: exercise historical contradiction/correction under distinct environmental conditions and connect multi-episode continuation with restart reconstruction.
