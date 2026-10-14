@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.embodied_consequence import canonical_bytes, score_operator_codex_strategy_responses
+from sentientos.operator_codex_response_journal import recover_operator_codex_responses
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -23,16 +24,24 @@ def main() -> int:
     parser.add_argument("--scorer-manifest", required=True)
     parser.add_argument("--preregistration", required=True)
     parser.add_argument("--subject-packets", required=True)
-    parser.add_argument("--responses", required=True,
+    response_source = parser.add_mutually_exclusive_group(required=True)
+    response_source.add_argument("--responses",
         help="JSON mapping opaque packet IDs to exact raw output and session/settings fields")
+    response_source.add_argument("--response-journal",
+        help="directory of exclusive per-packet operator response records")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
     manifest = json.loads(Path(args.scorer_manifest).read_text(encoding="utf-8"),
         object_pairs_hook=_unique_object)
     preregistration = json.loads(Path(args.preregistration).read_text(encoding="utf-8"),
         object_pairs_hook=_unique_object)
-    responses = json.loads(Path(args.responses).read_text(encoding="utf-8"),
-        object_pairs_hook=_unique_object)
+    journal_recovery = None
+    if args.response_journal:
+        responses, journal_recovery = recover_operator_codex_responses(
+            journal_dir=args.response_journal, preregistration=preregistration)
+    else:
+        responses = json.loads(Path(args.responses).read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_object)
     packet_dir = Path(args.subject_packets)
     packets = {path.stem: json.loads(path.read_text(encoding="utf-8"),
         object_pairs_hook=_unique_object) for path in packet_dir.glob("*.json")}
@@ -41,6 +50,7 @@ def main() -> int:
     Path(args.output).write_bytes(canonical_bytes(scores) + b"\n")
     print(json.dumps({"score_digest": scores["score_digest"],
         "strategy_scoring_status": scores["strategy_scoring"]["status"],
+        "response_journal_recovery": journal_recovery,
         "output": args.output}, sort_keys=True, indent=2))
     return 0
 

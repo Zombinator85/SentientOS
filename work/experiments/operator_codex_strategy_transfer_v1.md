@@ -30,18 +30,30 @@ The task requests exactly the existing strategy proposal fields. Factual asserti
 
 ## Score and retain
 
-Store a JSON mapping opaque packet IDs to `packet_id`, `session_id`, `timestamp`, model settings, and exact `raw_output`. Run:
+Create a private, initially empty response journal before the first session. After each session, save that one exact response as a JSON object, then record it once under its opaque packet ID:
+
+```sh
+python -m scripts.record_codex_strategy_response \
+  --preregistration /private/archive/strategy-preregistration.json \
+  --packet-id 0123456789abcdef01234567 \
+  --response /private/operator/one-response.json \
+  --journal-dir /private/evaluator/strategy-response-journal
+```
+
+The journal creates one exclusive file per packet, binds it to the preregistration and packet digests, and refuses overwrite. It preserves a torn or malformed entry as recovery evidence; do not delete it and rerun a subject. Reconstruct the inventory from the journal after interruption, keep missing packets marked interrupted/not run, and resume only the remaining preregistered conditions. These files are operator-recorded external outputs, not authenticated inference receipts.
+
+Score directly from the response journal:
 
 ```sh
 python -m scripts.score_codex_strategy_transfer_packet \
   --scorer-manifest /private/evaluator/strategy-scorer.json \
   --preregistration /private/archive/strategy-preregistration.json \
   --subject-packets /private/strategy-subject-packets \
-  --responses /private/evaluator/responses.json \
+  --response-journal /private/evaluator/strategy-response-journal \
   --output /private/evaluator/strategy-scores.json
 ```
 
-The scorer rejects substituted packets or mismatched preregistration. It preserves raw responses up to the per-response bound and records size/digest metadata for oversized output. Missing, malformed, duplicate-session, or uncomparable responses prevent aggregate strategy scoring. The canonical score reports proposal stability, history citation, repetition of contradicted strategy, requests for observation under unresolved attribution, renderer/observer distinction, unsupported claims, and no improvement or execution authority.
+The scorer rejects substituted packets or mismatched preregistration. It preserves raw responses up to the per-response bound and records size/digest metadata for oversized output. Journal recovery reports missing, corrupt, or unknown packet entries without replaying a session; incomplete or uncomparable responses prevent aggregate strategy scoring. The canonical score reports proposal stability, history citation, repetition of contradicted strategy, requests for observation under unresolved attribution, renderer/observer distinction, unsupported claims, and no improvement or execution authority.
 
 ## Interpretation limits
 

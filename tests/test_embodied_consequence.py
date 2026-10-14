@@ -20,6 +20,8 @@ from sentientos.embodied_consequence import (
     _history_evidence_scope,
 )
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
+from sentientos.operator_codex_response_journal import (OperatorResponseJournalError,
+    record_operator_codex_response, recover_operator_codex_responses)
 from sentientos.longitudinal_self_model import LongitudinalSelfModelOwner
 from sentientos.world_state_board import WorldStateBoardBuilder
 from scripts.avatar_authoring import parser as avatar_cli_parser
@@ -377,6 +379,34 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
             "effort_setting":settings["effort_setting"],
             "generation_settings":settings["generation_settings"],
             "raw_output":json.dumps(proposal)}
+    journal=tmp_path/"response-journal"; journal.mkdir()
+    for packet_id,response in responses.items():
+        record_operator_codex_response(journal_dir=journal,
+            preregistration=result["preregistration"],packet_id=packet_id,response=response)
+    recovered,disposition=recover_operator_codex_responses(journal_dir=journal,
+        preregistration=result["preregistration"])
+    assert recovered==responses and disposition["status"]=="complete"
+    assert disposition["external_sessions_replayed"] is False
+    assert disposition["provenance_posture"]=="operator_recorded_unverified_external_output"
+    with pytest.raises(OperatorResponseJournalError,match="external_response_packet_already_recorded"):
+        record_operator_codex_response(journal_dir=journal,
+            preregistration=result["preregistration"],packet_id=packet_id,response=response)
+    partial_journal=tmp_path/"partial-response-journal"; partial_journal.mkdir()
+    partial_id=next(iter(responses))
+    record_operator_codex_response(journal_dir=partial_journal,
+        preregistration=result["preregistration"],packet_id=partial_id,
+        response=responses[partial_id])
+    _partial_responses,partial_disposition=recover_operator_codex_responses(
+        journal_dir=partial_journal,preregistration=result["preregistration"])
+    assert partial_disposition["status"]=="partial_or_corrupt"
+    assert set(partial_disposition["missing_packet_ids"])==set(responses)-{partial_id}
+    damaged_journal=tmp_path/"damaged-response-journal"; damaged_journal.mkdir()
+    damaged_file=damaged_journal/f"{partial_id}.json"
+    damaged_file.write_text("{truncated",encoding="utf-8")
+    _damaged_responses,damaged_disposition=recover_operator_codex_responses(
+        journal_dir=damaged_journal,preregistration=result["preregistration"])
+    assert damaged_disposition["status"]=="partial_or_corrupt"
+    assert damaged_disposition["corrupt_entries"]==[damaged_file.name]
     scored=score_operator_codex_strategy_responses(scorer_manifest=result["scorer_manifest"],
         preregistration=result["preregistration"],subject_packets=packets,responses=responses)
     assert scored["strategy_scoring"]["status"]=="scored"
@@ -422,6 +452,16 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     scorer_path.write_text(json.dumps(result["scorer_manifest"]),encoding="utf-8")
     prereg_path.write_text(json.dumps(result["preregistration"]),encoding="utf-8")
     response_path.write_text(json.dumps(responses),encoding="utf-8")
+    single_response_path=tmp_path/"one-response.json"
+    single_packet_id=next(iter(responses))
+    single_response_path.write_text(json.dumps(responses[single_packet_id]),encoding="utf-8")
+    cli_journal=tmp_path/"cli-response-journal"; cli_journal.mkdir()
+    record_process=subprocess.run([sys.executable,"-m","scripts.record_codex_strategy_response",
+        "--preregistration",str(prereg_path),"--packet-id",single_packet_id,
+        "--response",str(single_response_path),"--journal-dir",str(cli_journal)],
+        check=True,capture_output=True,text=True,cwd=Path(__file__).resolve().parents[1])
+    assert json.loads(record_process.stdout)["provenance_posture"]==\
+        "operator_recorded_unverified_external_output"
     process=subprocess.run([sys.executable,"-m","scripts.score_codex_strategy_transfer_packet",
         "--scorer-manifest",str(scorer_path),"--preregistration",str(prereg_path),
         "--subject-packets",str(packet_dir),"--responses",str(response_path),
@@ -429,6 +469,15 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
         cwd=Path(__file__).resolve().parents[1])
     assert json.loads(process.stdout)["strategy_scoring_status"]=="scored"
     assert json.loads(score_path.read_text(encoding="utf-8"))["strategy_scoring"]["outcome"]=="unsupported"
+    journal_score_path=tmp_path/"journal-scores.json"
+    journal_process=subprocess.run([sys.executable,"-m","scripts.score_codex_strategy_transfer_packet",
+        "--scorer-manifest",str(scorer_path),"--preregistration",str(prereg_path),
+        "--subject-packets",str(packet_dir),"--response-journal",str(journal),
+        "--output",str(journal_score_path)],check=True,capture_output=True,text=True,
+        cwd=Path(__file__).resolve().parents[1])
+    journal_summary=json.loads(journal_process.stdout)
+    assert journal_summary["response_journal_recovery"]["status"]=="complete"
+    assert json.loads(journal_score_path.read_text(encoding="utf-8"))["score_digest"]==scored["score_digest"]
 
     import scripts.build_codex_strategy_transfer_packet as strategy_builder
     class Ledger:
