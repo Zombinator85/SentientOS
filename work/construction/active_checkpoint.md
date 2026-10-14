@@ -1,11 +1,13 @@
 # Active construction checkpoint
 
-Sequence 200 strengthens restart recovery by independently loading the frozen preregistration, scorer manifest, and score vectors in the child process. Rebuilt history must match the frozen selected and omitted source identities, admitted record IDs, situation digest, and rubric identity. The distinct post-restart task is rescored with the original vector rubric while retaining randomized opaque packet assignments.
+Sequence 204 extends the existing model-replacement A/B owner test to two distinct, ordinarily admitted records. A shared frozen causal context and fixed current projection deliver the same ordered record IDs and digests to predecessor and successor fixture endpoints; empty-history controls remain empty. Read-only inventory recovers both records.
 
-Latest source commit: 7a832e6c98c05358e018196142bda82cc8b699bb
-Latest source tree: e7e154b176fa8bcfb34d3cb958c4832af5dceff9
-Latest segment: work/construction/segments/0200-frozen-score-recovery.md
-Evidence: work/construction/evidence/0200-frozen-score-recovery.json
-Sequence: 200
+Latest source commit: 28746579f3261be10b6fbecd28de44260913f8ba
+Latest source tree: 1b67464c9c809bf6fd1da83e6e05480effc9233b
+Latest segment: work/construction/segments/0204-cross-model-history-context.md
+Evidence: work/construction/evidence/0204-cross-model-history-context.json
+Sequence: 204
 
-Validation: focused integrated node passed; compileall and diff check passed. Acceptance remains partial pending fresh-process governed inference and completed-condition replay handling.
+Validation: affected suites 121 passed; compileall and diff check passed. Synthetic endpoints only; no succession, adaptation, or improvement claim.
+
+Next: combine the accepted multi-event consequence trajectory with the model-replacement context, or extend repeated longitudinal corrections.
