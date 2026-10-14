@@ -15,7 +15,8 @@ from sentientos.embodied_consequence import (
     ConsequenceStore, EmbodiedConsequenceError, SyntheticIndependentObserver,
     SyntheticRenderer, digest, evaluate_consequence, make_expectation, make_strategy_proposal,
     WORLD_STATE_PROJECTION_CONFIG_SCHEMA_V4, run_strategy_experiment,
-    build_operator_codex_strategy_packets, score_operator_codex_strategy_responses,
+    build_operator_codex_strategy_packets, build_operator_codex_strategy_multi_event_packets,
+    score_operator_codex_strategy_responses,
     score_strategy_experiment, validate_world_state_projection_config, world_state_records,
     _history_evidence_scope,
 )
@@ -356,6 +357,84 @@ def test_operator_codex_strategy_packet_reuses_verified_history_scorer(
     assert all(not any(label in json.dumps(packet) for label in
         ("history_present", "history_withheld", "history_restored"))
         for packet in packets.values())
+
+    *_, corrective_consequence, _ = chain("wave")
+    corrective_fact={"fact_id":"fact:corrective","source":{
+        "source_id":corrective_consequence["attribution_id"],
+        "digest":corrective_consequence["attribution_digest"],
+        "schema_version":corrective_consequence["schema_version"],"kind":"embodiment"},
+        "subject":{"subject_id":"body-a","subject_kind":"embodied_consequence_attribution"},
+        "payload":corrective_consequence}
+    corrective_candidate={"epistemic_posture":"historical_interpretation_not_current_truth",
+        "selected_fact_ids":[corrective_fact["fact_id"]],"selected_facts":[corrective_fact],
+        "selected_sources":[{"source_id":corrective_consequence["attribution_id"],
+            "digest":corrective_consequence["attribution_digest"],"kind":"embodiment"}]}
+    corrective_raw=DevelopmentalRecord(record_id="",record_digest="",candidate=corrective_candidate,
+        admission_id="admission-fixture-2",admission_binding_digest="sha256:"+"b"*64,
+        principal="fixture",operation_id="fixture-2",correlation_id="fixture-2",created_at=TX)
+    corrective_digest=digest({key:value for key,value in corrective_raw.semantic_payload().items()})
+    corrective_record=replace(corrective_raw,record_id="devrec-"+corrective_digest[7:31],
+        record_digest=corrective_digest)
+    class VerifiedMultiWritebackFixture:
+        def inspect_completed_records(self):
+            return ((record,object()),(corrective_record,object()))
+    multi_situation={**situation,"situation_binding":"later-wave-multi",
+        "requested_at":"2035-01-01T00:00:03+00:00"}
+    multi_events=build_operator_codex_strategy_multi_event_packets(
+        writeback=VerifiedMultiWritebackFixture(),
+        history_record_ids=[record.record_id,corrective_record.record_id],
+        situation=multi_situation,model_settings=settings,max_event_count=1,
+        applicability_by_event={consequence["attribution_id"]:{
+            "relation":"same_action_class","declared_by":"fixture-operator",
+            "declared_at":"2035-01-01T00:00:02+00:00",
+            "rationale":"the operator asserts a shared action class"}})
+    multi_by_condition={condition:multi_events["subject_packets"][packet_id]
+        for packet_id,condition in multi_events["scorer_manifest"]["condition_by_packet_id"].items()}
+    selected_id=consequence["attribution_id"]
+    omitted_id=corrective_consequence["attribution_id"]
+    assert [event["event_id"] for event in multi_by_condition["history_present"][
+        "historical_evidence"]]==[selected_id]
+    assert multi_by_condition["history_present"]["historical_evidence"]==\
+        multi_by_condition["history_restored"]["historical_evidence"]
+    assert multi_by_condition["history_withheld"]["historical_evidence"]==[]
+    assert multi_events["preregistration"]["omitted_event_identities"][0]["event_id"]==omitted_id
+    assert multi_events["scorer_manifest"]["events"][0]["applicability"]["posture"]==\
+        "operator_declared_unverified"
+    reordered_multi_events=build_operator_codex_strategy_multi_event_packets(
+        writeback=VerifiedMultiWritebackFixture(),
+        history_record_ids=[corrective_record.record_id,record.record_id],
+        situation=multi_situation,model_settings=settings,max_event_count=1,
+        applicability_by_event={consequence["attribution_id"]:{
+            "relation":"same_action_class","declared_by":"fixture-operator",
+            "declared_at":"2035-01-01T00:00:02+00:00",
+            "rationale":"the operator asserts a shared action class"}})
+    assert reordered_multi_events["preregistration"]["selected_event_identities"]==\
+        multi_events["preregistration"]["selected_event_identities"]
+    assert reordered_multi_events["preregistration"]["omitted_event_identities"]==\
+        multi_events["preregistration"]["omitted_event_identities"]
+    with pytest.raises(EmbodiedConsequenceError,match="operator_multi_event_applicability_event_unknown"):
+        build_operator_codex_strategy_multi_event_packets(writeback=VerifiedMultiWritebackFixture(),
+            history_record_ids=[record.record_id,corrective_record.record_id],
+            situation=multi_situation,model_settings=settings,max_event_count=1,
+            applicability_by_event={"substituted-event":{"relation":"same_action_class",
+                "declared_by":"fixture-operator","declared_at":"2035-01-01T00:00:02+00:00",
+                "rationale":"altered source identity"}})
+    with pytest.raises(EmbodiedConsequenceError,match="operator_multi_event_applicability_declaration_invalid"):
+        build_operator_codex_strategy_multi_event_packets(writeback=VerifiedMultiWritebackFixture(),
+            history_record_ids=[record.record_id,corrective_record.record_id],
+            situation=multi_situation,model_settings=settings,max_event_count=1,
+            applicability_by_event={consequence["attribution_id"]:{
+                "relation":"verified_by_operator","declared_by":"fixture-operator",
+                "declared_at":"2035-01-01T00:00:02+00:00","rationale":"must reject"}})
+    with pytest.raises(EmbodiedConsequenceError,match="operator_multi_event_source_not_historical"):
+        build_operator_codex_strategy_multi_event_packets(writeback=VerifiedMultiWritebackFixture(),
+            history_record_ids=[record.record_id,corrective_record.record_id],
+            situation={**multi_situation,"requested_at":"2035-01-01T00:00:02+00:00"},
+            model_settings=settings,max_event_count=1,
+            applicability_by_event={consequence["attribution_id"]:{
+                "relation":"same_action_class","declared_by":"fixture-operator",
+                "declared_at":"2035-01-01T00:00:02+00:00",
+                "rationale":"the operator asserts a shared action class"}})
     multitrial=build_operator_codex_strategy_multitrial(writeback=VerifiedWritebackFixture(),
         history_record_id=record.record_id,trials={
             "wave_a":situation,"wave_b":{**situation,"situation_binding":"later-wave-b",

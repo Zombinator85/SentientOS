@@ -1205,6 +1205,211 @@ def build_operator_codex_strategy_packets(*, writeback: Any, history_record_id: 
         "scorer_manifest": scorer_manifest}
 
 
+OPERATOR_MULTI_EVENT_PACKET_SCHEMA = "sentientos.operator_codex_strategy_multi_event_packet:v1"
+OPERATOR_MULTI_EVENT_PREREG_SCHEMA = "sentientos.operator_codex_strategy_multi_event_preregistration:v1"
+OPERATOR_MULTI_EVENT_SCORER_SCHEMA = "sentientos.operator_codex_strategy_multi_event_scorer:v1"
+
+
+def build_operator_codex_strategy_multi_event_packets(*, writeback: Any,
+        history_record_ids: Sequence[str], situation: Mapping[str, Any],
+        model_settings: Mapping[str, Any], applicability_by_event: Mapping[str, Mapping[str, Any]],
+        max_event_count: int = 8) -> dict[str, Any]:
+    """Freeze distinct admitted consequence events with deterministic bounded selection."""
+    if (not isinstance(history_record_ids, (tuple, list))
+            or not 2 <= len(history_record_ids) <= 12
+            or any(not isinstance(value, str) or not value for value in history_record_ids)
+            or len(set(history_record_ids)) != len(history_record_ids)
+            or not isinstance(situation, Mapping)
+            or not isinstance(situation.get("situation_binding"), str)
+            or not situation.get("situation_binding")
+            or not isinstance(situation.get("requested_at"), str)
+            or type(situation.get("body_generation")) is not int
+            or situation["body_generation"] < 1
+            or type(max_event_count) is not int or not 1 <= max_event_count <= 12
+            or not isinstance(applicability_by_event, Mapping)
+            or not isinstance(model_settings, Mapping)
+            or set(model_settings) != {"visible_model_name", "effort_setting", "generation_settings"}
+            or not isinstance(model_settings.get("visible_model_name"), str)
+            or not model_settings.get("visible_model_name")
+            or not isinstance(model_settings.get("effort_setting"), str)
+            or not model_settings.get("effort_setting")
+            or not isinstance(model_settings.get("generation_settings"), Mapping)):
+        raise EmbodiedConsequenceError("operator_multi_event_packet_inputs_invalid")
+    requested_at = _time(situation["requested_at"])
+    verified = writeback.inspect_completed_records()
+    records = {record.record_id: record for record, _receipt in verified}
+    if not set(history_record_ids) <= set(records):
+        raise EmbodiedConsequenceError("operator_multi_event_history_not_in_verified_admission_inventory")
+    record_identities: list[dict[str, str]] = []
+    candidates: list[dict[str, Any]] = []
+    seen_event_ids: set[str] = set()
+    situation_digest = digest(dict(situation))
+    for record_id in history_record_ids:
+        record = records[record_id]
+        history_record = asdict(record)
+        semantic = dict(history_record)
+        semantic.pop("record_id", None)
+        claimed_digest = semantic.pop("record_digest", None)
+        calculated_digest = digest(semantic)
+        if (claimed_digest != calculated_digest
+                or record_id != "devrec-" + calculated_digest[7:31]
+                or history_record.get("epistemic_posture") != "historical_interpretation_not_current_truth"
+                or history_record.get("current_truth") is not False
+                or history_record.get("authority") is not False
+                or history_record.get("policy") is not False):
+            raise EmbodiedConsequenceError("operator_multi_event_history_record_identity_invalid")
+        record_identities.append({"record_id": record_id, "record_digest": claimed_digest})
+        candidate = history_record.get("candidate")
+        facts = candidate.get("selected_facts") if isinstance(candidate, Mapping) else None
+        if not isinstance(facts, (tuple, list)) or len(facts) > 16:
+            raise EmbodiedConsequenceError("operator_multi_event_history_facts_invalid")
+        record_event_count = 0
+        for fact in facts:
+            payload = fact.get("payload") if isinstance(fact, Mapping) else None
+            if (not isinstance(payload, Mapping)
+                    or payload.get("schema_version") != ATTRIBUTION_SCHEMA):
+                continue
+            try:
+                _verify_consequence_attribution(payload)
+            except EmbodiedConsequenceError as exc:
+                raise EmbodiedConsequenceError(
+                    "operator_multi_event_source_consequence_invalid") from exc
+            event_id = payload["attribution_id"]
+            binding = _strategy_prior_consequence_binding(history_record, payload)
+            if binding.get("posture") != "verified_prior_selected_history":
+                raise EmbodiedConsequenceError("operator_multi_event_source_history_binding_invalid")
+            if event_id in seen_event_ids:
+                raise EmbodiedConsequenceError("operator_multi_event_duplicate_source_event")
+            seen_event_ids.add(event_id)
+            if _time(str(payload.get("evaluated_at", ""))) >= requested_at:
+                raise EmbodiedConsequenceError("operator_multi_event_source_not_historical")
+            if (situation.get("situation_binding") == payload.get("correlation_id")
+                    or situation.get("situation_binding") in {payload.get("expectation_id"),
+                        payload.get("handoff_id")}):
+                raise EmbodiedConsequenceError("operator_strategy_situation_must_be_distinct_from_source_event")
+            fact_id = binding["matched_fact_ids"][0]
+            source_fact = next((item for item in facts if isinstance(item, Mapping)
+                and item.get("fact_id") == fact_id), None)
+            source = source_fact.get("source") if isinstance(source_fact, Mapping) else None
+            record_event_count += 1
+            declaration = applicability_by_event.get(event_id)
+            if declaration is None:
+                applicability_body = {"event_id": event_id,
+                    "event_digest": payload["attribution_digest"],
+                    "situation_digest": situation_digest, "relation": None,
+                    "posture": "unresolved", "declared_by": None,
+                    "declared_at": None, "rationale": None}
+            else:
+                if (not isinstance(declaration, Mapping)
+                        or set(declaration) != {"relation", "declared_by", "declared_at", "rationale"}
+                        or declaration.get("relation") not in {"same_action_class",
+                            "same_environment_condition", "shared_causal_mechanism", "operator_other"}
+                        or not isinstance(declaration.get("declared_by"), str)
+                        or not declaration["declared_by"]
+                        or not isinstance(declaration.get("declared_at"), str)
+                        or not isinstance(declaration.get("rationale"), str)
+                        or not 1 <= len(declaration["rationale"]) <= 500):
+                    raise EmbodiedConsequenceError("operator_multi_event_applicability_declaration_invalid")
+                _time(declaration["declared_at"])
+                applicability_body = {"event_id": event_id,
+                    "event_digest": payload["attribution_digest"],
+                    "situation_digest": situation_digest,
+                    "relation": declaration["relation"],
+                    "posture": "operator_declared_unverified",
+                    "declared_by": declaration["declared_by"],
+                    "declared_at": declaration["declared_at"],
+                    "rationale": declaration["rationale"]}
+            applicability = {**applicability_body,
+                "declaration_digest": digest(applicability_body)}
+            # Reuse the canonical event-level validation before the event enters selection.
+            candidates.append({"attribution": dict(payload),
+                "source_record_id": record_id, "source_record_digest": claimed_digest,
+                "source_fact_id": fact_id, "applicability": applicability,
+                "source_id": source.get("source_id") if isinstance(source, Mapping) else None,
+                "source_digest": source.get("digest") if isinstance(source, Mapping) else None})
+        if record_event_count == 0:
+            raise EmbodiedConsequenceError("operator_multi_event_record_has_no_attributed_consequence")
+    if set(applicability_by_event) - seen_event_ids:
+        raise EmbodiedConsequenceError("operator_multi_event_applicability_event_unknown")
+    if not candidates or len(candidates) > 48:
+        raise EmbodiedConsequenceError("operator_multi_event_candidate_count_invalid")
+    # Operator assertions can affect ordering, but every such assertion stays explicitly unverified.
+    rank = {"same_action_class": 0, "same_environment_condition": 1,
+        "shared_causal_mechanism": 2, "operator_other": 3}
+    candidates.sort(key=lambda item: (
+        0 if item["applicability"]["posture"] == "operator_declared_unverified" else 1,
+        rank.get(item["applicability"]["relation"], 4),
+        -int(_time(item["attribution"]["evaluated_at"]).timestamp()),
+        item["attribution"]["attribution_id"]))
+    selected = candidates[:max_event_count]
+    omitted = [{"source_record_id": item["source_record_id"],
+        "source_record_digest": item["source_record_digest"],
+        "source_fact_id": item["source_fact_id"],
+        "event_id": item["attribution"]["attribution_id"],
+        "event_digest": item["attribution"]["attribution_digest"],
+        "omission_reason": "bounded_event_selection"} for item in candidates[max_event_count:]]
+    selected_subject_events = [{"event_id": item["attribution"]["attribution_id"],
+        "event_digest": item["attribution"]["attribution_digest"],
+        "source_record_id": item["source_record_id"],
+        "source_record_digest": item["source_record_digest"],
+        "source_fact_id": item["source_fact_id"],
+        "classification": item["attribution"]["classification"],
+        "causal_attribution_posture": item["attribution"]["causal_attribution_posture"],
+        "commanded_value": item["attribution"].get("commanded_value"),
+        "predicted_value": item["attribution"].get("predicted_value"),
+        "renderer_reported_value": item["attribution"].get("renderer_reported_value"),
+        "recorded_observation": item["attribution"].get("independently_observed_value"),
+        "observation_independence_posture": item["attribution"].get("observation_independence_posture"),
+        "evaluated_at": item["attribution"]["evaluated_at"],
+        "applicability": item["applicability"],
+        "applicability_independently_verified": False} for item in selected]
+    if len(canonical_bytes(selected_subject_events)) > 8192:
+        raise EmbodiedConsequenceError("operator_multi_event_history_projection_oversized")
+    current_situation = json.loads(canonical_bytes(dict(situation)))
+    order = list(OPERATOR_CODEX_STRATEGY_CONDITIONS)
+    secrets.SystemRandom().shuffle(order)
+    packets: dict[str, dict[str, Any]] = {}
+    condition_by_packet: dict[str, str] = {}
+    history_by_condition = {"history_present": selected_subject_events,
+        "history_withheld": [], "history_restored": selected_subject_events}
+    instruction = (str(STRATEGY_PROMPT_SCHEMA["instruction"]) +
+        " Treat each historical consequence as a separate source event. Applicability declarations are "
+        "operator assertions marked unverified, not established facts. Preserve event IDs and uncertainty.")
+    for condition in order:
+        packet_id = secrets.token_hex(12)
+        condition_by_packet[packet_id] = condition
+        packets[packet_id] = {"schema_version": OPERATOR_MULTI_EVENT_PACKET_SCHEMA,
+            "packet_id": packet_id, "model_settings": dict(model_settings),
+            "instructions": instruction, "historical_evidence": history_by_condition[condition],
+            "current_situation": current_situation,
+            "proposal_schema": list(STRATEGY_PROMPT_SCHEMA["proposal_fields"]),
+            "authority_boundary": "recommendation_only_no_execution_or_adoption"}
+    packet_digests = {packet_id: digest(packet) for packet_id, packet in packets.items()}
+    selected_events = [{key: item[key] for key in ("attribution", "source_record_id",
+        "source_record_digest", "source_fact_id", "applicability")} for item in selected]
+    preregistration = {"schema_version": OPERATOR_MULTI_EVENT_PREREG_SCHEMA,
+        "packet_ids_in_randomized_order": list(packets),
+        "condition_by_packet_id": condition_by_packet, "packet_digests": packet_digests,
+        "history_record_identities": sorted(record_identities, key=lambda row: row["record_id"]),
+        "selected_event_identities": [{"event_id": item["attribution"]["attribution_id"],
+            "event_digest": item["attribution"]["attribution_digest"]} for item in selected],
+        "omitted_event_identities": omitted, "situation_digest": situation_digest,
+        "model_settings": dict(model_settings),
+        "custody_note": "Archive or timestamp independently before subject sessions."}
+    scorer_manifest = {"schema_version": OPERATOR_MULTI_EVENT_SCORER_SCHEMA,
+        "condition_by_packet_id": condition_by_packet, "condition_order": order,
+        "packet_digests": packet_digests,
+        "history_record_identities": sorted(record_identities, key=lambda row: row["record_id"]),
+        "events": selected_events, "omitted_events": omitted,
+        "situation": current_situation, "situation_digest": situation_digest,
+        "model_settings": dict(model_settings),
+        "selection_policy": "operator_declared_unverified_relation_then_recency_then_event_id:v1",
+        "selection_limit": max_event_count,
+        "interpretation_limit": "Selection does not establish applicability, causal truth, or admission beyond the verified inventory inspected by the builder."}
+    return {"subject_packets": packets, "preregistration": preregistration,
+        "scorer_manifest": scorer_manifest}
+
+
 def score_operator_codex_strategy_responses(*, scorer_manifest: Mapping[str, Any],
         preregistration: Mapping[str, Any], subject_packets: Mapping[str, Mapping[str, Any]],
         responses: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
