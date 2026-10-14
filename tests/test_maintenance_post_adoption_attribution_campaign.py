@@ -126,6 +126,24 @@ def test_campaign_looking_json_is_not_an_authenticated_signal_artifact(tmp_path)
         records_from_artifact("post_adoption_attribution_campaign", path, repo_root=tmp_path)
 
 
+def test_runtime_campaign_selection_config_tampering_fails_closed(tmp_path):
+    from sentientosd import _load_post_adoption_attribution_projection
+
+    body = {"schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
+        "enabled": True, "store_root": str(tmp_path / "campaigns"),
+        "campaign_ids": ["attribution-campaign:" + "a" * 24]}
+    payload = {**body, "config_digest": digest(body)}
+    payload["campaign_ids"] = []
+    path = tmp_path / "tampered-projection.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    owner, campaign_ids, status = _load_post_adoption_attribution_projection(str(path))
+
+    assert owner is None and campaign_ids == ()
+    assert status["status"] == "invalid"
+    assert status["effect_authority"] is False
+
+
 def test_repeated_campaigns_deduplicate_and_contradictory_correction_stays_bounded(tmp_path):
     import subprocess
     import sys
@@ -207,7 +225,7 @@ def test_repeated_campaigns_deduplicate_and_contradictory_correction_stays_bound
 
 
 def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_path, monkeypatch):
-    from sentientosd import RuntimeMaintenanceSurfaces
+    from sentientosd import RuntimeMaintenanceSurfaces, _load_post_adoption_attribution_projection
     from sentientos.runtime_governor import reset_runtime_governor
     from sentientos.control_plane_kernel import (AuthorityClass, ControlActionRequest,
         ControlPlaneKernel, LifecyclePhase)
@@ -218,14 +236,20 @@ def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_
 
     store = tmp_path / "campaign-store"
     writer, protocol_value, result = finish(store, ["target_expectation_contradicted"] * 2)
-    selected = MaintenancePostAdoptionAttributionCampaignOwner(store, read_only=True)
-    config_digest = digest({"enabled": True, "store_root": str(store),
-        "campaign_ids": [protocol_value.campaign_id]})
+    projection_body = {"schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
+        "enabled": True, "store_root": str(store), "campaign_ids": [protocol_value.campaign_id]}
+    projection_config = {**projection_body, "config_digest": digest(projection_body)}
+    projection_path = tmp_path / "campaign-projection.json"
+    projection_path.write_text(json.dumps(projection_config), encoding="utf-8")
+    selected, selected_ids, projection_status = _load_post_adoption_attribution_projection(
+        str(projection_path))
+    config_digest = projection_config["config_digest"]
+    assert selected is not None and selected_ids == (protocol_value.campaign_id,)
+    assert selected.read_only is True and projection_status["status"] == "verified"
     surfaces = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "runtime",
         post_adoption_attribution_owner=selected,
-        post_adoption_attribution_campaign_ids=(protocol_value.campaign_id,),
-        post_adoption_attribution_projection_status={"status": "verified",
-            "config_digest": config_digest, "read_only": True, "effect_authority": False})
+        post_adoption_attribution_campaign_ids=selected_ids,
+        post_adoption_attribution_projection_status=projection_status)
     class AllowProposalEvaluation:
         def admit_action(self, _action_class, _actor, correlation_id, *, metadata):
             return type("Decision", (), {"allowed": True, "reason": "fixture_admitted",
