@@ -1,0 +1,83 @@
+{
+  "sequence": 210,
+  "title": "Multi-situation multi-event strategy transfer and verified source inventory",
+  "status": "integrated fixture implementation and retained-root inventory",
+  "starting_head": "be25caf6425917c199669fed2b3d69c343c9aa68",
+  "starting_tree": "7c3b93052b39a14a5815a0eb462b00bc2f21bb31",
+  "source_commit": "6bb60b926fa7ee97049b92d4eac978ee526a9e60",
+  "source_tree": "deb20724d52f7cfab0fc2dc543361e432cf43c7a",
+  "source_paths": [
+    {
+      "path": "sentientos/codex_strategy_multitrial.py",
+      "sha": "3b281efbdec231649000c789f5076622614eca84"
+    },
+    {
+      "path": "sentientos/operator_codex_response_journal.py",
+      "sha": "e29d1550df439b7eede938adb1729e3bc0d37a6a"
+    },
+    {
+      "path": "scripts/build_codex_strategy_multitrial.py",
+      "sha": "2ddc365b220c42bd65f03259f9d4dff5fc6176e9"
+    },
+    {
+      "path": "scripts/score_codex_strategy_multitrial.py",
+      "sha": "a4e39b6e16c76d41581ef6079c9ed587505c7d34"
+    },
+    {
+      "path": "scripts/record_codex_strategy_response.py",
+      "sha": "62d552f5cee5f223543284380da211124563fdc6"
+    },
+    {
+      "path": "scripts/score_codex_strategy_transfer_packet.py",
+      "sha": "ef3a61d0a943e56797bbf454dd8023c946051980"
+    },
+    {
+      "path": "scripts/list_codex_strategy_records.py",
+      "sha": "10900807d18146059fbc73fc7a5c91df0dd31999"
+    },
+    {
+      "path": "tests/test_embodied_consequence.py",
+      "sha": "f8d197b2be65b698e1f2dcce6d112369adcbb634"
+    }
+  ],
+  "implementation": {
+    "multi_event_histories_bound_per_trial": true,
+    "applicability_declarations_per_trial": true,
+    "private_decision_basis_per_trial": true,
+    "history_present_withheld_restored": true,
+    "action_adequacy_vectors_reused": true,
+    "subject_packets_exclude_basis": true,
+    "task_order_randomized": true,
+    "outer_scorer_reconstructs_each_trial": true,
+    "descriptive_denominators": true,
+    "real_subject_packet_count_minimum": 6
+  },
+  "retained_inventory_run": {
+    "root": "/tmp/sentientos-seq207-run/test_admitted_embodied_consequ0/resident",
+    "owner": "ResidentDevelopmentalWritebackController.inspect_completed_records()",
+    "read_only": true,
+    "verified_completed_record_count": 8,
+    "consequence_records": 5,
+    "decision_feedback_records": 1,
+    "new_run_generated": false,
+    "receipt_digests_read_from_owner_inventory": true
+  },
+  "validation": {
+    "tests": [
+      "tests/test_embodied_consequence.py (30 passed)",
+      "tests/test_codex_transfer_packet.py (8 passed)"
+    ],
+    "combined": "38 passed",
+    "compileall": "passed",
+    "diff_check": "passed",
+    "strategy_inventory_cli": "8 verified records; 5 consequence records; 1 decision-feedback record",
+    "real_codex_sessions": 0,
+    "provider_invocations": 0,
+    "physical_effects": 0
+  },
+  "limitations": [
+    "No single entry point yet creates a fresh isolated canonical corpus and then builds the full pilot capsule without operator-supplied record IDs and scenario files.",
+    "No approved tool in this environment can launch fresh isolated Codex sessions; the construction session was not used as a subject.",
+    "Preregistration still requires independent archival before subject execution."
+  ]
+}

@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 209 adds a versioned scorer-only action adequacy criterion. Version-3 decision-quality preregistrations can distinguish a bounded recommendation supported by frozen evidence from a task that requires more observation. The private basis is absent from subject packets; version-2 protocols remain supported. The affected suite passed 28 tests, with compilation and diff checks passing.
+Sequence 210 extends multi-situation transfer to accept independently bound multi-event history sets, applicability maps, and scorer-only decision bases per trial. The existing present/withheld/restored controls feed each task through canonical multi-event scoring. A read-only strategy inventory reports exact verified record and receipt identities, including the retained decision-feedback source.
 
-Latest source commit: a286ae19b725c30d2877550a413ce41390c25024
-Latest source tree: 79702e5568451f88862bb9ab8de938d782726802
-Latest segment: work/construction/segments/0209-preregistered-action-adequacy.md
-Evidence: work/construction/evidence/0209-preregistered-action-adequacy.json
-Sequence: 209
+Latest source commit: 6bb60b926fa7ee97049b92d4eac978ee526a9e60
+Latest source tree: deb20724d52f7cfab0fc2dc543361e432cf43c7a
+Latest segment: work/construction/segments/0210-multisituation-multievent-transfer.md
+Evidence: work/construction/evidence/0210-multisituation-multievent-transfer.json
+Sequence: 210
 
-No genuine model subject was run; no measured benefit, physical effect, or production inference is claimed.
+Validation: 38 affected tests passed; compilation and diff checks passed. The retained sequence-207 owner inventory reports eight verified records. No real Codex subject sessions ran.
 
-Next: extend multi-event trial orchestration and prepare an isolated source-backed corpus entry point for the operator pilot.
+Next: build the bounded isolated corpus-preparation entry point and complete the six-session operator capsule without invented IDs.
