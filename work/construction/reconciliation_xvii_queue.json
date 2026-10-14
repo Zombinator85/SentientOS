@@ -1,25 +1,25 @@
 {
   "schema": "sentientos.reconciliation_queue:v1",
-  "last_checkpoint_sequence": 235,
+  "last_checkpoint_sequence": 236,
   "completed_nodes": [
-    "A2/A4-A5: verified campaign outcomes route with source uncertainty; repeated, duplicate, conflicting, corrected, confounded, null, and inconclusive histories remain distinguishable across restart.",
-    "B1/B2: only proposal-routed signals become later maintenance candidates; campaign uncertainty and exact source references survive adaptation.",
-    "C2: repeated resource projection after ledger restart preserves event identity and does not debit a completed consumption again."
+    "A2/A4-A6: explicitly selected owner-recovered campaign outcomes retain provenance, classify routes, detect cross-campaign adverse/positive contradictions, and fail closed on selection-config tampering; recovery was verified in a fresh process.",
+    "B1/B2: only eligible proposal-routed signals become later maintenance candidates; campaign source uncertainty and exact lineage survive adaptation.",
+    "C2: resource reread after fresh ledger reconstruction preserves receipt identity and does not debit again."
   ],
-  "current_source_commit": "afb2fcb3367b90aa51dfc4fc2c38a82678f908e8",
-  "current_source_tree": "454372cb8c6ca659f81aa62e0f3a0dc94eb38ed6",
+  "current_source_commit": "0df408435dd8a7cd96a462ecd5a586eeb4a532d8",
+  "current_source_tree": "3a9220c7b24c081f018d7a04e1fa72b5817474a0",
   "next_executable_nodes": [
-    {"program": "C", "node": "C3-C8", "work": "Malformed/incomplete resource outcome admission, retained identity, then a distinct later task with an evidence-supported strategy recommendation."},
-    {"program": "A", "node": "A6-A8", "work": "Runtime projection ordering, duplicate recovery behavior, and no-side-effect cold reconstruction."},
-    {"program": "B", "node": "B3-B8", "work": "Later candidate selection after an unsuccessful synthetic improvement; preserve negative transfer, correction, and applicability uncertainty."},
-    {"program": "D", "node": "D1-D8", "work": "Conflicting evidence identities, admissible persistent revision, temporal boundaries, and causal introspection."},
+    {"program": "A", "node": "A7-A8", "work": "Verify runtime owner ordering, prior-tick boundaries, restart reconstruction, and zero side effects."},
+    {"program": "B", "node": "B3-B8", "work": "Later candidate-selection episode after unsuccessful synthetic improvement; preserve applicability uncertainty, correction, and source limitations."},
+    {"program": "C", "node": "C3-C8", "work": "Malformed/incomplete outcome admission, then a distinct later task where measured resource history changes a bounded computational recommendation."},
+    {"program": "D", "node": "D1-D8", "work": "Independent conflicting evidence, admissible persistent revision, temporal boundaries, and causal introspection."},
     {"program": "E", "node": "E1-E8", "work": "Multi-task partial progress, interruption recovery, budget omissions, and outcome-informed selection."},
-    {"program": "F", "node": "F1-F8", "work": "Longitudinal strategy correction, negative transfer, authorship, and model-identity continuity fixtures."},
-    {"program": "Integration", "node": "X1-X4", "work": "Connect maintenance, resource, epistemic, or goal histories across owner and process boundaries."}
+    {"program": "F", "node": "F1-F8", "work": "Longitudinal strategy correction, negative transfer, causal authorship, and model-identity continuity fixtures."},
+    {"program": "Integration", "node": "X1-X4", "work": "Connect maintenance, resource, epistemic, or goal histories across owners and process recovery."}
   ],
   "known_test_failures": [
     "Five pre-existing seq232 broad-suite failures: stale production-readiness and adapter-signature assertions, read-only /glow setup, runtime admission fixture mismatch, and production campaign readiness expectation.",
-    "Mypy on older broad runtime files still reports repository baseline errors; candidate modules pass targeted mypy."
+    "Mypy on earlier broad runtime files reports repository baseline errors; candidate modules pass targeted mypy."
   ],
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."

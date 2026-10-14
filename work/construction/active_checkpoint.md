@@ -1,14 +1,14 @@
 # Active construction checkpoint
 
-Seq235 verifies that resource evidence is historical event state: projecting after a fresh ledger reconstruction preserves receipt and semantic digest identities, changes retrieval time only, and does not debit completed consumption again.
+Seq236 verifies the configured campaign-selection path: the runtime reads the digest-bound explicit selection, reconstructs a read-only owner, and includes only those selected histories in admitted signal evaluation. Selection tampering fails closed without fallback discovery.
 
-Latest source commit: afb2fcb3367b90aa51dfc4fc2c38a82678f908e8
-Latest source tree: 454372cb8c6ca659f81aa62e0f3a0dc94eb38ed6
-Latest segment: work/construction/segments/0235-resource-event-reread-across-restart.md
-Evidence: work/construction/evidence/0235-resource-event-reread-across-restart.json
+Latest source commit: 0df408435dd8a7cd96a462ecd5a586eeb4a532d8
+Latest source tree: 3a9220c7b24c081f018d7a04e1fa72b5817474a0
+Latest segment: work/construction/segments/0236-explicit-campaign-runtime-selection.md
+Evidence: work/construction/evidence/0236-explicit-campaign-runtime-selection.json
 Queue: work/construction/reconciliation_xvii_queue.json
-Sequence: 235
+Sequence: 236
 
-Validation: 18 resource allocation and integration tests passed with one existing skip. The added node, compilation, and diff check passed. This is synthetic ledger validation of an existing source contract.
+Validation: three focused nodes passed, affected tests compiled, and `git diff --check` passed. Campaign source issuers remain unverified; no effect authority was added.
 
-Next: examine C3-C5 for malformed/incomplete resource admission and a useful distinct-task computational recommendation. Continue A/B, epistemic, goal progression, and developmental strategy work as source dependencies allow.
+Next: continue the runtime temporal/recovery tests, the later bounded maintenance proposal path, and the still-open resource, epistemic, goal, and strategy programs.
