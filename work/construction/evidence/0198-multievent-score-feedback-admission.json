@@ -1,0 +1,35 @@
+{
+  "sequence": 198,
+  "title": "Project and admit multi-event decision-quality feedback",
+  "status": "[untested] construction",
+  "starting_head": "a09bd1ea5638efa430a2074f3cac8bde6a171327",
+  "starting_tree": "590c57960a87fc140aca884113c0cadc2eeab76a",
+  "source_commit": "393a4cbdd8066e43b9e70a658c774225899e46fd",
+  "source_tree": "8c7d3bdd1a85cd4d0ed27d5fe622006e604083e0",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"a98836735112dc6cbc4efb906c4e9cb34269f5e7","sha256":"3615d74917e0aad512043de8bd61a8424c09e69a7e031a3325847944e487900b"},
+    {"path":"sentientos/resident_developmental_writeback.py","blob":"c261e59e4e370e5366646eedb33af90fbf6afd8d","sha256":"9add596ad40db86eb33feb4581797650d98e8570c97629c2ed91cbfc625fb85f"},
+    {"path":"tests/test_embodied_consequence.py","blob":"f1440ade172c1b08ba79494829c5dd86827377ff","sha256":"030954b4128fcbd7fc72415245be1fb272b20800751a78009e20229e17dfb6f2"},
+    {"path":"tests/test_resident_developmental_cognition.py","blob":"359ef10691044b94b68f23ee1faabcc78e10d90b","sha256":"86ae6b4608bfceb57fcd56a2b16fc04cd2534cdcdb0e405d2e05be9e760e3540"}
+  ],
+  "validation": {
+    "affected_suite":"121 passed",
+    "integrated_multi_event_feedback_projection_and_admission":"passed",
+    "tampered_vector":"rejected by recomputation mismatch",
+    "altered_rubric":"rejected by preregistration validation",
+    "selected_evidence_bound":"specialized 12 KB maximum for one exact review-only schema",
+    "fresh_process":"verified original three consequence records, strategy proposal record, and admitted vector feedback; rebuilt distinct-task bounded packet",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "authority_posture": {
+    "scoped_test_admission":"used",
+    "cognitive_backend":"synthetic fixture",
+    "physical_observation":"synthetic independent fixture",
+    "proposal_executed":false,
+    "physical_effect_established":false,
+    "real_model_improvement_established":false,
+    "aggregate_utility_score":null
+  },
+  "acceptance_status":"PARTIAL: D feedback projection/admission passed and restart reconstruction includes the admitted score; a fresh-process governed invocation and condition replay adversary remain"
+}
