@@ -1,0 +1,31 @@
+{
+  "sequence": 189,
+  "title": "Select multiple admitted consequence events for blinded strategy packets",
+  "status": "[untested] construction",
+  "starting_head": "542637654e7f3a585be931bca3218adba56c993f",
+  "starting_tree": "a9f678a2cfe330ea4a68027749cc5593f0558704",
+  "source_commit": "b23dd7a4ccc1edf2993a97b45867f6ff3f47ea66",
+  "source_tree": "20d204dea95e711e44e2fc253fa292029d272274",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"c75db6ca1dcf6a4854ddb78e7d7eb21a22953a28","sha256":"bc37442c6ca1346f0b8d177fb267da6789ec222b4a9127ed5a235bb4c830a008"},
+    {"path":"tests/test_embodied_consequence.py","blob":"bb65f1f2f3100da97a71eff1c3fc4319866266ef","sha256":"d55e75d405c338eb7d58ea10c48dd58b6309302f1d859e1b79d5f0b94dbfb21b"}
+  ],
+  "validation": {
+    "embodied_and_transfer_packet":"35 passed",
+    "selection_condition_isolation_and_adversaries":"passed",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "remote_readback": {
+    "branch_head":"b23dd7a4ccc1edf2993a97b45867f6ff3f47ea66",
+    "tree":"20d204dea95e711e44e2fc253fa292029d272274",
+    "changed_blobs":"both exact source/test identities independently present in recursive tree"
+  },
+  "authority_posture": {
+    "verified_inventory_required_by_builder":true,
+    "test_inventory_fixture_only":true,
+    "operator_applicability_verified":false,
+    "execution_authority_added":false
+  },
+  "limitations":"Multi-event packets are not yet connected to the write-once multi-trial response journal/scorer CLI. No external model sessions or real-world outcomes."
+}

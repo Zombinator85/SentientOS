@@ -1,13 +1,13 @@
 # Active construction checkpoint
 
-Sequence 188 routes the bounded multi-consequence scorer through the existing `score_strategy_experiment` API. The single-event path remains intact; mixed inputs fail closed. The resulting event-set report keeps each consequence distinct and leaves admission/applicability truth unresolved.
+Sequence 189 adds a bounded, deterministic multi-event strategy packet builder to the existing operator path. It binds each historical event to its admitted record/fact identity, keeps operator applicability declarations unverified, records exact selected and omitted identities, and gives the withheld arm no history metadata.
 
-Latest source commit: 6209a829e12317e4ae0619dc499c304c2e38c0c0
-Latest source tree: 006cf48ee3ac7a615a20c49aa30530d59aba2ff3
-Latest segment: work/construction/segments/0188-strategy-scorer-event-set.md
-Evidence: work/construction/evidence/0188-strategy-scorer-event-set.json
-Sequence: 188
+Latest source commit: b23dd7a4ccc1edf2993a97b45867f6ff3f47ea66
+Latest source tree: 20d204dea95e711e44e2fc253fa292029d272274
+Latest segment: work/construction/segments/0189-multi-event-strategy-packets.md
+Evidence: work/construction/evidence/0189-multi-event-strategy-packets.json
+Sequence: 189
 
-Validation: 35 embodied/transfer tests passed; positive/adversarial event-set test passed; compileall and diff checks passed. External strategy packets still consume one consequence. Fixture behavior only.
+Validation: 35 embodied/transfer packet tests passed, including deterministic ordering and adversarial event/applicability cases; compileall and diff check passed. Fixture inventory only; no external model sessions.
 
-Next: integrate deterministic multiple-record selection and omission evidence into the existing operator packet builder. Maintain exact event identities, condition withholding, and unverified applicability posture.
+Next: connect multi-event packets to response journaling and per-event strategy scoring, then add preregistered decision-quality vectors and longitudinal correction cases.
