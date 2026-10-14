@@ -1,0 +1,25 @@
+{
+  "sequence": 180,
+  "title": "Codex subject/scorer output isolation",
+  "status": "[untested] construction",
+  "starting_head": "14d4eff88858b06791f8ae7c791d8c8b7e421ce1",
+  "starting_tree": "2d998db83bb34df6ea6822ad47fd204233d1622f",
+  "source_commit": "747998e0d595b9a22d259f2a2464f2f2930cd126",
+  "source_tree": "f049ec96de3ed0754118509d8ae086cb55abd101",
+  "source_paths": [
+    {"path": "scripts/build_codex_transfer_packet.py", "blob": "5c11dccfa49ce83cb22514151317d735b22de097", "sha256": "65290e5d21a37ebeddb3db47ee6857e585c2f8a90f0d0d3f9555bc352dcdaf3e"},
+    {"path": "tests/test_codex_transfer_packet.py", "blob": "0b69a7597aaf82f5de2e49367932d7af9a69252d", "sha256": "a787514893e5a85b6400886a4b3ba61a02038658dd1684c285d9de45facf0279"},
+    {"path": "work/experiments/operator_codex_transfer_v1.md", "blob": "58b7e31911729101f73ee9ec0c3ecf6ba03274de", "sha256": "b80a6321c201edae0b3917db81209a625879579bd3a0fc89e90a5e4792d015fd"}
+  ],
+  "change": "Separate output paths ensure subject packet files are physically apart from the private scorer manifest and preregistration material. Destination overlap and preexisting destination paths are rejected.",
+  "validation": {
+    "focused_bundle": "72 passed",
+    "staging_progression_restart": "4 passed",
+    "builder_layout_and_overlap": "passed",
+    "mypy": "passed on 4 source files",
+    "compileall": "passed",
+    "cli_help": "passed",
+    "diff_check": "passed"
+  },
+  "limitations": "No Codex sessions or real-model responses were run. Independent preregistration custody still requires operator archival or timestamping. No production effect, provider integration, or model-weight change is claimed."
+}

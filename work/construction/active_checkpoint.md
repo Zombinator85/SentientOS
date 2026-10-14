@@ -1,15 +1,17 @@
 # Active construction checkpoint
 
-Sequence 179 repairs the operator-mediated Codex transfer pilot's subject/scorer response contract, source-evidence projection, source correctness applicability check, preregistered packet identities, and scorer manifest validation. It also adds a privacy-bounded read-only inventory over the existing verified writeback admission owner. No provider calls, real Codex sessions, external-result admission, or production effects occurred.
+Sequence 180 physically separates subject-visible packet output, private scorer material, and preregistration. The builder rejects overlapping or existing destinations. Sequence 179 added the response/scorer integrity repairs and read-only admitted-history discovery.
 
-Latest source commit: a57f41d3a9d1ba54a28f7934fcb1e61a797924f1
-Latest source tree: ef9c552312f55d5f529c7886441e348405b5ffb9
-Latest segment: work/construction/segments/0179-codex-experiment-integrity.md
-Segment SHA-256: 6708fbe7162e19ba4bbbaf3b645cc15d566aee217ef88ddac0aa786dfb88d56d
-Evidence: work/construction/evidence/0179-codex-experiment-integrity.json
-Evidence SHA-256: 23b957fa7eba11c7d6d7be2c73b053f32c9e3ab1460979ee9fa2da33a7d4f74b
-Sequence: 179
+Latest source commit: 747998e0d595b9a22d259f2a2464f2f2930cd126
+Latest source tree: f049ec96de3ed0754118509d8ae086cb55abd101
+Latest segment: work/construction/segments/0180-codex-output-isolation.md
+Segment SHA-256: fcb32a65f1bcd2021843c0c01c6476ca6e2c51f615ad114ce993930987055a62
+Evidence: work/construction/evidence/0180-codex-output-isolation.json
+Evidence SHA-256: 326b63e21e3c63fabdcba16de8b36deac30f9d648c53df134747003f45d57786
+Sequence: 180
 
-Validation: 71 focused packet/scorer, history-intervention, writeback, strategy, and consequence tests passed; four additional task-family staging/admitted-history/progression/restart tests passed; targeted mypy, compilation, command help, and diff checks passed. A broader cognition suite exposed an independent downstream writeback rejection (`developmental_history_execution_condition_invalid`) preserved as a blocker; the resource-lineage integration suite cannot collect because `cryptography` is absent.
+Validation: 72 focused packet/scorer, history-intervention, writeback, strategy, and consequence tests passed; four additional task-family staging/admitted-history/progression/restart tests passed; builder output isolation and overlap rejection passed; targeted mypy, compilation, CLI help, and diff checks passed.
 
-Next: inspect the existing isolated fixture/provisioning path to make three qualifying records reproducibly obtainable through normal World-State scoring and governed admission. Keep fixture-derived evidence explicitly distinct from prior real-model competence. Investigate the downstream execution-evidence rejection without loosening receipt validation, then prepare the operator-mediated blinded strategy trial. Fresh Codex subject sessions remain operator-controlled.
+Known blockers: a broader resident cognition test reproduces downstream rejection `developmental_history_execution_condition_invalid`; this was not weakened. The strategy resource-lineage integration test cannot collect without `cryptography`. No fresh Codex subject sessions or real-model results are available.
+
+Next: extend the existing embodied strategy proposal and scoring path to an operator-mediated, blinded external subject experiment, bound to verified admitted consequence history and a distinct current situation. Preserve the no-execution boundary and separate any scorer-only rubric.
