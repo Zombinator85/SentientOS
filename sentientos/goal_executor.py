@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import hashlib
 from pathlib import Path
 import subprocess
+import sys
 import time
 
 from sentientos.cathedral_forge import CathedralForge
@@ -65,18 +66,19 @@ class GoalExecutor:
             status = "success"
             reason: str | None = None
             artifacts: tuple[str, ...] = ()
+            destructive = task.destructive or task.kind == "forge_apply"
 
-            if task.destructive and (state.quarantine_active or not state.allow_mutation):
+            if destructive and (state.quarantine_active or not state.allow_mutation):
                 status = "skipped"
                 reason = "mutation_disallowed"
-            elif task.destructive and state.operating_mode in {"recovery", "lockdown", "cautious"}:
+            elif destructive and state.operating_mode in {"recovery", "lockdown", "cautious"}:
                 status = "skipped"
                 reason = f"mode_disallows_destructive:{state.operating_mode}"
             else:
                 status, reason, artifacts = self._execute_task(task)
             finished = _iso_now()
             duration_ms = max(0, int((time.monotonic() - started_mono) * 1000))
-            task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id, kind=task.kind, status=status, reason=reason, started_at=started, finished_at=finished, duration_ms=duration_ms, artifacts=artifacts, destructive=task.destructive))
+            task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id, kind=task.kind, status=status, reason=reason, started_at=started, finished_at=finished, duration_ms=duration_ms, artifacts=artifacts, destructive=destructive))
             if status in {"failed", "skipped"} and reason:
                 reasons.append(reason)
 
@@ -85,9 +87,14 @@ class GoalExecutor:
         return WorkPlanRun(schema_version=1, run_id=run_id, plan_id=plan.plan_id, created_at=state.created_at, status=overall_status, operating_mode=state.operating_mode, quarantine_active=state.quarantine_active, task_runs=tuple(task_runs), reason_stack=tuple(reasons[:12]))
 
     def _execute_task(self, task: Task) -> tuple[str, str | None, tuple[str, ...]]:
-        if task.kind in {"diagnostic", "verify", "fetch", "doc_update"}:
+        if task.kind in {"diagnostic", "verify"}:
+            expected_command, argv_tail = _SAFE_PLAN_COMMANDS[task.kind]
+            if task.commands != (expected_command,):
+                return "failed", "command_not_allowlisted", ()
+            return _run_commands(argv_tail, repo_root=self.repo_root)
+        if task.kind in {"fetch", "doc_update"}:
             if task.commands:
-                return _run_commands(task.commands, repo_root=self.repo_root)
+                return "failed", "command_not_allowlisted", ()
             return "success", None, task.expected_artifacts
         if task.kind == "forge_propose":
             goal_name = _goal_to_forge_goal(task.goal_id)
@@ -212,11 +219,21 @@ def _task(goal: Goal, kind: str, risk_cost: int, throughput_cost: int, *, destru
     return Task(schema_version=1, task_id=task_id, goal_id=goal.goal_id, kind=kind, commands=commands, callable_ref=None, risk_cost=max(0, risk_cost), throughput_cost=max(0, throughput_cost), preconditions={"requires_mutation": destructive}, expected_artifacts=expected, destructive=destructive)
 
 
-def _run_commands(commands: tuple[str, ...], *, repo_root: Path) -> tuple[str, str | None, tuple[str, ...]]:
-    for command in commands:
-        proc = subprocess.run(command, shell=True, cwd=repo_root, capture_output=True, text=True, check=False)
-        if proc.returncode != 0:
-            return "failed", f"command_failed:{command}", ()
+_SAFE_PLAN_COMMANDS: dict[str, tuple[str, str]] = {
+    "diagnostic": ("python -m scripts.contract_drift", ("-m", "scripts.contract_drift")),
+    "verify": ("python -m scripts.run_tests -q", ("-m", "scripts.run_tests", "-q")),
+}
+
+
+def _run_commands(argv_tail: tuple[str, ...], *, repo_root: Path) -> tuple[str, str | None, tuple[str, ...]]:
+    argv = [sys.executable, *argv_tail]
+    try:
+        proc = subprocess.run(argv, shell=False, cwd=repo_root,
+            capture_output=True, text=True, check=False)
+    except OSError as exc:
+        return "failed", f"command_launch_failed:{type(exc).__name__}", ()
+    if proc.returncode != 0:
+        return "failed", f"command_failed:{argv[1:]}", ()
     return "success", None, ()
 
 
