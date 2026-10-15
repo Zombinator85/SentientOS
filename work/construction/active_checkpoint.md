@@ -1,14 +1,14 @@
 # Active construction checkpoint
 
-Seq239 composes adverse, corrective, and later distinct campaign outcomes through the governed signal plane. Contradictory evidence for the original proposal remains blocked; a distinct later source-grounded finding remains proposal-routable and produces a low-confidence candidate with issuer uncertainty and proposal-selection-only authority.
+Seq240 follows the adverse/corrective/later-distinct campaign trajectory through the deterministic candidate selector. The original contradiction remains blocked. The later distinct result retains low confidence and issuer uncertainty, but has no source-supported subject path, so selection correctly returns `idle_no_viable_candidate` with `candidate_scope_unknown`.
 
-Latest source commit: 1ee84d83fbbdf648b098d3ce7a5e237dacf15af8
-Latest source tree: cc8858a64730648a3ea625dccda5fa446728e48c
-Latest segment: work/construction/segments/0239-corrective-history-later-candidate.md
-Evidence: work/construction/evidence/0239-corrective-history-later-candidate.json
+Latest source commit: 53cee2d02152517cf203cb48abe949f689fcfe36
+Latest source tree: 1b5b24ab97b3df6713c3e28e096fa2d90820aec0
+Latest segment: work/construction/segments/0240-candidate-scope-uncertainty.md
+Evidence: work/construction/evidence/0240-candidate-scope-uncertainty.json
 Queue: work/construction/reconciliation_xviii_queue.json
-Sequence: 239
+Sequence: 240
 
-Validation: the new integration node passed; the wider campaign/collector/signal set had 29 passes and two stale baseline failures documented in evidence. The campaign test module compiled and `git diff --check` passed. Evidence is synthetic, source issuers remain unverified, and no candidate effect authority was added.
+Validation: the focused candidate/scope integration node passed; the wider campaign/collector/signal suite had 29 passes and two known stale failures. The changed test module compiled and `git diff --check` passed. Evidence is synthetic, issuers remain unverified, and no candidate was selected or executed.
 
-Next: prove the one-tick history boundary through the actual cognition consumer, then exercise collector scan/selection and fresh-process reconstruction for the later candidate. Continue resource, epistemic, goal, strategy, and cross-system programs.
+Next: integrate the one-tick cognition history cutoff with actual same-tick source closure, then assess a safe evidence-bound applicability route. Continue resource, epistemic, goal, strategy, and cross-system programs.
