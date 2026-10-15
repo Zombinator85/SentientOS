@@ -1725,44 +1725,165 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     resource_source = {"source_id": "fixture-resource-source", "kind": "resource_governor",
         "digest": "a" * 64}
     resource_candidate["selected_sources"].append(resource_source)
-    family_condition = next(item for item in family_fact["payload"]["conditions"]
-        if item["condition_id"] == "history_present")
-    resource_candidate["selected_facts"].append({
-        "fact_id": "fixture-resource-lineage-fact", "stage": "observation",
-        "disposition": "verified",
-        "source": dict(resource_source),
-        "subject": {"subject_kind": "developmental_history_invocation_resource_lineage"},
-        "payload": {
-            "developmental_history_run_id": family_fact["payload"]["run_id"],
-            "developmental_history_run_digest": family_fact["payload"]["run_digest"],
-            "developmental_history_source_record_id": family_fact["source"]["source_id"],
-            "developmental_history_source_record_digest": family_fact["source"]["digest"],
-            "task_family_id": "integer_affine_prediction",
-            "task_outcome": {"posture": "run_owner_score_bound_to_condition",
-                "condition_id": "history_present",
-                "score_digest": family_fact["payload"]["objective_scores"][0]["score_digest"],
-                "inference_receipt_id": family_condition["inference_receipt_id"],
-                "inference_receipt_digest": family_condition["inference_receipt_digest"]},
-            "resource_measurement_posture": "verified_ledger_receipt_values",
-            "resource_consumption_evidence": [{
-                "receipt_id": "fixture-resource-receipt", "receipt_digest": "b" * 64,
-                "measured_values": {"call_units_consumed": 2},
-                "measurement_posture": {"token_count": "unknown"}}],
-            "resource_linkage": {"consumption_receipt_digests": ["b" * 64]},
-            "lineage_findings": [],
-        }})
+    for index, condition_id in enumerate(("history_present", "history_withheld",
+            "history_restored"), start=1):
+        family_condition = next(item for item in family_fact["payload"]["conditions"]
+            if item["condition_id"] == condition_id)
+        family_score = next(item for item in family_fact["payload"]["objective_scores"]
+            if item["condition_id"] == condition_id)
+        receipt_digest = f"{index:064x}"
+        resource_candidate["selected_facts"].append({
+            "fact_id": f"fixture-resource-lineage-fact-{condition_id}",
+            "stage": "observation", "disposition": "verified",
+            "observed_at": f"2026-01-01T00:00:0{index}+00:00",
+            "source": dict(resource_source),
+            "subject": {"subject_kind": "developmental_history_invocation_resource_lineage"},
+            "payload": {
+                "developmental_history_run_id": family_fact["payload"]["run_id"],
+                "developmental_history_run_digest": family_fact["payload"]["run_digest"],
+                "developmental_history_source_record_id": family_fact["source"]["source_id"],
+                "developmental_history_source_record_digest": family_fact["source"]["digest"],
+                "developmental_history_condition": condition_id,
+                "task_family_id": "integer_affine_prediction",
+                "task_outcome": {"posture": "run_owner_score_bound_to_condition",
+                    "condition_id": condition_id, "score_digest": family_score["score_digest"],
+                    "inference_receipt_id": family_condition["inference_receipt_id"],
+                    "inference_receipt_digest": family_condition["inference_receipt_digest"]},
+                "resource_measurement_posture": "verified_ledger_receipt_values",
+                "resource_consumption_evidence": [{
+                    "receipt_id": f"fixture-resource-receipt-{condition_id}",
+                    "receipt_digest": receipt_digest,
+                    "measured_values": {"call_units_consumed": index},
+                    "measurement_posture": {"token_count": "unknown"}}],
+                "resource_linkage": {"consumption_receipt_digests": [receipt_digest]},
+                "lineage_findings": [],
+            }})
     resource_examples = _task_family_history_examples(resource_candidate,
         task_family_id="integer_affine_prediction")
     assert resource_examples[0]["resource_context"]["posture"] == (
         "verified_ledger_receipt_values")
     assert resource_examples[0]["resource_context"]["measurements"][0][
-        "measured_values"] == {"call_units_consumed": 2}
+        "measured_values"] == {"call_units_consumed": 1}
+    condition_rows = resource_examples[0]["condition_outcomes"]
+    assert [item["condition_id"] for item in condition_rows] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert [item["resource_context"]["resource_receipts"][0]["receipt_id"]
+        for item in condition_rows] == [
+            "fixture-resource-receipt-history_present",
+            "fixture-resource-receipt-history_withheld",
+            "fixture-resource-receipt-history_restored"]
+    assert [item["resource_context"]["resource_receipts"][0]["measured_values"][
+        "call_units_consumed"] for item in condition_rows] == [1, 2, 3]
+    from sentientos.resident_developmental_cognition import (
+        _resource_condition_recommendation,
+    )
+    measured_choice = resource_examples[0]["resource_strategy_recommendation"]
+    assert measured_choice["evaluator"] == "resource_quality_then_measured_call_units:v1"
+    assert measured_choice["posture"] == "bounded_recommendation"
+    assert measured_choice["recommendation"]["condition_id"] == "history_present"
+    assert measured_choice["recommendation"]["call_units_consumed"] == 1
+    assert measured_choice["recommendation"]["resource_receipts"][0][
+        "receipt_id"] == "fixture-resource-receipt-history_present"
+    assert measured_choice["requirements"]["source"] == (
+        "frozen_task_descriptor_full_suite_correctness")
+    assert measured_choice["requirements"]["task_digest"] == family_fact[
+        "payload"]["objective_task_descriptor"]["task_digest"]
+    assert condition_rows[0]["resource_context"]["event_time"] == (
+        "2026-01-01T00:00:01+00:00")
+    assert condition_rows[0]["resource_context"]["posture"] == (
+        "verified_ledger_receipt_values")
+
+    # Exercise the normal bounded history binder: the condition comparison and
+    # recommendation enter the same inference prompt as other admitted history.
+    from sentientos.resident_developmental_cognition import (
+        _bind_history_and_epistemic_context,
+    )
+    synthetic_record = {"record_id": admitted.record_id,
+        "record_digest": admitted.record_digest,
+        "candidate": resource_candidate,
+        "created_at": admitted.created_at,
+        "epistemic_posture": admitted.epistemic_posture}
+    _, _, resource_prompt, _, _ = _bind_history_and_epistemic_context(
+        context={"instruction": "bounded fixture task",
+            "current_evidence": {}, "prior_self_model": None,
+            "prior_epistemic_state": None, "developmental_history": [],
+            "developmental_history_posture": "historical_interpretation_not_current_truth",
+            "developmental_history_task_family_id": "integer_affine_prediction"},
+        records=(synthetic_record,), projection=None)
+    assert measured_choice["recommendation_digest"] in resource_prompt
+    assert "fixture-resource-receipt-history_withheld" in resource_prompt
+
+    # The same frozen evaluator permits a more expensive choice when it alone
+    # satisfies quality, prefers a cheaper equal quality choice, and reports
+    # uncertainty when receipt evidence is absent.
+    def measured_conditions(correct: tuple[int, int, int], costs: tuple[int, int, int]):
+        return [{"condition_id": condition_id,
+            "inference_receipt_id": f"invocation-{condition_id}",
+            "inference_receipt_digest": f"{index + 1:064x}",
+            "score_digest": f"sha256:{index + 1:064x}",
+            "evaluator": "deterministic_exact_integer_suite_oracle_v2",
+            "correct_count": correct[index], "probe_count": 3,
+            "resource_context": {"posture": "verified_ledger_receipt_values",
+                "resource_receipts": [{"receipt_id": f"resource-{condition_id}",
+                    "receipt_digest": f"{index + 4:064x}",
+                    "measured_values": {"call_units_consumed": costs[index]}}]}}
+            for index, condition_id in enumerate(("history_present", "history_withheld",
+                "history_restored"))]
+    premium = _resource_condition_recommendation(measured_conditions((3, 2, 1), (8, 1, 1)),
+        minimum_correct_count=3, probe_count=3, task_digest="sha256:" + "a" * 64)
+    assert premium["recommendation"]["condition_id"] == "history_present"
+    economical = _resource_condition_recommendation(measured_conditions((3, 3, 2), (8, 2, 1)),
+        minimum_correct_count=3, probe_count=3, task_digest="sha256:" + "a" * 64)
+    assert economical["recommendation"]["condition_id"] == "history_withheld"
+    negative_transfer = _resource_condition_recommendation(
+        measured_conditions((1, 3, 2), (5, 2, 4)), minimum_correct_count=3,
+        probe_count=3, task_digest="sha256:" + "a" * 64)
+    assert negative_transfer["recommendation"]["condition_id"] == "history_withheld"
+    incomparable_rows = measured_conditions((3, 3, 3), (1, 1, 1))
+    incomparable_rows[1]["resource_context"] = {
+        "posture": "unknown_missing_or_unbound_lineage", "resource_receipts": []}
+    incomparable = _resource_condition_recommendation(incomparable_rows,
+        minimum_correct_count=3, probe_count=3, task_digest="sha256:" + "a" * 64)
+    assert incomparable["posture"] == "incomparable_missing_or_unbound_measurement"
+    assert incomparable["recommendation"] is None
     mismatched_resource = copy.deepcopy(resource_candidate)
-    mismatched_resource["selected_facts"][-1]["payload"]["task_outcome"][
-        "score_digest"] = "sha256:" + "f" * 64
+    history_present_resource = next(fact for fact in mismatched_resource["selected_facts"]
+        if isinstance(fact.get("payload"), Mapping)
+        and fact["payload"].get("developmental_history_condition") == "history_present")
+    history_present_resource["payload"]["task_outcome"]["score_digest"] = (
+        "sha256:" + "f" * 64)
     assert _task_family_history_examples(mismatched_resource,
         task_family_id="integer_affine_prediction")[0]["resource_context"]["posture"] == (
             "unknown_missing_or_unbound_lineage")
+    crossed_condition = copy.deepcopy(resource_candidate)
+    crossed_condition["selected_facts"][-1]["payload"]["developmental_history_condition"] = (
+        "history_present")
+    crossed_rows = _task_family_history_examples(crossed_condition,
+        task_family_id="integer_affine_prediction")[0]["condition_outcomes"]
+    assert crossed_rows[-1]["resource_context"]["posture"] == (
+        "unknown_missing_or_unbound_lineage")
+    unrelated_receipt = copy.deepcopy(resource_candidate)
+    unrelated_fact = next(fact for fact in unrelated_receipt["selected_facts"]
+        if isinstance(fact.get("payload"), Mapping)
+        and fact["payload"].get("developmental_history_condition") == "history_present")
+    unrelated_fact["payload"]["resource_consumption_evidence"][0]["receipt_digest"] = (
+        "f" * 64)
+    unrelated_rows = _task_family_history_examples(unrelated_receipt,
+        task_family_id="integer_affine_prediction")[0]["condition_outcomes"]
+    assert unrelated_rows[0]["resource_context"]["posture"] == (
+        "unknown_missing_or_unbound_lineage")
+    unqualified_candidate = copy.deepcopy(resource_candidate)
+    unqualified_fact = next(fact for fact in unqualified_candidate["selected_facts"]
+        if isinstance(fact.get("payload"), Mapping)
+        and fact["payload"].get("developmental_history_condition") == "history_withheld")
+    unqualified_fact["disposition"] = "degraded"
+    unqualified_fact["payload"]["lineage_findings"] = ["receipt_identity_conflict"]
+    unqualified_rows = _task_family_history_examples(unqualified_candidate,
+        task_family_id="integer_affine_prediction")[0]["condition_outcomes"]
+    assert unqualified_rows[1]["resource_context"]["posture"] == (
+        "unknown_unqualified_condition_lineage")
+    assert unqualified_rows[1]["resource_context"]["unqualified_lineage"][0][
+        "lineage_findings"] == ["receipt_identity_conflict"]
     assert "multiplier" not in json.dumps(projected_examples)
     assert "offset" not in json.dumps(projected_examples)
 
@@ -1773,7 +1894,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     heldout_task = ObjectivePredictionTask(3, 2, 10, (11, 12),
         task_family_id="integer_affine_prediction", requires_task_family_history=True)
     prior_epistemic, _prior_proposition, prior_state = epistemic_projection(
-        tmp_path / "epistemic-prior")
+        tmp_path / "epistemic-prior", with_evidence=True)
     _, prior_task_request, prior_task_eligible = stage_request(config_path=config_path,
         request_id="episode-heldout-with-epistemic-prior", task=heldout_task)
     assert prior_task_eligible >= 1
@@ -3932,16 +4053,30 @@ def test_valid_quarantine_state_projection_preserves_actual_posture(
         assert incident_facts[0].payload["reconciliation_status"] == "incomplete_identity"
 
 
-def epistemic_projection(root: Path):
+def epistemic_projection(root: Path, *, with_evidence: bool = False):
     epistemic = PersistentEpistemicStateOwner(root, allowed_namespaces=["embodiment"])
     proposition = make_proposition(namespace="embodiment", subject="body:g1", predicate="healthy",
         object_value=True, polarity="positive", qualifiers={}, temporal_scope={"kind":"prior"},
         context_scope={}, proposition_class="descriptive")
     epistemic.register_proposition(proposition)
+    binding_ids = []
+    stance = "unknown"
+    if with_evidence:
+        support = make_evidence_binding(proposition_id=proposition.proposition_id,
+            source_artifact_id="prior-epistemic-support",
+            source_digest="sha256:" + "1" * 64,
+            source_schema="sentientos.fixture_observation:v1", source_class="fixture",
+            observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+            dependency_kind="independently_sourced_observation",
+            dependency_group="prior-support", upstream_binding_ids=(), freshness="current",
+            reliability_posture="verified")
+        epistemic.bind_evidence(support)
+        binding_ids = [support.binding_id]
+        stance = "supported"
     state, _ = epistemic.commit_update(proposition_id=proposition.proposition_id,
-        expected_predecessor_digest=None, stance="unknown", reason="initialization",
-        active_binding_ids=[], correlation_id="prior", tick=1,
-        recorded_at="2026-01-01T00:00:00Z")
+        expected_predecessor_digest=None, stance=stance, reason="initialization",
+        active_binding_ids=binding_ids, added_binding_ids=binding_ids,
+        correlation_id="prior", tick=1, recorded_at="2026-01-01T00:00:00Z")
     projection = epistemic.cognitive_projection(max_states=1)
     assert projection is not None
     return projection, proposition, state

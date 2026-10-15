@@ -9,12 +9,23 @@
     },
     {
       "node_id": "tests/test_resident_developmental_cognition.py::test_admitted_family_example_supports_second_heldout_episode_after_restart",
-      "expected": "Later family retrieval carries bounded measured resource context only for a matching run, score, condition, and inference receipt, and preserves unknown posture when evidence is missing or mismatched."
+      "expected": "Admitted task-family history preserves score, inference-receipt, source, event-time, and measured-resource bindings for history_present, history_withheld, and history_restored independently; exact condition joins feed the bounded resource_quality_then_measured_call_units:v1 recommendation through the normal cognition input binder, while incomplete, mismatched, or irrelevant evidence remains unknown."
     }
   ],
   "authority": {
     "resource_measurements": "historical owner-reported ledger receipts only",
     "cognition": "bounded historical context without effect authority",
     "missing_evidence": "explicitly unknown; no CPU, GPU, energy, token, or external outcome is inferred"
+  },
+  "evaluation": {
+    "evaluator": "resource_quality_then_measured_call_units:v1",
+    "preregistered_requirement": "frozen_task_descriptor_full_suite_correctness",
+    "selection_order": [
+      "meet frozen correctness requirement",
+      "maximize independently scored correct probes",
+      "minimize measured call_units_consumed"
+    ],
+    "condition_label_used_as_quality": false,
+    "unknown_measurements": "incomparable; no recommendation"
   }
 }

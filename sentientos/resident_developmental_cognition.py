@@ -1055,6 +1055,189 @@ def _historical_security_evidence_context(candidate: Mapping[str, Any]) -> list[
     return sorted(summaries, key=lambda item: str(item["fact_id"]))
 
 
+def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str, Any]], *,
+        minimum_correct_count: int, probe_count: int, task_digest: str) -> dict[str, Any]:
+    """Choose among preregistered history treatments by scored quality, then measured cost."""
+    evaluator = "resource_quality_then_measured_call_units:v1"
+    condition_ids = ("history_present", "history_withheld", "history_restored")
+    if (type(minimum_correct_count) is not int or type(probe_count) is not int
+            or not 1 <= minimum_correct_count <= probe_count <= 16
+            or not isinstance(task_digest, str) or len(task_digest) != 71
+            or not task_digest.startswith("sha256:")
+            or len(condition_outcomes) != len(condition_ids)):
+        return {"schema_version": "sentientos.resource_strategy_recommendation:v1",
+            "evaluator": evaluator, "posture": "incomparable_missing_preregistered_inputs",
+            "recommendation": None, "authority": False, "current_truth": False}
+    by_id = {str(item.get("condition_id")): item for item in condition_outcomes
+        if isinstance(item, Mapping)}
+    if set(by_id) != set(condition_ids):
+        posture = "incomparable_missing_condition_evidence"
+        candidates: list[dict[str, Any]] = []
+    else:
+        candidates = []
+        posture = "comparable"
+        for condition_id in condition_ids:
+            item = by_id[condition_id]
+            count, probes = item.get("correct_count"), item.get("probe_count")
+            resource = item.get("resource_context")
+            receipts = resource.get("resource_receipts") if isinstance(resource, Mapping) else None
+            if (type(count) is not int or type(probes) is not int or probes != probe_count
+                    or not 0 <= count <= probes
+                    or not isinstance(receipts, list) or not receipts
+                    or resource.get("posture") != "verified_ledger_receipt_values"
+                    or not isinstance(item.get("inference_receipt_id"), str)
+                    or not item.get("inference_receipt_id")
+                    or not isinstance(item.get("inference_receipt_digest"), str)
+                    or len(item["inference_receipt_digest"]) not in {64, 71}
+                    or (len(item["inference_receipt_digest"]) == 71
+                        and not item["inference_receipt_digest"].startswith("sha256:"))
+                    or any(character not in "0123456789abcdef"
+                        for character in (item["inference_receipt_digest"][7:]
+                            if len(item["inference_receipt_digest"]) == 71
+                            else item["inference_receipt_digest"]))
+                    or not isinstance(item.get("score_digest"), str)
+                    or len(item["score_digest"]) != 71
+                    or not item["score_digest"].startswith("sha256:")
+                    or any(character not in "0123456789abcdef"
+                        for character in item["score_digest"][7:])
+                    or item.get("evaluator") !=
+                        "deterministic_exact_integer_suite_oracle_v2"):
+                posture = "incomparable_missing_or_unbound_measurement"
+                candidates = []
+                break
+            call_units = []
+            receipt_bindings = []
+            for receipt in receipts:
+                receipt_id = receipt.get("receipt_id") if isinstance(receipt, Mapping) else None
+                receipt_digest = receipt.get("receipt_digest") \
+                    if isinstance(receipt, Mapping) else None
+                values = receipt.get("measured_values") if isinstance(receipt, Mapping) else None
+                value = values.get("call_units_consumed") if isinstance(values, Mapping) else None
+                if (not isinstance(receipt_id, str) or not receipt_id
+                        or not isinstance(receipt_digest, str) or len(receipt_digest) != 64
+                        or any(character not in "0123456789abcdef"
+                            for character in receipt_digest)
+                        or type(value) is not int or value < 0):
+                    posture = "incomparable_unknown_call_units"
+                    candidates = []
+                    break
+                call_units.append(value)
+                receipt_bindings.append({"receipt_id": receipt_id,
+                    "receipt_digest": receipt_digest, "call_units_consumed": value})
+            if not candidates and posture != "comparable":
+                break
+            candidates.append({"condition_id": condition_id,
+                "inference_receipt_id": item.get("inference_receipt_id"),
+                "inference_receipt_digest": item.get("inference_receipt_digest"),
+                "score_digest": item.get("score_digest"),
+                "correct_count": count, "probe_count": probes,
+                "resource_receipts": receipt_bindings,
+                "call_units_consumed": sum(call_units)})
+    eligible = [item for item in candidates
+        if item["correct_count"] >= minimum_correct_count]
+    recommendation: dict[str, Any] | None = None
+    if posture == "comparable" and eligible:
+        best_quality = max(item["correct_count"] for item in eligible)
+        best_quality_rows = [item for item in eligible if item["correct_count"] == best_quality]
+        lowest_cost = min(item["call_units_consumed"] for item in best_quality_rows)
+        best = [item for item in best_quality_rows
+            if item["call_units_consumed"] == lowest_cost]
+        if len(best) == 1:
+            recommendation = best[0]
+            posture = "bounded_recommendation"
+        else:
+            posture = "incomparable_equivalent_options"
+    elif posture == "comparable":
+        posture = "no_option_meets_preregistered_quality_requirement"
+    body = {"schema_version": "sentientos.resource_strategy_recommendation:v1",
+        "evaluator": evaluator, "posture": posture,
+        "requirements": {"minimum_correct_count": minimum_correct_count,
+            "probe_count": probe_count,
+            "source": "frozen_task_descriptor_full_suite_correctness",
+            "task_digest": task_digest},
+        "candidate_conditions": candidates, "recommendation": recommendation,
+        "condition_labels_used_as_quality": False,
+        "authority": False, "current_truth": False, "historical_only": True}
+    body["recommendation_digest"] = _digest(body)
+    return body
+
+
+def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep decision evidence and exact identities while removing repeated prompt fields."""
+    retained = {key: example.get(key) for key in (
+        "schema_version", "task_family_id", "task_family_posture", "source_fact_id",
+        "source_binding", "source_run_id", "source_run_digest", "source_task_digest",
+        "source_score_digest", "evaluator", "event_scope", "examples",
+        "independent_backend_observation", "execution_evidence_scope",
+        "execution_evidence_posture", "historical_only", "current_truth", "authority")}
+    resource_context = example.get("resource_context")
+    if isinstance(resource_context, Mapping):
+        retained["resource_context"] = {key: resource_context.get(key) for key in (
+            "posture", "source_fact_id", "source_binding", "shared_host_cpu_gpu",
+            "historical_only", "current_truth", "authority") if key in resource_context}
+        # The per-condition projection below carries every measured receipt.
+        # Keep a compact digest/count in this older aggregate slot to avoid
+        # repeating the history_present measurement row.
+        measurements = resource_context.get("measurements")
+        if isinstance(measurements, (list, tuple)):
+            refs = [{"receipt_id": item.get("receipt_id"),
+                "receipt_digest": item.get("receipt_digest"),
+                "measured_values": item.get("measured_values")}
+                for item in measurements if isinstance(item, Mapping)]
+            retained["resource_context"]["measurement_receipt_refs"] = refs
+            retained["resource_context"]["omitted_measurement_count"] = (
+                resource_context.get("omitted_measurement_count", 0))
+    outcomes = example.get("condition_outcomes")
+    if isinstance(outcomes, (list, tuple)):
+        compact_outcomes = []
+        for outcome in outcomes:
+            if not isinstance(outcome, Mapping):
+                continue
+            row = {key: outcome.get(key) for key in (
+                "condition_id", "inference_receipt_id", "inference_receipt_digest",
+                "inference_event_time", "inference_event_time_posture", "score_digest",
+                "evaluator", "score_status", "correct_count", "probe_count",
+                "historical_only", "current_truth", "authority")}
+            context = outcome.get("resource_context")
+            if isinstance(context, Mapping):
+                resource = {key: context.get(key) for key in (
+                    "posture", "source_fact_id", "source_binding", "event_time",
+                    "omitted_measurement_count") if key in context}
+                receipts = context.get("resource_receipts")
+                if isinstance(receipts, (list, tuple)):
+                    resource["resource_receipts"] = [{
+                        "receipt_id": item.get("receipt_id"),
+                        "receipt_digest": item.get("receipt_digest"),
+                        "measured_values": item.get("measured_values"),
+                        "measurement_posture": item.get("measurement_posture"),
+                    } for item in receipts if isinstance(item, Mapping)]
+                if isinstance(context.get("unqualified_lineage"), (list, tuple)):
+                    resource["unqualified_lineage"] = list(context["unqualified_lineage"][:4])
+                row["resource_context"] = resource
+            compact_outcomes.append(row)
+        retained["condition_outcomes"] = compact_outcomes
+    recommendation = example.get("resource_strategy_recommendation")
+    if isinstance(recommendation, Mapping):
+        compact_recommendation = {key: recommendation.get(key) for key in (
+            "schema_version", "evaluator", "posture", "requirements",
+            "condition_labels_used_as_quality", "authority", "current_truth",
+            "historical_only", "recommendation_digest")}
+        selected = recommendation.get("recommendation")
+        if isinstance(selected, Mapping):
+            compact_recommendation["recommendation"] = {key: selected.get(key) for key in (
+                "condition_id", "inference_receipt_id", "inference_receipt_digest",
+                "score_digest", "correct_count", "probe_count", "call_units_consumed",
+                "resource_receipts")}
+        retained["resource_strategy_recommendation"] = compact_recommendation
+    evidence_conditions = example.get("execution_evidence_conditions")
+    if isinstance(evidence_conditions, (list, tuple)):
+        retained["execution_evidence_conditions"] = [{key: item.get(key) for key in (
+            "condition_id", "receipt_identity_verified", "invocation_receipt_id",
+            "invocation_receipt_digest", "posture")}
+            for item in evidence_conditions if isinstance(item, Mapping)]
+    return retained
+
+
 def _task_family_history_examples(candidate: Mapping[str, Any], *,
         task_family_id: str | None) -> list[dict[str, Any]]:
     """Project only admitted, score-bound examples matching the requested family."""
@@ -1225,6 +1408,170 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         "historical_only": True, "current_truth": False, "authority": False,
                     }
                     break
+        # Preserve the complete preregistered comparison set.  A score for one
+        # condition never authorizes borrowing the resource receipt from that
+        # (or any other) condition.  Missing joins stay explicitly unknown.
+        condition_outcomes: list[dict[str, Any]] = []
+        raw_conditions = payload.get("conditions")
+        expected_condition_ids = ("history_present", "history_withheld", "history_restored")
+        score_by_condition = {str(item.get("condition_id")): item
+            for item in score_rows if isinstance(item, Mapping)}
+        if (isinstance(raw_conditions, (list, tuple)) and len(raw_conditions) == 3
+                and isinstance(score_rows, (list, tuple)) and len(score_rows) == 3
+                and {str(item.get("condition_id")) for item in raw_conditions
+                    if isinstance(item, Mapping)} == set(expected_condition_ids)
+                and len(score_by_condition) == 3
+                and set(score_by_condition) == set(expected_condition_ids)):
+            for condition_id in expected_condition_ids:
+                raw_condition = next((item for item in raw_conditions
+                    if isinstance(item, Mapping) and item.get("condition_id") == condition_id), None)
+                score_row = score_by_condition[condition_id]
+                if (not isinstance(raw_condition, Mapping)
+                        or score_row.get("schema_version", "sentientos.objective_task_score:v3")
+                            != "sentientos.objective_task_score:v3"
+                        or score_row.get("task_digest", descriptor.get("task_digest"))
+                            != descriptor.get("task_digest")
+                        or score_row.get("evaluator", score.get("evaluator"))
+                            != "deterministic_exact_integer_suite_oracle_v2"
+                        or not isinstance(score_row.get("score_digest"), str)
+                        or len(score_row["score_digest"]) != 71
+                        or not score_row["score_digest"].startswith("sha256:")
+                        or any(character not in "0123456789abcdef"
+                            for character in score_row["score_digest"][7:])
+                        or type(score_row.get("correct_count")) is not int
+                        or type(score_row.get("probe_count")) is not int
+                        or not 0 <= score_row["correct_count"] <= score_row["probe_count"] <= 16
+                        or not isinstance(raw_condition.get("inference_receipt_id"), str)
+                        or not raw_condition.get("inference_receipt_id")
+                        or not isinstance(raw_condition.get("inference_receipt_digest"), str)
+                        or len(raw_condition["inference_receipt_digest"]) not in {64, 71}
+                        or any(character not in "0123456789abcdef"
+                            for character in (raw_condition["inference_receipt_digest"][7:]
+                                if len(raw_condition["inference_receipt_digest"]) == 71
+                                and raw_condition["inference_receipt_digest"].startswith("sha256:")
+                                else raw_condition["inference_receipt_digest"]))
+                        or len(raw_condition["inference_receipt_digest"]) == 71
+                            and not raw_condition["inference_receipt_digest"].startswith("sha256:")):
+                    condition_outcomes = []
+                    break
+                joined: list[dict[str, Any]] = []
+                unqualified: list[dict[str, Any]] = []
+                for resource_fact in facts[:MAX_FACTS]:
+                    rp = resource_fact.get("payload") if isinstance(resource_fact, Mapping) else None
+                    rs = resource_fact.get("source") if isinstance(resource_fact, Mapping) else None
+                    rsub = resource_fact.get("subject") if isinstance(resource_fact, Mapping) else None
+                    if (not isinstance(rp, Mapping) or not isinstance(rs, Mapping)
+                            or not isinstance(rsub, Mapping)
+                            or rsub.get("subject_kind") !=
+                                "developmental_history_invocation_resource_lineage"
+                            or resource_fact.get("stage") != "observation"
+                            or rp.get("developmental_history_run_id") != run_id
+                            or rp.get("developmental_history_run_digest") != run_digest
+                            or rp.get("developmental_history_source_record_id") != source_id
+                            or rp.get("developmental_history_source_record_digest") != source_digest
+                            or rp.get("task_family_id") != task_family_id
+                            or rp.get("developmental_history_condition") != condition_id
+                            or source_by_id.get(str(rs.get("source_id")), {}).get("digest") !=
+                                rs.get("digest")):
+                        continue
+                    outcome = rp.get("task_outcome")
+                    if (not isinstance(outcome, Mapping)
+                            or outcome.get("posture") != "run_owner_score_bound_to_condition"
+                            or outcome.get("condition_id") != condition_id
+                            or outcome.get("score_digest") != score_row.get("score_digest")
+                            or outcome.get("inference_receipt_id") !=
+                                raw_condition.get("inference_receipt_id")
+                            or outcome.get("inference_receipt_digest") !=
+                                raw_condition.get("inference_receipt_digest")):
+                        continue
+                    if (resource_fact.get("disposition") != "verified"
+                            or rp.get("lineage_findings") not in ([], ())
+                            or rp.get("resource_measurement_posture") !=
+                                "verified_ledger_receipt_values"):
+                        unqualified.append({"source_fact_id": resource_fact.get("fact_id"),
+                            "source_binding": {key: rs.get(key) for key in
+                                ("source_id", "kind", "digest")},
+                            "disposition": resource_fact.get("disposition"),
+                            "lineage_findings": list(rp.get("lineage_findings", ()))[:8],
+                        })
+                        continue
+                    evidence = rp.get("resource_consumption_evidence")
+                    linkage = rp.get("resource_linkage")
+                    linked = linkage.get("consumption_receipt_digests", ()) \
+                        if isinstance(linkage, Mapping) else ()
+                    if not isinstance(evidence, (list, tuple)) or not isinstance(linked, (list, tuple)):
+                        continue
+                    measurements = []
+                    valid = True
+                    for measurement in evidence[:8]:
+                        if (not isinstance(measurement, Mapping)
+                                or not isinstance(measurement.get("receipt_id"), str)
+                                or not measurement.get("receipt_id")
+                                or not isinstance(measurement.get("receipt_digest"), str)
+                                or len(measurement["receipt_digest"]) != 64
+                                or any(character not in "0123456789abcdef"
+                                    for character in measurement["receipt_digest"])
+                                or measurement["receipt_digest"] not in linked
+                                or not isinstance(measurement.get("measured_values"), Mapping)
+                                or not isinstance(measurement.get("measurement_posture"), Mapping)):
+                            valid = False
+                            break
+                        measurements.append({
+                            "receipt_id": measurement["receipt_id"],
+                            "receipt_digest": measurement["receipt_digest"],
+                            "measured_values": {key: value for key, value in
+                                measurement["measured_values"].items() if key in {
+                                    "generation_attempted", "call_units_consumed",
+                                    "generated_output_size_bytes", "returned_output_size_bytes",
+                                    "output_truncated", "latency_ms"}},
+                            "measurement_posture": {key: value for key, value in
+                                measurement["measurement_posture"].items() if key in {
+                                    "token_count", "shared_host_cpu_gpu"}},
+                        })
+                    if valid and measurements:
+                        joined.append({
+                            "source_fact_id": resource_fact.get("fact_id"),
+                            "source_binding": {key: rs.get(key) for key in
+                                ("source_id", "kind", "digest")},
+                            "event_time": resource_fact.get("observed_at"),
+                            "resource_receipts": measurements,
+                            "omitted_measurement_count": max(0, len(evidence) - len(measurements)),
+                            "posture": "verified_ledger_receipt_values",
+                        })
+                # Multiple matching lineage records are not summed or resolved
+                # by recency: that would make an ambiguous comparison look measured.
+                resource_match = joined[0] if len(joined) == 1 and not unqualified else None
+                if len(joined) > 1:
+                    resource_posture = "unknown_ambiguous_condition_lineage"
+                elif unqualified:
+                    resource_posture = "unknown_unqualified_condition_lineage"
+                elif not joined:
+                    resource_posture = "unknown_missing_or_unbound_lineage"
+                else:
+                    resource_posture = "verified_ledger_receipt_values"
+                condition_outcomes.append({
+                    "condition_id": condition_id,
+                    "inference_receipt_id": raw_condition.get("inference_receipt_id"),
+                    "inference_receipt_digest": raw_condition.get("inference_receipt_digest"),
+                    "inference_event_time": raw_condition.get("observed_at"),
+                    "inference_event_time_posture": raw_condition.get("event_time_posture"),
+                    "score_digest": score_row.get("score_digest"),
+                    "evaluator": score_row.get("evaluator", score.get("evaluator")),
+                    "score_status": score_row.get("status"),
+                    "correct_count": score_row.get("correct_count"),
+                    "probe_count": score_row.get("probe_count"),
+                    "resource_context": (resource_match if resource_match is not None else {
+                        "posture": resource_posture,
+                        **({"unqualified_lineage": unqualified[:4]} if unqualified else {})}),
+                    "historical_only": True, "current_truth": False, "authority": False,
+                })
+        resource_strategy_recommendation = _resource_condition_recommendation(
+            condition_outcomes,
+            minimum_correct_count=(score.get("probe_count")
+                if type(score.get("probe_count")) is int else 0),
+            probe_count=(score.get("probe_count")
+                if type(score.get("probe_count")) is int else 0),
+            task_digest=str(descriptor.get("task_digest", "")))
         # Keep the execution posture attached to the acquired examples when
         # they are retrieved later.  A deterministic task score establishes
         # correctness relative to its oracle; it does not independently prove
@@ -1327,7 +1674,7 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             execution_scope = str(payload["execution_evidence_scope"])
             execution_posture = derived_posture
             independent_backend_observation = False
-        projected.append({
+        projected_example = {
             "schema_version": "sentientos.task_family_history_examples:v1",
             "task_family_id": task_family_id,
             "task_family_posture": "operator_declared_protocol_bound",
@@ -1341,12 +1688,19 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             "event_scope": "scored_benchmark_outcome_not_external_environmental_event",
             "examples": rows,
             "resource_context": resource_context,
+            "condition_outcomes": condition_outcomes,
             "execution_evidence_scope": execution_scope,
             "execution_evidence_posture": execution_posture,
             "execution_evidence_conditions": execution_conditions,
             "independent_backend_observation": independent_backend_observation,
             "historical_only": True, "current_truth": False, "authority": False,
-        })
+        }
+        if resource_strategy_recommendation.get("posture") in {
+                "bounded_recommendation", "incomparable_equivalent_options",
+                "no_option_meets_preregistered_quality_requirement"}:
+            projected_example["resource_strategy_recommendation"] = (
+                resource_strategy_recommendation)
+        projected.append(projected_example)
         if len(projected) >= 4:
             break
     return projected
@@ -1386,7 +1740,9 @@ def _history_context_packet(record: Mapping[str, Any], *,
     task_examples = _task_family_history_examples(candidate,
         task_family_id=task_family_id)
     if task_examples:
-        packet["task_relevant_experience"] = task_examples
+        packet["task_relevant_experience"] = (
+            [_compact_task_family_history_example(item) for item in task_examples]
+            if compact_for_input_budget else task_examples)
     if compact_for_input_budget:
         interpretation = candidate.get("interpretation")
         if isinstance(interpretation, str) and len(interpretation) > 1200:
@@ -1504,6 +1860,14 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
             except ResidentDevelopmentalCognitionError as exc:
                 if str(exc) != "cognition_input_budget_exceeded":
                     raise
+                continue
+            # Do not let newly enriched task/resource history silently consume
+            # the entire semantic epistemic allowance. Try a shorter or more
+            # compact history suffix first; if no complete meaning packet can
+            # fit, fail closed with omission evidence instead of sending an
+            # identity-only epistemic projection as if it were useful context.
+            if (metadata.get("epistemic_owner_packet_count", 0) > 0
+                    and not metadata.get("epistemic_consumed_packet_ids")):
                 continue
             ids = tuple(str(item["record_id"]) for item in selected_refs)
             digests = tuple(str(item["record_digest"]) for item in selected_refs)
