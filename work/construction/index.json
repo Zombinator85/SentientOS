@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "a675fdfbe808dc0bb4fef177ced7e14bed90ec3d59c73d584b479b89c2165247",
-    "latest_segment_sequence": 247,
-    "latest_segment_sha256": "806fb95508a0422a60384206acac4a1956d484d185426b7fb9635be4f4957133",
-    "source_commit": "04c09cf289d84c03d91bf59b20b08109718496d0",
-    "source_tree": "22d119dee637f9165b971835eec33bc2415a7cf9"
+    "checkpoint_sha256": "d49ca594ebfe09170e375a264440b87aa850db76ed5fe4c66edc5f46b87e3792",
+    "latest_segment_sequence": 248,
+    "latest_segment_sha256": "88c95a99ff5e83c4535f2287e3af7f8eefd35ef1826eca1a38e3213d31169f69",
+    "source_commit": "cbdcfdcac1b961ad23b790a7a1296d909593a845",
+    "source_tree": "99f3b865393c8b36af448703a755dd17bdd2a6e2"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -2572,6 +2572,18 @@
       "evidence_sha256": "0687807ddd132b1827168f4f6aab77053d01e1add5e45a196b5afaaf33d58432",
       "source_commit": "04c09cf289d84c03d91bf59b20b08109718496d0",
       "source_tree": "22d119dee637f9165b971835eec33bc2415a7cf9"
+    },
+    {
+      "sequence": 248,
+      "path": "work/construction/segments/0248-epistemic-conflict-cognition-after-restart.md",
+      "bytes": 1023,
+      "sha256": "88c95a99ff5e83c4535f2287e3af7f8eefd35ef1826eca1a38e3213d31169f69",
+      "predecessor": "segment-sha256:806fb95508a0422a60384206acac4a1956d484d185426b7fb9635be4f4957133",
+      "evidence_path": "work/construction/evidence/0248-epistemic-conflict-cognition-after-restart.json",
+      "evidence_bytes": 1615,
+      "evidence_sha256": "9bf4c68ecbbe70a8a175157d7ee48cf9516d5b134cc1a0117c4b582b49f04ed1",
+      "source_commit": "cbdcfdcac1b961ad23b790a7a1296d909593a845",
+      "source_tree": "99f3b865393c8b36af448703a755dd17bdd2a6e2"
     }
   ],
   "source_acquisition": {

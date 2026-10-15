@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq247 carries receipt-identified resource measurements through canonical developmental writeback and makes them available to later task-family history only after exact run, source, score, condition, inference receipt, and resource source matching. Missing or mismatched evidence remains unknown; shared host CPU/GPU and unmeasured token counts are not inferred.
+Seq248 connects independently sourced support and contradiction through persistent epistemic admission, owner restart and receipt recovery, semantic projection, and later ordinary developmental cognition. The later request preserves the contested stance, original observation times, source identities, and exact state digest; effect and authority remain false.
 
-Latest source commit: 04c09cf289d84c03d91bf59b20b08109718496d0
-Latest source tree: 22d119dee637f9165b971835eec33bc2415a7cf9
-Latest segment: work/construction/segments/0247-resource-informed-cognition-retrieval.md
-Evidence: work/construction/evidence/0247-resource-informed-cognition-retrieval.json
+Latest source commit: cbdcfdcac1b961ad23b790a7a1296d909593a845
+Latest source tree: 99f3b865393c8b36af448703a755dd17bdd2a6e2
+Latest segment: work/construction/segments/0248-epistemic-conflict-cognition-after-restart.md
+Evidence: work/construction/evidence/0248-epistemic-conflict-cognition-after-restart.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 247
+Sequence: 248
 
-Validation: resource-lineage integration, held-out restart retrieval, and adverse-history nodes passed (3 passed); changed Python sources/tests compiled; `git diff --check` passed.
+Validation: resident epistemic-development, persistent epistemic-state, and semantic cognition nodes passed (40 passed); test source compiled; `git diff --check` passed.
 
-Limits: C4-C8 remains open for a complete later recommendation with independent outcome evaluation. Deterministic fixtures do not establish recommendation quality or independent model behavior.
+Limits: cognition used a deterministic fixture model. D1-D8 remains open for evaluated later consequences and further ordinary developmental revision.
 
-Next: complete the canonical resource-informed distinct-decision trajectory, then continue D1-D8 persistent epistemic correction.
+Next: connect this persisted contested state to a distinct task with an independently scored consequence, then continue the open resource-informed recommendation trajectory and remaining programs.
