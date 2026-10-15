@@ -228,6 +228,8 @@ def test_later_distinct_campaign_route_retains_corrective_history_and_uncertaint
     from sentientos.governed_improvement_signal_plane import evaluate_signal_plane
     from sentientos.maintenance_candidate import adapt_governed_signal
     from sentientos.maintenance_candidate_collector import _proposal_signal_records
+    from sentientos.maintenance_candidate import normalize_candidate_set
+    from sentientos.maintenance_candidate_selector import build_policy, select_candidate
 
     adverse_owner, adverse_protocol, adverse = finish(
         tmp_path / "adverse", ["target_expectation_contradicted"] * 2,
@@ -259,6 +261,23 @@ def test_later_distinct_campaign_route_retains_corrective_history_and_uncertaint
     assert "source_issuers_unverified" in candidate.declared_constraints
     assert "result_digest:" + later.result_digest in candidate.evidence_references
     assert candidate.requested_authority_classes == ("proposal_selection_only",)
+    selector_policy = build_policy({
+        "repository_base_sha": candidate.base_repository_sha,
+        "allowed_path_prefixes": ["sentientos"],
+        "forbidden_path_patterns": [],
+        "available_authority_classes": ["proposal_selection_only"],
+        "maximum_file_count": 4,
+        "maximum_estimated_changed_lines": 100,
+        "maximum_implementation_seconds": 300,
+        "maximum_validation_seconds": 300,
+        "allowed_candidate_kinds": [candidate.candidate_kind],
+    })
+    selection = select_candidate(
+        normalize_candidate_set([candidate]), selector_policy)
+    assert selection["result_status"] == "idle_no_viable_candidate"
+    assert selection["selected_candidate_id"] is None
+    assert list(selection["ineligible_candidate_ids"].values()) == [[
+        "candidate_scope_unknown"]]
 
 
 def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_path, monkeypatch):
