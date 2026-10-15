@@ -9,8 +9,7 @@
     "B3 partial: a later distinct campaign finding routes to a low-confidence candidate with source uncertainty; the actual selector rejects it as candidate_scope_unknown because no subject path is evidenced.",
     "A8: selected campaign history closes into same-tick World-State and cognition; current record is absent from pre-inference history and becomes retrievable only after fresh owner reconstruction on the following tick, with source digest preserved and zero authority effects.",
     "C3 partial: a resource-linked multi-probe developmental task-family outcome with absent or mismatched denominator is degraded as score_binding_invalid; expected family probe count is bound through writeback while non-family scalar history remains compatible.",
-    "C3: family denominator admission now covers resident developmental-history and model-replacement runs; score schema survives projection, family identity reconstructs, family-suite output budgeting works, and missing counts remain degraded diagnostics through the resource owner and writeback projection.",
-    "E1 partial: task run recovery is bound to the canonical full plan definition; changes to commands, dependencies, costs, and omissions cannot reuse prior completion evidence, while exact-plan task replay remains idempotent."
+    "C3: family denominator admission now covers resident developmental-history and model-replacement runs; score schema survives projection, family identity reconstructs, family-suite output budgeting works, and missing counts remain degraded diagnostics through the resource owner and writeback projection."
   ],
   "current_source_commit": "53cee2d02152517cf203cb48abe949f689fcfe36",
   "current_source_tree": "1b5b24ab97b3df6713c3e28e096fa2d90820aec0",
@@ -21,7 +20,7 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 244,
+  "last_checkpoint_sequence": 243,
   "next_executable_nodes": [
     {
       "node": "C4-C8",
@@ -36,7 +35,7 @@
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Complete dependent task chains with finite budgets, partial and interrupted progress, and fresh-process outcome-informed selection; exact plan identity binding is now in place."
+      "work": "Complete meaningful dependent task chains with finite budgets, partial progress, interrupted recovery, and outcome-informed selection."
     },
     {
       "node": "F1-F8",

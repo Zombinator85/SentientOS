@@ -1,14 +1,14 @@
 # Active construction checkpoint
 
-Seq244 binds task-progression recovery to the complete canonical plan. Work-run identity now includes commands, dependencies, costs, omissions, and the remaining persisted plan fields; changed plans cannot reuse a prior run merely by retaining task IDs. Legacy unbound run artifacts fail closed.
+Seq243 completes C3 family-outcome admission across resident developmental-history and model-replacement resource joins. Model-replacement projection now preserves safe score schema, the rehearsal path reconstructs task-family identity, and budget validation accepts the registered family-suite shape. Missing counts stay degraded diagnostics through writeback.
 
-Latest source commit: 804be7cc374390430091398e753bbb52b5e7a06c
-Latest source tree: 0b15fd479078ba7bd9302e92d588d5da40af8248
-Latest segment: work/construction/segments/0244-work-run-exact-plan-binding.md
-Evidence: work/construction/evidence/0244-work-run-exact-plan-binding.json
+Latest source commit: 8c9eafd50e249d4285ac6e871abbf07c6ce7947a
+Latest source tree: 18d1530f1a8b31743d0d9309f7cfa1025fe25151
+Latest segment: work/construction/segments/0243-model-replacement-family-resource-outcome.md
+Evidence: work/construction/evidence/0243-model-replacement-family-resource-outcome.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 244
+Sequence: 243
 
-Validation: work-plan, executor, goal-state, progress, and plan suites passed (36 passed); changed Python sources and tests compiled; `git diff --check` passed.
+Validation: resource lineage and model-replacement integration nodes passed (2 passed); changed Python sources and tests compiled; `git diff --check` passed.
 
-Next: continue the dependent task progression chain with fresh-process outcome selection, then resume qualified resource-informed recommendations and epistemic revision.
+Next: connect qualified measured resource outcomes to later distinct bounded computational recommendations with independent scoring and fresh-process continuity.

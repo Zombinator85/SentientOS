@@ -96,7 +96,7 @@ def test_persisted_plan_identity_is_write_once(tmp_path: Path) -> None:
 
 
 def test_persisted_run_identity_is_write_once(tmp_path: Path) -> None:
-    run = WorkPlanRun(2, "run-1", "plan-1", "2026-01-01T00:00:00Z", "ok",
+    run = WorkPlanRun(2, "run_" + "a" * 64, "plan-1", "2026-01-01T00:00:00Z", "ok",
         "normal", False,
         (TaskRun("task-1", "goal-1", "diagnostic", "success", None,
             "2026-01-01T00:00:00Z", "2026-01-01T00:00:01Z", 1, (), False),), (),
@@ -110,6 +110,18 @@ def test_persisted_run_identity_is_write_once(tmp_path: Path) -> None:
     with pytest.raises(WorkPlanError, match="work_plan_artifact_identity_conflict"):
         persist_work_run(tmp_path, replace(run, status="failed"))
     assert path.read_bytes() == original
+
+
+def test_persisted_run_rejects_caller_controlled_path_identity(tmp_path: Path) -> None:
+    run = WorkPlanRun(2, "../outside", "plan-1", "2026-01-01T00:00:00Z", "ok",
+        "normal", False,
+        (TaskRun("task-1", "goal-1", "diagnostic", "success", None,
+            "2026-01-01T00:00:00Z", "2026-01-01T00:00:01Z", 1, (), False),), (),
+        "a" * 64)
+
+    with pytest.raises(WorkPlanError, match="work_run_identity_invalid"):
+        persist_work_run(tmp_path, run)
+    assert not (tmp_path.parent / "outside.json").exists()
 
 
 def test_existing_run_artifact_recovers_against_exact_plan(tmp_path: Path) -> None:
