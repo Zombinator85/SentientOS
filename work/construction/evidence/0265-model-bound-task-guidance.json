@@ -1,0 +1,55 @@
+{
+  "sequence": 265,
+  "title": "Gate task guidance by model identity",
+  "source_parent_commit": "acee8ba084b933e60ca303fd959f34ed9e15ab74",
+  "source_parent_tree": "ae9d5cedc042a8b95d8ffdb123f8cd60272be4a0",
+  "source_commit": "2eb56f4f1bc9c687a73cf8bbdfa6b92a870f8733",
+  "source_tree": "19bf03d00ec338e58b139a08f5939f18120765cf",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "acee8ba084b933e60ca303fd959f34ed9e15ab74",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "0dffb3e07370b876d52c5e82f6288eb7cd713ddf"
+    },
+    {
+      "path": "sentientos/resident_developmental_writeback.py",
+      "mode": "100644",
+      "sha": "33523c634b65a72679c3f140bd18a8e4fcb2d91b"
+    },
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "e5a64dba6dcdf3fc7daa21fa47c6a453f3acd4ba"
+    }
+  ],
+  "validation": {
+    "task_family_staging_and_progression": "3 passed",
+    "python_compile": "passed",
+    "source_whitespace_and_conflict_checks": "passed",
+    "canonical_runner": "blocked: dependencies could not be installed without sandbox network access"
+  },
+  "observations": {
+    "same_model_task_family_examples_admitted": true,
+    "cross_model_examples_withheld_from_guidance": true,
+    "unbound_model_examples_withheld_from_guidance": true,
+    "omission_evidence_digest_retained": true,
+    "omitted_condition_score_summaries_retained": true,
+    "restart_backed_three_episode_fixture_passed": true,
+    "production_effects": false,
+    "authority_expansion": false
+  },
+  "limitations": [
+    "Historical score summaries do not establish task transfer or current truth.",
+    "Same model and family leave exact task-scope applicability unresolved.",
+    "No production effect or live forge apply occurred."
+  ]
+}

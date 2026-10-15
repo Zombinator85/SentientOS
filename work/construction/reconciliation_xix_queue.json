@@ -31,10 +31,11 @@
     "E1-E8 partial: seq261 binds a validated meaning-bearing contested epistemic projection to exact proposition-tagged goals; the projection digest is in the plan identity and destructive apply requires review while untagged goals proceed.",
     "E1-E8 partial: seq262 uses the same canonical epistemic projection validator in allocation and task planning; under a constrained budget contested evidence defers the explicitly tagged goal and selects independent work, with projection identity retained.",
     "E1-E8 partial: seq263 carries the preregistered source model identity and digest into bounded task-family experience; tampered or missing identity remains explicitly unbound without dropping historical outcomes. Target identity applicability remains open.",
-    "E1-E8 partial: seq264 compares current serving identity with retained protocol-bound source identity, labels same/different/unknown relations, and keeps same-family task scope explicitly unverified."
+    "E1-E8 partial: seq264 compares current serving identity with retained protocol-bound source identity, labels same/different/unknown relations, and keeps same-family task scope explicitly unverified.",
+    "E1-E8 partial: seq265 gates structured task-family guidance to exact current/source model identity; cross-model and unbound history remains recoverable through omission digests and score summaries without becoming task examples."
   ],
-  "current_source_commit": "9f74715905027ab5b0ed64e6328470c14d4c5011",
-  "current_source_tree": "de48419f044908d3fc11e5ec096be4ab37111cc0",
+  "current_source_commit": "2eb56f4f1bc9c687a73cf8bbdfa6b92a870f8733",
+  "current_source_tree": "19bf03d00ec338e58b139a08f5939f18120765cf",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -42,12 +43,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 264,
+  "last_checkpoint_sequence": 265,
   "next_executable_nodes": [
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Gate task-history guidance on explicit task-family and model applicability; mismatched/unbound outcomes must not be treated as target-model guidance, and their source identity, positive/adverse score evidence, omissions, and review path must remain recoverable."
+      "work": "Bind explicit task-family/model applicability to bounded goal selection; ensure stale or missing target identity cannot reopen withheld history, and preserve plan identity, omission evidence, and no-replay guarantees."
     },
     {
       "node": "F1-F8",

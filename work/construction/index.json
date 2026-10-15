@@ -2788,6 +2788,18 @@
       "sha256": "dfe803c0b8bf436ae76bda4e25aea39c7bc85d19137d1cff91d14286fa505b73",
       "source_commit": "9f74715905027ab5b0ed64e6328470c14d4c5011",
       "source_tree": "de48419f044908d3fc11e5ec096be4ab37111cc0"
+    },
+    {
+      "bytes": 1517,
+      "evidence_bytes": 2084,
+      "evidence_path": "work/construction/evidence/0265-model-bound-task-guidance.json",
+      "evidence_sha256": "571ab0203457f05f4ff7e122ec4af0732fb24f13b6ac1e6614d7e8fc9a192ebb",
+      "path": "work/construction/segments/0265-model-bound-task-guidance.md",
+      "predecessor": "segment-sha256:dfe803c0b8bf436ae76bda4e25aea39c7bc85d19137d1cff91d14286fa505b73",
+      "sequence": 265,
+      "sha256": "005b2ad4291309bdfd2a3067268426e8a6089fe74e0fd58e1d446b939bc9efe3",
+      "source_commit": "2eb56f4f1bc9c687a73cf8bbdfa6b92a870f8733",
+      "source_tree": "19bf03d00ec338e58b139a08f5939f18120765cf"
     }
   ],
   "source_acquisition": {
