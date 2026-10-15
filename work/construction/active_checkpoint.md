@@ -1,14 +1,14 @@
 # Active construction checkpoint
 
-Seq242 tightens C3 resource-linked outcome admission. Multi-probe family outcomes must preserve the exact denominator from the protocol-bound descriptor; incomplete or inconsistent scores remain degraded diagnostics and cannot be interpreted as qualified outcomes. Writeback binds the expected count. Scalar legacy evidence without a task-family denominator remains compatible.
+Seq243 completes C3 family-outcome admission across resident developmental-history and model-replacement resource joins. Model-replacement projection now preserves safe score schema, the rehearsal path reconstructs task-family identity, and budget validation accepts the registered family-suite shape. Missing counts stay degraded diagnostics through writeback.
 
-Latest source commit: a90ec3245b249ab2e716e94aca4bf0a6e7935c79
-Latest source tree: 5b9f8ef6fd8c8bbfc4457151593d4c747827522f
-Latest segment: work/construction/segments/0242-resource-family-score-denominator.md
-Evidence: work/construction/evidence/0242-resource-family-score-denominator.json
+Latest source commit: 8c9eafd50e249d4285ac6e871abbf07c6ce7947a
+Latest source tree: 18d1530f1a8b31743d0d9309f7cfa1025fe25151
+Latest segment: work/construction/segments/0243-model-replacement-family-resource-outcome.md
+Evidence: work/construction/evidence/0243-model-replacement-family-resource-outcome.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 242
+Sequence: 243
 
-Validation: resource lineage and model-replacement suites passed (2 passed); source and test modules compiled and `git diff --check` passed.
+Validation: resource lineage and model-replacement integration nodes passed (2 passed); changed Python sources and tests compiled; `git diff --check` passed.
 
-Next: finish the same denominator admission rule for model-replacement family outcomes, then implement distinct task recommendations that use qualified measured resource history.
+Next: connect qualified measured resource outcomes to later distinct bounded computational recommendations with independent scoring and fresh-process continuity.

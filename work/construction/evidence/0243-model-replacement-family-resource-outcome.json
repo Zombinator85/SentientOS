@@ -1,0 +1,70 @@
+{
+  "changed_blobs": [
+    {
+      "mode": "100644",
+      "path": "sentientos/host_resource_runtime.py",
+      "sha": "c27ae0a3b5234273985d6ccf428649714b73a75c"
+    },
+    {
+      "mode": "100644",
+      "path": "sentientos/resident_developmental_writeback.py",
+      "sha": "c049bee0666fa6c0b7080b96a70529b9b749f7c4"
+    },
+    {
+      "mode": "100644",
+      "path": "sentientos/developmental_model_replacement_rehearsal.py",
+      "sha": "5772e93c830f67b37bc17f6c0d5828d1f6ec573a"
+    },
+    {
+      "mode": "100644",
+      "path": "sentientos/developmental_model_replacement_production_trial.py",
+      "sha": "1e118c76299815c15746bf561cdadf5b581a668c"
+    },
+    {
+      "mode": "100644",
+      "path": "sentientos/developmental_model_replacement_experiment.py",
+      "sha": "721eb8a1fb7eddbfef9b84c525b3a26b82cb6213"
+    },
+    {
+      "mode": "100644",
+      "path": "tests/test_developmental_model_replacement_resource_lineage_integration.py",
+      "sha": "9636424c3277f6b5b40239477a7c03a82c75decd"
+    },
+    {
+      "mode": "100644",
+      "path": "docs/development/resource_family_outcome_admission_task_acceptance.json",
+      "sha": "fd94c3d05e7057d1e9a85e857c7641eb5053b980"
+    }
+  ],
+  "limits": [
+    "Trials and issuer evidence are synthetic.",
+    "No live-model or production quality result is established.",
+    "Resource consumption records preserve measured receipt lineage but do not establish general CPU/GPU scheduling."
+  ],
+  "observations": {
+    "family_score_schema_preserved_in_projection": true,
+    "family_suite_output_budget_validated": true,
+    "family_task_identity_reconstructed": true,
+    "incomplete_lineage_retained_as_degraded_diagnostic": true,
+    "missing_family_score_counts_admitted_as_qualified": false
+  },
+  "sequence": 243,
+  "source_commit": "8c9eafd50e249d4285ac6e871abbf07c6ce7947a",
+  "source_parent_commit": "351f94d1e1c5887ac0c5ad55e4a9ab3c00d6f7e9",
+  "source_parent_tree": "502edd71fbc012ab63f6a9a435e4f7a4a1d89d95",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "commit_parent_verified": true,
+    "commit_tree": "18d1530f1a8b31743d0d9309f7cfa1025fe25151",
+    "compare_and_swap": "succeeded",
+    "expected_head": "351f94d1e1c5887ac0c5ad55e4a9ab3c00d6f7e9",
+    "force": false
+  },
+  "source_tree": "18d1530f1a8b31743d0d9309f7cfa1025fe25151",
+  "title": "Model-replacement family resource outcomes retain exact score shape",
+  "validation": {
+    "git_diff_check": "passed",
+    "resource_lineage_and_model_replacement_nodes": "2 passed",
+    "source_and_test_py_compile": "passed"
+  }
+}
