@@ -963,6 +963,14 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                 probes = task_outcome.get("probe_count")
                 score_status = task_outcome.get("score_status")
                 correct = task_outcome.get("correct")
+                family_id = context.get("task_family_id")
+                family_probe_count = context.get("task_family_probe_count")
+                family_counts_valid = (family_id is None or (
+                    isinstance(family_id, str) and bool(family_id)
+                    and type(family_probe_count) is int
+                    and 2 <= family_probe_count <= 16
+                    and type(count) is int and type(probes) is int
+                    and probes == family_probe_count))
                 score_semantics_valid = (
                     (score_status == "correct" and correct is True)
                     or (score_status in {"incorrect", "invalid_answer"} and correct is False)
@@ -989,6 +997,7 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                         or len(task_outcome["score_digest"]) != 71
                         or not task_outcome["score_digest"].startswith("sha256:")
                         or not score_semantics_valid
+                        or not family_counts_valid
                         or (task_outcome.get("correct") is not None
                             and type(task_outcome.get("correct")) is not bool)
                         or not ((count is None and probes is None) or (

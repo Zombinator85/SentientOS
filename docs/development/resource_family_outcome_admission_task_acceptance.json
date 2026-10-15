@@ -1,0 +1,16 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "resource-family-outcome-admission",
+  "status": "construction",
+  "exact_nodes": [
+    {
+      "node_id": "tests/test_strategy_resource_lineage_integration.py::test_resource_linked_strategy_proposals_join_to_reconciled_ledger",
+      "expected": "a protocol-bound multi-probe family outcome without its exact denominator is degraded and classified score_binding_invalid; complete measured outcomes remain qualified"
+    }
+  ],
+  "authority": {
+    "resource_lineage": "read-only reconciliation of owner-reported resource receipts",
+    "task_outcome": "historical score context only",
+    "effects": "no provider, execution, allocation, host, repository, or production authority"
+  }
+}

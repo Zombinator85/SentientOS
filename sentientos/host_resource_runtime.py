@@ -1381,7 +1381,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         raise ValueError("resource_proposal_join_bound_invalid")
     from sentientos.local_model_authority import digest_payload
 
-    def score_projection_is_consistent(score: Mapping[str, Any]) -> bool:
+    def score_projection_is_consistent(score: Mapping[str, Any], *,
+            expected_probe_count: int | None = None) -> bool:
         """Check the retained score summary's status/result semantics."""
         status = score.get("status")
         correct = score.get("correct")
@@ -1395,9 +1396,11 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             return False
         correct_count, probe_count = score.get("correct_count"), score.get("probe_count")
         if correct_count is None and probe_count is None:
-            return True
+            return expected_probe_count is None
         if (type(correct_count) is not int or type(probe_count) is not int
                 or not 0 <= correct_count <= probe_count <= 16):
+            return False
+        if expected_probe_count is not None and probe_count != expected_probe_count:
             return False
         if status == "correct" and correct_count != probe_count:
             return False
@@ -1427,6 +1430,12 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         task_descriptor = run_payload.get("objective_task_descriptor")
         task_family_id = (task_descriptor.get("task_family_id")
             if isinstance(task_descriptor, Mapping) else None)
+        family_probe_count = (task_descriptor.get("probe_count")
+            if isinstance(task_descriptor, Mapping)
+            and isinstance(task_descriptor.get("task_family_id"), str) else None)
+        if (family_probe_count is not None
+                and (type(family_probe_count) is not int or not 2 <= family_probe_count <= 16)):
+            family_probe_count = -1
         raw_scores = run_payload.get("objective_scores")
         score_rows = (tuple(item for item in raw_scores if isinstance(item, Mapping))
             if isinstance(raw_scores, (list, tuple)) else ())
@@ -1451,7 +1460,9 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 "history_record_ids": list(run_payload.get("history_record_ids") or ()),
                 "history_record_digests": list(run_payload.get("history_record_digests") or ()),
                 "history_withheld": condition.get("condition_id") == "history_withheld",
-                "task_family_id": task_family_id}
+                "task_family_id": task_family_id,
+                **({"task_family_probe_count": family_probe_count}
+                    if family_probe_count is not None else {})}
             condition_scores = [item for item in score_rows
                 if item.get("condition_id") == condition.get("condition_id")]
             task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
@@ -1464,13 +1475,17 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     score = condition_scores[0]
                     correct_count = score.get("correct_count")
                     probe_count = score.get("probe_count")
-                    valid_counts = (correct_count is None and probe_count is None) or (
+                    valid_counts = (correct_count is None and probe_count is None
+                        and family_probe_count is None) or (
                         type(correct_count) is int and type(probe_count) is int
-                        and 0 <= correct_count <= probe_count <= 16)
+                        and 0 <= correct_count <= probe_count <= 16
+                        and (family_probe_count is None
+                            or probe_count == family_probe_count))
                     if (not isinstance(score.get("score_digest"), str)
                             or not score["score_digest"].startswith("sha256:")
                             or len(score["score_digest"]) != 71
-                            or not score_projection_is_consistent(score)
+                            or not score_projection_is_consistent(
+                                score, expected_probe_count=family_probe_count)
                             or not valid_counts):
                         candidate_findings.append(
                             "developmental_experiment_condition_score_invalid")

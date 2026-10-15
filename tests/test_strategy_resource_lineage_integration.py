@@ -282,7 +282,7 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
         "model_artifact_digest": developmental_request.model_artifact_digest,
         "active_model_identity": {}, "authority_map_digest": developmental_request.authority_map_digest,
         "conditions": [condition],
-        "objective_task_descriptor": {"task_family_id": "fixture-affine"},
+        "objective_task_descriptor": {"task_family_id": "fixture-affine", "probe_count": 2},
         "objective_scores": [{"condition_id": "history_present",
             "score_digest": "sha256:" + "a" * 64, "status": "correct",
             "correct": True, "correct_count": 2, "probe_count": 2}],
@@ -362,6 +362,20 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
     assert "developmental_experiment_condition_score_invalid" in \
         invalid_history["payload"]["lineage_findings"]
     assert invalid_history["payload"]["task_outcome"] == {
+        "posture": "score_binding_invalid"}
+
+    incomplete_family_score = json.loads(json.dumps(developmental_record))
+    incomplete_family_score["payload"]["objective_scores"][0]["correct_count"] = None
+    incomplete_family_score["payload"]["objective_scores"][0]["probe_count"] = None
+    incomplete_family_score["digest"] = record_digest(incomplete_family_score)
+    incomplete_join = resource_invocation_proposal_lineage_records(
+        [*all_resource_records, incomplete_family_score])
+    incomplete_history = next(row for row in incomplete_join
+        if row["subject_kind"] == "developmental_history_invocation_resource_lineage")
+    assert incomplete_history["disposition"] == "degraded"
+    assert "developmental_experiment_condition_score_invalid" in \
+        incomplete_history["payload"]["lineage_findings"]
+    assert incomplete_history["payload"]["task_outcome"] == {
         "posture": "score_binding_invalid"}
 
     substituted = json.loads(json.dumps(developmental_record))
