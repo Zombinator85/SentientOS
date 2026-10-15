@@ -2962,7 +2962,7 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     evaluated_at = max(datetime.fromisoformat(row["observed_at"].replace("Z", "+00:00"))
         for row in run["conditions"]) + timedelta(seconds=1)
     from sentientos.resident_epistemic_development import (
-        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        EpistemicDevelopmentConfig, EpistemicDevelopmentError, EpistemicDevelopmentRule,
         ResidentEpistemicDevelopmentRuntime,
     )
     from sentientos.resident_epistemic_state_mutation import (
@@ -3026,6 +3026,27 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     recovered_state = recovered_epistemics.current_state(proposition.proposition_id)
     assert recovered_state == state
     assert recovered_epistemics.bindings(proposition.proposition_id) == (outcome_binding,)
+    recovered_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+        owner=recovered_epistemics, mutation_controller=recovered_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        admission_ledger=epistemic_ledger)
+    trace = recovered_runtime.trace_proposition(
+        proposition_id=proposition.proposition_id,
+        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=1, cognitive_tick=2)
+    assert trace["evidence"][0]["source_run_id"] == run_id
+    assert trace["evidence"][0]["source_digest"] == run_digest
+    assert trace["evidence"][0]["observation_time"] == outcome_binding.observation_time
+    assert trace["states"][0]["generation"] == 0
+    assert trace["events"][0]["prior_state_digest"] is None
+    assert trace["events"][0]["successor_state_digest"] == state.state_digest
+    assert len(trace["mutation_receipts"]) == 2
+    assert trace["resulting_prior_projection"]["state_digests"] == [state.state_digest]
+    assert trace["truth"] is False and trace["authority"] is False
+    with pytest.raises(EpistemicDevelopmentError, match="selection_invalid"):
+        recovered_runtime.trace_proposition(proposition_id=proposition.proposition_id,
+            reconstructed_at="now", max_events=0)
     later, later_fake = owner(tmp_path / "later-cognition", invoker=FakeInvoker())
     later.run_tick(snapshot=snapshot(), tick_id="after-admitted-task-family-outcome",
         prior_epistemic_state=recovered_epistemics.cognitive_projection(

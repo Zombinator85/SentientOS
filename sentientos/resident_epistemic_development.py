@@ -154,6 +154,89 @@ class ResidentEpistemicDevelopmentRuntime:
             if proposition.namespace not in config.allowed_namespaces or proposition.namespace not in owner.allowed_namespaces:
                 raise EpistemicDevelopmentError("proposition_namespace_not_allowed")
 
+    def trace_proposition(self, *, proposition_id: str, reconstructed_at: str,
+            max_events: int = 16, cognitive_tick: int | None = None) -> dict[str, Any]:
+        """Return a bounded, explicitly selected, read-only evidence-to-state trace.
+
+        Receipt verification is required before a state generation is described
+        as admitted. The trace is provenance, not a truth or authority judgment.
+        """
+        if (not isinstance(proposition_id, str) or not proposition_id
+                or isinstance(max_events, bool) or not isinstance(max_events, int)
+                or not 1 <= max_events <= 16 or not isinstance(reconstructed_at, str)
+                or not reconstructed_at or len(reconstructed_at) > 128):
+            raise EpistemicDevelopmentError("epistemic_trace_selection_invalid")
+        proposition = self.owner.proposition(proposition_id)
+        if not any(rule.proposition_id == proposition_id for rule in self.config.rules):
+            raise EpistemicDevelopmentError("epistemic_trace_proposition_not_configured")
+        recovery = self.controller.verify_receipts()
+        if recovery.get("status") != "verified":
+            raise EpistemicDevelopmentError("epistemic_trace_receipts_unverified")
+        bindings = self.owner.bindings(proposition_id)
+        events = self.owner.update_events(proposition_id)
+        if len(events) > max_events:
+            raise EpistemicDevelopmentError("epistemic_trace_event_bound_exceeded")
+        states = [state for state in self.owner._read("states")
+            if state.get("proposition_id") == proposition_id]
+        state_by_digest = {item["state_digest"]: item for item in states}
+        receipts: list[dict[str, Any]] = []
+        for stage in ("evidence", "state"):
+            directory = self.controller.receipt_root / "receipts" / stage
+            for path in sorted(directory.glob("*.json")):
+                raw = self.controller._read_bounded(path)
+                if raw is None:
+                    raise EpistemicDevelopmentError("epistemic_trace_receipt_missing")
+                value = json.loads(raw.decode("utf-8"))
+                if stage == "evidence" and value.get("binding_id") in {
+                        item.binding_id for item in bindings}:
+                    receipts.append({"receipt_id": value["receipt_id"],
+                        "receipt_digest": value["receipt_digest"], "stage": stage,
+                        "binding_id": value["binding_id"], "admission_id": value["admission_id"]})
+                if stage == "state" and value.get("successor_state_digest") in state_by_digest:
+                    receipts.append({"receipt_id": value["receipt_id"],
+                        "receipt_digest": value["receipt_digest"], "stage": stage,
+                        "generation": value["generation"],
+                        "successor_state_digest": value["successor_state_digest"],
+                        "admission_id": value["admission_id"]})
+        active = {item.binding_id: item for item in bindings
+            if item.binding_id in set(self.owner.active_binding_ids(proposition_id))}
+        current = self.owner.current_state(proposition_id)
+        projection = (self.owner.cognitive_projection(max_states=1, current_tick=cognitive_tick)
+            if current is not None and cognitive_tick is not None else None)
+        trace = {"schema": "sentientos.epistemic_proposition_trace:v1",
+            "proposition": {"id": proposition.proposition_id,
+                "digest": proposition.proposition_digest, "subject": proposition.subject,
+                "predicate": proposition.predicate, "context_scope": dict(proposition.context_scope)},
+            "evidence": [{"binding_id": item.binding_id,
+                "binding_digest": item.binding_digest, "source_run_id": item.source_artifact_id,
+                "source_digest": item.source_digest, "relation": item.evidence_relation,
+                "observation_time": item.observation_time, "freshness": item.freshness,
+                "dependency_kind": item.dependency_kind,
+                "active": item.binding_id in active} for item in bindings],
+            "states": [{"state_id": item["state_id"], "state_digest": item["state_digest"],
+                "generation": item["generation"], "predecessor_digest": item.get("predecessor_state_digest"),
+                "stance": item["stance"], "dependency_unresolved": item["dependency_unresolved"],
+                "freshness": item["freshness"]} for item in sorted(states, key=lambda x: x["generation"])],
+            "events": [{"event_id": event.event_id, "event_digest": event.event_digest,
+                "generation": event.generation, "prior_state_digest": event.prior_state_digest,
+                "successor_state_digest": event.successor_state_digest,
+                "added_binding_ids": list(event.added_binding_ids),
+                "recorded_at": state_by_digest[event.successor_state_digest]["updated_at"]
+                    if event.successor_state_digest in state_by_digest else None}
+                for event in events],
+            "mutation_receipts": receipts,
+            "resulting_prior_projection": ({"projection_id": projection.projection_id,
+                "projection_digest": projection.projection_digest,
+                "state_digests": list(projection.state_digests),
+                "delivered_tick": projection.current_tick} if projection is not None else None),
+            "original_observation_times_preserved": True,
+            "reconstructed_at": reconstructed_at,
+            "receipt_recovery_status": recovery.get("status"),
+            "truth": False, "authority": False}
+        if len(json.dumps(trace, sort_keys=True, separators=(",", ":"))) > 32_768:
+            raise EpistemicDevelopmentError("epistemic_trace_size_bound_exceeded")
+        return trace
+
     @staticmethod
     def _matches(rule: EpistemicDevelopmentRule, fact: WorldStateFact) -> bool:
         values = {"source_kind": fact.source.kind, "source_id": fact.source.source_id,
