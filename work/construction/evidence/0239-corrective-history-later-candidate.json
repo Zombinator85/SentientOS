@@ -1,0 +1,45 @@
+{
+  "sequence": 239,
+  "title": "Corrective history and a later distinct candidate",
+  "source_commit": "1ee84d83fbbdf648b098d3ce7a5e237dacf15af8",
+  "source_tree": "cc8858a64730648a3ea625dccda5fa446728e48c",
+  "source_parent_commit": "f668b115be188585e2a54cd22ced04198301be84",
+  "source_parent_tree": "834c2573632aa726033ab09e3369089cc132591b",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "f668b115be188585e2a54cd22ced04198301be84",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7260,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {
+      "path": "tests/test_maintenance_post_adoption_attribution_campaign.py",
+      "sha": "9617d607f548339a47b59eb7256b9da0f5041760",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/development/campaign_corrective_history_candidate_task_acceptance.json",
+      "sha": "a1fa9fcea1709d32f8137c637286191acdfaf373",
+      "mode": "100644"
+    }
+  ],
+  "validation": {
+    "focused_new_node": "1 passed",
+    "campaign_collector_signal_suite": "29 passed, 2 pre-existing failures",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "known_failures": [
+    "test_repeated_satisfied_under_independent_matched_controls_is_noncausal expects obsolete production_ready=true for observational association.",
+    "test_epistemic_and_developmental_adapters_preserve_lineage_without_state_mutation calls campaign_epistemic_binding without the now-required owner argument."
+  ],
+  "limits": [
+    "All campaign observations remain synthetic and original control-source issuers remain unverified.",
+    "The new later candidate is a proposal artifact only and was not executed or adopted."
+  ]
+}

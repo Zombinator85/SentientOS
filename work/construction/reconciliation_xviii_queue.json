@@ -1,15 +1,16 @@
 {
   "schema": "sentientos.reconciliation_queue:v1",
-  "last_checkpoint_sequence": 238,
+  "last_checkpoint_sequence": 239,
   "completed_nodes": [
     "A2/A4-A6: explicitly selected owner-recovered campaign outcomes retain provenance, classify routes, detect cross-campaign adverse/positive contradictions, and fail closed on selection-config tampering; recovery was verified in a fresh process.",
     "B1/B2: only eligible proposal-routed signals become later maintenance candidates; campaign source uncertainty and exact lineage survive adaptation.",
     "C2: resource reread after fresh ledger reconstruction preserves receipt identity and does not debit again.",
     "A7 partial: seq237 fresh-process runtime signal reconstruction preserves the declared campaign completion event time and source digest with adoption/mutation false; owner ordering and prior-tick exclusion are still open.",
-    "A7: maintenance-loop owner order and shared tick identity are pinned from admitted campaign signal evaluation through same-tick World-State, cognition, transition, epistemic development, self-model reconciliation, and causal introspection; zero-effect posture is asserted."
+    "A7: maintenance-loop owner order and shared tick identity are pinned from admitted campaign signal evaluation through same-tick World-State, cognition, transition, epistemic development, self-model reconciliation, and causal introspection; zero-effect posture is asserted.",
+    "B3 partial: actual adverse/corrective/later-distinct campaign outcomes compose through the signal plane; original contradiction is blocked and a separate later finding creates a constrained proposal candidate."
   ],
-  "current_source_commit": "8abfe4543ebe3b6c62d9cf089da1a62befe213c8",
-  "current_source_tree": "f4998ea1f51b23151ce13d5727bfaafcb802e372",
+  "current_source_commit": "1ee84d83fbbdf648b098d3ce7a5e237dacf15af8",
+  "current_source_tree": "cc8858a64730648a3ea625dccda5fa446728e48c",
   "next_executable_nodes": [
     {
       "program": "A",
@@ -18,8 +19,8 @@
     },
     {
       "program": "B",
-      "node": "B3-B8",
-      "work": "Later candidate-selection episode after an unsuccessful synthetic improvement; retain adverse and corrective history, applicability uncertainty, and source limitations."
+      "node": "B4-B8",
+      "work": "Drive the later distinct proposal through actual collector scan/selection, preserve corrective history and applicability uncertainty, and reconstruct the candidate in a fresh process."
     },
     {
       "program": "C",
@@ -48,7 +49,8 @@
     }
   ],
   "known_test_failures": [
-    "Five pre-existing seq232 broad-suite failures: stale production-readiness and adapter-signature assertions, read-only /glow setup, runtime admission fixture mismatch, and production campaign readiness expectation.",
+    "Two stale tests observed in the campaign/signal/collector run: observational association expected production_ready=true; epistemic adapter test omits newly required owner argument.",
+    "Five earlier seq232 broad-suite failures: stale production-readiness and adapter-signature assertions, read-only /glow setup, runtime admission fixture mismatch, and production campaign readiness expectation.",
     "Mypy on earlier broad runtime files reports repository baseline errors; candidate modules pass targeted mypy."
   ],
   "external_blockers": [

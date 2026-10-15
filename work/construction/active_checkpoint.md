@@ -1,14 +1,14 @@
 # Active construction checkpoint
 
-Seq238 pins actual maintenance-loop ordering across campaign signal evaluation, same-tick source closure, cognition, epistemic development, self-model reconciliation, and post-tick causal introspection. Seq237 separately verifies fresh-process campaign result recovery preserves the caller-declared historical event time and result digest. Adoption and repository mutation remain false.
+Seq239 composes adverse, corrective, and later distinct campaign outcomes through the governed signal plane. Contradictory evidence for the original proposal remains blocked; a distinct later source-grounded finding remains proposal-routable and produces a low-confidence candidate with issuer uncertainty and proposal-selection-only authority.
 
-Latest source commit: 8abfe4543ebe3b6c62d9cf089da1a62befe213c8
-Latest source tree: f4998ea1f51b23151ce13d5727bfaafcb802e372
-Latest segment: work/construction/segments/0238-maintenance-tick-owner-order.md
-Evidence: work/construction/evidence/0238-maintenance-tick-owner-order.json
+Latest source commit: 1ee84d83fbbdf648b098d3ce7a5e237dacf15af8
+Latest source tree: cc8858a64730648a3ea625dccda5fa446728e48c
+Latest segment: work/construction/segments/0239-corrective-history-later-candidate.md
+Evidence: work/construction/evidence/0239-corrective-history-later-candidate.json
 Queue: work/construction/reconciliation_xviii_queue.json
-Sequence: 238
+Sequence: 239
 
-Validation: two affected ordering/recovery nodes passed, the runtime test module compiled, and `git diff --check` passed. Campaign source issuers remain unverified; call ordering is tested but integrated one-tick cognition cutoff remains open; no effect authority was added.
+Validation: the new integration node passed; the wider campaign/collector/signal set had 29 passes and two stale baseline failures documented in evidence. The campaign test module compiled and `git diff --check` passed. Evidence is synthetic, source issuers remain unverified, and no candidate effect authority was added.
 
-Next: prove the one-tick history boundary through the actual cognition consumer, then pursue the later bounded maintenance candidate trajectory and the resource, epistemic, goal, strategy, and integration programs.
+Next: prove the one-tick history boundary through the actual cognition consumer, then exercise collector scan/selection and fresh-process reconstruction for the later candidate. Continue resource, epistemic, goal, strategy, and cross-system programs.
