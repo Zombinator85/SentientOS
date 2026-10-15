@@ -2692,6 +2692,30 @@
       "sha256": "0322386cf869f12df597ea97168697d3aea9b4d63d73275f09e16a17dbc6d4b4",
       "source_commit": "678767c107432e47bf2dcc892b7f1e021574f01b",
       "source_tree": "e3df8f6399ae81a24c7ff104288da7eaa9cac0b9"
+    },
+    {
+      "bytes": 860,
+      "evidence_bytes": 1471,
+      "evidence_path": "work/construction/evidence/0258-fail-closed-trace-receipt-joins.json",
+      "evidence_sha256": "5c9151ae47ffd4474c8a3c203b29c60c9585e85a16703febf38d4fad7da91f20",
+      "path": "work/construction/segments/0258-fail-closed-trace-receipt-joins.md",
+      "predecessor": "segment-sha256:4b175cb601b7f8bdb145e0cf0e7ee8d1d47f093efec76b8b28a7d3ac01f20f6a",
+      "sequence": 258,
+      "sha256": "70cc12e2a659f2b6bb25d795278ff3610b3bae283d432be73d840c5ee4d9584c",
+      "source_commit": "a59a2a117574aabda9a76417f98a07f223ec06d9",
+      "source_tree": "1717dd488ea4a23a1bdd62e5b4b80c018a1f839a"
+    },
+    {
+      "bytes": 860,
+      "evidence_bytes": 1471,
+      "evidence_path": "work/construction/evidence/0258-fail-closed-trace-receipt-joins.json",
+      "evidence_sha256": "5c9151ae47ffd4474c8a3c203b29c60c9585e85a16703febf38d4fad7da91f20",
+      "path": "work/construction/segments/0258-fail-closed-trace-receipt-joins.md",
+      "predecessor": "segment-sha256:0322386cf869f12df597ea97168697d3aea9b4d63d73275f09e16a17dbc6d4b4",
+      "sequence": 258,
+      "sha256": "70cc12e2a659f2b6bb25d795278ff3610b3bae283d432be73d840c5ee4d9584c",
+      "source_commit": "a59a2a117574aabda9a76417f98a07f223ec06d9",
+      "source_tree": "1717dd488ea4a23a1bdd62e5b4b80c018a1f839a"
     }
   ],
   "source_acquisition": {

@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq257 adds a bounded explicit trace for one configured epistemic proposition. It joins retained evidence, source run identities and original event times, state generations, update events, verified mutation receipts, and the exact prior cognition projection. The recovered task-family path tests trace reconstruction and digest continuity.
+Seq258 makes the selected epistemic proposition trace fail closed unless every retained evidence binding and state generation joins to a verified mutation receipt. Receipt recovery runs before trace projection.
 
-Latest source commit: 678767c107432e47bf2dcc892b7f1e021574f01b
-Latest source tree: e3df8f6399ae81a24c7ff104288da7eaa9cac0b9
-Latest segment: work/construction/segments/0257-bounded-epistemic-proposition-trace.md
-Evidence: work/construction/evidence/0257-bounded-epistemic-proposition-trace.json
+Latest source commit: a59a2a117574aabda9a76417f98a07f223ec06d9
+Latest source tree: 1717dd488ea4a23a1bdd62e5b4b80c018a1f839a
+Latest segment: work/construction/segments/0258-fail-closed-trace-receipt-joins.md
+Evidence: work/construction/evidence/0258-fail-closed-trace-receipt-joins.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 257
+Sequence: 258
 
-Validation: the focused recovery node passed; the epistemic and causal-introspection scope passed 57 tests; compilation and whitespace checks passed.
+Validation: the recovered task-family trace node passed; compilation and whitespace checks passed.
 
-Limits: only one positive deterministic task-family outcome is covered. Negative-transfer correction, contradictory later outcome, contested update, independent later behavioral comparison, and outcome-informed goal planning remain open. No truth, external causation, or effect authority is claimed.
+Limits: only one positive deterministic outcome is covered. The distinct adverse and corrective experiences, contested revision, later behavioral evaluation, and outcome-informed planning remain open.
 
-Next: complete the D1-D8 corrective longitudinal episode using two distinct preregistered and independently scored runs admitted through the existing runtime, then trace contested state into a separately evaluated later cognition and fresh-process recovery. Continue E1-E8 outcome-informed planning afterward.
+Next: complete the D1-D8 corrective longitudinal episode, then continue E1-E8 outcome-informed goal planning.
