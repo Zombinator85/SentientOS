@@ -1167,7 +1167,9 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
     retained = {key: example.get(key) for key in (
         "schema_version", "task_family_id", "task_family_posture", "source_fact_id",
         "source_binding", "source_run_id", "source_run_digest", "source_task_digest",
-        "source_score_digest", "evaluator", "event_scope", "examples",
+        "source_score_digest", "source_active_model_identity",
+        "source_active_model_identity_digest", "model_identity_binding_posture",
+        "applicability_posture", "evaluator", "event_scope", "examples",
         "independent_backend_observation", "execution_evidence_scope",
         "execution_evidence_posture", "historical_only", "current_truth", "authority")}
     resource_context = example.get("resource_context")
@@ -1291,6 +1293,12 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             continue
         score = next((item for item in score_rows if isinstance(item, Mapping)
             and item.get("condition_id") == "history_present"), None)
+        active_model_identity = payload.get("active_model_identity")
+        active_model_identity_digest = payload.get("active_model_identity_digest")
+        model_identity_bound = (isinstance(active_model_identity, Mapping)
+            and bool(active_model_identity)
+            and isinstance(active_model_identity_digest, str)
+            and active_model_identity_digest == _digest(dict(active_model_identity)))
         if (not isinstance(score, Mapping)
                 or score.get("schema_version") != "sentientos.objective_task_score:v3"
                 or score.get("task_digest") != descriptor.get("task_digest")
@@ -1684,6 +1692,13 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             "source_run_id": run_id, "source_run_digest": run_digest,
             "source_task_digest": descriptor["task_digest"],
             "source_score_digest": score["score_digest"],
+            "source_active_model_identity": (dict(active_model_identity)
+                if model_identity_bound else None),
+            "source_active_model_identity_digest": (active_model_identity_digest
+                if model_identity_bound else None),
+            "model_identity_binding_posture": ("protocol_bound_source_identity"
+                if model_identity_bound else "source_model_identity_unbound"),
+            "applicability_posture": "target_model_identity_unbound",
             "evaluator": score["evaluator"],
             "event_scope": "scored_benchmark_outcome_not_external_environmental_event",
             "examples": rows,

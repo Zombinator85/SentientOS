@@ -1990,6 +1990,12 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         task_family_id="integer_affine_prediction")
     assert len(projected_examples) == 1
     assert projected_examples[0]["source_fact_id"] == family_fact["fact_id"]
+    assert projected_examples[0]["source_active_model_identity"] is None
+    assert projected_examples[0]["source_active_model_identity_digest"] is None
+    assert projected_examples[0]["model_identity_binding_posture"] == \
+        "source_model_identity_unbound"
+    assert projected_examples[0]["applicability_posture"] == \
+        "target_model_identity_unbound"
     assert projected_examples[0]["examples"] == [{
         "probe_input": row["probe_input"], "observed_answer": row["observed_answer"],
         "evaluator_correct": row["evaluator_correct"]}
@@ -2040,6 +2046,26 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     substituted_family_fact["source"]["digest"] = "e" * 64
     assert _task_family_history_examples(substituted_source,
         task_family_id="integer_affine_prediction") == []
+    substituted_model_identity = copy.deepcopy(admitted.candidate)
+    substituted_model_fact = next(fact for fact in substituted_model_identity["selected_facts"]
+        if fact["fact_id"] == family_fact["fact_id"])
+    substituted_model_fact["payload"]["active_model_identity"]["model_id"] = "other-model"
+    assert _task_family_history_examples(substituted_model_identity,
+        task_family_id="integer_affine_prediction")[0][
+            "model_identity_binding_posture"] == "source_model_identity_unbound"
+    bound_model_identity = copy.deepcopy(admitted.candidate)
+    bound_model_fact = next(fact for fact in bound_model_identity["selected_facts"]
+        if fact["fact_id"] == family_fact["fact_id"])
+    identity = {"provider": "fixture", "model": "fixture-model"}
+    from sentientos.resident_developmental_cognition import _digest as cognition_digest
+    bound_model_fact["payload"]["active_model_identity"] = identity
+    bound_model_fact["payload"]["active_model_identity_digest"] = cognition_digest(identity)
+    bound_projection = _task_family_history_examples(bound_model_identity,
+        task_family_id="integer_affine_prediction")[0]
+    assert bound_projection["source_active_model_identity"] == identity
+    assert bound_projection["source_active_model_identity_digest"] == cognition_digest(identity)
+    assert bound_projection["model_identity_binding_posture"] == \
+        "protocol_bound_source_identity"
     assert _task_family_history_examples(admitted.candidate,
         task_family_id="unrelated_family") == []
 

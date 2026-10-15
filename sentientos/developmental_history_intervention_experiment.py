@@ -881,6 +881,7 @@ class DevelopmentalExperimentStore:
                 "model_id": protocol.model_id,
                 "model_artifact_digest": protocol.model_artifact_digest,
                 "active_model_identity": dict(protocol.active_model_identity),
+                "active_model_identity_digest": protocol.active_model_identity_digest,
                 "authority_map_digest": protocol.authority_map_digest,
                 "conditions": [{**{key: condition.get(key) for key in (
                     "condition_id", "observation_id", "observation_digest", "output_digest",
