@@ -1793,9 +1793,40 @@ def _history_context_packet(record: Mapping[str, Any], *,
         for item in task_examples:
             item.update(_task_family_model_applicability(item,
                 target_model_identity=target_model_identity))
-        packet["task_relevant_experience"] = (
-            [_compact_task_family_history_example(item) for item in task_examples]
-            if compact_for_input_budget else task_examples)
+        eligible = [item for item in task_examples
+            if item.get("model_identity_relation") == "same_active_model_identity"]
+        omitted = [item for item in task_examples
+            if item.get("model_identity_relation") != "same_active_model_identity"]
+        if eligible:
+            packet["task_relevant_experience"] = (
+                [_compact_task_family_history_example(item) for item in eligible]
+                if compact_for_input_budget else eligible)
+        if omitted:
+            omission_evidence = [{
+                "source_fact_id": item.get("source_fact_id"),
+                "source_binding": item.get("source_binding"),
+                "source_run_id": item.get("source_run_id"),
+                "source_run_digest": item.get("source_run_digest"),
+                "source_task_digest": item.get("source_task_digest"),
+                "source_score_digest": item.get("source_score_digest"),
+                "source_active_model_identity_digest": item.get(
+                    "source_active_model_identity_digest"),
+                "target_active_model_identity_digest": item.get(
+                    "target_active_model_identity_digest"),
+                "model_identity_relation": item.get("model_identity_relation"),
+                "historical_outcomes": [{key: outcome.get(key) for key in (
+                    "condition_id", "score_digest", "correct_count", "probe_count")}
+                    for outcome in item.get("condition_outcomes", ())
+                    if isinstance(outcome, Mapping)],
+            } for item in omitted]
+            packet["task_relevant_experience_omission"] = {
+                "posture": "identity_not_matched_examples_withheld_from_task_guidance",
+                "omitted_example_count": len(omitted),
+                "omitted_source_fact_ids": [item.get("source_fact_id") for item in omitted],
+                "omitted_evidence_digest": _digest(omission_evidence),
+                "omission_evidence": omission_evidence,
+                "historical_only": True, "current_truth": False, "authority": False,
+            }
     if compact_for_input_budget:
         interpretation = candidate.get("interpretation")
         if isinstance(interpretation, str) and len(interpretation) > 1200:

@@ -970,6 +970,7 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                 "developmental_history_condition", "developmental_history_observation_id",
                 "developmental_history_observation_digest", "developmental_history_protocol_id",
                 "developmental_history_protocol_digest", "task_family_id", "active_model_identity",
+                "active_model_identity_digest",
                 "resource_measurement_posture"):
             if key in original:
                 summary[key] = original[key]
@@ -1441,6 +1442,7 @@ def _developmental_history_interpretation_projection(
         "model_id": original.get("model_id"),
         "model_artifact_digest": original.get("model_artifact_digest"),
         "active_model_identity": original.get("active_model_identity"),
+        "active_model_identity_digest": original.get("active_model_identity_digest"),
         "authority_map_digest": original.get("authority_map_digest"),
         "conditions": selected_conditions,
         "condition_event_times": original.get("condition_event_times"),

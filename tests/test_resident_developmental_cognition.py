@@ -76,6 +76,7 @@ def snapshot(value: int = 1):
 class FakeInvoker:
     def __init__(self) -> None:
         self.requests = []
+        self.active_model_identity: dict[str, str] = {}
         self.resource_contexts = []
         self.lesson_statement = "When prior evidence conflicts, preserve its scope and uncertainty."
         self.lesson_scope = "historical evidence interpretation"
@@ -95,13 +96,17 @@ class FakeInvoker:
         self.objective_plan_root: Path | None = None
         self.history_interpretation = "bounded history"
 
+    def observed_current_model_identity(self):
+        return dict(self.active_model_identity) if self.active_model_identity else None
+
     def build_request(self, **kwargs):
         request = type("Request", (), {})()
         for key, value in kwargs.items(): setattr(request, key, value)
         request.prompt_digest = digest_payload({"prompt": kwargs["prompt"]})
         request.prompt_size = len(kwargs["prompt"].encode("utf-8"))
         request.model_id = "model-a"; request.model_artifact_digest = "sha256:model"
-        request.authority_map_digest = "test-authority-map"; request.active_model_identity = {}
+        request.authority_map_digest = "test-authority-map"
+        request.active_model_identity = dict(self.active_model_identity)
         budget = kwargs.get("budget") or LocalModelInvocationBudget()
         request.budget = budget
         request.lifecycle_phase = kwargs.get("lifecycle_phase", "runtime")
@@ -112,7 +117,8 @@ class FakeInvoker:
             "prompt_digest": digest_payload({"prompt": kwargs["prompt"]}),
             "prompt_size": len(kwargs["prompt"].encode("utf-8")),
             "model_id": "model-a", "authority_map_digest": "test-authority-map",
-            "model_artifact_digest": "sha256:model", "active_model_identity": {},
+            "model_artifact_digest": "sha256:model",
+            "active_model_identity": dict(self.active_model_identity),
             "caller": kwargs["caller"], "lifecycle_phase": request.lifecycle_phase,
             "correlation_id": kwargs["correlation_id"],
             "expected_output_format": kwargs.get("expected_output_format", "text"),
@@ -393,7 +399,7 @@ def _bind_fixture_installation_custody(root: Path,
         "serving_config_digest": "d" * 64,
         "model_serving_admission_ref": "local",
         "activation_state_semantic_digest": "a" * 64,
-        "observed_loaded_model_identity": {},
+        "observed_loaded_model_identity": dict(invoker.active_model_identity),
     }
     session = ServingSession("resident-serving-session-" + semantic_digest(binding)[:24], binding)
     session_receipt = _resident_serving_session_receipt(session.to_dict())
@@ -916,6 +922,7 @@ def test_task_family_example_flows_through_admitted_history_and_is_not_current_c
     from sentientos.resident_developmental_cognition import objective_request_payload
 
     fake = SessionBoundFakeInvoker()
+    fake.active_model_identity = {"provider": "fixture", "model": "model-a"}
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
     cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
@@ -1943,6 +1950,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     from scripts.stage_resident_objective_intervention import stage_request
 
     fake = InstallationCustodyFakeInvoker()
+    fake.active_model_identity = {"provider": "fixture", "model": "episode-model"}
     _bind_fixture_installation_custody(tmp_path, fake)
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
@@ -1985,15 +1993,18 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     family_fact = next(fact for fact in admitted.candidate["selected_facts"]
         if fact["payload"].get("objective_task_family") == "integer_affine_prediction")
     assert family_fact["payload"]["acquisition_examples"]
+    assert family_fact["payload"]["active_model_identity"] == fake.active_model_identity
+    assert family_fact["payload"]["active_model_identity_digest"]
     from sentientos.resident_developmental_cognition import _task_family_history_examples
     projected_examples = _task_family_history_examples(admitted.candidate,
         task_family_id="integer_affine_prediction")
     assert len(projected_examples) == 1
     assert projected_examples[0]["source_fact_id"] == family_fact["fact_id"]
-    assert projected_examples[0]["source_active_model_identity"] is None
-    assert projected_examples[0]["source_active_model_identity_digest"] is None
+    assert projected_examples[0]["source_active_model_identity"] == fake.active_model_identity
+    assert projected_examples[0]["source_active_model_identity_digest"] == \
+        family_fact["payload"]["active_model_identity_digest"]
     assert projected_examples[0]["model_identity_binding_posture"] == \
-        "source_model_identity_unbound"
+        "protocol_bound_source_identity"
     assert projected_examples[0]["applicability_posture"] == \
         "target_model_identity_unbound"
     assert projected_examples[0]["examples"] == [{
@@ -2094,6 +2105,18 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert task_experience["model_identity_relation"] == "same_active_model_identity"
     assert task_experience["applicability_posture"] == \
         "same_family_same_model_task_scope_unverified"
+    cross_model_packet = _history_context_packet({"record_id": admitted.record_id,
+        "record_digest": admitted.record_digest, "candidate": bound_model_identity,
+        "created_at": "fixture-time", "epistemic_posture": "historical_only"},
+        task_family_id="integer_affine_prediction",
+        target_model_identity=other_identity, compact_for_input_budget=True)
+    assert "task_relevant_experience" not in cross_model_packet
+    omission = cross_model_packet["task_relevant_experience_omission"]
+    assert omission["posture"] == \
+        "identity_not_matched_examples_withheld_from_task_guidance"
+    assert omission["omitted_source_fact_ids"] == [bound_projection["source_fact_id"]]
+    assert omission["omitted_evidence_digest"]
+    assert len(omission["omission_evidence"][0]["historical_outcomes"]) == 3
     assert _task_family_history_examples(admitted.candidate,
         task_family_id="unrelated_family") == []
 
@@ -2101,6 +2124,12 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     # carries measured resource evidence only when run, condition, score, and
     # inference receipt identities all agree.
     resource_candidate = copy.deepcopy(admitted.candidate)
+    resource_model_identity = {"provider": "fixture", "model": "resource-test"}
+    resource_family_fact = next(fact for fact in resource_candidate["selected_facts"]
+        if fact["fact_id"] == family_fact["fact_id"])
+    resource_family_fact["payload"]["active_model_identity"] = resource_model_identity
+    resource_family_fact["payload"]["active_model_identity_digest"] = \
+        cognition_digest(resource_model_identity)
     resource_source = {"source_id": "fixture-resource-source", "kind": "resource_governor",
         "digest": "a" * 64}
     resource_candidate["selected_sources"].append(resource_source)
@@ -2187,7 +2216,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
             "current_evidence": {}, "prior_self_model": None,
             "prior_epistemic_state": None, "developmental_history": [],
             "developmental_history_posture": "historical_interpretation_not_current_truth",
-            "developmental_history_task_family_id": "integer_affine_prediction"},
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_target_model_identity": resource_model_identity},
         records=(synthetic_record,), projection=None)
     assert measured_choice["recommendation_digest"] in resource_prompt
     assert "fixture-resource-receipt-history_withheld" in resource_prompt
@@ -2311,7 +2341,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     episode = _run_family_episode_in_child(tmp_path,
         acquisition_request_digest=str(acquisition_request["request_digest"]),
         request_id="episode-heldout-after-restart",
-        request_digest=str(heldout_request["request_digest"]))
+        request_digest=str(heldout_request["request_digest"]),
+        active_model_identity=fake.active_model_identity)
     heldout_run = episode["run"]
     present, withheld, restored = heldout_run["conditions"]
     assert feedback.written_record_id in present["retrieved_record_ids"]
@@ -2385,7 +2416,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         request_digest=str(third_request["request_digest"]),
         prior_request_refs=(
             ("episode-acquisition", str(acquisition_request["request_digest"])),
-            ("episode-heldout-after-restart", str(heldout_request["request_digest"]))))
+                ("episode-heldout-after-restart", str(heldout_request["request_digest"]))),
+        active_model_identity=fake.active_model_identity)
     third_run = third_episode["run"]
     third_scores = {row["condition_id"]: row["score"]
         for row in third_run["objective_scores"]}
@@ -3722,6 +3754,7 @@ print(json.dumps(owner.verified_objective_task_family_progression(
 
 def _run_family_episode_in_child(root: Path, *, acquisition_request_digest: str,
         request_id: str, request_digest: str,
+        active_model_identity: Mapping[str, Any] | None = None,
         prior_request_refs: tuple[tuple[str, str], ...] = (),
         tamper_receipt_id: str | None = None) -> Mapping[str, Any]:
     """Run transfer in a fresh process through installation-scoped production readers.
@@ -3752,12 +3785,14 @@ from pathlib import Path
 root, installation_root = Path(sys.argv[1]), Path(sys.argv[2])
 request_id, request_digest = sys.argv[3:5]
 prior_request_refs = json.loads(sys.argv[5])
+active_model_identity = json.loads(sys.argv[6])
 test_path = Path.cwd() / "tests" / "test_resident_developmental_cognition.py"
 spec = importlib.util.spec_from_file_location("fixture_cognition_tests", test_path)
 module = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 invoker = module.InstallationCustodyFakeInvoker()
+invoker.active_model_identity = active_model_identity
 module._bind_fixture_installation_custody(root, invoker, publish_session=False)
 invoker.objective_mode = "derive_from_admitted_family"
 invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
@@ -3791,7 +3826,8 @@ print(json.dumps({"fresh_process": True, "fixture_only": True,
         child = subprocess.run([sys.executable, "-c", child_code, str(root),
             str(installation_root), request_id, request_digest,
             json.dumps(prior_request_refs or (("episode-acquisition",
-                acquisition_request_digest),))], cwd=Path(__file__).resolve().parents[1],
+                acquisition_request_digest),)),
+            json.dumps(dict(active_model_identity or {}))], cwd=Path(__file__).resolve().parents[1],
             capture_output=True, text=True)
         if child.returncode != 0:
             raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
