@@ -1,0 +1,45 @@
+{
+  "sequence": 255,
+  "title": "Complete ledger-backed developmental resource learning loop",
+  "source_parent_commit": "31e6f51992b11d179d1f9fbb81b248e6c74c90ed",
+  "source_parent_tree": "302587c1b80d50b5ab64518c5efcd841a81a1064",
+  "source_commit": "6db3e3a32cad17b5dddc0653ead0d10239514c90",
+  "source_tree": "b2c404560b49f67ba764c3c06a4e7751d493e720",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "31e6f51992b11d179d1f9fbb81b248e6c74c90ed",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {"path": "sentientos/resident_developmental_cognition.py", "mode": "100644", "sha": "f9a2c2eb1a18d68b49c1b059efbad07c6d54e137"},
+    {"path": "sentientos/resident_developmental_writeback.py", "mode": "100644", "sha": "c0979bc32ea897f955ae42971f35bb436100af8b"},
+    {"path": "tests/test_resident_developmental_cognition.py", "mode": "100644", "sha": "cfb6907a318158e2ed8cc5a45e855583c4853b40"},
+    {"path": "tests/test_developmental_resource_learning_integration.py", "mode": "100644", "sha": "db1cd784695804eeeb99b9333437eda5ea628371"},
+    {"path": "docs/development/developmental_resource_learning_loop_task_acceptance.json", "mode": "100644", "sha": "df4f2ab03b851f04f9c4f1d5f878d8f6d790345b"}
+  ],
+  "validation": {
+    "affected_suites": "passed; six existing skips",
+    "final_integrated_and_strategy_tests": "2 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "conditions": ["history_present", "history_withheld", "history_restored"],
+    "resource_receipt_source": "governed resource allocator ledger",
+    "historical_recommendation": "bounded_recommendation:history_present",
+    "later_decision": "distinct held-out task in a fresh interpreter; full-suite criterion met",
+    "replay_consumption": "ledger bytes unchanged",
+    "fixture_only": true,
+    "authority": false,
+    "current_truth": false
+  },
+  "limitations": [
+    "Controlled deterministic model and serving-session fixture do not establish real-model improvement or independent backend observation.",
+    "Shared host CPU/GPU attribution remains unknown without independent observation.",
+    "D1-D8 runtime-admitted epistemic mutation and later causal introspection remain open."
+  ]
+}

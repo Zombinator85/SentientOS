@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq254 supplies the missing optional resource-owner input to resident developmental cognition. When configured, the owner requests a separate resource context immediately before each condition inference; no resource values are estimated in cognition.
+Seq255 completes the connected C4-C8 controlled acceptance: three owner-issued resource contexts reach governed inference, actual ledger receipts join a recovered scored experiment through World-State and normal developmental admission, and a distinct held-out task in a fresh process reads the bounded recommendation and passes its fixed quality criterion. Ledger bytes are unchanged by reread.
 
-Latest source commit: 81a4b8d6d5231ce53de8def4ac843f8443070947
-Latest source tree: 09691ce5f436a5808b42458fe39b63a4a3e69f2e
-Latest segment: work/construction/segments/0254-developmental-resource-context-owner.md
-Evidence: work/construction/evidence/0254-developmental-resource-context-owner.json
+Latest source commit: 6db3e3a32cad17b5dddc0653ead0d10239514c90
+Latest source tree: b2c404560b49f67ba764c3c06a4e7751d493e720
+Latest segment: work/construction/segments/0255-ledger-backed-resource-learning-loop.md
+Evidence: work/construction/evidence/0255-ledger-backed-resource-learning-loop.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 254
+Sequence: 255
 
-Validation: owner-context routing, fresh-process task-family history, and strategy resource-lineage integration tests passed (3 tests); changed Python files compiled and `git diff --check` passed.
+Validation: six affected suites passed with six existing skips; integrated and strategy resource tests passed together after final fixture cleanup. Changed Python files compiled and whitespace checks passed.
 
-Limits: the developmental experiment's own three inference receipts are not yet joined to ledger-produced resource receipts through World-State and admission; a later resource-aware held-out decision has not yet been recovered in a fresh process. No model improvement, independent backend observation, or unmeasured resource cost is claimed.
+Limits: deterministic fixture outcomes and controlled serving-session reference do not establish real-model improvement or independent backend observation. Shared-host resource attribution remains unknown. No historical evidence gains current-truth or effect authority.
 
-Next: finish C4-C8 by composing the governed owner context with exact condition receipts, normal admission and retrieval, a distinct independently evaluated recommendation, and fresh-process recovery. Then continue D1-D8 and E1-E8.
+Next: route verified task outcomes through runtime-admitted epistemic mutation, later cognition, and causal introspection. Then continue verified outcome-informed goal planning and remaining developmental integration.
