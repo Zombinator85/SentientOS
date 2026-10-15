@@ -1169,6 +1169,7 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
         "source_binding", "source_run_id", "source_run_digest", "source_task_digest",
         "source_score_digest", "source_active_model_identity",
         "source_active_model_identity_digest", "model_identity_binding_posture",
+        "target_active_model_identity_digest", "model_identity_relation",
         "applicability_posture", "evaluator", "event_scope", "examples",
         "independent_backend_observation", "execution_evidence_scope",
         "execution_evidence_posture", "historical_only", "current_truth", "authority")}
@@ -1238,6 +1239,39 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
             "invocation_receipt_digest", "posture")}
             for item in evidence_conditions if isinstance(item, Mapping)]
     return retained
+
+
+def _task_family_model_applicability(example: Mapping[str, Any], *,
+        target_model_identity: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Compare exact recorded identities while keeping task-family scope explicit."""
+    source = example.get("source_active_model_identity")
+    source_digest = example.get("source_active_model_identity_digest")
+    target_digest = (_digest(dict(target_model_identity))
+        if isinstance(target_model_identity, Mapping) and target_model_identity else None)
+    source_bound = (isinstance(source, Mapping) and bool(source)
+        and isinstance(source_digest, str) and source_digest == _digest(dict(source)))
+    if not source_bound or target_digest is None:
+        relation = "model_identity_unbound"
+        posture = "model_identity_unbound_transfer_not_established"
+    elif dict(source) == dict(target_model_identity):
+        relation = "same_active_model_identity"
+        posture = "same_family_same_model_task_scope_unverified"
+    else:
+        relation = "different_active_model_identity"
+        posture = "cross_model_transfer_not_established"
+    return {"target_active_model_identity_digest": target_digest,
+        "model_identity_relation": relation, "applicability_posture": posture}
+
+
+def _observed_current_cognition_model_identity(invoker: Any) -> dict[str, Any] | None:
+    """Use only the serving adapter's read-only current-session identity observation."""
+    observe = getattr(invoker, "observed_current_model_identity", None)
+    if not callable(observe):
+        return None
+    identity = observe()
+    if not isinstance(identity, Mapping) or not identity:
+        return None
+    return dict(identity)
 
 
 def _task_family_history_examples(candidate: Mapping[str, Any], *,
@@ -1724,7 +1758,8 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
 def _history_context_packet(record: Mapping[str, Any], *,
         include_source_evidence_context: bool = True,
         compact_for_input_budget: bool = False,
-        task_family_id: str | None = None) -> dict[str, Any]:
+        task_family_id: str | None = None,
+        target_model_identity: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Project a verified durable record to the bounded semantics cognition needs.
 
     Durable writeback retains the full source request/output for recovery and
@@ -1755,6 +1790,9 @@ def _history_context_packet(record: Mapping[str, Any], *,
     task_examples = _task_family_history_examples(candidate,
         task_family_id=task_family_id)
     if task_examples:
+        for item in task_examples:
+            item.update(_task_family_model_applicability(item,
+                target_model_identity=target_model_identity))
         packet["task_relevant_experience"] = (
             [_compact_task_family_history_example(item) for item in task_examples]
             if compact_for_input_budget else task_examples)
@@ -1815,9 +1853,13 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
     """Fit whole recent history packets and epistemic packets to one input bound."""
     packet_modes = ((True, False), (False, False), (False, True))
     task_family_id = context.get("developmental_history_task_family_id")
+    target_model_identity = context.get("developmental_history_target_model_identity")
+    if not isinstance(target_model_identity, Mapping):
+        target_model_identity = None
     packets_by_mode = {mode: tuple(_history_context_packet(record,
         include_source_evidence_context=mode[0], compact_for_input_budget=mode[1],
-        task_family_id=task_family_id if isinstance(task_family_id, str) else None)
+        task_family_id=task_family_id if isinstance(task_family_id, str) else None,
+        target_model_identity=target_model_identity)
         for record in records) for mode in packet_modes}
     full_packets = packets_by_mode[packet_modes[0]]
     available = tuple({"record_id": packet["record_id"],
@@ -4566,6 +4608,8 @@ class ResidentDevelopmentalCognitionOwner:
             if isinstance(task_descriptor, Mapping) else None)
         context["developmental_history_task_family_id"] = (
             task_family_id if isinstance(task_family_id, str) else None)
+        context["developmental_history_target_model_identity"] = (
+            _observed_current_cognition_model_identity(self.invoker))
         context["developmental_history_retrieval_policy_id"] = (
             "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else "completed_tick_recency_suffix:v1")
@@ -5066,6 +5110,8 @@ class ResidentDevelopmentalCognitionOwner:
                         if self.objective_task is not None else None)
                 family_for_preflight = (task_descriptor_for_preflight.get("task_family_id")
                     if isinstance(task_descriptor_for_preflight, Mapping) else None)
+                preflight_target_model_identity = (
+                    _observed_current_cognition_model_identity(self.invoker))
                 preflight_context: dict[str, Any] = {
                     "instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
                     "current_evidence": current.semantic_payload(),
@@ -5075,6 +5121,7 @@ class ResidentDevelopmentalCognitionOwner:
                     "developmental_history": [],
                     "developmental_history_posture": "historical_interpretation_not_current_truth",
                     "developmental_history_task_family_id": family_for_preflight,
+                    "developmental_history_target_model_identity": preflight_target_model_identity,
                     "developmental_history_retrieval_policy_id": (
                         "task_family_probe_overlap_then_recency_fill:v2"
                         if isinstance(family_for_preflight, str)

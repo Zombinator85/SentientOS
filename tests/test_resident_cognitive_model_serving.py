@@ -9,7 +9,8 @@ from sentientos.local_runtime_provisioning import semantic_digest
 pytestmark = pytest.mark.no_legacy_skip
 
 from sentientos.resident_cognitive_model_serving import (ACTION, CONFIG_SCHEMA,
-    ResidentCognitiveModelServingController, ResidentCognitiveModelServingError, load_config,
+    ResidentCognitiveModelServingController, ResidentCognitiveModelServingError,
+    ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config,
     resident_serving_session_receipt_reference, verify_resident_serving_session_receipt_reference)
 
 class Kernel:
@@ -36,6 +37,15 @@ def test_exact_current_activation_establishes_separate_zero_inference_receipt(mo
     assert receipt["resident_serving_bound"] is True and receipt["inference_performed"] is False
     assert receipt["canonical_activation_mutated"] is False and receipt["production_chat_serving_mutated"] is False and receipt["cognitive_model_transition_performed"] is False
     assert session.binding["serving_config_digest"]=="c"*64 and not model.closed
+
+def test_cognition_identity_observation_is_read_only_and_exact(monkeypatch,tmp_path):
+    current=evidence(); ctl,_,model,_=make(monkeypatch,tmp_path,[current]*10)
+    session=ctl.establish(operation_id="resident-observed-identity")
+    expected=session.binding["observed_loaded_model_identity"]
+    assert ResidentCognitiveServingInvoker(ctl).observed_current_model_identity() == expected
+    assert ResidentCognitiveServingSlot(ctl).observed_current_model_identity() == expected
+    assert ctl.observed_current_session() == session
+    assert not model.closed
 
 def test_session_receipt_reference_rechecks_durable_privilege_witness(monkeypatch,tmp_path):
     current=evidence(); ctl,handle,_,_=make(monkeypatch,tmp_path,[current,current,current])

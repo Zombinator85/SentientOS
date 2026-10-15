@@ -640,6 +640,13 @@ class ResidentCognitiveServingInvoker:
             expected_session_receipt_id=expected_session_receipt_id,
             expected_session_receipt_digest=expected_session_receipt_digest)
 
+    def observed_current_model_identity(self) -> Mapping[str, Any] | None:
+        """Read the identity already observed for a current session without loading or unloading."""
+        session = self._serving.observed_current_session()
+        identity = (session.binding.get("observed_loaded_model_identity")
+            if session is not None else None)
+        return dict(identity) if isinstance(identity, Mapping) and identity else None
+
     def build_request(self, **kwargs: Any) -> Any:
         session = self._serving.current_session()
         if session is None:
@@ -731,6 +738,11 @@ class ResidentCognitiveServingSlot:
 
     def invoke(self, request: Any, **kwargs: Any) -> Any:
         return ResidentCognitiveServingInvoker(self.current_controller).invoke(request, **kwargs)
+
+    def observed_current_model_identity(self) -> Mapping[str, Any] | None:
+        """Read the current opaque session identity without changing serving state."""
+        return ResidentCognitiveServingInvoker(
+            self.current_controller).observed_current_model_identity()
 
     def verify_persisted_invocation_receipt(self, receipt_id: str, receipt_digest: str, **kwargs: Any) -> Mapping[str, Any]:
         """Read historical inference custody through the configured installation owner."""

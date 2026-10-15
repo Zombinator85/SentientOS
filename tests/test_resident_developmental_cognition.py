@@ -2066,6 +2066,34 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert bound_projection["source_active_model_identity_digest"] == cognition_digest(identity)
     assert bound_projection["model_identity_binding_posture"] == \
         "protocol_bound_source_identity"
+    from sentientos.resident_developmental_cognition import _task_family_model_applicability
+    assert _task_family_model_applicability(bound_projection,
+        target_model_identity=identity) == {
+            "target_active_model_identity_digest": cognition_digest(identity),
+            "model_identity_relation": "same_active_model_identity",
+            "applicability_posture": "same_family_same_model_task_scope_unverified"}
+    other_identity = {"provider": "fixture", "model": "other-model"}
+    assert _task_family_model_applicability(bound_projection,
+        target_model_identity=other_identity)["applicability_posture"] == \
+        "cross_model_transfer_not_established"
+    assert _task_family_model_applicability(bound_projection,
+        target_model_identity=None)["model_identity_relation"] == "model_identity_unbound"
+    from sentientos.resident_developmental_cognition import _compact_task_family_history_example
+    compact = _compact_task_family_history_example({**bound_projection,
+        **_task_family_model_applicability(bound_projection,
+            target_model_identity=identity)})
+    assert compact["model_identity_relation"] == "same_active_model_identity"
+    assert compact["target_active_model_identity_digest"] == cognition_digest(identity)
+    from sentientos.resident_developmental_cognition import _history_context_packet
+    packet = _history_context_packet({"record_id": admitted.record_id,
+        "record_digest": admitted.record_digest, "candidate": bound_model_identity,
+        "created_at": "fixture-time", "epistemic_posture": "historical_only"},
+        task_family_id="integer_affine_prediction",
+        target_model_identity=identity, compact_for_input_budget=True)
+    task_experience = packet["task_relevant_experience"][0]
+    assert task_experience["model_identity_relation"] == "same_active_model_identity"
+    assert task_experience["applicability_posture"] == \
+        "same_family_same_model_task_scope_unverified"
     assert _task_family_history_examples(admitted.candidate,
         task_family_id="unrelated_family") == []
 
