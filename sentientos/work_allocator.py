@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sentientos.epistemic_planning import review_required_propositions
+from sentientos.epistemic_planning import (epistemic_review_reason_for_goal,
+    review_required_applicability)
 from sentientos.goal_graph import Goal, GoalGraph, dependency_unmet, order_goals_deterministic
 from sentientos.persistent_epistemic_state import EpistemicCognitiveProjection
 from sentientos.risk_budget import RiskBudget
@@ -36,6 +37,9 @@ def allocate_goals(
     quarantine_active: bool,
     posture: str,
     prior_epistemic_projection: EpistemicCognitiveProjection | None = None,
+    target_active_model_identity_digest: str | None = None,
+    target_identity_observed_at: str | None = None,
+    planning_time: str | None = None,
 ) -> AllocationDecision:
     selected: list[str] = []
     selected_reasons: list[dict[str, object]] = []
@@ -44,9 +48,9 @@ def allocate_goals(
     spent_throughput = 0
     all_goal_ids = {goal.goal_id for goal in graph.goals}
     projection_digest: str | None = None
-    review_proposition_ids: frozenset[str] = frozenset()
+    review_scopes: dict[str, dict[str, object]] = {}
     if prior_epistemic_projection is not None:
-        projection_digest, review_proposition_ids = review_required_propositions(
+        projection_digest, review_scopes = review_required_applicability(
             prior_epistemic_projection)
 
     for goal in order_goals_deterministic(graph.goals):
@@ -62,10 +66,12 @@ def allocate_goals(
         if quarantine_active and _is_quarantine_blocked(goal):
             deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="quarantine_blocked"))
             continue
-        if any(f"epistemic_proposition:{proposition_id}" in goal.tags
-                for proposition_id in review_proposition_ids):
-            deferred.append(DeferredGoal(goal_id=goal.goal_id,
-                reason="epistemic_review_required"))
+        epistemic_reason = epistemic_review_reason_for_goal(goal.tags, review_scopes,
+            target_active_model_identity_digest=target_active_model_identity_digest,
+            target_identity_observed_at=target_identity_observed_at,
+            planning_time=planning_time)
+        if epistemic_reason is not None:
+            deferred.append(DeferredGoal(goal_id=goal.goal_id, reason=epistemic_reason))
             continue
 
         score = _goal_score(goal, posture=posture, pressure_level=integrity_pressure_level)

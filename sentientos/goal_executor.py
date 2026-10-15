@@ -14,7 +14,7 @@ from sentientos.forge_goals.registry import REGISTRY
 from sentientos.goal_completion import CompletionContext, eval_check, persist_completion_result
 from sentientos.goal_graph import Goal, GoalGraph, GoalStateRecord, default_goal_state_record
 from sentientos.epistemic_planning import (EpistemicPlanningError,
-    review_required_propositions)
+    epistemic_review_reason_for_goal, review_required_applicability)
 from sentientos.persistent_epistemic_state import EpistemicCognitiveProjection
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
@@ -38,6 +38,8 @@ class ExecutorState:
     posture: str = "balanced"
     prior_plan: WorkPlan | None = None
     prior_epistemic_projection: EpistemicCognitiveProjection | None = None
+    target_active_model_identity_digest: str | None = None
+    target_identity_observed_at: str | None = None
 
 
 class GoalExecutor:
@@ -68,15 +70,20 @@ class GoalExecutor:
                     prior_goal_outcomes.setdefault(task_run.goal_id, set()).add(task_run.status)
         epistemic_review_goal_ids: set[str] = set()
         epistemic_projection_digest: str | None = None
+        epistemic_review_scopes: dict[str, dict[str, object]] = {}
         if state.prior_epistemic_projection is not None:
             try:
-                epistemic_projection_digest, review_ids = review_required_propositions(
+                epistemic_projection_digest, epistemic_review_scopes = review_required_applicability(
                     state.prior_epistemic_projection)
             except EpistemicPlanningError as exc:
                 raise WorkPlanError("prior_epistemic_projection_invalid") from exc
             epistemic_review_goal_ids.update(goal.goal_id for goal in graph.goals
-                if any(f"epistemic_proposition:{proposition_id}" in goal.tags
-                    for proposition_id in review_ids))
+                if epistemic_review_reason_for_goal(goal.tags,
+                    epistemic_review_scopes,
+                    target_active_model_identity_digest=
+                        state.target_active_model_identity_digest,
+                    target_identity_observed_at=state.target_identity_observed_at,
+                    planning_time=state.created_at) is not None)
         for goal_id in allocation.selected:
             goal = goals_by_id.get(goal_id)
             if goal is None:
@@ -105,7 +112,6 @@ class GoalExecutor:
                 spent_risk += task.risk_cost
                 spent_throughput += task.throughput_cost
 
-        plan_id = _plan_id(state.created_at, state.goal_graph_hash, state.allocation_id)
         context = state.context
         context_parts = [context]
         if prior_run is not None:
@@ -115,6 +121,32 @@ class GoalExecutor:
             context_parts.append(f"prior_work_run_digest={prior_run_digest}")
         if epistemic_projection_digest is not None:
             context_parts.append(f"epistemic_projection_digest={epistemic_projection_digest}")
+        epistemic_binding = {
+            "projection_digest": epistemic_projection_digest,
+            "review_scopes": epistemic_review_scopes,
+            "target_active_model_identity_digest":
+                state.target_active_model_identity_digest,
+            "target_identity_observed_at": state.target_identity_observed_at,
+            "goal_tags": {goal.goal_id: list(goal.tags) for goal in graph.goals},
+            "goal_applicability": {goal.goal_id:
+                epistemic_review_reason_for_goal(goal.tags, epistemic_review_scopes,
+                    target_active_model_identity_digest=
+                        state.target_active_model_identity_digest,
+                    target_identity_observed_at=state.target_identity_observed_at,
+                    planning_time=state.created_at)
+                for goal in graph.goals if any(tag.startswith("epistemic_")
+                    for tag in goal.tags)},
+            "omissions": [item.to_dict() for item in omissions],
+            "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason}
+                for item in allocation.deferred],
+            "selected_reasons": list(allocation.selected_reasons),
+            "prior_run_digest": next((part.split("=", 1)[1] for part in context_parts
+                if part.startswith("prior_work_run_digest=")), None),
+            "no_replay_goal_outcomes": {goal_id: sorted(statuses)
+                for goal_id, statuses in sorted(prior_goal_outcomes.items())},
+        }
+        plan_id = _plan_id(state.created_at, state.goal_graph_hash, state.allocation_id,
+            evidence_binding=epistemic_binding)
         context = "|".join(context_parts)
         if len(context) > 512:
             raise WorkPlanError("planning_evidence_context_bound_exceeded")
@@ -414,10 +446,13 @@ def _goal_to_forge_goal(goal_id: str) -> str:
     return "forge_smoke_noop"
 
 
-def _plan_id(created_at: str, goal_graph_hash: str, allocation_id: str) -> str:
+def _plan_id(created_at: str, goal_graph_hash: str, allocation_id: str,
+        *, evidence_binding: dict[str, object] | None = None) -> str:
     short_hash = goal_graph_hash[:8]
     alloc_short = hashlib.sha256(allocation_id.encode("utf-8")).hexdigest()[:6]
-    return f"{_safe_id(created_at)}_{short_hash}_{alloc_short}"
+    evidence_short = hashlib.sha256(json.dumps(evidence_binding or {}, sort_keys=True,
+        separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()[:10]
+    return f"{_safe_id(created_at)}_{short_hash}_{alloc_short}_{evidence_short}"
 
 
 def _safe_id(value: str) -> str:

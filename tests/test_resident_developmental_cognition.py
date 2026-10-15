@@ -1922,6 +1922,7 @@ print(json.dumps({"stance": state.stance if state else None,
             for item in evidence_conditioned_plan.omissions}
     assert f"epistemic_projection_digest={updated_projection.projection_digest}" \
         in evidence_conditioned_plan.context
+    assert evidence_conditioned_plan.plan_id != unconditioned_plan.plan_id
     allocation_graph = GoalGraph(schema_version=1, goals=(
         Goal("history-sensitive", "mapped goal", 1.0, 10, (), "rule", 2, 1,
             (f"epistemic_proposition:{proposition.proposition_id}",), True),
@@ -1938,7 +1939,7 @@ print(json.dumps({"stance": state.stance if state else None,
     assert base_allocation.selected == ("history-sensitive",)
     assert evidence_allocation.selected == ("independent",)
     assert any(item.goal_id == "history-sensitive"
-        and item.reason == "epistemic_review_required"
+        and item.reason == "epistemic_applicability_unresolved"
         for item in evidence_allocation.deferred)
     assert evidence_allocation.selected_reasons[0][
         "epistemic_projection_digest"] == updated_projection.projection_digest
