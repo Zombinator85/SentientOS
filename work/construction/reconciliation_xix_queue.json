@@ -14,10 +14,11 @@
     "E1 partial: work-run paths are derived only from the full plan digest; caller-controlled traversal identities are rejected before artifact persistence.",
     "E1 partial: append-only task execution journals now bind to full plan identity; exact-plan legacy journal recovery is retained and changed definitions with reused plan IDs receive isolated journals.",
     "C4-C8 partial: canonical developmental writeback preserves measured resource receipts and later task-family retrieval exposes them only under exact run, score, condition, inference-receipt, and resource-source bindings; bounded retrieval remains unknown when evidence is unavailable or mismatched.",
-    "D1-D8 partial: independent support and contradiction persist with event times and distinct source identities, survive epistemic-owner reconstruction and receipt verification, and reach later cognition as a contested semantic packet bound to the exact state digest."
+    "D1-D8 partial: independent support and contradiction persist with event times and distinct source identities, survive epistemic-owner reconstruction and receipt verification, and reach later cognition as a contested semantic packet bound to the exact state digest.",
+    "D1-D8 partial: objective-task owner now forwards a verified prior epistemic projection into the normal cognition binder; held-out task-family scores bind its exact projection/state digests and preserve deterministic three-condition oracle scoring through restart-backed history retrieval."
   ],
-  "current_source_commit": "cbdcfdcac1b961ad23b790a7a1296d909593a845",
-  "current_source_tree": "99f3b865393c8b36af448703a755dd17bdd2a6e2",
+  "current_source_commit": "49d59955aa7846075933df10af69e235d100ef66",
+  "current_source_tree": "41c78e650451f2a38079f20e56686ca4fa938e10",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -25,7 +26,7 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 248,
+  "last_checkpoint_sequence": 249,
   "next_executable_nodes": [
     {
       "node": "C4-C8",

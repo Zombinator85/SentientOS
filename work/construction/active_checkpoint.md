@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq248 connects independently sourced support and contradiction through persistent epistemic admission, owner restart and receipt recovery, semantic projection, and later ordinary developmental cognition. The later request preserves the contested stance, original observation times, source identities, and exact state digest; effect and authority remain false.
+Seq249 enables explicit objective-task runs to receive the verified prior epistemic projection through the existing cognition binder. The held-out task acceptance binds exact projection/state digests, preserves three-condition independent deterministic scoring, and continues through fresh-process developmental-history reconstruction.
 
-Latest source commit: cbdcfdcac1b961ad23b790a7a1296d909593a845
-Latest source tree: 99f3b865393c8b36af448703a755dd17bdd2a6e2
-Latest segment: work/construction/segments/0248-epistemic-conflict-cognition-after-restart.md
-Evidence: work/construction/evidence/0248-epistemic-conflict-cognition-after-restart.json
+Latest source commit: 49d59955aa7846075933df10af69e235d100ef66
+Latest source tree: 41c78e650451f2a38079f20e56686ca4fa938e10
+Latest segment: work/construction/segments/0249-objective-task-epistemic-context.md
+Evidence: work/construction/evidence/0249-objective-task-epistemic-context.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 248
+Sequence: 249
 
-Validation: resident epistemic-development, persistent epistemic-state, and semantic cognition nodes passed (40 passed); test source compiled; `git diff --check` passed.
+Validation: resident developmental cognition module passed (92 passed) with temporary writable governor/runtime roots; changed Python sources/tests compiled; `git diff --check` passed.
 
-Limits: cognition used a deterministic fixture model. D1-D8 remains open for evaluated later consequences and further ordinary developmental revision.
+Limits: deterministic fixtures do not establish deployed model performance or external truth. Resource-informed recommendation quality and D1-D8 evaluated consequence remain open.
 
-Next: connect this persisted contested state to a distinct task with an independently scored consequence, then continue the open resource-informed recommendation trajectory and remaining programs.
+Next: continue C4-C8 into a measured resource-informed distinct recommendation and evaluated consequence, then extend D1-D8 beyond preserved cognition context.

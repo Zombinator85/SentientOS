@@ -1,0 +1,48 @@
+{
+  "sequence": 249,
+  "title": "Held-out objective tasks consume exact prior epistemic projections",
+  "source_commit": "49d59955aa7846075933df10af69e235d100ef66",
+  "source_tree": "41c78e650451f2a38079f20e56686ca4fa938e10",
+  "source_parent_commit": "d3b9af6420076e8810eb798c968b7ba9d823a204",
+  "source_parent_tree": "fbb30125c5343ad7bfeb9d98961d5a8c1202669e",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "d3b9af6420076e8810eb798c968b7ba9d823a204",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true
+  },
+  "changed_blobs": [
+    {
+      "mode": "100644",
+      "path": "sentientos/resident_developmental_cognition.py",
+      "sha": "a08e5e6804eedb10123eb97c7dd80b5640e00121"
+    },
+    {
+      "mode": "100644",
+      "path": "tests/test_resident_developmental_cognition.py",
+      "sha": "3b06c698464317f6071d4969408b3d5e2e2bfa7e"
+    },
+    {
+      "mode": "100644",
+      "path": "docs/development/persistent_epistemic_cognition_continuity_acceptance.json",
+      "sha": "49ee8a662c13e59b903f6ee646c4b877b618b5de"
+    }
+  ],
+  "validation": {
+    "resident_developmental_cognition_module": "92 passed",
+    "source_and_test_py_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "objective_owner_accepts_prior_epistemic_projection": true,
+    "cognitive_request_binds_exact_projection_and_state_digests": true,
+    "three_condition_task_score_evaluator": "deterministic_exact_integer_suite_oracle_v2",
+    "fresh_process_history_reconstruction": "passed"
+  },
+  "limits": [
+    "Deterministic fixtures do not establish deployed model performance or external truth.",
+    "No effect authority is granted.",
+    "Resource-informed recommendation quality and D1-D8 evaluated consequence remain open."
+  ]
+}
