@@ -1,1 +1,425 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíë}{N‹Z–‹­¦ëeŠw¬Õ™É½´}}™ÕÑÕÉ•}|¥µÁ½ÉÐ…¹¹½Ñ…Ñ¥½¹Ì()™É½´‘…Ñ…±…ÍÍ•Ì¥µÁ½ÉÐ…Í‘¥Ð°‘…Ñ…±…ÍÌ)¥µÁ½ÉÐ¡…Í¡±¥ˆ)¥µÁ½ÉÐ©Í½¸)¥µÁ½ÉÐ½Ì)™É½´Á…Ñ¡±¥ˆ¥µÁ½ÉÐA…Ñ )¥µÁ½ÉÐÍÑ…Ð)™É½´ÑåÁ¥¹œ¥µÁ½ÉÐ¹ä(()]=I-}A19}%H€ôA…Ñ  ‰±½Ü½™½É”½Ý½É­}Á±…¹Ìˆ¤)]=I-}A19}AU1M}AQ €ôA…Ñ  ‰ÁÕ±Í”½Ý½É­}Á±…¹Ì¹©Í½¹°ˆ¤)]=I-}IU9}%H€ôA…Ñ  ‰±½Ü½™½É”½Ý½É­}ÉÕ¹Ìˆ¤)5a}]=I-}IU9}	eQL€ô€Å|ÀÐá|ÔÜØ)}A19}%1L€ôì‰Í¡•µ…}Ù•ÉÍ¥½¸ˆ°€‰Á±…¹}¥ˆ°€‰É•…Ñ•‘}…Ðˆ°€‰½¹Ñ•áÐˆ°€‰Í•±•Ñ•‘}½…±Ìˆ°€‰Ñ…Í­Ì‰ô)}QM-}%1L€ôì‰Í¡•µ…}Ù•ÉÍ¥½¸ˆ°€‰Ñ…Í­}¥ˆ°€‰½…±}¥ˆ°€‰­¥¹ˆ°€‰½µµ…¹‘Ìˆ°€‰…±±…‰±•}É•˜ˆ°(€€€€‰É¥Í­}½ÍÐˆ°€‰Ñ¡É½Õ¡ÁÕÑ}½ÍÐˆ°€‰ÁÉ•½¹‘¥Ñ¥½¹Ìˆ°€‰•áÁ•Ñ•‘}…ÉÑ¥™…ÑÌˆ°€‰‘•ÍÑÉÕÑ¥Ù”ˆ°(€€€€‰‘•Á•¹‘Í}½¸‰ô)}1e}QM-}%1L€ô}QM-}%1L€´ì‰‘•Á•¹‘Í}½¸‰ô)}=5%MM%=9}%1L€ôì‰½…±}¥ˆ°€‰­¥¹ˆ°€‰É•…Í½¸‰ô)}=5%MM%=9}-%9M}	e}IM=8€ôì(€€€€‰Ñ…Í­}­¥¹‘}¹½Ñ}¥µÁ±•µ•¹Ñ•ˆèì‰™•Ñ ˆ°€‰‘½}ÕÁ‘…Ñ”‰ô°(€€€€‰É¥Í­}‰Õ‘•Ñ}•á••‘•ˆèì‰‘¥…¹½ÍÑ¥Œˆ°€‰Ù•É¥™äˆ°€‰™½É•}ÁÉ½Á½Í”ˆ°€‰™½É•}…ÁÁ±ä‰ô°(€€€€‰Ñ¡É½Õ¡ÁÕÑ}‰Õ‘•Ñ}•á••‘•ˆèì‰‘¥…¹½ÍÑ¥Œˆ°€‰Ù•É¥™äˆ°€‰™½É•}ÁÉ½Á½Í”ˆ°€‰™½É•}…ÁÁ±ä‰ô°)ô(()±…ÍÌ]½É­A±…¹ÉÉ½È¡Y…±Õ•ÉÉ½È¤è(€€€€ˆˆ‰Á•ÉÍ¥ÍÑ•Á±…¸¥Ìµ…±™½Éµ•½È¥¹Ñ•É¹…±±ä¥¹½¹Í¥ÍÑ•¹Ð¸ˆˆˆ(()‘…Ñ…±…ÍÌ¡™É½é•¸õQÉÕ”°Í±½ÑÌõQÉÕ”¤)±…ÍÌQ…Í­=µ¥ÍÍ¥½¸è(€€€½…±}¥èÍÑÈ(€€€­¥¹èÍÑÈ(€€€É•…Í½¸èÍÑÈ((€€€‘•˜Ñ½}‘¥Ð¡Í•±˜¤€´ø‘¥ÑmÍÑÈ°ÍÑÉtè(€€€€€€€É•ÑÕÉ¸ì‰½…±}¥ˆèÍ•±˜¹½…±}¥°€‰­¥¹ˆèÍ•±˜¹­¥¹°€‰É•…Í½¸ˆèÍ•±˜¹É•…Í½¹ô(()‘…Ñ…±…ÍÌ¡™É½é•¸õQÉÕ”°Í±½ÑÌõQÉÕ”¤)±…ÍÌQ…Í¬è(€€€Í¡•µ…}Ù•ÉÍ¥½¸è¥¹Ð(€€€Ñ…Í­}¥èÍÑÈ(€€€½…±}¥èÍÑÈ(€€€­¥¹èÍÑÈ(€€€½µµ…¹‘ÌèÑÕÁ±•mÍÑÈ°€¸¸¹t(€€€…±±…‰±•}É•˜èÍÑÈð9½¹”(€€€É¥Í­}½ÍÐè¥¹Ð(€€€Ñ¡É½Õ¡ÁÕÑ}½ÍÐè¥¹Ð(€€€ÁÉ•½¹‘¥Ñ¥½¹Ìè‘¥ÑmÍÑÈ°½‰©•Ñt(€€€•áÁ•Ñ•‘}…ÉÑ¥™…ÑÌèÑÕÁ±•mÍÑÈ°€¸¸¹t(€€€‘•ÍÑÉÕÑ¥Ù”è‰½½°(€€€‘•Á•¹‘Í}½¸èÑÕÁ±•mÍÑÈ°€¸¸¹t€ô€ ¤((€€€‘•˜Ñ½}‘¥Ð¡Í•±˜¤€´ø‘¥ÑmÍÑÈ°½‰©•Ñtè(€€€€€€€Á…å±½…€ô…Í‘¥Ð¡Í•±˜¤(€€€€€€€Á…å±½…‘l‰½µµ…¹‘Ì‰t€ô±¥ÍÐ¡Í•±˜¹½µµ…¹‘Ì¤(€€€€€€€Á…å±½…‘l‰•áÁ•Ñ•‘}…ÉÑ¥™…ÑÌ‰t€ô±¥ÍÐ¡Í•±˜¹•áÁ•Ñ•‘}…ÉÑ¥™…ÑÌ¤(€€€€€€€Á…å±½…‘l‰‘•Á•¹‘Í}½¸‰t€ô±¥ÍÐ¡Í•±˜¹‘•Á•¹‘Í}½¸¤(€€€€€€€É•ÑÕÉ¸Á…å±½…(()‘…Ñ…±…ÍÌ¡™É½é•¸õQÉÕ”°Í±½ÑÌõQÉÕ”¤)±…ÍÌ]½É­A±…¸è(€€€Í¡•µ…}Ù•ÉÍ¥½¸è¥¹Ð(€€€Á±…¹}¥èÍÑÈ(€€€É•…Ñ•‘}…ÐèÍÑÈ(€€€½¹Ñ•áÐèÍÑÈ(€€€Í•±•Ñ•‘}½…±ÌèÑÕÁ±•mÍÑÈ°€¸¸¹t(€€€Ñ…Í­ÌèÑÕÁ±•mQ…Í¬°€¸¸¹t(€€€½µ¥ÍÍ¥½¹ÌèÑÕÁ±•mQ…Í­=µ¥ÍÍ¥½¸°€¸¸¹t€ô€ ¤((€€€‘•˜Ñ½}‘¥Ð¡Í•±˜¤€´ø‘¥ÑmÍÑÈ°½‰©•Ñtè(€€€€€€€É•ÑÕÉ¸ì(€€€€€€€€€€€€‰Í¡•µ…}Ù•ÉÍ¥½¸ˆèÍ•±˜¹Í¡•µ…}Ù•ÉÍ¥½¸°(€€€€€€€€€€€€‰Á±…¹}¥ˆèÍ•±˜¹Á±…¹}¥°(€€€€€€€€€€€€‰É•…Ñ•‘}…ÐˆèÍ•±˜¹É•…Ñ•‘}…Ð°(€€€€€€€€€€€€‰½¹Ñ•áÐˆèÍ•±˜¹½¹Ñ•áÐ°(€€€€€€€€€€€€‰Í•±•Ñ•‘}½…±Ìˆè±¥ÍÐ¡Í•±˜¹Í•±•Ñ•‘}½…±Ì¤°(€€€€€€€€€€€€‰Ñ…Í­ÌˆèmÑ…Í¬¹Ñ½}‘¥Ð ¤™½ÈÑ…Í¬¥¸Í•±˜¹Ñ…Í­Ít°(€€€€€€€€€€€€‰½µ¥ÍÍ¥½¹Ìˆèm½µ¥ÍÍ¥½¸¹Ñ½}‘¥Ð ¤™½È½µ¥ÍÍ¥½¸¥¸Í•±˜¹½µ¥ÍÍ¥½¹Ít°(€€€€€€€ô((€€€‘•˜¥‘•¹Ñ¥Ñå}‘¥•ÍÐ¡Í•±˜¤€´øÍÑÈè(€€€€€€€€ˆˆ‰	¥¹„½µÁ±•Ñ•ÉÕ¸Ñ¼•Ù•ÉäÁ•ÉÍ¥ÍÑ•Á±…¸™¥•±…¹Ñ…Í¬½ÍÐ¸ˆˆˆ(€€€€€€€…¹½¹¥…°€ô©Í½¸¹‘ÕµÁÌ¡Í•±˜¹Ñ½}‘¥Ð ¤°Í½ÉÑ}­•åÌõQÉÕ”°(€€€€€€€€€€€Í•Á…É…Ñ½ÉÌô ˆ°ˆ°€ˆèˆ¤°•¹ÍÕÉ•}…Í¥¤õQÉÕ”¤¹•¹½‘” ‰ÕÑ˜´àˆ¤(€€€€€€€É•ÑÕÉ¸¡…Í¡±¥ˆ¹Í¡„ÈÔØ¡…¹½¹¥…°¤¹¡•á‘¥•ÍÐ ¤(()‘…Ñ…±…ÍÌ¡™É½é•¸õQÉÕ”°Í±½ÑÌõQÉÕ”¤)±…ÍÌQ…Í­IÕ¸è(€€€Ñ…Í­}¥èÍÑÈ(€€€½…±}¥èÍÑÈ(€€€­¥¹èÍÑÈ(€€€ÍÑ…ÑÕÌèÍÑÈ(€€€É•…Í½¸èÍÑÈð9½¹”(€€€ÍÑ…ÉÑ•‘}…ÐèÍÑÈ(€€€™¥¹¥Í¡•‘}…ÐèÍÑÈ(€€€‘ÕÉ…Ñ¥½¹}µÌè¥¹Ð(€€€…ÉÑ¥™…ÑÌèÑÕÁ±•mÍÑÈ°€¸¸¹t(€€€‘•ÍÑÉÕÑ¥Ù”è‰½½°((€€€‘•˜Ñ½}‘¥Ð¡Í•±˜¤€´ø‘¥ÑmÍÑÈ°½‰©•Ñtè(€€€€€€€Á…å±½…€ô…Í‘¥Ð¡Í•±˜¤(€€€€€€€Á…å±½…‘l‰…ÉÑ¥™…ÑÌ‰t€ô±¥ÍÐ¡Í•±˜¹…ÉÑ¥™…ÑÌ¤(€€€€€€€É•ÑÕÉ¸Á…å±½…(()‘…Ñ…±…ÍÌ¡™É½é•¸õQÉÕ”°Í±½ÑÌõQÉÕ”¤)±…ÍÌ]½É­A±…¹IÕ¸è(€€€Í¡•µ…}Ù•ÉÍ¥½¸è¥¹Ð(€€€ÉÕ¹}¥èÍÑÈ(€€€Á±…¹}¥èÍÑÈ(€€€É•…Ñ•‘}…ÐèÍÑÈ(€€€ÍÑ…ÑÕÌèÍÑÈ(€€€½Á•É…Ñ¥¹}µ½‘”èÍÑÈ(€€€ÅÕ…É…¹Ñ¥¹•}…Ñ¥Ù”è‰½½°(€€€Ñ…Í­}ÉÕ¹ÌèÑÕÁ±•mQ…Í­IÕ¸°€¸¸¹t(€€€É•…Í½¹}ÍÑ…¬èÑÕÁ±•mÍÑÈ°€¸¸¹t(€€€Á±…¹}‘¥•ÍÐèÍÑÈ€ô€ˆˆ((€€€‘•˜Ñ½}‘¥Ð¡Í•±˜¤€´ø‘¥ÑmÍÑÈ°½‰©•Ñtè(€€€€€€€É•ÑÕÉ¸ì(€€€€€€€€€€€€‰Í¡•µ…}Ù•ÉÍ¥½¸ˆèÍ•±˜¹Í¡•µ…}Ù•ÉÍ¥½¸°(€€€€€€€€€€€€‰ÉÕ¹}¥ˆèÍ•±˜¹ÉÕ¹}¥°(€€€€€€€€€€€€‰Á±…¹}¥ˆèÍ•±˜¹Á±…¹}¥°(€€€€€€€€€€€€‰É•…Ñ•‘}…ÐˆèÍ•±˜¹É•…Ñ•‘}…Ð°(€€€€€€€€€€€€‰ÍÑ…ÑÕÌˆèÍ•±˜¹ÍÑ…ÑÕÌ°(€€€€€€€€€€€€‰½Á•É…Ñ¥¹}µ½‘”ˆèÍ•±˜¹½Á•É…Ñ¥¹}µ½‘”°(€€€€€€€€€€€€‰ÅÕ…É…¹Ñ¥¹•}…Ñ¥Ù”ˆèÍ•±˜¹ÅÕ…É…¹Ñ¥¹•}…Ñ¥Ù”°(€€€€€€€€€€€€‰Ñ…Í­}ÉÕ¹ÌˆèmÑ…Í¬¹Ñ½}‘¥Ð ¤™½ÈÑ…Í¬¥¸Í•±˜¹Ñ…Í­}ÉÕ¹Ít°(€€€€€€€€€€€€‰É•…Í½¹}ÍÑ…¬ˆè±¥ÍÐ¡Í•±˜¹É•…Í½¹}ÍÑ…¬¤°(€€€€€€€€€€€€‰Á±…¹}‘¥•ÍÐˆèÍ•±˜¹Á±…¹}‘¥•ÍÐ°(€€€€€€€ô((()‘•˜Á•ÉÍ¥ÍÑ}Ý½É­}Á±…¸¡É•Á½}É½½ÐèA…Ñ °Á±…¸è]½É­A±…¸¤€´øÍÑÈè(€€€É½½Ð€ôÉ•Á½}É½½Ð¹É•Í½±Ù” ¤(€€€Á±…¹}Á…Ñ €ôÉ½½Ð€¼]=I-}A19}%H€¼˜‰Á±…¹}í}Í…™•}¥¡Á±…¸¹É•…Ñ•‘}…Ð¥ô¹©Í½¸ˆ(€€€¥˜}ÝÉ¥Ñ•}©Í½¹}½¹”¡Á±…¹}Á…Ñ °Á±…¸¹Ñ½}‘¥Ð ¤¤è(€€€€€€€}…ÁÁ•¹‘}©Í½¹° (€€€€€€€€€€€É½½Ð€¼]=I-}A19}AU1M}AQ °(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€‰É•…Ñ•‘}…ÐˆèÁ±…¸¹É•…Ñ•‘}…Ð°(€€€€€€€€€€€€€€€€‰Á±…¹}¥ˆèÁ±…¸¹Á±…¹}¥°(€€€€€€€€€€€€€€€€‰½¹Ñ•áÐˆèÁ±…¸¹½¹Ñ•áÐ°(€€€€€€€€€€€€€€€€‰Í•±•Ñ•‘}½…±Ìˆè±¥ÍÐ¡Á±…¸¹Í•±•Ñ•‘}½…±Ì¤°(€€€€€€€€€€€€€€€€‰Ñ…Í­}½Õ¹Ðˆè±•¸¡Á±…¸¹Ñ…Í­Ì¤°(€€€€€€€€€€€€€€€€‰Á…Ñ ˆèÍÑÈ¡Á±…¹}Á…Ñ ¹É•±…Ñ¥Ù•}Ñ¼¡É½½Ð¤¤°(€€€€€€€€€€€ô°(€€€€€€€€¤(€€€É•ÑÕÉ¸ÍÑÈ¡Á±…¹}Á…Ñ ¹É•±…Ñ¥Ù•}Ñ¼¡É½½Ð¤¤(()‘•˜Á•ÉÍ¥ÍÑ}Ý½É­}ÉÕ¸¡É•Á½}É½½ÐèA…Ñ °ÉÕ¸è]½É­A±…¹IÕ¸¤€´øÍÑÈè(€€€¥˜€¡¹½Ð¥Í¥¹ÍÑ…¹”¡ÉÕ¸°]½É­A±…¹IÕ¸¤½ÈÉÕ¸¹Í¡•µ…}Ù•ÉÍ¥½¸€„ô€È(€€€€€€€€€€€½È¹½Ð¥Í¥¹ÍÑ…¹”¡ÉÕ¸¹Á±…¹}‘¥•ÍÐ°ÍÑÈ¤½È±•¸¡ÉÕ¸¹Á±…¹}‘¥•ÍÐ¤€„ô€ØÐ(€€€€€€€€€€€½È…¹ä¡¡…É…Ñ•È¹½Ð¥¸€ˆÀÄÈÌÐÔØÜàå…‰‘•˜ˆ™½È¡…É…Ñ•È¥¸ÉÕ¸¹Á±…¹}‘¥•ÍÐ¤¤è(€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}Á±…¹}‰¥¹‘¥¹}É•ÅÕ¥É•ˆ¤(€€€¥˜ÉÕ¸¹ÉÕ¹}¥€„ô˜‰ÉÕ¹}íÉÕ¸¹Á±…¹}‘¥•ÍÑôˆè(€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}¥‘•¹Ñ¥Ñå}¥¹Ù…±¥ˆ¤(€€€É½½Ð€ôÉ•Á½}É½½Ð¹É•Í½±Ù” ¤(€€€ÉÕ¹}Á…Ñ €ôÉ½½Ð€¼]=I-}IU9}%H€¼˜‰íÉÕ¸¹ÉÕ¹}¥‘ô¹©Í½¸ˆ(€€€¥˜}ÝÉ¥Ñ•}©Í½¹}½¹”¡ÉÕ¹}Á…Ñ °ÉÕ¸¹Ñ½}‘¥Ð ¤¤è(€€€€€€€}…ÁÁ•¹‘}©Í½¹° (€€€€€€€€€€€É½½Ð€¼€‰ÁÕ±Í”½Ý½É­}ÉÕ¹Ì¹©Í½¹°ˆ°(€€€€€€€€€€€ì(€€€€€€€€€€€€€€€€‰É•…Ñ•‘}…ÐˆèÉÕ¸¹É•…Ñ•‘}…Ð°(€€€€€€€€€€€€€€€€‰ÉÕ¹}¥ˆèÉÕ¸¹ÉÕ¹}¥°(€€€€€€€€€€€€€€€€‰Á±…¹}¥ˆèÉÕ¸¹Á±…¹}¥°(€€€€€€€€€€€€€€€€‰ÍÑ…ÑÕÌˆèÉÕ¸¹ÍÑ…ÑÕÌ°(€€€€€€€€€€€€€€€€‰½Á•É…Ñ¥¹}µ½‘”ˆèÉÕ¸¹½Á•É…Ñ¥¹}µ½‘”°(€€€€€€€€€€€€€€€€‰ÅÕ…É…¹Ñ¥¹•}…Ñ¥Ù”ˆèÉÕ¸¹ÅÕ…É…¹Ñ¥¹•}…Ñ¥Ù”°(€€€€€€€€€€€€€€€€‰Ñ…Í­}½Õ¹Ðˆè±•¸¡ÉÕ¸¹Ñ…Í­}ÉÕ¹Ì¤°(€€€€€€€€€€€€€€€€‰Á…Ñ ˆèÍÑÈ¡ÉÕ¹}Á…Ñ ¹É•±…Ñ¥Ù•}Ñ¼¡É½½Ð¤¤°(€€€€€€€€€€€ô°(€€€€€€€€¤(€€€É•ÑÕÉ¸ÍÑÈ¡ÉÕ¹}Á…Ñ ¹É•±…Ñ¥Ù•}Ñ¼¡É½½Ð¤¤(()‘•˜±½…‘}Ý½É­}ÉÕ¸¡É•Á½}É½½ÐèA…Ñ °Á±…¸è]½É­A±…¸°€¨°É•…Ñ•‘}…ÐèÍÑÈ¤€´ø]½É­A±…¹IÕ¸ð9½¹”è(€€€€ˆˆ‰1½…„ÁÉ¥½ÈÉÕ¸½¹±äÝ¡•¸¥ÑÌ•á…ÐÁ±…¸…¹Ñ…Í¬¥‘•¹Ñ¥Ñ¥•ÌÙ…±¥‘…Ñ”¸ˆˆˆ(€€€¥˜¹½Ð¥Í¥¹ÍÑ…¹”¡Á±…¸°]½É­A±…¸¤½È¹½Ð¥Í¥¹ÍÑ…¹”¡É•…Ñ•‘}…Ð°ÍÑÈ¤½È¹½ÐÉ•…Ñ•‘}…Ðè(€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}±½½­ÕÁ}¥‘•¹Ñ¥Ñå}¥¹Ù…±¥ˆ¤(€€€¥˜É•…Ñ•‘}…Ð€„ôÁ±…¸¹É•…Ñ•‘}…Ðè(€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}±½½­ÕÁ}Á±…¹}Ñ¥µ•}µ¥Íµ…Ñ ˆ¤(€€€ÉÕ¹}¥€ôÝ½É­}ÉÕ¹}¥¡Á±…¸°É•…Ñ•‘}…ÐõÉ•…Ñ•‘}…Ð¤(€€€Á…Ñ €ôÉ•Á½}É½½Ð¹É•Í½±Ù” ¤€¼]=I-}IU9}%H€¼˜‰íÉÕ¹}¥‘ô¹©Í½¸ˆ(€€€ÑÉäè(€€€€€€€µ•Ñ…‘…Ñ„€ôÁ…Ñ ¹±ÍÑ…Ð ¤(€€€•á•ÁÐ¥±•9½Ñ½Õ¹‘ÉÉ½Èè(€€€€€€€±•…å}Á…Ñ €ôÉ•Á½}É½½Ð¹É•Í½±Ù” ¤€¼]=I-}IU9}%H€¼€ (€€€€€€€€€€€˜‰ÉÕ¹}í}Í…™•}¥¡É•…Ñ•‘}…Ð¥õ}íÁ±…¸¹Á±…¹}¥‘ô¹©Í½¸ˆ¤(€€€€€€€¥˜±•…å}Á…Ñ ¹•á¥ÍÑÌ ¤è(€€€€€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}±•…å}Á±…¹}‰¥¹‘¥¹}Õ¹…Ù…¥±…‰±”ˆ¤(€€€€€€€É•ÑÕÉ¸9½¹”(€€€•á•ÁÐ=MÉÉ½È…Ì•áŒè(€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}…ÉÑ¥™…Ñ}Õ¹É•…‘…‰±”ˆ¤™É½´•áŒ(€€€¥˜¹½ÐÍÑ…Ð¹M}%MI¡µ•Ñ…‘…Ñ„¹ÍÑ}µ½‘”¤½Èµ•Ñ…‘…Ñ„¹ÍÑ}Í¥é”€ø5a}]=I-}IU9}	eQLè(€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}…ÉÑ¥™…Ñ}‰½Õ¹‘Í}¥¹Ù…±¥ˆ¤(€€€ÑÉäè(€€€€€€€‘•ÍÉ¥ÁÑ½È€ô½Ì¹½Á•¸¡Á…Ñ °½Ì¹=}I=91dð•Ñ…ÑÑÈ¡½Ì°€‰=}9==11=\ˆ°€À¤¤(€€€€€€€ÑÉäè(€€€€€€€€€€€½Á•¹•€ô½Ì¹™ÍÑ…Ð¡‘•ÍÉ¥ÁÑ½È¤(€€€€€€€€€€€¥˜€¡¹½ÐÍÑ…Ð¹M}%MI¡½Á•¹•¹ÍÑ}µ½‘”¤½È½Á•¹•¹ÍÑ}¥¹¼€„ôµ•Ñ…‘…Ñ„¹ÍÑ}¥¹¼(€€€€€€€€€€€€€€€€€€€½È½Á•¹•¹ÍÑ}‘•Ø€„ôµ•Ñ…‘…Ñ„¹ÍÑ}‘•Ø½È½Á•¹•¹ÍÑ}Í¥é”€ø5a}]=I-}IU9}	eQL¤è(€€€€€€€€€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}…ÉÑ¥™…Ñ}¡…¹•‘}‘ÕÉ¥¹}½Á•¸ˆ¤(€€€€€€€€€€€¡Õ¹­Ìè±¥ÍÑm‰åÑ•Ít€ômt(€€€€€€€€€€€É•µ…¥¹¥¹œ€ô5a}]=I-}IU9}	eQL€¬€Ä(€€€€€€€€€€€Ý¡¥±”É•µ…¥¹¥¹œè(€€€€€€€€€€€€€€€¡Õ¹¬€ô½Ì¹É•…¡‘•ÍÉ¥ÁÑ½È°µ¥¸ ØÕ|ÔÌØ°É•µ…¥¹¥¹œ¤¤(€€€€€€€€€€€€€€€¥˜¹½Ð¡Õ¹¬è(€€€€€€€€€€€€€€€€€€€‰É•…¬(€€€€€€€€€€€€€€€¡Õ¹­Ì¹…ÁÁ•¹¡¡Õ¹¬¤(€€€€€€€€€€€€€€€É•µ…¥¹¥¹œ€´ô±•¸¡¡Õ¹¬¤(€€€€€€€€€€€É…Ü€ôˆˆˆ¹©½¥¸¡¡Õ¹­Ì¤(€€€€€€€™¥¹…±±äè(€€€€€€€€€€€½Ì¹±½Í”¡‘•ÍÉ¥ÁÑ½È¤(€€€€€€€¥˜±•¸¡É…Ü¤€ø5a}]=I-}IU9}	eQLè(€€€€€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}…ÉÑ¥™…Ñ}‰½Õ¹‘Í}¥¹Ù…±¥ˆ¤(€€€€€€€Á…å±½…€ô©Í½¸¹±½…‘Ì¡É…Ü¹‘•½‘” ‰ÕÑ˜´àˆ¤¤(€€€•á•ÁÐ]½É­A±…¹ÉÉ½Èè(€€€€€€€É…¥Í”(€€€•á•ÁÐ€¡=MÉÉ½È°U¹¥½‘•ÉÉ½È°©Í½¸¹)M=9•½‘•ÉÉ½È¤…Ì•áŒè(€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}…ÉÑ¥™…Ñ}Õ¹É•…‘…‰±”ˆ¤™É½´•áŒ(€€€¥˜¥Í¥¹ÍÑ…¹”¡Á…å±½…°‘¥Ð¤…¹Á…å±½…¹•Ð ‰Á±…¹}‘¥•ÍÐˆ¤€„ôÁ±…¸¹¥‘•¹Ñ¥Ñå}‘¥•ÍÐ ¤è(€€€€€€€É…¥Í”]½É­A±…¹ÉÉ½È ‰Ý½É­}ÉÕ¹}Á±…¹}¥‘•¹Ñ¥Ñå}µ¥Íµ…Ñ ˆ¤(€€€¥˜€¡¹½Ð¥Í¥¹ÍÑ…¹”¡Á…å±½…°‘¥Ð¤½ÈÍ•Ð¡Á…å±½…¤€„ôì(€€€€€€€€€€€€‰Í¡•µ…}Ù•ÉÍ¥½¸ˆ°€‰ÉÕ¹}¥ˆ°€‰Á±…¹}¥ˆ°€‰É•…Ñ•‘}…Ðˆ°€‰ÍÑ…ÑÕÌˆ°(€€€€€€€€€€€€‰½Á•É…Ñ¥¹}µ½‘”ˆ°€‰ÅÕ…É…¹Ñ¥¹•}…Ñ¥Ù”ˆ°€‰Ñ…Í­}ÉÕ¹Ìˆ°€‰É•…Í½¹}ÍÑ…¬ˆ°(€€€€€€€€€€€€‰Á±…¹}‘¥•ÍÐ‰ô(€€€€€€€€€€€½ÈÑåÁ”¡Á…å±½…¹•Ð ‰Í¡•µ…}Ù•ÉÍ¥½¸ˆ¤¤¥Ì¹½Ð¥¹Ð½ÈÁ…å±½…‘l‰Í¡•µ…}Ù•ÉÍ¥½¸‰t€„ô€È(€€€€€€€€€€€½ÈÁ…å±½…¹•Ð ‰ÉÕ¹}¥ˆ¤€„ôÉÕ¹}¥½ÈÁ…å±½…¹•Ð ‰Á±…¹}¥ˆ¤€„ôÁ±…¸¹Á±…¹}¥(€€€€€€€€€€€½ÈÁ…å±½…¹•Ð ‰É•…Ñ•‘}…Ðˆ¤€„ôÉ•…Ñ•‘}…Ð(€€€€€€€€€€€½È¹½Ð¥Í¥¹ÍÑ…¹”¡Á…å±½…¹•Ð ‰½Á•É…Ñ¥¹}µ½‘”ˆ¤°ÍÑÈ¤(€€€ƒ}{¶‰žËkºwµçf¶–æB"’ÒF6²æ¶–æ@¢÷"&÷rævWB‚'7FGW2"’æ÷B–â²'7V66W72"Â&f–ÆVB"Â'6¶—VB'Ð¢÷"‡&÷rævWB‚'&V6öâ"’—2æ÷BæöæRæBæ÷B—6–ç7Fæ6R‡&÷u²'&V6öâ%ÒÂ7G"’¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚'7F'FVEöB"’Â7G"’÷"æ÷B&÷u²'7F'FVEöB%Ð¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚&f–æ—6†VEöB"’Â7G"’÷"æ÷B&÷u²&f–æ—6†VEöB%Ð¢÷"G—R‡&÷rævWB‚&GW&F–öåö×2"’’—2æ÷B–çB÷"&÷u²&GW&F–öåö×2%ÒÂ ¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚&'F–f7G2"’ÂÆ—7B¢÷"ç’†æ÷B—6–ç7Fæ6R†—FVÒÂ7G"’÷"ÆVâ†—FVÒ’â#Bf÷"—FVÒ–â&÷u²&'F–f7G2%Ò¢÷"G—R‡&÷rævWB‚&FW7G'V7F—fR"’’—2æ÷B&ööÀ¢÷"&÷u²&FW7G'V7F—fR%ÒÒ‡F6²æFW7G'V7F—fR÷"F6²æ¶–æBÓÒ&f÷&vUöÇ’"’“ ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷'Vå÷F6µö–FVçF—G•ö–çfÆ–B"¢F6µ÷'Vç2æVæB…F6µ'Vâ‡F6²çF6µö–BÂF6²ævöÅö–BÂF6²æ¶–æBÂ&÷u²'7FGW2%ÒÀ¢&÷u²'&V6öâ%ÒÂ&÷u²'7F'FVEöB%ÒÂ&÷u²&f–æ—6†VEöB%ÒÂ&÷u²&GW&F–öåö×2%ÒÀ¢GWÆR‡&÷u²&'F–f7G2%Ò’Â&÷u²&FW7G'V7F—fR%Ò’¢W‡V7FVE÷&V6öç2Ò·&÷rç&V6öâf÷"&÷r–âF6µ÷'Vç0¢–b&÷rç7FGW2–â²&f–ÆVB"Â'6¶—VB'ÒæB&÷rç&V6öåÕ³£%Ð¢–b–ÆöE²'&V6öå÷7F6²%ÒÒW‡V7FVE÷&V6öç3 ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷'Vå÷&V6öå÷7F6µö–çfÆ–B"¢–bæ÷BF6µ÷'Vç2÷"ÆÂ‡&÷rç7FGW2ÓÒ'6¶—VB"f÷"&÷r–âF6µ÷'Vç2“ ¢W‡V7FVE÷7FGW2Ò'6¶—VB ¢VÆ–bç’‡&÷rç7FGW2ÓÒ&f–ÆVB"f÷"&÷r–âF6µ÷'Vç2“ ¢W‡V7FVE÷7FGW2Ò&f–ÆVB ¢VÆ–bç’‡&÷rç7FGW2ÓÒ'6¶—VB"f÷"&÷r–âF6µ÷'Vç2“ ¢W‡V7FVE÷7FGW2Ò''F–Â ¢VÇ6S ¢W‡V7FVE÷7FGW2Ò&ö² ¢–b–ÆöBævWB‚'7FGW2"’ÒW‡V7FVE÷7FGW3 ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷'Vå÷7FGW5öÖ—6ÖF6‚"¢6æöæ–6ÂÒ†§6öâæGV×2‡–ÆöBÂ–æFVçCÓ"Â6÷'Eö¶W—3ÕG'VR’²%Æâ"’æVæ6öFR‚'WFbÓ‚"¢–b&rÒ6æöæ–6Ã ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷'Våö'F–f7Eöæöæ6æöæ–6Â"¢&WGW&âv÷&µÆå'Vâƒ"Â'Våö–BÂÆâçÆåö–BÂ7&VFVEöBÂW‡V7FVE÷7FGW2À¢–ÆöE²&÷W&F–æuöÖöFR%ÒÂ–ÆöE²'V&çF–æUö7F—fR%ÒÂGWÆR‡F6µ÷'Vç2’À¢GWÆR‡–ÆöE²'&V6öå÷7F6²%Ò’Â–ÆöE²'ÆåöF–vW7B%Ò  ¦FVbv÷&µ÷'Våö–B‡Æã¢v÷&µÆâÂ¢Â7&VFVEöC¢7G"’Óâ7G# ¢""$v—fRV6‚W†7BÆâF—7F–æ7B–Ö×WF&ÆR'Vâ'F–f7B–FVçF—G’â"" ¢–b†æ÷B—6–ç7Fæ6R‡ÆâÂv÷&µÆâ’÷"7&VFVEöBÒÆâæ7&VFVEöB“ ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷'VåöÆöö·W÷Æå÷F–ÖUöÖ—6ÖF6‚"¢&WGW&âb''Vå÷·Æâæ–FVçF—G•öF–vW7B‚—Ò   ¦FVb÷w&—FUö§6öåööæ6R‡Fƒ¢F‚ÂfÇVS¢F–7E·7G"Âö&¦V7EÒ’Óâ&ööÃ ¢""%w&—FRâ–Ö×WF&ÆR'F–f7BÂÆÆ÷v–æröæÇ’âW†7B–FV×÷FVçB&WÆ’â"" ¢F‚ç&VçBæÖ¶F—"‡&VçG3ÕG'VRÂW†—7Eöö³ÕG'VR¢Væ6öFVBÒ†§6öâæGV×2‡fÇVRÂ–æFVçCÓ"Â6÷'Eö¶W—3ÕG'VR’²%Æâ"’æVæ6öFR‚'WFbÓ‚"¢G'“ ¢v—F‚F‚æ÷Vâ‚'†""’2†æFÆS ¢†æFÆRçw&—FR†Væ6öFVB¢†æFÆRæfÇW6‚‚¢W†6WBf–ÆTW†—7G4W'&÷# ¢G'“ ¢W†—7F–ærÒF‚ç&VEö'—FW2‚¢W†6WBõ4W'&÷"2W†3 ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷Æåö'F–f7E÷Vç&VF&ÆR"’g&öÒW†0¢–bW†—7F–ærÒVæ6öFVC ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷Æåö'F–f7Eö–FVçF—G•ö6öæfÆ–7B"¢&WGW&âfÇ6P¢W†6WBõ4W'&÷"2W†3 ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷Æåö'F–f7E÷w&—FUöf–ÆVB"’g&öÒW†0¢&WGW&âG'VP  ¦FVbÆöE÷v÷&µ÷Æâ‡Fƒ¢F‚’Óâv÷&µÆã ¢G'“ ¢–ÆöBÒ§6öâæÆöG2‡F‚ç&VE÷FW‡B†Væ6öF–æsÒ'WFbÓ‚"’¢W†6WB„õ4W'&÷"ÂVæ–6öFTW'&÷"Â§6öâä¥4ôäFV6öFTW'&÷"’2W†3 ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷Æå÷Vç&VF&ÆR"’g&öÒW†0¢–b†æ÷B—6–ç7Fæ6R‡–ÆöBÂF–7B’÷"6WB‡–ÆöB’æ÷B–â…õÄåôd”TÄE2ÂõÄåôd”TÄE2Â²&öÖ—76–öç2'Ò¢÷"G—R‡–ÆöBævWB‚'66†VÖ÷fW'6–öâ"’’—2æ÷B–çB÷"–ÆöE²'66†VÖ÷fW'6–öâ%ÒÒ¢÷"ç’†æ÷B—6–ç7Fæ6R‡–ÆöBævWB†¶W’’Â7G"’÷"æ÷B–ÆöE¶¶W•Ò÷"ÆVâ‡–ÆöE¶¶W•Ò’âS ¢f÷"¶W’–â‚'Æåö–B"Â&7&VFVEöB"Â&6öçFW‡B"’¢÷"æ÷B—6–ç7Fæ6R‡–ÆöBævWB‚'6VÆV7FVEövöÇ2"’ÂÆ—7B¢÷"ç’†æ÷B—6–ç7Fæ6R†—FVÒÂ7G"’÷"æ÷B—FVÒ÷"ÆVâ†—FVÒ’â#S`¢f÷"—FVÒ–â–ÆöE²'6VÆV7FVEövöÇ2%Ò¢÷"ÆVâ‡–ÆöE²'6VÆV7FVEövöÇ2%Ò’ÒÆVâ‡6WB‡–ÆöE²'6VÆV7FVEövöÇ2%Ò’¢÷"æ÷B—6–ç7Fæ6R‡–ÆöBævWB‚'F6·2"’ÂÆ—7B’“ ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷Æå÷6†Uö–çfÆ–B"¢F6·2ÒµÐ¢F6µö–G3¢6WE·7G%ÒÒ6WB‚¢vöÇ2Ò6WB‡–ÆöE²'6VÆV7FVEövöÇ2%Ò¢f÷"&÷r–â–ÆöE²'F6·2%Ó ¢–b†æ÷B—6–ç7Fæ6R‡&÷rÂF–7B’÷"6WB‡&÷r’æ÷B–â…õD4µôd”TÄE2ÂôÄTt5•õD4µôd”TÄE2¢÷"G—R‡&÷rævWB‚'66†VÖ÷fW'6–öâ"’’—2æ÷B–çB÷"&÷u²'66†VÖ÷fW'6–öâ%ÒÒ¢÷"ç’†æ÷B—6–ç7Fæ6R‡&÷rævWB†¶W’’Â7G"’÷"æ÷B&÷u¶¶W•Ò÷"ÆVâ‡&÷u¶¶W•Ò’â#S`¢f÷"¶W’–â‚'F6µö–B"Â&vöÅö–B"Â&¶–æB"’¢÷"&÷u²&vöÅö–B%Òæ÷B–âvöÇ2÷"&÷u²'F6µö–B%Ò–âF6µö–G0¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚&6öÖÖæG2"’ÂÆ—7B¢÷"ç’†æ÷B—6–ç7Fæ6R†—FVÒÂ7G"’÷"ÆVâ†—FVÒ’âC“bf÷"—FVÒ–â&÷u²&6öÖÖæG2%Ò¢÷"‡&÷rævWB‚&6ÆÆ&ÆU÷&Vb"’—2æ÷BæöæRæBæ÷B—6–ç7Fæ6R‡&÷u²&6ÆÆ&ÆU÷&Vb%ÒÂ7G"’¢÷"ç’‡G—R‡&÷rævWB†¶W’’’—2æ÷B–çB÷"&÷u¶¶W•ÒÂ ¢f÷"¶W’–â‚'&—6µö6÷7B"Â'F‡&÷Vv‡WEö6÷7B"’¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚'&V6öæF—F–öç2"’ÂF–7B¢÷"‚'&WV—&W5ö×WFF–öâ"–â&÷u²'&V6öæF—F–öç2%Ð¢æBG—R‡&÷u²'&V6öæF—F–öç2%Õ²'&WV—&W5ö×WFF–öâ%Ò’—2æ÷B&ööÂ¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚&W‡V7FVEö'F–f7G2"’ÂÆ—7B¢÷"ç’†æ÷B—6–ç7Fæ6R†—FVÒÂ7G"’÷"ÆVâ†—FVÒ’â#Bf÷"—FVÒ–â&÷u²&W‡V7FVEö'F–f7G2%Ò¢÷"G—R‡&÷rævWB‚&FW7G'V7F—fR"’’—2æ÷B&ööÂ“ ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷Æå÷F6µö–çfÆ–B"¢FWVæG5ööâÒ&÷rævWB‚&FWVæG5ööâ"ÂµÒ¢–b†æ÷B—6–ç7Fæ6R†FWVæG5ööâÂÆ—7B¢÷"ç’†æ÷B—6–ç7Fæ6R†—FVÒÂ7G"’÷"æ÷B—FVÒ÷"ÆVâ†—FVÒ’â#S`¢f÷"—FVÒ–âFWVæG5ööâ¢÷"ÆVâ†FWVæG5ööâ’ÒÆVâ‡6WB†FWVæG5ööâ’’“ ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷Æå÷F6µöFWVæFVæ6–W5ö–çfÆ–B"¢–æfW'&VEöFW7G'V7F—fRÒ‡&÷u²&¶–æB%ÒÓÒ&f÷&vUöÇ’ ¢÷"&÷u²'&V6öæF—F–öç2%ÒævWB‚'&WV—&W5ö×WFF–öâ"’—2G'VR¢–b&÷u²&FW7G'V7F—fR%ÒÒ–æfW'&VEöFW7G'V7F—fS ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷ÆåöFW7G'V7F—fUö6Æ76–f–6F–öåöÖ—6ÖF6‚"¢F6µö–G2æFB‡&÷u²'F6µö–B%Ò¢F6·2æVæB…F6²‡66†VÖ÷fW'6–öã×&÷u²'66†VÖ÷fW'6–öâ%ÒÂF6µö–C×&÷u²'F6µö–B%ÒÀ¢vöÅö–C×&÷u²&vöÅö–B%ÒÂ¶–æC×&÷u²&¶–æB%ÒÂ6öÖÖæG3×GWÆR‡&÷u²&6öÖÖæG2%Ò’À¢6ÆÆ&ÆU÷&Vc×&÷u²&6ÆÆ&ÆU÷&Vb%ÒÂ&—6µö6÷7C×&÷u²'&—6µö6÷7B%ÒÀ¢F‡&÷Vv‡WEö6÷7C×&÷u²'F‡&÷Vv‡WEö6÷7B%ÒÂ&V6öæF—F–öç3ÖF–7B‡&÷u²'&V6öæF—F–öç2%Ò’À¢W‡V7FVEö'F–f7G3×GWÆR‡&÷u²&W‡V7FVEö'F–f7G2%Ò’ÂFW7G'V7F—fS×&÷u²&FW7G'V7F—fR%ÒÀ¢FWVæG5ööã×GWÆR†FWVæG5ööâ’’¢F6µ÷÷6—F–öç2Ò·F6²çF6µö–C¢–æFW‚f÷"–æFW‚ÂF6²–âVçVÖW&FR‡F6·2—Ð¢f÷"–æFW‚ÂF6²–âVçVÖW&FR‡F6·2“ ¢–bç’†FWVæFVæ7’æ÷B–âF6µ÷÷6—F–öç2÷"F6µ÷÷6—F–öç5¶FWVæFVæ7•ÒãÒ–æFW€¢f÷"FWVæFVæ7’–âF6²æFWVæG5ööâ“ ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷Æå÷F6µöFWVæFVæ6–W5ö–çfÆ–B"¢öÖ—76–öç5÷&rÒ–ÆöBævWB‚&öÖ—76–öç2"ÂµÒ¢–bæ÷B—6–ç7Fæ6R†öÖ—76–öç5÷&rÂÆ—7B’÷"ÆVâ†öÖ—76–öç5÷&r’â#Sc ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷ÆåööÖ—76–öç5ö–çfÆ–B"¢öÖ—76–öç3¢Æ—7EµF6´öÖ—76–öåÒÒµÐ¢öÖ—76–öåö–G3¢6WE·GWÆU·7G"Â7G%ÕÒÒ6WB‚¢f÷"&÷r–âöÖ—76–öç5÷&s ¢–b†æ÷B—6–ç7Fæ6R‡&÷rÂF–7B’÷"6WB‡&÷r’ÒôôÔ•54”ôåôd”TÄE0¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚&vöÅö–B"’Â7G"’÷"&÷u²&vöÅö–B%Òæ÷B–âvöÇ0¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚&¶–æB"’Â7G"¢÷"æ÷B—6–ç7Fæ6R‡&÷rævWB‚'&V6öâ"’Â7G"¢÷"&÷u²&¶–æB%Òæ÷B–âôôÔ•54”ôåô´”äE5ô%•õ$T4ôâævWB‡&÷u²'&V6öâ%ÒÂ6WB‚’¢÷"‡&÷u²&vöÅö–B%ÒÂ&÷u²&¶–æB%Ò’–âöÖ—76–öåö–G2“ ¢&—6Rv÷&µÆäW'&÷"‚'v÷&µ÷ÆåööÖ—76–öç5ö–çfÆ–B"¢öÖ—76–öåö–G2æFB‚‡&÷u²&vöÅö–B%ÒÂ&÷u²&¶–æB%Ò’¢öÖ—76–öç2æVæB…F6´öÖ—76–öâ‡&÷u²&vöÅö–B%ÒÂ&÷u²&¶–æB%ÒÂ&÷u²'&V6öâ%Ò’¢&WGW&âv÷&µÆâ€¢66†VÖ÷fW'6–öã×–ÆöE²'66†VÖ÷fW'6–öâ%ÒÀ¢Æåö–C×–ÆöE²'Æåö–B%ÒÀ¢7&VFVEöC×–ÆöE²&7&VFVEöB%ÒÀ¢6öçFW‡C×–ÆöE²&6öçFW‡B%ÒÀ¢6VÆV7FVEövöÇ3×GWÆR‡–ÆöE²'6VÆV7FVEövöÇ2%Ò’À¢F6·3×GWÆR‡F6·2’À¢öÖ—76–öç3×GWÆR†öÖ—76–öç2’À¢  ¦FVböVæEö§6öæÂ‡Fƒ¢F‚Â&÷s¢F–7E·7G"Âç•Ò’ÓâæöæS ¢F‚ç&VçBæÖ¶F—"‡&VçG3ÕG'VRÂW†—7Eöö³ÕG'VR¢v—F‚F‚æ÷Vâ‚&"ÂVæ6öF–æsÒ'WFbÓ‚"’2†æFÆS ¢†æFÆRçw&—FR†§6öâæGV×2‡&÷rÂ6÷'Eö¶W—3ÕG'VR’²%Æâ"  ¦FVb÷6fUö–B‡fÇVS¢7G"’Óâ7G# ¢&WGW&âfÇVRç&WÆ6R‚#¢"Â"Ò"’ç&WÆ6R‚"â"Â"Ò"  ¥õöÆÅõòÒ°¢%F6²"À¢%F6´öÖ—76–öâ"À¢%F6µ'Vâ"À¢%v÷&µÆâ"À¢%v÷&µÆå'Vâ"À¢%v÷&µÆäW'&÷""À¢&ÆöE÷v÷&µ÷Æâ"À¢&ÆöE÷v÷&µ÷'Vâ"À¢'v÷&µ÷'Våö–B"À¢'W'6—7E÷v÷&µ÷Æâ"À¢'W'6—7E÷v÷&µ÷'Vâ"À¥Ð
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+from typing import Any
+
+
+WORK_PLAN_DIR = Path("glow/forge/work_plans")
+WORK_PLAN_PULSE_PATH = Path("pulse/work_plans.jsonl")
+WORK_RUN_DIR = Path("glow/forge/work_runs")
+MAX_WORK_RUN_BYTES = 1_048_576
+_PLAN_FIELDS = {"schema_version", "plan_id", "created_at", "context", "selected_goals", "tasks"}
+_TASK_FIELDS = {"schema_version", "task_id", "goal_id", "kind", "commands", "callable_ref",
+    "risk_cost", "throughput_cost", "preconditions", "expected_artifacts", "destructive",
+    "depends_on"}
+_LEGACY_TASK_FIELDS = _TASK_FIELDS - {"depends_on"}
+_OMISSION_FIELDS = {"goal_id", "kind", "reason"}
+_OMISSION_KINDS_BY_REASON = {
+    "task_kind_not_implemented": {"fetch", "doc_update"},
+    "risk_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
+    "throughput_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
+}
+
+
+class WorkPlanError(ValueError):
+    """A persisted plan is malformed or internally inconsistent."""
+
+
+@dataclass(frozen=True, slots=True)
+class TaskOmission:
+    goal_id: str
+    kind: str
+    reason: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {"goal_id": self.goal_id, "kind": self.kind, "reason": self.reason}
+
+
+@dataclass(frozen=True, slots=True)
+class Task:
+    schema_version: int
+    task_id: str
+    goal_id: str
+    kind: str
+    commands: tuple[str, ...]
+    callable_ref: str | None
+    risk_cost: int
+    throughput_cost: int
+    preconditions: dict[str, object]
+    expected_artifacts: tuple[str, ...]
+    destructive: bool
+    depends_on: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["commands"] = list(self.commands)
+        payload["expected_artifacts"] = list(self.expected_artifacts)
+        payload["depends_on"] = list(self.depends_on)
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class WorkPlan:
+    schema_version: int
+    plan_id: str
+    created_at: str
+    context: str
+    selected_goals: tuple[str, ...]
+    tasks: tuple[Task, ...]
+    omissions: tuple[TaskOmission, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "plan_id": self.plan_id,
+            "created_at": self.created_at,
+            "context": self.context,
+            "selected_goals": list(self.selected_goals),
+            "tasks": [task.to_dict() for task in self.tasks],
+            "omissions": [omission.to_dict() for omission in self.omissions],
+        }
+
+    def identity_digest(self) -> str:
+        """Bind a completed run to every persisted plan field and task cost."""
+        canonical = json.dumps(self.to_dict(), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        return hashlib.sha256(canonical).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class TaskRun:
+    task_id: str
+    goal_id: str
+    kind: str
+    status: str
+    reason: str | None
+    started_at: str
+    finished_at: str
+    duration_ms: int
+    artifacts: tuple[str, ...]
+    destructive: bool
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["artifacts"] = list(self.artifacts)
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class WorkPlanRun:
+    schema_version: int
+    run_id: str
+    plan_id: str
+    created_at: str
+    status: str
+    operating_mode: str
+    quarantine_active: bool
+    task_runs: tuple[TaskRun, ...]
+    reason_stack: tuple[str, ...]
+    plan_digest: str = ""
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "run_id": self.run_id,
+            "plan_id": self.plan_id,
+            "created_at": self.created_at,
+            "status": self.status,
+            "operating_mode": self.operating_mode,
+            "quarantine_active": self.quarantine_active,
+            "task_runs": [task.to_dict() for task in self.task_runs],
+            "reason_stack": list(self.reason_stack),
+            "plan_digest": self.plan_digest,
+        }
+
+
+
+def persist_work_plan(repo_root: Path, plan: WorkPlan) -> str:
+    root = repo_root.resolve()
+    plan_path = root / WORK_PLAN_DIR / f"plan_{_safe_id(plan.created_at)}.json"
+    if _write_json_once(plan_path, plan.to_dict()):
+        _append_jsonl(
+            root / WORK_PLAN_PULSE_PATH,
+            {
+                "created_at": plan.created_at,
+                "plan_id": plan.plan_id,
+                "context": plan.context,
+                "selected_goals": list(plan.selected_goals),
+                "task_count": len(plan.tasks),
+                "path": str(plan_path.relative_to(root)),
+            },
+        )
+    return str(plan_path.relative_to(root))
+
+
+def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
+    if (not isinstance(run, WorkPlanRun) or run.schema_version != 2
+            or not isinstance(run.plan_digest, str) or len(run.plan_digest) != 64
+            or any(character not in "0123456789abcdef" for character in run.plan_digest)):
+        raise WorkPlanError("work_run_plan_binding_required")
+    if run.run_id != f"run_{run.plan_digest}":
+        raise WorkPlanError("work_run_identity_invalid")
+    root = repo_root.resolve()
+    run_path = root / WORK_RUN_DIR / f"{run.run_id}.json"
+    if _write_json_once(run_path, run.to_dict()):
+        _append_jsonl(
+            root / "pulse/work_runs.jsonl",
+            {
+                "created_at": run.created_at,
+                "run_id": run.run_id,
+                "plan_id": run.plan_id,
+                "status": run.status,
+                "operating_mode": run.operating_mode,
+                "quarantine_active": run.quarantine_active,
+                "task_count": len(run.task_runs),
+                "path": str(run_path.relative_to(root)),
+            },
+        )
+    return str(run_path.relative_to(root))
+
+
+def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPlanRun | None:
+    """Load a prior run only when its exact plan and task identities validate."""
+    if not isinstance(plan, WorkPlan) or not isinstance(created_at, str) or not created_at:
+        raise WorkPlanError("work_run_lookup_identity_invalid")
+    if created_at != plan.created_at:
+        raise WorkPlanError("work_run_lookup_plan_time_mismatch")
+    run_id = work_run_id(plan, created_at=created_at)
+    path = repo_root.resolve() / WORK_RUN_DIR / f"{run_id}.json"
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        legacy_path = repo_root.resolve() / WORK_RUN_DIR / (
+            f"run_{_safe_id(created_at)}_{plan.plan_id}.json")
+        if legacy_path.exists():
+            raise WorkPlanError("work_run_legacy_plan_binding_unavailable")
+        return None
+    except OSError as exc:
+        raise WorkPlanError("work_run_artifact_unreadable") from exc
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_WORK_RUN_BYTES:
+        raise WorkPlanError("work_run_artifact_bounds_invalid")
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_WORK_RUN_BYTES):
+                raise WorkPlanError("work_run_artifact_changed_during_open")
+            chunks: list[bytes] = []
+            remaining = MAX_WORK_RUN_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+        finally:
+            os.close(descriptor)
+        if len(raw) > MAX_WORK_RUN_BYTES:
+            raise WorkPlanError("work_run_artifact_bounds_invalid")
+        payload = json.loads(raw.decode("utf-8"))
+    except WorkPlanError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkPlanError("work_run_artifact_unreadable") from exc
+    if isinstance(payload, dict) and payload.get("plan_digest") != plan.identity_digest():
+        raise WorkPlanError("work_run_plan_identity_mismatch")
+    if (not isinstance(payload, dict) or set(payload) != {
+            "schema_version", "run_id", "plan_id", "created_at", "status",
+            "operating_mode", "quarantine_active", "task_runs", "reason_stack",
+            "plan_digest"}
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 2
+            or payload.get("run_id") != run_id or payload.get("plan_id") != plan.plan_id
+            or payload.get("created_at") != created_at
+            or not isinstance(payload.get("operating_mode"), str)
+            or not payload["operating_mode"]
+            or type(payload.get("quarantine_active")) is not bool
+            or not isinstance(payload.get("task_runs"), list)
+            or len(payload["task_runs"]) != len(plan.tasks)
+            or not isinstance(payload.get("reason_stack"), list)
+            or len(payload["reason_stack"]) > 12
+            or any(not isinstance(item, str) for item in payload["reason_stack"])):
+        raise WorkPlanError("work_run_artifact_shape_invalid")
+    expected_task_fields = {"task_id", "goal_id", "kind", "status", "reason",
+        "started_at", "finished_at", "duration_ms", "artifacts", "destructive"}
+    task_runs: list[TaskRun] = []
+    for task, row in zip(plan.tasks, payload["task_runs"], strict=True):
+        if (not isinstance(row, dict) or set(row) != expected_task_fields
+                or row.get("task_id") != task.task_id or row.get("goal_id") != task.goal_id
+                or row.get("kind") != task.kind
+                or row.get("status") not in {"success", "failed", "skipped"}
+                or (row.get("reason") is not None and not isinstance(row["reason"], str))
+                or not isinstance(row.get("started_at"), str) or not row["started_at"]
+                or not isinstance(row.get("finished_at"), str) or not row["finished_at"]
+                or type(row.get("duration_ms")) is not int or row["duration_ms"] < 0
+                or not isinstance(row.get("artifacts"), list)
+                or any(not isinstance(item, str) or len(item) > 1024 for item in row["artifacts"])
+                or type(row.get("destructive")) is not bool
+                or row["destructive"] != (task.destructive or task.kind == "forge_apply")):
+            raise WorkPlanError("work_run_task_identity_invalid")
+        task_runs.append(TaskRun(task.task_id, task.goal_id, task.kind, row["status"],
+            row["reason"], row["started_at"], row["finished_at"], row["duration_ms"],
+            tuple(row["artifacts"]), row["destructive"]))
+    expected_reasons = [row.reason for row in task_runs
+        if row.status in {"failed", "skipped"} and row.reason][:12]
+    if payload["reason_stack"] != expected_reasons:
+        raise WorkPlanError("work_run_reason_stack_invalid")
+    if not task_runs or all(row.status == "skipped" for row in task_runs):
+        expected_status = "skipped"
+    elif any(row.status == "failed" for row in task_runs):
+        expected_status = "failed"
+    elif any(row.status == "skipped" for row in task_runs):
+        expected_status = "partial"
+    else:
+        expected_status = "ok"
+    if payload.get("status") != expected_status:
+        raise WorkPlanError("work_run_status_mismatch")
+    canonical = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if raw != canonical:
+        raise WorkPlanError("work_run_artifact_noncanonical")
+    return WorkPlanRun(2, run_id, plan.plan_id, created_at, expected_status,
+        payload["operating_mode"], payload["quarantine_active"], tuple(task_runs),
+        tuple(payload["reason_stack"]), payload["plan_digest"])
+
+
+def work_run_id(plan: WorkPlan, *, created_at: str) -> str:
+    """Give each exact plan a distinct immutable run artifact identity."""
+    if (not isinstance(plan, WorkPlan) or created_at != plan.created_at):
+        raise WorkPlanError("work_run_lookup_plan_time_mismatch")
+    return f"run_{plan.identity_digest()}"
+
+
+def _write_json_once(path: Path, value: dict[str, object]) -> bool:
+    """Write an immutable artifact, allowing only an exact idempotent replay."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        with path.open("xb") as handle:
+            handle.write(encoded)
+            handle.flush()
+    except FileExistsError:
+        try:
+            existing = path.read_bytes()
+        except OSError as exc:
+            raise WorkPlanError("work_plan_artifact_unreadable") from exc
+        if existing != encoded:
+            raise WorkPlanError("work_plan_artifact_identity_conflict")
+        return False
+    except OSError as exc:
+        raise WorkPlanError("work_plan_artifact_write_failed") from exc
+    return True
+
+
+def load_work_plan(path: Path) -> WorkPlan:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkPlanError("work_plan_unreadable") from exc
+    if (not isinstance(payload, dict) or set(payload) not in (_PLAN_FIELDS, _PLAN_FIELDS | {"omissions"})
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1
+            or any(not isinstance(payload.get(key), str) or not payload[key] or len(payload[key]) > 512
+                for key in ("plan_id", "created_at", "context"))
+            or not isinstance(payload.get("selected_goals"), list)
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in payload["selected_goals"])
+            or len(payload["selected_goals"]) != len(set(payload["selected_goals"]))
+            or not isinstance(payload.get("tasks"), list)):
+        raise WorkPlanError("work_plan_shape_invalid")
+    tasks = []
+    task_ids: set[str] = set()
+    goals = set(payload["selected_goals"])
+    for row in payload["tasks"]:
+        if (not isinstance(row, dict) or set(row) not in (_TASK_FIELDS, _LEGACY_TASK_FIELDS)
+                or type(row.get("schema_version")) is not int or row["schema_version"] != 1
+                or any(not isinstance(row.get(key), str) or not row[key] or len(row[key]) > 256
+                    for key in ("task_id", "goal_id", "kind"))
+                or row["goal_id"] not in goals or row["task_id"] in task_ids
+                or not isinstance(row.get("commands"), list)
+                or any(not isinstance(item, str) or len(item) > 4096 for item in row["commands"])
+                or (row.get("callable_ref") is not None and not isinstance(row["callable_ref"], str))
+                or any(type(row.get(key)) is not int or row[key] < 0
+                    for key in ("risk_cost", "throughput_cost"))
+                or not isinstance(row.get("preconditions"), dict)
+                or ("requires_mutation" in row["preconditions"]
+                    and type(row["preconditions"]["requires_mutation"]) is not bool)
+                or not isinstance(row.get("expected_artifacts"), list)
+                or any(not isinstance(item, str) or len(item) > 1024 for item in row["expected_artifacts"])
+                or type(row.get("destructive")) is not bool):
+            raise WorkPlanError("work_plan_task_invalid")
+        depends_on = row.get("depends_on", [])
+        if (not isinstance(depends_on, list)
+                or any(not isinstance(item, str) or not item or len(item) > 256
+                    for item in depends_on)
+                or len(depends_on) != len(set(depends_on))):
+            raise WorkPlanError("work_plan_task_dependencies_invalid")
+        inferred_destructive = (row["kind"] == "forge_apply"
+            or row["preconditions"].get("requires_mutation") is True)
+        if row["destructive"] != inferred_destructive:
+            raise WorkPlanError("work_plan_destructive_classification_mismatch")
+        task_ids.add(row["task_id"])
+        tasks.append(Task(schema_version=row["schema_version"], task_id=row["task_id"],
+            goal_id=row["goal_id"], kind=row["kind"], commands=tuple(row["commands"]),
+            callable_ref=row["callable_ref"], risk_cost=row["risk_cost"],
+            throughput_cost=row["throughput_cost"], preconditions=dict(row["preconditions"]),
+            expected_artifacts=tuple(row["expected_artifacts"]), destructive=row["destructive"],
+            depends_on=tuple(depends_on)))
+    task_positions = {task.task_id: index for index, task in enumerate(tasks)}
+    for index, task in enumerate(tasks):
+        if any(dependency not in task_positions or task_positions[dependency] >= index
+                for dependency in task.depends_on):
+            raise WorkPlanError("work_plan_task_dependencies_invalid")
+    omissions_raw = payload.get("omissions", [])
+    if not isinstance(omissions_raw, list) or len(omissions_raw) > 256:
+        raise WorkPlanError("work_plan_omissions_invalid")
+    omissions: list[TaskOmission] = []
+    omission_ids: set[tuple[str, str]] = set()
+    for row in omissions_raw:
+        if (not isinstance(row, dict) or set(row) != _OMISSION_FIELDS
+                or not isinstance(row.get("goal_id"), str) or row["goal_id"] not in goals
+                or not isinstance(row.get("kind"), str)
+                or not isinstance(row.get("reason"), str)
+                or row["kind"] not in _OMISSION_KINDS_BY_REASON.get(row["reason"], set())
+                or (row["goal_id"], row["kind"]) in omission_ids):
+            raise WorkPlanError("work_plan_omissions_invalid")
+        omission_ids.add((row["goal_id"], row["kind"]))
+        omissions.append(TaskOmission(row["goal_id"], row["kind"], row["reason"]))
+    return WorkPlan(
+        schema_version=payload["schema_version"],
+        plan_id=payload["plan_id"],
+        created_at=payload["created_at"],
+        context=payload["context"],
+        selected_goals=tuple(payload["selected_goals"]),
+        tasks=tuple(tasks),
+        omissions=tuple(omissions),
+    )
+
+
+def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, sort_keys=True) + "\n")
+
+
+def _safe_id(value: str) -> str:
+    return value.replace(":", "-").replace(".", "-")
+
+
+__all__ = [
+    "Task",
+    "TaskOmission",
+    "TaskRun",
+    "WorkPlan",
+    "WorkPlanRun",
+    "WorkPlanError",
+    "load_work_plan",
+    "load_work_run",
+    "work_run_id",
+    "persist_work_plan",
+    "persist_work_run",
+]

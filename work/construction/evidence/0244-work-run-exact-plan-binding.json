@@ -1,0 +1,38 @@
+{
+  "changed_blobs": [
+    {"mode": "100644", "path": "sentientos/work_plan.py", "sha": "dd58a8286f4195033e09c14b5badd1eccbdee6ae"},
+    {"mode": "100644", "path": "sentientos/goal_executor.py", "sha": "fa6740443467be8d3b3b4ef57c404d3299774c71"},
+    {"mode": "100644", "path": "sentientos/tests/test_work_plan_load.py", "sha": "08a0e96626fa1e4b5bf72bf5b6622fed5239204a"},
+    {"mode": "100644", "path": "docs/development/work_run_exact_plan_binding_task_acceptance.json", "sha": "a9338ca242b52b3bb9a293429903b89a2ae9c490"}
+  ],
+  "limits": [
+    "Goal task outcomes and commands remain bounded by existing executor admission.",
+    "This synthetic test evidence does not establish production deployment.",
+    "Legacy run artifacts do not prove the full plan identity and fail closed."
+  ],
+  "observations": {
+    "canonical_plan_digest_covers_complete_persisted_definition": true,
+    "changed_plan_reuses_old_run": false,
+    "exact_plan_run_recovers": true,
+    "legacy_unbound_run_reused": false
+  },
+  "sequence": 244,
+  "source_commit": "804be7cc374390430091398e753bbb52b5e7a06c",
+  "source_parent_commit": "ac5391985e666e7124e22f02c273fd62420e0b29",
+  "source_parent_tree": "e9002865e3be86cf2b68758060c5f33f9cddaefe",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "commit_parent_verified": true,
+    "commit_tree": "0b15fd479078ba7bd9302e92d588d5da40af8248",
+    "compare_and_swap": "succeeded",
+    "expected_head": "ac5391985e666e7124e22f02c273fd62420e0b29",
+    "force": false
+  },
+  "source_tree": "0b15fd479078ba7bd9302e92d588d5da40af8248",
+  "title": "Work-run recovery binds complete persisted plan identity",
+  "validation": {
+    "git_diff_check": "passed",
+    "goal_progression_matrix": "36 passed",
+    "source_and_test_py_compile": "passed"
+  }
+}
