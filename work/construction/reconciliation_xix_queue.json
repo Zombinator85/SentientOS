@@ -18,10 +18,11 @@
     "D1-D8 partial: objective-task owner now forwards a verified prior epistemic projection into the normal cognition binder; held-out task-family scores bind its exact projection/state digests and preserve deterministic three-condition oracle scoring through restart-backed history retrieval.",
     "C4-C8 partial: canonical task-family retrieval retains all three independently scored treatment outcomes and exact condition-specific inference/resource receipt lineage; a frozen-task requirement and deterministic quality-first/call-unit recommendation reaches the bounded cognition input binder; missing/unqualified evidence remains unknown; positive, negative-transfer, economical, and incomparable cases are covered.",
     "D1-D8 partial: owner-verified preregistered held-out task-family consequences now bind to the persistent epistemic owner as bounded support, contradiction, or contextual evidence; unknown dependency/freshness and deterministic-fixture qualification survive append-only correction and fresh-owner reconstruction.",
-    "E1-E8 partial: exact-plan execution now resumes repeated interruptions for non-destructive allowlisted diagnostic/verify tasks through digest-chained numbered retries; dependent tasks wait for durable success, while interrupted non-idempotent forge proposal/apply tasks remain unknown and blocked."
+    "E1-E8 partial: exact-plan execution now resumes repeated interruptions for non-destructive allowlisted diagnostic/verify tasks through digest-chained numbered retries; dependent tasks wait for durable success, while interrupted non-idempotent forge proposal/apply tasks remain unknown and blocked.",
+    "E1-E8 partial: forge partial_success is now distinct from task success, persisted in task journals/work runs, and cannot satisfy dependent tasks; independent tasks progress and partial state recovers without claiming goal completion."
   ],
-  "current_source_commit": "a2ad6e20b456c8cbe5ec2aed851e3977ca75e105",
-  "current_source_tree": "7d8d15c3b0a94bc3e86770ddd2de9d84e613d16a",
+  "current_source_commit": "d2a02deee68ab8e6e17d2a660bda9a83591af20b",
+  "current_source_tree": "7f3632975dfc4bb2b0f5aa904e6faefbd098683b",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -29,12 +30,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 252,
+  "last_checkpoint_sequence": 253,
   "next_executable_nodes": [
     {
       "node": "C4-C8 continuation",
       "program": "C",
-      "work": "Connect actually admitted ledger-backed three-condition resource comparisons to distinct held-out objective decisions, independently evaluate the recommendation, and recover the durable result after a fresh process."
+      "work": "Connect admitted ledger-backed three-condition resource receipts to a distinct held-out recommendation, independently evaluate the result, and recover the decision after a fresh process."
     },
     {
       "node": "D1-D8",
@@ -44,7 +45,7 @@
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Extend exact-plan execution beyond retrying safe checks: durable partial outcomes, interruption-aware dependent progression, and later planning that consumes verified outcomes."
+      "work": "Complete dependent task progression from verified partial/terminal outcomes and implement later outcome-informed planning without replaying unknown non-idempotent work."
     },
     {
       "node": "F1-F8",
