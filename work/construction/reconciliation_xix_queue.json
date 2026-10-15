@@ -26,10 +26,11 @@
     "D1-D8 partial: seq257 exposes an explicitly selected, bounded per-proposition trace joining verified evidence, state/event generations, admission receipts, original observation times, and exact later cognition projection through fresh-owner reconstruction.",
     "D1-D8 partial: seq258 requires every proposition evidence binding and state generation in a selected trace to join to a verified mutation receipt; missing trace joins fail closed.",
     "D1-D8 partial: seq259 admits adverse acquisition, adverse transfer, contextual tie, and later support through the runtime; reconstructed-owner state remains contested, trace receipts join, and a separately evaluated cognition call changes its output from delivered evidence. Fresh operating-system-process trace recovery remains open.",
-    "E1-E8 partial: seq259 validates the exact prior work run before follow-up planning, binds the prior run payload digest into the new plan identity, withholds repeated destructive apply after partial/failed/unknown outcomes, and keeps independent goals eligible."
+    "E1-E8 partial: seq259 validates the exact prior work run before follow-up planning, binds the prior run payload digest into the new plan identity, withholds repeated destructive apply after partial/failed/unknown outcomes, and keeps independent goals eligible.",
+    "D1-D8: seq260 reconstructs the contested proposition, four source outcomes, three state events, seven verified mutation receipts, and exact later-cognition projection in a separate Python process."
   ],
-  "current_source_commit": "a0a1d64c5afe6c4495d7f1f9ba95b15283b82868",
-  "current_source_tree": "333ca43c6e6b856acf86d70e4f8f31931437b3d6",
+  "current_source_commit": "48b7a7cf69cd3f10cc13c7419e8de211c4269adb",
+  "current_source_tree": "d127335e6ef6119e3a8fce143c4a7500ab9af3c2",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -37,17 +38,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 259,
+  "last_checkpoint_sequence": 260,
   "next_executable_nodes": [
-    {
-      "node": "D1-D8",
-      "program": "D",
-      "work": "Complete fresh operating-system-process reconstruction of the proposition trace, then connect evidence-qualified epistemic history to owner-level goal planning with exact outcome identity."
-    },
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Extend outcome-informed follow-up from destructive task gating into deterministic goal allocation while preserving full-plan/run binding and no-replay guarantees for unknown non-idempotent work."
+      "work": "Connect identity-bound contested epistemic history to a bounded deterministic goal-planning choice; preserve exact prior-run binding, unknown-work no-replay, and independent progress."
     },
     {
       "node": "F1-F8",

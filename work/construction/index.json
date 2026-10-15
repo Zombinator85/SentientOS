@@ -2728,6 +2728,18 @@
       "sha256": "58fee6811662ca2a40aaee1f1c80a4b5f7efc52acf85eef0a46eec9a8b051f7e",
       "source_commit": "a0a1d64c5afe6c4495d7f1f9ba95b15283b82868",
       "source_tree": "333ca43c6e6b856acf86d70e4f8f31931437b3d6"
+    },
+    {
+      "bytes": 1030,
+      "evidence_bytes": 1777,
+      "evidence_path": "work/construction/evidence/0260-fresh-process-epistemic-trace.json",
+      "evidence_sha256": "67f20ed8aec5448ecdc48904b4aeeeb286de5424f9bee87e1623b395c94ff636",
+      "path": "work/construction/segments/0260-fresh-process-epistemic-trace.md",
+      "predecessor": "segment-sha256:58fee6811662ca2a40aaee1f1c80a4b5f7efc52acf85eef0a46eec9a8b051f7e",
+      "sequence": 260,
+      "sha256": "49b121a08bf91f5c9e06bbf962eb6020f3525e365f3db2843f7cdf2f2c9c4793",
+      "source_commit": "48b7a7cf69cd3f10cc13c7419e8de211c4269adb",
+      "source_tree": "d127335e6ef6119e3a8fce143c4a7500ab9af3c2"
     }
   ],
   "source_acquisition": {
