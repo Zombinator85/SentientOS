@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "8abfe4543ebe3b6c62d9cf089da1a62befe213c8",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_later_distinct_campaign_route_retains_corrective_history_and_uncertainty",
+      "rationale": "A contradictory correction blocks the original proposal while a later distinct source-grounded finding remains proposal-routable with issuer and applicability uncertainty preserved."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_post_adoption_attribution_campaign.py::test_later_distinct_campaign_route_retains_corrective_history_and_uncertainty"
+  ]
+}

@@ -224,6 +224,43 @@ def test_repeated_campaigns_deduplicate_and_contradictory_correction_stays_bound
     ]
 
 
+def test_later_distinct_campaign_route_retains_corrective_history_and_uncertainty(tmp_path):
+    from sentientos.governed_improvement_signal_plane import evaluate_signal_plane
+    from sentientos.maintenance_candidate import adapt_governed_signal
+    from sentientos.maintenance_candidate_collector import _proposal_signal_records
+
+    adverse_owner, adverse_protocol, adverse = finish(
+        tmp_path / "adverse", ["target_expectation_contradicted"] * 2,
+        task_id="task-adverse", proposal_id="proposal-original")
+    correction_owner, correction_protocol, correction = finish(
+        tmp_path / "correction", ["target_expectation_satisfied"] * 2,
+        task_id="task-correction", proposal_id="proposal-original")
+    later_owner, later_protocol, later = finish(
+        tmp_path / "later", ["target_expectation_contradicted"] * 2,
+        task_id="task-later", proposal_id="proposal-later")
+    adverse_signal = campaign_improvement_signal_record(
+        adverse, protocol=adverse_owner.protocol(adverse_protocol.campaign_id))
+    correction_signal = campaign_improvement_signal_record(
+        correction, protocol=correction_owner.protocol(correction_protocol.campaign_id))
+    later_signal = campaign_improvement_signal_record(
+        later, protocol=later_owner.protocol(later_protocol.campaign_id))
+    assert adverse_signal and correction_signal and later_signal
+
+    evaluation_value = evaluate_signal_plane(
+        [adverse_signal, correction_signal, later_signal], repo_root=tmp_path)
+    routed = _proposal_signal_records(evaluation_value.to_dict())
+    assert len(evaluation_value.batch.contradiction_ids) == 2
+    assert len(routed) == 1
+    assert routed[0]["source_digest"] == later.result_digest
+    assert "source_posture:control_source_issuers_unverified" in routed[0]["evidence_refs"]
+    candidate = adapt_governed_signal(
+        routed[0], base_repository_sha="b05b563895e16bfe614d47e8d22b8cdfb340b6d4")
+    assert candidate.confidence == "low"
+    assert "source_issuers_unverified" in candidate.declared_constraints
+    assert "result_digest:" + later.result_digest in candidate.evidence_references
+    assert candidate.requested_authority_classes == ("proposal_selection_only",)
+
+
 def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_path, monkeypatch):
     from sentientosd import RuntimeMaintenanceSurfaces, _load_post_adoption_attribution_projection
     from sentientos.runtime_governor import reset_runtime_governor
