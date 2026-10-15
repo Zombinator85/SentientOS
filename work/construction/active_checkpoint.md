@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq260 verifies that adverse and corrective proposition history, verified receipts, and the later cognition projection reconstruct in a separate Python process with the same identities and digests.
+Seq261 binds validated contested epistemic history to explicitly tagged goal plans. A non-supportive or unresolved prior stance creates a review omission for destructive apply, and the exact projection digest is included in plan identity. Untagged goal planning continues unchanged.
 
-Latest source commit: 48b7a7cf69cd3f10cc13c7419e8de211c4269adb
-Latest source tree: d127335e6ef6119e3a8fce143c4a7500ab9af3c2
-Latest segment: work/construction/segments/0260-fresh-process-epistemic-trace.md
-Evidence: work/construction/evidence/0260-fresh-process-epistemic-trace.json
+Latest source commit: 5dbae22aece7762a7d1aa7513cb148c0a0157580
+Latest source tree: 9b3818ef0d9ff70e813d7cd34c44caa4d25ddf65
+Latest segment: work/construction/segments/0261-epistemic-history-planning-gate.md
+Evidence: work/construction/evidence/0261-epistemic-history-planning-gate.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 260
+Sequence: 261
 
-Validation: the longitudinal cognition node and 57 epistemic-development/causal-introspection tests passed; compilation passed.
+Validation: 11 goal-planning/execution tests and 57 epistemic, causal-introspection, and longitudinal cognition tests passed; compilation and whitespace/conflict checks passed.
 
-Limits: epistemic history still does not change goal allocation. No production effects or authority expansion are claimed.
+Limits: tagged history gates destructive apply; goal selection is not yet affected. No production effects or authority expansion are claimed.
 
-Next: connect identity-bound contested epistemic history to a bounded deterministic goal-planning choice.
+Next: extend evidence-bound epistemic planning into deterministic goal selection or prioritization.

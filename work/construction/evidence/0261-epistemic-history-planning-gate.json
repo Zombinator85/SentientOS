@@ -1,0 +1,65 @@
+{
+  "sequence": 261,
+  "title": "Bind contested epistemic history into tagged goal plans",
+  "source_parent_commit": "25e69196299826bfaccee893ebe1d8c47d599fd2",
+  "source_parent_tree": "daa33659d6e87c4d3aa8731263fd435086825d75",
+  "source_commit": "5dbae22aece7762a7d1aa7513cb148c0a0157580",
+  "source_tree": "9b3818ef0d9ff70e813d7cd34c44caa4d25ddf65",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "25e69196299826bfaccee893ebe1d8c47d599fd2",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "mode": "100644",
+      "sha": "3d6ba5f641c5e70513428e7ac36f63bdae6a6ea8"
+    },
+    {
+      "path": "sentientos/work_plan.py",
+      "mode": "100644",
+      "sha": "a4985807a027f24527b5371c9ae96969a1615624"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_plan.py",
+      "mode": "100644",
+      "sha": "4c7b8a0a1e22be27630b5a4db3a114cf108515fc"
+    },
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "6181b7cc4f9bc0ca484328c2eac665d1fe0ca134"
+    },
+    {
+      "path": "docs/development/longitudinal-epistemic-outcome-planning-task-acceptance.json",
+      "mode": "100644",
+      "sha": "4beb2a2ade26f6ba945094f1a22a646c07b9ef83"
+    }
+  ],
+  "validation": {
+    "goal_planning_and_execution": "11 passed",
+    "epistemic_causal_and_longitudinal_cognition": "57 passed",
+    "python_compile": "passed",
+    "whitespace_and_conflict_marker_check": "passed"
+  },
+  "observations": {
+    "canonical_projection_validation_required": true,
+    "non_meaning_projection": "rejected",
+    "exact_proposition_id_goal_mapping": true,
+    "review_gate_changes_tagged_goal_plan": true,
+    "projection_digest_in_plan_identity": true,
+    "prior_work_run_binding_preserved": true,
+    "production_effects": false,
+    "truth_claim": false,
+    "authority_expansion": false
+  },
+  "limitations": [
+    "Epistemic history gates destructive apply for explicitly tagged goals but does not yet change goal selection.",
+    "No live forge apply or production activation occurred."
+  ]
+}

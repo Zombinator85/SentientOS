@@ -2740,6 +2740,18 @@
       "sha256": "49b121a08bf91f5c9e06bbf962eb6020f3525e365f3db2843f7cdf2f2c9c4793",
       "source_commit": "48b7a7cf69cd3f10cc13c7419e8de211c4269adb",
       "source_tree": "d127335e6ef6119e3a8fce143c4a7500ab9af3c2"
+    },
+    {
+      "bytes": 1434,
+      "evidence_bytes": 2299,
+      "evidence_path": "work/construction/evidence/0261-epistemic-history-planning-gate.json",
+      "evidence_sha256": "c993c1fedf258b072efc6afd7d7d1fd890f12d32a82d4d1cde7bfc0ef566f60e",
+      "path": "work/construction/segments/0261-epistemic-history-planning-gate.md",
+      "predecessor": "segment-sha256:49b121a08bf91f5c9e06bbf962eb6020f3525e365f3db2843f7cdf2f2c9c4793",
+      "sequence": 261,
+      "sha256": "afc2236706ee17721dd6676d44ab8e40845206c3553646ce2a0a76392820dd9f",
+      "source_commit": "5dbae22aece7762a7d1aa7513cb148c0a0157580",
+      "source_tree": "9b3818ef0d9ff70e813d7cd34c44caa4d25ddf65"
     }
   ],
   "source_acquisition": {
