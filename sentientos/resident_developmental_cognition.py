@@ -2558,7 +2558,8 @@ class ResidentDevelopmentalCognitionOwner:
                  admission_authority: RuntimeAdmissionAuthority,
                  invoker: LocalModelInvoker,
                  current_sequence: Callable[[], int],
-                 objective_task: Any | None = None) -> None:
+                 objective_task: Any | None = None,
+                 resource_context_owner: Any | None = None) -> None:
         _validate_root_separation(config.history_root, config.state_root,
             config.model_replacement_artifact_root)
         self.config = config
@@ -2566,6 +2567,11 @@ class ResidentDevelopmentalCognitionOwner:
         self.admission_authority = admission_authority
         self.invoker = invoker
         self.current_sequence = current_sequence
+        if (resource_context_owner is not None
+                and not callable(getattr(resource_context_owner, "next_context", None))):
+            raise ResidentDevelopmentalCognitionError(
+                "developmental_resource_context_owner_invalid")
+        self.resource_context_owner = resource_context_owner
         if objective_task is not None and (not config.comparison_enabled
                 or not callable(getattr(objective_task, "specification", None))
                 or not callable(getattr(objective_task, "public_descriptor", None))):
@@ -4643,7 +4649,18 @@ class ResidentDevelopmentalCognitionOwner:
             expected_digests = protocol.record_digests if with_history else ()
             if tuple(record_ids) != tuple(expected_ids) or tuple(record_digests) != tuple(expected_digests):
                 raise ResidentDevelopmentalCognitionError("experiment_history_binding_drift")
-        receipt = self.invoker.invoke(request, persist=True, include_output_in_receipt=False)
+        invocation_options: dict[str, Any] = {
+            "persist": True,
+            "include_output_in_receipt": False,
+        }
+        if self.resource_context_owner is not None:
+            # Each preregistered condition consumes its own owner-issued
+            # context. The governed invoker binds the resulting ledger receipt
+            # to this exact inference receipt; the cognition owner never
+            # estimates or fabricates resource measurements.
+            invocation_options["resource_context"] = (
+                self.resource_context_owner.next_context())
+        receipt = self.invoker.invoke(request, **invocation_options)
         if receipt.status not in {"admitted_completed", "admitted_simulation"} or receipt.output_digest is None:
             raise ResidentDevelopmentalCognitionError("retrieval_cognition_not_completed")
         receipt_request = getattr(receipt, "request", None)

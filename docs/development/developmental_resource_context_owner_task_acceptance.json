@@ -1,0 +1,22 @@
+{
+  "task_id": "developmental-resource-context-owner-routing",
+  "version": 1,
+  "required_pytest_nodes": [
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_developmental_resource_context_owner_is_consumed_per_condition",
+      "role": "successful_path",
+      "expected": "An explicitly supplied resource context owner supplies one context to each of the three preregistered conditions; the no-owner path remains the default."
+    },
+    {
+      "node_id": "tests/test_strategy_resource_lineage_integration.py::test_resource_linked_strategy_proposals_join_to_reconciled_ledger",
+      "role": "resource_lineage_integration",
+      "expected": "Governed resource receipts reconcile to owner-produced invocation evidence and remain admitted through World-State and developmental writeback with measured receipt identities intact."
+    }
+  ],
+  "non_claims": [
+    "a complete developmental three-condition resource trajectory",
+    "a later resource-aware held-out decision recovered from a fresh process",
+    "independent backend observation or model improvement",
+    "resource measurements not present in governed ledger receipts"
+  ]
+}

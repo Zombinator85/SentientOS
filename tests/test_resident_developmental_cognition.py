@@ -76,6 +76,7 @@ def snapshot(value: int = 1):
 class FakeInvoker:
     def __init__(self) -> None:
         self.requests = []
+        self.resource_contexts = []
         self.lesson_statement = "When prior evidence conflicts, preserve its scope and uncertainty."
         self.lesson_scope = "historical evidence interpretation"
         self.lesson_dependency_override = None
@@ -126,7 +127,10 @@ class FakeInvoker:
         self.requests.append(request)
         return request
 
-    def invoke(self, request, *, persist, include_output_in_receipt):
+    def invoke(self, request, *, persist, include_output_in_receipt,
+            resource_context=None):
+        if resource_context is not None:
+            self.resource_contexts.append(resource_context)
         if (request.purpose == "resident_developmental_history_intervention_experiment"
                 and self.fail_objective_condition == request.linkage.get("condition_id")):
             raise RuntimeError("fixture_interrupted_before_condition_invocation")
@@ -3116,7 +3120,8 @@ def test_missing_final_score_keeps_interrupted_trial_unfinalized(tmp_path: Path,
 
 def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None = None,
           allowed_source_kinds: tuple[str, ...] = ("capability_registry",),
-          max_selected_facts: int = 1, objective_task=None):
+          max_selected_facts: int = 1, objective_task=None,
+          resource_context_owner=None):
     ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -3130,8 +3135,35 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
     result = ResidentDevelopmentalCognitionOwner(config=ResidentDevelopmentalCognitionConfig(
         root / "history", root / "state", allowed_source_kinds, max_selected_facts, 4, comparison), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-        invoker=fake, current_sequence=next_sequence, objective_task=objective_task)
+        invoker=fake, current_sequence=next_sequence, objective_task=objective_task,
+        resource_context_owner=resource_context_owner)
     return result, fake
+
+
+def test_developmental_resource_context_owner_is_consumed_per_condition(
+        tmp_path: Path) -> None:
+    class ContextOwner:
+        def __init__(self) -> None:
+            self.issued = []
+
+        def next_context(self):
+            context = {"fixture_context_sequence": len(self.issued) + 1}
+            self.issued.append(context)
+            return context
+
+    resource_owner = ContextOwner()
+    cognition, fake = owner(tmp_path, comparison=True,
+        allowed_source_kinds=("capability_registry",),
+        resource_context_owner=resource_owner)
+    first = cognition.run_tick(snapshot=snapshot(), tick_id="resource-context-seed")
+    assert first.written_record_id
+    comparison = cognition.run_tick(snapshot=snapshot(), tick_id="resource-context-comparison")
+    assert comparison.changed_cognition_measurement_id
+    assert [row["condition_id"] for row in
+        cognition.experiments.load_run(comparison.changed_cognition_measurement_id)["conditions"]] == [
+            "history_present", "history_withheld", "history_restored"]
+    assert resource_owner.issued == fake.resource_contexts
+    assert len(resource_owner.issued) == 3  # one owner-issued context per condition
 
 
 def _reconstruct_progression_in_child(root: Path, receipts: Mapping[str, Any],
