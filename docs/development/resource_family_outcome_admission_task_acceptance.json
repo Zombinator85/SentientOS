@@ -6,6 +6,10 @@
     {
       "node_id": "tests/test_strategy_resource_lineage_integration.py::test_resource_linked_strategy_proposals_join_to_reconciled_ledger",
       "expected": "a protocol-bound multi-probe family outcome without its exact denominator is degraded and classified score_binding_invalid; complete measured outcomes remain qualified"
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_resource_lineage_integration.py::test_model_replacement_invocations_reconcile_to_preissued_resource_owner",
+      "expected": "model-replacement family score schema and denominator survive read-only World-State projection, while a self-rehashed score missing both counts is degraded and excluded from qualified outcome interpretation"
     }
   ],
   "authority": {

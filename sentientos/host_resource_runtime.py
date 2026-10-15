@@ -1396,7 +1396,9 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             return False
         correct_count, probe_count = score.get("correct_count"), score.get("probe_count")
         if correct_count is None and probe_count is None:
-            return expected_probe_count is None
+            requires_suite_counts = score.get("schema_version") == (
+                "sentientos.objective_task_score:v3")
+            return expected_probe_count is None and not requires_suite_counts
         if (type(correct_count) is not int or type(probe_count) is not int
                 or not 0 <= correct_count <= probe_count <= 16):
             return False
@@ -1584,6 +1586,10 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     "history_record_digests": list(observation.get("history_record_digests") or ()),
                     "history_withheld": observation.get("history_withheld")}
                 raw_score = observation.get("objective_task_score")
+                if (isinstance(raw_score, Mapping)
+                        and raw_score.get("schema_version") ==
+                            "sentientos.objective_task_score:v3"):
+                    request_context["task_family_probe_count"] = raw_score.get("probe_count")
                 task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
                 if raw_score is not None:
                     correct_count = raw_score.get("correct_count") if isinstance(raw_score, Mapping) else None

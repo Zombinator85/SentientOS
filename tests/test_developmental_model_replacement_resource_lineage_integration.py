@@ -83,7 +83,8 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
 
     experiment_root = tmp_path / "model-replacement"
     try:
-        scenario = prepare(experiment_root, objective_scored=True)
+        scenario = prepare(experiment_root, objective_scored=True,
+            objective_task_family_id="replacement-resource-family")
         completed = run_next(experiment_root, resource_context_owner=owner)
         assert completed["status"] == "completed_one_trial", completed
         run = completed["result"]
@@ -123,6 +124,24 @@ def test_model_replacement_invocations_reconcile_to_preissued_resource_owner(tmp
         assert all(row["effect_claimed"] is False and row["effect_proven"] is False for row in joined)
         assert all(row["payload"]["shared_host_cpu_gpu_attribution"]
             == "unknown_without_independent_observation" for row in joined)
+        incomplete_run = next(row for row in replacement_records
+            if row.get("subject_kind") == "developmental_model_replacement_experiment")
+        incomplete_run = deepcopy(incomplete_run)
+        scored_observation = next(row for row in incomplete_run["payload"]["observations"]
+            if isinstance(row.get("objective_task_score"), dict))
+        scored_observation["objective_task_score"]["correct_count"] = None
+        scored_observation["objective_task_score"]["probe_count"] = None
+        incomplete_run["digest"] = record_digest(incomplete_run)
+        incomplete_join = resource_invocation_proposal_lineage_records(
+            [*resource_records, incomplete_run])
+        incomplete_row = next(row for row in incomplete_join
+            if row["payload"].get("model_replacement_condition")
+                == scored_observation.get("condition_id"))
+        assert incomplete_row["disposition"] == "degraded"
+        assert "model_replacement_condition_score_invalid" in \
+            incomplete_row["payload"]["lineage_findings"]
+        assert incomplete_row["payload"]["task_outcome"] == {
+            "posture": "score_binding_invalid"}
         assert all(row["payload"]["resource_linkage"]["allocation_digest"] == allocation.allocation_digest
             for row in joined)
         assert {row["payload"]["resource_linkage"]["effect_receipt_digest"] for row in joined} == {

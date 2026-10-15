@@ -33,7 +33,9 @@ _ALIASES = {"", "current", "latest", "default", "any", "*"}
 
 def _objective_answer_bytes(task: ObjectivePredictionTask) -> int:
     specification = task.specification()
-    if specification.get("schema_version") == "sentientos.affine_prediction_task_suite:v2":
+    if specification.get("schema_version") in {
+            "sentientos.affine_prediction_task_suite:v2",
+            "sentientos.affine_prediction_task_family_suite:v3"}:
         answer = {"answers": [specification["multiplier"] * probe + specification["offset"]
             for probe in specification["probe_inputs"]]}
         maximum = 1024

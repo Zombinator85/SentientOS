@@ -965,10 +965,11 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                 correct = task_outcome.get("correct")
                 family_id = context.get("task_family_id")
                 family_probe_count = context.get("task_family_probe_count")
-                family_counts_valid = (family_id is None or (
-                    isinstance(family_id, str) and bool(family_id)
-                    and type(family_probe_count) is int
-                    and 2 <= family_probe_count <= 16
+                family_counts_valid = (
+                    (family_id is None and family_probe_count is None)
+                    or ((family_id is None or
+                        isinstance(family_id, str) and bool(family_id))
+                    and type(family_probe_count) is int and 2 <= family_probe_count <= 16
                     and type(count) is int and type(probes) is int
                     and probes == family_probe_count))
                 score_semantics_valid = (

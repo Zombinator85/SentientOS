@@ -198,7 +198,8 @@ def _paths(root: Path) -> tuple[Path, Path]: return root / "rehearsal", root / "
 
 
 def prepare(root: Path, *, fault: str | None = None,
-            objective_scored: bool = False) -> Mapping[str, Any]:
+            objective_scored: bool = False,
+            objective_task_family_id: str | None = None) -> Mapping[str, Any]:
     root = Path(root).resolve()
     if root.exists() and any(root.iterdir()): raise ValueError("rehearsal_root_not_empty")
     bundle, state_base = _paths(root); bundle.mkdir(parents=True)
@@ -218,7 +219,8 @@ def prepare(root: Path, *, fault: str | None = None,
     deploy_local_model_catalog(handle, request, authority, catalog, [_publication(m) for m in catalog["models"]],
         now=lambda: "2026-09-24T12:00:00Z")
     proof = construct_authoritative_catalog_consumer_proof(handle).proof
-    task = ObjectivePredictionTask(3, 2, 7, (8, 9)) if objective_scored else None
+    task = (ObjectivePredictionTask(3, 2, 7, (8, 9), objective_task_family_id)
+        if objective_scored else None)
     objective_bytes = (len(json.dumps({"answers": [3 * probe + 2 for probe in (7, 8, 9)]},
         sort_keys=True, separators=(",", ":")).encode("utf-8")) if task is not None else 8)
     pairs = [_identity_and_receipt(handle, model, artifact, proof,
@@ -305,7 +307,7 @@ def _task(scenario: Mapping[str, Any]) -> ObjectivePredictionTask | None:
     nonce = scenario.get("objective_task_commitment_nonce")
     options = {"commitment_nonce": nonce} if isinstance(nonce, str) else {}
     return (ObjectivePredictionTask(raw["multiplier"], raw["offset"], probes[0], tuple(probes[1:]),
-            **options)
+            raw.get("task_family_id"), raw.get("requires_task_family_history", False), **options)
         if isinstance(probes, list) else
         ObjectivePredictionTask(raw["multiplier"], raw["offset"], raw["probe_input"], **options))
 

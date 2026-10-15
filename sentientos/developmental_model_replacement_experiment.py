@@ -1481,7 +1481,8 @@ class ModelReplacementArtifactStore:
                     # expected answer and probe-level oracle never enter World-State.
                     projected_observation["objective_task_score"] = {
                         key: objective_score.get(key) for key in (
-                            "score_digest", "status", "correct", "correct_count", "probe_count")}
+                            "schema_version", "score_digest", "status", "correct",
+                            "correct_count", "probe_count")}
                 observations.append(projected_observation)
             if completion == "completed":
                 if (observations[0].get("history_record_ids") != observations[2].get("history_record_ids")
