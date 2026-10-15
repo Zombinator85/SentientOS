@@ -2903,7 +2903,8 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     fake = FakeInvoker()
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
     fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
-    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7)
+    task = ObjectivePredictionTask(multiplier=3, offset=2, probe_input=7,
+        additional_probe_inputs=(8, 9), task_family_id="integer_affine_prediction")
     cognition, _ = owner(tmp_path, comparison=True, invoker=fake, objective_task=task)
     seeded = cognition.run_tick(snapshot=snapshot(), tick_id="final-score-recovery-seed")
     assert seeded.written_record_id
@@ -2929,6 +2930,52 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert run["objective_evaluation"]["history_accuracy_delta"] == 1
     assert run["objective_evaluation"]["restoration_correctness_stable"] is True
     assert len(run["objective_scores"]) == 3
+    from sentientos.persistent_epistemic_state import (
+        PersistentEpistemicStateOwner, make_proposition,
+    )
+    epistemics = PersistentEpistemicStateOwner(tmp_path / "epistemics",
+        allowed_namespaces=("operator",))
+    proposition = make_proposition(namespace="operator",
+        subject="task_family:integer_affine_prediction", predicate="history_effect",
+        object_value="history presence changes held-out correctness", polarity="positive",
+        qualifiers={"run_scope": run_id}, temporal_scope={"kind": "single_run"},
+        context_scope={"task_family_id": "integer_affine_prediction"},
+        proposition_class="causal_hypothesis")
+    epistemics.register_proposition(proposition)
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+            match="epistemic_run_digest_mismatch"):
+        restarted.experiments.objective_task_family_evidence_binding(
+            run_id=run_id, expected_run_digest="sha256:" + "0" * 64,
+            proposition_id=proposition.proposition_id)
+    outcome_binding = restarted.experiments.objective_task_family_evidence_binding(
+        run_id=run_id, expected_run_digest=run_digest,
+        proposition_id=proposition.proposition_id)
+    assert outcome_binding.source_artifact_id == run_id
+    assert outcome_binding.source_digest == run_digest
+    assert outcome_binding.source_class == "deterministic_task_family_evaluation"
+    assert outcome_binding.dependency_kind == "unknown_dependency"
+    assert outcome_binding.freshness == "unknown"
+    epistemics.bind_evidence(outcome_binding)
+    evaluated_at = max(datetime.fromisoformat(row["observed_at"].replace("Z", "+00:00"))
+        for row in run["conditions"]) + timedelta(seconds=1)
+    relation = outcome_binding.evidence_relation
+    stance = ("provisionally_supported" if relation == "supports" else
+        "provisionally_contradicted" if relation == "contradicts" else "suspended")
+    state, event = epistemics.commit_update(
+        proposition_id=proposition.proposition_id, expected_predecessor_digest=None,
+        stance=stance, reason="new_evidence", active_binding_ids=(outcome_binding.binding_id,),
+        added_binding_ids=(outcome_binding.binding_id,), correlation_id=run_id,
+        tick=1, recorded_at=evaluated_at.isoformat())
+    assert event.added_binding_ids == (outcome_binding.binding_id,)
+    assert state.dependency_unresolved is True
+    recovered_epistemics = PersistentEpistemicStateOwner(tmp_path / "epistemics",
+        allowed_namespaces=("operator",))
+    recovered_state = recovered_epistemics.current_state(proposition.proposition_id)
+    assert recovered_state == state
+    assert recovered_epistemics.bindings(proposition.proposition_id) == (outcome_binding,)
+    assert recovered_state.authority == {
+        "policy": False, "goal": False, "permission": False, "effect_admission": False,
+        "adoption": False, "memory_retention": False, "truth_oracle": False}
     projected = restarted.experiments.world_state_records(run_refs=refs)
     assert len(projected) == 1
     assert projected[0]["payload"]["objective_evaluation"] == run["objective_evaluation"]

@@ -637,6 +637,86 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError("objective_scores_unplanned")
         return value
 
+    def objective_task_family_evidence_binding(self, *, run_id: str,
+            expected_run_digest: str, proposition_id: str) -> Any:
+        """Translate one recovered task-family comparison into bounded evidence.
+
+        The proposition must describe the effect of history presence for the
+        exact tested task family.  The run owner verifies the protocol,
+        condition receipts, score checkpoints, and evaluator before any binding
+        is created.  Deterministic task scoring is retained as a bounded
+        experiment outcome: it is never classified as an external observation
+        or independent evidence.
+        """
+        run = self.load_run(run_id)
+        if run.get("run_digest") != expected_run_digest:
+            raise DevelopmentalHistoryInterventionError("epistemic_run_digest_mismatch")
+        protocol_raw = run.get("protocol")
+        if not isinstance(protocol_raw, Mapping):
+            raise DevelopmentalHistoryInterventionError("epistemic_run_protocol_missing")
+        descriptor = protocol_raw.get("objective_task_descriptor")
+        evaluation = run.get("objective_evaluation")
+        scores = run.get("objective_scores")
+        conditions = run.get("conditions")
+        probe_inputs = descriptor.get("probe_inputs") if isinstance(descriptor, Mapping) else None
+        if (not isinstance(descriptor, Mapping)
+                or descriptor.get("family_posture") != "operator_declared_protocol_bound"
+                or not isinstance(probe_inputs, list) or not probe_inputs
+                or descriptor.get("probe_count") != len(probe_inputs)
+                or not isinstance(descriptor.get("task_family_id"), str)
+                or not descriptor.get("task_family_id")
+                or not isinstance(evaluation, Mapping)
+                or evaluation.get("assessment") != "preregistered_probe_suite_scored"
+                or evaluation.get("probe_count") != len(probe_inputs)
+                or not isinstance(scores, list) or len(scores) != len(CONDITION_ORDER)
+                or not isinstance(conditions, list) or len(conditions) != len(CONDITION_ORDER)):
+            raise DevelopmentalHistoryInterventionError("epistemic_task_family_outcome_incomplete")
+        counts = evaluation.get("condition_correct_counts")
+        probe_count = evaluation.get("probe_count")
+        if (not isinstance(counts, list) or len(counts) != len(CONDITION_ORDER)
+                or any(type(count) is not int or count < 0 for count in counts)
+                or type(probe_count) is not int or probe_count <= 0
+                or any(count > probe_count for count in counts)
+                or evaluation.get("history_correct_probe_delta") != counts[0] - counts[1]):
+            raise DevelopmentalHistoryInterventionError("epistemic_task_family_score_binding_invalid")
+        for condition_id, score, observed in zip(CONDITION_ORDER, scores, conditions):
+            if (not isinstance(score, Mapping) or score.get("condition_id") != condition_id
+                    or not isinstance(score.get("score"), Mapping)
+                    or score["score"].get("correct_count") != counts[CONDITION_ORDER.index(condition_id)]
+                    or not isinstance(score["score"].get("score_digest"), str)
+                    or not isinstance(observed, Mapping) or observed.get("condition_id") != condition_id):
+                raise DevelopmentalHistoryInterventionError("epistemic_task_family_score_binding_invalid")
+        observed_times = [row.get("observed_at") for row in conditions]
+        if any(not isinstance(value, str) or not value for value in observed_times):
+            raise DevelopmentalHistoryInterventionError("epistemic_task_family_event_time_missing")
+        try:
+            instants = [datetime.fromisoformat(value.replace("Z", "+00:00"))
+                for value in observed_times]
+        except ValueError as exc:
+            raise DevelopmentalHistoryInterventionError(
+                "epistemic_task_family_event_time_invalid") from exc
+        if any(value.tzinfo is None or value.utcoffset() is None for value in instants):
+            raise DevelopmentalHistoryInterventionError(
+                "epistemic_task_family_event_time_invalid")
+        delta = counts[0] - counts[1]
+        relation = "supports" if delta > 0 else "contradicts" if delta < 0 else "contextualizes"
+        from .persistent_epistemic_state import make_evidence_binding
+        return make_evidence_binding(
+            proposition_id=proposition_id,
+            source_artifact_id=run_id,
+            source_digest=run["run_digest"],
+            source_schema=RUN_SCHEMA,
+            source_class="deterministic_task_family_evaluation",
+            observation_time=max(instants).isoformat(),
+            evidence_relation=relation,
+            dependency_kind="unknown_dependency",
+            dependency_group=None,
+            upstream_binding_ids=(),
+            freshness="unknown",
+            reliability_posture=(
+                "bounded_preregistered_task_family_outcome_not_external_observation"),
+        )
+
     def world_state_records(self, *, run_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
         """Project explicitly selected completed history trials as historical evidence."""
         from .world_state_board import record_digest
