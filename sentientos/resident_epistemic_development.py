@@ -198,6 +198,13 @@ class ResidentEpistemicDevelopmentRuntime:
                         "generation": value["generation"],
                         "successor_state_digest": value["successor_state_digest"],
                         "admission_id": value["admission_id"]})
+        evidence_receipt_bindings = {item["binding_id"] for item in receipts
+            if item["stage"] == "evidence"}
+        state_receipt_digests = {item["successor_state_digest"] for item in receipts
+            if item["stage"] == "state"}
+        if (evidence_receipt_bindings != {item.binding_id for item in bindings}
+                or state_receipt_digests != set(state_by_digest)):
+            raise EpistemicDevelopmentError("epistemic_trace_receipt_link_missing")
         active = {item.binding_id: item for item in bindings
             if item.binding_id in set(self.owner.active_binding_ids(proposition_id))}
         current = self.owner.current_state(proposition_id)
