@@ -42,7 +42,7 @@ PURPOSE = "resident_developmental_interpretation"
 COGNITION_LESSON_PROVENANCE_KIND = "history_conditioned_cognition_conclusion:v1"
 MAX_SELECTED_FACTS = 16
 MAX_SELECTED_EVIDENCE_BYTES = 6000
-MAX_RESOURCE_LINEAGE_SELECTED_EVIDENCE_BYTES = 8192
+MAX_RESOURCE_LINEAGE_SELECTED_EVIDENCE_BYTES = 10_240
 # A verified five-condition replacement run has a larger but still tightly
 # bounded lineage vector. This allowance is limited to one v2 embodiment fact;
 # all general and mixed-source selections retain the 6 KB cap.
@@ -450,6 +450,37 @@ def _valid_model_replacement_continuity_assessment(
 
 
 def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
+    # A scored family trial and its three independently reconciled condition
+    # receipts must be admitted together for the later exact-run join. Keep
+    # this larger allowance confined to that complete, historical-only shape.
+    if len(facts) == 4:
+        trial = [fact for fact in facts if isinstance(fact.get("source"), Mapping)
+            and fact["source"].get("kind") == "embodiment"
+            and isinstance(fact.get("subject"), Mapping)
+            and fact["subject"].get("subject_kind")
+                == "developmental_history_intervention_experiment"]
+        lineage = [fact for fact in facts if isinstance(fact.get("source"), Mapping)
+            and fact["source"].get("kind") == "resource_governor"
+            and isinstance(fact.get("subject"), Mapping)
+            and fact["subject"].get("subject_kind")
+                == "developmental_history_invocation_resource_lineage"]
+        if (len(trial) == 1 and len(lineage) == 3
+                and all(isinstance(fact.get("payload"), Mapping)
+                    and fact["payload"].get("current_truth") is False
+                    and fact["payload"].get("authority") is False for fact in facts)
+                and {fact.get("payload", {}).get("developmental_history_condition")
+                    for fact in lineage} == {"history_present", "history_withheld",
+                        "history_restored"}
+                and all(fact["payload"].get("developmental_history_run_id")
+                    == trial[0]["payload"].get("run_id")
+                    and fact["payload"].get("developmental_history_run_digest")
+                        == trial[0]["payload"].get("run_digest")
+                    and fact["payload"].get("developmental_history_source_record_id")
+                        == trial[0]["source"].get("source_id")
+                    and fact["payload"].get("developmental_history_source_record_digest")
+                        == trial[0]["source"].get("digest") for fact in lineage)
+                and all(fact.get("disposition") == "verified" for fact in lineage)):
+            return 48_000
     if len(facts) == 1:
         fact = facts[0]
         source, subject, payload = fact.get("source"), fact.get("subject"), fact.get("payload")
@@ -2222,8 +2253,10 @@ class ResidentDevelopmentalWritebackController:
     @staticmethod
     def infer_candidate(selection: SelectedEvidence, *, invoker: LocalModelInvoker,
                         correlation_id: str, budget: LocalModelInvocationBudget | None = None) -> DevelopmentalCandidate:
-        bounded = budget or LocalModelInvocationBudget(max_input_chars=8000, max_output_chars=4000, max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
-        if bounded.max_calls_per_correlation != 1 or bounded.max_input_chars > 8000 or bounded.max_output_chars > 4000 or bounded.max_new_tokens > 512 or bounded.timeout_seconds > 30:
+        input_limit = (52_000 if _selected_fact_byte_limit(selection.facts) == 48_000
+            else 8000)
+        bounded = budget or LocalModelInvocationBudget(max_input_chars=input_limit, max_output_chars=4000, max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
+        if bounded.max_calls_per_correlation != 1 or bounded.max_input_chars > input_limit or bounded.max_output_chars > 4000 or bounded.max_new_tokens > 512 or bounded.timeout_seconds > 30:
             raise DevelopmentalWritebackError("developmental_inference_budget_unbounded")
         schema = {"type":"object", "required":["interpretation","uncertainty"], "additionalProperties":False,
                   "properties":{"interpretation":{"type":"string","maxLength":MAX_INTERPRETATION_CHARS},
@@ -2623,7 +2656,7 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
             or set(request_budget) != {"max_input_chars", "max_output_chars", "max_new_tokens",
                                       "timeout_seconds", "max_calls_per_correlation"}
             or not isinstance(request_budget.get("max_input_chars"), int)
-            or request_budget["max_input_chars"] > 16_000
+            or request_budget["max_input_chars"] > 48_000
             or not isinstance(request_budget.get("max_output_chars"), int)
             or request_budget["max_output_chars"] > 4000
             or not isinstance(request_budget.get("max_new_tokens"), int)

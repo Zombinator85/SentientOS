@@ -201,7 +201,7 @@ MAX_COGNITION_OBSERVATIONS = 12_288
 MAX_COGNITION_OBSERVATION_BYTES = 65_536
 MAX_COGNITION_OBSERVATION_ROOT_BYTES = 134_217_728
 MAX_RESIDENT_COGNITION_CONFIG_BYTES = 65_536
-MAX_RESIDENT_COGNITION_INPUT_CHARS = 16_000
+MAX_RESIDENT_COGNITION_INPUT_CHARS = 48_000
 MAX_COGNITION_CONCLUSION_BYTES = 4000
 LEGACY_OBJECTIVE_REQUEST_SCHEMA = "sentientos.resident_objective_intervention_request:v1"
 OBJECTIVE_REQUEST_SCHEMA = "sentientos.resident_objective_intervention_request:v2"
@@ -1787,7 +1787,7 @@ def _history_context_packet(record: Mapping[str, Any], *,
             packet["possible_contradiction_ids"] = list(
                 lesson.get("possible_contradiction_ids", ()))[:8]
     encoded = json.dumps(packet, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    if len(encoded.encode("utf-8")) > 12_000:
+    if len(encoded.encode("utf-8")) > 32_000:
         raise ResidentDevelopmentalCognitionError("developmental_history_context_packet_unbounded")
     return packet
 
@@ -5083,7 +5083,7 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError("history_preflight_digest_mismatch")
                 record_set_digest = _digest({"record_ids":list(protocol_record_ids),
                     "record_digests":list(record_digests)})
-                budget = LocalModelInvocationBudget(max_input_chars=16000, max_output_chars=4000,
+                budget = LocalModelInvocationBudget(max_input_chars=MAX_RESIDENT_COGNITION_INPUT_CHARS, max_output_chars=4000,
                     max_new_tokens=512, timeout_seconds=30, max_calls_per_correlation=1)
                 probe = self.invoker.build_request(purpose=EXPERIMENT_PURPOSE, prompt="protocol-control-probe",
                     caller=PRINCIPAL, correlation_id=f"{tick_id}:developmental-experiment:protocol",

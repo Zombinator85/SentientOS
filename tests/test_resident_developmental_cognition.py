@@ -4161,7 +4161,10 @@ def epistemic_projection(root: Path, *, with_evidence: bool = False):
     return projection, proposition, state
 
 
-def test_meaning_bearing_epistemic_packets_reach_actual_inference_request(tmp_path: Path):
+def test_meaning_bearing_epistemic_packets_reach_actual_inference_request(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import sentientos.resident_developmental_cognition as cognition_module
+    monkeypatch.setattr(cognition_module, "MAX_RESIDENT_COGNITION_INPUT_CHARS", 16_000)
     epistemic = PersistentEpistemicStateOwner(tmp_path / "epistemic",
         allowed_namespaces=["embodiment"])
     propositions = [make_proposition(namespace="embodiment", subject="sensor:g9",
@@ -4262,7 +4265,10 @@ def test_legacy_identifier_projection_is_valid_but_not_delivered_as_meaning(tmp_
     assert request.upstream_evidence["epistemic_state_ids"] == [state.state_id]
 
 
-def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(tmp_path: Path):
+def test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import sentientos.resident_developmental_cognition as cognition_module
+    monkeypatch.setattr(cognition_module, "MAX_RESIDENT_COGNITION_INPUT_CHARS", 16_000)
     epistemic = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
     for index in range(2):
         proposition_value = make_proposition(namespace="embodiment", subject=f"sensor:{index}",
