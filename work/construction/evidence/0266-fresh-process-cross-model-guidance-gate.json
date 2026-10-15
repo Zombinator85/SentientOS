@@ -1,0 +1,45 @@
+{
+  "sequence": 266,
+  "title": "Verify cross-model task-history omission after restart",
+  "source_parent_commit": "fd7df663f7533533b1c6b945586a6a85b809f288",
+  "source_parent_tree": "43b642ecd84d7fa93f7e5f20e19ef418005fa352",
+  "source_commit": "8637d0317e541fbd8f7c126691ab498b23591204",
+  "source_tree": "50109297e16c0f0e3eeba17bfa5ec9357c93f53e",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "fd7df663f7533533b1c6b945586a6a85b809f288",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "9ab86b4649f9a9a0edcefc970a0039a8d5b47f97"
+    }
+  ],
+  "validation": {
+    "selected_task_family_and_model_identity_nodes": "4 passed",
+    "python_compile": "passed",
+    "source_hygiene": "passed"
+  },
+  "observations": {
+    "same_model_later_episode_receives_examples": true,
+    "different_model_fresh_process_receives_no_task_examples": true,
+    "cross_model_omission_digest_preserved": true,
+    "source_fact_ids_preserved": true,
+    "historical_positive_score_summaries_preserved": true,
+    "cross_model_fixture_correct_count": 0,
+    "fixture_inference": "deterministic_simulated",
+    "production_effects": false,
+    "learning_claim": false,
+    "authority_expansion": false
+  },
+  "limitations": [
+    "Outcome differences are fixture results and not evidence of real-model learning or transfer.",
+    "The gate covers explicit task-family evidence; broader natural-language history applicability remains unresolved."
+  ]
+}

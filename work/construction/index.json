@@ -2800,6 +2800,18 @@
       "sha256": "005b2ad4291309bdfd2a3067268426e8a6089fe74e0fd58e1d446b939bc9efe3",
       "source_commit": "2eb56f4f1bc9c687a73cf8bbdfa6b92a870f8733",
       "source_tree": "19bf03d00ec338e58b139a08f5939f18120765cf"
+    },
+    {
+      "bytes": 1222,
+      "evidence_bytes": 1743,
+      "evidence_path": "work/construction/evidence/0266-fresh-process-cross-model-guidance-gate.json",
+      "evidence_sha256": "b25ce8c81a5626d1e302f033679ed9ddf73eb375e7c771212c2b1fd76f19c9f5",
+      "path": "work/construction/segments/0266-fresh-process-cross-model-guidance-gate.md",
+      "predecessor": "segment-sha256:005b2ad4291309bdfd2a3067268426e8a6089fe74e0fd58e1d446b939bc9efe3",
+      "sequence": 266,
+      "sha256": "d8838f7df4198d41bd57b60104ba49b5ff5b83c54f6878ed18436e8650e2f0a6",
+      "source_commit": "8637d0317e541fbd8f7c126691ab498b23591204",
+      "source_tree": "50109297e16c0f0e3eeba17bfa5ec9357c93f53e"
     }
   ],
   "source_acquisition": {

@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq265 withholds task-family examples from cognition guidance when source and current model identities differ or either is unbound. Source/run/score identities, outcome counts, and omission digest remain in the packet; same-model, same-family examples retain explicit task-scope uncertainty.
+Seq266 verifies model-bound task guidance across a fresh-process identity change: matching model/family examples reach later tasks; different-model examples are withheld while their source, score, and omission evidence remain inspectable.
 
-Latest source commit: 2eb56f4f1bc9c687a73cf8bbdfa6b92a870f8733
-Latest source tree: 19bf03d00ec338e58b139a08f5939f18120765cf
-Latest segment: work/construction/segments/0265-model-bound-task-guidance.md
-Evidence: work/construction/evidence/0265-model-bound-task-guidance.json
+Latest source commit: 8637d0317e541fbd8f7c126691ab498b23591204
+Latest source tree: 50109297e16c0f0e3eeba17bfa5ec9357c93f53e
+Latest segment: work/construction/segments/0266-fresh-process-cross-model-guidance-gate.md
+Evidence: work/construction/evidence/0266-fresh-process-cross-model-guidance-gate.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 265
+Sequence: 266
 
-Validation: three selected task-family staging/progression and serving tests passed; compilation and source hygiene passed. The canonical runner could not install dependencies offline.
+Validation: four selected task-family progression, restart, and serving tests passed; compilation and source checks passed. The integrated inference fixture is deterministic and simulated.
 
-Limits: same model and family do not prove exact task applicability or general transfer. No production effects, live forge apply, or authority expansion are claimed.
+Limits: this demonstrates gating behavior, not real-model learning or generalization. No production effects or authority expansion are claimed.
 
-Next: bind explicit operator-declared task-family/model applicability evidence to bounded goal selection and verify stale/missing target identities cannot reopen omitted history.
+Next: bind explicit task applicability to proposition-tagged goal selection and ensure unknown/stale target identity cannot reopen withheld history.
