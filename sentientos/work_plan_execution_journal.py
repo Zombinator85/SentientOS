@@ -15,8 +15,10 @@ ZERO_DIGEST = "0" * 64
 _FIELDS_V1 = {"schema_version", "sequence", "plan_id", "plan_digest", "task_id",
     "event", "status", "reason", "recorded_at", "previous_digest", "digest"}
 _FIELDS_V2 = _FIELDS_V1 | {"task_result"}
+_FIELDS_V3 = _FIELDS_V2 | {"attempt"}
 _TASK_RESULT_FIELDS = {"task_id", "goal_id", "kind", "status", "reason", "started_at",
     "finished_at", "duration_ms", "artifacts", "destructive"}
+_RETRYABLE_TASK_KINDS = frozenset({"diagnostic", "verify"})
 
 
 class WorkPlanJournalError(ValueError):
@@ -59,6 +61,7 @@ class WorkPlanExecutionJournal:
                 raise WorkPlanJournalError("work_plan_task_dependencies_invalid")
         self._states: dict[str, str] = {}
         self._results: dict[str, TaskRun] = {}
+        self._attempts: dict[str, int] = {}
         self._sequence = 0
         self._head = ZERO_DIGEST
         self._recover()
@@ -74,6 +77,20 @@ class WorkPlanExecutionJournal:
             raise WorkPlanJournalError("work_plan_journal_start_conflict")
         self._append(task_id, "started", None, None, None)
         self._states[task_id] = "interrupted"
+        self._attempts[task_id] = 1
+
+    def retry_start(self, task_id: str) -> None:
+        """Record an idempotent diagnostic/verification replay after interruption."""
+        task = self._tasks.get(task_id)
+        if (task is None or self._states.get(task_id) != "interrupted"
+                or task.kind not in _RETRYABLE_TASK_KINDS or task.destructive):
+            raise WorkPlanJournalError("work_plan_journal_retry_not_allowed")
+        attempt = self._attempts.get(task_id, 0) + 1
+        self._append(task_id, "retry_started", None, None, None, attempt=attempt)
+        self._attempts[task_id] = attempt
+
+    def attempt_count(self, task_id: str) -> int:
+        return self._attempts.get(task_id, 0)
 
     def finish(self, task_id: str, *, status: str, reason: str | None,
             result: TaskRun | None = None) -> None:
@@ -139,14 +156,16 @@ class WorkPlanExecutionJournal:
                     or type(row.get("schema_version")) is not int
                     or (row["schema_version"] == 1 and set(row) != _FIELDS_V1)
                     or (row["schema_version"] == 2 and set(row) != _FIELDS_V2)
-                    or row["schema_version"] not in {1, 2}
+                    or (row["schema_version"] == 3 and set(row) != _FIELDS_V3)
+                    or row["schema_version"] not in {1, 2, 3}
                     or type(row.get("sequence")) is not int or row["sequence"] != self._sequence + 1
                     or row.get("plan_id") != self.plan_id
                     or row.get("plan_digest") != self.plan_digest
                     or not isinstance(row.get("task_id"), str)
                     or row["task_id"] not in self._known_task_ids
                     or not isinstance(row.get("event"), str)
-                    or row["event"] not in {"started", "finished"}
+                    or row["event"] not in {"started", "finished", "retry_started"}
+                    or (row["schema_version"] == 3 and row["event"] != "retry_started")
                     or not isinstance(row.get("recorded_at"), str)
                     or row.get("previous_digest") != self._head
                     or not _is_digest(row.get("digest"))):
@@ -156,12 +175,25 @@ class WorkPlanExecutionJournal:
                 raise WorkPlanJournalError("work_plan_journal_digest_mismatch")
             task_id = row["task_id"]
             task_result = self._decode_task_result(task_id, row.get("task_result")) \
-                if row["schema_version"] == 2 else None
+                if row["schema_version"] in {2, 3} else None
             if row["event"] == "started":
                 if (task_id in self._states or row["status"] is not None
-                        or row["reason"] is not None or task_result is not None):
+                        or row["reason"] is not None or task_result is not None
+                        or row["schema_version"] not in {1, 2}):
                     raise WorkPlanJournalError("work_plan_journal_transition_invalid")
                 self._states[task_id] = "interrupted"
+                self._attempts[task_id] = 1
+            elif row["event"] == "retry_started":
+                attempt = row.get("attempt")
+                if (row["schema_version"] != 3 or self._states.get(task_id) != "interrupted"
+                        or self._tasks[task_id].kind not in _RETRYABLE_TASK_KINDS
+                        or self._tasks[task_id].destructive
+                        or type(attempt) is not int
+                        or attempt != self._attempts.get(task_id, 0) + 1
+                        or row["status"] is not None or row["reason"] is not None
+                        or task_result is not None):
+                    raise WorkPlanJournalError("work_plan_journal_transition_invalid")
+                self._attempts[task_id] = attempt
             else:
                 if (self._states.get(task_id) != "interrupted"
                         or not isinstance(row.get("status"), str)
@@ -169,7 +201,7 @@ class WorkPlanExecutionJournal:
                         or (row["reason"] is not None and not isinstance(row["reason"], str))
                         or (task_result is not None and (task_result.status != row["status"]
                             or task_result.reason != row["reason"]))
-                        or (row["schema_version"] == 2 and task_result is None)):
+                        or (row["schema_version"] in {2, 3} and task_result is None)):
                     raise WorkPlanJournalError("work_plan_journal_transition_invalid")
                 self._states[task_id] = row["status"]
                 if task_result is not None:
@@ -178,15 +210,19 @@ class WorkPlanExecutionJournal:
             self._head = row["digest"]
 
     def _append(self, task_id: str, event: str, status: str | None,
-            reason: str | None, task_result: dict[str, Any] | None) -> None:
+            reason: str | None, task_result: dict[str, Any] | None,
+            *, attempt: int | None = None) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        semantic: dict[str, Any] = {"schema_version": 2,
+        schema_version = 3 if event == "retry_started" else 2
+        semantic: dict[str, Any] = {"schema_version": schema_version,
             "sequence": self._sequence + 1, "plan_id": self.plan_id,
             "plan_digest": self.plan_digest, "task_id": task_id,
             "event": event, "status": status, "reason": reason,
             "task_result": task_result,
             "recorded_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "previous_digest": self._head}
+        if schema_version == 3:
+            semantic["attempt"] = attempt
         row = {**semantic, "digest": hashlib.sha256(_canonical(semantic)).hexdigest()}
         encoded = _canonical(row) + b"\n"
         if self.path.exists() and self.path.stat().st_size + len(encoded) > MAX_JOURNAL_BYTES:

@@ -273,6 +273,42 @@ def test_interrupted_task_stays_unknown_while_independent_task_continues(
     ]
 
 
+def test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_dependency(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    checks = []
+    tasks = (
+        Task(1, "g1:diagnostic", "g1", "diagnostic",
+            ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False),
+        Task(1, "g1:propose", "g1", "forge_propose", (), None, 0, 0, {}, (), False,
+            ("g1:diagnostic",)),
+    )
+    plan = WorkPlan(1, "retry-safe-check", "2026-01-01T00:00:00Z",
+        "manual", ("g1",), tasks)
+
+    def interrupted_twice(self, task):
+        checks.append(task.task_id)
+        if task.task_id == "g1:diagnostic" and checks.count("g1:diagnostic") <= 2:
+            raise SystemExit("simulated interruption during allowlisted check")
+        return "success", None, ()
+
+    monkeypatch.setattr(GoalExecutor, "_execute_task", interrupted_twice)
+    executor = GoalExecutor(repo_root=tmp_path)
+    for _ in range(2):
+        with pytest.raises(SystemExit, match="simulated interruption"):
+            executor.execute_plan(plan, _state(tmp_path))
+    recovered = executor.execute_plan(plan, _state(tmp_path))
+
+    assert checks == ["g1:diagnostic", "g1:diagnostic", "g1:diagnostic", "g1:propose"]
+    assert [(row.task_id, row.status) for row in recovered.task_runs] == [
+        ("g1:diagnostic", "success"), ("g1:propose", "success")]
+    journal = WorkPlanExecutionJournal(tmp_path, plan)
+    assert journal.state("g1:diagnostic") == "success"
+    assert journal.attempt_count("g1:diagnostic") == 3
+    assert journal.result("g1:diagnostic") == recovered.task_runs[0]
+    assert journal.state("g1:propose") == "success"
+
+
 def test_same_plan_id_changed_definition_gets_distinct_execution_journal(
     tmp_path: Path,
 ) -> None:

@@ -1,0 +1,22 @@
+{
+  "task_id": "interrupted-safe-task-progression",
+  "version": 1,
+  "required_pytest_nodes": [
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_dependency",
+      "role": "successful_path",
+      "expected": "A started but uncompleted allowlisted diagnostic is append-only resumed across repeated interruption, completes under its exact plan, and only then unblocks its dependent task; recovered journal preserves attempt count and task results."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_interrupted_task_stays_unknown_while_independent_task_continues",
+      "role": "adversarial_boundary",
+      "expected": "An interrupted non-idempotent forge proposal remains unknown, its dependent apply stays skipped, and an independent diagnostic continues."
+    }
+  ],
+  "non_claims": [
+    "automatic replay of forge proposal or apply tasks",
+    "operator mutation authority",
+    "successful goal completion",
+    "effectful recovery without a durable result"
+  ]
+}

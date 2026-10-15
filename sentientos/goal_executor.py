@@ -88,6 +88,7 @@ class GoalExecutor:
             reason: str | None = None
             artifacts: tuple[str, ...] = ()
             destructive = task.destructive or task.kind == "forge_apply"
+            retry_interrupted = False
 
             prior_state = journal.state(task.task_id)
             if prior_state is not None:
@@ -98,24 +99,28 @@ class GoalExecutor:
                     if prior_result.status in {"failed", "skipped"} and prior_result.reason:
                         reasons.append(prior_result.reason)
                     continue
-                status = "skipped"
-                reason = ("prior_attempt_outcome_unknown" if prior_state == "interrupted"
-                    else f"prior_terminal_{prior_state}_not_replayed")
-                effective_task_status[task.task_id] = (
-                    "unknown" if prior_state == "interrupted" else prior_state)
-                finished = _iso_now()
-                task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id,
-                    kind=task.kind, status=status, reason=reason, started_at=started,
-                    finished_at=finished, duration_ms=0, artifacts=(), destructive=destructive))
-                reasons.append(reason)
-                continue
+                retry_interrupted = (prior_state == "interrupted"
+                    and task.kind in {"diagnostic", "verify"} and not task.destructive)
+                if not retry_interrupted:
+                    status = "skipped"
+                    reason = ("prior_attempt_outcome_unknown" if prior_state == "interrupted"
+                        else f"prior_terminal_{prior_state}_not_replayed")
+                    effective_task_status[task.task_id] = (
+                        "unknown" if prior_state == "interrupted" else prior_state)
+                    finished = _iso_now()
+                    task_runs.append(TaskRun(task_id=task.task_id, goal_id=task.goal_id,
+                        kind=task.kind, status=status, reason=reason, started_at=started,
+                        finished_at=finished, duration_ms=0, artifacts=(), destructive=destructive))
+                    reasons.append(reason)
+                    continue
 
             blocked_dependencies = tuple(dependency for dependency in task.depends_on
                 if effective_task_status.get(dependency) != "success")
             if blocked_dependencies:
                 status = "skipped"
                 reason = "dependency_not_satisfied:" + ",".join(blocked_dependencies)
-                journal.start(task.task_id)
+                if not retry_interrupted:
+                    journal.start(task.task_id)
                 effective_task_status[task.task_id] = status
                 finished = _iso_now()
                 task_run = TaskRun(task_id=task.task_id, goal_id=task.goal_id,
@@ -126,7 +131,10 @@ class GoalExecutor:
                 reasons.append(reason)
                 continue
 
-            journal.start(task.task_id)
+            if retry_interrupted:
+                journal.retry_start(task.task_id)
+            else:
+                journal.start(task.task_id)
 
             if destructive and (state.quarantine_active or not state.allow_mutation):
                 status = "skipped"
