@@ -1881,7 +1881,7 @@ print(json.dumps({"stance": state.stance if state else None,
     from sentientos.goal_executor import ExecutorState, GoalExecutor
     from sentientos.goal_graph import Goal, GoalGraph
     from sentientos.risk_budget import RiskBudget
-    from sentientos.work_allocator import AllocationDecision
+    from sentientos.work_allocator import AllocationDecision, allocate_goals
     planning_graph = GoalGraph(schema_version=1, goals=(Goal(
         "integer-affine-followup", "continue the measured task family", 1.0, 1,
         (), "check_forge_last_run_ok", 2, 1,
@@ -1915,6 +1915,26 @@ print(json.dumps({"stance": state.stance if state else None,
             for item in evidence_conditioned_plan.omissions}
     assert f"epistemic_projection_digest={updated_projection.projection_digest}" \
         in evidence_conditioned_plan.context
+    allocation_graph = GoalGraph(schema_version=1, goals=(
+        Goal("history-sensitive", "mapped goal", 1.0, 10, (), "rule", 2, 1,
+            (f"epistemic_proposition:{proposition.proposition_id}",), True),
+        Goal("independent", "independent goal", 1.0, 1, (), "rule", 2, 1,
+            ("integrity",), True)))
+    allocation_budget = RiskBudget(router_k_max=2, router_m_max=2)
+    base_allocation = allocate_goals(graph=allocation_graph, budget=allocation_budget,
+        operating_mode="normal", integrity_pressure_level=0,
+        quarantine_active=False, posture="balanced")
+    evidence_allocation = allocate_goals(graph=allocation_graph,
+        budget=allocation_budget, operating_mode="normal",
+        integrity_pressure_level=0, quarantine_active=False, posture="balanced",
+        prior_epistemic_projection=updated_projection)
+    assert base_allocation.selected == ("history-sensitive",)
+    assert evidence_allocation.selected == ("independent",)
+    assert any(item.goal_id == "history-sensitive"
+        and item.reason == "epistemic_review_required"
+        for item in evidence_allocation.deferred)
+    assert evidence_allocation.selected_reasons[0][
+        "epistemic_projection_digest"] == updated_projection.projection_digest
 
 
 def test_admitted_family_example_supports_second_heldout_episode_after_restart(

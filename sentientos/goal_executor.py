@@ -13,8 +13,9 @@ from sentientos.cathedral_forge import CathedralForge
 from sentientos.forge_goals.registry import REGISTRY
 from sentientos.goal_completion import CompletionContext, eval_check, persist_completion_result
 from sentientos.goal_graph import Goal, GoalGraph, GoalStateRecord, default_goal_state_record
-from sentientos.persistent_epistemic_state import (EpistemicCognitiveProjection,
-    EpistemicStateError, semantic_packets_for_projection, validate_cognitive_projection)
+from sentientos.epistemic_planning import (EpistemicPlanningError,
+    review_required_propositions)
+from sentientos.persistent_epistemic_state import EpistemicCognitiveProjection
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (Task, TaskOmission, TaskRun, WorkPlan, WorkPlanError,
@@ -68,27 +69,14 @@ class GoalExecutor:
         epistemic_review_goal_ids: set[str] = set()
         epistemic_projection_digest: str | None = None
         if state.prior_epistemic_projection is not None:
-            if not isinstance(state.prior_epistemic_projection,
-                    EpistemicCognitiveProjection):
-                raise WorkPlanError("prior_epistemic_projection_invalid")
             try:
-                validate_cognitive_projection(state.prior_epistemic_projection,
-                    require_meaning=True)
-                packets = semantic_packets_for_projection(
+                epistemic_projection_digest, review_ids = review_required_propositions(
                     state.prior_epistemic_projection)
-            except EpistemicStateError as exc:
+            except EpistemicPlanningError as exc:
                 raise WorkPlanError("prior_epistemic_projection_invalid") from exc
-            epistemic_projection_digest = state.prior_epistemic_projection.projection_digest
-            for packet in packets:
-                proposition_id = packet["proposition"]["proposition_id"]
-                epistemic_state = packet["state"]
-                requires_review = (epistemic_state["stance"] not in {
-                    "provisionally_supported", "supported"}
-                    or epistemic_state["dependency_unresolved"]
-                    or epistemic_state["freshness"] != "current")
-                if requires_review:
-                    epistemic_review_goal_ids.update(goal.goal_id for goal in graph.goals
-                        if f"epistemic_proposition:{proposition_id}" in goal.tags)
+            epistemic_review_goal_ids.update(goal.goal_id for goal in graph.goals
+                if any(f"epistemic_proposition:{proposition_id}" in goal.tags
+                    for proposition_id in review_ids))
         for goal_id in allocation.selected:
             goal = goals_by_id.get(goal_id)
             if goal is None:

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sentientos.epistemic_planning import review_required_propositions
 from sentientos.goal_graph import Goal, GoalGraph, dependency_unmet, order_goals_deterministic
+from sentientos.persistent_epistemic_state import EpistemicCognitiveProjection
 from sentientos.risk_budget import RiskBudget
 
 
@@ -33,6 +35,7 @@ def allocate_goals(
     integrity_pressure_level: int,
     quarantine_active: bool,
     posture: str,
+    prior_epistemic_projection: EpistemicCognitiveProjection | None = None,
 ) -> AllocationDecision:
     selected: list[str] = []
     selected_reasons: list[dict[str, object]] = []
@@ -40,6 +43,11 @@ def allocate_goals(
     spent_risk = 0
     spent_throughput = 0
     all_goal_ids = {goal.goal_id for goal in graph.goals}
+    projection_digest: str | None = None
+    review_proposition_ids: frozenset[str] = frozenset()
+    if prior_epistemic_projection is not None:
+        projection_digest, review_proposition_ids = review_required_propositions(
+            prior_epistemic_projection)
 
     for goal in order_goals_deterministic(graph.goals):
         if not goal.enabled:
@@ -54,6 +62,11 @@ def allocate_goals(
         if quarantine_active and _is_quarantine_blocked(goal):
             deferred.append(DeferredGoal(goal_id=goal.goal_id, reason="quarantine_blocked"))
             continue
+        if any(f"epistemic_proposition:{proposition_id}" in goal.tags
+                for proposition_id in review_proposition_ids):
+            deferred.append(DeferredGoal(goal_id=goal.goal_id,
+                reason="epistemic_review_required"))
+            continue
 
         score = _goal_score(goal, posture=posture, pressure_level=integrity_pressure_level)
         if spent_risk + goal.risk_cost_estimate > budget.router_k_max:
@@ -65,8 +78,7 @@ def allocate_goals(
         selected.append(goal.goal_id)
         spent_risk += goal.risk_cost_estimate
         spent_throughput += goal.throughput_cost_estimate
-        selected_reasons.append(
-            {
+        reason = {
                 "goal_id": goal.goal_id,
                 "score": round(score, 6),
                 "base_weight": goal.weight,
@@ -77,7 +89,9 @@ def allocate_goals(
                 "posture_multiplier": _posture_multiplier(goal, posture),
                 "pressure_multiplier": _pressure_multiplier(goal, integrity_pressure_level),
             }
-        )
+        if projection_digest is not None:
+            reason["epistemic_projection_digest"] = projection_digest
+        selected_reasons.append(reason)
 
     return AllocationDecision(
         selected=tuple(selected),
