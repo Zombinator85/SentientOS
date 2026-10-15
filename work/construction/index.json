@@ -2680,6 +2680,18 @@
       "sha256": "1a39345d95b64121b520fd30f3d45bac4acc1bcc8262655acb9f2fabbfee8555",
       "source_commit": "b832bb6cff9ff979e5936ad568e98cd4d72d65e1",
       "source_tree": "5ca2fdab7d7bb521bde26c723707106ad4645b3d"
+    },
+    {
+      "bytes": 1570,
+      "evidence_bytes": 1975,
+      "evidence_path": "work/construction/evidence/0257-bounded-epistemic-proposition-trace.json",
+      "evidence_sha256": "6b1d6326ceecc139bffa86844477790b443c00a75aca98a2ae177321198d899a",
+      "path": "work/construction/segments/0257-bounded-epistemic-proposition-trace.md",
+      "predecessor": "segment-sha256:1a39345d95b64121b520fd30f3d45bac4acc1bcc8262655acb9f2fabbfee8555",
+      "sequence": 257,
+      "sha256": "0322386cf869f12df597ea97168697d3aea9b4d63d73275f09e16a17dbc6d4b4",
+      "source_commit": "678767c107432e47bf2dcc892b7f1e021574f01b",
+      "source_tree": "e3df8f6399ae81a24c7ff104288da7eaa9cac0b9"
     }
   ],
   "source_acquisition": {

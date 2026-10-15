@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq256 carries an exact recovered task-family outcome through the configured epistemic runtime: separate evidence and state admissions, mutation receipt recovery, later cognition with the same state digest, and live-owner causal introspection metadata. A wrong run digest is rejected before admission, and repeated processing is idempotent.
+Seq257 adds a bounded explicit trace for one configured epistemic proposition. It joins retained evidence, source run identities and original event times, state generations, update events, verified mutation receipts, and the exact prior cognition projection. The recovered task-family path tests trace reconstruction and digest continuity.
 
-Latest source commit: b832bb6cff9ff979e5936ad568e98cd4d72d65e1
-Latest source tree: 5ca2fdab7d7bb521bde26c723707106ad4645b3d
-Latest segment: work/construction/segments/0256-runtime-admitted-task-family-epistemic-consequence.md
-Evidence: work/construction/evidence/0256-runtime-admitted-task-family-epistemic-consequence.json
+Latest source commit: 678767c107432e47bf2dcc892b7f1e021574f01b
+Latest source tree: e3df8f6399ae81a24c7ff104288da7eaa9cac0b9
+Latest segment: work/construction/segments/0257-bounded-epistemic-proposition-trace.md
+Evidence: work/construction/evidence/0257-bounded-epistemic-proposition-trace.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 256
+Sequence: 257
 
-Validation: affected epistemic, mutation, developmental experiment, and cognition suites passed; focused epistemic and causal scope passed (57 tests). Changed Python files compiled and whitespace checks passed.
+Validation: the focused recovery node passed; the epistemic and causal-introspection scope passed 57 tests; compilation and whitespace checks passed.
 
-Limits: deterministic fixture outcomes do not establish external truth or model improvement. Causal introspection reports owner metadata, not an exact per-proposition consequence chain. Effect authority remains false.
+Limits: only one positive deterministic task-family outcome is covered. Negative-transfer correction, contradictory later outcome, contested update, independent later behavioral comparison, and outcome-informed goal planning remain open. No truth, external causation, or effect authority is claimed.
 
-Next: preserve adverse negative-transfer correction through the same admitted epistemic path and extend exact provenance in causal introspection. Then continue verified outcome-informed goal planning and remaining developmental integration.
+Next: complete the D1-D8 corrective longitudinal episode using two distinct preregistered and independently scored runs admitted through the existing runtime, then trace contested state into a separately evaluated later cognition and fresh-process recovery. Continue E1-E8 outcome-informed planning afterward.
