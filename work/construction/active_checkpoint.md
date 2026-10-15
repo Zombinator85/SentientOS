@@ -1,16 +1,14 @@
 # Active construction checkpoint
 
-Seq268 wires a read-only current-serving-identity observation into orchestrator allocation and canonical plan creation. The digest and planning-time timestamp are retained in the allocation artifact and plan context; no inference or session acquisition occurs.
+Seq269 preserves bounded historical comparison outcomes in downstream cognition. Compact measurements retain identity and interpretation, while source digests bind full raw history. Same-model identity and drift gates remain enforced; no byte budget was increased.
 
-Latest source commit: 9a3bf74148d8ece314a39a1edd85ab03a8a176a0
-Latest source tree: c626c58ab803077f81ec4455dc016d213ec77f2b
-Latest segment: work/construction/segments/0268-serving-observation-planning-wiring.md
-Evidence: work/construction/evidence/0268-serving-observation-planning-wiring.json
+Latest source commit: 2f838f17b2472b54ff68990851c9da5918eda19e
+Latest source tree: ecae3a284ca8cda474210a675755fc903332e456
+Latest segment: work/construction/segments/0269-bounded-history-comparison-projection.md
+Evidence: work/construction/evidence/0269-bounded-history-comparison-projection.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 268
+Sequence: 269
 
-Validation: 13 selected orchestrator, applicability, and plan tests passed; compile and AST parsing passed.
+Validation: native focused reporter run completed with 118 passed, 2 skipped, 0 failed; compile and diff checks passed. Full repository integration remains blocked by existing admin-banner tests under unprivileged execution.
 
-Limits: daemon composition still must supply the optional identity observer and verified prior projection. The partial-score downstream cognition selected-evidence bound remains unresolved.
-
-Next: investigate selected-evidence size from a partial-score historical experiment without broadening byte limits, then assess how the daemon's existing owner can supply a verified prior projection.
+Next: wire the daemon's verified prior-projection owner into canonical planning, then validate the integrated history trajectory and full repository integration before the merge milestone.
