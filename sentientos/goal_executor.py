@@ -121,6 +121,11 @@ class GoalExecutor:
             context_parts.append(f"prior_work_run_digest={prior_run_digest}")
         if epistemic_projection_digest is not None:
             context_parts.append(f"epistemic_projection_digest={epistemic_projection_digest}")
+        if state.target_active_model_identity_digest is not None:
+            context_parts.append("target_model_identity_digest="
+                + state.target_active_model_identity_digest)
+            context_parts.append("target_identity_observed_at="
+                + str(state.target_identity_observed_at))
         epistemic_binding = {
             "projection_digest": epistemic_projection_digest,
             "review_scopes": epistemic_review_scopes,
