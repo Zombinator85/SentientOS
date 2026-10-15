@@ -34,10 +34,11 @@
     "E1-E8 partial: seq264 compares current serving identity with retained protocol-bound source identity, labels same/different/unknown relations, and keeps same-family task scope explicitly unverified.",
     "E1-E8 partial: seq265 gates structured task-family guidance to exact current/source model identity; cross-model and unbound history remains recoverable through omission digests and score summaries without becoming task examples.",
     "E1-E8 partial: seq266 proves in a fresh process that same-model task-family examples reach a later episode while a different-model target receives no task examples and retains source, positive-score, and omission evidence.",
-    "E1-E8 partial: seq267 requires proposition-scoped family applicability, exact protocol model identity, and an identity observation fresh at plan creation; both allocation and executor fail closed on missing, stale, or changed identity, and plan identity binds scopes, omissions, prior-run digest, and no-replay outcomes."
+    "E1-E8 partial: seq267 requires proposition-scoped family applicability, exact protocol model identity, and an identity observation fresh at plan creation; both allocation and executor fail closed on missing, stale, or changed identity, and plan identity binds scopes, omissions, prior-run digest, and no-replay outcomes.",
+    "E1-E8 partial: seq268 wires a read-only current-serving-identity observation into orchestrator allocation and canonical plan creation; digest and timestamp are retained without session acquisition or model invocation."
   ],
-  "current_source_commit": "f8f12e5e000e726939fe74e28803c2c669939e47",
-  "current_source_tree": "5ae0c26c3888508dcd456c8dfa0fa01dc4d97ac1",
+  "current_source_commit": "9a3bf74148d8ece314a39a1edd85ab03a8a176a0",
+  "current_source_tree": "c626c58ab803077f81ec4455dc016d213ec77f2b",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -45,12 +46,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 267,
+  "last_checkpoint_sequence": 268,
   "next_executable_nodes": [
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Bind the current target identity observation to the serving-session owner and canonical plan creation; then investigate the partial-score downstream cognition selected-evidence bound without increasing byte limits blindly."
+      "work": "Investigate why partial-score historical evidence exceeds the existing bounded downstream-cognition projection; repair the projection or evidence shape without increasing limits blindly, then wire the verified prior projection from its owner into canonical planning."
     },
     {
       "node": "F1-F8",

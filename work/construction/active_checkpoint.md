@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq267 binds proposition-scoped family history to an explicit target model identity observed at exact planning time. Allocation and execution share the fail-closed applicability decision; plan identity binds scope, target observation, omissions, and no-replay evidence.
+Seq268 wires a read-only current-serving-identity observation into orchestrator allocation and canonical plan creation. The digest and planning-time timestamp are retained in the allocation artifact and plan context; no inference or session acquisition occurs.
 
-Latest source commit: f8f12e5e000e726939fe74e28803c2c669939e47
-Latest source tree: 5ae0c26c3888508dcd456c8dfa0fa01dc4d97ac1
-Latest segment: work/construction/segments/0267-target-identity-plan-applicability.md
-Evidence: work/construction/evidence/0267-target-identity-plan-applicability.json
+Latest source commit: 9a3bf74148d8ece314a39a1edd85ab03a8a176a0
+Latest source tree: c626c58ab803077f81ec4455dc016d213ec77f2b
+Latest segment: work/construction/segments/0268-serving-observation-planning-wiring.md
+Evidence: work/construction/evidence/0268-serving-observation-planning-wiring.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 267
+Sequence: 268
 
-Validation: 35 selected pytest cases and Python compilation passed. Two child-process world-state tests are blocked by read-only `/glow/governor`; a separate partial-score integration test fails selected-evidence bounds and remains queued for follow-up.
+Validation: 13 selected orchestrator, applicability, and plan tests passed; compile and AST parsing passed.
 
-Limits: target observation still needs canonical serving-session composition; all fixtures are deterministic and simulated. No production effect or authority expansion is claimed.
+Limits: daemon composition still must supply the optional identity observer and verified prior projection. The partial-score downstream cognition selected-evidence bound remains unresolved.
 
-Next: bind the current target observation to the serving-session owner and canonical plan creation, then investigate the partial-score evidence bound without increasing the cap blindly.
+Next: investigate selected-evidence size from a partial-score historical experiment without broadening byte limits, then assess how the daemon's existing owner can supply a verified prior projection.

@@ -1,0 +1,67 @@
+{
+  "changed_blobs": [
+    {
+      "bytes": 53728,
+      "mode": "100644",
+      "path": "sentientos/orchestrator.py",
+      "sha": "5068bbeaae60df97f6f668d032b83ae79710459d",
+      "sha256": "2caf9d58b365c1d9f08d592b6e73ad31b78850a741a4e2688ae9928ff5a2781c"
+    },
+    {
+      "bytes": 24577,
+      "mode": "100644",
+      "path": "sentientos/goal_executor.py",
+      "sha": "84fb0b590dcbe69c795c41ea186139761dc37709",
+      "sha256": "b3fdcea3afffae765999a81e604ab22209d1d8ddb83887001b7a31c0dc55661a"
+    },
+    {
+      "bytes": 4946,
+      "mode": "100644",
+      "path": "sentientos/tests/test_orchestrator_goal_integration.py",
+      "sha": "a9b73f3637cb28efa34820f2b9bdeeb454e06a46",
+      "sha256": "8dce2dbc00c329d2944e2863d2fcebde341b789d98de8f5ca2f513d657ffef59"
+    }
+  ],
+  "limitations": [
+    "The daemon does not yet configure the optional target observer or prior projection inputs.",
+    "The verified prior projection remains owned by an external composition layer; no projection source was invented.",
+    "The earlier partial-score downstream cognition test still needs follow-up on its bounded evidence projection."
+  ],
+  "observations": {
+    "allocation_digest_and_timestamp_bound": true,
+    "authority_expansion": false,
+    "current_model_identity_observed_once": true,
+    "default_path_without_observer_remains_inert": true,
+    "model_invocation": false,
+    "plan_context_digest_and_timestamp_bound": true,
+    "production_effects": false,
+    "session_acquisition": false
+  },
+  "sequence": 268,
+  "source_commit": "9a3bf74148d8ece314a39a1edd85ab03a8a176a0",
+  "source_parent_commit": "3d3633996ac6b3ac013a8ac0b3f87b05b2ccbfd0",
+  "source_parent_tree": "ef0d246a03c4a23ea9d846992ccf9f3a3b9c1435",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "changed_blobs_independently_rehashed": true,
+    "commit_parent_verified": true,
+    "compare_and_swap": "succeeded",
+    "expected_head": "3d3633996ac6b3ac013a8ac0b3f87b05b2ccbfd0",
+    "force": false,
+    "remote_tree_verified": true
+  },
+  "source_tree": "c626c58ab803077f81ec4455dc016d213ec77f2b",
+  "title": "Wire current serving identity into canonical planning",
+  "validation": {
+    "ast_parse": "passed",
+    "pytest_scope": [
+      "orchestrator target observation integration",
+      "allocation artifact and trace",
+      "orchestrator work plan/run",
+      "epistemic applicability",
+      "goal executor plan"
+    ],
+    "python_compile": "passed",
+    "selected_pytest_cases": "13 passed"
+  }
+}
