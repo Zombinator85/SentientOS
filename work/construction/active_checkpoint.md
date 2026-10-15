@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq250 connects condition-complete resource evidence to bounded task-family strategy recommendations. Exact score, inference receipt, resource receipt, source, and event-time bindings are preserved across history-present, withheld, and restored conditions. The recommendation meets the full-suite requirement frozen in the task descriptor, then optimizes independent correctness before measured call units. Missing and unqualified evidence stays unknown. Compact prompt binding preserves epistemic meaning and relevant adverse task history.
+Seq251 connects digest-verified three-condition held-out task-family consequences to the canonical persistent epistemic owner. A recovered, preregistered task-family comparison may yield bounded support, contradiction, or contextual evidence; the adapter refuses incomplete suites and run-digest mismatch. Deterministic fixture outcomes remain non-independent experiment evidence with unknown freshness/dependency. Append-only correction and fresh-owner reconstruction preserve the unresolved posture and false authority.
 
-Latest source commit: 749eeea2aa63e4cd23e1dfe1edbddf6adfcdd5f1
-Latest source tree: 23f8effa4a16b0dc711fda79bfdfe704412cd74d
-Latest segment: work/construction/segments/0250-condition-complete-resource-recommendation.md
-Evidence: work/construction/evidence/0250-condition-complete-resource-recommendation.json
+Latest source commit: aed9b92b48be35783bf3b8c1a2835cf07269dcdf
+Latest source tree: 60b77ed34354d2fcf10535c4b03fabb4e5ab7367
+Latest segment: work/construction/segments/0251-evaluated-task-outcomes-to-epistemic-revision.md
+Evidence: work/construction/evidence/0251-evaluated-task-outcomes-to-epistemic-revision.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 250
+Sequence: 251
 
-Validation: resident developmental cognition 92 passed; resource-lineage, developmental-writeback, intervention, and focused adverse-transfer group 41 passed; changed Python sources compiled; `git diff --check` passed.
+Validation: affected developmental cognition, history intervention, and epistemic development suites passed (127 tests) with isolated writable runtime roots; changed Python sources compiled; `git diff --check` passed.
 
-Limits: controlled fixtures do not establish model improvement or production resource performance. Fresh-process recovery of an actually ledger-backed cross-condition recommendation remains open. No effect authority is granted.
+Limits: deterministic fixtures do not establish general learning, deployed model improvement, external truth, or independent evidence. Real ledger-backed resource comparison and durable recommendation recovery remain open. The runtime-admitted mutation controller and later cognition/causal-introspection path remain open. No effect authority is granted.
 
-Next: feed admitted, real ledger-backed condition comparisons into a distinct held-out objective decision and persist/recover the evaluated recommendation; then continue consequence-driven epistemic revision and outcome-informed dependent goal progression.
+Next: connect admitted ledger-backed three-condition resource measurements to distinct held-out decisions and fresh-process durable recovery; continue D1-D8 through runtime admission and later cognition/causal introspection; then advance dependent goal progression.

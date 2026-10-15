@@ -1,0 +1,45 @@
+{
+  "sequence": 251,
+  "title": "Digest-verified task-family consequences enter persistent epistemic state",
+  "source_commit": "aed9b92b48be35783bf3b8c1a2835cf07269dcdf",
+  "source_tree": "60b77ed34354d2fcf10535c4b03fabb4e5ab7367",
+  "source_parent_commit": "dc63ce5249f359032d1b6e7e0b4c50693b6f8ebe",
+  "source_parent_tree": "b069346737045f594bfb7f7513f177d4f693d63e",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "dc63ce5249f359032d1b6e7e0b4c50693b6f8ebe",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true
+  },
+  "changed_blobs": [
+    {"mode": "100644", "path": "sentientos/developmental_history_intervention_experiment.py", "sha": "a5065524a27812646b30f402765a44e2b34e3f33"},
+    {"mode": "100644", "path": "tests/test_resident_developmental_cognition.py", "sha": "c5737baf529d9374d3ac23f735e2cf173468d286"},
+    {"mode": "100644", "path": "docs/development/epistemic_task_family_outcome_binding_task_acceptance.json", "sha": "08773a822c0455155b66a009ba1b96ce81222a10"}
+  ],
+  "validation": {
+    "tests_test_resident_developmental_cognition": "92 passed",
+    "tests_test_developmental_history_intervention_experiment": "13 passed",
+    "tests_test_resident_epistemic_development": "22 passed",
+    "total_affected_tests": "127 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "run_protocol_observations_condition_scores_and_evaluator": "owner verified and recomputed before conversion",
+    "admitted_task_family_identity": "preserved",
+    "present_vs_withheld_result_direction": "maps to supporting, contradicting, or contextualizing evidence",
+    "run_digest_mismatch": "rejected",
+    "condition_event_time": "required and preserved as latest comparison boundary",
+    "dependency_and_freshness": "unknown",
+    "deterministic_evaluator_qualification": "bounded task-family result; not external observation or independent evidence",
+    "epistemic_mutation": "append-only state commit; unresolved dependency survives fresh owner reconstruction",
+    "authority": false
+  },
+  "limitations": [
+    "Deterministic fixture scoring does not establish general learning or genuine model improvement.",
+    "Actually ledger-backed resource comparison through a durable held-out recommendation remains open.",
+    "Runtime-admitted mutation-controller and later cognition/causal-introspection composition remain open.",
+    "No production effect authority or activation is granted."
+  ]
+}

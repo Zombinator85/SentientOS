@@ -16,10 +16,11 @@
     "C4-C8 partial: canonical developmental writeback preserves measured resource receipts and later task-family retrieval exposes them only under exact run, score, condition, inference-receipt, and resource-source bindings; bounded retrieval remains unknown when evidence is unavailable or mismatched.",
     "D1-D8 partial: independent support and contradiction persist with event times and distinct source identities, survive epistemic-owner reconstruction and receipt verification, and reach later cognition as a contested semantic packet bound to the exact state digest.",
     "D1-D8 partial: objective-task owner now forwards a verified prior epistemic projection into the normal cognition binder; held-out task-family scores bind its exact projection/state digests and preserve deterministic three-condition oracle scoring through restart-backed history retrieval.",
-    "C4-C8 partial: canonical task-family retrieval retains all three independently scored treatment outcomes and exact condition-specific inference/resource receipt lineage; a frozen-task requirement and deterministic quality-first/call-unit recommendation reaches the bounded cognition input binder; missing/unqualified evidence remains unknown; positive, negative-transfer, economical, and incomparable cases are covered."
+    "C4-C8 partial: canonical task-family retrieval retains all three independently scored treatment outcomes and exact condition-specific inference/resource receipt lineage; a frozen-task requirement and deterministic quality-first/call-unit recommendation reaches the bounded cognition input binder; missing/unqualified evidence remains unknown; positive, negative-transfer, economical, and incomparable cases are covered.",
+    "D1-D8 partial: owner-verified preregistered held-out task-family consequences now bind to the persistent epistemic owner as bounded support, contradiction, or contextual evidence; unknown dependency/freshness and deterministic-fixture qualification survive append-only correction and fresh-owner reconstruction."
   ],
-  "current_source_commit": "749eeea2aa63e4cd23e1dfe1edbddf6adfcdd5f1",
-  "current_source_tree": "23f8effa4a16b0dc711fda79bfdfe704412cd74d",
+  "current_source_commit": "aed9b92b48be35783bf3b8c1a2835cf07269dcdf",
+  "current_source_tree": "60b77ed34354d2fcf10535c4b03fabb4e5ab7367",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -27,7 +28,7 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 250,
+  "last_checkpoint_sequence": 251,
   "next_executable_nodes": [
     {
       "node": "C4-C8 continuation",
@@ -37,7 +38,7 @@
     {
       "node": "D1-D8",
       "program": "D",
-      "work": "Connect later evaluated consequences to admissible epistemic correction, persistent reconstruction, subsequent cognition, and causal introspection."
+      "work": "Route evaluated outcomes through the runtime-admitted epistemic mutation controller, then reach subsequent cognition and causal introspection while preserving conflicting sources and unresolved qualification."
     },
     {
       "node": "E1-E8",
