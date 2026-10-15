@@ -1,0 +1,36 @@
+{
+  "changed_blobs": [
+    {"mode": "100644", "path": "sentientos/work_plan.py", "sha": "cea62e77a6cc28d7046fd4fb44ce7d7379bce605"},
+    {"mode": "100644", "path": "sentientos/work_plan_execution_journal.py", "sha": "8d71f78134520363e667265858c376d847c4991c"},
+    {"mode": "100644", "path": "sentientos/tests/test_goal_executor_run.py", "sha": "ab52ff000b40a3a2af863ecb3d75a17bb4cc36bd"},
+    {"mode": "100644", "path": "docs/development/work_plan_journal_exact_identity_acceptance.json", "sha": "a221b21994df0df0825fcb647d40e3ffa6a0d625"}
+  ],
+  "limits": [
+    "An interrupted task remains outcome-unknown and is not re-executed automatically.",
+    "Synthetic tests do not establish production behavior.",
+    "No command, adoption, or effect authority is granted."
+  ],
+  "observations": {
+    "changed_plan_reuses_legacy_journal": false,
+    "exact_plan_legacy_journal_remains_available": true,
+    "interrupted_attempt_replayed": false
+  },
+  "sequence": 246,
+  "source_commit": "70869c8c99461ba5347fd4d1960380a2168fd98f",
+  "source_parent_commit": "cad47093b5c8105f2b0b3ce3a42702ea0862d5f4",
+  "source_parent_tree": "18e6fc033e1a17bc748d4c2d026b1246e94eda2d",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "commit_parent_verified": true,
+    "compare_and_swap": "succeeded",
+    "expected_head": "cad47093b5c8105f2b0b3ce3a42702ea0862d5f4",
+    "force": false
+  },
+  "source_tree": "c2a50bdfc46045162306f40b9c64310bf8cbe401",
+  "title": "Execution journals are isolated by complete work-plan identity",
+  "validation": {
+    "git_diff_check": "passed",
+    "goal_progression_matrix": "38 passed",
+    "source_and_test_py_compile": "passed"
+  }
+}
