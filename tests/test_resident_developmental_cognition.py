@@ -2435,6 +2435,39 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert third_progression["execution_evidence_scope"] == (
         "authenticated_owner_receipts_not_independent_backend_observation")
 
+    # Reconstruct again under a different model identity. Historical source
+    # scores and omission evidence remain inspectable, while structured probe
+    # examples are withheld from this target model's task guidance.
+    cross_model_task = ObjectivePredictionTask(3, 2, 20, (21, 22),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, cross_model_request, cross_model_eligible = stage_request(config_path=config_path,
+        request_id="episode-cross-model-guidance-gate", task=cross_model_task)
+    assert cross_model_eligible >= 1
+    cross_model_identity = {"provider": "fixture", "model": "other-model"}
+    cross_model_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="episode-cross-model-guidance-gate",
+        request_digest=str(cross_model_request["request_digest"]),
+        prior_request_refs=(
+            ("episode-acquisition", str(acquisition_request["request_digest"])),
+            ("episode-heldout-after-restart", str(heldout_request["request_digest"])),
+            ("episode-third-after-recovered-feedback", str(third_request["request_digest"]))),
+        active_model_identity=cross_model_identity, publish_session=True)
+    cross_model_scores = {row["condition_id"]: row["score"]
+        for row in cross_model_episode["run"]["objective_scores"]}
+    assert all(row["correct_count"] == 0 for row in cross_model_scores.values())
+    cross_prompt = json.loads(cross_model_episode["prompts"]["history_present"])
+    cross_history = cross_prompt["developmental_history"]
+    assert not any("task_relevant_experience" in item for item in cross_history)
+    cross_omissions = [item["task_relevant_experience_omission"]
+        for item in cross_history if "task_relevant_experience_omission" in item]
+    assert cross_omissions
+    assert all(item["omitted_evidence_digest"] for item in cross_omissions)
+    assert any(any(outcome["correct_count"] == 3
+            for evidence in item["omission_evidence"]
+            for outcome in evidence["historical_outcomes"])
+        for item in cross_omissions)
+
     tampered_receipt = next(receipt.receipt_id for receipt in fake.receipts.values()
         if receipt.purpose == "resident_developmental_history_intervention_experiment"
         and "objective_task_plan_digest" in receipt.request.get("upstream_evidence", {}))
@@ -3755,6 +3788,7 @@ print(json.dumps(owner.verified_objective_task_family_progression(
 def _run_family_episode_in_child(root: Path, *, acquisition_request_digest: str,
         request_id: str, request_digest: str,
         active_model_identity: Mapping[str, Any] | None = None,
+        publish_session: bool = False,
         prior_request_refs: tuple[tuple[str, str], ...] = (),
         tamper_receipt_id: str | None = None) -> Mapping[str, Any]:
     """Run transfer in a fresh process through installation-scoped production readers.
@@ -3786,6 +3820,7 @@ root, installation_root = Path(sys.argv[1]), Path(sys.argv[2])
 request_id, request_digest = sys.argv[3:5]
 prior_request_refs = json.loads(sys.argv[5])
 active_model_identity = json.loads(sys.argv[6])
+publish_session = sys.argv[7] == "true"
 test_path = Path.cwd() / "tests" / "test_resident_developmental_cognition.py"
 spec = importlib.util.spec_from_file_location("fixture_cognition_tests", test_path)
 module = importlib.util.module_from_spec(spec)
@@ -3793,7 +3828,7 @@ sys.modules[spec.name] = module
 spec.loader.exec_module(module)
 invoker = module.InstallationCustodyFakeInvoker()
 invoker.active_model_identity = active_model_identity
-module._bind_fixture_installation_custody(root, invoker, publish_session=False)
+module._bind_fixture_installation_custody(root, invoker, publish_session=publish_session)
 invoker.objective_mode = "derive_from_admitted_family"
 invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
 owner, _ = module.owner(root, comparison=True, invoker=invoker,
@@ -3827,7 +3862,8 @@ print(json.dumps({"fresh_process": True, "fixture_only": True,
             str(installation_root), request_id, request_digest,
             json.dumps(prior_request_refs or (("episode-acquisition",
                 acquisition_request_digest),)),
-            json.dumps(dict(active_model_identity or {}))], cwd=Path(__file__).resolve().parents[1],
+            json.dumps(dict(active_model_identity or {})),
+            "true" if publish_session else "false"], cwd=Path(__file__).resolve().parents[1],
             capture_output=True, text=True)
         if child.returncode != 0:
             raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
