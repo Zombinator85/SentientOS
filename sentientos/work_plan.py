@@ -253,8 +253,10 @@ def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPl
         if (not isinstance(row, dict) or set(row) != expected_task_fields
                 or row.get("task_id") != task.task_id or row.get("goal_id") != task.goal_id
                 or row.get("kind") != task.kind
-                or row.get("status") not in {"success", "failed", "skipped"}
+                or row.get("status") not in {"success", "failed", "skipped", "partial"}
                 or (row.get("reason") is not None and not isinstance(row["reason"], str))
+                or (row.get("status") == "partial"
+                    and (not isinstance(row.get("reason"), str) or not row["reason"]))
                 or not isinstance(row.get("started_at"), str) or not row["started_at"]
                 or not isinstance(row.get("finished_at"), str) or not row["finished_at"]
                 or type(row.get("duration_ms")) is not int or row["duration_ms"] < 0
@@ -267,14 +269,14 @@ def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPl
             row["reason"], row["started_at"], row["finished_at"], row["duration_ms"],
             tuple(row["artifacts"]), row["destructive"]))
     expected_reasons = [row.reason for row in task_runs
-        if row.status in {"failed", "skipped"} and row.reason][:12]
+        if row.status in {"failed", "skipped", "partial"} and row.reason][:12]
     if payload["reason_stack"] != expected_reasons:
         raise WorkPlanError("work_run_reason_stack_invalid")
     if not task_runs or all(row.status == "skipped" for row in task_runs):
         expected_status = "skipped"
     elif any(row.status == "failed" for row in task_runs):
         expected_status = "failed"
-    elif any(row.status == "skipped" for row in task_runs):
+    elif any(row.status in {"skipped", "partial"} for row in task_runs):
         expected_status = "partial"
     else:
         expected_status = "ok"

@@ -309,6 +309,43 @@ def test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_depend
     assert journal.state("g1:propose") == "success"
 
 
+def test_partial_forge_outcome_is_durable_and_does_not_satisfy_dependency(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    monkeypatch.setattr(goal_executor.CathedralForge, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            outcome="partial_success", generated_at="2026-01-01T00:00:01Z"))
+    monkeypatch.setattr(goal_executor, "_run_commands",
+        lambda *args, **kwargs: ("success", None, ()))
+    tasks = (
+        Task(1, "g1:apply", "g1", "forge_apply", (), None, 1, 1,
+            {"requires_mutation": True}, (), True),
+        Task(1, "g1:verify", "g1", "verify", ("python -m scripts.run_tests -q",),
+            None, 0, 0, {}, (), False, ("g1:apply",)),
+        Task(1, "g2:diagnostic", "g2", "diagnostic",
+            ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False),
+    )
+    plan = WorkPlan(1, "partial-forge-progression", "2026-01-01T00:00:00Z",
+        "manual", ("g1", "g2"), tasks)
+    first = GoalExecutor(repo_root=tmp_path).execute_plan(plan, _state(tmp_path))
+
+    assert first.status == "partial"
+    assert [(row.status, row.reason) for row in first.task_runs] == [
+        ("partial", "forge_apply_partial_success"),
+        ("skipped", "dependency_not_satisfied:g1:apply"),
+        ("success", None),
+    ]
+    path = persist_work_run(tmp_path, first)
+    from sentientos.work_plan import load_work_run
+    recovered = load_work_run(tmp_path, plan, created_at=plan.created_at)
+    assert recovered == first
+    assert (tmp_path / path).exists()
+    assert GoalExecutor(repo_root=tmp_path).execute_plan(plan, _state(tmp_path)) == first
+    journal = WorkPlanExecutionJournal(tmp_path, plan)
+    assert journal.state("g1:apply") == "partial"
+    assert journal.result("g1:apply") == first.task_runs[0]
+
+
 def test_same_plan_id_changed_definition_gets_distinct_execution_journal(
     tmp_path: Path,
 ) -> None:

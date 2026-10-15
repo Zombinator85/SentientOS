@@ -1,0 +1,22 @@
+{
+  "task_id": "partial-goal-outcome-progression",
+  "version": 1,
+  "required_pytest_nodes": [
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_partial_forge_outcome_is_durable_and_does_not_satisfy_dependency",
+      "role": "successful_path",
+      "expected": "A forge partial_success outcome remains a partial task result with its report artifact, survives work-run and journal reconstruction, blocks its dependent verification task, and permits independent work to continue."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_execute_recovery_skips_destructive",
+      "role": "authority_boundary",
+      "expected": "Destructive work remains skipped when the operating mode disallows mutation."
+    }
+  ],
+  "non_claims": [
+    "partial work is complete",
+    "dependent tasks may proceed after partial success",
+    "operator mutation authority",
+    "automatic continuation of forge apply"
+  ]
+}

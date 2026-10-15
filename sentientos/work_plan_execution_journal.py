@@ -95,8 +95,9 @@ class WorkPlanExecutionJournal:
     def finish(self, task_id: str, *, status: str, reason: str | None,
             result: TaskRun | None = None) -> None:
         if (self._states.get(task_id) != "interrupted"
-                or status not in {"success", "failed", "skipped"}
+                or status not in {"success", "failed", "skipped", "partial"}
                 or (reason is not None and not isinstance(reason, str))
+                or (status == "partial" and (not isinstance(reason, str) or not reason))
                 or result is None or not self._valid_task_result(task_id, result)
                 or result.status != status or result.reason != reason):
             raise WorkPlanJournalError("work_plan_journal_finish_conflict")
@@ -110,8 +111,10 @@ class WorkPlanExecutionJournal:
         task = self._tasks.get(task_id)
         return (task is not None and isinstance(result, TaskRun)
             and result.task_id == task_id and result.goal_id == task.goal_id
-            and result.kind == task.kind and result.status in {"success", "failed", "skipped"}
+            and result.kind == task.kind
+            and result.status in {"success", "failed", "skipped", "partial"}
             and (result.reason is None or isinstance(result.reason, str))
+            and (result.status != "partial" or bool(result.reason))
             and isinstance(result.started_at, str) and bool(result.started_at)
             and isinstance(result.finished_at, str) and bool(result.finished_at)
             and type(result.duration_ms) is int and result.duration_ms >= 0
@@ -197,8 +200,10 @@ class WorkPlanExecutionJournal:
             else:
                 if (self._states.get(task_id) != "interrupted"
                         or not isinstance(row.get("status"), str)
-                        or row["status"] not in {"success", "failed", "skipped"}
+                        or row["status"] not in {"success", "failed", "skipped", "partial"}
                         or (row["reason"] is not None and not isinstance(row["reason"], str))
+                        or (row["status"] == "partial"
+                            and (not isinstance(row.get("reason"), str) or not row["reason"]))
                         or (task_result is not None and (task_result.status != row["status"]
                             or task_result.reason != row["reason"]))
                         or (row["schema_version"] in {2, 3} and task_result is None)):

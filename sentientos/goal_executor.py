@@ -96,7 +96,7 @@ class GoalExecutor:
                 if prior_result is not None:
                     task_runs.append(prior_result)
                     effective_task_status[task.task_id] = prior_result.status
-                    if prior_result.status in {"failed", "skipped"} and prior_result.reason:
+                    if prior_result.status in {"failed", "skipped", "partial"} and prior_result.reason:
                         reasons.append(prior_result.reason)
                     continue
                 retry_interrupted = (prior_state == "interrupted"
@@ -152,7 +152,7 @@ class GoalExecutor:
                 duration_ms=duration_ms, artifacts=artifacts, destructive=destructive)
             journal.finish(task.task_id, status=status, reason=reason, result=task_run)
             task_runs.append(task_run)
-            if status in {"failed", "skipped"} and reason:
+            if status in {"failed", "skipped", "partial"} and reason:
                 reasons.append(reason)
 
         run_id = work_run_id(plan, created_at=state.created_at)
@@ -184,7 +184,9 @@ class GoalExecutor:
             forge = CathedralForge(repo_root=self.repo_root)
             report = forge.run(goal_name, initiator="goal_executor")
             rel = str((self.repo_root / "glow/forge" / f"report_{_safe_id(report.generated_at)}.json").relative_to(self.repo_root))
-            status = "success" if report.outcome in {"success", "noop", "partial_success"} else "failed"
+            if report.outcome == "partial_success":
+                return "partial", "forge_apply_partial_success", (rel,)
+            status = "success" if report.outcome in {"success", "noop"} else "failed"
             return status, None if status == "success" else "forge_apply_failed", (rel,)
         return "skipped", f"unknown_task_kind:{task.kind}", ()
 
@@ -254,9 +256,10 @@ def update_goal_state_from_run(
             blocked_reason = marker
             if failure_count >= max(1, blocked_threshold):
                 status = "blocked"
-        elif any(row.status == "skipped" for row in runs):
-            last_result = "skipped"
-            blocked_reason = runs[-1].reason
+        elif any(row.status in {"skipped", "partial"} for row in runs):
+            partial = next((row for row in reversed(runs) if row.status == "partial"), None)
+            last_result = "partial" if partial is not None else "skipped"
+            blocked_reason = partial.reason if partial is not None else runs[-1].reason
 
         result[goal.goal_id] = GoalStateRecord(
             schema_version=1,
@@ -369,7 +372,7 @@ def _overall_status(task_runs: list[TaskRun]) -> str:
         return "skipped"
     if any(row.status == "failed" for row in task_runs):
         return "failed"
-    if any(row.status == "skipped" for row in task_runs):
+    if any(row.status in {"skipped", "partial"} for row in task_runs):
         return "partial"
     return "ok"
 
