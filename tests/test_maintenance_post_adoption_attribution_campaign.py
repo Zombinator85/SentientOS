@@ -233,7 +233,6 @@ def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
     monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
     reset_runtime_governor()
-
     store = tmp_path / "campaign-store"
     writer, protocol_value, result = finish(store, ["target_expectation_contradicted"] * 2)
     projection_body = {"schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
@@ -288,6 +287,52 @@ def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_
     assert selected.verify() == writer.verify()
     assert decision.allowed is True
     reset_runtime_governor()
+
+
+def test_runtime_signal_reconstruction_keeps_historical_event_time_after_restart(tmp_path):
+    """A later daemon process must not turn retrieval time into campaign event time."""
+    import os
+    import subprocess
+    import sys
+
+    store = tmp_path / "campaign-store"
+    _, campaign, result = finish(store, ["target_expectation_contradicted"] * 2)
+    projection_body = {
+        "schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
+        "enabled": True,
+        "store_root": str(store),
+        "campaign_ids": [campaign.campaign_id],
+    }
+    projection = {**projection_body, "config_digest": digest(projection_body)}
+    config_path = tmp_path / "campaign-projection.json"
+    config_path.write_text(json.dumps(projection), encoding="utf-8")
+    script = (
+        "import json,sys; from sentientosd import RuntimeMaintenanceSurfaces, "
+        "_load_post_adoption_attribution_projection; "
+        "owner,ids,status=_load_post_adoption_attribution_projection(sys.argv[1]); "
+        "surface=RuntimeMaintenanceSurfaces(sys.argv[2], "
+        "post_adoption_attribution_owner=owner,post_adoption_attribution_campaign_ids=ids, "
+        "post_adoption_attribution_projection_status=status); "
+        "value=surface.identify_improvement_signals(); "
+        "print(json.dumps({'observed_at':value.batch.signals[0].observed_at, "
+        "'source_digest':value.batch.signals[0].source_digest, "
+        "'adoption':value.summary['adoption_performed'], "
+        "'mutation':value.summary['repository_mutation_performed']}))"
+    )
+    recovered = subprocess.run(
+        [sys.executable, "-c", script, str(config_path), str(tmp_path)],
+        check=True, capture_output=True, text=True,
+        env={**os.environ,
+            "SENTIENTOS_GOVERNOR_ROOT": str(tmp_path / "governor"),
+            "SENTIENTOS_RUNTIME_STATE_ROOT": str(tmp_path / "runtime")},
+    )
+    observation = json.loads(recovered.stdout)
+    assert observation == {
+        "observed_at": result.completed_at,
+        "source_digest": result.result_digest,
+        "adoption": False,
+        "mutation": False,
+    }
 
 
 @pytest.mark.parametrize(("outcomes","expected"), [
