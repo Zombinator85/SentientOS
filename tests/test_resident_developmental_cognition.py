@@ -1674,6 +1674,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert projected_examples[0]["execution_evidence_posture"] == (
         "one_or_more_conditions_simulated_or_no_backend_entry")
     assert projected_examples[0]["independent_backend_observation"] is False
+    assert projected_examples[0]["resource_context"]["posture"] == (
+        "unknown_missing_or_unbound_lineage")
     assert [item["condition_id"] for item in
         projected_examples[0]["execution_evidence_conditions"]] == [
             "history_present", "history_withheld", "history_restored"]
@@ -1715,6 +1717,52 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         task_family_id="integer_affine_prediction") == []
     assert _task_family_history_examples(admitted.candidate,
         task_family_id="unrelated_family") == []
+
+    # A bounded deterministic join fixture demonstrates how a later example
+    # carries measured resource evidence only when run, condition, score, and
+    # inference receipt identities all agree.
+    resource_candidate = copy.deepcopy(admitted.candidate)
+    resource_source = {"source_id": "fixture-resource-source", "kind": "resource_governor",
+        "digest": "a" * 64}
+    resource_candidate["selected_sources"].append(resource_source)
+    family_condition = next(item for item in family_fact["payload"]["conditions"]
+        if item["condition_id"] == "history_present")
+    resource_candidate["selected_facts"].append({
+        "fact_id": "fixture-resource-lineage-fact", "stage": "observation",
+        "disposition": "verified",
+        "source": dict(resource_source),
+        "subject": {"subject_kind": "developmental_history_invocation_resource_lineage"},
+        "payload": {
+            "developmental_history_run_id": family_fact["payload"]["run_id"],
+            "developmental_history_run_digest": family_fact["payload"]["run_digest"],
+            "developmental_history_source_record_id": family_fact["source"]["source_id"],
+            "developmental_history_source_record_digest": family_fact["source"]["digest"],
+            "task_family_id": "integer_affine_prediction",
+            "task_outcome": {"posture": "run_owner_score_bound_to_condition",
+                "condition_id": "history_present",
+                "score_digest": family_fact["payload"]["objective_scores"][0]["score_digest"],
+                "inference_receipt_id": family_condition["inference_receipt_id"],
+                "inference_receipt_digest": family_condition["inference_receipt_digest"]},
+            "resource_measurement_posture": "verified_ledger_receipt_values",
+            "resource_consumption_evidence": [{
+                "receipt_id": "fixture-resource-receipt", "receipt_digest": "b" * 64,
+                "measured_values": {"call_units_consumed": 2},
+                "measurement_posture": {"token_count": "unknown"}}],
+            "resource_linkage": {"consumption_receipt_digests": ["b" * 64]},
+            "lineage_findings": [],
+        }})
+    resource_examples = _task_family_history_examples(resource_candidate,
+        task_family_id="integer_affine_prediction")
+    assert resource_examples[0]["resource_context"]["posture"] == (
+        "verified_ledger_receipt_values")
+    assert resource_examples[0]["resource_context"]["measurements"][0][
+        "measured_values"] == {"call_units_consumed": 2}
+    mismatched_resource = copy.deepcopy(resource_candidate)
+    mismatched_resource["selected_facts"][-1]["payload"]["task_outcome"][
+        "score_digest"] = "sha256:" + "f" * 64
+    assert _task_family_history_examples(mismatched_resource,
+        task_family_id="integer_affine_prediction")[0]["resource_context"]["posture"] == (
+            "unknown_missing_or_unbound_lineage")
     assert "multiplier" not in json.dumps(projected_examples)
     assert "offset" not in json.dumps(projected_examples)
 

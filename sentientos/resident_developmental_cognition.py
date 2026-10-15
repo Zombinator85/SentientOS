@@ -1134,6 +1134,97 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 "probe_input", "observed_answer", "evaluator_correct")})
         if not valid:
             continue
+        # Join resource evidence only when it names this exact experiment run,
+        # score, condition, and inference receipt. Missing or mismatched joins
+        # remain explicitly unknown; they never borrow measurements from a
+        # neighboring task-family example.
+        condition = next((item for item in payload.get("conditions", ())
+            if isinstance(item, Mapping) and item.get("condition_id") == "history_present"), None)
+        resource_context: dict[str, Any] = {
+            "posture": "unknown_missing_or_unbound_lineage",
+            "measurements": [], "historical_only": True,
+            "current_truth": False, "authority": False,
+        }
+        if isinstance(condition, Mapping):
+            for resource_fact in facts[:MAX_FACTS]:
+                if not isinstance(resource_fact, Mapping):
+                    continue
+                resource_payload = resource_fact.get("payload")
+                resource_subject = resource_fact.get("subject")
+                resource_source = resource_fact.get("source")
+                if (not isinstance(resource_payload, Mapping)
+                        or not isinstance(resource_subject, Mapping)
+                        or not isinstance(resource_source, Mapping)
+                        or resource_subject.get("subject_kind")
+                            != "developmental_history_invocation_resource_lineage"
+                        or resource_fact.get("stage") != "observation"
+                        or resource_fact.get("disposition") != "verified"
+                        or resource_payload.get("lineage_findings") not in ([], ())
+                        or resource_payload.get("resource_measurement_posture")
+                            != "verified_ledger_receipt_values"
+                        or resource_payload.get("developmental_history_run_id") != run_id
+                        or resource_payload.get("developmental_history_run_digest") != run_digest
+                        or resource_payload.get("developmental_history_source_record_id") != source_id
+                        or resource_payload.get("developmental_history_source_record_digest")
+                            != source_digest
+                        or resource_payload.get("task_family_id") != task_family_id):
+                    continue
+                resource_source_id = resource_source.get("source_id")
+                if (not isinstance(resource_source_id, str)
+                        or source_by_id.get(resource_source_id, {}).get("digest")
+                            != resource_source.get("digest")):
+                    continue
+                task_outcome = resource_payload.get("task_outcome")
+                if (not isinstance(task_outcome, Mapping)
+                        or task_outcome.get("posture") != "run_owner_score_bound_to_condition"
+                        or task_outcome.get("condition_id") != "history_present"
+                        or task_outcome.get("score_digest") != score.get("score_digest")
+                        or task_outcome.get("inference_receipt_id")
+                            != condition.get("inference_receipt_id")
+                        or task_outcome.get("inference_receipt_digest")
+                            != condition.get("inference_receipt_digest")):
+                    continue
+                evidence = resource_payload.get("resource_consumption_evidence")
+                linkage = resource_payload.get("resource_linkage")
+                linked_digests = (linkage.get("consumption_receipt_digests", ())
+                    if isinstance(linkage, Mapping) else ())
+                if (not isinstance(evidence, (list, tuple)) or not evidence
+                        or not isinstance(linked_digests, (list, tuple))):
+                    continue
+                measurements: list[dict[str, Any]] = []
+                valid_evidence = True
+                for row in evidence[:8]:
+                    if not isinstance(row, Mapping):
+                        valid_evidence = False
+                        break
+                    receipt_id, receipt_digest = row.get("receipt_id"), row.get("receipt_digest")
+                    values, posture = row.get("measured_values"), row.get("measurement_posture")
+                    if (not isinstance(receipt_id, str) or not receipt_id
+                            or not isinstance(receipt_digest, str)
+                            or receipt_digest not in linked_digests
+                            or not isinstance(values, Mapping) or not isinstance(posture, Mapping)):
+                        valid_evidence = False
+                        break
+                    measurements.append({
+                        "receipt_id": receipt_id, "receipt_digest": receipt_digest,
+                        "measured_values": {key: value for key, value in values.items()
+                            if key in {"generation_attempted", "call_units_consumed",
+                                "generated_output_size_bytes", "returned_output_size_bytes",
+                                "output_truncated", "latency_ms"}},
+                        "measurement_posture": dict(posture),
+                    })
+                if valid_evidence and measurements:
+                    resource_context = {
+                        "posture": "verified_ledger_receipt_values",
+                        "source_fact_id": resource_fact.get("fact_id"),
+                        "source_binding": {key: resource_source.get(key)
+                            for key in ("source_id", "kind", "digest")},
+                        "measurements": measurements,
+                        "omitted_measurement_count": max(0, len(evidence) - len(measurements)),
+                        "shared_host_cpu_gpu": "unknown_without_independent_observation",
+                        "historical_only": True, "current_truth": False, "authority": False,
+                    }
+                    break
         # Keep the execution posture attached to the acquired examples when
         # they are retrieved later.  A deterministic task score establishes
         # correctness relative to its oracle; it does not independently prove
@@ -1249,6 +1340,7 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             "evaluator": score["evaluator"],
             "event_scope": "scored_benchmark_outcome_not_external_environmental_event",
             "examples": rows,
+            "resource_context": resource_context,
             "execution_evidence_scope": execution_scope,
             "execution_evidence_posture": execution_posture,
             "execution_evidence_conditions": execution_conditions,

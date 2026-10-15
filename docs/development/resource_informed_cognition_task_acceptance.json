@@ -1,0 +1,20 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "resource-informed-developmental-cognition",
+  "status": "construction",
+  "exact_nodes": [
+    {
+      "node_id": "tests/test_strategy_resource_lineage_integration.py::test_resource_linked_strategy_proposals_join_to_reconciled_ledger",
+      "expected": "Canonical writeback retains the exact measured consumption rows and their receipt digest bindings alongside the admitted scored developmental outcome."
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_admitted_family_example_supports_second_heldout_episode_after_restart",
+      "expected": "Later family retrieval carries bounded measured resource context only for a matching run, score, condition, and inference receipt, and preserves unknown posture when evidence is missing or mismatched."
+    }
+  ],
+  "authority": {
+    "resource_measurements": "historical owner-reported ledger receipts only",
+    "cognition": "bounded historical context without effect authority",
+    "missing_evidence": "explicitly unknown; no CPU, GPU, energy, token, or external outcome is inferred"
+  }
+}

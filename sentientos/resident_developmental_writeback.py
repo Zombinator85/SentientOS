@@ -942,6 +942,65 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                 "resource_measurement_posture"):
             if key in original:
                 summary[key] = original[key]
+        # Retain a bounded, receipt-identified view of measured consumption so
+        # later cognition can compare task outcomes with the evidence that
+        # accompanied them.  The enclosing source-payload digest continues to
+        # bind the complete owner-produced lineage record.
+        if "resource_consumption_evidence" in original:
+            measurements = original.get("resource_consumption_evidence")
+            if not isinstance(measurements, (list, tuple)):
+                raise DevelopmentalWritebackError("resource_measurement_projection_invalid")
+            source_linkage = original.get("resource_linkage")
+            source_receipt_digests = (source_linkage.get("consumption_receipt_digests", ())
+                if isinstance(source_linkage, Mapping) else ())
+            if not isinstance(source_receipt_digests, (list, tuple)):
+                raise DevelopmentalWritebackError("resource_measurement_projection_invalid")
+            for measurement in measurements:
+                measured_values = (measurement.get("measured_values")
+                    if isinstance(measurement, Mapping) else None)
+                receipt_digest = (measurement.get("receipt_digest")
+                    if isinstance(measurement, Mapping) else None)
+                if (not isinstance(measurement, Mapping)
+                        or not isinstance(measurement.get("receipt_id"), str)
+                        or not measurement.get("receipt_id")
+                        or not isinstance(receipt_digest, str)
+                        or len(receipt_digest) != 64
+                        or any(character not in "0123456789abcdef" for character in receipt_digest)
+                        or receipt_digest not in source_receipt_digests
+                        or not isinstance(measured_values, Mapping)
+                        or not isinstance(measurement.get("measurement_posture"), Mapping)):
+                    raise DevelopmentalWritebackError("resource_measurement_projection_invalid")
+                for key, value in measured_values.items():
+                    if key not in {"generation_attempted", "call_units_consumed",
+                            "generated_output_size_bytes", "returned_output_size_bytes",
+                            "output_truncated", "latency_ms"}:
+                        continue
+                    valid_measurement = (
+                        type(value) is bool if key in {"generation_attempted", "output_truncated"}
+                        else type(value) is int and value >= 0
+                            if key in {"call_units_consumed", "generated_output_size_bytes",
+                                "returned_output_size_bytes"}
+                            else type(value) in {int, float} and value >= 0)
+                    if not valid_measurement:
+                        raise DevelopmentalWritebackError(
+                            "resource_measurement_projection_invalid")
+            measurement_fields = {"generation_attempted", "call_units_consumed",
+                "generated_output_size_bytes", "returned_output_size_bytes",
+                "output_truncated", "latency_ms"}
+            posture_fields = {"token_count", "shared_host_cpu_gpu"}
+            summary["resource_consumption_evidence"] = [{
+                "receipt_id": item["receipt_id"],
+                "receipt_digest": item["receipt_digest"],
+                "measured_values": {key: value for key, value in
+                    item["measured_values"].items() if key in measurement_fields},
+                "measurement_posture": {key: value for key, value in
+                    item["measurement_posture"].items() if key in posture_fields
+                    and (isinstance(value, (bool, int, float))
+                        or isinstance(value, str) and len(value) <= 64)},
+            } for item in measurements[:8]]
+            if len(measurements) > 8:
+                summary["resource_consumption_evidence_omitted_count"] = len(measurements) - 8
+                summary["resource_consumption_evidence_omitted_digest"] = digest(list(measurements))
         if "task_outcome" in original:
             task_outcome = original.get("task_outcome")
             if not isinstance(task_outcome, Mapping):

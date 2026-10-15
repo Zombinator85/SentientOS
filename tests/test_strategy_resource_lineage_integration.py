@@ -346,6 +346,21 @@ def test_resource_linked_strategy_proposals_join_to_reconciled_ledger(tmp_path: 
         and fact["payload"]["resource_measurement_posture"] == "verified_ledger_receipt_values"
         and fact["payload"]["task_outcome"]["score_digest"] == outcome["score_digest"]
         for fact in admitted.candidate["selected_facts"])
+    admitted_lineage = next(fact for fact in admitted.candidate["selected_facts"]
+        if fact["subject"]["subject_kind"]
+            == "developmental_history_invocation_resource_lineage")
+    retained_measurements = admitted_lineage["payload"]["resource_consumption_evidence"]
+    assert len(retained_measurements) == len(measurement_rows)
+    assert all(retained["receipt_id"] == observed["receipt_id"]
+        and retained["receipt_digest"] == observed["receipt_digest"]
+        and retained["measured_values"]["call_units_consumed"]
+            == observed["measured_values"]["call_units_consumed"]
+        and retained["measurement_posture"].get("token_count")
+            == observed["measurement_posture"].get("token_count")
+        for retained, observed in zip(retained_measurements, measurement_rows))
+    assert all(row["receipt_digest"] in admitted_lineage["payload"]["resource_linkage"][
+        "consumption_receipt_digests"] for row in admitted_lineage["payload"][
+            "resource_consumption_evidence"])
     assert fixture_model.requests
 
     # A self-rehashed source record cannot turn an unknown score status into a
