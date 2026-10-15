@@ -1431,6 +1431,31 @@ def _developmental_history_interpretation_projection(
                     "probe_count": item.get("probe_count")}
                     if "correct_count" in item else {}),
             })
+    history_summary = original.get("history_intervention_summary")
+    projected_history_summary = history_summary
+    if isinstance(history_summary, Mapping):
+        if family_projection:
+            projected_history_summary = {key: history_summary.get(key)
+                for key in ("classification", "claims_posture")}
+        else:
+            # The source run remains bound by run_digest and
+            # source_payload_digest. Keep every comparison outcome and
+            # measurement identity while omitting condition payloads duplicated
+            # by the exact condition rows above. This keeps the selected fact
+            # under its byte budget without dropping positive or adverse
+            # historical outcomes.
+            measurements = history_summary.get("measurements")
+            if isinstance(measurements, (list, tuple)):
+                compact_measurements = []
+                for item in measurements:
+                    if not isinstance(item, Mapping):
+                        raise DevelopmentalWritebackError(
+                            "developmental_history_measurement_invalid")
+                    compact_measurements.append({key: item[key] for key in (
+                        "measurement_id", "measurement_digest", "compared_fields",
+                        "observable_difference", "interpretation") if key in item})
+                projected_history_summary = dict(history_summary)
+                projected_history_summary["measurements"] = compact_measurements
     summary = {
         "run_id": original.get("run_id"), "run_digest": original.get("run_digest"),
         "protocol_id": original.get("protocol_id"),
@@ -1447,11 +1472,7 @@ def _developmental_history_interpretation_projection(
         "conditions": selected_conditions,
         "condition_event_times": original.get("condition_event_times"),
         "event_time_posture": original.get("event_time_posture"),
-        "history_intervention_summary": (
-            {key: original.get("history_intervention_summary", {}).get(key)
-                for key in ("classification", "claims_posture")}
-            if family_projection and isinstance(original.get("history_intervention_summary"), Mapping)
-            else original.get("history_intervention_summary")),
+        "history_intervention_summary": projected_history_summary,
         "objective_scores": score_summary,
         "objective_evaluation": original.get("objective_evaluation"),
         "claims_posture": original.get("claims_posture"),

@@ -1439,6 +1439,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         tmp_path: Path) -> None:
     """A family match is relevant evidence, not an implicit success claim."""
     fake = SessionBoundFakeInvoker()
+    fake.active_model_identity = {"provider": "fixture", "model": "adverse-correction-family"}
     fake.objective_mode = "degrade"
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
     cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
@@ -3208,6 +3209,22 @@ print(json.dumps({"run_id":run["run_id"],"objective_evaluation":run["objective_e
         "selected_facts"][0]["payload"]
     assert retained["objective_evaluation"]["history_correct_probe_delta"] == 2
     assert [item["correct_count"] for item in retained["objective_scores"]] == [2, 0, 2]
+    projected_comparison = retained["history_intervention_summary"]
+    source_comparison = records[0]["payload"]["history_intervention_summary"]
+    assert projected_comparison["classification"] == source_comparison["classification"]
+    assert projected_comparison["present_vs_withheld_difference_observed"] == source_comparison[
+        "present_vs_withheld_difference_observed"]
+    assert projected_comparison["restored_vs_withheld_difference_observed"] == source_comparison[
+        "restored_vs_withheld_difference_observed"]
+    assert projected_comparison["restored_matches_present"] == source_comparison[
+        "restored_matches_present"]
+    assert len(projected_comparison["measurements"]) == 2
+    assert [(item["measurement_id"], item["measurement_digest"],
+        item["observable_difference"], item["interpretation"])
+        for item in projected_comparison["measurements"]] == [
+            (item["measurement_id"], item["measurement_digest"],
+                item["observable_difference"], item["interpretation"])
+            for item in source_comparison["measurements"]]
     assert retained["execution_evidence_posture"] == "incomplete_or_unverified_condition_receipts"
     assert all(item["receipt_identity_verified"] is False
         and item["posture"] == "receipt_unbound_or_identity_mismatch"
@@ -4995,8 +5012,9 @@ def test_saturated_history_binding_keeps_ranked_complete_suffix_and_omission_ide
     )
 
     def packet(record, *, include_source_evidence_context=True,
-            compact_for_input_budget=False, task_family_id=None):
-        del include_source_evidence_context, task_family_id
+                compact_for_input_budget=False, task_family_id=None,
+                target_model_identity=None):
+        del include_source_evidence_context, task_family_id, target_model_identity
         padding = record["padding"]
         if compact_for_input_budget:
             padding = min(padding, 1200)
