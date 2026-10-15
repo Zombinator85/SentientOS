@@ -1,14 +1,14 @@
 # Active construction checkpoint
 
-Seq240 follows the adverse/corrective/later-distinct campaign trajectory through the deterministic candidate selector. The original contradiction remains blocked. The later distinct result retains low confidence and issuer uncertainty, but has no source-supported subject path, so selection correctly returns `idle_no_viable_candidate` with `candidate_scope_unknown`.
+Seq241 closes the A8 campaign temporal boundary through the actual selected campaign projection, same-tick World-State, resident cognition, writeback, and a reconstructed next-tick owner. The current campaign fact is selected as current evidence while prior history is empty; a fresh owner recovers the exact source-bound record only on the following tick. Campaign evidence remains synthetic with unverified issuers, does not establish effects, and does not mutate canonical explicit-user memory.
 
-Latest source commit: 53cee2d02152517cf203cb48abe949f689fcfe36
-Latest source tree: 1b5b24ab97b3df6713c3e28e096fa2d90820aec0
-Latest segment: work/construction/segments/0240-candidate-scope-uncertainty.md
-Evidence: work/construction/evidence/0240-candidate-scope-uncertainty.json
-Queue: work/construction/reconciliation_xviii_queue.json
-Sequence: 240
+Latest source commit: 5b670fb3041ba35af80efa662c7a787a65c78ff9
+Latest source tree: 2e6b656c93150a6b176c2134beb44b1486e00472
+Latest segment: work/construction/segments/0241-campaign-cognition-temporal-cutoff.md
+Evidence: work/construction/evidence/0241-campaign-cognition-temporal-cutoff.json
+Queue: work/construction/reconciliation_xix_queue.json
+Sequence: 241
 
-Validation: the focused candidate/scope integration node passed; the wider campaign/collector/signal suite had 29 passes and two known stale failures. The changed test module compiled and `git diff --check` passed. Evidence is synthetic, issuers remain unverified, and no candidate was selected or executed.
+Validation: the new integration node and existing selected campaign signal node passed (2 passed); changed test module compiled and `git diff --check` passed.
 
-Next: integrate the one-tick cognition history cutoff with actual same-tick source closure, then assess a safe evidence-bound applicability route. Continue resource, epistemic, goal, strategy, and cross-system programs.
+Next: C3-C8 resource-informed cognition, beginning with incomplete outcome admission and a later distinct bounded computational recommendation.

@@ -1,0 +1,48 @@
+{
+  "changed_blobs": [
+    {
+      "mode": "100644",
+      "path": "tests/test_maintenance_post_adoption_attribution_campaign.py",
+      "sha": "6b28bec87ac1b40db2e0d47031ffbffdbc9e20ce"
+    },
+    {
+      "path": "docs/development/campaign_cognition_temporal_cutoff_task_acceptance.json",
+      "sha": "4932558da0085d0b901843cf835504dd0196904d"
+    }
+  ],
+  "limits": [
+    "Fixture outcomes are synthetic.",
+    "Original campaign source issuers remain unverified.",
+    "No production or effect authority is established."
+  ],
+  "observations": {
+    "adoption_performed": false,
+    "campaign_effect_claimed": false,
+    "campaign_effect_proven": false,
+    "campaign_source_digest_preserved": true,
+    "canonical_explicit_user_retention_mutated": false,
+    "current_tick_campaign_fact_selected": true,
+    "next_tick_fresh_owner_retrieved_exact_record": true,
+    "repository_mutation_performed": false,
+    "same_tick_prior_record_ids": []
+  },
+  "sequence": 241,
+  "source_commit": "5b670fb3041ba35af80efa662c7a787a65c78ff9",
+  "source_parent_commit": "6ecbb45c18c1eed359154b31f6a10db846baf063",
+  "source_parent_tree": "a79808ad9a85f056e9f17c539fcd6d4077187c72",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "commit_parent_verified": true,
+    "commit_tree": "2e6b656c93150a6b176c2134beb44b1486e00472",
+    "compare_and_swap": "succeeded",
+    "expected_head": "6ecbb45c18c1eed359154b31f6a10db846baf063",
+    "force": false
+  },
+  "source_tree": "2e6b656c93150a6b176c2134beb44b1486e00472",
+  "title": "Campaign evidence crosses the cognition boundary only through retained history",
+  "validation": {
+    "focused_nodes": "2 passed",
+    "git_diff_check": "passed",
+    "python_compile": "passed"
+  }
+}
