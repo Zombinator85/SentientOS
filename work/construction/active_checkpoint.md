@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq249 enables explicit objective-task runs to receive the verified prior epistemic projection through the existing cognition binder. The held-out task acceptance binds exact projection/state digests, preserves three-condition independent deterministic scoring, and continues through fresh-process developmental-history reconstruction.
+Seq250 connects condition-complete resource evidence to bounded task-family strategy recommendations. Exact score, inference receipt, resource receipt, source, and event-time bindings are preserved across history-present, withheld, and restored conditions. The recommendation meets the full-suite requirement frozen in the task descriptor, then optimizes independent correctness before measured call units. Missing and unqualified evidence stays unknown. Compact prompt binding preserves epistemic meaning and relevant adverse task history.
 
-Latest source commit: 49d59955aa7846075933df10af69e235d100ef66
-Latest source tree: 41c78e650451f2a38079f20e56686ca4fa938e10
-Latest segment: work/construction/segments/0249-objective-task-epistemic-context.md
-Evidence: work/construction/evidence/0249-objective-task-epistemic-context.json
+Latest source commit: 749eeea2aa63e4cd23e1dfe1edbddf6adfcdd5f1
+Latest source tree: 23f8effa4a16b0dc711fda79bfdfe704412cd74d
+Latest segment: work/construction/segments/0250-condition-complete-resource-recommendation.md
+Evidence: work/construction/evidence/0250-condition-complete-resource-recommendation.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 249
+Sequence: 250
 
-Validation: resident developmental cognition module passed (92 passed) with temporary writable governor/runtime roots; changed Python sources/tests compiled; `git diff --check` passed.
+Validation: resident developmental cognition 92 passed; resource-lineage, developmental-writeback, intervention, and focused adverse-transfer group 41 passed; changed Python sources compiled; `git diff --check` passed.
 
-Limits: deterministic fixtures do not establish deployed model performance or external truth. Resource-informed recommendation quality and D1-D8 evaluated consequence remain open.
+Limits: controlled fixtures do not establish model improvement or production resource performance. Fresh-process recovery of an actually ledger-backed cross-condition recommendation remains open. No effect authority is granted.
 
-Next: continue C4-C8 into a measured resource-informed distinct recommendation and evaluated consequence, then extend D1-D8 beyond preserved cognition context.
+Next: feed admitted, real ledger-backed condition comparisons into a distinct held-out objective decision and persist/recover the evaluated recommendation; then continue consequence-driven epistemic revision and outcome-informed dependent goal progression.

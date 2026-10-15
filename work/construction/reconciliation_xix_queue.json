@@ -15,10 +15,11 @@
     "E1 partial: append-only task execution journals now bind to full plan identity; exact-plan legacy journal recovery is retained and changed definitions with reused plan IDs receive isolated journals.",
     "C4-C8 partial: canonical developmental writeback preserves measured resource receipts and later task-family retrieval exposes them only under exact run, score, condition, inference-receipt, and resource-source bindings; bounded retrieval remains unknown when evidence is unavailable or mismatched.",
     "D1-D8 partial: independent support and contradiction persist with event times and distinct source identities, survive epistemic-owner reconstruction and receipt verification, and reach later cognition as a contested semantic packet bound to the exact state digest.",
-    "D1-D8 partial: objective-task owner now forwards a verified prior epistemic projection into the normal cognition binder; held-out task-family scores bind its exact projection/state digests and preserve deterministic three-condition oracle scoring through restart-backed history retrieval."
+    "D1-D8 partial: objective-task owner now forwards a verified prior epistemic projection into the normal cognition binder; held-out task-family scores bind its exact projection/state digests and preserve deterministic three-condition oracle scoring through restart-backed history retrieval.",
+    "C4-C8 partial: canonical task-family retrieval retains all three independently scored treatment outcomes and exact condition-specific inference/resource receipt lineage; a frozen-task requirement and deterministic quality-first/call-unit recommendation reaches the bounded cognition input binder; missing/unqualified evidence remains unknown; positive, negative-transfer, economical, and incomparable cases are covered."
   ],
-  "current_source_commit": "49d59955aa7846075933df10af69e235d100ef66",
-  "current_source_tree": "41c78e650451f2a38079f20e56686ca4fa938e10",
+  "current_source_commit": "749eeea2aa63e4cd23e1dfe1edbddf6adfcdd5f1",
+  "current_source_tree": "23f8effa4a16b0dc711fda79bfdfe704412cd74d",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -26,17 +27,17 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 249,
+  "last_checkpoint_sequence": 250,
   "next_executable_nodes": [
     {
-      "node": "C4-C8",
+      "node": "C4-C8 continuation",
       "program": "C",
-      "work": "Connect qualified measured resource outcomes to later distinct bounded computational recommendations, with independent scoring and fresh-process continuity."
+      "work": "Connect actually admitted ledger-backed three-condition resource comparisons to distinct held-out objective decisions, independently evaluate the recommendation, and recover the durable result after a fresh process."
     },
     {
       "node": "D1-D8",
       "program": "D",
-      "work": "Connect independent conflicting evidence to persistent revision, later cognition, causal introspection, and process recovery."
+      "work": "Connect later evaluated consequences to admissible epistemic correction, persistent reconstruction, subsequent cognition, and causal introspection."
     },
     {
       "node": "E1-E8",
