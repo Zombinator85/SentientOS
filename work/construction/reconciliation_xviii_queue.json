@@ -1,0 +1,56 @@
+{
+  "schema": "sentientos.reconciliation_queue:v1",
+  "last_checkpoint_sequence": 237,
+  "completed_nodes": [
+    "A2/A4-A6: explicitly selected owner-recovered campaign outcomes retain provenance, classify routes, detect cross-campaign adverse/positive contradictions, and fail closed on selection-config tampering; recovery was verified in a fresh process.",
+    "B1/B2: only eligible proposal-routed signals become later maintenance candidates; campaign source uncertainty and exact lineage survive adaptation.",
+    "C2: resource reread after fresh ledger reconstruction preserves receipt identity and does not debit again.",
+    "A7 partial: seq237 fresh-process runtime signal reconstruction preserves the declared campaign completion event time and source digest with adoption/mutation false; owner ordering and prior-tick exclusion are still open."
+  ],
+  "current_source_commit": "2358e22ab6107420d9a4fd4ac02d7fb3476b266d",
+  "current_source_tree": "5cba12f17aa8a4cb8e5e27f1db293d5c4e5d6290",
+  "next_executable_nodes": [
+    {
+      "program": "A",
+      "node": "A7-A8",
+      "work": "Verify runtime owner ordering and prior-tick versus current-tick source boundaries; preserve read-only restart reconstruction and zero side effects."
+    },
+    {
+      "program": "B",
+      "node": "B3-B8",
+      "work": "Later candidate-selection episode after an unsuccessful synthetic improvement; retain adverse and corrective history, applicability uncertainty, and source limitations."
+    },
+    {
+      "program": "C",
+      "node": "C3-C8",
+      "work": "Malformed/incomplete outcome admission, then a distinct later task where measured resource history changes a bounded computational recommendation."
+    },
+    {
+      "program": "D",
+      "node": "D1-D8",
+      "work": "Independent conflicting evidence, admissible persistent revision, temporal boundaries, and causal introspection."
+    },
+    {
+      "program": "E",
+      "node": "E1-E8",
+      "work": "Multi-task partial progress, interruption recovery, budget omissions, and outcome-informed selection."
+    },
+    {
+      "program": "F",
+      "node": "F1-F8",
+      "work": "Longitudinal strategy correction, negative transfer, causal authorship, and model-identity continuity fixtures."
+    },
+    {
+      "program": "Integration",
+      "node": "X1-X4",
+      "work": "Connect maintenance, resource, epistemic, or goal histories across owners and process recovery."
+    }
+  ],
+  "known_test_failures": [
+    "Five pre-existing seq232 broad-suite failures: stale production-readiness and adapter-signature assertions, read-only /glow setup, runtime admission fixture mismatch, and production campaign readiness expectation.",
+    "Mypy on earlier broad runtime files reports repository baseline errors; candidate modules pass targeted mypy."
+  ],
+  "external_blockers": [
+    "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
+  ]
+}
