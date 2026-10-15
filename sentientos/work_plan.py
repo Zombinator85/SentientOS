@@ -23,6 +23,7 @@ _OMISSION_KINDS_BY_REASON = {
     "task_kind_not_implemented": {"fetch", "doc_update"},
     "risk_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
     "throughput_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
+    "prior_terminal_outcome_requires_review": {"forge_apply"},
 }
 
 

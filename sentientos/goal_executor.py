@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -32,6 +33,7 @@ class ExecutorState:
     risk_budget: RiskBudget
     pressure_level: int = 0
     posture: str = "balanced"
+    prior_plan: WorkPlan | None = None
 
 
 class GoalExecutor:
@@ -44,12 +46,33 @@ class GoalExecutor:
         omissions: list[TaskOmission] = []
         spent_risk = 0
         spent_throughput = 0
+        prior_run = None
+        if state.prior_plan is not None:
+            prior_run = load_work_run(self.repo_root, state.prior_plan,
+                created_at=state.prior_plan.created_at)
+            if prior_run is None:
+                raise WorkPlanError("prior_work_run_unavailable")
+        prior_goal_outcomes: dict[str, set[str]] = {}
+        if prior_run is not None:
+            for task_run in prior_run.task_runs:
+                if task_run.status in {"partial", "failed"} or (
+                        task_run.status == "skipped"
+                        and (task_run.reason == "prior_attempt_outcome_unknown"
+                            or (task_run.reason or "").startswith(
+                                "prior_terminal_") and task_run.reason.endswith(
+                                    "_not_replayed"))):
+                    prior_goal_outcomes.setdefault(task_run.goal_id, set()).add(task_run.status)
         for goal_id in allocation.selected:
             goal = goals_by_id.get(goal_id)
             if goal is None:
                 continue
             omissions.extend(_goal_task_omissions(goal=goal, state=state))
-            for task in _map_goal_to_tasks(goal=goal, state=state):
+            prior_outcome = prior_goal_outcomes.get(goal_id, set())
+            if prior_outcome and _forge_apply_would_be_allowed(goal, state):
+                omissions.append(TaskOmission(goal_id, "forge_apply",
+                    "prior_terminal_outcome_requires_review"))
+            for task in _map_goal_to_tasks(goal=goal, state=state,
+                    prior_outcome=prior_outcome):
                 if spent_risk + task.risk_cost > state.risk_budget.router_k_max:
                     omissions.append(TaskOmission(
                         goal_id=task.goal_id, kind=task.kind, reason="risk_budget_exceeded"))
@@ -63,8 +86,16 @@ class GoalExecutor:
                 spent_throughput += task.throughput_cost
 
         plan_id = _plan_id(state.created_at, state.goal_graph_hash, state.allocation_id)
+        context = state.context
+        if prior_run is not None:
+            prior_run_digest = hashlib.sha256(json.dumps(prior_run.to_dict(),
+                sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+                .encode("utf-8")).hexdigest()
+            context = f"{context}|prior_work_run_digest={prior_run_digest}"
+            if len(context) > 512:
+                raise WorkPlanError("prior_work_run_context_bound_exceeded")
         return WorkPlan(schema_version=1, plan_id=plan_id, created_at=state.created_at,
-            context=state.context, selected_goals=tuple(allocation.selected), tasks=tuple(tasks),
+            context=context, selected_goals=tuple(allocation.selected), tasks=tuple(tasks),
             omissions=tuple(omissions))
 
     def execute_plan(self, plan: WorkPlan, state: ExecutorState) -> WorkPlanRun:
@@ -275,7 +306,8 @@ def update_goal_state_from_run(
     return result
 
 
-def _map_goal_to_tasks(*, goal: Goal, state: ExecutorState) -> tuple[Task, ...]:
+def _map_goal_to_tasks(*, goal: Goal, state: ExecutorState,
+        prior_outcome: set[str] | None = None) -> tuple[Task, ...]:
     plan: list[Task] = []
     plan.append(_task(goal, "diagnostic", 1, 1, destructive=False, commands=("python -m scripts.contract_drift",), expected=("glow/contracts/contract_status.json",)))
     plan.append(_task(goal, "verify", 1, 1, destructive=False, commands=("python -m scripts.run_tests -q",), expected=()))
@@ -283,12 +315,18 @@ def _map_goal_to_tasks(*, goal: Goal, state: ExecutorState) -> tuple[Task, ...]:
 
     allow_apply = state.operating_mode == "normal" and state.allow_mutation and not state.quarantine_active and state.risk_budget.forge_max_files_changed > 0
     close_to_done = goal.completion_check_name in {"check_forge_last_run_ok", "check_mypy_forge_ok"}
-    if allow_apply and close_to_done:
+    if allow_apply and close_to_done and not prior_outcome:
         plan.append(_task(goal, "forge_apply", max(1, goal.risk_cost_estimate),
             max(1, goal.throughput_cost_estimate), destructive=True, commands=(),
             expected=("glow/forge",),
             depends_on=(f"{goal.goal_id}:verify", f"{goal.goal_id}:forge_propose")))
     return tuple(plan)
+
+
+def _forge_apply_would_be_allowed(goal: Goal, state: ExecutorState) -> bool:
+    return (state.operating_mode == "normal" and state.allow_mutation
+        and not state.quarantine_active and state.risk_budget.forge_max_files_changed > 0
+        and goal.completion_check_name in {"check_forge_last_run_ok", "check_mypy_forge_ok"})
 
 
 def _goal_task_omissions(*, goal: Goal, state: ExecutorState) -> tuple[TaskOmission, ...]:

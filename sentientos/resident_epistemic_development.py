@@ -1003,6 +1003,14 @@ class ResidentEpistemicDevelopmentRuntime:
                 self.owner.active_binding_ids(rule.proposition_id)):
             return EpistemicDevelopmentFeedback("already_applied", run_id, 1, 1,
                 0, 0, (), (), (), ())
+        if binding.evidence_relation == "contextualizes":
+            # A tied evaluator result remains in the evidence ledger. Even
+            # when directional history already exists, it does not create a
+            # new stance generation or refresh the direction by implication.
+            return EpistemicDevelopmentFeedback(
+                "evidence_appended" if evidence_receipts else "already_applied",
+                run_id, 1, 1, len(evidence_receipts), 0,
+                evidence_receipts, (), (), ())
         posture = evidence_posture(bindings)
         stance = {"support_only": "provisionally_supported",
             "contradiction_only": "provisionally_contradicted", "mixed": "contested",

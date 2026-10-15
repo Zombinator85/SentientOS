@@ -79,6 +79,8 @@ class FakeInvoker:
         self.resource_contexts = []
         self.lesson_statement = "When prior evidence conflicts, preserve its scope and uncertainty."
         self.lesson_scope = "historical evidence interpretation"
+        self.lesson_uncertainty = "medium"
+        self.lesson_uncertainty_rationale = "Historical evidence may not generalize."
         self.lesson_dependency_override = None
         self.truncate_cognition_output = False
         self.modify_cognition_output_after_digest = False
@@ -225,8 +227,8 @@ class FakeInvoker:
             lesson = None if self.no_cognition_lesson else {
                 "statement": self.lesson_statement, "scope": self.lesson_scope,
                 "applicability": "Only when the cited evidence and scope still match.",
-                "uncertainty": "medium",
-                "uncertainty_rationale": "The source is historical interpretation.",
+                "uncertainty": self.lesson_uncertainty,
+                "uncertainty_rationale": self.lesson_uncertainty_rationale,
                 "evidence_dependencies": [dependency],
                 "possible_contradiction_ids": [],
             }
@@ -238,6 +240,10 @@ class FakeInvoker:
             if self.truncate_cognition_output:
                 text = text[:24]
                 truncated = True
+        elif request.purpose == "resident_developmental_retrieval_cognition":
+            text = json.dumps({"recommendation": self.lesson_statement,
+                "uncertainty": self.lesson_uncertainty}, sort_keys=True)
+            original_output = text
         else:
             text = "cognition-with-history" if request.linkage.get("history_present") else "cognition-withheld"
         if original_output is None:
@@ -1432,6 +1438,64 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
     assert cognition.run_tick(snapshot=snapshot(), tick_id="adverse-family-seed").written_record_id
 
+    from sentientos.codex_task_authority_admission import (
+        RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.resident_epistemic_development import (
+        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        ResidentEpistemicDevelopmentRuntime,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        ResidentEpistemicStateMutationController,
+    )
+    epistemic_root = tmp_path / "epistemics"
+    epistemic_ledger = AdmissionLedger(tmp_path / "epistemic-admissions.json")
+    epistemic_definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    epistemic_owner = PersistentEpistemicStateOwner(
+        epistemic_root, allowed_namespaces=("operator",))
+    proposition = make_proposition(namespace="operator",
+        subject="task_family:integer_affine_prediction", predicate="history_effect",
+        object_value="Historical examples affect held-out task correctness",
+        polarity="positive", qualifiers={"campaign": "adverse-corrective-history"},
+        temporal_scope={"kind": "longitudinal_task_family"},
+        context_scope={"task_family_id": "integer_affine_prediction"},
+        proposition_class="causal_hypothesis")
+    epistemic_owner.register_proposition(proposition)
+    rule = EpistemicDevelopmentRule("verified-task-family-correction",
+        proposition.proposition_id, proposition.proposition_digest,
+        {"source_kind": "embodiment",
+            "subject_kind": "developmental_history_intervention_experiment"},
+        "supports", "unknown_dependency", "bounded_fixture_outcome")
+    def current_admission_sequence() -> int:
+        return epistemic_ledger.current_sequence()
+    epistemic_controller = ResidentEpistemicStateMutationController(
+        owner=epistemic_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        current_sequence=current_admission_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    epistemic_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+        owner=epistemic_owner, mutation_controller=epistemic_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        admission_ledger=epistemic_ledger)
+
+    def admit_outcome(run: Mapping[str, Any], tick: int):
+        binding = cognition.experiments.objective_task_family_evidence_binding(
+            run_id=str(run["run_id"]), expected_run_digest=str(run["run_digest"]),
+            proposition_id=proposition.proposition_id)
+        event_time = max(datetime.fromisoformat(item["observed_at"].replace("Z", "+00:00"))
+            for item in run["conditions"])
+        feedback = epistemic_runtime.process_verified_task_family_run(
+            experiment_store=cognition.experiments, run_id=str(run["run_id"]),
+            expected_run_digest=str(run["run_digest"]), rule_id=rule.rule_id,
+            tick=tick, recorded_at=(event_time + timedelta(seconds=1)).isoformat())
+        assert binding in epistemic_owner.bindings(proposition.proposition_id)
+        return binding, feedback
+
     # The fixture endpoint is preregistered to answer incorrectly when history
     # is present and correctly when withheld. This is an instrument control,
     # not evidence of actual model learning or model performance.
@@ -1447,6 +1511,12 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert acquired.changed_cognition_measurement_id
     run = cognition.experiments.load_run(acquired.changed_cognition_measurement_id)
     assert run["objective_evaluation"]["history_correct_probe_delta"] == -3
+    adverse_binding, adverse_admission = admit_outcome(run, 1)
+    assert adverse_binding.evidence_relation == "contradicts"
+    assert adverse_admission.status == "state_advanced"
+    assert epistemic_owner.current_state(proposition.proposition_id).stance == \
+        "provisionally_contradicted"
+    adverse_projection = epistemic_owner.cognitive_projection(max_states=1, current_tick=2)
     source_records = cognition.experiments.world_state_records(run_refs=((
         run["run_id"], run["run_digest"]),))
     assert len(source_records) == 1
@@ -1495,6 +1565,9 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     assert later.changed_cognition_measurement_id
     transfer = cognition.experiments.load_run(later.changed_cognition_measurement_id)
     assert transfer["objective_evaluation"]["history_correct_probe_delta"] == -2
+    transfer_binding, transfer_admission = admit_outcome(transfer, 2)
+    assert transfer_binding.evidence_relation == "contradicts"
+    assert transfer_admission.status == "state_advanced"
     present, withheld, restored = transfer["conditions"]
     assert retained.record_id in present["retrieved_record_ids"]
     assert retained.record_id not in withheld["retrieved_record_ids"]
@@ -1549,6 +1622,11 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         request_digest=corrective_request["request_digest"])
     corrective_run = cognition.experiments.load_run(
         corrective_result.changed_cognition_measurement_id)
+    corrective_binding, corrective_admission = admit_outcome(corrective_run, 3)
+    assert corrective_binding.evidence_relation == "contextualizes"
+    assert corrective_admission.updated_proposition_count == 0
+    assert epistemic_owner.current_state(proposition.proposition_id).stance == \
+        "provisionally_contradicted"
     corrective_scores = {row["condition_id"]: row["score"]
         for row in corrective_run["objective_scores"]}
     assert corrective_scores["history_present"]["correct_count"] == 2
@@ -1584,6 +1662,10 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         objective_task=objective_task_for_request(final_request),
         request_id=final_request["request_id"], request_digest=final_request["request_digest"])
     final_run = restarted.experiments.load_run(final_result.changed_cognition_measurement_id)
+    favorable_binding, favorable_admission = admit_outcome(final_run, 4)
+    assert favorable_binding.evidence_relation == "supports"
+    assert favorable_admission.status == "state_advanced"
+    assert epistemic_owner.current_state(proposition.proposition_id).stance == "contested"
     final_scores = {row["condition_id"]: row["score"]
         for row in final_run["objective_scores"]}
     final_prompt = next(json.loads(request.prompt) for request in reversed(fake.requests)
@@ -1614,6 +1696,116 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         "history_present_minus_withheld_correct_count"] == 2
     assert final_progression["learning_established"] is False
     assert final_progression["performance_improvement_established"] is False
+
+    # Rebuild the epistemic owner and admission controller independently. Both
+    # adverse source digests, the contextual tie, and the favorable source
+    # digest remain in the same proposition history; the favorable result does
+    # not erase the earlier contradiction.
+    recovered_epistemics = PersistentEpistemicStateOwner(
+        epistemic_root, allowed_namespaces=("operator",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_epistemics,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        current_sequence=current_admission_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    recovered_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+        owner=recovered_epistemics, mutation_controller=recovered_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        admission_ledger=epistemic_ledger)
+    assert recovered_controller.verify_receipts()["status"] == "verified"
+    recovered_state = recovered_epistemics.current_state(proposition.proposition_id)
+    assert recovered_state is not None and recovered_state.stance == "contested"
+    recovered_bindings = recovered_epistemics.bindings(proposition.proposition_id)
+    assert {item.source_digest for item in recovered_bindings} == {
+        run["run_digest"], transfer["run_digest"], corrective_run["run_digest"],
+        final_run["run_digest"]}
+    assert {item.evidence_relation for item in recovered_bindings} == {
+        "contradicts", "contextualizes", "supports"}
+    assert len(recovered_epistemics.update_events(proposition.proposition_id)) == 3
+    trace = recovered_runtime.trace_proposition(
+        proposition_id=proposition.proposition_id,
+        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=3,
+        cognitive_tick=5)
+    assert len(trace["mutation_receipts"]) == 7
+    assert trace["resulting_prior_projection"]["state_digests"] == [
+        recovered_state.state_digest]
+    assert {row["source_digest"] for row in trace["evidence"]} == {
+        run["run_digest"], transfer["run_digest"], corrective_run["run_digest"],
+        final_run["run_digest"]}
+
+    class EpistemicAwareFixtureInvoker(FakeInvoker):
+        """Fixture consumer reacts to evidence posture, without a treatment label."""
+        def __init__(self) -> None:
+            super().__init__()
+            self.receipts = {}
+
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.purpose == "resident_developmental_retrieval_cognition":
+                body = json.loads(request.prompt)
+                state = body["prior_epistemic_state"]
+                packet = next(item for item in state["semantic_packets"]
+                    if item["proposition"]["proposition_id"] == proposition.proposition_id)
+                has_support = bool(packet["supporting_evidence"])
+                has_contradiction = bool(packet["contradicting_evidence"])
+                if has_support and has_contradiction:
+                    self.lesson_statement = (
+                        "Outcomes conflict; defer a single directional recommendation.")
+                    self.lesson_uncertainty = "high"
+                    self.lesson_uncertainty_rationale = (
+                        "Both supporting and adverse task-family outcomes remain active.")
+                elif has_contradiction:
+                    self.lesson_statement = (
+                        "Retain the adverse result within its measured task-family scope.")
+                    self.lesson_uncertainty = "medium"
+                    self.lesson_uncertainty_rationale = (
+                        "Only adverse evidence is present in the prior position.")
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            self.receipts[receipt.receipt_id] = receipt
+            return receipt
+
+    updated_projection = recovered_epistemics.cognitive_projection(
+        max_states=1, current_tick=5)
+    assert updated_projection is not None
+    later_outputs = []
+    for label, projection in (("adverse-only", adverse_projection),
+            ("corrected-contested", updated_projection)):
+        consumer_invoker = EpistemicAwareFixtureInvoker()
+        consumer, _ = owner(tmp_path / ("later-cognition-" + label),
+            invoker=consumer_invoker)
+        consumer_result = consumer.run_tick(snapshot=snapshot(), tick_id=label,
+            prior_epistemic_state=projection)
+        assert consumer_result.written_record_id
+        consumer_request = next(item for item in reversed(consumer_invoker.requests)
+            if item.purpose == "resident_developmental_retrieval_cognition")
+        consumer_body = json.loads(consumer_request.prompt)
+        delivered_packet = next(item for item in consumer_body[
+            "prior_epistemic_state"]["semantic_packets"]
+            if item["proposition"]["proposition_id"] == proposition.proposition_id)
+        consumer_record = consumer.writeback.store.get(consumer_result.written_record_id)
+        # The evaluator depends only on evidence arrays in the delivered packet.
+        expected_uncertainty = ("high" if delivered_packet["supporting_evidence"]
+            and delivered_packet["contradicting_evidence"] else "medium")
+        assert consumer_invoker.lesson_uncertainty == expected_uncertainty
+        consumer_receipt = next(item for item in consumer_invoker.receipts.values()
+            if item.request["request_id"] == consumer_request.request_id)
+        assert consumer_receipt.output_text is not None
+        evaluated_output = json.loads(consumer_receipt.output_text)
+        assert evaluated_output["uncertainty"] == expected_uncertainty
+        assert consumer_receipt.output_digest == digest_payload({
+            "output": consumer_receipt.output_text})
+        later_outputs.append((evaluated_output["recommendation"],
+            evaluated_output["uncertainty"],
+            delivered_packet["state"]["state_digest"]))
+    assert later_outputs[0][1] == "medium"
+    assert later_outputs[1][1] == "high"
+    assert later_outputs[0][0] != later_outputs[1][0]
+    assert later_outputs[1][2] == recovered_state.state_digest
 
 
 def test_admitted_family_example_supports_second_heldout_episode_after_restart(
