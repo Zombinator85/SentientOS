@@ -211,3 +211,25 @@ def test_prior_plan_without_recovered_run_blocks_outcome_informed_planning(
     from sentientos.work_plan import WorkPlanError
     with pytest.raises(WorkPlanError, match="prior_work_run_unavailable"):
         GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)
+
+
+def test_non_meaning_bearing_epistemic_projection_cannot_influence_planning(
+        tmp_path: Path) -> None:
+    from sentientos.persistent_epistemic_state import make_cognitive_projection
+    from sentientos.work_plan import WorkPlanError
+
+    graph = GoalGraph(schema_version=1, goals=(
+        Goal("g1", "tagged goal", 1.0, 1, (), "check_forge_last_run_ok", 2, 1,
+            ("integrity", "epistemic_proposition:example"), True),))
+    allocation = AllocationDecision(selected=("g1",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    state = ExecutorState(repo_root=tmp_path, created_at="2026-01-02T00:00:00Z",
+        context="manual", operating_mode="normal", quarantine_active=False,
+        allow_mutation=True, goal_graph_hash="abcd" * 16, allocation_id="allocation",
+        risk_budget=RiskBudget(router_k_max=20, router_m_max=20,
+            forge_max_files_changed=10),
+        prior_epistemic_projection=make_cognitive_projection([], source_tick=1,
+            current_tick=2))
+
+    with pytest.raises(WorkPlanError, match="prior_epistemic_projection_invalid"):
+        GoalExecutor(repo_root=tmp_path).build_plan(allocation, state, graph)

@@ -24,6 +24,7 @@ _OMISSION_KINDS_BY_REASON = {
     "risk_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
     "throughput_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
     "prior_terminal_outcome_requires_review": {"forge_apply"},
+    "epistemic_position_requires_review": {"forge_apply"},
 }
 
 

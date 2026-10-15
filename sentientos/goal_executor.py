@@ -13,6 +13,8 @@ from sentientos.cathedral_forge import CathedralForge
 from sentientos.forge_goals.registry import REGISTRY
 from sentientos.goal_completion import CompletionContext, eval_check, persist_completion_result
 from sentientos.goal_graph import Goal, GoalGraph, GoalStateRecord, default_goal_state_record
+from sentientos.persistent_epistemic_state import (EpistemicCognitiveProjection,
+    EpistemicStateError, semantic_packets_for_projection, validate_cognitive_projection)
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (Task, TaskOmission, TaskRun, WorkPlan, WorkPlanError,
@@ -34,6 +36,7 @@ class ExecutorState:
     pressure_level: int = 0
     posture: str = "balanced"
     prior_plan: WorkPlan | None = None
+    prior_epistemic_projection: EpistemicCognitiveProjection | None = None
 
 
 class GoalExecutor:
@@ -62,17 +65,46 @@ class GoalExecutor:
                                 "prior_terminal_") and task_run.reason.endswith(
                                     "_not_replayed"))):
                     prior_goal_outcomes.setdefault(task_run.goal_id, set()).add(task_run.status)
+        epistemic_review_goal_ids: set[str] = set()
+        epistemic_projection_digest: str | None = None
+        if state.prior_epistemic_projection is not None:
+            if not isinstance(state.prior_epistemic_projection,
+                    EpistemicCognitiveProjection):
+                raise WorkPlanError("prior_epistemic_projection_invalid")
+            try:
+                validate_cognitive_projection(state.prior_epistemic_projection,
+                    require_meaning=True)
+                packets = semantic_packets_for_projection(
+                    state.prior_epistemic_projection)
+            except EpistemicStateError as exc:
+                raise WorkPlanError("prior_epistemic_projection_invalid") from exc
+            epistemic_projection_digest = state.prior_epistemic_projection.projection_digest
+            for packet in packets:
+                proposition_id = packet["proposition"]["proposition_id"]
+                epistemic_state = packet["state"]
+                requires_review = (epistemic_state["stance"] not in {
+                    "provisionally_supported", "supported"}
+                    or epistemic_state["dependency_unresolved"]
+                    or epistemic_state["freshness"] != "current")
+                if requires_review:
+                    epistemic_review_goal_ids.update(goal.goal_id for goal in graph.goals
+                        if f"epistemic_proposition:{proposition_id}" in goal.tags)
         for goal_id in allocation.selected:
             goal = goals_by_id.get(goal_id)
             if goal is None:
                 continue
             omissions.extend(_goal_task_omissions(goal=goal, state=state))
             prior_outcome = prior_goal_outcomes.get(goal_id, set())
-            if prior_outcome and _forge_apply_would_be_allowed(goal, state):
-                omissions.append(TaskOmission(goal_id, "forge_apply",
-                    "prior_terminal_outcome_requires_review"))
+            epistemic_review = goal_id in epistemic_review_goal_ids
+            if _forge_apply_would_be_allowed(goal, state):
+                if prior_outcome:
+                    omissions.append(TaskOmission(goal_id, "forge_apply",
+                        "prior_terminal_outcome_requires_review"))
+                elif epistemic_review:
+                    omissions.append(TaskOmission(goal_id, "forge_apply",
+                        "epistemic_position_requires_review"))
             for task in _map_goal_to_tasks(goal=goal, state=state,
-                    prior_outcome=prior_outcome):
+                    prior_outcome=prior_outcome, epistemic_review=epistemic_review):
                 if spent_risk + task.risk_cost > state.risk_budget.router_k_max:
                     omissions.append(TaskOmission(
                         goal_id=task.goal_id, kind=task.kind, reason="risk_budget_exceeded"))
@@ -87,13 +119,17 @@ class GoalExecutor:
 
         plan_id = _plan_id(state.created_at, state.goal_graph_hash, state.allocation_id)
         context = state.context
+        context_parts = [context]
         if prior_run is not None:
             prior_run_digest = hashlib.sha256(json.dumps(prior_run.to_dict(),
                 sort_keys=True, separators=(",", ":"), ensure_ascii=False)
                 .encode("utf-8")).hexdigest()
-            context = f"{context}|prior_work_run_digest={prior_run_digest}"
-            if len(context) > 512:
-                raise WorkPlanError("prior_work_run_context_bound_exceeded")
+            context_parts.append(f"prior_work_run_digest={prior_run_digest}")
+        if epistemic_projection_digest is not None:
+            context_parts.append(f"epistemic_projection_digest={epistemic_projection_digest}")
+        context = "|".join(context_parts)
+        if len(context) > 512:
+            raise WorkPlanError("planning_evidence_context_bound_exceeded")
         return WorkPlan(schema_version=1, plan_id=plan_id, created_at=state.created_at,
             context=context, selected_goals=tuple(allocation.selected), tasks=tuple(tasks),
             omissions=tuple(omissions))
@@ -307,7 +343,8 @@ def update_goal_state_from_run(
 
 
 def _map_goal_to_tasks(*, goal: Goal, state: ExecutorState,
-        prior_outcome: set[str] | None = None) -> tuple[Task, ...]:
+        prior_outcome: set[str] | None = None,
+        epistemic_review: bool = False) -> tuple[Task, ...]:
     plan: list[Task] = []
     plan.append(_task(goal, "diagnostic", 1, 1, destructive=False, commands=("python -m scripts.contract_drift",), expected=("glow/contracts/contract_status.json",)))
     plan.append(_task(goal, "verify", 1, 1, destructive=False, commands=("python -m scripts.run_tests -q",), expected=()))
@@ -315,7 +352,7 @@ def _map_goal_to_tasks(*, goal: Goal, state: ExecutorState,
 
     allow_apply = state.operating_mode == "normal" and state.allow_mutation and not state.quarantine_active and state.risk_budget.forge_max_files_changed > 0
     close_to_done = goal.completion_check_name in {"check_forge_last_run_ok", "check_mypy_forge_ok"}
-    if allow_apply and close_to_done and not prior_outcome:
+    if allow_apply and close_to_done and not prior_outcome and not epistemic_review:
         plan.append(_task(goal, "forge_apply", max(1, goal.risk_cost_estimate),
             max(1, goal.throughput_cost_estimate), destructive=True, commands=(),
             expected=("glow/forge",),

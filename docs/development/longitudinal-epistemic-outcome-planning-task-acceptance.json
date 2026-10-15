@@ -20,7 +20,12 @@
     {
       "node_id": "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer",
       "role": "integration",
-      "expected": "Adverse and supporting scored outcomes survive epistemic-owner reconstruction and a separate Python process; the contested state, all four source digests, three state events, seven receipts, and later cognition output are recovered and independently checked."
+      "expected": "Adverse and supporting outcomes survive owner and separate-process reconstruction; the contested evidence changes a later cognition output and withholds a destructive apply plan for the explicitly tagged dependent goal, with the projection digest bound into that plan."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_non_meaning_bearing_epistemic_projection_cannot_influence_planning",
+      "role": "authority_boundary",
+      "expected": "A legacy projection without canonical proposition and active-evidence meaning is rejected before it can affect task planning."
     }
   ],
   "non_claims": [

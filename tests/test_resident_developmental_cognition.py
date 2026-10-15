@@ -1878,6 +1878,44 @@ print(json.dumps({"stance": state.stance if state else None,
     assert later_outputs[0][0] != later_outputs[1][0]
     assert later_outputs[1][2] == recovered_state.state_digest
 
+    from sentientos.goal_executor import ExecutorState, GoalExecutor
+    from sentientos.goal_graph import Goal, GoalGraph
+    from sentientos.risk_budget import RiskBudget
+    from sentientos.work_allocator import AllocationDecision
+    planning_graph = GoalGraph(schema_version=1, goals=(Goal(
+        "integer-affine-followup", "continue the measured task family", 1.0, 1,
+        (), "check_forge_last_run_ok", 2, 1,
+        (f"epistemic_proposition:{proposition.proposition_id}",), True),))
+    planning_allocation = AllocationDecision(selected=("integer-affine-followup",),
+        deferred=(), selected_reasons=(), budget_summary={})
+    planning_budget = RiskBudget(router_k_max=12, router_m_max=12,
+        forge_max_files_changed=10)
+    planning_state = ExecutorState(repo_root=tmp_path / "goal-planning",
+        created_at="2026-10-15T00:00:00Z", context="measured-task-family",
+        operating_mode="normal", quarantine_active=False, allow_mutation=True,
+        goal_graph_hash="beef" * 16, allocation_id="followup",
+        risk_budget=planning_budget, prior_epistemic_projection=updated_projection)
+    planner = GoalExecutor(repo_root=planning_state.repo_root)
+    unconditioned_plan = planner.build_plan(planning_allocation,
+        ExecutorState(repo_root=planning_state.repo_root,
+            created_at=planning_state.created_at, context=planning_state.context,
+            operating_mode=planning_state.operating_mode,
+            quarantine_active=planning_state.quarantine_active,
+            allow_mutation=planning_state.allow_mutation,
+            goal_graph_hash=planning_state.goal_graph_hash,
+            allocation_id=planning_state.allocation_id,
+            risk_budget=planning_state.risk_budget), planning_graph)
+    evidence_conditioned_plan = planner.build_plan(planning_allocation,
+        planning_state, planning_graph)
+    assert any(item.kind == "forge_apply" for item in unconditioned_plan.tasks)
+    assert not any(item.kind == "forge_apply" for item in evidence_conditioned_plan.tasks)
+    assert ("integer-affine-followup", "forge_apply",
+        "epistemic_position_requires_review") in {
+            (item.goal_id, item.kind, item.reason)
+            for item in evidence_conditioned_plan.omissions}
+    assert f"epistemic_projection_digest={updated_projection.projection_digest}" \
+        in evidence_conditioned_plan.context
+
 
 def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         tmp_path: Path) -> None:
