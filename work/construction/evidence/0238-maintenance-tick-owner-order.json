@@ -1,0 +1,40 @@
+{
+  "sequence": 238,
+  "title": "Maintenance tick owner ordering",
+  "source_commit": "8abfe4543ebe3b6c62d9cf089da1a62befe213c8",
+  "source_tree": "f4998ea1f51b23151ce13d5727bfaafcb802e372",
+  "source_parent_commit": "7a282f0c95073625bb226d8d107761c3aa61f7e7",
+  "source_parent_tree": "308d8be065d5a355b58eb1f29cf5a7a15733871a",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "7a282f0c95073625bb226d8d107761c3aa61f7e7",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7258,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {
+      "path": "tests/test_sentientosd_runtime_closure.py",
+      "sha": "001b68483e808a089920dc652993a57853fdc7ed",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/development/maintenance_tick_owner_order_task_acceptance.json",
+      "sha": "a3c4b524728e8447ee5fab8eb6e04685966f5a30",
+      "mode": "100644"
+    }
+  ],
+  "validation": {
+    "focused_tests": "2 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "This test pins call order and shared tick identity; the cognition consumer history cutoff still needs an integrated proof.",
+    "No production source or effect authority changed."
+  ]
+}

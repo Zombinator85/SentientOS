@@ -1,19 +1,20 @@
 {
   "schema": "sentientos.reconciliation_queue:v1",
-  "last_checkpoint_sequence": 237,
+  "last_checkpoint_sequence": 238,
   "completed_nodes": [
     "A2/A4-A6: explicitly selected owner-recovered campaign outcomes retain provenance, classify routes, detect cross-campaign adverse/positive contradictions, and fail closed on selection-config tampering; recovery was verified in a fresh process.",
     "B1/B2: only eligible proposal-routed signals become later maintenance candidates; campaign source uncertainty and exact lineage survive adaptation.",
     "C2: resource reread after fresh ledger reconstruction preserves receipt identity and does not debit again.",
-    "A7 partial: seq237 fresh-process runtime signal reconstruction preserves the declared campaign completion event time and source digest with adoption/mutation false; owner ordering and prior-tick exclusion are still open."
+    "A7 partial: seq237 fresh-process runtime signal reconstruction preserves the declared campaign completion event time and source digest with adoption/mutation false; owner ordering and prior-tick exclusion are still open.",
+    "A7: maintenance-loop owner order and shared tick identity are pinned from admitted campaign signal evaluation through same-tick World-State, cognition, transition, epistemic development, self-model reconciliation, and causal introspection; zero-effect posture is asserted."
   ],
-  "current_source_commit": "2358e22ab6107420d9a4fd4ac02d7fb3476b266d",
-  "current_source_tree": "5cba12f17aa8a4cb8e5e27f1db293d5c4e5d6290",
+  "current_source_commit": "8abfe4543ebe3b6c62d9cf089da1a62befe213c8",
+  "current_source_tree": "f4998ea1f51b23151ce13d5727bfaafcb802e372",
   "next_executable_nodes": [
     {
       "program": "A",
-      "node": "A7-A8",
-      "work": "Verify runtime owner ordering and prior-tick versus current-tick source boundaries; preserve read-only restart reconstruction and zero side effects."
+      "node": "A8",
+      "work": "Integrate the actual resident cognition consumer with same-tick resource/campaign source closure and prove only prior-tick retained developmental history is retrieved; include restart and zero-side-effect checks."
     },
     {
       "program": "B",

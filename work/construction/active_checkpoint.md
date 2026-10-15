@@ -1,14 +1,14 @@
 # Active construction checkpoint
 
-Seq237 verifies that the actual signal-plane runtime, in a fresh process, reconstructs the explicitly selected read-only campaign owner and retains the durable result digest and caller-declared campaign completion time. Adoption and repository mutation remain false.
+Seq238 pins actual maintenance-loop ordering across campaign signal evaluation, same-tick source closure, cognition, epistemic development, self-model reconciliation, and post-tick causal introspection. Seq237 separately verifies fresh-process campaign result recovery preserves the caller-declared historical event time and result digest. Adoption and repository mutation remain false.
 
-Latest source commit: 2358e22ab6107420d9a4fd4ac02d7fb3476b266d
-Latest source tree: 5cba12f17aa8a4cb8e5e27f1db293d5c4e5d6290
-Latest segment: work/construction/segments/0237-campaign-event-time-after-restart.md
-Evidence: work/construction/evidence/0237-campaign-event-time-after-restart.json
+Latest source commit: 8abfe4543ebe3b6c62d9cf089da1a62befe213c8
+Latest source tree: f4998ea1f51b23151ce13d5727bfaafcb802e372
+Latest segment: work/construction/segments/0238-maintenance-tick-owner-order.md
+Evidence: work/construction/evidence/0238-maintenance-tick-owner-order.json
 Queue: work/construction/reconciliation_xviii_queue.json
-Sequence: 237
+Sequence: 238
 
-Validation: two affected runtime nodes passed, affected test module compiled, and `git diff --check` passed. Campaign source issuers remain unverified; event time remains caller-declared; no effect authority was added.
+Validation: two affected ordering/recovery nodes passed, the runtime test module compiled, and `git diff --check` passed. Campaign source issuers remain unverified; call ordering is tested but integrated one-tick cognition cutoff remains open; no effect authority was added.
 
-Next: complete Program A's runtime owner ordering and prior-tick boundary, then build the later candidate-selection trajectory across retained adverse and corrective campaign history. Continue through resource, epistemic, goal, strategy, and cross-system dependencies.
+Next: prove the one-tick history boundary through the actual cognition consumer, then pursue the later bounded maintenance candidate trajectory and the resource, epistemic, goal, strategy, and integration programs.
