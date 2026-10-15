@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq255 completes the connected C4-C8 controlled acceptance: three owner-issued resource contexts reach governed inference, actual ledger receipts join a recovered scored experiment through World-State and normal developmental admission, and a distinct held-out task in a fresh process reads the bounded recommendation and passes its fixed quality criterion. Ledger bytes are unchanged by reread.
+Seq256 carries an exact recovered task-family outcome through the configured epistemic runtime: separate evidence and state admissions, mutation receipt recovery, later cognition with the same state digest, and live-owner causal introspection metadata. A wrong run digest is rejected before admission, and repeated processing is idempotent.
 
-Latest source commit: 6db3e3a32cad17b5dddc0653ead0d10239514c90
-Latest source tree: b2c404560b49f67ba764c3c06a4e7751d493e720
-Latest segment: work/construction/segments/0255-ledger-backed-resource-learning-loop.md
-Evidence: work/construction/evidence/0255-ledger-backed-resource-learning-loop.json
+Latest source commit: b832bb6cff9ff979e5936ad568e98cd4d72d65e1
+Latest source tree: 5ca2fdab7d7bb521bde26c723707106ad4645b3d
+Latest segment: work/construction/segments/0256-runtime-admitted-task-family-epistemic-consequence.md
+Evidence: work/construction/evidence/0256-runtime-admitted-task-family-epistemic-consequence.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 255
+Sequence: 256
 
-Validation: six affected suites passed with six existing skips; integrated and strategy resource tests passed together after final fixture cleanup. Changed Python files compiled and whitespace checks passed.
+Validation: affected epistemic, mutation, developmental experiment, and cognition suites passed; focused epistemic and causal scope passed (57 tests). Changed Python files compiled and whitespace checks passed.
 
-Limits: deterministic fixture outcomes and controlled serving-session reference do not establish real-model improvement or independent backend observation. Shared-host resource attribution remains unknown. No historical evidence gains current-truth or effect authority.
+Limits: deterministic fixture outcomes do not establish external truth or model improvement. Causal introspection reports owner metadata, not an exact per-proposition consequence chain. Effect authority remains false.
 
-Next: route verified task outcomes through runtime-admitted epistemic mutation, later cognition, and causal introspection. Then continue verified outcome-informed goal planning and remaining developmental integration.
+Next: preserve adverse negative-transfer correction through the same admitted epistemic path and extend exact provenance in causal introspection. Then continue verified outcome-informed goal planning and remaining developmental integration.

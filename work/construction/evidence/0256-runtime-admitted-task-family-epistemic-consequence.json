@@ -1,0 +1,42 @@
+{
+  "sequence": 256,
+  "title": "Route verified task-family outcomes through admitted epistemic mutation and later consumers",
+  "source_parent_commit": "31af3d74f9b639a7819bb5e43a2d2d1d752c16ba",
+  "source_parent_tree": "f4585b464c9a9ff1549fc942739ba438cace614d",
+  "source_commit": "b832bb6cff9ff979e5936ad568e98cd4d72d65e1",
+  "source_tree": "5ca2fdab7d7bb521bde26c723707106ad4645b3d",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "31af3d74f9b639a7819bb5e43a2d2d1d752c16ba",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {"path": "sentientos/resident_epistemic_development.py", "mode": "100644", "sha": "90ad86799ceccd99a28bc76d87b3ebff020a3619"},
+    {"path": "tests/test_resident_developmental_cognition.py", "mode": "100644", "sha": "80a7864dacea5f76290a4ac6d8ad01e3ec88dddd"},
+    {"path": "docs/development/verified_task_family_epistemic_runtime_task_acceptance.json", "mode": "100644", "sha": "640f8205e8bdfa6b5bac6660a6876b5172774908"}
+  ],
+  "validation": {
+    "affected_suites": "passed",
+    "focused_epistemic_and_causal_scope": "57 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "wrong_run_digest_before_admission": "rejected",
+    "distinct_runtime_admissions": 2,
+    "mutation_receipt_recovery": "verified",
+    "later_cognition": "same epistemic state digest, unresolved dependency retained",
+    "causal_introspection": "live owner metadata counts and recovery status, no truth claim",
+    "fixture_only": true,
+    "authority": false
+  },
+  "limitations": [
+    "No external observation, general model improvement, or truth-oracle status is established.",
+    "Causal introspection has owner-level counts, not a per-proposition causal consequence trace.",
+    "Negative-transfer correction and outcome-informed goal planning remain open."
+  ]
+}

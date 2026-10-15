@@ -21,10 +21,11 @@
     "E1-E8 partial: exact-plan execution now resumes repeated interruptions for non-destructive allowlisted diagnostic/verify tasks through digest-chained numbered retries; dependent tasks wait for durable success, while interrupted non-idempotent forge proposal/apply tasks remain unknown and blocked.",
     "E1-E8 partial: forge partial_success is now distinct from task success, persisted in task journals/work runs, and cannot satisfy dependent tasks; independent tasks progress and partial state recovers without claiming goal completion.",
     "C4-C8 prerequisite: resident developmental cognition accepts an optional owner-issued resource context and requests a distinct context for each preregistered condition; actual ledger receipt admission and later-decision recovery remain open.",
-    "C4-C8: a genuine three-condition governed task-family fixture produces exact ledger receipts; run recovery, World-State lineage, normal four-fact developmental admission, fresh-process held-out recommendation, independent quality evaluation, and no-consumption replay all pass. Fixture-only performance and unknown host attribution remain explicit."
+    "C4-C8: a genuine three-condition governed task-family fixture produces exact ledger receipts; run recovery, World-State lineage, normal four-fact developmental admission, fresh-process held-out recommendation, independent quality evaluation, and no-consumption replay all pass. Fixture-only performance and unknown host attribution remain explicit.",
+    "D1-D8 partial: an exact recovered scored task-family outcome now passes configured proposition binding, separate runtime evidence/state admissions, mutation receipt recovery, later cognition, and live-owner causal introspection metadata; ties remain contextual without directional state mutation."
   ],
-  "current_source_commit": "6db3e3a32cad17b5dddc0653ead0d10239514c90",
-  "current_source_tree": "b2c404560b49f67ba764c3c06a4e7751d493e720",
+  "current_source_commit": "b832bb6cff9ff979e5936ad568e98cd4d72d65e1",
+  "current_source_tree": "5ca2fdab7d7bb521bde26c723707106ad4645b3d",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -32,12 +33,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 255,
+  "last_checkpoint_sequence": 256,
   "next_executable_nodes": [
     {
       "node": "D1-D8",
       "program": "D",
-      "work": "Route evaluated outcomes through runtime-admitted epistemic mutation and later cognition/causal-introspection consumers while preserving conflicting sources and qualification."
+      "work": "Extend the runtime-admitted task-family consequence path through adverse/negative-transfer correction and exact per-proposition causal introspection provenance, preserving unresolved dependency and fixture scope."
     },
     {
       "node": "E1-E8",
