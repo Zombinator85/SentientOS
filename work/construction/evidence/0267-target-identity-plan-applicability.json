@@ -1,0 +1,90 @@
+{
+  "changed_blobs": [
+    {
+      "bytes": 4128,
+      "mode": "100644",
+      "path": "sentientos/epistemic_planning.py",
+      "sha": "d55bdec4a72f11b69ad035b8a325f8755ae4c4e0",
+      "sha256": "2bd6f44e4d3600b41558f2f9d4f3d4651e98d26505949ef2ef0b105c1bee5f85"
+    },
+    {
+      "bytes": 5797,
+      "mode": "100644",
+      "path": "sentientos/work_allocator.py",
+      "sha": "0e7bbcf51c5437e7fbdb723e4a8a0d837535d6f7",
+      "sha256": "1ef4f7b980200d662075b1c816ff1cd3b2464278dac73e6ace209712e003c3c2"
+    },
+    {
+      "bytes": 24263,
+      "mode": "100644",
+      "path": "sentientos/goal_executor.py",
+      "sha": "72c48ad563c9d7d1414414210e6956e80493fa87",
+      "sha256": "beb5be35cecabe79a43b190d8b2995d0d07ab89ae7641314c35ddc1368801fa8"
+    },
+    {
+      "bytes": 1449,
+      "mode": "100644",
+      "path": "sentientos/tests/test_epistemic_planning.py",
+      "sha": "9dfff1b2852dce3f019729e9529e1928ac6dafd4",
+      "sha256": "5b36c475e839cfc64951f76f1998bb36f0eef4ded305d5eef99e67e0046c0672"
+    },
+    {
+      "bytes": 431375,
+      "mode": "100644",
+      "path": "tests/test_resident_developmental_cognition.py",
+      "sha": "6aa4d93de1547dd4cdfb9c04b7bc7c27479307cc",
+      "sha256": "ca1b08a45d42d47562ae91290cb7667a0d261acb0c794e1b001f9a17c3bc78f7"
+    }
+  ],
+  "limitations": [
+    "Target identity observation still must be supplied by the serving-session composition layer; canonical wiring to that owner remains open.",
+    "The sandbox blocks two child-process world-state recovery tests at /glow/governor.",
+    "One partial-score downstream-cognition integration test encounters selected_evidence_unbounded; investigate and correct if attributable to retained-history projection.",
+    "All developmental cognition results in this test matrix use deterministic fixtures."
+  ],
+  "observations": {
+    "authority_expansion": false,
+    "executor_rechecks_manually_constructed_allocations": true,
+    "family_scope_requires_exact_goal_tag": true,
+    "family_scope_requires_protocol_bound_source_identity": true,
+    "history_deleted": false,
+    "live_inference": false,
+    "missing_stale_or_changed_target_stays_deferred": true,
+    "plan_identity_binds_scopes_model_relation_omissions_and_no_replay": true,
+    "production_effects": false,
+    "target_identity_must_match_source": true,
+    "target_identity_observation_must_match_plan_timestamp": true
+  },
+  "sequence": 267,
+  "source_commit": "f8f12e5e000e726939fe74e28803c2c669939e47",
+  "source_parent_commit": "f168b00c3fbe9cf06501763d7f3797524d2e149f",
+  "source_parent_tree": "30126720c36223c7b1ff156c7d1d43de2eb5f30f",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "changed_blobs_independently_rehashed": true,
+    "commit_parent_verified": true,
+    "compare_and_swap": "succeeded",
+    "expected_head": "f168b00c3fbe9cf06501763d7f3797524d2e149f",
+    "force": false,
+    "remote_tree_verified": true
+  },
+  "source_tree": "5ae0c26c3888508dcd456c8dfa0fa01dc4d97ac1",
+  "title": "Bind explicit target applicability to planning identity",
+  "validation": {
+    "partial_score_downstream_cognition": "failed at existing selected_evidence_unbounded admission; outside changed paths and queued for follow-up",
+    "pytest_scope": [
+      "epistemic applicability rules",
+      "goal allocation",
+      "goal executor plan and run",
+      "objective staging exact-family history",
+      "admitted task-family history flow",
+      "held-out episode after restart",
+      "receipt-bound task-family progression",
+      "preregistered history intervention",
+      "history comparison with constant self-model and epistemic bindings"
+    ],
+    "python_compile": "passed",
+    "selected_pytest_cases": "35 passed",
+    "world_state_recovery_tests": "blocked by sandbox read-only /glow/governor path in child processes"
+  }
+}
