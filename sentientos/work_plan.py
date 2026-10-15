@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -83,6 +84,12 @@ class WorkPlan:
             "omissions": [omission.to_dict() for omission in self.omissions],
         }
 
+    def identity_digest(self) -> str:
+        """Bind a completed run to every persisted plan field and task cost."""
+        canonical = json.dumps(self.to_dict(), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        return hashlib.sha256(canonical).hexdigest()
+
 
 @dataclass(frozen=True, slots=True)
 class TaskRun:
@@ -114,6 +121,7 @@ class WorkPlanRun:
     quarantine_active: bool
     task_runs: tuple[TaskRun, ...]
     reason_stack: tuple[str, ...]
+    plan_digest: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -126,6 +134,7 @@ class WorkPlanRun:
             "quarantine_active": self.quarantine_active,
             "task_runs": [task.to_dict() for task in self.task_runs],
             "reason_stack": list(self.reason_stack),
+            "plan_digest": self.plan_digest,
         }
 
 
@@ -149,8 +158,12 @@ def persist_work_plan(repo_root: Path, plan: WorkPlan) -> str:
 
 
 def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
+    if (not isinstance(run, WorkPlanRun) or run.schema_version != 2
+            or not isinstance(run.plan_digest, str) or len(run.plan_digest) != 64
+            or any(character not in "0123456789abcdef" for character in run.plan_digest)):
+        raise WorkPlanError("work_run_plan_binding_required")
     root = repo_root.resolve()
-    run_path = root / WORK_RUN_DIR / f"run_{_safe_id(run.created_at)}_{run.plan_id}.json"
+    run_path = root / WORK_RUN_DIR / f"{run.run_id}.json"
     if _write_json_once(run_path, run.to_dict()):
         _append_jsonl(
             root / "pulse/work_runs.jsonl",
@@ -174,11 +187,15 @@ def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPl
         raise WorkPlanError("work_run_lookup_identity_invalid")
     if created_at != plan.created_at:
         raise WorkPlanError("work_run_lookup_plan_time_mismatch")
-    run_id = f"run_{_safe_id(created_at)}_{plan.plan_id}"
+    run_id = work_run_id(plan, created_at=created_at)
     path = repo_root.resolve() / WORK_RUN_DIR / f"{run_id}.json"
     try:
         metadata = path.lstat()
     except FileNotFoundError:
+        legacy_path = repo_root.resolve() / WORK_RUN_DIR / (
+            f"run_{_safe_id(created_at)}_{plan.plan_id}.json")
+        if legacy_path.exists():
+            raise WorkPlanError("work_run_legacy_plan_binding_unavailable")
         return None
     except OSError as exc:
         raise WorkPlanError("work_run_artifact_unreadable") from exc
@@ -209,10 +226,13 @@ def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPl
         raise
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise WorkPlanError("work_run_artifact_unreadable") from exc
+    if isinstance(payload, dict) and payload.get("plan_digest") != plan.identity_digest():
+        raise WorkPlanError("work_run_plan_identity_mismatch")
     if (not isinstance(payload, dict) or set(payload) != {
             "schema_version", "run_id", "plan_id", "created_at", "status",
-            "operating_mode", "quarantine_active", "task_runs", "reason_stack"}
-            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1
+            "operating_mode", "quarantine_active", "task_runs", "reason_stack",
+            "plan_digest"}
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 2
             or payload.get("run_id") != run_id or payload.get("plan_id") != plan.plan_id
             or payload.get("created_at") != created_at
             or not isinstance(payload.get("operating_mode"), str)
@@ -261,9 +281,16 @@ def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPl
     canonical = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
     if raw != canonical:
         raise WorkPlanError("work_run_artifact_noncanonical")
-    return WorkPlanRun(1, run_id, plan.plan_id, created_at, expected_status,
+    return WorkPlanRun(2, run_id, plan.plan_id, created_at, expected_status,
         payload["operating_mode"], payload["quarantine_active"], tuple(task_runs),
-        tuple(payload["reason_stack"]))
+        tuple(payload["reason_stack"]), payload["plan_digest"])
+
+
+def work_run_id(plan: WorkPlan, *, created_at: str) -> str:
+    """Give each exact plan a distinct immutable run artifact identity."""
+    if (not isinstance(plan, WorkPlan) or created_at != plan.created_at):
+        raise WorkPlanError("work_run_lookup_plan_time_mismatch")
+    return f"run_{_safe_id(created_at)}_{plan.plan_id}_{plan.identity_digest()[:16]}"
 
 
 def _write_json_once(path: Path, value: dict[str, object]) -> bool:
@@ -390,6 +417,7 @@ __all__ = [
     "WorkPlanError",
     "load_work_plan",
     "load_work_run",
+    "work_run_id",
     "persist_work_plan",
     "persist_work_run",
 ]

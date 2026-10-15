@@ -14,7 +14,8 @@ from sentientos.goal_completion import CompletionContext, eval_check, persist_co
 from sentientos.goal_graph import Goal, GoalGraph, GoalStateRecord, default_goal_state_record
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_allocator import AllocationDecision
-from sentientos.work_plan import Task, TaskOmission, TaskRun, WorkPlan, WorkPlanError, WorkPlanRun, load_work_run
+from sentientos.work_plan import (Task, TaskOmission, TaskRun, WorkPlan, WorkPlanError,
+    WorkPlanRun, load_work_run, work_run_id)
 from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 
 
@@ -146,9 +147,13 @@ class GoalExecutor:
             if status in {"failed", "skipped"} and reason:
                 reasons.append(reason)
 
-        run_id = f"run_{_safe_id(state.created_at)}_{plan.plan_id}"
+        run_id = work_run_id(plan, created_at=state.created_at)
         overall_status = _overall_status(task_runs)
-        return WorkPlanRun(schema_version=1, run_id=run_id, plan_id=plan.plan_id, created_at=state.created_at, status=overall_status, operating_mode=state.operating_mode, quarantine_active=state.quarantine_active, task_runs=tuple(task_runs), reason_stack=tuple(reasons[:12]))
+        return WorkPlanRun(schema_version=2, run_id=run_id, plan_id=plan.plan_id,
+            created_at=state.created_at, status=overall_status,
+            operating_mode=state.operating_mode, quarantine_active=state.quarantine_active,
+            task_runs=tuple(task_runs), reason_stack=tuple(reasons[:12]),
+            plan_digest=plan.identity_digest())
 
     def _execute_task(self, task: Task) -> tuple[str, str | None, tuple[str, ...]]:
         if task.kind in {"diagnostic", "verify"}:

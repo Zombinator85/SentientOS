@@ -8,7 +8,7 @@ import pytest
 
 from sentientos.work_plan import (
     Task, TaskOmission, TaskRun, WorkPlan, WorkPlanError, WorkPlanRun, load_work_plan,
-    load_work_run, persist_work_plan, persist_work_run,
+    load_work_run, persist_work_plan, persist_work_run, work_run_id,
 )
 
 
@@ -96,10 +96,11 @@ def test_persisted_plan_identity_is_write_once(tmp_path: Path) -> None:
 
 
 def test_persisted_run_identity_is_write_once(tmp_path: Path) -> None:
-    run = WorkPlanRun(1, "run-1", "plan-1", "2026-01-01T00:00:00Z", "ok",
+    run = WorkPlanRun(2, "run-1", "plan-1", "2026-01-01T00:00:00Z", "ok",
         "normal", False,
         (TaskRun("task-1", "goal-1", "diagnostic", "success", None,
-            "2026-01-01T00:00:00Z", "2026-01-01T00:00:01Z", 1, (), False),), ())
+            "2026-01-01T00:00:00Z", "2026-01-01T00:00:01Z", 1, (), False),), (),
+        "a" * 64)
     relative = persist_work_run(tmp_path, run)
     path = tmp_path / relative
     original = path.read_bytes()
@@ -113,14 +114,14 @@ def test_persisted_run_identity_is_write_once(tmp_path: Path) -> None:
 
 def test_existing_run_artifact_recovers_against_exact_plan(tmp_path: Path) -> None:
     plan = _plan()
-    run = WorkPlanRun(1, "run_2026-01-01T00-00-00Z_plan-1", plan.plan_id,
+    run = WorkPlanRun(2, work_run_id(plan, created_at=plan.created_at), plan.plan_id,
         plan.created_at, "partial", "normal", False,
         (TaskRun("goal-1:diagnostic", "goal-1", "diagnostic", "success", None,
             "2026-01-01T00:00:01Z", "2026-01-01T00:00:02Z", 1000,
             ("glow/contracts/contract_status.json",), False),
          TaskRun("goal-1:forge_apply", "goal-1", "forge_apply", "skipped",
             "mutation_disallowed", "2026-01-01T00:00:02Z", "2026-01-01T00:00:02Z",
-            0, (), True)), ("mutation_disallowed",))
+            0, (), True)), ("mutation_disallowed",), plan.identity_digest())
     persist_work_run(tmp_path, run)
 
     assert load_work_run(tmp_path, plan, created_at=plan.created_at) == run
@@ -128,13 +129,13 @@ def test_existing_run_artifact_recovers_against_exact_plan(tmp_path: Path) -> No
 
 def test_existing_run_artifact_rejects_substituted_task_identity(tmp_path: Path) -> None:
     plan = _plan()
-    run = WorkPlanRun(1, "run_2026-01-01T00-00-00Z_plan-1", plan.plan_id,
+    run = WorkPlanRun(2, work_run_id(plan, created_at=plan.created_at), plan.plan_id,
         plan.created_at, "partial", "normal", False,
         (TaskRun("goal-1:diagnostic", "goal-1", "diagnostic", "success", None,
             "2026-01-01T00:00:01Z", "2026-01-01T00:00:02Z", 1000, (), False),
          TaskRun("goal-1:forge_apply", "goal-1", "forge_apply", "skipped",
             "mutation_disallowed", "2026-01-01T00:00:02Z", "2026-01-01T00:00:02Z",
-            0, (), True)), ("mutation_disallowed",))
+            0, (), True)), ("mutation_disallowed",), plan.identity_digest())
     relative = persist_work_run(tmp_path, run)
     path = tmp_path / relative
     payload = json.loads(path.read_text())
@@ -143,6 +144,25 @@ def test_existing_run_artifact_rejects_substituted_task_identity(tmp_path: Path)
 
     with pytest.raises(WorkPlanError, match="work_run_task_identity_invalid"):
         load_work_run(tmp_path, plan, created_at=plan.created_at)
+
+
+def test_existing_run_rejects_same_task_ids_with_changed_plan_definition(tmp_path: Path) -> None:
+    plan = _plan()
+    run = WorkPlanRun(2, work_run_id(plan, created_at=plan.created_at), plan.plan_id,
+        plan.created_at, "partial", "normal", False,
+        (TaskRun("goal-1:diagnostic", "goal-1", "diagnostic", "success", None,
+            "2026-01-01T00:00:01Z", "2026-01-01T00:00:02Z", 1000, (), False),
+         TaskRun("goal-1:forge_apply", "goal-1", "forge_apply", "skipped",
+            "mutation_disallowed", "2026-01-01T00:00:02Z", "2026-01-01T00:00:02Z",
+            0, (), True)), ("mutation_disallowed",), plan.identity_digest())
+    persist_work_run(tmp_path, run)
+    changed_task = replace(plan.tasks[0], commands=("python -m scripts.different_check",),
+        risk_cost=2, depends_on=("goal-1:forge_apply",))
+    changed_plan = replace(plan, tasks=(changed_task, *plan.tasks[1:]))
+
+    assert work_run_id(changed_plan, created_at=changed_plan.created_at) != run.run_id
+    assert load_work_run(tmp_path, changed_plan,
+        created_at=changed_plan.created_at) is None
 
 
 def test_malformed_task_row_rejects_whole_plan(tmp_path: Path) -> None:
