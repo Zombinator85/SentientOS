@@ -1,0 +1,15 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "2358e22ab6107420d9a4fd4ac02d7fb3476b266d",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition",
+      "rationale": "The actual maintenance tick preserves signal intake, current resource observation, World-State construction, cognition, transition, epistemic, self-model, and introspection ordering while restoring runtime phase."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition"
+  ]
+}

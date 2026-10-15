@@ -219,6 +219,82 @@ def test_maintenance_tick_invokes_all_runtime_surfaces(tmp_path: Path) -> None:
     assert merge.calls == 1
 
 
+def test_maintenance_tick_orders_campaign_signal_world_state_and_cognition(tmp_path: Path) -> None:
+    """The signal sees persisted campaign custody before current-tick world-state closure."""
+    events: list[tuple[str, str | None]] = []
+
+    class OrderedSurfaces(_RuntimeSurfaceSpy):
+        def identify_improvement_signals(self):
+            events.append(("signals", None))
+
+        def run_host_resource_observation_runtime(self, *, tick_id: str):
+            events.append(("resource", tick_id))
+            return {"status": "ok", "host_mutation_performed": False}
+
+        def run_host_privilege_review_rehearsal_runtime(self, *, tick_id: str):
+            events.append(("privilege", tick_id))
+            return {}
+
+        def run_host_execution_readiness_authorization_review_runtime(self, *, tick_id: str):
+            events.append(("execution_readiness", tick_id))
+            return {}
+
+        def run_host_controlled_authorization_safety_runtime(self, *, tick_id: str):
+            events.append(("authorization_safety", tick_id))
+            return {}
+
+        def run_host_live_grant_readiness_runtime(self, *, tick_id: str):
+            events.append(("grant_readiness", tick_id))
+            return {}
+
+        def build_world_state_board(self, *, tick_id: str):
+            events.append(("world_state", tick_id))
+            return {}
+
+        def run_resident_developmental_cognition(self, *, tick_id: str):
+            events.append(("cognition", tick_id))
+            return {"write_performed": False, "model_invoked": False}
+
+        def process_resident_cognitive_transition_request(self, *, tick_id: str):
+            events.append(("transition", tick_id))
+            return {"effect_performed": False}
+
+        def run_epistemic_development(self, *, tick_id: str):
+            events.append(("epistemic", tick_id))
+            return {"authority": False}
+
+        def reconcile_longitudinal_self_model(self, *, tick_id: str):
+            events.append(("self_model", tick_id))
+            return {"authority": False}
+
+        def capture_causal_introspection(self, *, tick_id: str):
+            events.append(("introspection", tick_id))
+            return {"authority": False}
+
+    kernel = ControlPlaneKernel(
+        runtime_governor=_GovernorStub(allow=True),  # type: ignore[arg-type]
+        decisions_path=tmp_path / "decisions.jsonl",
+    )
+    surfaces = OrderedSurfaces()
+    _run_maintenance_tick(
+        kernel=kernel,
+        runtime_surfaces=surfaces,  # type: ignore[arg-type]
+        contract_sentinel=_SentinelStub(),  # type: ignore[arg-type]
+        forge_daemon=_ForgeDaemonStub(),
+        merge_train=_MergeTrainStub(),
+    )
+
+    names = [name for name, _ in events]
+    assert names.index("signals") < names.index("resource") < names.index("world_state")
+    assert names.index("world_state") < names.index("cognition") < names.index("transition")
+    assert names.index("transition") < names.index("epistemic") < names.index("self_model")
+    assert names.index("self_model") < names.index("introspection")
+    tick_ids = {tick for _, tick in events if tick is not None}
+    assert len(tick_ids) == 1
+    assert surfaces.expand_calls == surfaces.cycle_calls == surfaces.guard_calls == surfaces.monitor_calls == 1
+    assert kernel.phase == LifecyclePhase.RUNTIME
+
+
 def test_runtime_surfaces_close_to_real_callable_paths(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     kernel = ControlPlaneKernel(
