@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "persistent-epistemic-revision-to-later-cognition",
+  "status": "construction",
+  "exact_nodes": [
+    {
+      "node_id": "tests/test_resident_epistemic_development.py::test_conflicting_epistemic_revision_reaches_later_cognition_after_restart",
+      "expected": "Two independent source observations create a persistent contested position, survive owner reconstruction and receipt recovery, and reach normal cognition with their separate observation times and evidence bindings intact."
+    },
+    {
+      "node_id": "tests/test_resident_epistemic_development.py::test_restart_between_evidence_and_state_deduplicates_and_continues",
+      "expected": "Existing interrupted evidence admission recovery remains idempotent and does not replay the evidence binding."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_resident_epistemic_development.py::test_conflicting_epistemic_revision_reaches_later_cognition_after_restart"
+  ],
+  "authority": {
+    "evidence": "independently identified historical source observations",
+    "cognition": "prior semantic context only; current truth and authority remain false",
+    "effects": "no operational or physical effect authority"
+  }
+}

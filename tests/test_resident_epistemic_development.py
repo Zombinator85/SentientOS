@@ -62,11 +62,12 @@ def fixture(tmp_path, *, relation="supports", disposition="nominal"):
     return owner, proposition, ledger, runtime
 
 
-def snapshot(disposition="nominal", *, source_id="supervisor-a"):
+def snapshot(disposition="nominal", *, source_id="supervisor-a", observed_at=NOW):
     return WorldStateBoardBuilder(clock=lambda: datetime.fromisoformat(NOW)).build([{
         "source_kind": "runtime_supervisor", "source_id": source_id,
         "subject_kind": "service", "subject_id": "service-a", "stage": "observation",
-        "disposition": disposition, "observed_at": NOW, "payload": {"check": disposition},
+        "disposition": disposition, "observed_at": observed_at,
+        "payload": {"check": disposition},
     }])
 
 
@@ -679,3 +680,72 @@ def test_parent_lifecycle_receipt_time_stays_historical_context(tmp_path):
     assert binding.evidence_relation == "contextualizes"
     assert binding.dependency_kind == "unknown_dependency"
     assert binding.freshness == "unknown"
+
+
+def test_conflicting_epistemic_revision_reaches_later_cognition_after_restart(
+        tmp_path):
+    """Persistent independent evidence survives reconstruction into real cognition."""
+    owner, proposition, _ledger, runtime = fixture(tmp_path)
+    first = runtime.process_snapshot(snapshot(), tick=10, recorded_at=NOW)
+    support_state = owner.current_state(proposition.proposition_id)
+    assert support_state is not None and first.new_binding_count == 1
+
+    support_rule = runtime.config.rules[0]
+    contradiction_rule = replace(support_rule, rule_id="service-failed",
+        evidence_relation="contradicts",
+        selector={**support_rule.selector, "disposition": "failed"})
+    runtime.config = replace(runtime.config, rules=(support_rule, contradiction_rule))
+    correction_time = "2026-09-28T12:01:00+00:00"
+    correction = runtime.process_snapshot(snapshot("failed",
+        source_id="independent-supervisor-b", observed_at=correction_time),
+        tick=11, recorded_at=correction_time)
+    contested = owner.current_state(proposition.proposition_id)
+    assert correction.new_binding_count == 1
+    assert contested is not None and contested.stance == "contested"
+
+    # Reopen the durable owner and compose its prior-tick semantic projection
+    # through the normal cognition owner. Neither observation is promoted to
+    # current truth or authority.
+    recovered = PersistentEpistemicStateOwner(tmp_path / "epistemics",
+        allowed_namespaces=("operator",))
+    definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    def recovered_sequence():
+        admissions, revocations = _ledger.load()
+        return max([item.issued_sequence for item in admissions]
+            + [item.sequence for item in revocations], default=1)
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered,
+        admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=_ledger),
+        current_sequence=recovered_sequence,
+        receipt_root=tmp_path / "receipts")
+    assert recovered_controller.verify_receipts()["status"] == "verified"
+    projection = recovered.cognitive_projection(max_states=4, current_tick=12)
+    assert projection is not None
+
+    from tests.test_resident_developmental_cognition import (
+        owner as cognition_owner, snapshot as cognition_snapshot,
+    )
+    cognition, model = cognition_owner(tmp_path / "cognition")
+    result = cognition.run_tick(snapshot=cognition_snapshot(),
+        tick_id="epistemic-conflict-after-restart", prior_epistemic_state=projection)
+    request = next(item for item in model.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    consumed = json.loads(request.prompt)["prior_epistemic_state"]
+    [packet] = consumed["semantic_packets"]
+    assert packet["state"]["stance"] == "contested"
+    assert len(packet["supporting_evidence"]) == 1
+    assert len(packet["contradicting_evidence"]) == 1
+    binding_by_id = {item["binding_id"]: item
+        for item in packet["active_evidence_bindings"]}
+    support = binding_by_id[packet["supporting_evidence"][0]]
+    contradiction = binding_by_id[packet["contradicting_evidence"][0]]
+    assert support["observation_time"] == NOW
+    assert contradiction["observation_time"] == correction_time
+    assert support["source_artifact_id"] != contradiction["source_artifact_id"]
+    assert request.upstream_evidence["epistemic_projection_id"] == projection.projection_id
+    assert request.upstream_evidence["epistemic_state_digests"] == [contested.state_digest]
+    assert result.cognition_observation_ids
+    observation = cognition.verified_cognition_observation(result.cognition_observation_ids[0])
+    assert observation["epistemic_state_digests"] == [contested.state_digest]
+    assert observation["authority"] is False
