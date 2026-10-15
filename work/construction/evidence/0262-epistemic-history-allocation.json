@@ -1,0 +1,65 @@
+{
+  "sequence": 262,
+  "title": "Use contested epistemic history in budgeted goal allocation",
+  "source_parent_commit": "f1c8f78b1215dbf324f17ef2537ceaae66818472",
+  "source_parent_tree": "9e9517bb58d9c891d6be25a29f0d635ead1311ca",
+  "source_commit": "74df8a8f2c512aa561c5e7cf0eed1fecc08da563",
+  "source_tree": "a13b978ff67ae68852d931a353225723aca61536",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "f1c8f78b1215dbf324f17ef2537ceaae66818472",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/epistemic_planning.py",
+      "mode": "100644",
+      "sha": "1d9e32b20d372e80fdabc76c9bb6a0fc8a74f03a"
+    },
+    {
+      "path": "sentientos/work_allocator.py",
+      "mode": "100644",
+      "sha": "9924172695899a19259f71f7e57d26b0a629ca0c"
+    },
+    {
+      "path": "sentientos/goal_executor.py",
+      "mode": "100644",
+      "sha": "8de3527bfaeb00d3cce669705c4909c3ab62490f"
+    },
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "991a9900e2f99b96f50657682b71f3693d23d97c"
+    },
+    {
+      "path": "docs/development/longitudinal-epistemic-outcome-planning-task-acceptance.json",
+      "mode": "100644",
+      "sha": "73e52e8432ebdcbe0756e71be87ba26e15f920de"
+    }
+  ],
+  "validation": {
+    "goal_allocator_planner_tests": "13 passed",
+    "epistemic_causal_and_longitudinal_cognition": "57 passed",
+    "python_compile": "passed",
+    "whitespace_and_conflict_marker_check": "passed"
+  },
+  "observations": {
+    "shared_canonical_projection_validator": true,
+    "projection_digest_in_allocation_reasons": true,
+    "projection_digest_in_plan_identity": true,
+    "budgeted_selection_changes_for_exact_tagged_goal": true,
+    "independent_goal_selected": true,
+    "invalid_projection": "rejected",
+    "production_effects": false,
+    "truth_claim": false,
+    "authority_expansion": false
+  },
+  "limitations": [
+    "Applicability remains explicit through exact proposition-ID tags; cross-model or cross-family inference is not performed.",
+    "No production effect or live forge apply occurred."
+  ]
+}

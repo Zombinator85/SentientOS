@@ -28,10 +28,11 @@
     "D1-D8 partial: seq259 admits adverse acquisition, adverse transfer, contextual tie, and later support through the runtime; reconstructed-owner state remains contested, trace receipts join, and a separately evaluated cognition call changes its output from delivered evidence. Fresh operating-system-process trace recovery remains open.",
     "E1-E8 partial: seq259 validates the exact prior work run before follow-up planning, binds the prior run payload digest into the new plan identity, withholds repeated destructive apply after partial/failed/unknown outcomes, and keeps independent goals eligible.",
     "D1-D8: seq260 reconstructs the contested proposition, four source outcomes, three state events, seven verified mutation receipts, and exact later-cognition projection in a separate Python process.",
-    "E1-E8 partial: seq261 binds a validated meaning-bearing contested epistemic projection to exact proposition-tagged goals; the projection digest is in the plan identity and destructive apply requires review while untagged goals proceed."
+    "E1-E8 partial: seq261 binds a validated meaning-bearing contested epistemic projection to exact proposition-tagged goals; the projection digest is in the plan identity and destructive apply requires review while untagged goals proceed.",
+    "E1-E8 partial: seq262 uses the same canonical epistemic projection validator in allocation and task planning; under a constrained budget contested evidence defers the explicitly tagged goal and selects independent work, with projection identity retained."
   ],
-  "current_source_commit": "5dbae22aece7762a7d1aa7513cb148c0a0157580",
-  "current_source_tree": "9b3818ef0d9ff70e813d7cd34c44caa4d25ddf65",
+  "current_source_commit": "74df8a8f2c512aa561c5e7cf0eed1fecc08da563",
+  "current_source_tree": "a13b978ff67ae68852d931a353225723aca61536",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -39,12 +40,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 261,
+  "last_checkpoint_sequence": 262,
   "next_executable_nodes": [
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Extend evidence-bound epistemic planning from destructive-action review into deterministic goal selection or prioritization, using explicit applicability mappings and preserving exact source, prior-run, and no-replay boundaries."
+      "work": "Assess exact proposition applicability across task-family and model identities; preserve uncertainty, avoid cross-identity transfer without explicit evidence binding, and keep planning digests and no-replay guarantees."
     },
     {
       "node": "F1-F8",

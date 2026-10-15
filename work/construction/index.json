@@ -2752,6 +2752,18 @@
       "sha256": "afc2236706ee17721dd6676d44ab8e40845206c3553646ce2a0a76392820dd9f",
       "source_commit": "5dbae22aece7762a7d1aa7513cb148c0a0157580",
       "source_tree": "9b3818ef0d9ff70e813d7cd34c44caa4d25ddf65"
+    },
+    {
+      "bytes": 1310,
+      "evidence_bytes": 2310,
+      "evidence_path": "work/construction/evidence/0262-epistemic-history-allocation.json",
+      "evidence_sha256": "b06a7606eba9b3793dbd4b67f4b85422a7a4854e2ff9b37725de48ae8f9f681f",
+      "path": "work/construction/segments/0262-epistemic-history-allocation.md",
+      "predecessor": "segment-sha256:afc2236706ee17721dd6676d44ab8e40845206c3553646ce2a0a76392820dd9f",
+      "sequence": 262,
+      "sha256": "24d500f426032dba123225e2a4f6046c7d83954fc924faf801becfde9fccefd0",
+      "source_commit": "74df8a8f2c512aa561c5e7cf0eed1fecc08da563",
+      "source_tree": "a13b978ff67ae68852d931a353225723aca61536"
     }
   ],
   "source_acquisition": {
