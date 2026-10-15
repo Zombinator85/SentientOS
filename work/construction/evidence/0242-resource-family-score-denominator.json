@@ -1,0 +1,54 @@
+{
+  "changed_blobs": [
+    {
+      "mode": "100644",
+      "path": "sentientos/host_resource_runtime.py",
+      "sha": "f92c30c80481453682f020483a469b2fe3817d05"
+    },
+    {
+      "mode": "100644",
+      "path": "sentientos/resident_developmental_writeback.py",
+      "sha": "528619e950e02bc69c6528c19b43f4ab9060cc91"
+    },
+    {
+      "mode": "100644",
+      "path": "tests/test_strategy_resource_lineage_integration.py",
+      "sha": "04135d5b4623096ade23325280166cb0ced684ad"
+    },
+    {
+      "mode": "100644",
+      "path": "docs/development/resource_family_outcome_admission_task_acceptance.json",
+      "sha": "0591322eaa359cdefb5207a01b1426c6aaa220df"
+    }
+  ],
+  "limits": [
+    "Evidence fixtures are synthetic.",
+    "Resource receipts have not all been independently reconciled with a live allocator ledger.",
+    "No task execution, production authority, or allocation policy change is established."
+  ],
+  "observations": {
+    "complete_family_outcome_remains_qualified": true,
+    "incomplete_lineage_retained_as_degraded_diagnostic": true,
+    "mismatched_probe_denominator_admitted_as_qualified": false,
+    "missing_family_score_counts_admitted_as_qualified": false
+  },
+  "sequence": 242,
+  "source_commit": "a90ec3245b249ab2e716e94aca4bf0a6e7935c79",
+  "source_parent_commit": "ece20b5449de73af0f978bdc8e8552e3640a1178",
+  "source_parent_tree": "9320b4648110f6b80c309d1c684e40733f545208",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "commit_parent_verified": true,
+    "commit_tree": "5b9f8ef6fd8c8bbfc4457151593d4c747827522f",
+    "compare_and_swap": "succeeded",
+    "expected_head": "ece20b5449de73af0f978bdc8e8552e3640a1178",
+    "force": false
+  },
+  "source_tree": "5b9f8ef6fd8c8bbfc4457151593d4c747827522f",
+  "title": "Resource-linked family outcomes require their preregistered denominator",
+  "validation": {
+    "git_diff_check": "passed",
+    "resource_lineage_and_model_replacement_nodes": "2 passed",
+    "source_and_test_py_compile": "passed"
+  }
+}
