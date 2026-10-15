@@ -87,7 +87,7 @@ class WorkPlan:
     def identity_digest(self) -> str:
         """Bind a completed run to every persisted plan field and task cost."""
         canonical = json.dumps(self.to_dict(), sort_keys=True,
-            separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+            separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         return hashlib.sha256(canonical).hexdigest()
 
 

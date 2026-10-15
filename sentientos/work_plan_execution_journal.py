@@ -28,9 +28,23 @@ class WorkPlanExecutionJournal:
 
     def __init__(self, root: Path, plan: WorkPlan) -> None:
         self.plan_id = plan.plan_id
-        self.plan_digest = hashlib.sha256(_canonical(plan.to_dict())).hexdigest()
-        journal_name = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest() + ".jsonl"
-        self.path = root.resolve() / "glow/forge/work_plan_journals" / journal_name
+        self.plan_digest = plan.identity_digest()
+        journal_root = root.resolve() / "glow/forge/work_plan_journals"
+        journal_name = hashlib.sha256(self.plan_digest.encode("ascii")).hexdigest() + ".jsonl"
+        self.path = journal_root / journal_name
+        legacy_name = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest() + ".jsonl"
+        legacy_path = journal_root / legacy_name
+        if not self.path.exists() and legacy_path.exists():
+            try:
+                legacy_raw = legacy_path.read_bytes()
+                first_row = json.loads(legacy_raw.splitlines()[0]) if legacy_raw else None
+            except (OSError, UnicodeError, json.JSONDecodeError, IndexError) as exc:
+                raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
+            if not isinstance(first_row, dict) or not isinstance(
+                    first_row.get("plan_digest"), str):
+                raise WorkPlanJournalError("work_plan_journal_record_invalid")
+            if first_row["plan_digest"] == self.plan_digest:
+                self.path = legacy_path
         self._known_task_ids = {task.task_id for task in plan.tasks}
         self._tasks = {task.task_id: task for task in plan.tasks}
         if len(self._known_task_ids) != len(plan.tasks):

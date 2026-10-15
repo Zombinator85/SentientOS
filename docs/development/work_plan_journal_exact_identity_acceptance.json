@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "task": "Isolate append-only execution journals by complete plan identity",
+  "successful_path_nodes": [
+    "sentientos/tests/test_goal_executor_run.py::test_interrupted_task_stays_unknown_while_independent_task_continues",
+    "sentientos/tests/test_goal_executor_run.py::test_completed_task_is_not_reexecuted_when_same_plan_is_recovered"
+  ],
+  "adversarial_nodes": [
+    "sentientos/tests/test_goal_executor_run.py::test_same_plan_id_changed_definition_gets_distinct_execution_journal"
+  ],
+  "authority_limits": [
+    "Interrupted attempts remain unknown and are not replayed.",
+    "A changed plan with a reused plan ID gets a distinct journal identity.",
+    "Existing matching legacy journal history remains available for exact-plan recovery."
+  ]
+}

@@ -273,6 +273,24 @@ def test_interrupted_task_stays_unknown_while_independent_task_continues(
     ]
 
 
+def test_same_plan_id_changed_definition_gets_distinct_execution_journal(
+    tmp_path: Path,
+) -> None:
+    task = Task(1, "goal:diagnostic", "goal", "diagnostic",
+        ("python -m scripts.contract_drift",), None, 0, 0, {}, (), False)
+    original = WorkPlan(1, "reused-plan-id", "2026-01-01T00:00:00Z",
+        "manual", ("goal",), (task,))
+    first = WorkPlanExecutionJournal(tmp_path, original)
+    first.start(task.task_id)
+
+    changed_task = replace(task, commands=("python -m scripts.different_check",))
+    changed = replace(original, tasks=(changed_task,))
+    second = WorkPlanExecutionJournal(tmp_path, changed)
+
+    assert second.path != first.path
+    assert second.state(task.task_id) is None
+
+
 def test_failed_dependency_blocks_dependent_but_not_other_goals(
     tmp_path: Path, monkeypatch,
 ) -> None:
