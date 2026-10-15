@@ -1,0 +1,38 @@
+{
+  "changed_blobs": [
+    {"mode": "100644", "path": "sentientos/work_plan.py", "sha": "fec06f84e6e04cc3a89be74534cb9fa9807be81c"},
+    {"mode": "100644", "path": "sentientos/tests/test_work_plan_load.py", "sha": "ffaad563d2b3d0b223498213cc31ec6f9fbd6a6f"},
+    {"mode": "100644", "path": "docs/development/work_run_digest_path_acceptance.json", "sha": "5526d2dc0e1613a38ebda296bf69a2bab212d8e6"}
+  ],
+  "limits": [
+    "The transient malformed upload is preserved in history but is not on the live branch.",
+    "No production command or effect authority is introduced.",
+    "All test outcomes are local synthetic evidence."
+  ],
+  "observations": {
+    "caller_controlled_run_path_rejected": true,
+    "corrected_source_blob_matches_local_git_sha": true,
+    "corrected_source_blob_remote_fetch_succeeded": true,
+    "exact_seq244_continuation_tree_retained": true
+  },
+  "sequence": 245,
+  "source_commit": "67ec774cb0f21b48837ad19afe752db6b19761e2",
+  "source_parent_commit": "91dd947fe9afdcbb00f4985ecc69743346df0cf7",
+  "source_parent_tree": "bcfc24b6b945732e4651c523eb4997d8a171097b",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "commit_parent_verified": true,
+    "compare_and_swap": "succeeded",
+    "expected_head": "91dd947fe9afdcbb00f4985ecc69743346df0cf7",
+    "force": false,
+    "transient_prior_head": "91dd947fe9afdcbb00f4985ecc69743346df0cf7"
+  },
+  "source_tree": "1cb458e4d17ebd41b6eb038cc064b3d1d34a86fb",
+  "title": "Digest-derived work-run artifact path and exact source correction",
+  "validation": {
+    "git_diff_check": "passed",
+    "goal_progression_matrix": "37 passed",
+    "source_and_test_py_compile": "passed",
+    "tree_matches_isolated_git_index": true
+  }
+}
