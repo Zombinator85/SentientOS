@@ -1736,6 +1736,77 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
         run["run_digest"], transfer["run_digest"], corrective_run["run_digest"],
         final_run["run_digest"]}
 
+    # Reconstruct the proposition owner, mutation controller, admission
+    # ledger, and trace in a distinct interpreter process.
+    child_trace_script = r'''import json, sys
+from pathlib import Path
+from sentientos.codex_task_authority_admission import (
+    RESIDENT_EPISTEMIC_STATE_MUTATION,
+    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+)
+from sentientos.persistent_epistemic_state import (
+    PersistentEpistemicStateOwner, make_proposition,
+)
+from sentientos.resident_epistemic_development import (
+    EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+    ResidentEpistemicDevelopmentRuntime,
+)
+from sentientos.resident_epistemic_state_mutation import (
+    ResidentEpistemicStateMutationController,
+)
+from sentientos.runtime_admission import (
+    AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+)
+root = Path(sys.argv[1])
+parent = Path(sys.argv[2])
+ledger = AdmissionLedger(parent / "epistemic-admissions.json")
+definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+    RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("operator",))
+proposition = make_proposition(namespace="operator",
+    subject="task_family:integer_affine_prediction", predicate="history_effect",
+    object_value="Historical examples affect held-out task correctness",
+    polarity="positive", qualifiers={"campaign": "adverse-corrective-history"},
+    temporal_scope={"kind": "longitudinal_task_family"},
+    context_scope={"task_family_id": "integer_affine_prediction"},
+    proposition_class="causal_hypothesis")
+rule = EpistemicDevelopmentRule("verified-task-family-correction",
+    proposition.proposition_id, proposition.proposition_digest,
+    {"source_kind": "embodiment",
+        "subject_kind": "developmental_history_intervention_experiment"},
+    "supports", "unknown_dependency", "bounded_fixture_outcome")
+controller = ResidentEpistemicStateMutationController(owner=owner,
+    admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
+    current_sequence=ledger.current_sequence,
+    receipt_root=parent / "epistemic-mutation-receipts")
+runtime = ResidentEpistemicDevelopmentRuntime(
+    config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+    owner=owner, mutation_controller=controller,
+    admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
+    admission_ledger=ledger)
+state = owner.current_state(proposition.proposition_id)
+trace = runtime.trace_proposition(proposition_id=proposition.proposition_id,
+    reconstructed_at="2026-10-15T00:00:01+00:00", max_events=3, cognitive_tick=5)
+print(json.dumps({"stance": state.stance if state else None,
+    "state_digest": state.state_digest if state else None,
+    "source_digests": sorted(row["source_digest"] for row in trace["evidence"]),
+    "event_count": len(trace["events"]),
+    "receipt_count": len(trace["mutation_receipts"]),
+    "projection_state_digests": trace["resulting_prior_projection"]["state_digests"]}))
+'''
+    child_trace = subprocess.run([sys.executable, "-c", child_trace_script,
+        str(epistemic_root), str(tmp_path)], cwd=Path(__file__).resolve().parents[1],
+        capture_output=True, text=True, check=True, timeout=30)
+    process_trace = json.loads(child_trace.stdout)
+    assert process_trace["stance"] == "contested"
+    assert process_trace["state_digest"] == recovered_state.state_digest
+    assert process_trace["source_digests"] == sorted({
+        run["run_digest"], transfer["run_digest"], corrective_run["run_digest"],
+        final_run["run_digest"]})
+    assert process_trace["event_count"] == 3
+    assert process_trace["receipt_count"] == 7
+    assert process_trace["projection_state_digests"] == [recovered_state.state_digest]
+
     class EpistemicAwareFixtureInvoker(FakeInvoker):
         """Fixture consumer reacts to evidence posture, without a treatment label."""
         def __init__(self) -> None:

@@ -20,7 +20,7 @@
     {
       "node_id": "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer",
       "role": "integration",
-      "expected": "Adverse and supporting scored outcomes survive epistemic owner reconstruction, remain contested after later support, and change a separately evaluated cognition output from the delivered evidence."
+      "expected": "Adverse and supporting scored outcomes survive epistemic-owner reconstruction and a separate Python process; the contested state, all four source digests, three state events, seven receipts, and later cognition output are recovered and independently checked."
     }
   ],
   "non_claims": [
