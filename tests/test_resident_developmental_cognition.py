@@ -486,7 +486,7 @@ def test_completed_objective_run_is_read_only_projected_into_a_later_world_state
     fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
     task = ObjectivePredictionTask(3, 2, 7, (8, 9),
         task_family_id="integer_affine_prediction")
-    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+    cognition, model = owner(tmp_path, comparison=True, invoker=fake,
         allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
     seed = cognition.run_tick(snapshot=snapshot(), tick_id="experience-seed")
     assert seed.written_record_id
@@ -1627,7 +1627,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "allowed_source_kinds": ["capability_registry", "embodiment"],
         "max_selected_facts": 16, "max_retrieved_records": 4,
         "comparison_enabled": True}), encoding="utf-8")
-    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+    cognition, model = owner(tmp_path, comparison=True, invoker=fake,
         allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
     assert cognition.run_tick(snapshot=snapshot(), tick_id="episode-seed").written_record_id
 
@@ -1772,9 +1772,42 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     # objects.
     heldout_task = ObjectivePredictionTask(3, 2, 10, (11, 12),
         task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    prior_epistemic, _prior_proposition, prior_state = epistemic_projection(
+        tmp_path / "epistemic-prior")
+    _, prior_task_request, prior_task_eligible = stage_request(config_path=config_path,
+        request_id="episode-heldout-with-epistemic-prior", task=heldout_task)
+    assert prior_task_eligible >= 1
+    prior_task_result = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="episode-heldout-with-epistemic-prior", objective_task=heldout_task,
+        request_id="episode-heldout-with-epistemic-prior",
+        request_digest=str(prior_task_request["request_digest"]),
+        prior_epistemic_state=prior_epistemic)
+    assert prior_task_result.status == "objective_intervention_completed"
+    prior_task_run = cognition.experiments.load_run(
+        str(prior_task_result.changed_cognition_measurement_id))
+    assert len(prior_task_run["objective_scores"]) == 3
+    assert all(row["condition_id"] in {"history_present", "history_withheld", "history_restored"}
+        for row in prior_task_run["objective_scores"])
+    assert all(row["score"]["evaluator"]
+        == "deterministic_exact_integer_suite_oracle_v2"
+        for row in prior_task_run["objective_scores"])
+    assert all(isinstance(row["score"]["score_digest"], str)
+        and row["score"]["status"] in {"correct", "incorrect", "invalid_answer",
+            "output_unavailable", "output_truncated"}
+        for row in prior_task_run["objective_scores"])
+    epistemic_requests = [request for request in model.requests
+        if request.upstream_evidence.get("epistemic_projection_id")
+            == prior_epistemic.projection_id]
+    assert epistemic_requests
+    epistemic_input = json.loads(epistemic_requests[0].prompt)["prior_epistemic_state"]
+    [semantic_packet] = epistemic_input["semantic_packets"]
+    assert semantic_packet["state"]["state_id"] == prior_state.state_id
+    assert semantic_packet["state"]["state_digest"] == prior_state.state_digest
+
     _, heldout_request, eligible_count = stage_request(config_path=config_path,
         request_id="episode-heldout-after-restart", task=heldout_task)
     assert eligible_count >= 1
+
     episode = _run_family_episode_in_child(tmp_path,
         acquisition_request_digest=str(acquisition_request["request_digest"]),
         request_id="episode-heldout-after-restart",

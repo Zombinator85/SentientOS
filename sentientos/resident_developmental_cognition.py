@@ -4511,7 +4511,9 @@ class ResidentDevelopmentalCognitionOwner:
 
     def run_objective_intervention_once(self, *, snapshot: WorldStateSnapshot,
             tick_id: str, objective_task: Any, request_id: str,
-            request_digest: str) -> ResidentDevelopmentalCycleResult:
+            request_digest: str,
+            prior_epistemic_state: EpistemicCognitiveProjection | None = None
+            ) -> ResidentDevelopmentalCycleResult:
         """Run one explicit scored history intervention without developmental writeback."""
         if (self.objective_task is not None or not self.config.comparison_enabled
                 or not callable(getattr(objective_task, "specification", None))
@@ -4523,7 +4525,8 @@ class ResidentDevelopmentalCognitionOwner:
         if request_digest not in {payload.get("request_digest"), legacy_digest}:
             raise ResidentDevelopmentalCognitionError("objective_request_digest_mismatch")
         return self._run_tick(snapshot=snapshot, tick_id=tick_id,
-            prior_self_model=None, prior_epistemic_state=None, objective_task=objective_task,
+            prior_self_model=None, prior_epistemic_state=prior_epistemic_state,
+            objective_task=objective_task,
             objective_only=True, objective_request_id=request_id,
             objective_request_digest=request_digest)
 
