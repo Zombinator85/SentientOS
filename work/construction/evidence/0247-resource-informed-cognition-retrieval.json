@@ -1,0 +1,59 @@
+{
+  "changed_blobs": [
+    {
+      "mode": "100644",
+      "path": "sentientos/resident_developmental_cognition.py",
+      "sha": "7e5bac9c75fbb18affdfb73f7afc5eb9febfa8f5"
+    },
+    {
+      "mode": "100644",
+      "path": "sentientos/resident_developmental_writeback.py",
+      "sha": "b8f32b6d0c658ed4be4e5baaf5e47ef8fa89af47"
+    },
+    {
+      "mode": "100644",
+      "path": "tests/test_resident_developmental_cognition.py",
+      "sha": "e67f2ad64f3f8f13bc5c81c5c6e000708e8dc396"
+    },
+    {
+      "mode": "100644",
+      "path": "tests/test_strategy_resource_lineage_integration.py",
+      "sha": "5bc537f46fabba3d09e21656dd2c445f9875878c"
+    },
+    {
+      "mode": "100644",
+      "path": "docs/development/resource_informed_cognition_task_acceptance.json",
+      "sha": "68b65f4289b7b07869db08bcca5ca47f52e4496c"
+    }
+  ],
+  "limits": [
+    "C4-C8 remains partial: a later computational recommendation with independent outcome evaluation is still required.",
+    "Deterministic fixtures do not establish independent model behavior or recommendation quality.",
+    "No CPU, GPU, energy, token, external-effect, or production authority is inferred."
+  ],
+  "observations": {
+    "missing_or_mismatched_resource_history": "unknown_missing_or_unbound_lineage",
+    "shared_host_cpu_gpu": "unknown_without_independent_observation",
+    "task_history_retrieval_requires_exact_lineage_binding": true,
+    "token_count": "preserved only when source posture states it; otherwise unknown",
+    "writeback_retains_receipt_bound_measured_values": true
+  },
+  "sequence": 247,
+  "source_commit": "04c09cf289d84c03d91bf59b20b08109718496d0",
+  "source_parent_commit": "69731cf889b624f08ae89802c253023f1902ab89",
+  "source_parent_tree": "222ac6b374c6ea06b3dd6ba355cb09fa58c1e7b8",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "commit_parent_verified": true,
+    "compare_and_swap": "succeeded",
+    "expected_head": "69731cf889b624f08ae89802c253023f1902ab89",
+    "force": false
+  },
+  "source_tree": "22d119dee637f9165b971835eec33bc2415a7cf9",
+  "title": "Receipt-bound resource measurements reach later developmental task history",
+  "validation": {
+    "git_diff_check": "passed",
+    "resource_lineage_and_cognition_nodes": "3 passed",
+    "source_and_test_py_compile": "passed"
+  }
+}
