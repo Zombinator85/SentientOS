@@ -2959,24 +2959,105 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert outcome_binding.source_class == "deterministic_task_family_evaluation"
     assert outcome_binding.dependency_kind == "unknown_dependency"
     assert outcome_binding.freshness == "unknown"
-    epistemics.bind_evidence(outcome_binding)
     evaluated_at = max(datetime.fromisoformat(row["observed_at"].replace("Z", "+00:00"))
         for row in run["conditions"]) + timedelta(seconds=1)
-    relation = outcome_binding.evidence_relation
-    stance = ("provisionally_supported" if relation == "supports" else
-        "provisionally_contradicted" if relation == "contradicts" else "suspended")
-    state, event = epistemics.commit_update(
-        proposition_id=proposition.proposition_id, expected_predecessor_digest=None,
-        stance=stance, reason="new_evidence", active_binding_ids=(outcome_binding.binding_id,),
-        added_binding_ids=(outcome_binding.binding_id,), correlation_id=run_id,
-        tick=1, recorded_at=evaluated_at.isoformat())
-    assert event.added_binding_ids == (outcome_binding.binding_id,)
+    from sentientos.resident_epistemic_development import (
+        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        ResidentEpistemicDevelopmentRuntime,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        ResidentEpistemicStateMutationController,
+    )
+    from sentientos.codex_task_authority_admission import (
+        RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    epistemic_ledger = AdmissionLedger(tmp_path / "epistemic-admissions.json")
+    epistemic_definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION:
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    controller = ResidentEpistemicStateMutationController(owner=epistemics,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        current_sequence=epistemic_ledger.current_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    rule = EpistemicDevelopmentRule("verified-task-family", proposition.proposition_id,
+        proposition.proposition_digest,
+        {"source_kind": "embodiment",
+            "subject_kind": "developmental_history_intervention_experiment"},
+        "supports", "unknown_dependency", "bounded_fixture")
+    runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+        owner=epistemics, mutation_controller=controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        admission_ledger=epistemic_ledger)
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+            match="epistemic_run_digest_mismatch"):
+        runtime.process_verified_task_family_run(
+            experiment_store=restarted.experiments, run_id=run_id,
+            expected_run_digest="sha256:" + "0" * 64,
+            rule_id=rule.rule_id, tick=1, recorded_at=evaluated_at.isoformat())
+    assert epistemic_ledger.load()[0] == ()
+    feedback = runtime.process_verified_task_family_run(
+        experiment_store=restarted.experiments, run_id=run_id,
+        expected_run_digest=run_digest, rule_id=rule.rule_id, tick=1,
+        recorded_at=evaluated_at.isoformat())
+    assert feedback.status == "state_advanced"
+    assert len(feedback.evidence_receipt_ids) == 1
+    assert len(feedback.state_receipt_ids) == 1
+    assert len(epistemic_ledger.load()[0]) == 2
+    assert runtime.process_verified_task_family_run(
+        experiment_store=restarted.experiments, run_id=run_id,
+        expected_run_digest=run_digest, rule_id=rule.rule_id, tick=1,
+        recorded_at=evaluated_at.isoformat()).status == "already_applied"
+    state = epistemics.current_state(proposition.proposition_id)
+    assert state is not None
+    assert state.stance == "provisionally_supported"
     assert state.dependency_unresolved is True
     recovered_epistemics = PersistentEpistemicStateOwner(tmp_path / "epistemics",
         allowed_namespaces=("operator",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_epistemics,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        current_sequence=epistemic_ledger.current_sequence,
+        receipt_root=tmp_path / "epistemic-mutation-receipts")
+    assert recovered_controller.verify_receipts()["status"] == "verified"
     recovered_state = recovered_epistemics.current_state(proposition.proposition_id)
     assert recovered_state == state
     assert recovered_epistemics.bindings(proposition.proposition_id) == (outcome_binding,)
+    later, later_fake = owner(tmp_path / "later-cognition", invoker=FakeInvoker())
+    later.run_tick(snapshot=snapshot(), tick_id="after-admitted-task-family-outcome",
+        prior_epistemic_state=recovered_epistemics.cognitive_projection(
+            max_states=1, current_tick=2))
+    later_request = next(item for item in later_fake.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    later_packets = json.loads(later_request.prompt)["prior_epistemic_state"]["semantic_packets"]
+    assert len(later_packets) == 1
+    assert later_packets[0]["state"]["state_digest"] == state.state_digest
+    assert later_packets[0]["evidence_posture"]["dependency_unresolved"] is True
+    from sentientos.causal_introspection import CaptureContext, IntrospectionConfig
+    from sentientosd import RuntimeMaintenanceSurfaces, _compose_causal_introspection
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path / "causal-runtime",
+        runtime_state_root=tmp_path / "causal-runtime-state",
+        epistemic_state_owner=recovered_epistemics,
+        epistemic_state_config={"status": "enabled",
+            "cognitive_consumption_enabled": True},
+        epistemic_development_runtime=runtime)
+    causal = _compose_causal_introspection(surfaces,
+        resident_serving_controller=None,
+        config=IntrospectionConfig(True, tmp_path / "causal-custody", True, 8,
+            ("persistent_epistemics",), ("persistent_epistemics",)))
+    captured = causal.capture(CaptureContext("after-admitted-task-family-outcome",
+        capture_posture="synthetic_test"))
+    [epistemic_projection] = captured.projections
+    observations = {item.observation_key: item.bounded_value
+        for item in epistemic_projection.observations}
+    assert observations["state_count"] == 1
+    assert observations["evidence_binding_count"] == 1
+    assert observations["mutation_recovery_status"] == "verified"
+    assert epistemic_projection.posture.current_truth is False
+    assert epistemic_projection.posture.authority is False
     assert recovered_state.authority == {
         "policy": False, "goal": False, "permission": False, "effect_admission": False,
         "adoption": False, "memory_retention": False, "truth_oracle": False}
