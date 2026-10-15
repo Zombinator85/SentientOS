@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq253 distinguishes forge `partial_success` from complete task success. Partial results retain their report artifacts in the work run and append-only journal, remain partial through recovery, and do not satisfy dependent task prerequisites. Independent work continues.
+Seq254 supplies the missing optional resource-owner input to resident developmental cognition. When configured, the owner requests a separate resource context immediately before each condition inference; no resource values are estimated in cognition.
 
-Latest source commit: d2a02deee68ab8e6e17d2a660bda9a83591af20b
-Latest source tree: 7f3632975dfc4bb2b0f5aa904e6faefbd098683b
-Latest segment: work/construction/segments/0253-partial-goal-outcome-progression.md
-Evidence: work/construction/evidence/0253-partial-goal-outcome-progression.json
+Latest source commit: 81a4b8d6d5231ce53de8def4ac843f8443070947
+Latest source tree: 09691ce5f436a5808b42458fe39b63a4a3e69f2e
+Latest segment: work/construction/segments/0254-developmental-resource-context-owner.md
+Evidence: work/construction/evidence/0254-developmental-resource-context-owner.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 253
+Sequence: 254
 
-Validation: goal executor run, plan, and work plan recovery suites passed (36 tests); changed Python sources compiled; `git diff --check` passed.
+Validation: owner-context routing, fresh-process task-family history, and strategy resource-lineage integration tests passed (3 tests); changed Python files compiled and `git diff --check` passed.
 
-Limits: non-complete outcomes remain blocked from dependency progression; no automatic retry of forge application or goal completion is claimed.
+Limits: the developmental experiment's own three inference receipts are not yet joined to ledger-produced resource receipts through World-State and admission; a later resource-aware held-out decision has not yet been recovered in a fresh process. No model improvement, independent backend observation, or unmeasured resource cost is claimed.
 
-Next: complete C4-C8 by joining admitted ledger-backed three-condition resource evidence to a distinct held-out recommendation and recovering the evaluated result in a fresh process. Continue D1-D8 through runtime admission and later cognition, then extend E progression using verified outcomes.
+Next: finish C4-C8 by composing the governed owner context with exact condition receipts, normal admission and retrieval, a distinct independently evaluated recommendation, and fresh-process recovery. Then continue D1-D8 and E1-E8.

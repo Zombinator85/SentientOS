@@ -1,0 +1,52 @@
+{
+  "sequence": 254,
+  "title": "Route resource owner contexts through controlled cognition conditions",
+  "source_commit": "81a4b8d6d5231ce53de8def4ac843f8443070947",
+  "source_tree": "09691ce5f436a5808b42458fe39b63a4a3e69f2e",
+  "source_parent_commit": "0b3bd623df8b3715c6eb71fb346d62a0b91e80b5",
+  "source_parent_tree": "8f4a16980d78636e74a6ceb51be3ac2d787d4dc3",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "0b3bd623df8b3715c6eb71fb346d62a0b91e80b5",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true
+  },
+  "changed_blobs": [
+    {
+      "mode": "100644",
+      "path": "sentientos/resident_developmental_cognition.py",
+      "sha": "f73f842c2fc6e4202f94c57c242581288546e73f"
+    },
+    {
+      "mode": "100644",
+      "path": "tests/test_resident_developmental_cognition.py",
+      "sha": "38325132b92c3bb5dad3f75ac19cb15cc7ee2970"
+    },
+    {
+      "mode": "100644",
+      "path": "docs/development/developmental_resource_context_owner_task_acceptance.json",
+      "sha": "cca3030821cdf659c367a0c147fbb189faf28ca1"
+    }
+  ],
+  "validation": {
+    "targeted_tests": "3 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "resource_context_source": "optional owner next_context interface",
+    "conditions_receiving_distinct_contexts": [
+      "history_present",
+      "history_withheld",
+      "history_restored"
+    ],
+    "resource_measurement_posture": "only governed invoker ledger receipts may establish measured cost",
+    "authority": false
+  },
+  "limitations": [
+    "Owner input routing is not a completed developmental ledger-backed three-condition trajectory.",
+    "Fresh-process recovery of a resource-aware later decision remains unimplemented.",
+    "No model improvement or independent backend observation is established."
+  ]
+}

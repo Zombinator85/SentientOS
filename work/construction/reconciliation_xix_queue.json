@@ -19,10 +19,11 @@
     "C4-C8 partial: canonical task-family retrieval retains all three independently scored treatment outcomes and exact condition-specific inference/resource receipt lineage; a frozen-task requirement and deterministic quality-first/call-unit recommendation reaches the bounded cognition input binder; missing/unqualified evidence remains unknown; positive, negative-transfer, economical, and incomparable cases are covered.",
     "D1-D8 partial: owner-verified preregistered held-out task-family consequences now bind to the persistent epistemic owner as bounded support, contradiction, or contextual evidence; unknown dependency/freshness and deterministic-fixture qualification survive append-only correction and fresh-owner reconstruction.",
     "E1-E8 partial: exact-plan execution now resumes repeated interruptions for non-destructive allowlisted diagnostic/verify tasks through digest-chained numbered retries; dependent tasks wait for durable success, while interrupted non-idempotent forge proposal/apply tasks remain unknown and blocked.",
-    "E1-E8 partial: forge partial_success is now distinct from task success, persisted in task journals/work runs, and cannot satisfy dependent tasks; independent tasks progress and partial state recovers without claiming goal completion."
+    "E1-E8 partial: forge partial_success is now distinct from task success, persisted in task journals/work runs, and cannot satisfy dependent tasks; independent tasks progress and partial state recovers without claiming goal completion.",
+    "C4-C8 prerequisite: resident developmental cognition accepts an optional owner-issued resource context and requests a distinct context for each preregistered condition; actual ledger receipt admission and later-decision recovery remain open."
   ],
-  "current_source_commit": "d2a02deee68ab8e6e17d2a660bda9a83591af20b",
-  "current_source_tree": "7f3632975dfc4bb2b0f5aa904e6faefbd098683b",
+  "current_source_commit": "81a4b8d6d5231ce53de8def4ac843f8443070947",
+  "current_source_tree": "09691ce5f436a5808b42458fe39b63a4a3e69f2e",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -30,12 +31,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 253,
+  "last_checkpoint_sequence": 254,
   "next_executable_nodes": [
     {
-      "node": "C4-C8 continuation",
+      "node": "C4-C8 completion",
       "program": "C",
-      "work": "Connect admitted ledger-backed three-condition resource receipts to a distinct held-out recommendation, independently evaluate the result, and recover the decision after a fresh process."
+      "work": "Run all three developmental conditions through the governed resource owner; derive World-State lineage from their exact inference receipts; admit and retain it normally; consume it in a distinct later resource-aware decision, independently evaluate that decision, and reconstruct it in a fresh process."
     },
     {
       "node": "D1-D8",
