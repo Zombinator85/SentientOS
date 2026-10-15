@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq251 connects digest-verified three-condition held-out task-family consequences to the canonical persistent epistemic owner. A recovered, preregistered task-family comparison may yield bounded support, contradiction, or contextual evidence; the adapter refuses incomplete suites and run-digest mismatch. Deterministic fixture outcomes remain non-independent experiment evidence with unknown freshness/dependency. Append-only correction and fresh-owner reconstruction preserve the unresolved posture and false authority.
+Seq252 adds append-only retry for interrupted non-destructive `diagnostic` and `verify` tasks. Numbered retry events survive repeated interruption and let dependent tasks proceed only after durable success. Interrupted forge proposal/apply tasks remain unknown and are not replayed.
 
-Latest source commit: aed9b92b48be35783bf3b8c1a2835cf07269dcdf
-Latest source tree: 60b77ed34354d2fcf10535c4b03fabb4e5ab7367
-Latest segment: work/construction/segments/0251-evaluated-task-outcomes-to-epistemic-revision.md
-Evidence: work/construction/evidence/0251-evaluated-task-outcomes-to-epistemic-revision.json
+Latest source commit: a2ad6e20b456c8cbe5ec2aed851e3977ca75e105
+Latest source tree: 7d8d15c3b0a94bc3e86770ddd2de9d84e613d16a
+Latest segment: work/construction/segments/0252-interrupted-safe-task-progression.md
+Evidence: work/construction/evidence/0252-interrupted-safe-task-progression.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 251
+Sequence: 252
 
-Validation: affected developmental cognition, history intervention, and epistemic development suites passed (127 tests) with isolated writable runtime roots; changed Python sources compiled; `git diff --check` passed.
+Validation: goal executor run, plan, and work plan recovery suites passed (35 tests); changed Python sources compiled; `git diff --check` passed.
 
-Limits: deterministic fixtures do not establish general learning, deployed model improvement, external truth, or independent evidence. Real ledger-backed resource comparison and durable recommendation recovery remain open. The runtime-admitted mutation controller and later cognition/causal-introspection path remain open. No effect authority is granted.
+Limits: retry is only for allowlisted idempotent-style checks. Non-idempotent outcomes remain unknown, and no goal completion or effect authority is claimed.
 
-Next: connect admitted ledger-backed three-condition resource measurements to distinct held-out decisions and fresh-process durable recovery; continue D1-D8 through runtime admission and later cognition/causal introspection; then advance dependent goal progression.
+Next: prioritize the queued connection from admitted ledger-backed three-condition resource measurements to a distinct held-out recommendation with fresh-process recovery; then continue epistemic runtime admission and later cognition, followed by broader partial goal progression and outcome-informed planning.

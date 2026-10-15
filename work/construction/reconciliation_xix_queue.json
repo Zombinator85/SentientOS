@@ -17,10 +17,11 @@
     "D1-D8 partial: independent support and contradiction persist with event times and distinct source identities, survive epistemic-owner reconstruction and receipt verification, and reach later cognition as a contested semantic packet bound to the exact state digest.",
     "D1-D8 partial: objective-task owner now forwards a verified prior epistemic projection into the normal cognition binder; held-out task-family scores bind its exact projection/state digests and preserve deterministic three-condition oracle scoring through restart-backed history retrieval.",
     "C4-C8 partial: canonical task-family retrieval retains all three independently scored treatment outcomes and exact condition-specific inference/resource receipt lineage; a frozen-task requirement and deterministic quality-first/call-unit recommendation reaches the bounded cognition input binder; missing/unqualified evidence remains unknown; positive, negative-transfer, economical, and incomparable cases are covered.",
-    "D1-D8 partial: owner-verified preregistered held-out task-family consequences now bind to the persistent epistemic owner as bounded support, contradiction, or contextual evidence; unknown dependency/freshness and deterministic-fixture qualification survive append-only correction and fresh-owner reconstruction."
+    "D1-D8 partial: owner-verified preregistered held-out task-family consequences now bind to the persistent epistemic owner as bounded support, contradiction, or contextual evidence; unknown dependency/freshness and deterministic-fixture qualification survive append-only correction and fresh-owner reconstruction.",
+    "E1-E8 partial: exact-plan execution now resumes repeated interruptions for non-destructive allowlisted diagnostic/verify tasks through digest-chained numbered retries; dependent tasks wait for durable success, while interrupted non-idempotent forge proposal/apply tasks remain unknown and blocked."
   ],
-  "current_source_commit": "aed9b92b48be35783bf3b8c1a2835cf07269dcdf",
-  "current_source_tree": "60b77ed34354d2fcf10535c4b03fabb4e5ab7367",
+  "current_source_commit": "a2ad6e20b456c8cbe5ec2aed851e3977ca75e105",
+  "current_source_tree": "7d8d15c3b0a94bc3e86770ddd2de9d84e613d16a",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -28,7 +29,7 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 251,
+  "last_checkpoint_sequence": 252,
   "next_executable_nodes": [
     {
       "node": "C4-C8 continuation",
@@ -38,12 +39,12 @@
     {
       "node": "D1-D8",
       "program": "D",
-      "work": "Route evaluated outcomes through the runtime-admitted epistemic mutation controller, then reach subsequent cognition and causal introspection while preserving conflicting sources and unresolved qualification."
+      "work": "Route evaluated outcomes through runtime-admitted epistemic mutation and later cognition/causal-introspection consumers while preserving conflicting sources and qualification."
     },
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Complete dependent task chains with finite budgets, partial and interrupted progress, and fresh-process outcome-informed selection; exact plan identity binding is now in place."
+      "work": "Extend exact-plan execution beyond retrying safe checks: durable partial outcomes, interruption-aware dependent progression, and later planning that consumes verified outcomes."
     },
     {
       "node": "F1-F8",
