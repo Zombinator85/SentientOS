@@ -2716,6 +2716,18 @@
       "sha256": "70cc12e2a659f2b6bb25d795278ff3610b3bae283d432be73d840c5ee4d9584c",
       "source_commit": "a59a2a117574aabda9a76417f98a07f223ec06d9",
       "source_tree": "1717dd488ea4a23a1bdd62e5b4b80c018a1f839a"
+    },
+    {
+      "bytes": 1489,
+      "evidence_bytes": 2816,
+      "evidence_path": "work/construction/evidence/0259-outcome-informed-goal-planning.json",
+      "evidence_sha256": "fbdbd99408da5bcc10d42e81adda37ce041b5cf592f240db0319f5615a490cc9",
+      "path": "work/construction/segments/0259-outcome-informed-goal-planning.md",
+      "predecessor": "segment-sha256:70cc12e2a659f2b6bb25d795278ff3610b3bae283d432be73d840c5ee4d9584c",
+      "sequence": 259,
+      "sha256": "58fee6811662ca2a40aaee1f1c80a4b5f7efc52acf85eef0a46eec9a8b051f7e",
+      "source_commit": "a0a1d64c5afe6c4495d7f1f9ba95b15283b82868",
+      "source_tree": "333ca43c6e6b856acf86d70e4f8f31931437b3d6"
     }
   ],
   "source_acquisition": {

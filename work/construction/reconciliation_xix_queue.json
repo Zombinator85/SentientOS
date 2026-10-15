@@ -25,10 +25,11 @@
     "D1-D8 partial: an exact recovered scored task-family outcome now passes configured proposition binding, separate runtime evidence/state admissions, mutation receipt recovery, later cognition, and live-owner causal introspection metadata; ties remain contextual without directional state mutation.",
     "D1-D8 partial: seq257 exposes an explicitly selected, bounded per-proposition trace joining verified evidence, state/event generations, admission receipts, original observation times, and exact later cognition projection through fresh-owner reconstruction.",
     "D1-D8 partial: seq258 requires every proposition evidence binding and state generation in a selected trace to join to a verified mutation receipt; missing trace joins fail closed.",
-    "D1-D8 partial: seq258 requires every proposition evidence binding and state generation in a selected trace to join to a verified mutation receipt; missing trace joins fail closed."
+    "D1-D8 partial: seq259 admits adverse acquisition, adverse transfer, contextual tie, and later support through the runtime; reconstructed-owner state remains contested, trace receipts join, and a separately evaluated cognition call changes its output from delivered evidence. Fresh operating-system-process trace recovery remains open.",
+    "E1-E8 partial: seq259 validates the exact prior work run before follow-up planning, binds the prior run payload digest into the new plan identity, withholds repeated destructive apply after partial/failed/unknown outcomes, and keeps independent goals eligible."
   ],
-  "current_source_commit": "a59a2a117574aabda9a76417f98a07f223ec06d9",
-  "current_source_tree": "1717dd488ea4a23a1bdd62e5b4b80c018a1f839a",
+  "current_source_commit": "a0a1d64c5afe6c4495d7f1f9ba95b15283b82868",
+  "current_source_tree": "333ca43c6e6b856acf86d70e4f8f31931437b3d6",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -36,17 +37,17 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 258,
+  "last_checkpoint_sequence": 259,
   "next_executable_nodes": [
     {
       "node": "D1-D8",
       "program": "D",
-      "work": "Implement distinct adverse and corrective preregistered task-family outcomes through runtime admissions, preserve both as contested evidence, demonstrate later condition-independent cognition behavior, and reconstruct the complete trace in a fresh process."
+      "work": "Complete fresh operating-system-process reconstruction of the proposition trace, then connect evidence-qualified epistemic history to owner-level goal planning with exact outcome identity."
     },
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Complete dependent task progression from verified partial/terminal outcomes and implement later outcome-informed planning without replaying unknown non-idempotent work."
+      "work": "Extend outcome-informed follow-up from destructive task gating into deterministic goal allocation while preserving full-plan/run binding and no-replay guarantees for unknown non-idempotent work."
     },
     {
       "node": "F1-F8",

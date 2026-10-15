@@ -1,16 +1,16 @@
 # Active construction checkpoint
 
-Seq258 makes the selected epistemic proposition trace fail closed unless every retained evidence binding and state generation joins to a verified mutation receipt. Receipt recovery runs before trace projection.
+Seq259 connects durable work-run outcomes to later goal planning. A follow-up plan reloads the exact prior plan/run, records a digest of the full outcome payload in its identity, suppresses same-goal destructive apply after partial, failed, or unknown outcomes, and allows independent goals to proceed. The D1 path now carries multiple admitted outcomes through contested state into a separately evaluated later cognition result.
 
-Latest source commit: a59a2a117574aabda9a76417f98a07f223ec06d9
-Latest source tree: 1717dd488ea4a23a1bdd62e5b4b80c018a1f839a
-Latest segment: work/construction/segments/0258-fail-closed-trace-receipt-joins.md
-Evidence: work/construction/evidence/0258-fail-closed-trace-receipt-joins.json
+Latest source commit: a0a1d64c5afe6c4495d7f1f9ba95b15283b82868
+Latest source tree: 333ca43c6e6b856acf86d70e4f8f31931437b3d6
+Latest segment: work/construction/segments/0259-outcome-informed-goal-planning.md
+Evidence: work/construction/evidence/0259-outcome-informed-goal-planning.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 258
+Sequence: 259
 
-Validation: the recovered task-family trace node passed; compilation and whitespace checks passed.
+Validation: 8 goal-planning tests, 2 goal-execution tests, and 57 epistemic, causal-introspection, and longitudinal-cognition tests passed; compilation and whitespace/conflict checks passed.
 
-Limits: only one positive deterministic outcome is covered. The distinct adverse and corrective experiences, contested revision, later behavioral evaluation, and outcome-informed planning remain open.
+Limits: fresh operating-system-process trace reconstruction and epistemic evidence changing goal allocation remain open. No production effect or authority expansion is claimed.
 
-Next: complete the D1-D8 corrective longitudinal episode, then continue E1-E8 outcome-informed goal planning.
+Next: complete D1-D8 process reconstruction, then connect evidence-qualified epistemic history to owner-level planning.
