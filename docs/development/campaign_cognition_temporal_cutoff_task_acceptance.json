@@ -1,0 +1,16 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "campaign-cognition-temporal-cutoff",
+  "status": "construction",
+  "exact_nodes": [
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_campaign_evidence_enters_current_cognition_then_only_reappears_as_prior_history",
+      "expected": "selected campaign evidence enters same-tick cognition without being retrieved as prior history, then appears after a fresh cognition-owner reconstruction on the following tick"
+    }
+  ],
+  "authority": {
+    "campaign_projection": "explicitly selected read-only campaign history",
+    "cognition_writeback": "existing separately admitted developmental history only",
+    "effects": "no host, repository, provider, production, or canonical explicit-user-memory effects"
+  }
+}

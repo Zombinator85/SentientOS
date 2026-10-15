@@ -345,6 +345,86 @@ def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_
     reset_runtime_governor()
 
 
+def test_campaign_evidence_enters_current_cognition_then_only_reappears_as_prior_history(
+        tmp_path, monkeypatch, request):
+    """Campaign custody closes the current board before cognition and crosses ticks only via writeback."""
+    from sentientosd import RuntimeMaintenanceSurfaces, _load_post_adoption_attribution_projection
+    from tests.test_resident_developmental_cognition import owner as cognition_owner
+    from sentientos.runtime_governor import reset_runtime_governor
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "kernel"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "pulse-trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "pulse-trust" / "state.json"))
+    reset_runtime_governor()
+    request.addfinalizer(reset_runtime_governor)
+
+    store = tmp_path / "campaign-store"
+    writer, campaign, outcome = finish(store, ["target_expectation_contradicted"] * 2)
+    body = {
+        "schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
+        "enabled": True, "store_root": str(store), "campaign_ids": [campaign.campaign_id],
+    }
+    projection = {**body, "config_digest": digest(body)}
+    config_path = tmp_path / "campaign-projection.json"
+    config_path.write_text(json.dumps(projection), encoding="utf-8")
+    selected, campaign_ids, projection_status = _load_post_adoption_attribution_projection(
+        str(config_path))
+    assert selected is not None and selected.read_only is True
+
+    first_owner, first_invoker = cognition_owner(
+        tmp_path / "cognition", allowed_source_kinds=("owner_introspection",),
+        max_selected_facts=8)
+    first_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-first",
+        resident_developmental_owner=first_owner,
+        post_adoption_attribution_owner=selected,
+        post_adoption_attribution_campaign_ids=campaign_ids,
+        post_adoption_attribution_projection_status=projection_status)
+    first_surfaces.identify_improvement_signals()
+    first_tick = "2026-10-15T00:00:00+00:00"
+    first_surfaces.build_world_state_board(tick_id=first_tick)
+    current = first_surfaces.current_world_state_snapshot
+    assert current is not None
+    campaign_fact = next(fact for fact in current.facts
+        if fact.source.source_id == "post-adoption-attribution:" + outcome.result_id)
+    first = first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    assert first["status"] == "completed" and first["written_record_id"], {
+        key: first.get(key) for key in ("selected_fact_ids", "written_record_id",
+            "write_performed", "reason", "admission_issued", "model_invoked")}
+    assert first["prior_record_ids"] == ()
+    assert campaign_fact.fact_id in first["selected_fact_ids"]
+    assert all(request.upstream_evidence.get("record_ids", []) == []
+        for request in first_invoker.requests)
+    stored = first_owner.writeback.store.get(first["written_record_id"])
+    assert any(source["source_id"] == campaign_fact.source.source_id
+        and source["digest"] == campaign_fact.source.digest
+        for source in stored.candidate["selected_sources"])
+
+    recovered_owner, recovered_invoker = cognition_owner(
+        tmp_path / "cognition", allowed_source_kinds=("owner_introspection",),
+        max_selected_facts=8)
+    recovered_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-recovered",
+        resident_developmental_owner=recovered_owner,
+        post_adoption_attribution_owner=selected,
+        post_adoption_attribution_campaign_ids=campaign_ids,
+        post_adoption_attribution_projection_status=projection_status)
+    second_tick = "2026-10-15T00:00:01+00:00"
+    recovered_surfaces.identify_improvement_signals()
+    recovered_surfaces.build_world_state_board(tick_id=second_tick)
+    second = recovered_surfaces.run_resident_developmental_cognition(tick_id=second_tick)
+    assert second["status"] == "completed"
+    assert second["prior_record_ids"] == (first["written_record_id"],)
+    retrieval = next(request for request in recovered_invoker.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert retrieval.upstream_evidence["record_ids"] == [first["written_record_id"]]
+    assert writer.verify() == selected.verify()
+    assert second["canonical_explicit_user_retention_mutated"] is False
+    assert campaign_fact.effect_claimed is False and campaign_fact.effect_proven is False
+
+
 def test_runtime_signal_reconstruction_keeps_historical_event_time_after_restart(tmp_path):
     """A later daemon process must not turn retrieval time into campaign event time."""
     import os
