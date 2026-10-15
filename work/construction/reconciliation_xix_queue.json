@@ -30,10 +30,11 @@
     "D1-D8: seq260 reconstructs the contested proposition, four source outcomes, three state events, seven verified mutation receipts, and exact later-cognition projection in a separate Python process.",
     "E1-E8 partial: seq261 binds a validated meaning-bearing contested epistemic projection to exact proposition-tagged goals; the projection digest is in the plan identity and destructive apply requires review while untagged goals proceed.",
     "E1-E8 partial: seq262 uses the same canonical epistemic projection validator in allocation and task planning; under a constrained budget contested evidence defers the explicitly tagged goal and selects independent work, with projection identity retained.",
-    "E1-E8 partial: seq263 carries the preregistered source model identity and digest into bounded task-family experience; tampered or missing identity remains explicitly unbound without dropping historical outcomes. Target identity applicability remains open."
+    "E1-E8 partial: seq263 carries the preregistered source model identity and digest into bounded task-family experience; tampered or missing identity remains explicitly unbound without dropping historical outcomes. Target identity applicability remains open.",
+    "E1-E8 partial: seq264 compares current serving identity with retained protocol-bound source identity, labels same/different/unknown relations, and keeps same-family task scope explicitly unverified."
   ],
-  "current_source_commit": "ebac35de56070d80d7c78d0317b552fd463ecd6c",
-  "current_source_tree": "f5de1c3e3af22fa186c0d7996afc510d7c03c2a4",
+  "current_source_commit": "9f74715905027ab5b0ed64e6328470c14d4c5011",
+  "current_source_tree": "de48419f044908d3fc11e5ec096be4ab37111cc0",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -41,12 +42,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 263,
+  "last_checkpoint_sequence": 264,
   "next_executable_nodes": [
     {
       "node": "E1-E8",
       "program": "E",
-      "work": "Bind a verified current invocation identity to task-family retrieval and decision planning; require explicit task-family and model applicability before cross-identity learning, preserve unknowns, and keep source/run digests and no-replay guarantees."
+      "work": "Gate task-history guidance on explicit task-family and model applicability; mismatched/unbound outcomes must not be treated as target-model guidance, and their source identity, positive/adverse score evidence, omissions, and review path must remain recoverable."
     },
     {
       "node": "F1-F8",

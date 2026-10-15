@@ -2776,6 +2776,18 @@
       "sha256": "4ed1fc4db9c2906121ee548e1dbfc79ecd379424b1c8d942f6d6cdb7db8e6eae",
       "source_commit": "ebac35de56070d80d7c78d0317b552fd463ecd6c",
       "source_tree": "f5de1c3e3af22fa186c0d7996afc510d7c03c2a4"
+    },
+    {
+      "bytes": 1291,
+      "evidence_bytes": 2245,
+      "evidence_path": "work/construction/evidence/0264-current-model-applicability-posture.json",
+      "evidence_sha256": "65a0d101c5efecf9fe65a92d796dd31bfc66e6ec2da7d83c85750a27f0e76eb5",
+      "path": "work/construction/segments/0264-current-model-applicability-posture.md",
+      "predecessor": "segment-sha256:4ed1fc4db9c2906121ee548e1dbfc79ecd379424b1c8d942f6d6cdb7db8e6eae",
+      "sequence": 264,
+      "sha256": "dfe803c0b8bf436ae76bda4e25aea39c7bc85d19137d1cff91d14286fa505b73",
+      "source_commit": "9f74715905027ab5b0ed64e6328470c14d4c5011",
+      "source_tree": "de48419f044908d3fc11e5ec096be4ab37111cc0"
     }
   ],
   "source_acquisition": {
