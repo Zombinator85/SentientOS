@@ -147,10 +147,16 @@ def write_audit_trust_artifacts(repo_root: Path, state: AuditTrustState, *, acto
     with decisions_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(decision_row, sort_keys=True) + "\n")
 
+    def display_path(path: Path) -> str:
+        try:
+            return str(path.relative_to(repo_root))
+        except ValueError:
+            return str(path)
+
     return {
-        "snapshot": str(snapshot_path.relative_to(repo_root)),
-        "transitions": str(transitions_path.relative_to(repo_root)),
-        "decisions": str(decisions_path.relative_to(repo_root)),
+        "snapshot": display_path(snapshot_path),
+        "transitions": display_path(transitions_path),
+        "decisions": display_path(decisions_path),
     }
 
 

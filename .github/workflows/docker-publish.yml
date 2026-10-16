@@ -3,6 +3,8 @@ name: Docker Image
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 env:
   PULSE_TRUST_EPOCH_ROOT: .ci-runtime/pulse-trust-epoch
@@ -11,6 +13,10 @@ env:
   SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/docker-governor
   SENTIENTOS_FEDERATION_ROOT: .ci-runtime/docker-federation
   SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-docker-audit-runtime
+  SENTIENTOS_CONTROL_KERNEL_ROOT: /tmp/sentientos-docker-control-kernel
+  SENTIENTOS_RUNTIME_STATE_ROOT: /tmp/sentientos-docker-runtime-state
+  SENTIENTOS_DATA_DIR: /tmp/sentientos-docker-data
+  SENTIENTOS_HEARTBEAT_PATH: /tmp/sentientos-docker-pulse/heartbeat.snap
 
 jobs:
   build:
@@ -33,6 +39,14 @@ jobs:
         run: pre-commit run --all-files
         env:
           SENTIENTOS_TEST_RUN_DIR: /tmp/sentientos-docker-precommit-test-runs
+
+      - name: Capture pre-commit working tree changes
+        if: always()
+        run: |
+          git status --short --untracked-files=all
+          git diff --stat
+          git diff --name-only
+          git diff --cached --name-only
 
       - name: Run tests
         run: python -m scripts.run_tests
@@ -74,6 +88,7 @@ jobs:
           name: router_telemetry_report_${{ github.run_id }}_${{ github.job }}
           path: glow/test_runs/router_telemetry_report.json
       - name: Log in to GHCR
+        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -81,6 +96,7 @@ jobs:
           password: ${{ secrets.GHCR_PAT }}
 
       - name: Build and push
+        if: github.event_name == 'push'
         uses: docker/build-push-action@v5
         with:
           push: true
