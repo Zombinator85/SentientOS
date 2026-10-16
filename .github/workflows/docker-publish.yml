@@ -4,6 +4,16 @@ on:
   push:
     branches: [main]
 
+env:
+  PULSE_TRUST_EPOCH_ROOT: .ci-runtime/pulse-trust-epoch
+  PULSE_TRUST_EPOCH_STATE: .ci-runtime/pulse-trust-epoch/epoch_state.json
+  SENTIENTOS_HEADLESS: "1"
+  SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/docker-governor
+  SENTIENTOS_FEDERATION_ROOT: .ci-runtime/docker-federation
+  SENTIENTOS_CI_MIN_PASSED: "1"
+  SENTIENTOS_CI_MAX_SKIP_RATE: "0.20"
+  SENTIENTOS_CI_MAX_XFAIL_RATE: "0.10"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,7 +25,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: python -m pip install -e '.[dev]' pre-commit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-deps -e .
+          python -m pip install --only-binary=:all: -r requirements-codex.txt
+          python -m pip install pre-commit
 
       - name: Run pre-commit
         run: pre-commit run --all-files
