@@ -45,9 +45,7 @@ jobs:
       - name: privilege_lint
         run: python -m privilege_lint_cli --read-only --quiet .
       - name: audit_verify
-        run: python -m scripts.verify_audits logs/
-        env:
-          LUMOS_AUTO_APPROVE: '1'
+        run: python -m scripts.check_audit_chain
       - name: mypy
         run: python scripts/check_mypy_baseline.py
       - name: pytest airlock guard

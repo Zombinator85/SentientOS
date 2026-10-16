@@ -127,6 +127,14 @@ def test_github_mypy_jobs_use_the_repository_baseline_ratchet() -> None:
         assert "run: mypy --strict" not in workflow
 
 
+def test_pre_commit_uses_canonical_read_only_checks() -> None:
+    config = (ROOT / ".pre-commit-config.yaml").read_text()
+    assert "entry: python -m scripts.check_audit_chain" in config
+    assert "entry: python -m scripts.run_tests" in config
+    assert "entry: python scripts/check_mypy_baseline.py" in config
+    assert "pre-commit/mirrors-mypy" not in config
+
+
 def test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in() -> None:
     values = (ROOT / "helm/values.yaml").read_text()
     template = (ROOT / "helm/templates/serviceMonitor.yaml").read_text()

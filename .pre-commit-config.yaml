@@ -7,31 +7,17 @@ repos:
         language: system
         pass_filenames: false
       - id: audit-verify
-        name: audit log verify
-        entry: bash -c 'LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/ --no-input'
+        name: read-only audit chain verify
+        entry: python -m scripts.check_audit_chain
         language: system
         pass_filenames: false
       - id: pytest
         name: unit tests
-        entry: pytest
-        language: python
+        entry: python -m scripts.run_tests
+        language: system
         pass_filenames: false
-        additional_dependencies:
-          - pytest
-          - pytest-cov
-          - requests
-          - mypy
-          - requests_mock
-          - PyYAML
-          - types-PyYAML
-          - types-requests
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.16.0
-    hooks:
       - id: mypy
-        args: [sentientos]
-        files: ^sentientos/
+        name: mypy baseline ratchet
+        entry: python scripts/check_mypy_baseline.py
+        language: system
         pass_filenames: false
-        additional_dependencies:
-          - types-PyYAML
-          - types-requests
