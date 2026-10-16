@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 from typing import Any
 
 from sentientos.work_plan import TaskRun, WorkPlan
@@ -155,12 +156,38 @@ class WorkPlanExecutionJournal:
 
     def _recover(self) -> None:
         try:
-            raw = self.path.read_bytes()
+            metadata = self.path.lstat()
         except FileNotFoundError:
             return
         except OSError as exc:
             raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
-        if len(raw) > MAX_JOURNAL_BYTES or not raw.endswith(b"\n"):
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_JOURNAL_BYTES:
+            raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+        try:
+            descriptor = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        except OSError as exc:
+            raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != metadata.st_dev
+                    or opened.st_ino != metadata.st_ino or opened.st_size > MAX_JOURNAL_BYTES):
+                raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+            chunks: list[bytes] = []
+            remaining = MAX_JOURNAL_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+        except OSError as exc:
+            raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
+        finally:
+            os.close(descriptor)
+        if len(raw) > MAX_JOURNAL_BYTES:
+            raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+        if not raw.endswith(b"\n"):
             raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
         for line in raw.splitlines():
             try:
@@ -242,13 +269,28 @@ class WorkPlanExecutionJournal:
             semantic["attempt"] = attempt
         row = {**semantic, "digest": hashlib.sha256(_canonical(semantic)).hexdigest()}
         encoded = _canonical(row) + b"\n"
-        if self.path.exists() and self.path.stat().st_size + len(encoded) > MAX_JOURNAL_BYTES:
-            raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+        flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
         try:
-            with self.path.open("ab") as handle:
-                handle.write(encoded)
-                handle.flush()
-                os.fsync(handle.fileno())
+            descriptor = os.open(self.path, flags, 0o600)
+            try:
+                metadata = os.fstat(descriptor)
+                path_metadata = self.path.lstat()
+                if (not stat.S_ISREG(metadata.st_mode) or not stat.S_ISREG(path_metadata.st_mode)
+                        or metadata.st_dev != path_metadata.st_dev
+                        or metadata.st_ino != path_metadata.st_ino
+                        or metadata.st_size + len(encoded) > MAX_JOURNAL_BYTES):
+                    raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+                view = memoryview(encoded)
+                while view:
+                    written = os.write(descriptor, view)
+                    if written <= 0:
+                        raise OSError("journal append made no progress")
+                    view = view[written:]
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+        except WorkPlanJournalError:
+            raise
         except OSError as exc:
             raise WorkPlanJournalError("work_plan_journal_write_failed") from exc
         self._sequence += 1

@@ -8,7 +8,7 @@ import pytest
 
 from sentientos.work_plan import Task, TaskRun, WorkPlan
 from sentientos.work_plan_execution_journal import (
-    WorkPlanExecutionJournal, WorkPlanJournalError,
+    MAX_JOURNAL_BYTES, WorkPlanExecutionJournal, WorkPlanJournalError,
 )
 
 
@@ -40,6 +40,38 @@ def test_corrupted_journal_digest_fails_closed(tmp_path: Path) -> None:
 
     with pytest.raises(WorkPlanJournalError, match="work_plan_journal_digest_mismatch"):
         WorkPlanExecutionJournal(tmp_path, _plan())
+
+
+def test_oversized_journal_is_rejected_before_unbounded_read(tmp_path: Path) -> None:
+    journal = WorkPlanExecutionJournal(tmp_path, _plan())
+    journal.path.parent.mkdir(parents=True, exist_ok=True)
+    journal.path.write_bytes(b"x" * (MAX_JOURNAL_BYTES + 1))
+
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_bounds_invalid"):
+        WorkPlanExecutionJournal(tmp_path, _plan())
+
+
+def test_symlinked_journal_is_rejected_without_reading_target(tmp_path: Path) -> None:
+    journal = WorkPlanExecutionJournal(tmp_path, _plan())
+    target = tmp_path / "external.jsonl"
+    target.write_text("external evidence\n", encoding="utf-8")
+    journal.path.parent.mkdir(parents=True, exist_ok=True)
+    journal.path.symlink_to(target)
+
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_bounds_invalid"):
+        WorkPlanExecutionJournal(tmp_path, _plan())
+
+
+def test_append_refuses_symlinked_journal_without_mutating_target(tmp_path: Path) -> None:
+    journal = WorkPlanExecutionJournal(tmp_path, _plan())
+    target = tmp_path / "external.jsonl"
+    target.write_text("external evidence\n", encoding="utf-8")
+    journal.path.parent.mkdir(parents=True, exist_ok=True)
+    journal.path.symlink_to(target)
+
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_write_failed"):
+        journal.start("g1:propose")
+    assert target.read_text(encoding="utf-8") == "external evidence\n"
 
 
 def test_terminal_task_result_is_recovered_with_original_artifacts_and_times(tmp_path: Path) -> None:
