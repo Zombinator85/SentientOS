@@ -28,7 +28,11 @@ def test_progress_and_completion(tmp_path: Path) -> None:
     append_catalog_entry(tmp_path, kind="work_run", artifact_id="r1", relative_path="glow/forge/work_runs/run.json", schema_name="work_run", schema_version=1, links={"goal_id": "g1"}, summary={"status": "ok"})
     graph = GoalGraph(schema_version=1, goals=(Goal("g1", "d", 1.0, 1, (), "check_forge_last_run_ok", 1, 1, ("integrity",), True),))
     out = update_goal_state_from_run(graph, {}, _mk_run("success"), repo_root=tmp_path, operating_mode="normal", pressure_level=0, posture="balanced", quarantine_active=False, risk_budget_summary={})
-    assert out["g1"].status == "completed"
+    # A successful task run cannot complete a goal without a matching
+    # persisted run and canonical plan evidence digest.
+    assert out["g1"].status == "active"
+    assert out["g1"].progress < 1.0
+    assert "run_evidence_binding_missing" in (out["g1"].blocked_reason or "")
 
 
 def test_repeated_failure_blocks(tmp_path: Path) -> None:

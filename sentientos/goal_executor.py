@@ -196,6 +196,8 @@ def update_goal_state_from_run(
             posture=posture,
             quarantine_active=quarantine_active,
             risk_budget_summary=risk_budget_summary,
+            work_run_id=run.run_id,
+            work_run_evidence_digest=run.evidence_digest,
         )
         milestone_results = [eval_check(name, ctx) for name in goal.milestone_checks]
         completion_result = eval_check(goal.completion_check_name, ctx)

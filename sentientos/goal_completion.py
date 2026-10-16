@@ -23,10 +23,11 @@ class CompletionResult:
     evidence_paths: tuple[str, ...]
     notes: tuple[str, ...]
     reason_stack: tuple[str, ...]
+    evidence_digest: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "schema_version": 1,
+            "schema_version": self.schema_version,
             "goal_id": self.goal_id,
             "check_name": self.check_name,
             "checked_at": self.checked_at,
@@ -36,6 +37,7 @@ class CompletionResult:
             "evidence_paths": list(self.evidence_paths),
             "notes": list(self.notes),
             "reason_stack": list(self.reason_stack),
+            **({"evidence_digest": self.evidence_digest} if self.evidence_digest else {}),
         }
 
 
@@ -48,6 +50,8 @@ class CompletionContext:
     posture: str
     quarantine_active: bool
     risk_budget_summary: dict[str, object]
+    work_run_id: str | None = None
+    work_run_evidence_digest: str | None = None
 
     def latest(self, kind: str) -> dict[str, object] | None:
         return artifact_catalog.latest(self.repo_root, kind)
@@ -56,7 +60,9 @@ class CompletionContext:
         rows = artifact_catalog.recent(self.repo_root, kind, limit=100)
         for row in reversed(rows):
             links = row.get("links") if isinstance(row.get("links"), dict) else {}
-            if str(links.get("goal_id") or "") == self.goal_id:
+            goal_ids = links.get("goal_ids")
+            if (str(links.get("goal_id") or "") == self.goal_id
+                    or isinstance(goal_ids, list) and self.goal_id in goal_ids):
                 return row
         return None
 
@@ -93,13 +99,28 @@ class _ForgeLastRunOkCheck:
         now = _iso_now()
         if entry is None:
             return _result(ctx.goal_id, self.name, now, False, 0.0, "unknown", (), (), ("artifact_missing",))
-        payload, reasons = ctx.load_normalized(entry)
+        # Work runs have their own strict loader and are not a schema_registry
+        # document. The executor passes the exact persisted run identity after
+        # validating it against canonical plan evidence.
+        payload = artifact_catalog.load_catalog_artifact(ctx.repo_root, entry)
+        reasons: tuple[str, ...] = () if payload is not None else ("artifact_missing",)
         summary = entry.get("summary") if isinstance(entry.get("summary"), dict) else {}
         status = str((payload or {}).get("status") or summary.get("status") or "unknown")
         gate_failures = int(summary.get("integrity_gate_failures", 0)) if isinstance(summary.get("integrity_gate_failures"), int) else 0
-        done = status == "ok" and gate_failures == 0
+        payload_run_id = str((payload or {}).get("run_id") or "")
+        payload_digest = (payload or {}).get("evidence_digest")
+        bound = (
+            ctx.work_run_id is not None
+            and ctx.work_run_id == payload_run_id
+            and _valid_digest(ctx.work_run_evidence_digest)
+            and ctx.work_run_evidence_digest == payload_digest
+            and (payload or {}).get("schema_version") == 3
+        )
+        done = status == "ok" and gate_failures == 0 and bound
+        if not bound:
+            reasons = tuple(sorted(set(reasons + ("run_evidence_binding_missing",))))
         reason_stack = tuple(sorted(set(reasons + (() if done else ("verify_failed",)))))
-        return _result(ctx.goal_id, self.name, now, done, 1.0 if done else 0.5, "ok" if done else "blocked", _evidence(entry), (), reason_stack)
+        return _result(ctx.goal_id, self.name, now, done, 1.0 if done else 0.5, "ok" if done else "blocked", _evidence(entry), (), reason_stack, ctx.work_run_evidence_digest if bound else None)
 
 
 class _IntegrityBaselineCheck:
@@ -233,7 +254,7 @@ def persist_completion_result(repo_root: Path, result: CompletionResult, *, work
         artifact_id=f"{result.goal_id}:{result.check_name}:{ts}",
         relative_path=str(path.relative_to(root)),
         schema_name="goal_completion_result",
-        schema_version=1,
+        schema_version=result.schema_version,
         links={"goal_id": result.goal_id, "check_name": result.check_name, "work_run_id": work_run_id, "incident_id": incident_id},
         summary=summary,
         ts=result.checked_at,
@@ -241,9 +262,13 @@ def persist_completion_result(repo_root: Path, result: CompletionResult, *, work
     return str(path.relative_to(root))
 
 
-def _result(goal_id: str, check_name: str, checked_at: str, done: bool, progress: float, status: str, evidence_paths: tuple[str, ...], notes: tuple[str, ...], reason_stack: tuple[str, ...]) -> CompletionResult:
+def _valid_digest(value: object) -> bool:
+    return isinstance(value, str) and len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
+def _result(goal_id: str, check_name: str, checked_at: str, done: bool, progress: float, status: str, evidence_paths: tuple[str, ...], notes: tuple[str, ...], reason_stack: tuple[str, ...], evidence_digest: str | None = None) -> CompletionResult:
     return CompletionResult(
-        schema_version=1,
+        schema_version=2 if evidence_digest else 1,
         goal_id=goal_id,
         check_name=check_name,
         checked_at=checked_at,
@@ -253,6 +278,7 @@ def _result(goal_id: str, check_name: str, checked_at: str, done: bool, progress
         evidence_paths=tuple(sorted(set(evidence_paths))),
         notes=tuple(sorted(set(notes))),
         reason_stack=tuple(sorted(set(reason_stack))),
+        evidence_digest=evidence_digest,
     )
 
 

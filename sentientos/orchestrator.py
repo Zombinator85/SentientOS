@@ -308,9 +308,11 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
         append_catalog_entry(
             root, kind="work_run", artifact_id=run.run_id,
             relative_path=str(run_path), schema_name="work_run", schema_version=1,
-            links={"work_run_id": run.run_id},
+            links={"work_run_id": run.run_id,
+                "goal_ids": list(planning.work_plan.selected_goals)},
             summary={"status": run.status,
-                "goal_ids": list(planning.work_plan.selected_goals)}, ts=now,
+                "goal_ids": list(planning.work_plan.selected_goals),
+                "evidence_digest": run.evidence_digest}, ts=now,
         )
         goal_state = load_goal_state(root)
         updated_state = update_goal_state_from_run(
