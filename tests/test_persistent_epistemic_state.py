@@ -98,6 +98,40 @@ def test_owner_projection_is_verified_latest_bounded_deterministic_and_empty(tmp
     assert projection is not None
     assert projection.proposition_ids == tuple(sorted(p.proposition_id for p in propositions)[:2])
     assert len(projection.states) == 2
+    manifest = projection.omission_manifest
+    assert projection.schema_version == "sentientos.epistemic_cognitive_projection:v3"
+    assert manifest is not None
+    assert manifest["selection_limit"] == 2
+    assert manifest["available_prior_state_count"] == 3
+    assert manifest["selected_state_count"] == 2
+    assert manifest["omitted_state_count"] == 1
+    assert projection.source_tick == max(owner.update_events(p.proposition_id)[-1].tick
+        for p in propositions)
+    omitted_id = max(p.proposition_id for p in propositions)
+    omitted_state = owner.current_state(omitted_id)
+    assert omitted_state is not None
+    omitted_event = owner.update_events(omitted_id)[-1]
+    [omitted_identity] = manifest["omitted_state_identities"]
+    assert omitted_identity == {
+        "proposition_id": omitted_id,
+        "state_id": omitted_state.state_id,
+        "state_digest": omitted_state.state_digest,
+        "generation": omitted_state.generation,
+        "update_event_id": omitted_event.event_id,
+        "update_tick": omitted_event.tick,
+        "stance": omitted_state.stance,
+        "dependency_unresolved": omitted_state.dependency_unresolved,
+        "freshness": omitted_state.freshness,
+        "updated_at": omitted_state.updated_at,
+        "omission_reason": "projection_state_bound",
+    }
+    tampered_manifest = dict(manifest)
+    tampered_row = dict(omitted_identity)
+    tampered_row["state_digest"] = "sha256:" + "0" * 64
+    tampered_manifest["omitted_state_identities"] = (tampered_row,)
+    with pytest.raises(EpistemicStateError, match="omission"):
+        validate_cognitive_projection(replace(projection,
+            omission_manifest=tampered_manifest), require_meaning=True)
     assert projection.current_truth is projection.authority is projection.policy is projection.goal is False
     assert all(state["authority"] == FALSE_AUTHORITY for state in projection.states)
 
@@ -128,6 +162,8 @@ def test_owner_projection_carries_exact_canonical_proposition_and_evidence_linea
         states.append(state)
     projection = owner.cognitive_projection(max_states=2, current_tick=3)
     assert isinstance(projection, MeaningBearingEpistemicCognitiveProjection)
+    assert projection.schema_version == "sentientos.epistemic_cognitive_projection:v2"
+    assert projection.omission_manifest is None
     validate_cognitive_projection(projection, require_meaning=True)
     packets = semantic_packets_for_projection(projection)
     assert [packet["state"]["stance"] for packet in packets] == [

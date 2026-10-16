@@ -4976,6 +4976,41 @@ def test_meaning_bearing_epistemic_packets_reach_actual_inference_request(
     assert observation["epistemic_consumed_content_digest"] == upstream["epistemic_consumed_content_digest"]
 
 
+def test_projection_bound_omissions_reach_inference_context(tmp_path: Path) -> None:
+    from sentientos.resident_developmental_cognition import _digest as cognition_digest
+    epistemic = PersistentEpistemicStateOwner(tmp_path / "epistemic",
+        allowed_namespaces=["embodiment"])
+    propositions = [make_proposition(namespace="embodiment", subject=f"sensor:{index}",
+        predicate="reports_state", object_value=index, polarity="positive",
+        qualifiers={}, temporal_scope={"window": "prior"}, context_scope={},
+        proposition_class="descriptive") for index in range(2)]
+    for index, proposition_value in enumerate(propositions, start=1):
+        epistemic.register_proposition(proposition_value)
+        epistemic.commit_update(proposition_id=proposition_value.proposition_id,
+            expected_predecessor_digest=None, stance="unknown", reason="initialization",
+            active_binding_ids=[], correlation_id=f"bounded:{index}", tick=index,
+            recorded_at=f"2026-01-01T00:00:0{index}Z")
+    projection = epistemic.cognitive_projection(max_states=1, current_tick=3)
+    assert isinstance(projection, MeaningBearingEpistemicCognitiveProjection)
+    assert projection.omission_manifest is not None
+    composition, fake = owner(tmp_path / "cognition")
+    result = composition.run_tick(snapshot=snapshot(), tick_id="projection-omission",
+        prior_epistemic_state=projection)
+    request = next(item for item in fake.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    prior = json.loads(request.prompt)["prior_epistemic_state"]
+    assert prior["schema_version"] == "sentientos.epistemic_cognitive_projection:v3"
+    assert cognition_digest(prior["projection_omission_manifest"]) == cognition_digest(
+        projection.omission_manifest)
+    assert prior["projection_omission_manifest"]["omitted_state_count"] == 1
+    recovered, _ = owner(tmp_path / "cognition")
+    observation = recovered.verified_cognition_observation(
+        result.cognition_observation_ids[0])
+    assert observation["epistemic_projection_digest"] == projection.projection_digest
+    assert observation["epistemic_projection_context_digest"] == cognition_digest(prior)
+    assert observation["epistemic_prompt_digest"] == "sha256:" + request.prompt_digest
+
+
 def test_legacy_identifier_projection_is_valid_but_not_delivered_as_meaning(tmp_path: Path):
     semantic, proposition_value, state = epistemic_projection(tmp_path / "epistemic")
     legacy = make_cognitive_projection([state], source_tick=1, current_tick=2)

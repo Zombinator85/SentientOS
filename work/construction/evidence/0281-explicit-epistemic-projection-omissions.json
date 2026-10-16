@@ -1,0 +1,87 @@
+{
+  "hosted_candidate_verification": "pending exact-source PR checks",
+  "local_verification": {
+    "compileall": "passed",
+    "git_diff_check": "passed",
+    "known_failing_first_run": {
+      "path": "glow/test_runs/provenance/20261016T193820Z_d8d7a219221c_af469222558e454ead0cbafce869369c.json",
+      "resolution": "Normalized tuple/list serialization in the manifest assertion, then reran the complete affected suite successfully.",
+      "tests_failed": 1,
+      "tests_passed": 114
+    },
+    "privileged_wrapper_tests": {
+      "path": "glow/test_runs/provenance/20261016T194330Z_d8d7a219221c_fc3aaac1774c41d78462da5c1280c76e.json",
+      "tests_collected": 3,
+      "tests_executed": 3,
+      "tests_failed": 0,
+      "tests_passed": 3,
+      "validation_status": "validation_complete"
+    },
+    "provenance_history_note": "An inherited gap precedes the 2026-10-16 local runner chain; no prior record was fabricated or rewritten.",
+    "regression_run": {
+      "path": "glow/test_runs/provenance/20261016T194320Z_d8d7a219221c_0a79a43eb5bb431790278af259d87248.json",
+      "provenance_hash": "832abcf0f17e86c4cf347c8ee6f6e8137f01b2a7548d55cd156eaf2d9d1b2322",
+      "tests_collected": 115,
+      "tests_executed": 115,
+      "tests_failed": 0,
+      "tests_passed": 115,
+      "validation_status": "validation_complete"
+    },
+    "source_identity_limit": "Local checkout is stale; local runs are exploratory only.",
+    "source_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e"
+  },
+  "next_dependency": "Carry omitted event identities through a later post-reconstruction scoped decision while preserving positive and adverse outcomes.",
+  "planning_and_cognition": {
+    "explicitly_tagged_omission": "epistemic_applicability_unresolved",
+    "independent_goals_preserved": true,
+    "inference_context_binds_projection_omission_manifest": true,
+    "projection_and_prompt_digests_bind_source_and_consumption": true,
+    "work_plan_binds_projection_omission_manifest": true
+  },
+  "predecessor_segment_sha256": "057623519d33aa1145db6a413d9da8e618f3f872ab3c27f03057d6cf70d434a2",
+  "projection_contract": {
+    "authority": false,
+    "bounded_omission_count": 16384,
+    "current_truth": false,
+    "identity_fields": [
+      "proposition_id",
+      "state_id",
+      "state_digest",
+      "generation",
+      "update_event_id",
+      "update_tick",
+      "stance",
+      "dependency_unresolved",
+      "freshness",
+      "updated_at",
+      "omission_reason"
+    ],
+    "manifest_schema": "sentientos.epistemic_projection_omission_manifest:v1",
+    "omission_digest": "ordered identity rows",
+    "omission_reason": "projection_state_bound",
+    "schema": "sentientos.epistemic_cognitive_projection:v3",
+    "selection_policy": "latest_prior_state_by_proposition_id_ascending",
+    "source_tick_includes_omitted_latest_update": true,
+    "v2_unchanged_when_no_projection_omissions": true
+  },
+  "segment_path": "work/construction/segments/0281-explicit-epistemic-projection-omissions.md",
+  "segment_sha256": "d2651f2e60782d9cb344b15a7a5f93b08e79a2d723fd501fdac31d278b455f01",
+  "sequence": 281,
+  "source_commit": "b181e4d7de7ddcf46aab37bf7f325d2e21e2a5ba",
+  "source_tree": "4b5d15360c3b3208c6906f9f6ba7c17b16fc2e71",
+  "title": "Preserve explicit omitted epistemic positions",
+  "verified_main_privileged_audit": {
+    "artifact_id": 12070990023,
+    "artifact_sha256": "sha256:3949439ec8f8cd5a08860777c1e660c73a67479ae466728240f6ebce4c0ac2ea",
+    "effective_uid": 0,
+    "immutability_exit_code": 0,
+    "job_id": 117156817948,
+    "repository_identity_unchanged": true,
+    "source_commit": "b181e4d7de7ddcf46aab37bf7f325d2e21e2a5ba",
+    "source_tree": "4b5d15360c3b3208c6906f9f6ba7c17b16fc2e71",
+    "source_unchanged": true,
+    "status": "passed",
+    "strict_audit_exit_code": 0,
+    "workflow_run_id": 38955380278
+  }
+}

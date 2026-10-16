@@ -167,6 +167,10 @@ class GoalPlanner:
             "no_replay_goal_outcomes": {goal_id: sorted(statuses)
                 for goal_id, statuses in sorted(prior_goal_outcomes.items())},
         }
+        omission_manifest = (getattr(state.prior_epistemic_projection,
+            "omission_manifest", None) if state.prior_epistemic_projection is not None else None)
+        if omission_manifest is not None:
+            epistemic_binding["projection_omission_manifest"] = dict(omission_manifest)
         plan_id = work_plan_id_from_evidence(state.created_at, state.goal_graph_hash,
             state.allocation_id, epistemic_binding)
         context = "|".join(context_parts)

@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "5306da8095b085acbe3a99e46d3934de90c7180fcac841f0c125c33ac10dcf0f",
-    "latest_segment_sequence": 280,
-    "latest_segment_sha256": "057623519d33aa1145db6a413d9da8e618f3f872ab3c27f03057d6cf70d434a2",
-    "source_commit": "44ba4f532459cac4c99c025bbe86afe1cea12601",
-    "source_tree": "f223dd4ced7e305f7e66730a304eaff35e22a47c"
+    "checkpoint_sha256": "d0ec33a020d69910f6e09124f6b6e5eaf9402935532902de459c6e0d8fcbf7d3",
+    "latest_segment_sequence": 281,
+    "latest_segment_sha256": "d2651f2e60782d9cb344b15a7a5f93b08e79a2d723fd501fdac31d278b455f01",
+    "source_commit": "b181e4d7de7ddcf46aab37bf7f325d2e21e2a5ba",
+    "source_tree": "4b5d15360c3b3208c6906f9f6ba7c17b16fc2e71"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -2969,6 +2969,19 @@
       "sha256": "057623519d33aa1145db6a413d9da8e618f3f872ab3c27f03057d6cf70d434a2",
       "source_commit": "44ba4f532459cac4c99c025bbe86afe1cea12601",
       "source_tree": "f223dd4ced7e305f7e66730a304eaff35e22a47c"
+    },
+    {
+      "bytes": 2506,
+      "evidence": "work/construction/evidence/0281-explicit-epistemic-projection-omissions.json",
+      "evidence_bytes": 3846,
+      "evidence_path": "work/construction/evidence/0281-explicit-epistemic-projection-omissions.json",
+      "evidence_sha256": "fec21581c1f4d07b582eece414ad90d595972e34c8e4b73bc29b2bbc9666c951",
+      "path": "work/construction/segments/0281-explicit-epistemic-projection-omissions.md",
+      "predecessor": "segment-sha256:057623519d33aa1145db6a413d9da8e618f3f872ab3c27f03057d6cf70d434a2",
+      "sequence": 281,
+      "sha256": "d2651f2e60782d9cb344b15a7a5f93b08e79a2d723fd501fdac31d278b455f01",
+      "source_commit": "b181e4d7de7ddcf46aab37bf7f325d2e21e2a5ba",
+      "source_tree": "4b5d15360c3b3208c6906f9f6ba7c17b16fc2e71"
     }
   ],
   "source_acquisition": {
@@ -2991,5 +3004,6 @@
       "verified_remote_commit": "6ba0d6d598c619c24cfda9570ef1c798ff7c4451",
       "verified_remote_tree": "b18f7e42e8f0f8c8c57f6ee90bbca6ec2a6232ef"
     }
-  ]
+  ],
+  "latest_sequence": 281
 }
