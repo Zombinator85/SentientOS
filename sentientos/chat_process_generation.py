@@ -440,7 +440,7 @@ def _verify_process_executable_observation(value: object, *, handoff_record: Map
     if observation.get("observation_status") == "observed":
         observed_parent = observation.get("observed_parent_process_id")
         expected_parent = observation.get("expected_parent_process_id")
-        if (type(observation.get("observed_parent_process_id")) is not int
+        if (type(observed_parent) is not int
                 or observed_parent < 1
                 or observation.get("parent_process_matches")
                     is not (observed_parent == expected_parent)

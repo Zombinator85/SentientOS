@@ -188,8 +188,8 @@ class CanonicalMemoryStore:
                         or stat.S_IMODE(metadata.st_mode) & 0o077):
                     return [], "directory_custody_invalid"
                 names: list[str] = []
-                with os.scandir(directory_fd) as entries:
-                    for index, entry in enumerate(entries):
+                with os.scandir(directory_fd) as scanned_entries:
+                    for index, entry in enumerate(scanned_entries):
                         if index >= MAX_MEMORY_SCAN_ENTRIES:
                             return [], "directory_entry_bound_exceeded"
                         if entry.name.endswith(".json"):

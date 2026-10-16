@@ -11,7 +11,7 @@ Handler = TypeVar("Handler", bound=Callable[..., Any])
 
 if TYPE_CHECKING:
     class HTTPException(Exception):
-        def __init__(self, status_code: int, detail: str) -> None: ...
+        def __init__(self, status_code: int, detail: Any) -> None: ...
 
     class Request:
         url: object
@@ -68,7 +68,7 @@ else:
         from fastapi.templating import Jinja2Templates
     except Exception:  # pragma: no cover
         class HTTPException(Exception):
-            def __init__(self, status_code: int, detail: str) -> None:
+            def __init__(self, status_code: int, detail: Any) -> None:
                 super().__init__(detail)
                 self.status_code = status_code
                 self.detail = detail

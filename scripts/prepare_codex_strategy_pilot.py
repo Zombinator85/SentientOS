@@ -118,7 +118,7 @@ def main() -> int:
             "task_instruction": "Recommend a bounded next step. Do not claim general reliability or physical effect beyond the stated observation."}}
     records_by_trial = {key: record_ids for key in trials}
     event_source = {event["event_id"]: event.get("record_correlation_id") or "" for event in all_events}
-    applicability = {}
+    applicability: dict[str, dict[str, dict[str, str]]] = {}
     for key in trials:
         applicability[key] = {}
         for event_id in event_ids:

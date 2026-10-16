@@ -28,7 +28,8 @@ def _iso_now() -> str:
 def _publish_run_intent(root: Path, *, payload: dict[str, object], pack_bytes: bytes,
         pack_relative_path: str, run_id: str, stamp: str) -> tuple[dict[str, object], str]:
     intent_id = f"intent_{stamp}_{str(payload['pack_id'])}"
-    steps = payload.get("steps") if isinstance(payload.get("steps"), list) else []
+    raw_steps = payload.get("steps")
+    steps: list[object] = list(raw_steps) if isinstance(raw_steps, list) else []
     step_bytes = json.dumps(steps, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     intent = {
         "schema_version": 1,
@@ -80,7 +81,8 @@ def execute_pack_file(pack_path: Path, *, root: Path) -> dict[str, object]:
     prior = latest_run_for_pack(root, pack_id=pack_id)
     if prior is not None and str(prior.get("custody_status", "")).startswith("invalid:"):
         raise ValueError("prior_run_custody_invalid")
-    steps_payload = payload.get("steps") if isinstance(payload.get("steps"), list) else []
+    raw_steps_payload = payload.get("steps")
+    steps_payload: list[object] = list(raw_steps_payload) if isinstance(raw_steps_payload, list) else []
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_id = f"run_{stamp}_{pack_id}"
     intent, intent_digest = _publish_run_intent(root, payload=payload,
@@ -136,12 +138,13 @@ def execute_pack_file(pack_path: Path, *, root: Path) -> dict[str, object]:
                 os.fsync(handle.fileno())
         except FileExistsError as exc:
             raise PrivateFileCustodyError("remediation_run_identity_conflict") from exc
-    report["report_path"] = str(report_path.relative_to(root))
+    relative_report_path = str(report_path.relative_to(root))
+    report["report_path"] = relative_report_path
     append_catalog_entry(
         root,
         kind="remediation_run",
         artifact_id=run_id,
-        relative_path=report["report_path"],
+        relative_path=relative_report_path,
         schema_name="remediation_run",
         schema_version=1,
         links={"run_id": run_id, "pack_id": pack_id, "incident_id": payload.get("incident_id")},
