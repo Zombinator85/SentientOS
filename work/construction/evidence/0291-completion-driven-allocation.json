@@ -1,0 +1,71 @@
+{
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "implementation": {
+    "allocation_evidence": "completion check name, evidence digest, and run artifact path are preserved on the deferred goal and dependent selection reason",
+    "canonical_planning_revalidates_completion_from_catalogued_plan_and_v3_run": true,
+    "completed_dependency_policy": "verified completed dependency identities satisfy dependency ordering without being selected again",
+    "completed_goal_policy": "defer completed goals only when the configured completion check reconstructs and validates persisted evidence",
+    "execution_authority_added": false,
+    "unverified_or_status_only_run_changes_allocation": false
+  },
+  "local_verification": {
+    "command": "PYTHONPATH=/workspace/SentientOS-seq291 python -m pytest -q sentientos/tests/test_artifact_catalog.py sentientos/tests/test_goal_completion_checks.py sentientos/tests/test_goal_completion_registry.py sentientos/tests/test_goal_executor_run.py sentientos/tests/test_goal_progress_update.py sentientos/tests/test_work_allocator.py sentientos/tests/test_orchestrator_goal_completion_flow.py sentientos/tests/test_orchestrator_plan_only.py",
+    "compileall": "passed",
+    "diff_check": "passed",
+    "repo_baseline_mypy": "hosted exact-SHA baseline ratchet pending",
+    "targeted_mypy": "10 existing errors in prior-complexity modules; no new errors in allocation flow",
+    "tests_collected": 42,
+    "tests_failed": 0,
+    "tests_passed": 42,
+    "tests_skipped": 0
+  },
+  "next_dependency": "Use reconstructed completion proofs to reshape later goal graph proposals or strategic choices while preserving proposal, review, and apply authority gates.",
+  "predecessor_evidence_sha256": "543746507b782f010828e55c619f8d74d433947e23d0c83879c5708f243b3ffd",
+  "predecessor_segment_sha256": "b512fade8d7bb898169d63d51b85ba3a038339d78df7b09dd2506e50df5d4b51",
+  "remote_candidate_commit": "1121f7500b9f83a7d5d404f449201e247a09674f",
+  "remote_tree": "31e4404caccdf3f94a2c9a64996c6d98378ebd5d",
+  "segment_path": "work/construction/segments/0291-completion-driven-allocation.md",
+  "segment_sha256": "861c842c3b45d74afaa7e1bf92f36c7e09c9ce26d3d7598f5aac8588a181bfe9",
+  "sequence": 291,
+  "sequence_290_hosted_history": {
+    "administrator_verified": true,
+    "effective_uid": 0,
+    "gate_artifact_id": 12077850425,
+    "gate_artifact_readback_sha256": "34171fefcf6a8f0ba127e878594267067164576c30768ea7c7d734c3d6b0de2b",
+    "gate_artifact_sha256": "34171fefcf6a8f0ba127e878594267067164576c30768ea7c7d734c3d6b0de2b",
+    "immutability_ok": true,
+    "initial_ci_conclusion": "failure",
+    "initial_ci_failure": "one new mypy call-overload diagnostic in sentientos/goal_completion.py from int(object)",
+    "initial_ci_run_id": 38971855548,
+    "initial_remote_commit": "c6d03f4f83533053aef3337db7503aef9eb03c44",
+    "repair_ci_run_id": 38972248264,
+    "repair_ci_status": "in_progress",
+    "repair_invariant_run_id": 38972248227,
+    "repair_invariants": "success",
+    "repair_local_commit": "537fdc5bc35960e5e635b717a707c1223fed0b37",
+    "repair_remote_commit": "faaf4bb53c422b7908c034f37984c610a19deee3",
+    "repair_required_quality_gate": "success",
+    "repair_required_quality_gate_run_id": 38972248247,
+    "repair_tree": "75972e4e3d28f3e982f22518d70dfdfdaa5d458f",
+    "source_unchanged": true,
+    "strict_audit_ok": true
+  },
+  "sequence_291_hosted_status": {
+    "ci_run_id": 38972374830,
+    "ci_status": "queued",
+    "invariant_run_id": 38972374936,
+    "invariant_status": "queued",
+    "remote_commit": "1121f7500b9f83a7d5d404f449201e247a09674f",
+    "required_quality_gate_run_id": 38972374935,
+    "required_quality_gate_status": "queued",
+    "tree": "31e4404caccdf3f94a2c9a64996c6d98378ebd5d"
+  },
+  "source_commit": "784ff550378f134070b83d7861f856c9fc661bc7",
+  "source_tree": "31e4404caccdf3f94a2c9a64996c6d98378ebd5d",
+  "title": "Carry verified goal completion evidence into canonical allocation"
+}

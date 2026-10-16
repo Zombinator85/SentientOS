@@ -1,19 +1,19 @@
 # Active construction checkpoint
 
-Sequence 290 makes goal completion evidence durable across restart. Review locates the exact persisted plan and revalidates the schema-v3 work run against immutable plan evidence before accepting completion. Status-only runs remain incomplete. Catalog links retain goal and plan/run identities. The affected seven suites pass 36/36 with no skips or failures on exact source tree `0bc4b0d650c353988c4e7ded9ea744816f5c6af8`. Compilation and diff checks pass; targeted Mypy has no new diagnostics compared with the parent. On exact remote candidate `28e148899157d445c04b5e55010e0d0a1ee896d7`, the Required Quality Gate and Invariant Tests pass; the gate artifact confirms effective UID 0, strict audit, immutability, exact source binding, and unchanged source. Full CI remains in progress.
+Sequence 291 carries verified completion evidence into later canonical allocation. Reconstructed, schema-v3 run evidence defers a completed goal and satisfies its dependency without selecting it again; allocation and plan evidence retain the exact digest and run path. Status-only runs cannot change allocation. The affected suites pass 42/42 on exact source tree `31e4404caccdf3f94a2c9a64996c6d98378ebd5d`; compilation and diff checks pass. Sequence 291 hosted CI and audits are queued.
 
-Sequence 289 is fully verified on remote `f376907fdb3512c5e92c8de9e8dfa33d13f7c885` / tree `e7aa8ca59e241bb8b1905c9d8d7ad84f267e447f`: CI, Required Quality Gate, and Invariant Tests passed. Its root audit artifact confirms effective UID 0, strict audit, immutability, exact source binding, and unchanged source.
+Sequence 290's initial hosted CI found one new Mypy error in the completion gate-count conversion. That was fixed in `537fdc5bc35960e5e635b717a707c1223fed0b37`; the repair's Required Quality Gate and Invariant Tests pass on remote `faaf4bb53c422b7908c034f37984c610a19deee3` / tree `75972e4e3d28f3e982f22518d70dfdfdaa5d458f`. Its root artifact verifies exact source, effective UID 0, Administrator, strict audit, immutability, and unchanged source. Full CI remains in progress.
 
-The historical provenance gap from sequence 286 remains unresolved: nine known payloads and one unidentified record are missing. The sandbox-native runner's install bootstrap also remains limited by denied package-index networking; direct pytest and hosted Actions provide verification.
+The historical provenance gap from sequence 286 remains: nine known payloads and one unidentified record are missing.
 
 Latest verified main: `d9fbac78dad9187065fcdeaf112bf641cf3508ea`
 Latest verified main tree: `71d300a7ddd35343b710e3e52b58e4b02962825a`
-Verified source commit: `ab48a787a6ee7d979a068fdfef23a26e37b65cd2`
-Verified source tree: `0bc4b0d650c353988c4e7ded9ea744816f5c6af8`
-Latest segment: `work/construction/segments/0290-reconstructed-completion-evidence.md`
-Latest segment SHA-256: `b512fade8d7bb898169d63d51b85ba3a038339d78df7b09dd2506e50df5d4b51`
-Evidence: `work/construction/evidence/0290-reconstructed-completion-evidence.json`
-Evidence SHA-256: `fd951a93c4700201d2f438d6274acb9315bee9a988dee89609bf8d941d077dd1`
-Sequence: 290
+Verified source commit: `784ff550378f134070b83d7861f856c9fc661bc7`
+Verified source tree: `31e4404caccdf3f94a2c9a64996c6d98378ebd5d`
+Latest segment: `work/construction/segments/0291-completion-driven-allocation.md`
+Latest segment SHA-256: `861c842c3b45d74afaa7e1bf92f36c7e09c9ce26d3d7598f5aac8588a181bfe9`
+Evidence: `work/construction/evidence/0291-completion-driven-allocation.json`
+Evidence SHA-256: `8c0163f4281bf5622fd39cde5174a97fe1d0581822923c760fd0c91bd3243ba8`
+Sequence: 291
 
-Next: carry verified completion evidence into later developmental adaptation and prove that reconstructed completion changes canonical allocation.
+Next: use completion proofs in downstream developmental choices without bypassing proposal, review, or apply gates.
