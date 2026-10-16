@@ -1,0 +1,77 @@
+{
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "implementation": {
+    "missing_unreadable_or_out_of_root_evidence": "fails closed and cannot affect allocation",
+    "non_run_completion_digest": "canonical SHA-256 over goal/check/outcome and exact bytes of each evidence path",
+    "plan_only_and_authority_boundary": "no execution authority added; downstream allocation and plan evidence retain completion digest",
+    "strict_forge_run_digest": "existing schema-v3 reconstructed evidence digest preserved"
+  },
+  "local_verification": {
+    "compileall": "passed",
+    "diff_check": "passed",
+    "hosted_mypy_baseline": "passed",
+    "targeted_mypy": "nine existing diagnostics in completion module; no new diagnostics",
+    "tests_collected": 35,
+    "tests_failed": 0,
+    "tests_passed": 35,
+    "tests_skipped": 0
+  },
+  "next_dependency": "Carry verified adverse terminal outcomes into deterministic review-sensitive planning without treating mutable status fields as completion evidence or bypassing proposal, review, and apply authority gates.",
+  "predecessor_evidence_sha256": "8c0163f4281bf5622fd39cde5174a97fe1d0581822923c760fd0c91bd3243ba8",
+  "predecessor_segment_sha256": "861c842c3b45d74afaa7e1bf92f36c7e09c9ce26d3d7598f5aac8588a181bfe9",
+  "remote_source_commit": "e25210212c0e6d57211a8ec69a50e6b56958622e",
+  "remote_tree": "4d3609cd3478cccd251d16ea73249e0afd082994",
+  "segment_path": "work/construction/segments/0292-bind-completion-proofs-to-artifacts.md",
+  "segment_sha256": "96972e7a95c0dbee1eec3294ed25bc278b636dbbb01211c7c2ca94f0073acb83",
+  "sequence": 292,
+  "sequence_290_repair_ci": {
+    "run_id": 38972248264,
+    "status": "success"
+  },
+  "sequence_291_hosted": {
+    "administrator_verified": true,
+    "ci": "success",
+    "ci_run_id": 38972626441,
+    "effective_uid": 0,
+    "expected_sha": "ac97e78178f4f5a577f38b98c1c6fc9777f9581f",
+    "gate_artifact_id": 12076609327,
+    "gate_artifact_readback_sha256": "d6a3ae9a07588ec0a6372b36dcbdfa2de3e970e0d4e931a3eb6db310725648a9",
+    "gate_artifact_sha256": "d6a3ae9a07588ec0a6372b36dcbdfa2de3e970e0d4e931a3eb6db310725648a9",
+    "immutability_ok": true,
+    "invariant_run_id": 38972626142,
+    "invariants": "success",
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38972626137,
+    "source_tree": "037d9d1f4696dd22b0387dc5c1cdb4b0c19b9171",
+    "source_unchanged": true,
+    "strict_audit_ok": true
+  },
+  "sequence_292_hosted": {
+    "administrator_verified": true,
+    "ci": "success",
+    "ci_run_id": 38972842853,
+    "effective_uid": 0,
+    "expected_sha": "e25210212c0e6d57211a8ec69a50e6b56958622e",
+    "gate_artifact_id": 12077563403,
+    "gate_artifact_readback_sha256": "257d71bb43b5f6f6b964e2b421c4ee2b13b5e2bd6ecef4c9436104791b3147aa",
+    "gate_artifact_sha256": "257d71bb43b5f6f6b964e2b421c4ee2b13b5e2bd6ecef4c9436104791b3147aa",
+    "immutability_ok": true,
+    "invariant_run_id": 38972842878,
+    "invariants": "success",
+    "repository_identity_unchanged": true,
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38972842896,
+    "source_tree": "4d3609cd3478cccd251d16ea73249e0afd082994",
+    "source_unchanged": true,
+    "strict_audit_ok": true
+  },
+  "source_commit": "9d8dadde3550c9f39cd913610dfd6ba87a5c302c",
+  "source_tree": "4d3609cd3478cccd251d16ea73249e0afd082994",
+  "source_tree_readback": "exact local tree match; both changed blob contents read back byte-for-byte",
+  "title": "Bind every successful completion to its evidence bytes"
+}
