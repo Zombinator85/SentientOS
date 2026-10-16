@@ -24,6 +24,8 @@ def demo_env(tmp_path, monkeypatch):
     import experiment_tracker
 
     importlib.reload(experiment_tracker)
+    monkeypatch.setattr(experiment_tracker, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(experiment_tracker, "require_lumos_approval", lambda: None)
     chain_module = importlib.import_module("sentientos.experiments.chain")
     runner_module = importlib.import_module("sentientos.experiments.runner")
     gallery_module = importlib.import_module("sentientos.experiments.demo_gallery")

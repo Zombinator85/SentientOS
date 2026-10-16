@@ -1,0 +1,105 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_developmental_record_receipt_ack_recovery.py::test_restart_repairs_history_record_published_before_receipt_acknowledgement": 0,
+    "tests/test_resident_developmental_writeback.py::test_recovery_repairs_interrupted_receipt_publication_idempotently": 0,
+    "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [
+    {
+      "metric": "skip_rate",
+      "rule": "<= 0.2",
+      "threshold": 0.2,
+      "value": 0.3333333333333333
+    }
+  ],
+  "bypass_env": false,
+  "call_phase_outcome_count": 2,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-gr4-exact/glow/test_runs/pytest_junitxml_71386a05dfad4d1b8b376ebabfc865c7.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_developmental_record_receipt_ack_recovery.py::test_restart_repairs_history_record_published_before_receipt_acknowledgement",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resident_developmental_writeback.py::test_recovery_repairs_interrupted_receipt_publication_idempotently",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+      "outcome": "skipped",
+      "phase": "setup"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "bfb2e7a4606501e567846dfff4c20c3f87b7a55f54d281689325a0060f29dc6c",
+  "provenance_hash": "2afee29c75fbd1815ed0a9b6654ad7f069f0ae8cca7f353b02d23615fc6bf0db",
+  "pytest_args": [
+    "tests/test_developmental_record_receipt_ack_recovery.py::test_restart_repairs_history_record_published_before_receipt_acknowledgement",
+    "tests/test_resident_developmental_writeback.py::test_recovery_repairs_interrupted_receipt_publication_idempotently",
+    "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-exact-venv/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "b46390ab42ae4cb4b04c00be250235eb",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_developmental_record_receipt_ack_recovery.py::test_restart_repairs_history_record_published_before_receipt_acknowledgement",
+    "tests/test_resident_developmental_writeback.py::test_recovery_repairs_interrupted_receipt_publication_idempotently",
+    "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state"
+  ],
+  "selection_flags": [
+    "tests/test_developmental_record_receipt_ack_recovery.py::test_restart_repairs_history_record_published_before_receipt_acknowledgement",
+    "tests/test_resident_developmental_writeback.py::test_recovery_repairs_interrupted_receipt_publication_idempotently",
+    "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.3333333333333333,
+  "tests_collected": 3,
+  "tests_executed": 2,
+  "tests_failed": 0,
+  "tests_passed": 2,
+  "tests_selected": 3,
+  "tests_skipped": 1,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T17:40:01.088297+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

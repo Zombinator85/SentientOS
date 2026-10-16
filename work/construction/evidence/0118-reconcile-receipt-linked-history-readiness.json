@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "sequence": 118,
+  "source_commit": "63c6c8932618478afc4b594115c61524e729054e",
+  "source_tree": "64c69636e297dd1a4532121d7d14fb5ccfbc7623",
+  "previous_segment_sha256": "0f8e2988cb9772c67a37eb673ccd93d7aaa2e88f10032d9c9d99160315a23874",
+  "finding": {
+    "prior_behavior": "any_digest_valid_developmental_record_counted_as_eligible",
+    "runtime_owner_behavior": "recovery_reconciles_candidate_and_writeback_receipt_lineage_before_cognition",
+    "repair": "read_only_preflight_requires_exact_deterministic_record_receipt_binding_and_never_repairs",
+    "source_event_authentication": "not_established_by_preflight"
+  },
+  "acceptance": {
+    "command": ".venv/bin/python -m pytest -q tests/test_resident_objective_experiment_readiness.py",
+    "cases": 9,
+    "passed": 9,
+    "failed": 0,
+    "fixtures_only": true,
+    "actual_model_behavior_demonstrated": false
+  },
+  "static_checks": {
+    "py_compile": "passed",
+    "targeted_mypy": "passed",
+    "changed_file_trailing_whitespace": "none"
+  },
+  "boundaries": {
+    "receipt_repair_performed": false,
+    "daemon_started": false,
+    "request_staged": false,
+    "model_loaded": false,
+    "inference_admitted": false,
+    "authority_expanded": false,
+    "production_verified": false
+  },
+  "changed_files": {
+    "scripts/doctor_resident_objective_experiment.py": {
+      "bytes": 15213,
+      "sha256": "1a87ae4821f95cbb80e342467044bc8ed2f5be8c4877b83f92fef9625be0f65d",
+      "git_blob": "98c0e2a757a65d41e4dd04b050673e5b6451879a"
+    },
+    "tests/test_resident_objective_experiment_readiness.py": {
+      "bytes": 13027,
+      "sha256": "74aabd344d7ea32ed27feeaba3bf5a8ec1feafd78881de05d7370476f7af4e03",
+      "git_blob": "86a55d7e0fe2744193b318185a11f14e8211fa71"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "bytes": 17748,
+      "sha256": "38c289cb1695e4069754ce06924f8f90e183fe3e5e80d30db3d26b7b01b1c5ff",
+      "git_blob": "2de4db91ba66c979367037729b41c77fa9b15268"
+    }
+  }
+}

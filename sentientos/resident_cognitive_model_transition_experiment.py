@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import threading
 import time
 from contextlib import contextmanager
@@ -16,9 +17,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Iterator, Mapping, Protocol, Sequence, cast
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
+from .local_runtime_provisioning import semantic_digest
 
 SCHEMA = "sentientos.resident_cognitive_model_transition_protocol:v1"
-BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v1"
+SCHEMA_V2 = "sentientos.resident_cognitive_model_transition_protocol:v2"
+LEGACY_BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v2"
+BINDING_SCHEMA = "sentientos.resident_cognitive_transition_stage_serving_binding:v3"
 APPROVAL_SCHEMA = "sentientos.resident_cognitive_transition_stage_operator_approval:v1"
 JOURNAL_SCHEMA = "sentientos.resident_cognitive_model_transition_journal_entry:v1"
 CAPABILITY = "resident_cognitive_model_transition_experiment"
@@ -30,12 +35,36 @@ PHASES = ("predecessor_a_epoch_current", "a_to_b_transition_requested", "a_quies
  "experiment_complete")
 EFFECTFUL = frozenset({"b_activation_committed", "b_serving_bound",
                        "a_restoration_activation_committed", "restored_a_serving_bound"})
+MAX_TRANSITION_JOURNAL_ENTRIES = 4096
+MAX_TRANSITION_JOURNAL_BYTES = 16_777_216
+MAX_TRANSITION_JOURNAL_ENTRY_BYTES = 262_144
 
 
 class TransitionError(RuntimeError):
     def __init__(self, code: str):
         self.code = code
         super().__init__(code)
+
+
+def recovered_quiescence_token(evidence: Any) -> Mapping[str, Any] | None:
+    """Extract only a gate capability from a completed journal evidence row.
+
+    Operator linkage is journal provenance. Validate its narrow shape, but do
+    not include it in the process-local capability compared by the gate.
+    """
+    token_fields = {"schema_version", "generation", "no_inflight", "observation", "token",
+                    "observation_digest"}
+    if (not isinstance(evidence, Mapping) or not token_fields.issubset(evidence)
+            or set(evidence) - token_fields - {"operator_request"}):
+        return None
+    if "operator_request" in evidence:
+        request_link = evidence.get("operator_request")
+        if (not isinstance(request_link, Mapping)
+                or set(request_link) != {"request_id", "request_digest"}
+                or any(not isinstance(request_link.get(key), str) or not request_link.get(key)
+                    for key in ("request_id", "request_digest"))):
+            return None
+    return MappingProxyType({key: evidence[key] for key in token_fields})
 
 
 def _plain(value: Any) -> Any:
@@ -68,14 +97,19 @@ def history_boundary(records: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
 def developmental_history_boundary(*, store: Any, composition_state_path: Path,
                                    activation: Mapping[str, Any], session: Any) -> Mapping[str, Any]:
     """Verify and bind the complete durable developmental history boundary."""
-    record_paths = sorted(store.records_root.glob("*.json"))
-    records = [asdict(store.get(path.stem)) for path in record_paths]
-    receipts = []
-    for path in sorted(store.receipts_root.glob("*.json")):
-        receipt = store.get_receipt(path.stem)
-        receipts.append(asdict(receipt))
-    if composition_state_path.exists():
-        state = json.loads(composition_state_path.read_text(encoding="utf-8"))
+    records = [asdict(record) for record in store.records()]
+    receipts = [asdict(receipt) for receipt in store.receipts()]
+    try:
+        state_bytes = read_explicit_file(composition_state_path, max_bytes=16_777_216)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) != "explicit_file_missing":
+            raise TransitionError("composition_state_safe_read_failed") from exc
+        state_bytes = None
+    if state_bytes is not None:
+        state = json.loads(state_bytes.decode("utf-8"))
+        if (not isinstance(state, dict)
+                or json.dumps(state, indent=2, sort_keys=True).encode("utf-8") + b"\n" != state_bytes):
+            raise TransitionError("composition_state_noncanonical")
         claimed = state.get("state_digest")
         semantic = {k: v for k, v in state.items() if k != "state_digest"}
         from .local_model_authority import digest_payload
@@ -103,8 +137,27 @@ class TransitionProtocol:
     def create(cls, *, installation_identity: str, predecessor: Mapping[str, Any],
                successor: Mapping[str, Any], initial_activation: Mapping[str, Any],
                initial_session: Mapping[str, Any], initial_boundary: Mapping[str, Any],
-               b_operation_id: str, restored_a_operation_id: str) -> "TransitionProtocol":
-        body = {"schema_version": SCHEMA, "installation_identity": installation_identity,
+               b_operation_id: str, restored_a_operation_id: str,
+               model_replacement_protocol_references: Mapping[str, Mapping[str, str]] | None = None) -> "TransitionProtocol":
+        if model_replacement_protocol_references is not None and not isinstance(model_replacement_protocol_references, Mapping):
+            raise TransitionError("model_provenance_protocol_reference_invalid")
+        references = _plain(model_replacement_protocol_references or {})
+        if references:
+            if not isinstance(references, dict) or set(references) - {"predecessor_a", "successor_b"}:
+                raise TransitionError("model_provenance_protocol_reference_invalid")
+            for reference in references.values():
+                if (not isinstance(reference, dict)
+                        or set(reference) != {"protocol_id", "protocol_digest", "model_role"}
+                        or reference.get("model_role") not in {"model_a", "model_b"}
+                        or not isinstance(reference.get("protocol_id"), str)
+                        or not reference["protocol_id"].startswith("model-replacement-protocol-")
+                        or not isinstance(reference.get("protocol_digest"), str)
+                        or len(reference["protocol_digest"]) != 71
+                        or not reference["protocol_digest"].startswith("sha256:")
+                        or any(c not in "0123456789abcdef" for c in reference["protocol_digest"][7:])):
+                    raise TransitionError("model_provenance_protocol_reference_invalid")
+        body = {"schema_version": SCHEMA_V2 if references else SCHEMA,
+                "installation_identity": installation_identity,
                 "predecessor_a": _plain(predecessor), "successor_b": _plain(successor),
                 "restored_a": _plain(predecessor), "initial_activation": _plain(initial_activation),
                 "initial_resident_session": _plain(initial_session),
@@ -114,6 +167,8 @@ class TransitionProtocol:
                 "failure_policy": "interrupt_no_retry_no_rollback", "grants_authority": False,
                 "nonclaims": ["personal_identity", "consciousness_continuity", "selfhood_continuity",
                               "learning", "improvement"]}
+        if references:
+            body["model_replacement_protocol_references"] = references
         pd = digest(body)
         return cls(MappingProxyType({**body, "protocol_id": "resident-transition-protocol-" + pd[:24],
                                      "protocol_digest": pd, "transition_id": "transition-" + pd[:24]}))
@@ -123,10 +178,30 @@ class TransitionProtocol:
         claimed = value.pop("protocol_digest", None)
         protocol_id = value.pop("protocol_id", None)
         transition_id = value.pop("transition_id", None)
-        if (value.get("schema_version") != SCHEMA or value.get("phase_order") != list(PHASES)
+        schema = value.get("schema_version")
+        references = value.get("model_replacement_protocol_references")
+        if ((schema == SCHEMA and references is not None)
+                or (schema == SCHEMA_V2 and (not isinstance(references, Mapping) or not references
+                    or set(references) - {"predecessor_a", "successor_b"}))
+                or schema not in {SCHEMA, SCHEMA_V2}
+                or value.get("phase_order") != list(PHASES)
                 or digest(value) != claimed or protocol_id != "resident-transition-protocol-" + str(claimed)[:24]
                 or transition_id != "transition-" + str(claimed)[:24]):
             raise TransitionError("protocol_tamper")
+        if schema == SCHEMA_V2:
+            if not isinstance(references, Mapping):
+                raise TransitionError("protocol_tamper")
+            for reference in references.values():
+                if (not isinstance(reference, Mapping)
+                        or set(reference) != {"protocol_id", "protocol_digest", "model_role"}
+                        or reference.get("model_role") not in {"model_a", "model_b"}
+                        or not isinstance(reference.get("protocol_id"), str)
+                        or not reference["protocol_id"].startswith("model-replacement-protocol-")
+                        or not isinstance(reference.get("protocol_digest"), str)
+                        or len(reference["protocol_digest"]) != 71
+                        or not reference["protocol_digest"].startswith("sha256:")
+                        or any(c not in "0123456789abcdef" for c in reference["protocol_digest"][7:])):
+                    raise TransitionError("protocol_model_provenance_reference_invalid")
 
 
 class ResidentCognitionQuiescenceGate:
@@ -196,41 +271,81 @@ class QuiescedDevelopmentalCognitionOwner:
         with self.gate.cycle():
             return self._owner.run_tick(**kwargs)
 
+    def run_objective_intervention_once(self, **kwargs: Any) -> Any:
+        """Keep explicit experimental calls inside resident-cognition quiescence."""
+        with self.gate.cycle():
+            return self._owner.run_objective_intervention_once(**kwargs)
+
+    def objective_request_disposition(self, **kwargs: Any) -> str:
+        return cast(str, self._owner.objective_request_disposition(**kwargs))
+
 
 class TransitionJournal:
     def __init__(self, path: Path):
         self.path = path
-        path.parent.mkdir(parents=True, exist_ok=True)
 
     def entries(self) -> list[dict[str, Any]]:
-        if not self.path.exists():
-            return []
+        try:
+            raw = read_explicit_file(self.path, max_bytes=MAX_TRANSITION_JOURNAL_BYTES)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return []
+            raise TransitionError("journal_not_regular") from exc
         out: list[dict[str, Any]] = []
         prior = "GENESIS"
-        for number, line in enumerate(self.path.read_text(encoding="utf-8").splitlines(), 1):
+        # The canonical writer terminates every immutable journal entry with
+        # exactly one LF. Keep that byte during verification so the reader can
+        # distinguish canonical records from truncated or CRLF-rewritten tails.
+        lines = raw.splitlines(keepends=True)
+        if len(lines) > MAX_TRANSITION_JOURNAL_ENTRIES or any(
+                not line or len(line) > MAX_TRANSITION_JOURNAL_ENTRY_BYTES for line in lines):
+            raise TransitionError("journal_retention_limit_exceeded")
+        for number, line in enumerate(lines, 1):
             try:
-                item = json.loads(line)
+                item = json.loads(line.decode("utf-8"))
                 claimed = item.pop("entry_digest")
-            except (ValueError, KeyError, AttributeError) as exc:
+            except (TypeError, ValueError, KeyError, AttributeError, UnicodeError) as exc:
                 raise TransitionError("journal_tamper") from exc
-            if (item.get("schema_version") != JOURNAL_SCHEMA or item.get("sequence") != number
+            legacy_keys = {"schema_version", "sequence", "prior_digest", "phase", "status", "evidence"}
+            timestamped_keys = legacy_keys | {"event_time"}
+            if (not isinstance(item, dict) or item.get("schema_version") != JOURNAL_SCHEMA or item.get("sequence") != number
                     or item.get("prior_digest") != prior or digest(item) != claimed
+                    or frozenset(item) not in {frozenset(legacy_keys), frozenset(timestamped_keys)}
+                    or item.get("phase") not in PHASES or not isinstance(item.get("evidence"), Mapping)
+                    or ("event_time" in item and not isinstance(item["event_time"], str))
                     or item.get("status") not in {"attempted", "effected", "completed", "failed", "interrupted"}):
                 raise TransitionError("journal_tamper")
+            if json.dumps({**item, "entry_digest": claimed}, sort_keys=True,
+                    separators=(",", ":")).encode("utf-8") + b"\n" != line:
+                raise TransitionError("journal_noncanonical")
+            if number > MAX_TRANSITION_JOURNAL_ENTRIES:
+                raise TransitionError("journal_retention_limit_exceeded")
             item["entry_digest"] = claimed
             out.append(item)
             prior = claimed
         return out
 
     def append(self, phase: str, evidence: Mapping[str, Any], *, status: str = "completed") -> Mapping[str, Any]:
+        if os.name != "posix":
+            raise TransitionError("journal_publication_unsupported_platform")
         entries = self.entries()
+        if (len(entries) >= MAX_TRANSITION_JOURNAL_ENTRIES or phase not in PHASES
+                or status not in {"attempted", "effected", "completed", "failed", "interrupted"}):
+            raise TransitionError("journal_retention_limit_or_phase_invalid")
         body = {"schema_version": JOURNAL_SCHEMA, "sequence": len(entries) + 1,
                 "prior_digest": entries[-1]["entry_digest"] if entries else "GENESIS",
-                "phase": phase, "status": status, "evidence": _plain(evidence)}
+                "phase": phase, "status": status, "event_time": datetime.now(timezone.utc).isoformat(),
+                "evidence": _plain(evidence)}
         item = {**body, "entry_digest": digest(body)}
-        with self.path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(item, sort_keys=True, separators=(",", ":")) + "\n")
-            stream.flush()
+        encoded = (json.dumps(item, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+        existing_size = self.path.stat().st_size if self.path.exists() else 0
+        if (len(encoded) > MAX_TRANSITION_JOURNAL_ENTRY_BYTES
+                or existing_size + len(encoded) > MAX_TRANSITION_JOURNAL_BYTES):
+            raise TransitionError("journal_retention_limit_exceeded")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        with os.fdopen(descriptor, "ab") as stream:
+            stream.write(encoded); stream.flush(); os.fsync(stream.fileno())
         return MappingProxyType(item)
 
 
@@ -241,7 +356,17 @@ def stage_serving_binding(*, protocol: TransitionProtocol, stage: str,
     if stage not in {"b_serving_bound", "restored_a_serving_bound"}:
         raise TransitionError("serving_binding_stage_invalid")
     receipt_digest = activation.get("receipt_semantic_digest", activation.get("activation_receipt_semantic_digest"))
-    body = {"schema_version": BINDING_SCHEMA, "protocol_id": protocol.value["protocol_id"],
+    predecessor_digest = activation.get("activation_predecessor_state_digest")
+    if predecessor_digest is not None and (
+            not isinstance(predecessor_digest, str) or len(predecessor_digest) != 64
+            or any(character not in "0123456789abcdef" for character in predecessor_digest)
+            or activation.get("activation_predecessor_posture") != "verified_predecessor_state"):
+        raise TransitionError("serving_binding_activation_predecessor_invalid")
+    # Keep v2 for authentic historical callers that cannot provide the explicit
+    # predecessor edge. Production transition composition supplies it from the
+    # verified activation history and therefore writes v3.
+    binding_schema = BINDING_SCHEMA if predecessor_digest is not None else LEGACY_BINDING_SCHEMA
+    body = {"schema_version": binding_schema, "protocol_id": protocol.value["protocol_id"],
             "protocol_digest": protocol.value["protocol_digest"],
             "transition_id": protocol.value["transition_id"], "stage": stage,
             "installation_identity": protocol.value["installation_identity"],
@@ -249,6 +374,10 @@ def stage_serving_binding(*, protocol: TransitionProtocol, stage: str,
             "activation_generation": activation["generation"],
             "activation_receipt_id": activation["receipt_id"],
             "activation_receipt_digest": receipt_digest,
+            "activation_history_digest": activation["activation_history_digest"],
+            **({"activation_predecessor_state_digest": predecessor_digest,
+                "activation_predecessor_posture": activation.get("activation_predecessor_posture")}
+               if binding_schema == BINDING_SCHEMA else {}),
             "expected_model_identity": _plain(expected_identity), "serving_operation_id": operation_id,
             "resident_serving_capability_id": "resident_cognitive_model_serving",
             "grants_activation": False, "grants_model_serving": False, "grants_inference": False}
@@ -260,7 +389,8 @@ def verify_stage_serving_binding(binding: Mapping[str, Any], *, protocol: Transi
     value = dict(binding)
     claimed = value.pop("binding_digest", None)
     observed = _plain(session.binding.get("observed_loaded_model_identity"))
-    if (value.get("schema_version") != BINDING_SCHEMA or digest(value) != claimed
+    binding_schema = value.get("schema_version")
+    if (binding_schema not in {LEGACY_BINDING_SCHEMA, BINDING_SCHEMA} or digest(value) != claimed
             or value.get("protocol_id") != protocol.value["protocol_id"]
             or value.get("protocol_digest") != protocol.value["protocol_digest"]
             or value.get("transition_id") != protocol.value["transition_id"]
@@ -269,12 +399,22 @@ def verify_stage_serving_binding(binding: Mapping[str, Any], *, protocol: Transi
             or value.get("activation_generation") != session.binding.get("activation_generation")
             or value.get("activation_receipt_id") != session.binding.get("activation_receipt_id")
             or value.get("activation_receipt_digest") != session.binding.get("activation_receipt_semantic_digest")
+            or value.get("activation_history_digest") != session.binding.get("activation_history_digest")
+            or (binding_schema == BINDING_SCHEMA
+                and (value.get("activation_predecessor_state_digest")
+                     != session.binding.get("activation_predecessor_state_digest")
+                     or value.get("activation_predecessor_posture")
+                     != session.binding.get("activation_predecessor_posture")
+                     or not isinstance(value.get("activation_predecessor_state_digest"), str)))
             or value.get("expected_model_identity") != observed
             or any(value.get(key) is not False for key in ("grants_activation", "grants_model_serving", "grants_inference"))):
         raise TransitionError("transition_stage_serving_binding_mismatch")
 
 
 class TransitionStageOperations(Protocol):
+    def verify_historical_activation(self, activation: Mapping[str, Any]) -> Mapping[str, Any]: ...
+    def verify_historical_serving_session(self, session: Mapping[str, Any]) -> Mapping[str, Any]: ...
+    def verify_transition_observation(self, stage: str, evidence: Mapping[str, Any]) -> None: ...
     def activate_successor(self, context: "TransitionStageExecutionContext | None" = None) -> Mapping[str, Any]: ...
     def serve_successor(self, activation: Mapping[str, Any]) -> Mapping[str, Any]: ...
     def activate_restored_predecessor(self, context: "TransitionStageExecutionContext | None" = None) -> Mapping[str, Any]: ...
@@ -361,6 +501,7 @@ class _Reconstructed:
     reason: str | None
     outstanding_stage: str | None
     token: Mapping[str, Any] | None
+    semantically_verified_stage_entry_digests: tuple[str, ...] = ()
 
 
 class ResidentCognitiveModelTransitionController:
@@ -376,9 +517,124 @@ class ResidentCognitiveModelTransitionController:
         self.allow_synthetic_approval_for_tests, self.clock = allow_synthetic_approval_for_tests, clock
         self._state = self._reconstruct()
 
+    def _completed_stage_evidence_error(self, stage: str, evidence: Mapping[str, Any],
+                                        prior_activation: Mapping[str, Any] | None) -> str | None:
+        activation_stages = {"b_activation_committed": ("successor_b", "A->B"),
+                             "a_restoration_activation_committed": ("restored_a", "B->A")}
+        serving_stages = {"b_serving_bound": ("successor_b", "b_serving_operation_id"),
+                          "restored_a_serving_bound": ("restored_a", "restored_a_serving_operation_id")}
+        if stage in activation_stages:
+            role, marker = activation_stages[stage]
+            activation = evidence.get("activation")
+            expected = self.protocol.value.get(role)
+            if not isinstance(activation, Mapping) or not isinstance(expected, Mapping):
+                return "activation_stage_evidence_missing"
+            if (evidence.get("activation_transition_stage") != marker
+                    or activation.get("model_loaded") is not False
+                    or activation.get("serving_started") is not False
+                    or activation.get("inference_performed") is not False
+                    or not isinstance(activation.get("state_semantic_digest"), str)
+                    or not isinstance(activation.get("receipt_id"), str)
+                    or not isinstance(activation.get("receipt_semantic_digest"), str)
+                    or not isinstance(activation.get("activation_history_digest"), str)
+                    or activation.get("commissioning_active_model_identity") != expected):
+                return "activation_stage_identity_mismatch"
+            verifier = getattr(self.operations, "verify_historical_activation", None)
+            if not callable(verifier):
+                return "activation_history_verifier_unavailable"
+            try:
+                verified_identity = verifier(activation)
+            except Exception:
+                return "activation_history_lineage_unverified"
+            if not isinstance(verified_identity, Mapping) or dict(verified_identity) != dict(expected):
+                return "activation_commissioning_identity_mismatch"
+            return None
+        if stage in serving_stages:
+            if not isinstance(prior_activation, Mapping):
+                return "serving_stage_activation_predecessor_missing"
+            role, operation_key = serving_stages[stage]
+            expected = self.protocol.value.get(role)
+            binding, session = evidence.get("stage_binding"), evidence.get("session")
+            if not isinstance(expected, Mapping) or not isinstance(binding, Mapping) or not isinstance(session, Mapping):
+                return "serving_stage_evidence_missing"
+            binding_body = dict(binding)
+            claimed_binding_digest = binding_body.pop("binding_digest", None)
+            binding_schema = binding.get("schema_version")
+            if (binding_schema not in {LEGACY_BINDING_SCHEMA, BINDING_SCHEMA}
+                    or digest(binding_body) != claimed_binding_digest
+                    or binding.get("protocol_id") != self.protocol.value.get("protocol_id")
+                    or binding.get("protocol_digest") != self.protocol.value.get("protocol_digest")
+                    or binding.get("transition_id") != self.protocol.value.get("transition_id")
+                    or binding.get("stage") != stage
+                    or binding.get("installation_identity") != self.protocol.value.get("installation_identity")
+                    or binding.get("expected_model_identity") != _plain(expected)
+                    or binding.get("serving_operation_id") != self.protocol.value.get(operation_key)
+                    or binding.get("activation_state_digest") != prior_activation.get("state_semantic_digest")
+                    or binding.get("activation_generation") != prior_activation.get("generation")
+                    or binding.get("activation_receipt_id") != prior_activation.get("receipt_id")
+                    or binding.get("activation_receipt_digest") != prior_activation.get("receipt_semantic_digest")
+                    or binding.get("activation_history_digest") != prior_activation.get("activation_history_digest")
+                    or (binding_schema == BINDING_SCHEMA
+                        and (binding.get("activation_predecessor_state_digest")
+                             != prior_activation.get("activation_predecessor_state_digest")
+                             or binding.get("activation_predecessor_posture")
+                             != prior_activation.get("activation_predecessor_posture")))
+                    or any(binding.get(key) is not False for key in ("grants_activation", "grants_model_serving", "grants_inference"))):
+                return "serving_stage_binding_mismatch"
+            session_id, session_binding = session.get("session_id"), session.get("binding")
+            if not isinstance(session_binding, Mapping):
+                return "serving_stage_session_binding_missing"
+            receipt_verifier = getattr(self.operations, "verify_historical_serving_session", None)
+            if not callable(receipt_verifier):
+                return "serving_receipt_verifier_unavailable"
+            try:
+                serving_receipt = receipt_verifier(session)
+            except Exception:
+                return "serving_receipt_unverified"
+            if (serving_receipt.get("receipt_id") != evidence.get("serving_receipt_id")
+                    or serving_receipt.get("receipt_semantic_digest")
+                    != evidence.get("serving_receipt_semantic_digest")):
+                return "serving_receipt_binding_mismatch"
+            activation_state = {key: value for key, value in prior_activation.items()
+                if key not in {"receipt_id", "receipt_semantic_digest", "activation_history_digest",
+                               "activation_predecessor_state_digest", "activation_predecessor_posture",
+                               "commissioning_active_model_identity", "activation_transition_stage"}}
+            if (session_id != "resident-serving-session-" + semantic_digest(dict(session_binding))[:24]
+                    or session.get("status") != "production_current"
+                    or session_binding.get("installation_identity") != binding.get("installation_identity")
+                    or session_binding.get("serving_operation_id") != binding.get("serving_operation_id")
+                    or session_binding.get("activation_state_semantic_digest") != prior_activation.get("state_semantic_digest")
+                    or session_binding.get("activation_generation") != prior_activation.get("generation")
+                    or session_binding.get("activation_receipt_id") != prior_activation.get("receipt_id")
+                    or session_binding.get("activation_receipt_semantic_digest") != prior_activation.get("receipt_semantic_digest")
+                    or session_binding.get("activation_history_digest") != prior_activation.get("activation_history_digest")
+                    or (binding_schema == BINDING_SCHEMA
+                        and (session_binding.get("activation_predecessor_state_digest")
+                             != prior_activation.get("activation_predecessor_state_digest")
+                             or session_binding.get("activation_predecessor_posture")
+                             != prior_activation.get("activation_predecessor_posture")))
+                    or session_binding.get("activation_state") != activation_state
+                    or session_binding.get("observed_loaded_model_identity") != expected
+                    or session_binding.get("model_serving_admission_ref") != evidence.get("serving_admission")):
+                return "serving_stage_session_mismatch"
+            return None
+        if stage in {"b_epoch_observed", "post_restoration_observed"}:
+            verifier = getattr(self.operations, "verify_transition_observation", None)
+            if not callable(verifier):
+                return "transition_observation_verifier_unavailable"
+            try:
+                verifier(stage, evidence)
+            except Exception:
+                return "transition_observation_lineage_unverified"
+            return None
+        return None
+
     def _reconstruct(self) -> _Reconstructed:
         phase, outstanding, token = PHASES[0], None, None
         blocked, reason = False, None
+        semantically_verified: list[str] = []
+        latest_activation: Mapping[str, Any] | None = None
+        latest_serving_session_id: str | None = None
         for entry in self.journal.entries():
             status, entry_phase, evidence = entry["status"], entry["phase"], entry["evidence"]
             if status == "attempted":
@@ -389,8 +645,36 @@ class ResidentCognitiveModelTransitionController:
                 expected = PHASES[PHASES.index(phase)+1] if phase != PHASES[-1] else None
                 if entry_phase != expected or (outstanding is not None and outstanding != entry_phase):
                     raise TransitionError("journal_stage_order_invalid")
+                failure = self._completed_stage_evidence_error(entry_phase, evidence, latest_activation)
+                if failure is not None:
+                    return _Reconstructed(entry_phase, True, failure, entry_phase, token,
+                        tuple(semantically_verified[-128:]))
+                semantically_verified.append(str(entry.get("entry_digest")))
+                if entry_phase in {"b_activation_committed", "a_restoration_activation_committed"}:
+                    latest_activation = evidence.get("activation")
+                    latest_serving_session_id = None
+                elif entry_phase in {"b_serving_bound", "restored_a_serving_bound"}:
+                    session_value = evidence.get("session")
+                    latest_serving_session_id = (session_value.get("session_id")
+                        if isinstance(session_value, Mapping) and isinstance(session_value.get("session_id"), str) else None)
+                elif entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"}:
+                    if (latest_serving_session_id is None
+                            or evidence.get("verified_session_id") != latest_serving_session_id):
+                        return _Reconstructed(entry_phase, True, "resumed_session_binding_mismatch", entry_phase, token,
+                            tuple(semantically_verified[-128:]))
                 phase, outstanding = entry_phase, None
-                token = evidence if entry_phase in {"a_quiesced", "b_quiesced"} else None if entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"} else token
+                if entry_phase in {"a_quiesced", "b_quiesced"}:
+                    recovered_token = recovered_quiescence_token(evidence)
+                    if recovered_token is None:
+                        return _Reconstructed(entry_phase, True, "quiescence_token_evidence_invalid",
+                                              entry_phase, token,
+                                              tuple(semantically_verified[-128:]))
+                    # Operator ingress metadata is journal provenance, not part
+                    # of the process-local quiescence capability. Reconstruct
+                    # only the exact token originally issued by the gate.
+                    token = recovered_token
+                elif entry_phase in {"b_epoch_resumed", "restored_a_epoch_resumed"}:
+                    token = None
             elif status == "effected":
                 if outstanding != entry_phase or entry_phase not in EFFECTFUL or not evidence.get("subordinate_custody_verified"):
                     raise TransitionError("journal_effect_custody_invalid")
@@ -406,7 +690,8 @@ class ResidentCognitiveModelTransitionController:
             blocked, reason = True, reason or "unresolved_attempt"
         if token is not None and not self.gate.verifies(token):
             blocked, reason = True, "live_quiescence_custody_mismatch"
-        return _Reconstructed(phase, blocked, reason, outstanding, token)
+        return _Reconstructed(phase, blocked, reason, outstanding, token,
+            tuple(semantically_verified[-128:]))
 
     @property
     def phase(self) -> str:
@@ -431,7 +716,10 @@ class ResidentCognitiveModelTransitionController:
                 "operation_identity": approval.get("operation_identity")}
 
     def advance(self, *, approval: Mapping[str, Any], evidence: Mapping[str, Any] | None = None,
-                stage_execution_context: TransitionStageExecutionContext | None = None) -> Mapping[str, Any]:
+                stage_execution_context: TransitionStageExecutionContext | None = None,
+                operation_context: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        if os.name != "posix":
+            raise TransitionError("model_transition_unsupported_platform")
         self.protocol.verify()
         self._state = self._reconstruct()
         if self._state.blocked:
@@ -443,9 +731,17 @@ class ResidentCognitiveModelTransitionController:
         verify_stage_approval(approval, expected=self._approval_expected(target, approval),
                               observation_time=self.clock(), allow_synthetic_for_tests=self.allow_synthetic_approval_for_tests)
         supplied = dict(evidence or {})
-        if target in EFFECTFUL:
-            self.journal.append(current, {"attempted_stage": target,
-                                          "approval_digest": approval["approval_digest"]}, status="attempted")
+        context = dict(operation_context or {})
+        if context and (set(context) != {"request_id", "request_digest"}
+                        or not all(isinstance(value, str) and value for value in context.values())):
+            raise TransitionError("transition_operation_context_invalid")
+        # Publish an attempt before any stage can mutate runtime state. This
+        # makes a crash between a non-effectful handoff and its completion
+        # distinguishable from a request that was never admitted.
+        self.journal.append(current, {"attempted_stage": target,
+                                      "approval_digest": approval["approval_digest"],
+                                      **({"operator_request": context} if context else {})}, status="attempted")
+        completion_published = False
         try:
             if target in {"a_quiesced", "b_quiesced"}:
                 supplied = dict(self.gate.quiesce(timeout_seconds=float(supplied.pop("timeout_seconds", 5)),
@@ -476,14 +772,27 @@ class ResidentCognitiveModelTransitionController:
                 activation = next(entry["evidence"]["activation"] for entry in reversed(self.journal.entries())
                                   if entry["status"] == "completed" and entry["phase"] == "a_restoration_activation_committed")
                 supplied.update(_plain(self.operations.serve_restored_predecessor(activation)))
+            if target in {"b_epoch_observed", "post_restoration_observed"}:
+                verifier = getattr(self.operations, "verify_transition_observation", None)
+                if not callable(verifier):
+                    raise TransitionError("transition_observation_verifier_unavailable")
+                verifier(target, supplied)
+            if context:
+                supplied["operator_request"] = context
             entry = self.journal.append(target, supplied)
+            completion_published = True
             self._state = self._reconstruct()
             return MappingProxyType({"prior_phase": current, "phase": target,
                                      "journal_head": entry["entry_digest"], "advanced_one_stage": True})
         except Exception as exc:
-            self.journal.append(current, {"failed_stage": target,
-                                          "error": getattr(exc, "code", type(exc).__name__)}, status="failed")
-            self._state = self._reconstruct()
+            # A completed journal row is the durable commit point. Do not
+            # append a contradictory failure if a later in-memory refresh
+            # fails; restart recovery will reconstruct from that completion.
+            if not completion_published:
+                self.journal.append(current, {"failed_stage": target,
+                                              "error": getattr(exc, "code", type(exc).__name__),
+                                              **({"operator_request": context} if context else {})}, status="failed")
+                self._state = self._reconstruct()
             raise
 
     def health(self) -> Mapping[str, Any]:
@@ -496,4 +805,6 @@ class ResidentCognitiveModelTransitionController:
                                  "replay_forbidden": self._state.blocked,
                                  "quiesced": self.gate.quiesced,
                                  "journal_head": entries[-1]["entry_digest"] if entries else "GENESIS",
+                                 "semantically_verified_stage_entry_digests": list(
+                                     self._state.semantically_verified_stage_entry_digests),
                                  "read_only": True})

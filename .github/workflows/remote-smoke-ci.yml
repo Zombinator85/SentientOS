@@ -17,10 +17,24 @@ on:
 
 jobs:
   remote-smoke:
-    if: ${{ secrets.REMOTE_SMOKE_HOST_1 != '' && secrets.REMOTE_SMOKE_HOST_2 != '' && secrets.REMOTE_SMOKE_USER != '' && secrets.REMOTE_SMOKE_RUNTIME_ROOT != '' }}
+    if: ${{ vars.SENTIENTOS_CI_RUN_REMOTE_SMOKE == '1' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
+      - name: Require explicitly configured remote smoke credentials
+        env:
+          REMOTE_SMOKE_HOST_1: ${{ secrets.REMOTE_SMOKE_HOST_1 }}
+          REMOTE_SMOKE_HOST_2: ${{ secrets.REMOTE_SMOKE_HOST_2 }}
+          REMOTE_SMOKE_USER: ${{ secrets.REMOTE_SMOKE_USER }}
+          REMOTE_SMOKE_RUNTIME_ROOT: ${{ secrets.REMOTE_SMOKE_RUNTIME_ROOT }}
+        run: |
+          set -euo pipefail
+          for name in REMOTE_SMOKE_HOST_1 REMOTE_SMOKE_HOST_2 REMOTE_SMOKE_USER REMOTE_SMOKE_RUNTIME_ROOT; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::remote smoke is enabled but required secret ${name} is missing"
+              exit 1
+            fi
+          done
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:

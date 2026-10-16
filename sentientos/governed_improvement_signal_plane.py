@@ -21,6 +21,8 @@ MAX_RECORDS = 512
 MAX_BYTES = 2_000_000
 RUN_TESTS_PROVENANCE_RELATIVE_PATH = "glow/test_runs/test_run_provenance.json"
 RUN_TESTS_REQUIRED_FIELDS = ("schema_version","pytest_exit_code","tests_selected","tests_executed","tests_passed","tests_failed","metrics_status","exit_reason","junitxml_path","failure_report_path","git_sha","provenance_hash","prev_provenance_hash")
+CAMPAIGN_ADVERSE_CLASSIFICATIONS = {"repeated_target_contradiction_under_matched_controls", "protected_regression_observed"}
+CAMPAIGN_POSITIVE_CLASSIFICATIONS = {"repeated_association_under_matched_controls"}
 
 
 def _sha(data: bytes) -> str: return "sha256:" + hashlib.sha256(data).hexdigest()
@@ -306,6 +308,7 @@ def build_batch(records: Iterable[Mapping[str, Any]] | Iterable[ImprovementSigna
     counts: dict[str, int] = {}
     unique: list[ImprovementSignal] = []
     by_subject: dict[tuple[str, str, str | None, str | None, str | None, str | None], ImprovementSignal] = {}
+    campaign_outcomes: dict[str, dict[str, set[str]]] = {}
     invalid: list[str] = []
     for s in signals:
         expected = _sid(s.semantic_payload())
@@ -316,6 +319,21 @@ def build_batch(records: Iterable[Mapping[str, Any]] | Iterable[ImprovementSigna
         prev=by_subject.get(key)
         if prev and (prev.description != s.description or prev.severity != s.severity): contradictions.extend([prev.signal_id,s.signal_id])
         by_subject[key]=s; seen[s.signal_id]=s; unique.append(s)
+        if s.source_kind == "post_adoption_attribution_campaign":
+            refs = set(s.evidence_refs)
+            target = next((value.removeprefix("selection_proposal_id:")
+                for value in refs if value.startswith("selection_proposal_id:")), None)
+            classification = next((value.removeprefix("classification:")
+                for value in refs if value.startswith("classification:")), None)
+            if target and classification:
+                outcome = ("adverse" if classification in CAMPAIGN_ADVERSE_CLASSIFICATIONS
+                    else "positive" if classification in CAMPAIGN_POSITIVE_CLASSIFICATIONS else None)
+                if outcome:
+                    campaign_outcomes.setdefault(target, {"adverse":set(), "positive":set()})[outcome].add(s.signal_id)
+    for outcomes in campaign_outcomes.values():
+        if outcomes["adverse"] and outcomes["positive"]:
+            contradictions.extend(outcomes["adverse"])
+            contradictions.extend(outcomes["positive"])
     body=[s.semantic_payload() for s in unique]; digest=_sha(_stable_json({"signals": body, "duplicates": sorted(set(dup)), "contradictions": sorted(set(contradictions))}).encode())
     return SignalBatch("gisb-"+hashlib.sha256(digest.encode()).hexdigest()[:24], digest, tuple(unique), tuple(sorted(set(dup))), tuple(sorted(set(contradictions))), tuple(sorted(set(invalid))), counts, no_op=not unique)
 

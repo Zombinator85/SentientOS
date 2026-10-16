@@ -1,0 +1,42 @@
+{
+  "compilation": {
+    "command": "python -m py_compile sentientos/embodied_consequence.py tests/test_embodied_consequence.py",
+    "status": "passed"
+  },
+  "diff_check": {
+    "command": "git diff --check",
+    "status": "passed"
+  },
+  "focused_execution": {
+    "airlock_bypass": true,
+    "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 /tmp/sentientos-test-venv/bin/python -m pytest -q tests/test_embodied_consequence.py --tb=short --junitxml=glow/test_runs/0061-resource-model-identity-history-junit.xml",
+    "failed": 0,
+    "junit_path": "glow/test_runs/0061-resource-model-identity-history-junit.xml",
+    "junit_sha256": "0f75367f69cb5601e902db6243dd86f96354c2f5a22efa383f9e588444bd5502",
+    "passed": 24,
+    "scope": "Local hermetic fixture tests only; no production invocation or independently observed runtime behavior.",
+    "skipped": 0,
+    "tests_collected": 24
+  },
+  "implementation": [
+    "History resource lineage now joins model replacement linkage against the authenticated invocation_model_id while retaining the separate cognitive/catalog model_id.",
+    "Legacy strategy linkage continues to use model_attribution.model_id as its historical invocation join id.",
+    "History resource bindings expose cognitive_model_id and invocation_model_id separately; the full selected fact remains source-digest bound."
+  ],
+  "production_status": "unverified",
+  "runner_workspace_commit": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "runner_workspace_note": "Synthetic local test harness commit; modified target files matched exact parent remote blobs before edits.",
+  "schema_version": 1,
+  "source_blobs": {
+    "sentientos/embodied_consequence.py": {
+      "base_remote_blob": "66d36d259965695391a6f8871a98c899c117e042",
+      "tested_working_blob": "af63db9a01b8b68c31bc362b36b827cb4950241a"
+    },
+    "tests/test_embodied_consequence.py": {
+      "base_remote_blob": "2d9259e383088d27d4302325ea50648aea5fc19e",
+      "tested_working_blob": "b63c409b27bd20923a2a8680bcc5813955bc89be"
+    }
+  },
+  "source_commit": "2e3b358317bc8e5d62f8970da28257896f2e4135",
+  "source_tree": "3b2fdbc2ab7e32485130aae5ede14c1303ceedea"
+}

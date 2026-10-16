@@ -166,3 +166,54 @@ def test_background_owner_reports_deterministic_failure(monkeypatch: pytest.Monk
     owner._run()
     assert owner.health() == {"status": "degraded", "read_only": True,
                               "reason": "custody_ambiguous", "terminal": True}
+
+
+def test_successor_handoff_journal_reader_accepts_writer_lf_frames(tmp_path: Path) -> None:
+    cfg, _, _ = canonical_lineage(tmp_path)
+
+    class Owner:
+        def __init__(self, bound: dict[str, object]) -> None:
+            self.bound = bound
+
+        def start(self) -> bool:
+            return True
+
+        def stop(self) -> bool:
+            return True
+
+    owner = adoption.MaintenanceSuccessorGenerationOwner(cfg, wake_owner_factory=Owner)
+    owner._owner = Owner(wake_daemon.load_adoption(cfg["initial_wake_adoption_path"]))
+    assert owner.handoff_once()["successor_ordinal"] == 1
+
+    journal = Path(cfg["handoff_journal_path"]).read_bytes()
+    assert journal.endswith(b"\n")
+    assert len(adoption._journal(cfg)) == len(adoption.PHASES)
+    assert adoption.reconstruct_current(cfg)[0]["ordinal"] == 1
+
+
+@pytest.mark.parametrize("framing", ("missing-final-lf", "crlf"))
+def test_successor_handoff_journal_reader_rejects_invalid_lf_framing(
+    tmp_path: Path, framing: str,
+) -> None:
+    cfg, _, _ = canonical_lineage(tmp_path)
+
+    class Owner:
+        def __init__(self, bound: dict[str, object]) -> None:
+            self.bound = bound
+
+        def start(self) -> bool:
+            return True
+
+        def stop(self) -> bool:
+            return True
+
+    owner = adoption.MaintenanceSuccessorGenerationOwner(cfg, wake_owner_factory=Owner)
+    owner._owner = Owner(wake_daemon.load_adoption(cfg["initial_wake_adoption_path"]))
+    assert owner.handoff_once()["successor_ordinal"] == 1
+
+    path = Path(cfg["handoff_journal_path"])
+    journal = path.read_bytes()
+    path.write_bytes(journal[:-1] if framing == "missing-final-lf" else journal.replace(b"\n", b"\r\n"))
+
+    with pytest.raises(ValueError, match="successor_handoff_journal_corrupt"):
+        adoption._journal(cfg)

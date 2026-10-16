@@ -11,7 +11,7 @@ import json
 import os
 import threading
 import time
-import fcntl
+from sentientos.platform_fcntl import FLOCK_SUPPORTED, fcntl, require_flock
 import stat
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +26,7 @@ from sentientos import maintenance_candidate_collector as collector
 from sentientos import maintenance_autonomy_cycle as autonomy
 from sentientos import maintenance_health_probe as health
 from sentientos import maintenance_wake_cycle as wake
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 CONFIG_SCHEMA = "sentientos.maintenance_successor_generation_adoption_config:v1"
 HANDOFF_SCHEMA = "sentientos.maintenance_successor_generation_handoff_event:v1"
@@ -33,6 +34,9 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 PHASES = ("handoff_intent_recorded", "predecessor_quiescence_requested",
           "predecessor_confirmed_quiescent", "successor_start_attempted",
           "successor_confirmed_started", "handoff_completed")
+MAX_HANDOFF_JOURNAL_BYTES = 16_777_216
+MAX_HANDOFF_JOURNAL_ROWS = 65_536
+MAX_HANDOFF_JOURNAL_LINE_BYTES = 65_536
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -45,10 +49,28 @@ def digest(value: Any, omitted: str | None = None) -> str:
 
 
 def _load(path: str | Path) -> dict[str, Any]:
-    source = Path(path)
-    if source.is_symlink() or not source.is_file():
-        raise ValueError("successor_adoption_input_not_regular")
-    value = json.loads(source.read_text(encoding="utf-8"))
+    try:
+        raw = read_explicit_file(Path(path), max_bytes=65_536)
+        value = json.loads(raw.decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("successor_adoption_input_not_regular") from exc
+    if not isinstance(value, dict):
+        raise ValueError("successor_adoption_input_not_object")
+    return value
+
+
+def _load_optional_windows_object(path: Path) -> dict[str, Any] | None:
+    """Read one known successor artifact without path-based presence checks."""
+    try:
+        raw = read_explicit_file(path, max_bytes=65_536)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) == "explicit_file_missing":
+            return None
+        raise ValueError("successor_adoption_input_not_regular") from exc
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise ValueError("successor_adoption_input_not_object") from exc
     if not isinstance(value, dict):
         raise ValueError("successor_adoption_input_not_object")
     return value
@@ -97,14 +119,27 @@ def load_config(path: str | Path) -> dict[str, Any]: return validate_config(_loa
 
 def _journal(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
     path = Path(str(cfg["handoff_journal_path"])); rows: list[dict[str, Any]] = []; prior = ZERO_DIGEST
-    if not path.exists(): return rows
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            row = json.loads(line); claimed = row.pop("event_digest")
+        raw = read_explicit_file(path, max_bytes=MAX_HANDOFF_JOURNAL_BYTES)
+    except WindowsHandleCustodyError as exc:
+        if str(exc) == "explicit_file_missing":
+            return rows
+        raise ValueError("successor_handoff_journal_corrupt") from exc
+    try:
+        if raw and not raw.endswith(b"\n"):
+            raise ValueError
+        lines = raw.split(b"\n")[:-1] if raw else []
+        if len(lines) > MAX_HANDOFF_JOURNAL_ROWS or any(not line or len(line) > MAX_HANDOFF_JOURNAL_LINE_BYTES for line in lines):
+            raise ValueError
+        for line in lines:
+            row = json.loads(line.decode("utf-8")); claimed = row.pop("event_digest")
             if row.get("schema_version") != HANDOFF_SCHEMA or row.get("config_digest") != cfg["config_digest"] or row.get("prior_event_digest") != prior or digest(row) != claimed:
                 raise ValueError
-            row["event_digest"] = claimed; rows.append(row); prior = claimed
-    except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            row["event_digest"] = claimed
+            if canonical_bytes(row) != line:
+                raise ValueError
+            rows.append(row); prior = claimed
+    except (UnicodeError, ValueError, KeyError, json.JSONDecodeError) as exc:
         raise ValueError("successor_handoff_journal_corrupt") from exc
     # Completed transactions are six exact phases; only the last may be a prefix.
     for index, row in enumerate(rows):
@@ -143,6 +178,7 @@ def _prepare_private_directory(path: Path) -> None:
 def build_successor_adoption(config: Mapping[str, Any], current: Mapping[str, Any],
                              predecessor: Mapping[str, Any], successor: Mapping[str, Any]) -> dict[str, Any]:
     """Build the canonical, immutable N+1 component closure from N's schemas."""
+    require_flock()
     cfg = validate_config(config); root = Path(cfg["successor_configuration_root"]) / f"generation-{successor['ordinal']}"
     state = Path(cfg["state_root"]) / f"generation-{successor['ordinal']}"
     for directory in (root, state): _prepare_private_directory(directory)
@@ -232,10 +268,24 @@ def reconstruct_current(config: Mapping[str, Any]) -> tuple[dict[str, Any], dict
 def verified_successor(config: Mapping[str, Any], current: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]] | None:
     cfg = validate_config(config); policy = continuity.validate_policy(_load(cfg["continuity_policy_path"])); ordinal = int(current["ordinal"]) + 1
     generation_path = Path(policy["generation_root"]) / f"generation-{ordinal}.json"; receipt_path = Path(policy["receipt_root"]) / f"receipt-{ordinal}.json"
-    if not generation_path.exists():
-        if (Path(policy["generation_root"]) / f"generation-{ordinal + 1}.json").exists(): raise ValueError("successor_generation_skipped")
-        return None
-    successor = continuity.validate_generation(_load(generation_path), policy); receipt = _load(receipt_path)
+    if os.name == "nt":
+        raw_generation = _load_optional_windows_object(generation_path)
+        next_generation = _load_optional_windows_object(
+            Path(policy["generation_root"]) / f"generation-{ordinal + 1}.json")
+        if raw_generation is None:
+            if next_generation is not None:
+                raise ValueError("successor_generation_skipped")
+            return None
+        receipt = _load_optional_windows_object(receipt_path)
+        if receipt is None:
+            raise ValueError("successor_continuity_receipt_missing")
+    else:
+        if not generation_path.exists():
+            if (Path(policy["generation_root"]) / f"generation-{ordinal + 1}.json").exists(): raise ValueError("successor_generation_skipped")
+            return None
+        raw_generation = _load(generation_path)
+        receipt = _load(receipt_path)
+    successor = continuity.validate_generation(raw_generation, policy)
     if set(receipt) != continuity.RECEIPT_KEYS or receipt.get("schema_version") != continuity.RECEIPT_SCHEMA or receipt.get("receipt_digest") != continuity.digest(receipt, "receipt_digest"):
         raise ValueError("successor_continuity_receipt_invalid")
     if successor["ordinal"] != ordinal or successor["predecessor_generation_digest"] != current["generation_digest"] or receipt["lineage_id"] != current["lineage_id"] or receipt["ordinal"] != ordinal or receipt["successor_generation_digest"] != successor["generation_digest"] or receipt["predecessor_generation_digest"] != current["generation_digest"] or receipt["successor_sha"] != successor["base_sha"] or receipt["successor_manifest_digest"] != successor["manifest_digest"] or receipt["successor_profile_bundle_digest"] != successor["profile_bundle_digest"] or successor["prior_receipt_digest"] != receipt["receipt_digest"] or receipt["same_or_narrower"] is not True:
@@ -245,6 +295,7 @@ def verified_successor(config: Mapping[str, Any], current: Mapping[str, Any]) ->
 
 def _owner_lock_free(adoption: Mapping[str, Any]) -> bool:
     """Prove absence of an effectful owner and reject ambiguous wake intent."""
+    require_flock()
     wake_daemon.inspect(adoption)
     path = Path(str(adoption["cadence_state_root"])) / "wake-daemon-owner.lock"
     path.touch(exist_ok=True)
@@ -277,6 +328,9 @@ class MaintenanceSuccessorGenerationOwner:
 
     def start(self) -> bool:
         if not self.config["enabled"]: return False
+        if not FLOCK_SUPPORTED:
+            self._set("degraded", reason="posix_flock_unavailable")
+            return False
         current, adoption = reconstruct_current(self.config)
         if len(_journal(self.config)) % len(PHASES) == 0:
             self._owner = self._factory(adoption)
@@ -295,6 +349,7 @@ class MaintenanceSuccessorGenerationOwner:
             self._stop.wait(float(self.config["observation_delay_seconds"]))
 
     def handoff_once(self) -> dict[str, Any]:
+        require_flock()
         current, current_adoption = reconstruct_current(self.config)
         if Path(self.config["stop_marker"]).exists() or Path(current_adoption["stop_marker"]).exists(): self._set("paused"); return {"status": "paused", "effect_count": 0}
         rows = _journal(self.config); pending = rows[len(rows) - len(rows) % len(PHASES):] if len(rows) % len(PHASES) else []
@@ -351,7 +406,11 @@ class MaintenanceSuccessorGenerationOwner:
 
 def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
     current, adoption = reconstruct_current(config); successor = verified_successor(config, current)
-    return {"status": "successor_adoption_ready", "lineage_id": current["lineage_id"], "current_ordinal": current["ordinal"],
+    pending = pending_handoff(config)
+    return {"status": "successor_handoff_recovery_required" if pending else "successor_adoption_ready",
+            "recovery_posture": "incomplete_handoff" if pending else "no_incomplete_handoff",
+            "pending_handoff": pending,
+            "lineage_id": current["lineage_id"], "current_ordinal": current["ordinal"],
             "current_generation_digest": current["generation_digest"], "current_wake_adoption_digest": adoption["adoption_config_digest"],
             "successor_ordinal": successor[0]["ordinal"] if successor else None, "handoff_event_count": len(_journal(validate_config(config)))}
 

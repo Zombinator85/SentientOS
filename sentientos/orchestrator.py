@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from sentientos.anchor_witness import maybe_publish_anchor_witness
 from sentientos.auto_remediation import maybe_auto_run_pack
@@ -38,6 +38,8 @@ from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.schema_registry import LATEST_VERSIONS, latest_version, SchemaName
 from sentientos.work_allocator import AllocationDecision, allocate_goals
+from sentientos.persistent_epistemic_state import EpistemicCognitiveProjection
+from sentientos.local_model_authority import digest_payload
 from sentientos.work_plan import persist_work_plan, persist_work_run
 from sentientos.strategic_adaptation import (
     apply_requires_stable,
@@ -85,7 +87,10 @@ class TickResult:
     tick_report_path: str
 
 
-def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_active: bool = False) -> TickResult:
+def tick(repo_root: Path, *, config: OrchestratorConfig | None = None,
+        daemon_active: bool = False,
+        prior_epistemic_projection: EpistemicCognitiveProjection | None = None,
+        target_model_identity_observer: object | None = None) -> TickResult:
     root = repo_root.resolve()
     cfg = config or OrchestratorConfig.from_env()
     now = _iso_now()
@@ -182,6 +187,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
 
     goal_graph = load_goal_graph(root)
     goal_graph_digest = goal_graph_hash(goal_graph)
+    planning_time = _iso_now()
+    target_identity_digest = _observe_target_model_identity_digest(
+        target_model_identity_observer)
+    target_identity_observed_at = planning_time if target_identity_digest is not None else None
     allocation = allocate_goals(
         graph=goal_graph,
         budget=budget,
@@ -189,15 +198,21 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         integrity_pressure_level=pressure.level,
         quarantine_active=quarantine.active,
         posture=posture.posture,
+        prior_epistemic_projection=prior_epistemic_projection,
+        target_active_model_identity_digest=target_identity_digest,
+        target_identity_observed_at=target_identity_observed_at,
+        planning_time=planning_time,
     )
     allocation_artifact_path = _emit_goal_allocation_artifact(
         root=root,
-        generated_at=now,
+        generated_at=planning_time,
         operating_mode=throughput.mode,
         pressure_level=pressure.level,
         posture=posture.posture,
         goal_graph_hash_value=goal_graph_digest,
         allocation=allocation,
+        target_identity_digest=target_identity_digest,
+        target_identity_observed_at=target_identity_observed_at,
     )
     trace.record_clamp(
         name="goal_allocation",
@@ -206,6 +221,8 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
             "selected_goals": list(allocation.selected),
             "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred],
             "budget_summary": allocation.budget_summary,
+            "target_active_model_identity_digest": target_identity_digest,
+            "target_identity_observed_at": target_identity_observed_at,
         },
         notes="deterministic_goal_allocation",
     )
@@ -213,7 +230,7 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     if allocation is not None and allocation.selected:
         executor_state = ExecutorState(
             repo_root=root,
-            created_at=now,
+            created_at=planning_time,
             context="orchestrator_tick",
             operating_mode=throughput.mode,
             quarantine_active=quarantine.active,
@@ -223,6 +240,9 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
             risk_budget=budget,
             pressure_level=pressure.level,
             posture=posture.posture,
+            prior_epistemic_projection=prior_epistemic_projection,
+            target_active_model_identity_digest=target_identity_digest,
+            target_identity_observed_at=target_identity_observed_at,
         )
         executor = GoalExecutor(repo_root=root)
         plan = executor.build_plan(allocation=allocation, state=executor_state, graph=goal_graph)
@@ -970,6 +990,8 @@ def _emit_goal_allocation_artifact(
     posture: str,
     goal_graph_hash_value: str,
     allocation: AllocationDecision,
+    target_identity_digest: str | None = None,
+    target_identity_observed_at: str | None = None,
 ) -> str:
     path = root / "glow/forge/goal_allocations" / f"allocation_{_safe_ts(generated_at)}.json"
     payload = {
@@ -983,10 +1005,26 @@ def _emit_goal_allocation_artifact(
         "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred],
         "selection_reasons": list(allocation.selected_reasons),
         "budget_summary": allocation.budget_summary,
+        "target_active_model_identity_digest": target_identity_digest,
+        "target_identity_observed_at": target_identity_observed_at,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return str(path.relative_to(root))
+
+
+def _observe_target_model_identity_digest(observer: object | None) -> str | None:
+    """Read only the observer's already-current serving identity; never acquire a session."""
+    observe = getattr(observer, "observed_current_model_identity", None)
+    if not callable(observe):
+        return None
+    identity = observe()
+    if not isinstance(identity, Mapping) or not identity:
+        return None
+    try:
+        return "sha256:" + digest_payload(dict(identity))
+    except (TypeError, ValueError):
+        return None
 
 
 def _peer_snapshot_count(repo_root: Path) -> int:

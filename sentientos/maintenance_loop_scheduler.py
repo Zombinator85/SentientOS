@@ -5,7 +5,7 @@ of maintenance scanning, authority checks, transitions, and effects.
 """
 from __future__ import annotations
 
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os

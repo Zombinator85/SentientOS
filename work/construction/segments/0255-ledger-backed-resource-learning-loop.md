@@ -1,0 +1,11 @@
+# Sequence 255 - Ledger-backed developmental resource learning
+
+A controlled three-condition task-family run now uses a separate owner-issued resource context for each governed local inference. The completed run is recovered by its experiment owner and projected through World-State beside ledger-produced consumption evidence. The resource lineage owner binds each condition to the exact run, score, inference receipt, and resource receipts. Normal developmental writeback admits the run fact and its three matching condition facts together.
+
+The source contract was repaired at four bounded points: the complete four-fact selection receives a shape- and source-bound capacity, individual resource projections can retain their verified measurement rows, the interpretation inference can consume that selected evidence, and the resident prompt capacity matches the preregistered experiment budget. The historical packet cap now accommodates the complete, compact condition comparison. Existing 16,000-character epistemic omission tests explicitly exercise their original bound.
+
+In a new Python process, a distinct held-out task retrieves the admitted record. Its resource recommendation retains source run, score, inference, and receipt identities. A separately fixed full-suite quality criterion is met by the recommended condition. Rereading the old experiment and resource ledger creates no new consumption. The successful path uses actual governed ledger receipts; the deterministic model and serving-session reference are controlled fixtures. Isolated adversarial tests continue to cover missing, crossed, mismatched, and ambiguous resource facts and quality/cost tradeoffs.
+
+Validation: the developmental resource integration, strategy resource lineage, experiment recovery, writeback, resident cognition, and generation-scope suites passed with six existing skips. The integrated and strategy tests passed again after final fixture cleanup. Changed Python files compiled and whitespace checks passed.
+
+Limits: the fixture does not establish real-model improvement, independent backend observation, measured shared-host CPU/GPU attribution, authority, or current truth. D1-D8 runtime-admitted epistemic mutation and later causal-introspection consumption remain next.

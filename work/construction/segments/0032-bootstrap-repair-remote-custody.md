@@ -1,0 +1,6 @@
+## 2026-10-12 — verify bootstrap repair custody
+
+- Compare-and-swap publication completed on `codex/construct-sentientos`: commit `dc3d7561d6a1d1a2b47f9c101a97d5d32de69cb9`, parent `cf59a4c61b58b87a100d903e2813ea46017a3ad9`, resulting tree `7a3c998446713fd9628fd3561aed507cf6478487`.
+- Independent GitHub branch readback returned the exact commit and tree. Exact-commit file reads matched all 16 intended changed blobs, including source, tests, guidance, checkpoint, and this campaign's predecessor segment. No concurrent ref movement occurred.
+- This confirms remote custody only. Construction checks were the focused 114-pass/22-skip suite, strict mypy on four changed Python owners, Python compilation, JSON parsing, and `git diff --check`; no full landing workflow or production verification was run. The existing hosted Invariants, self-check, and docs failures remain blocked at their administrator-protected `prompt_assembler.py` boundary. Source Validation and Helm smoke succeeded on parent `cf59a4c6`; no Actions result for this new commit was assumed.
+- Next genuine acceptance dependency: run the repository's protected acceptance workflow in its authorized environment and resolve its protected-boundary failures without weakening that boundary. The bootstrap construction repair itself is published but remains `[untested]` for production.

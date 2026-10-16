@@ -155,7 +155,7 @@ class DaemonAutonomySupervisor:
         self._now = now or time.time
         self._log_path = (log_path or Path("logs/autonomy_watchdog.jsonl"))
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
-        self._heartbeat_path = heartbeat_path or Path("pulse/heartbeat.snap")
+        self._heartbeat_path = heartbeat_path or Path(os.getenv("SENTIENTOS_HEARTBEAT_PATH", "pulse/heartbeat.snap"))
         self._heartbeat_path.parent.mkdir(parents=True, exist_ok=True)
         self._daemons: Dict[str, ManagedDaemon] = {}
         self._lock = threading.RLock()

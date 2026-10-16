@@ -1,0 +1,79 @@
+{
+  "actual_model_invoked": false,
+  "compilation": {
+    "command": "python -m compileall -q sentientos/developmental_model_replacement_experiment.py sentientos/developmental_history_intervention_experiment.py sentientos/resident_developmental_cognition.py sentientos/chat_process_generation.py sentientos/runtime/startup.py tests/test_resident_developmental_cognition.py",
+    "result": "passed"
+  },
+  "construction_change": {
+    "path": "tests/test_resident_developmental_cognition.py",
+    "scope": "fixture-scoped temporary governance roots plus cache reset for real-invoker cognition tests",
+    "sha256": "27d59f472959f4e3ddd2fe6f7500eb6a8f81f7ce8e9f7f88cee556447c36dbb7"
+  },
+  "effects_activated": false,
+  "exact_commands": {
+    "canonical_install": "UV_CACHE_DIR=/tmp/uvcache uv pip install --python .venv/bin/python --only-binary=:all: -r requirements-codex.txt && UV_CACHE_DIR=/tmp/uvcache uv pip install --python .venv/bin/python --no-deps -e .",
+    "compilation": "python -m compileall -q sentientos/developmental_model_replacement_experiment.py sentientos/developmental_history_intervention_experiment.py sentientos/resident_developmental_cognition.py sentientos/chat_process_generation.py sentientos/runtime/startup.py tests/test_resident_developmental_cognition.py",
+    "focused_four_modules": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-a54-pytest-governor PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-a54-pytest-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-a54-pytest-pulse/state.json SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-a54-pytest-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-a54-pytest-kernel SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact .venv/bin/python -m pytest -q tests/test_developmental_objective_scoring.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_history_intervention_experiment.py tests/test_resident_developmental_cognition.py",
+    "launcher_and_process_handoff": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-a54-pytest-governor PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-a54-pytest-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-a54-pytest-pulse/state.json SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-a54-pytest-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-a54-pytest-kernel SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact .venv/bin/python -m pytest -q -rs tests/test_local_model_chat_runtime_startup.py tests/test_resource_invocation_process_generation_integration.py",
+    "three_self_isolated_invoker_tests": ".venv/bin/python -m pytest -q tests/test_resident_developmental_cognition.py::test_real_governed_invocation_output_is_retained_without_a_lesson_only_call tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them tests/test_resident_developmental_cognition.py::test_real_invoker_null_candidate_does_not_turn_the_conclusion_into_a_lesson"
+  },
+  "exact_source_method": "git archive of the staged Git tree, whose write-tree identity equaled the freshly queried GitHub branch tree",
+  "focused_fixture_isolation": {
+    "ambient_governor_roots_required": false,
+    "passed": 3,
+    "tests": 3
+  },
+  "focused_tests": {
+    "collected": 122,
+    "failed": 0,
+    "modules": [
+      "tests/test_developmental_objective_scoring.py",
+      "tests/test_developmental_model_replacement_experiment.py",
+      "tests/test_developmental_history_intervention_experiment.py",
+      "tests/test_resident_developmental_cognition.py"
+    ],
+    "passed": 122,
+    "runtime_roots": "temporary SENTIENTOS_GOVERNOR_ROOT, SENTIENTOS_FEDERATION_ROOT, SENTIENTOS_CONTROL_KERNEL_ROOT, PULSE_TRUST_EPOCH_ROOT and PULSE_TRUST_EPOCH_STATE",
+    "skipped": 0
+  },
+  "initial_attempts": [
+    {
+      "command": "python -m pytest -q <four focused modules>",
+      "result": "stopped by tests/conftest.py editable-install airlock"
+    },
+    {
+      "command": "canonical install then focused pytest without runtime roots",
+      "result": "11 failures caused by writes to read-only /glow paths"
+    }
+  ],
+  "loaded_code_identity": {
+    "effect_of_observation": false,
+    "posture": "not_independently_attested",
+    "reason": "launcher and child mutually check process metadata and current on-disk source manifest, but no independent observer verifies loaded Python module images in process memory"
+  },
+  "model_readiness_blockers": [
+    "commissioned artifact bytes and authenticated runtime receipt absent",
+    "preregistered exact model protocol absent",
+    "exact operator approval absent",
+    "independent serving and per-inference admission evidence absent"
+  ],
+  "production_verified": false,
+  "provider_egress": false,
+  "runtime_handoff_tests": {
+    "modules": [
+      "tests/test_local_model_chat_runtime_startup.py",
+      "tests/test_resource_invocation_process_generation_integration.py"
+    ],
+    "passed": 17,
+    "production_observation": false,
+    "skip_reason": "legacy test disabled by repository policy; not forced",
+    "skipped": 1
+  },
+  "schema_version": 1,
+  "source_commit": "a54d7b59e392bbe0a6cac440a83ab4c3a4ef0f45",
+  "source_tree": "08cfebba40eb9aea8fb59c62e7041109d745b273",
+  "test_install": [
+    "requirements-codex.txt installed as binary wheels",
+    "editable SentientOS install with --no-deps"
+  ]
+}

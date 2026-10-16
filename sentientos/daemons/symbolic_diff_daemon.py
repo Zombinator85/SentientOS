@@ -1,3 +1,12 @@
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
+from __future__ import annotations
 """Symbolic diff daemon for reconciling glossary and role drift.
 
 The daemon loads local symbolic references (glossary, identity manifest,
@@ -6,7 +15,6 @@ Differences are written to a JSON Lines conflict log to be reviewed or merged
 later by the symbolic merge utility.
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

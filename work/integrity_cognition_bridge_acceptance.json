@@ -1,0 +1,51 @@
+{
+  "schema_version": "sentientos.integrity_cognition_bridge_acceptance:v1",
+  "verified_parent_commit": "48b45a950bd85625d9a11d575a50d3b31eac4253",
+  "verified_parent_tree": "3287f31b1af02537eadfcd695f923ac735f9f75a",
+  "status": "hermetic_source_path_passed_unverified_for_production",
+  "observation": {
+    "owner": "sentientos.integrity_quarantine.load_state_with_status",
+    "world_state_source_kind": "quarantine",
+    "subject_kind": "quarantine_custody_observation",
+    "incident_feed_consumed": false,
+    "attack_established": false,
+    "hostile_activity_established": false,
+    "effect_proven": false,
+    "authority": false,
+    "invalid_custody_state_claim": null,
+    "invalid_custody_freshness": "unknown",
+    "resident_source_selection": "requires_explicit_quarantine_allowlist"
+  },
+  "path_exercised": [
+    "typed protective-state loader result",
+    "resident daemon World-State record",
+    "configured resident cognition evidence selection",
+    "governed interpretation invocation through a deterministic test invoker",
+    "separately admitted developmental-history writeback",
+    "restart reconstruction and later-tick history retrieval",
+    "history-conditioned custody lesson candidate with exact current-fact dependency",
+    "third-tick retrieval of the separately admitted untrusted lesson after owner restart"
+  ],
+  "controls": [
+    "malformed custody carries a typed error and unknown active state",
+    "attacker-authored incident-feed narrative is not read or passed to cognition",
+    "valid active and inactive owner-published records preserve their actual flags",
+    "epistemic adaptation forces custody status to contextualizes/unknown_dependency",
+    "future cognition receives the admitted historical interpretation without same-tick leakage",
+    "a scoped lesson candidate remains explicitly untrusted and cannot become truth, policy, authority, or procedure",
+    "quarantine custody failure adds a history-conditioned instruction to retain unknown posture and avoid hostile-activity inference"
+  ],
+  "tests": {
+    "focused_command": "pytest -o addopts= -q -m no_legacy_skip tests/test_integrity_quarantine_custody.py tests/test_resident_developmental_cognition.py tests/test_resident_epistemic_development.py tests/test_sentientosd_runtime_closure.py tests/test_sentientosd_causal_introspection_composition.py",
+    "passed": 93,
+    "failed": 0,
+    "deselected": 29,
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "The source is an in-process owner read and has no independent signature.",
+    "Inference used deterministic test invokers; no actual local model response or acquired defensive lesson is established.",
+    "No hostile activity, attack attribution, denied-operation receipt, defensive consequence, or production behavior is established."
+  ]
+}

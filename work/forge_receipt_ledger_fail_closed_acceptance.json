@@ -1,0 +1,26 @@
+{
+  "schema_version": "sentientos.prospective_acceptance_manifest:v1",
+  "task": "fail closed on incomplete or unsafe Forge receipt-ledger recovery",
+  "source_checkpoint": "62438d266d2c8ffe6bb012736eab797a50b3fad4",
+  "source_tree": "5a910ad8818047a173b71abc624346454f2bd427",
+  "status": "executed_hermetic_unverified_for_production",
+  "pytest_command": "/tmp/sentientos-test-venv/bin/python -m pytest tests/test_forge_queue_daemon.py tests/test_integrity_quarantine_custody.py -m 'legacy or no_legacy_skip'",
+  "result": {
+    "passed": 42,
+    "failed": 0,
+    "skipped": 0,
+    "environment": "disposable pytest tmp_path roots; local-dev-relaxed profile"
+  },
+  "test_nodes": [
+    "tests/test_forge_queue_daemon.py::test_corrupt_receipt_ledger_cannot_requeue_request_or_reach_forge",
+    "tests/test_forge_queue_daemon.py::test_legacy_terminal_receipt_remains_consumed",
+    "tests/test_forge_queue_daemon.py::test_invalid_receipt_identity_and_oversized_ledger_fail_closed",
+    "tests/test_forge_queue_daemon.py::test_daemon_writes_receipt_with_report_path",
+    "tests/test_integrity_quarantine_custody.py::test_enabled_forge_is_stopped_before_effector_on_invalid_custody"
+  ],
+  "limitations": [
+    "Legacy and well-formed queue receipts remain self-asserted; the ledger has no independent signer or anchor against valid-looking forgery or truncation.",
+    "Failure blocks the current Forge tick; operator recovery is not implemented by this change.",
+    "No external effect, provider call, or production activation occurred."
+  ]
+}

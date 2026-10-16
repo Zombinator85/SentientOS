@@ -7,9 +7,10 @@ contract sealed in its persistent configuration.
 from __future__ import annotations
 
 import hashlib
-import fcntl
+from sentientos.platform_fcntl import fcntl, require_flock
 import json
 import os
+import stat
 import sys
 import time
 from datetime import datetime, timezone
@@ -20,6 +21,7 @@ from sentientos import maintenance_authority_continuity as continuity
 from sentientos import maintenance_authority_continuity_auto_derivation as auto_continuity
 from sentientos import maintenance_commit_publication as publication
 from sentientos import maintenance_successor_generation_adoption as successor
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 CONFIG_SCHEMA = "sentientos.maintenance_resident_runtime_adoption_config:v1"
 PROVENANCE_SCHEMA = "sentientos.maintenance_resident_runtime_launch_provenance:v2"
@@ -34,6 +36,10 @@ PHASES = ("resident_adoption_intent_recorded", "predecessor_resident_provenance_
           "maintenance_runtime_quiescence_confirmed", "self_exec_requested",
           "successor_launch_provenance_verified", "successor_resident_readiness_recorded",
           "resident_adoption_completed")
+MAX_RESIDENT_TRANSITION_ROWS = 4096
+MAX_RESIDENT_TRANSITION_JOURNAL_BYTES = 16_777_216
+MAX_RESIDENT_TRANSITION_ROW_BYTES = 262_144
+MAX_RESIDENT_ADOPTION_CONFIG_BYTES = 1_048_576
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -49,11 +55,62 @@ def _file_digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _read_bounded_regular(path: Path, *, maximum_bytes: int, reason: str,
+                          limit_reason: str | None = None) -> bytes:
+    if os.name == "nt":
+        try:
+            return read_explicit_file(path, max_bytes=maximum_bytes)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                raise FileNotFoundError(path) from exc
+            raise ValueError(reason) from exc
+    descriptor: int | None = None
+    try:
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode):
+            raise ValueError(reason)
+        if metadata.st_size > maximum_bytes:
+            raise ValueError(limit_reason or reason)
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        opened = os.fstat(descriptor)
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                or opened.st_dev != metadata.st_dev or opened.st_size > maximum_bytes):
+            raise ValueError(reason)
+        chunks: list[bytes] = []
+        remaining = maximum_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65_536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        data = b"".join(chunks)
+        if len(data) > maximum_bytes:
+            raise ValueError(limit_reason or reason)
+        after = os.fstat(descriptor)
+        if (len(data) != opened.st_size or after.st_size != opened.st_size
+                or after.st_mtime_ns != opened.st_mtime_ns):
+            raise ValueError(reason)
+        return data
+    except FileNotFoundError:
+        raise
+    except ValueError:
+        raise
+    except OSError as exc:
+        raise ValueError(reason) from exc
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
 def _load_object(path: str | Path, reason: str) -> dict[str, Any]:
     source = Path(path)
-    if source.is_symlink() or not source.is_file():
-        raise ValueError(reason)
-    value = json.loads(source.read_text(encoding="utf-8"))
+    try:
+        data = _read_bounded_regular(source, maximum_bytes=MAX_RESIDENT_ADOPTION_CONFIG_BYTES,
+            reason=reason)
+        value = json.loads(data.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(reason) from exc
     if not isinstance(value, dict):
         raise ValueError(reason)
     return value
@@ -184,14 +241,29 @@ def _write_exact(path: Path, value: Mapping[str, Any]) -> None:
 
 def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
     path = Path(str(cfg["transition_journal_path"])); rows: list[dict[str, Any]] = []; prior = ZERO_DIGEST
-    if not path.exists(): return rows
-    if path.is_symlink() or not path.is_file():
+    try:
+        journal_bytes = _read_bounded_regular(path,
+            maximum_bytes=MAX_RESIDENT_TRANSITION_JOURNAL_BYTES,
+            reason="resident_transition_journal_corrupt",
+            limit_reason="resident_transition_journal_retention_limit_exceeded")
+    except FileNotFoundError:
+        return rows
+    if journal_bytes and not journal_bytes.endswith(b"\n"):
         raise ValueError("resident_transition_journal_corrupt")
-    for line in path.read_text(encoding="utf-8").splitlines():
+    lines = journal_bytes.split(b"\n")[:-1] if journal_bytes else []
+    for line_bytes in lines:
+        if len(line_bytes) > MAX_RESIDENT_TRANSITION_ROW_BYTES:
+            raise ValueError("resident_transition_row_retention_limit_exceeded")
+        try:
+            line = line_bytes.decode("utf-8")
+        except UnicodeError as exc:
+            raise ValueError("resident_transition_journal_corrupt") from exc
         row = json.loads(line)
-        if (row.get("schema_version") != EVENT_SCHEMA or row.get("config_digest") != cfg["config_digest"] or
+        if (not isinstance(row, dict) or row.get("schema_version") != EVENT_SCHEMA or row.get("config_digest") != cfg["config_digest"] or
                 row.get("prior_event_digest") != prior or row.get("event_digest") != digest(row, "event_digest")):
             raise ValueError("resident_transition_journal_corrupt")
+        if canonical_bytes(row) != line_bytes:
+            raise ValueError("resident_transition_journal_noncanonical")
         index = len(rows); expected = PHASES[index % len(PHASES)]
         if row.get("phase") != expected: raise ValueError("resident_transition_phase_invalid")
         start = index - index % len(PHASES)
@@ -201,6 +273,8 @@ def _rows(cfg: Mapping[str, Any]) -> list[dict[str, Any]]:
                         "continuity_receipt_digest", "pending_handoff_event_digest"):
                 if row.get(key) != first.get(key): raise ValueError("resident_transition_chain_branched")
         prior = row["event_digest"]; rows.append(row)
+        if len(rows) > MAX_RESIDENT_TRANSITION_ROWS:
+            raise ValueError("resident_transition_journal_retention_limit_exceeded")
     return rows
 
 
@@ -230,8 +304,37 @@ def inspect_transition_custody(config: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def read_transition_events(config: Mapping[str, Any], *, limit: int = 128) -> tuple[Mapping[str, Any], ...]:
+    """Read a bounded, verified suffix of the existing software succession journal."""
+    if type(limit) is not int or not 1 <= limit <= 128:
+        raise ValueError("resident_transition_event_limit_invalid")
+    return tuple(dict(row) for row in _rows(validate_config(config))[-limit:])
+
+def read_transition_event_projection(config: Mapping[str, Any], *, limit: int = 48
+        ) -> tuple[tuple[Mapping[str, Any], ...], Mapping[str, Any] | None]:
+    """Read a verified journal tail and exact omitted-prefix boundary from one custody read."""
+    if type(limit) is not int or not 1 <= limit <= 128:
+        raise ValueError("resident_transition_event_limit_invalid")
+    rows = _rows(validate_config(config))
+    omitted_count = max(0, len(rows) - limit)
+    retained = tuple(dict(row) for row in rows[omitted_count:])
+    if not omitted_count:
+        return retained, None
+    last_omitted = rows[omitted_count - 1]
+    return retained, {
+        "journal_head_digest": rows[-1]["event_digest"],
+        "omitted_event_count": omitted_count,
+        "last_omitted_event_digest": last_omitted["event_digest"],
+        "first_retained_prior_digest": retained[0].get("prior_event_digest") if retained else None,
+        "retained_event_count": len(retained),
+        "retained_tail_limit": limit,
+    }
+
+
+
 def _append(cfg: Mapping[str, Any], phase: str, tid: str, evidence: Mapping[str, Any], **detail: Any) -> dict[str, Any]:
     rows = _rows(cfg); expected = PHASES[len(rows) % len(PHASES)]
+    if len(rows) >= MAX_RESIDENT_TRANSITION_ROWS: raise ValueError("resident_transition_journal_retention_limit_exceeded")
     if phase != expected: raise ValueError("resident_transition_phase_invalid")
     if rows and len(rows) % len(PHASES) and rows[-1]["transition_id"] != tid:
         raise ValueError("resident_transition_already_in_flight")
@@ -242,10 +345,15 @@ def _append(cfg: Mapping[str, Any], phase: str, tid: str, evidence: Mapping[str,
         "continuity_receipt_digest": evidence["continuity_receipt_digest"],
         "pending_handoff_event_digest": evidence["pending_handoff_event_digest"],
         "prior_event_digest": rows[-1]["event_digest"] if rows else ZERO_DIGEST, **detail}
+    row["event_time"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     row["event_digest"] = digest(row, "event_digest")
     path = Path(str(cfg["transition_journal_path"])); path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    encoded = canonical_bytes(row) + b"\n"
+    existing_size = path.stat().st_size if path.exists() else 0
+    if len(encoded) > MAX_RESIDENT_TRANSITION_ROW_BYTES or existing_size + len(encoded) > MAX_RESIDENT_TRANSITION_JOURNAL_BYTES:
+        raise ValueError("resident_transition_journal_retention_limit_exceeded")
     fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
-    with os.fdopen(fd, "ab") as handle: handle.write(canonical_bytes(row) + b"\n"); handle.flush(); os.fsync(handle.fileno())
+    with os.fdopen(fd, "ab") as handle: handle.write(encoded); handle.flush(); os.fsync(handle.fileno())
     return row
 
 
@@ -268,11 +376,77 @@ class MaintenanceResidentRuntimeAdoptionController:
 
     def health(self) -> dict[str, Any]: return dict(self._health)
 
+    def current_execution_provenance(self) -> dict[str, Any]:
+        """Return a current process and repository-generation observation.
+
+        This owner rechecks its process identity and the configured clean source
+        generation. It does not independently attest the Python code already
+        loaded in memory; consumers must preserve that distinction.
+        """
+        if not self.config["enabled"] or self._baseline is None:
+            raise ValueError("resident_execution_provenance_unavailable")
+        self._within_lifecycle()
+        baseline = self._baseline
+        try:
+            stored = _load_object(baseline["provenance_path"], "resident_launch_provenance_missing")
+        except (KeyError, OSError, ValueError) as exc:
+            raise ValueError("resident_launch_provenance_unavailable") from exc
+        if (stored.get("schema_version") != PROVENANCE_SCHEMA
+                or stored.get("provenance_digest") != digest(stored, "provenance_digest")
+                or stored.get("provenance_digest") != baseline.get("provenance_digest")
+                or stored.get("process_instance_id") != baseline.get("process_instance_id")):
+            raise ValueError("resident_launch_provenance_invalid")
+        observation = dict(self._process_observer())
+        expected_argv = [self.config["python_executable"], "-m", self.config["daemon_module"]]
+        if (observation.get("pid") != stored.get("pid")
+                or observation.get("startup_timestamp") != stored.get("startup_timestamp")
+                or observation.get("python_executable") != stored.get("python_executable")
+                or observation.get("daemon_entrypoint") != stored.get("daemon_entrypoint")
+                or observation.get("module_spec_origin") != stored.get("module_spec_origin")
+                or observation.get("cwd") != stored.get("cwd")
+                or observation.get("argv") != expected_argv):
+            raise ValueError("resident_process_identity_changed")
+        process_instance = digest({"pid": observation["pid"], "startup_timestamp": observation["startup_timestamp"],
+            "generation_digest": stored["represented_generation_digest"], "argv": expected_argv,
+            "python_executable": observation["python_executable"],
+            "daemon_entrypoint": observation["daemon_entrypoint"],
+            "module_spec_origin": observation.get("module_spec_origin")})
+        if process_instance != stored.get("process_instance_id"):
+            raise ValueError("resident_process_instance_binding_mismatch")
+        environment = observation.get("environment")
+        if not isinstance(environment, Mapping) or digest(dict(environment)) != stored.get("environment_identity_digest"):
+            raise ValueError("resident_process_environment_changed")
+        canonical = self._canonical_current()
+        repository = self._repository(canonical)
+        if (canonical.get("generation_digest") != stored.get("represented_generation_digest")
+                or repository.get("observed_commit_sha") != stored.get("observed_commit_sha")
+                or repository.get("observed_tree_sha") != stored.get("observed_tree_sha")
+                or repository.get("observed_symbolic_ref") != stored.get("observed_symbolic_ref")
+                or repository.get("clean_working_tree") is not True):
+            raise ValueError("resident_software_generation_not_current")
+        return {"schema_version": stored["schema_version"],
+            "process_instance_id": stored["process_instance_id"],
+            "provenance_digest": stored["provenance_digest"],
+            "represented_generation_digest": stored["represented_generation_digest"],
+            "represented_generation_base_sha": stored["represented_generation_base_sha"],
+            "manifest_digest": stored["manifest_digest"],
+            "observed_commit_sha": stored["observed_commit_sha"],
+            "observed_tree_sha": stored["observed_tree_sha"],
+            "startup_timestamp": stored["startup_timestamp"],
+            "repository_identity": stored["repository_identity"],
+            "config_digest": stored["config_digest"],
+            "process_identity_scope":
+                "pid_startup_argv_executable_entrypoint_module_origin_and_environment",
+            "software_generation_scope":
+                "configured_manifest_and_clean_repository_state_at_observation",
+            "loaded_code_identity_posture": "not_independently_attested"}
+
     def _within_lifecycle(self) -> None:
         if self._clock() - self._started > float(self.config["maximum_wall_clock_seconds"]):
             raise ValueError("resident_lifecycle_bound_exhausted")
 
     def _transition_lock(self) -> Any:
+        require_flock()
         path = Path(self.config["state_root"]) / "resident-transition.lock"
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         handle = path.open("a+b")
@@ -562,4 +736,5 @@ def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
 
 __all__ = ["CONFIG_SCHEMA", "PROVENANCE_SCHEMA", "EVENT_SCHEMA", "RECEIPT_SCHEMA", "TRANSITION_ENV", "CONFIG_ENV",
            "SUCCESSOR_CONFIG_ENV", "AUTO_CONFIG_ENV",
-           "PHASES", "MaintenanceResidentRuntimeAdoptionController", "validate_config", "load_config", "transition_id", "inspect", "digest"]
+           "PHASES", "MaintenanceResidentRuntimeAdoptionController", "validate_config", "load_config", "transition_id", "inspect", "digest",
+           "inspect_transition_custody", "read_transition_events"]

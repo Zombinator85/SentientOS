@@ -1,0 +1,28 @@
+{
+  "sequence": 228,
+  "title": "Budget-constrained task omission evidence",
+  "source_commit": "38c39a6b6a06da6516002794bef982486a4fd07f",
+  "source_tree": "fe50e419825063ef46762ffdc6287f489784e90c",
+  "changed_paths": {
+    "sentientos/goal_executor.py": "c6c8f807d3f3bef2395eed40a1a8b94ad1068be1",
+    "sentientos/tests/test_goal_executor_plan.py": "ae573d0356b59766ccb7714026763d1eca72d6af"
+  },
+  "validation": {
+    "focused_tests": 36,
+    "command": "pytest -q sentientos/tests/test_goal_executor_plan.py sentientos/tests/test_goal_executor_run.py sentientos/tests/test_goal_state_update.py sentientos/tests/test_work_plan_load.py sentientos/tests/test_work_plan_execution_journal.py sentientos/tests/test_orchestrator_goal_execution.py",
+    "test_environment": "explicit SENTIENTOS_ALLOW_NAKED_PYTEST=1 with PYTHONPATH bound to recovered source; canonical install unavailable because setuptools bootstrap could not reach proxy",
+    "compiled": ["sentientos/goal_executor.py", "sentientos/tests/test_goal_executor_plan.py"],
+    "diff_check": "passed for the two changed source/test files"
+  },
+  "source_recovery": {
+    "verified_base_commit": "5195beadb32a199ae362c248357c6d39d80fd576",
+    "verified_base_tree": "45f2f2b6928de5bedc9fe31ed0126bab509ac89e",
+    "changed_paths_hydrated": 136,
+    "blob_identities_verified": 136,
+    "mode_identities_verified": 136,
+    "target_tree": "0ea8c9e8b385ad05cdc81e8057e811fe4354bef0",
+    "synthetic_local_commit": "c75885ee6d8d16abbc159bc0cd2e1f308cbb6213",
+    "native_git_transport": "unavailable"
+  },
+  "scope": "proposal/planning evidence only; no effect or allocation authority added"
+}

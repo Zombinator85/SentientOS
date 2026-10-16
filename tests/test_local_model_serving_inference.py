@@ -46,7 +46,10 @@ class Model:
     def close(self): self.closed = True
 
 
-def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None):
+def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generate=None,
+          installation_identity="install-1", runtime_handoff_id=None, state_root=None,
+          serving_operation_id="serve-1"):
+    tmp_path.mkdir(parents=True, exist_ok=True)
     artifact = tmp_path / "exact.gguf"; artifact.write_bytes(b"tiny-model")
     load = {"n_ctx": 512, "n_gpu_layers": 0}
     config = ModelConfig([ModelCandidate(artifact, "llama_cpp", "catalog-model", {"gpu_layers": 0})],
@@ -59,7 +62,7 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
         model_content_sha256=record.model_content_sha256, artifact_size_bytes=record.artifact_size_bytes,
         sidecar_metadata_digest=record.sidecar_metadata_digest, configuration_digest=record.configuration_digest,
         candidate_index=0, posture="production", fallback=False)
-    state = {"installation_identity": "install-1", "generation": 1, "model_id": "catalog-model",
+    state = {"installation_identity": installation_identity, "generation": 1, "model_id": "catalog-model",
         "artifact_id": "artifact-1", "artifact_path": str(artifact), "artifact_sha256": record.model_content_sha256,
         "artifact_size_bytes": record.artifact_size_bytes, "route_id": "route-1", "runtime_id": "runtime-1",
         "interpreter_path": "/runtime/python", "load_configuration": load,
@@ -67,16 +70,20 @@ def setup(monkeypatch, tmp_path, *, inference=AdmissionOutcome.ALLOW, on_generat
         "commissioning_receipt_semantic_digest": "commissioning-digest"}
     state["state_semantic_digest"] = semantic_digest(state)
     evidence = {"active_state": state, "activation_receipt": {"receipt_id": "activation-1",
-        "receipt_semantic_digest": "activation-digest", "resulting_state_digest": state["state_semantic_digest"]},
+        "receipt_semantic_digest": "activation-digest", "resulting_state_digest": state["state_semantic_digest"],
+        "expected_prior_activation_state": "ABSENT", "observed_prior_activation_state": "ABSENT"},
+        "activation_history": [{"receipt_id": "activation-1"}],
         "catalog_proof": {"proof_semantic_digest": "proof-digest"}}
     current = [evidence]
     monkeypatch.setattr("sentientos.local_model_production_serving.verify_current_activation", lambda *a, **k: current[0])
-    handle = InstallationStateRegistry(tmp_path / "state", _test_only=True).open(InstallationIdentity.parse("install-1"), create=True)
+    handle = InstallationStateRegistry(state_root or (tmp_path / "state"), _test_only=True).open(
+        InstallationIdentity.parse(installation_identity), create=True)
     kernel, model = Kernel(inference), Model(identity, on_generate)
     serving = ProductionServingController(handle, kernel, model_factory=lambda c, l: model)
     monkeypatch.setattr(serving, "_commissioning_identity", lambda s: identity.to_dict())
-    session = serving.establish(operation_id="serve-1")
-    return ProductionServingInferenceController(serving), serving, session, model, kernel, current
+    session = serving.establish(operation_id=serving_operation_id)
+    return ProductionServingInferenceController(
+        serving, runtime_handoff_id=runtime_handoff_id), serving, session, model, kernel, current
 
 
 def test_exact_serving_backed_generation_has_independent_admission_and_linkage(monkeypatch, tmp_path):

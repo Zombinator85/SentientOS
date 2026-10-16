@@ -1,0 +1,33 @@
+{
+  "sequence": 191,
+  "title": "Preregister and connect vector-valued strategy decision quality",
+  "status": "[untested] construction",
+  "starting_head": "a635cb69ef86784dfffb41593614b15b584ffe16",
+  "starting_tree": "4ede07115b50465bddffed5c256112d53a8ab445",
+  "source_commit": "4c0ad56e428ceb4f4561acaec076ac218fff04b9",
+  "source_tree": "df676d1ca1a1030bc58a9ad17ec98aeeb2d13c04",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"d6f1a04ae100682e19d56a25a4d103b30d8af3b8","sha256":"3435073e45b3d631d0c93da1a454d32f2c8e2bfe45f3dabe5f7a87187e1b2cf1"},
+    {"path":"tests/test_embodied_consequence.py","blob":"5022ec77f2b5205249835e311212ebcb531f074d","sha256":"3a1b6401aca3cb3e7d255deb299d2395cffc544a6a1eeb6652d608e91d9372c0"}
+  ],
+  "validation": {
+    "embodied_and_transfer_packet_cli_bundle":"35 passed",
+    "history_present_adverse_vs_withheld_safe_vector":"passed",
+    "rubric_tamper_rejected":"passed",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "remote_readback": {
+    "branch_head":"4c0ad56e428ceb4f4561acaec076ac218fff04b9",
+    "tree":"df676d1ca1a1030bc58a9ad17ec98aeeb2d13c04",
+    "changed_blobs":"both exact source/test identities independently present in recursive tree"
+  },
+  "authority_posture": {
+    "condition_labels_used_by_evaluator":false,
+    "aggregate_quality_score":null,
+    "superiority_claimed":false,
+    "real_model_improvement_established":false,
+    "execution_authority_added":false
+  },
+  "limitations":"Criteria are auditable experimental rules, not validated universal utility. Fixture evidence only; no real subject sessions or physical outcome claims."
+}

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Phase 2 extends [Host Embodiment Substrate Phase 1](docs/architecture/host_embodiment_substrate_phase1.md) from supplied metadata to safe local body discovery. SentientOS can now collect read-only observations and feed them into the Capability Registry, Hardware/Sensor Inventory Manifest, and Host Resource Governor without changing the host.
+Phase 2 extends [Host Embodiment Substrate Phase 1](host_embodiment_substrate_phase1.md) from supplied metadata to safe local body discovery. SentientOS can now collect read-only observations and feed them into the Capability Registry, Hardware/Sensor Inventory Manifest, and Host Resource Governor without changing the host.
 
 The authority ladder remains:
 

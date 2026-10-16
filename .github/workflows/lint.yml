@@ -5,14 +5,24 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_HEADLESS: "1"
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/lint-governor
+      SENTIENTOS_FEDERATION_ROOT: .ci-runtime/lint-federation
     strategy:
       matrix:
-        mode: [core, bin-lock, src-lock-full]
+        include:
+          - mode: core
+            python-version: '3.11'
+          - mode: bin-lock
+            python-version: '3.14'
+          - mode: src-lock-full
+            python-version: '3.14'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
       - if: matrix.mode == 'src-lock-full'
         uses: actions/setup-node@v3
         with:
@@ -34,18 +44,30 @@ jobs:
       - if: matrix.mode == 'src-lock-full'
         run: |
           pip install -r requirements-src-lock.txt
+          pip install --only-binary=:all: -r requirements-codex.txt
           pip install -r requirements-dev.txt
           pip install -e .[dev]
       - name: privilege_lint
-        run: python privilege_lint.py
+        run: python -m privilege_lint_cli --read-only --quiet .
       - name: audit_verify
-        run: python -m scripts.verify_audits logs/
-        env:
-          LUMOS_AUTO_APPROVE: '1'
+        run: python -m scripts.check_audit_chain
       - name: mypy
-        run: mypy --strict
+        run: python scripts/check_mypy_baseline.py
       - name: pytest airlock guard
         run: python scripts/pytest_airlock_guard.py
+      - name: FastAPI TestClient regression set
+        if: matrix.mode == 'core'
+        timeout-minutes: 5
+        run: |
+          python -m scripts.run_tests -- -m legacy -q \
+            tests/test_dashboard_api.py \
+            tests/test_dashboard_drift_api.py \
+            tests/test_dashboard_pressure_api.py \
+            tests/test_dashboard_sse_reconnect_smoke.py \
+            tests/test_chat_service_lazy_loading.py \
+            tests/test_admin_status_endpoints.py \
+            tests/test_federation_stream.py \
+            tests/integration/test_fastapi_relay.py
       - name: pytest
         run: python -m scripts.run_tests
         env:

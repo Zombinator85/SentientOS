@@ -1595,8 +1595,9 @@ def _required_precondition_is_affirmative(task_goal: str, phrase: str) -> bool:
     negation here would make an authority gate guess at author intent; callers must
     instead provide a simple affirmative precondition statement.
     """
+    escaped_phrase = re.escape(phrase).replace(r"\ ", r"\s+")
     phrase_pattern = re.compile(
-        rf"(?<![\w-]){re.escape(phrase).replace(r'\ ', r'\s+')}(?![\w-])",
+        rf"(?<![\w-]){escaped_phrase}(?![\w-])",
         re.IGNORECASE,
     )
     for match in phrase_pattern.finditer(task_goal):

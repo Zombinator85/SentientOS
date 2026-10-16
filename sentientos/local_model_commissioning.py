@@ -83,6 +83,25 @@ def inspect_artifact(model_path: Path, *, allowed_root: Path, engine: str = "lla
     root, resolved = _authorized_artifact(model_path, allowed_root)
     if resolved.suffix.lower() != ".gguf" or engine != "llama_cpp":
         raise ValueError("gguf_llama_cpp_candidate_required")
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise ValueError("artifact_descriptor_safety_unavailable")
+    descriptor = os.open(resolved, flags | os.O_NOFOLLOW)
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("artifact_not_regular_file")
+        prefix = os.read(descriptor, 512)
+        after = os.fstat(descriptor)
+        if ((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)):
+            raise ValueError("artifact_changed_during_inspection")
+    except OSError as exc:
+        raise ValueError("artifact_descriptor_read_failed") from exc
+    finally:
+        os.close(descriptor)
+    if prefix.startswith(b"version https://git-lfs.github.com/spec/v1\n"):
+        raise ValueError("git_lfs_pointer_not_model_payload")
     candidate = ModelCandidate(path=resolved, engine=engine, name=name,
                                options=dict(options or {}))
     config = ModelConfig([candidate], default_engine=engine,
@@ -256,17 +275,38 @@ def _load_proof(config: ModelConfig, authority: LocalModelAuthorityMap) -> dict[
     if importlib.util.find_spec("llama_cpp") is None:
         return {"status": "external_prerequisite_unavailable", "reason": "llama_cpp_dependency_unavailable",
                 "process_real": False, "semantic_model_generations": 0}
+    backend: Any | None = None
+    proof: dict[str, Any] | None = None
+    load_error: str | None = None
     try:
         backend, metadata = LocalModel._initialise_backend(candidate, config)
         identity = LocalModel._identity_for(candidate, config, backend, metadata, 0)
         model = LocalModel(backend, backend.metadata, config, backend, identity)
         record = authority.record_for_active_identity(model.active_identity, "discernment_judgment")
-    except (ModelLoadError, OSError) as exc:
-        return {"status": "external_prerequisite_unavailable", "reason": str(exc),
+        proof = {"status": "exact_active_identity_verified" if record else "active_identity_mismatch",
+                 "process_real": True, "active_model_identity": identity.to_dict(),
+                 "matching_model_id": record.model_id if record else None,
+                 "semantic_model_generations": 0}
+    except (ModelLoadError, OSError, ValueError) as exc:
+        load_error = str(exc)
+    if backend is not None:
+        runtime = getattr(backend, "_llama", None)
+        close = getattr(runtime, "close", None)
+        if not callable(close):
+            return {"status": "external_prerequisite_unavailable",
+                    "reason": "model_runtime_unload_unavailable", "process_real": False,
+                    "semantic_model_generations": 0}
+        try:
+            close()
+        except Exception:
+            return {"status": "external_prerequisite_unavailable",
+                    "reason": "model_runtime_unload_failed", "process_real": False,
+                    "semantic_model_generations": 0}
+    if load_error is not None:
+        return {"status": "external_prerequisite_unavailable", "reason": load_error,
                 "process_real": False, "semantic_model_generations": 0}
-    return {"status": "exact_active_identity_verified" if record else "active_identity_mismatch",
-            "process_real": True, "active_model_identity": identity.to_dict(),
-            "matching_model_id": record.model_id if record else None, "semantic_model_generations": 0}
+    assert proof is not None
+    return proof
 
 
 def doctor(state_root: Path, *, require_load_verification: bool = False) -> dict[str, Any]:
@@ -274,14 +314,23 @@ def doctor(state_root: Path, *, require_load_verification: bool = False) -> dict
     load = result.get("load_verification", {})
     bundle_ok = result.get("bundle_valid") is True
     exact = load.get("status") == "exact_active_identity_verified"
+    readiness = ("blocked" if not bundle_ok else
+                 "ready_for_local_calibration" if exact else
+                 "awaiting_process_real_identity_verification")
+    reasons = ([] if exact else [
+        "process_real_load_and_exact_active_identity_verification_required"
+    ]) if bundle_ok else list(result.get("reason_codes", ()))
     return {"schema_version": SCHEMA + ".doctor", "status": "ready" if bundle_ok else "blocked",
+            "calibration_readiness": readiness, "calibration_readiness_reason_codes": reasons,
             "artifact_present": bundle_ok, "artifact_identity_stable": bundle_ok,
             "config_valid": bundle_ok, "engine_production_capable": bundle_ok,
             "local_dependency_available": importlib.util.find_spec("llama_cpp") is not None,
             "candidate_non_fallback": bundle_ok, "authority_preview_eligible": bundle_ok,
             "exact_load_authority_verified": exact,
-            "live_discernment_prerequisites_satisfiable": bundle_ok and (exact or not require_load_verification),
-            "live_calibration_can_be_attempted": bundle_ok and (exact or not require_load_verification),
+            # A valid preview bundle proves metadata custody, not a real backend
+            # load or the exact active model identity required by calibration.
+            "live_discernment_prerequisites_satisfiable": bundle_ok and exact,
+            "live_calibration_can_be_attempted": bundle_ok and exact,
             "semantic_model_generations": 0, "calibration_cases_run": 0,
             "verification": result, "authority_effect_posture": dict(NO_AUTHORITY)}
 

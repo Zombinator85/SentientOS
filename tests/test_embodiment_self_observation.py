@@ -65,6 +65,10 @@ def test_sentientosd_opt_in_and_absence_are_explicit(tmp_path):
                                           embodiment_evidence_owner=owner)
     composed.build_world_state_board(tick_id=NOW)
     assert {fact.source.kind for fact in composed.current_world_state_snapshot.facts} == {"embodiment"}
+    status = composed._feedback["surfaces"]["embodiment_observation_projection"]
+    assert status["status"] == "projected_context"
+    assert status["input_posture"] == "unverified_caller_assertions"
+    assert status["effect_authority"] is False
 
 
 def test_baseline_perturbation_restoration_and_prior_tick_firewall(tmp_path):
@@ -121,3 +125,132 @@ def test_same_class_conflict_staleness_and_external_scoring(tmp_path):
                                          supported_sources=("observer:b",))
     assert result["supported_correct"] == 2 and result["supported_incorrect"] == 0
     assert result["source_provenance_correct"] is True
+
+
+def test_caller_embodiment_wrapper_cannot_mint_fulfillment_or_effect_proof():
+    claimed = EmbodimentObservation(
+        "caller:fulfillment", "fixture:v1", "sha256:" + "d" * 64, NOW,
+        "production", "fresh", "production", "fulfillment_observation",
+        "avatar", "avatar", {"reported_pose": "wave"},
+        effect_claimed=True, effect_proven=True,
+    )
+    record = EmbodimentEvidenceOwner((claimed,)).world_state_records()[0]
+    assert record["source_kind"] == "embodiment"
+    assert record["stage"] == "observation"
+    assert record["evidence_strength"] == "unverified_caller_assertion"
+    assert record["staleness"] == "unknown"
+    assert record["observed_at"] is None
+    assert record["payload"]["caller_claimed_observed_at"] == NOW
+    assert record["payload"]["declared_source_freshness"] == "fresh"
+    assert record["effect_claimed"] is True
+    assert record["effect_proven"] is False
+    assert record["payload"]["caller_claimed_effect_proven"] is True
+    assert record["payload"]["declared_provenance_class"] == "production"
+    assert record["payload"]["observer_issuer_posture"] == "unverified_caller_assertion"
+
+
+def test_embodiment_owner_bounds_inventory_before_retaining_items():
+    item = observation("sensor_observation", "camera", {"present": True})
+    with pytest.raises(EmbodimentEvidenceError, match="embodiment_observation_count_exceeded"):
+        EmbodimentEvidenceOwner((item,) * 65)
+
+
+def test_embodiment_owner_snapshots_nested_payload_at_injection():
+    payload = {"sensor": {"present": True}}
+    item = observation("sensor_observation", "camera", payload)
+    owner = EmbodimentEvidenceOwner((item,))
+    payload["sensor"]["present"] = False
+    record = owner.world_state_records()[0]
+    assert record["payload"]["sensor"]["present"] is True
+    assert record["payload"]["source_semantic_digest"] == item.source_digest
+
+
+def test_embodiment_evidence_rejects_nonfinite_measurements():
+    with pytest.raises(EmbodimentEvidenceError, match="evidence_number_nonfinite"):
+        observation("sensor_observation", "camera", {"value": float("nan")}).validate()
+
+
+def test_embodiment_owner_deduplicates_exact_source_and_rejects_substitution():
+    first = observation("sensor_observation", "camera", {"present": True})
+    exact_duplicate = EmbodimentObservation(**first.__dict__)
+    assert len(EmbodimentEvidenceOwner((first, exact_duplicate)).world_state_records()) == 1
+
+    substituted = EmbodimentObservation(**{
+        **first.__dict__, "payload": {"present": False}})
+    with pytest.raises(EmbodimentEvidenceError, match="source_identity_digest_changed"):
+        EmbodimentEvidenceOwner((first, substituted)).world_state_records()
+
+
+def test_generic_embodiment_source_cap_omission_is_reported(tmp_path):
+    owner = EmbodimentEvidenceOwner([
+        observation("sensor_observation", "camera", {"present": True})])
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        embodiment_evidence_owner=owner)
+    surfaces._resident_succession_world_state_records = lambda _tick: [{
+        "source_kind": "resource_governor", "source_id": f"resource:{index}",
+        "subject_kind": "resource", "subject_id": str(index),
+        "stage": "observation", "disposition": "recorded", "payload": {},
+    } for index in range(128)]
+    surfaces.build_world_state_board(tick_id=NOW)
+    status = surfaces._feedback["surfaces"]["embodiment_observation_projection"]
+    assert status["status"] == "degraded"
+    assert status["selected_record_count"] == 1
+    assert status["omitted_record_count"] == 1
+
+
+def test_generic_embodiment_owner_failure_degrades_optional_surface_only(tmp_path, monkeypatch):
+    owner = EmbodimentEvidenceOwner([
+        observation("sensor_observation", "camera", {"present": True})])
+    def rejected():
+        raise ValueError("source rejected")
+    monkeypatch.setattr(owner, "world_state_records", rejected)
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime",
+        embodiment_evidence_owner=owner)
+    board = surfaces.build_world_state_board(tick_id=NOW)
+    status = surfaces._feedback["surfaces"]["embodiment_observation_projection"]
+    assert "snapshot_id" in board
+    assert status["status"] == "degraded"
+    assert status["reason_code"] == "source_owner_rejected_input"
+    assert status["effect_authority"] is False
+
+
+def test_world_state_memory_view_waits_for_snapshot_replacement(tmp_path, monkeypatch):
+    import sentientosd
+
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime")
+    surfaces._resident_succession_world_state_records = lambda _tick: []
+
+    def fail_replace(_source, _target):
+        raise OSError("publication interrupted")
+
+    monkeypatch.setattr(sentientosd.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="publication interrupted"):
+        surfaces.build_world_state_board(tick_id=NOW)
+    assert surfaces.current_world_state_snapshot is None
+    assert surfaces._world_state_snapshot_built_for_tick is None
+    assert not list((tmp_path / "runtime" / "world_state_board").glob(".world-state-*.tmp"))
+
+
+def test_restart_rebuilds_world_state_from_sources_not_latest_artifact(tmp_path):
+    owner = EmbodimentEvidenceOwner([
+        observation("sensor_observation", "camera", {"present": True})])
+    runtime_root = tmp_path / "runtime"
+    first = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=runtime_root,
+        embodiment_evidence_owner=owner)
+    first_result = first.build_world_state_board(tick_id=NOW)
+    first_digest = first_result["snapshot_digest"]
+
+    latest = runtime_root / "world_state_board" / "latest.json"
+    latest.write_text("{corrupt diagnostic snapshot", encoding="utf-8")
+
+    restarted = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=runtime_root,
+        embodiment_evidence_owner=owner)
+    assert restarted.current_world_state_snapshot is None
+    second_result = restarted.build_world_state_board(tick_id=NOW)
+    assert second_result["snapshot_digest"] == first_digest
+    assert restarted.current_world_state_snapshot.digest == first_digest

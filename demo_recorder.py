@@ -9,13 +9,14 @@ require_lumos_approval()
 
 import asyncio
 import datetime as _dt
+import os
 import subprocess
 import threading
 import time
 import wave
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 try:
     import numpy as np  # type: ignore
@@ -38,7 +39,6 @@ except Exception:  # pragma: no cover - optional
     Image = None  # type: ignore
 
 from parliament_bus import bus
-from sentientos.parliament_bus import Turn
 
 DEMO_DIR = Path("demos")
 
@@ -57,7 +57,7 @@ class DemoRecorder:
     def __init__(self) -> None:
         self.frames: List[Path] = []
         self.audio_frames: List[np.ndarray] = [] if np is not None else []
-        self.turns: List[Turn] = []
+        self.turns: List[dict[str, Any]] = []
         self.sample_rate = 44100
         self._running = False
         self._screen_thread: threading.Thread | None = None
@@ -109,11 +109,19 @@ class DemoRecorder:
         self.frames.clear()
         self.audio_frames.clear()
         self.turns.clear()
-        if sd is not None:
-            self._stream = sd.InputStream(samplerate=self.sample_rate, channels=1, dtype="int16", callback=self._audio_cb)
-            self._stream.start()
-        self._screen_thread = threading.Thread(target=self._screen_loop, daemon=True)
-        self._screen_thread.start()
+        if os.getenv("SENTIENTOS_HEADLESS") == "1":
+            # Headless runs have no physical screen or microphone to capture.
+            # A deterministic placeholder frame keeps the reasoning demo renderable.
+            path = Path(f"frame_{_dt.datetime.utcnow().strftime('%Y%m%d-%H%M%S_%f')}.ppm")
+            width, height = 640, 360
+            path.write_bytes(f"P6\n{width} {height}\n255\n".encode() + bytes((24, 30, 42)) * width * height)
+            self.frames.append(path)
+        else:
+            if sd is not None:
+                self._stream = sd.InputStream(samplerate=self.sample_rate, channels=1, dtype="int16", callback=self._audio_cb)
+                self._stream.start()
+            self._screen_thread = threading.Thread(target=self._screen_loop, daemon=True)
+            self._screen_thread.start()
         self._feed_thread = threading.Thread(target=lambda: asyncio.run(self._feed_loop()), daemon=True)
         self._feed_thread.start()
 
@@ -138,9 +146,10 @@ class DemoRecorder:
         out_path = DEMO_DIR / f"{timestamp}.mp4"
         work = Path(f".demo_{timestamp}")
         work.mkdir(parents=True, exist_ok=True)
+        frame_extension = self.frames[0].suffix
         for i, fp in enumerate(self.frames):
-            fp.rename(work / f"frame_{i:05d}.png")
-        frame_pattern = str(work / "frame_%05d.png")
+            fp.rename(work / f"frame_{i:05d}{frame_extension}")
+        frame_pattern = str(work / f"frame_%05d{frame_extension}")
         audio_file = work / "audio.wav"
         if self.audio_frames and np is not None:
             data = np.concatenate(self.audio_frames)
@@ -160,12 +169,16 @@ class DemoRecorder:
             for idx, t in enumerate(self.turns, 1):
                 start = (idx - 1) * 2
                 end = start + 2
-                f.write(f"{idx}\n00:00:{start:02d},000 --> 00:00:{end:02d},000\n{t.text}\n\n")
-        subprocess.run([
+                text = t.get("reply") or t.get("text") or t.get("message") or ""
+                f.write(f"{idx}\n00:00:{start:02d},000 --> 00:00:{end:02d},000\n{text}\n\n")
+        command = [
             "ffmpeg", "-y", "-r", "1", "-i", frame_pattern,
-            "-i", str(audio_file), "-vf", f"subtitles={srt.as_posix()}",
-            "-pix_fmt", "yuv420p", str(out_path),
-        ], check=False)
+            "-i", str(audio_file),
+        ]
+        if self.turns:
+            command.extend(["-vf", f"subtitles={srt.as_posix()}"])
+        command.extend(["-pix_fmt", "yuv420p", str(out_path)])
+        subprocess.run(command, check=False)
         return out_path
 
 

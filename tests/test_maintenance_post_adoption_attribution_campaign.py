@@ -15,8 +15,8 @@ from sentientos.maintenance_post_adoption_evaluation import Evaluation, FALSE_AU
 pytestmark = pytest.mark.no_legacy_skip
 
 
-def protocol(*, evidence_class="synthetic"):
-    return make_campaign_protocol(maintenance_task_id="task-1", proposal_id="proposal-1", signal_ids=("signal-1",),
+def protocol(*, evidence_class="synthetic", task_id="task-1", proposal_id="proposal-1"):
+    return make_campaign_protocol(maintenance_task_id=task_id, proposal_id=proposal_id, signal_ids=("signal-1",),
         predecessor_generation=4, predecessor_revision="a"*40, predecessor_tree="b"*40,
         successor_generation=5, successor_revision="c"*40, successor_tree="d"*40,
         adoption_identity="adoption:exact", evaluation_protocol_ids=("p1","p2"),
@@ -46,8 +46,9 @@ def control(p, trial_id, *, match="matched", evidence_class=None):
         host_observation_binding="host-observation:1",evidence_class=evidence_class or p.evidence_class)
 
 
-def finish(tmp_path, outcomes, *, matches=None, evidence_class="synthetic"):
-    owner=MaintenancePostAdoptionAttributionCampaignOwner(tmp_path); p=owner.preregister(protocol(evidence_class=evidence_class))
+def finish(tmp_path, outcomes, *, matches=None, evidence_class="synthetic", task_id="task-1", proposal_id="proposal-1"):
+    owner=MaintenancePostAdoptionAttributionCampaignOwner(tmp_path); p=owner.preregister(protocol(evidence_class=evidence_class,
+        task_id=task_id, proposal_id=proposal_id))
     matches=matches or ["matched"]*len(outcomes)
     for index, outcome in enumerate(outcomes):
         trial=p.trial_ids[index]; ev=None if outcome is None else evaluation(p,index,outcome)
@@ -59,10 +60,15 @@ def finish(tmp_path, outcomes, *, matches=None, evidence_class="synthetic"):
 def test_repeated_satisfied_under_independent_matched_controls_is_noncausal(tmp_path):
     owner,p,result=finish(tmp_path,["target_expectation_satisfied"]*2,evidence_class="production")
     assert result.classification == "repeated_association_under_matched_controls"
-    assert result.attribution_posture == ATTRIBUTION_POSTURE and result.production_ready
-    assert campaign_improvement_signal_record(result) is None
+    assert result.attribution_posture == ATTRIBUTION_POSTURE
+    # Caller supplied control observations lack authenticated issuers, so the
+    # association can be classified without becoming production ready.
+    assert not result.production_ready
+    signal = campaign_improvement_signal_record(result)
+    assert signal is not None and signal["signal_handoff_only"] is True
+    assert signal["repository_mutation_performed"] is False
     assert MaintenancePostAdoptionAttributionCampaignOwner(tmp_path).result(p.campaign_id) == result
-    assert owner.verify() == {"protocols":1,"controls":2,"trials":2,"results":1,"signals":0}
+    assert owner.verify() == {"protocols":1,"controls":2,"trials":2,"results":1,"signals":1}
 
 
 def test_environment_change_is_confound_not_association(tmp_path):
@@ -76,6 +82,398 @@ def test_repeated_contradiction_retained_and_routes_distinct_proposal_only_signa
     assert result.classification == "repeated_target_contradiction_under_matched_controls"
     assert signal and signal["finding_kind"] == "recurring_failure" and signal["repository_mutation_performed"] is False
     assert normalize_record(signal).routing_eligible
+
+
+def test_signal_projection_preserves_verified_lineage_and_classification_posture(tmp_path):
+    owner, p, result = finish(tmp_path, ["target_expectation_contradicted"] * 2)
+    signal = campaign_improvement_signal_record(result, protocol=owner.protocol(p.campaign_id),
+        selection_config_digest=digest({"campaign_ids": [p.campaign_id]}))
+    assert signal is not None
+    refs = set(signal["evidence_refs"])
+    assert "campaign_digest:" + result.campaign_digest in refs
+    assert "result_digest:" + result.result_digest in refs
+    assert {"evaluation_id:" + item for item in result.evaluation_ids} <= refs
+    assert {"control_id:" + item for item in result.control_ids} <= refs
+    assert "classification:" + result.classification in refs
+    assert "source_posture:control_source_issuers_unverified" in refs
+    assert "selection_campaign_id:" + p.campaign_id in refs
+    assert "selection_config_digest:" + digest({"campaign_ids": [p.campaign_id]}) in refs
+    assert "read_only_projection:true" in refs
+    assert signal["observed_at"] == result.completed_at
+    assert signal["severity"] == "medium"
+
+
+def test_completed_positive_or_mixed_campaigns_are_diagnostic_only(tmp_path):
+    _, _, positive = finish(tmp_path / "positive", ["target_expectation_satisfied"] * 2)
+    _, _, mixed = finish(tmp_path / "mixed", ["target_expectation_satisfied", "target_expectation_contradicted"])
+    _, _, protected = finish(tmp_path / "protected",
+        ["target_expectation_satisfied", "new_regression_observed"])
+    positive_signal = campaign_improvement_signal_record(positive)
+    mixed_signal = campaign_improvement_signal_record(mixed)
+    protected_signal = campaign_improvement_signal_record(protected)
+    assert positive_signal is not None and positive_signal["finding_kind"] == "diagnostic"
+    assert mixed_signal is not None and mixed_signal["finding_kind"] == "diagnostic"
+    assert protected_signal is not None and protected_signal["finding_kind"] == "recurring_failure"
+    assert protected_signal["severity"] == "high"
+    assert protected.production_ready is False
+    assert "source_posture:control_source_issuers_unverified" in protected_signal["evidence_refs"]
+    assert normalize_record(positive_signal).severity == "medium"
+    assert normalize_record(mixed_signal).severity == "medium"
+
+
+def test_campaign_looking_json_is_not_an_authenticated_signal_artifact(tmp_path):
+    from sentientos.governed_improvement_signal_plane import records_from_artifact
+
+    path = tmp_path / "forged.json"
+    path.write_text(json.dumps({"campaign_id": "attribution-campaign:" + "a" * 24,
+        "classification": "protected_regression_observed", "severity": "high"}), encoding="utf-8")
+    with pytest.raises(ValueError, match="unknown_artifact_source"):
+        records_from_artifact("post_adoption_attribution_campaign", path, repo_root=tmp_path)
+
+
+def test_runtime_campaign_selection_config_tampering_fails_closed(tmp_path):
+    from sentientosd import _load_post_adoption_attribution_projection
+
+    body = {"schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
+        "enabled": True, "store_root": str(tmp_path / "campaigns"),
+        "campaign_ids": ["attribution-campaign:" + "a" * 24]}
+    payload = {**body, "config_digest": digest(body)}
+    payload["campaign_ids"] = []
+    path = tmp_path / "tampered-projection.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    owner, campaign_ids, status = _load_post_adoption_attribution_projection(str(path))
+
+    assert owner is None and campaign_ids == ()
+    assert status["status"] == "invalid"
+    assert status["effect_authority"] is False
+
+
+def test_repeated_campaigns_deduplicate_and_contradictory_correction_stays_bounded(tmp_path):
+    import subprocess
+    import sys
+
+    from sentientos.governed_improvement_signal_plane import evaluate_signal_plane
+
+    first_owner, first_protocol, first = finish(tmp_path / "first",
+        ["target_expectation_contradicted"] * 2, task_id="task-first")
+    repeated_owner, repeated_protocol, repeated = finish(tmp_path / "repeated",
+        ["target_expectation_contradicted"] * 2, task_id="task-repeated")
+    correction_owner, correction_protocol, correction = finish(tmp_path / "correction",
+        ["target_expectation_satisfied"] * 2, task_id="task-correction")
+    confound_owner, confound_protocol, confound = finish(tmp_path / "confound",
+        ["target_expectation_satisfied"] * 2, matches=["matched", "out_of_envelope"],
+        task_id="task-confound")
+    null_owner, null_protocol, null = finish(tmp_path / "null",
+        [None, "target_expectation_contradicted"], task_id="task-null")
+    inconclusive_owner, inconclusive_protocol, inconclusive = finish(tmp_path / "inconclusive",
+        ["insufficient_evidence"] * 2, task_id="task-inconclusive")
+    first_signal = campaign_improvement_signal_record(first, protocol=first_owner.protocol(first_protocol.campaign_id))
+    repeated_signal = campaign_improvement_signal_record(repeated, protocol=repeated_owner.protocol(repeated_protocol.campaign_id))
+    correction_signal = campaign_improvement_signal_record(correction,
+        protocol=correction_owner.protocol(correction_protocol.campaign_id))
+    confound_signal = campaign_improvement_signal_record(confound,
+        protocol=confound_owner.protocol(confound_protocol.campaign_id))
+    null_signal = campaign_improvement_signal_record(null,
+        protocol=null_owner.protocol(null_protocol.campaign_id))
+    inconclusive_signal = campaign_improvement_signal_record(inconclusive,
+        protocol=inconclusive_owner.protocol(inconclusive_protocol.campaign_id))
+    assert first_signal and repeated_signal and correction_signal
+    assert confound_signal and null_signal and inconclusive_signal
+
+    consistent = evaluate_signal_plane([first_signal, repeated_signal, first_signal], repo_root=tmp_path)
+    assert consistent.batch.duplicate_signal_ids == (normalize_record(first_signal).signal_id,)
+    assert not consistent.batch.contradiction_ids
+    assert len(consistent.batch.signals) == 2
+
+    conflicting = evaluate_signal_plane([first_signal, repeated_signal, correction_signal], repo_root=tmp_path)
+    campaign_ids = {signal.signal_id for signal in conflicting.batch.signals}
+    assert set(conflicting.batch.contradiction_ids) == campaign_ids
+    assert {receipt.disposition for receipt in conflicting.receipts} == {"blocked_invalid"}
+    assert all("classification:repeated_target_contradiction_under_matched_controls"
+        in signal.evidence_refs or "classification:repeated_association_under_matched_controls"
+        in signal.evidence_refs for signal in conflicting.batch.signals)
+    assert evaluate_signal_plane([first_signal, repeated_signal, correction_signal],
+        repo_root=tmp_path).batch.batch_id == conflicting.batch.batch_id
+
+    confounded_plane = evaluate_signal_plane([confound_signal], repo_root=tmp_path)
+    null_plane = evaluate_signal_plane([null_signal], repo_root=tmp_path)
+    inconclusive_plane = evaluate_signal_plane([inconclusive_signal], repo_root=tmp_path)
+    assert confounded_plane.receipts[0].disposition == "blocked_invalid"
+    assert null_plane.receipts[0].disposition == "gap_seeker_diagnostic"
+    assert inconclusive_plane.receipts[0].disposition == "blocked_invalid"
+    assert not confounded_plane.amendment_inputs and not null_plane.amendment_inputs
+    assert not inconclusive_plane.amendment_inputs
+
+    script = (
+        "import json,sys; from sentientos.maintenance_post_adoption_attribution_campaign import "
+        "MaintenancePostAdoptionAttributionCampaignOwner as O; "
+        "print(json.dumps([O(root,read_only=True).result(cid).classification "
+        "for root,cid in zip(sys.argv[1::2],sys.argv[2::2])]))"
+    )
+    recovered = subprocess.run([sys.executable, "-c", script,
+        str(tmp_path / "first"), first_protocol.campaign_id,
+        str(tmp_path / "repeated"), repeated_protocol.campaign_id,
+        str(tmp_path / "correction"), correction_protocol.campaign_id,
+        str(tmp_path / "confound"), confound_protocol.campaign_id,
+        str(tmp_path / "null"), null_protocol.campaign_id,
+        str(tmp_path / "inconclusive"), inconclusive_protocol.campaign_id],
+        check=True, capture_output=True, text=True)
+    assert json.loads(recovered.stdout) == [
+        "repeated_target_contradiction_under_matched_controls",
+        "repeated_target_contradiction_under_matched_controls",
+        "repeated_association_under_matched_controls",
+        "environmental_confound_detected",
+        "interrupted_or_invalid_trial",
+        "insufficient_target_evidence",
+    ]
+
+
+def test_later_distinct_campaign_route_retains_corrective_history_and_uncertainty(tmp_path):
+    from sentientos.governed_improvement_signal_plane import evaluate_signal_plane
+    from sentientos.maintenance_candidate import adapt_governed_signal
+    from sentientos.maintenance_candidate_collector import _proposal_signal_records
+    from sentientos.maintenance_candidate import normalize_candidate_set
+    from sentientos.maintenance_candidate_selector import build_policy, select_candidate
+
+    adverse_owner, adverse_protocol, adverse = finish(
+        tmp_path / "adverse", ["target_expectation_contradicted"] * 2,
+        task_id="task-adverse", proposal_id="proposal-original")
+    correction_owner, correction_protocol, correction = finish(
+        tmp_path / "correction", ["target_expectation_satisfied"] * 2,
+        task_id="task-correction", proposal_id="proposal-original")
+    later_owner, later_protocol, later = finish(
+        tmp_path / "later", ["target_expectation_contradicted"] * 2,
+        task_id="task-later", proposal_id="proposal-later")
+    adverse_signal = campaign_improvement_signal_record(
+        adverse, protocol=adverse_owner.protocol(adverse_protocol.campaign_id))
+    correction_signal = campaign_improvement_signal_record(
+        correction, protocol=correction_owner.protocol(correction_protocol.campaign_id))
+    later_signal = campaign_improvement_signal_record(
+        later, protocol=later_owner.protocol(later_protocol.campaign_id))
+    assert adverse_signal and correction_signal and later_signal
+
+    evaluation_value = evaluate_signal_plane(
+        [adverse_signal, correction_signal, later_signal], repo_root=tmp_path)
+    routed = _proposal_signal_records(evaluation_value.to_dict())
+    assert len(evaluation_value.batch.contradiction_ids) == 2
+    assert len(routed) == 1
+    assert routed[0]["source_digest"] == later.result_digest
+    assert "source_posture:control_source_issuers_unverified" in routed[0]["evidence_refs"]
+    candidate = adapt_governed_signal(
+        routed[0], base_repository_sha="b05b563895e16bfe614d47e8d22b8cdfb340b6d4")
+    assert candidate.confidence == "low"
+    assert "source_issuers_unverified" in candidate.declared_constraints
+    assert "result_digest:" + later.result_digest in candidate.evidence_references
+    assert candidate.requested_authority_classes == ("proposal_selection_only",)
+    selector_policy = build_policy({
+        "repository_base_sha": candidate.base_repository_sha,
+        "allowed_path_prefixes": ["sentientos"],
+        "forbidden_path_patterns": [],
+        "available_authority_classes": ["proposal_selection_only"],
+        "maximum_file_count": 4,
+        "maximum_estimated_changed_lines": 100,
+        "maximum_implementation_seconds": 300,
+        "maximum_validation_seconds": 300,
+        "allowed_candidate_kinds": [candidate.candidate_kind],
+    })
+    selection = select_candidate(
+        normalize_candidate_set([candidate]), selector_policy)
+    assert selection["result_status"] == "idle_no_viable_candidate"
+    assert selection["selected_candidate_id"] is None
+    assert list(selection["ineligible_candidate_ids"].values()) == [[
+        "candidate_scope_unknown"]]
+
+
+def test_runtime_signal_plane_uses_only_selected_recovered_campaign_results(tmp_path, monkeypatch):
+    from sentientosd import RuntimeMaintenanceSurfaces, _load_post_adoption_attribution_projection
+    from sentientos.runtime_governor import reset_runtime_governor
+    from sentientos.control_plane_kernel import (AuthorityClass, ControlActionRequest,
+        ControlPlaneKernel, LifecyclePhase)
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime"))
+    reset_runtime_governor()
+    store = tmp_path / "campaign-store"
+    writer, protocol_value, result = finish(store, ["target_expectation_contradicted"] * 2)
+    projection_body = {"schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
+        "enabled": True, "store_root": str(store), "campaign_ids": [protocol_value.campaign_id]}
+    projection_config = {**projection_body, "config_digest": digest(projection_body)}
+    projection_path = tmp_path / "campaign-projection.json"
+    projection_path.write_text(json.dumps(projection_config), encoding="utf-8")
+    selected, selected_ids, projection_status = _load_post_adoption_attribution_projection(
+        str(projection_path))
+    config_digest = projection_config["config_digest"]
+    assert selected is not None and selected_ids == (protocol_value.campaign_id,)
+    assert selected.read_only is True and projection_status["status"] == "verified"
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path, runtime_state_root=tmp_path / "runtime",
+        post_adoption_attribution_owner=selected,
+        post_adoption_attribution_campaign_ids=selected_ids,
+        post_adoption_attribution_projection_status=projection_status)
+    class AllowProposalEvaluation:
+        def admit_action(self, _action_class, _actor, correlation_id, *, metadata):
+            return type("Decision", (), {"allowed": True, "reason": "fixture_admitted",
+                "correlation_id": correlation_id, "to_dict": lambda self: {"allowed": True}})()
+
+    kernel = ControlPlaneKernel(runtime_governor=AllowProposalEvaluation(),
+        decisions_path=tmp_path / "decisions.jsonl")
+    kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="test")
+    decision, evaluation_value = kernel.admit_and_execute(ControlActionRequest(
+        action_kind="identify_improvement_signals", authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+        actor="test", target_subsystem="governed_improvement_signal_plane",
+        requested_phase=LifecyclePhase.MAINTENANCE,
+        metadata={"correlation_id": "campaign-signal-test"}),
+        execute=surfaces.identify_improvement_signals)
+
+    assert len(evaluation_value.batch.signals) == 1
+    signal = evaluation_value.batch.signals[0]
+    assert signal.source_kind == "post_adoption_attribution_campaign"
+    assert signal.source_digest == result.result_digest
+    assert signal.observed_at == result.completed_at
+    assert "campaign_digest:" + result.campaign_digest in signal.evidence_refs
+    assert "control_id:" + result.control_ids[0] in signal.evidence_refs
+    assert "selection_config_digest:" + config_digest in signal.evidence_refs
+    assert evaluation_value.receipts[0].disposition == "spec_amendment_candidate"
+    assert evaluation_value.amendment_inputs[0]["metadata"]["source_digest"] == result.result_digest
+    assert evaluation_value.summary["adoption_performed"] is False
+    assert evaluation_value.summary["repository_mutation_performed"] is False
+    assert evaluation_value.summary["provider_network_git_operation_performed"] is False
+    from sentientos.maintenance_candidate import adapt_governed_signal
+    candidate = adapt_governed_signal(signal, base_repository_sha="b05b563895e16bfe614d47e8d22b8cdfb340b6d4")
+    assert candidate.confidence == "low"
+    assert candidate.source_reference == signal.signal_id
+    assert "result_digest:" + result.result_digest in candidate.evidence_references
+    assert "source_issuers_unverified" in candidate.declared_constraints
+    assert candidate.requested_authority_classes == ("proposal_selection_only",)
+    assert selected.verify() == writer.verify()
+    assert decision.allowed is True
+    reset_runtime_governor()
+
+
+def test_campaign_evidence_enters_current_cognition_then_only_reappears_as_prior_history(
+        tmp_path, monkeypatch, request):
+    """Campaign custody closes the current board before cognition and crosses ticks only via writeback."""
+    from sentientosd import RuntimeMaintenanceSurfaces, _load_post_adoption_attribution_projection
+    from tests.test_resident_developmental_cognition import owner as cognition_owner
+    from sentientos.runtime_governor import reset_runtime_governor
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "kernel"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "pulse-trust"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(tmp_path / "pulse-trust" / "state.json"))
+    reset_runtime_governor()
+    request.addfinalizer(reset_runtime_governor)
+
+    store = tmp_path / "campaign-store"
+    writer, campaign, outcome = finish(store, ["target_expectation_contradicted"] * 2)
+    body = {
+        "schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
+        "enabled": True, "store_root": str(store), "campaign_ids": [campaign.campaign_id],
+    }
+    projection = {**body, "config_digest": digest(body)}
+    config_path = tmp_path / "campaign-projection.json"
+    config_path.write_text(json.dumps(projection), encoding="utf-8")
+    selected, campaign_ids, projection_status = _load_post_adoption_attribution_projection(
+        str(config_path))
+    assert selected is not None and selected.read_only is True
+
+    first_owner, first_invoker = cognition_owner(
+        tmp_path / "cognition", allowed_source_kinds=("owner_introspection",),
+        max_selected_facts=8)
+    first_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-first",
+        resident_developmental_owner=first_owner,
+        post_adoption_attribution_owner=selected,
+        post_adoption_attribution_campaign_ids=campaign_ids,
+        post_adoption_attribution_projection_status=projection_status)
+    first_surfaces.identify_improvement_signals()
+    first_tick = "2026-10-15T00:00:00+00:00"
+    first_surfaces.build_world_state_board(tick_id=first_tick)
+    current = first_surfaces.current_world_state_snapshot
+    assert current is not None
+    campaign_fact = next(fact for fact in current.facts
+        if fact.source.source_id == "post-adoption-attribution:" + outcome.result_id)
+    first = first_surfaces.run_resident_developmental_cognition(tick_id=first_tick)
+    assert first["status"] == "completed" and first["written_record_id"], {
+        key: first.get(key) for key in ("selected_fact_ids", "written_record_id",
+            "write_performed", "reason", "admission_issued", "model_invoked")}
+    assert first["prior_record_ids"] == ()
+    assert campaign_fact.fact_id in first["selected_fact_ids"]
+    assert all(request.upstream_evidence.get("record_ids", []) == []
+        for request in first_invoker.requests)
+    stored = first_owner.writeback.store.get(first["written_record_id"])
+    assert any(source["source_id"] == campaign_fact.source.source_id
+        and source["digest"] == campaign_fact.source.digest
+        for source in stored.candidate["selected_sources"])
+
+    recovered_owner, recovered_invoker = cognition_owner(
+        tmp_path / "cognition", allowed_source_kinds=("owner_introspection",),
+        max_selected_facts=8)
+    recovered_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime-recovered",
+        resident_developmental_owner=recovered_owner,
+        post_adoption_attribution_owner=selected,
+        post_adoption_attribution_campaign_ids=campaign_ids,
+        post_adoption_attribution_projection_status=projection_status)
+    second_tick = "2026-10-15T00:00:01+00:00"
+    recovered_surfaces.identify_improvement_signals()
+    recovered_surfaces.build_world_state_board(tick_id=second_tick)
+    second = recovered_surfaces.run_resident_developmental_cognition(tick_id=second_tick)
+    assert second["status"] == "completed"
+    assert second["prior_record_ids"] == (first["written_record_id"],)
+    retrieval = next(request for request in recovered_invoker.requests
+        if request.purpose == "resident_developmental_retrieval_cognition")
+    assert retrieval.upstream_evidence["record_ids"] == [first["written_record_id"]]
+    assert writer.verify() == selected.verify()
+    assert second["canonical_explicit_user_retention_mutated"] is False
+    assert campaign_fact.effect_claimed is False and campaign_fact.effect_proven is False
+
+
+def test_runtime_signal_reconstruction_keeps_historical_event_time_after_restart(tmp_path):
+    """A later daemon process must not turn retrieval time into campaign event time."""
+    import os
+    import subprocess
+    import sys
+
+    store = tmp_path / "campaign-store"
+    _, campaign, result = finish(store, ["target_expectation_contradicted"] * 2)
+    projection_body = {
+        "schema_version": "sentientos.post_adoption_attribution_world_state_projection:v1",
+        "enabled": True,
+        "store_root": str(store),
+        "campaign_ids": [campaign.campaign_id],
+    }
+    projection = {**projection_body, "config_digest": digest(projection_body)}
+    config_path = tmp_path / "campaign-projection.json"
+    config_path.write_text(json.dumps(projection), encoding="utf-8")
+    script = (
+        "import json,sys; from sentientosd import RuntimeMaintenanceSurfaces, "
+        "_load_post_adoption_attribution_projection; "
+        "owner,ids,status=_load_post_adoption_attribution_projection(sys.argv[1]); "
+        "surface=RuntimeMaintenanceSurfaces(sys.argv[2], "
+        "post_adoption_attribution_owner=owner,post_adoption_attribution_campaign_ids=ids, "
+        "post_adoption_attribution_projection_status=status); "
+        "value=surface.identify_improvement_signals(); "
+        "print(json.dumps({'observed_at':value.batch.signals[0].observed_at, "
+        "'source_digest':value.batch.signals[0].source_digest, "
+        "'adoption':value.summary['adoption_performed'], "
+        "'mutation':value.summary['repository_mutation_performed']}))"
+    )
+    recovered = subprocess.run(
+        [sys.executable, "-c", script, str(config_path), str(tmp_path)],
+        check=True, capture_output=True, text=True,
+        env={**os.environ,
+            "SENTIENTOS_GOVERNOR_ROOT": str(tmp_path / "governor"),
+            "SENTIENTOS_RUNTIME_STATE_ROOT": str(tmp_path / "runtime")},
+    )
+    observation = json.loads(recovered.stdout)
+    assert observation == {
+        "observed_at": result.completed_at,
+        "source_digest": result.result_digest,
+        "adoption": False,
+        "mutation": False,
+    }
 
 
 @pytest.mark.parametrize(("outcomes","expected"), [
@@ -128,11 +526,13 @@ def test_tamper_fails_reconstruction_and_identity_is_stable(tmp_path):
 
 
 def test_epistemic_and_developmental_adapters_preserve_lineage_without_state_mutation(tmp_path):
-    _,_,result=finish(tmp_path,["target_expectation_contradicted"]*2)
-    binding=campaign_epistemic_binding(proposition_id="proposition:exact",result=result)
-    assert binding.source_artifact_id == result.result_id and binding.dependency_group == result.campaign_digest
-    assert binding.evidence_relation == "contradicts" and not hasattr(binding,"state_digest")
-    evidence=developmental_evidence_record(result)
+    owner,_,result=finish(tmp_path,["target_expectation_contradicted"]*2)
+    binding=campaign_epistemic_binding(proposition_id="proposition:exact",result=result,owner=owner)
+    assert binding.source_artifact_id == result.result_id and binding.dependency_group is None
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert not hasattr(binding,"state_digest")
+    evidence=developmental_evidence_record(result,owner)
     assert evidence["evaluation_ids"] == result.evaluation_ids and evidence["control_ids"] == result.control_ids
     assert evidence["interpretation_performed"] is False
 

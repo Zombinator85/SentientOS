@@ -1,0 +1,45 @@
+{
+  "schema_version": "sentientos.construction.acceptance_evidence:v1",
+  "purpose": "Prevent fixture inference from being classified as actual local-model execution",
+  "baseline": {
+    "parent_commit": "7ad4ad33e1493519b73d16f44db807cbeaaeb3d0",
+    "parent_tree": "c14ac5d597560e75743c6d0bb7012eff85e5ab1d"
+  },
+  "publication": {
+    "source_commit": "cc833d07bc76aac58d627b5eb9bd0c06911e0f3c",
+    "source_tree": "7dff568f399faafe07afc95c93b153eeeda80696",
+    "parent": "7ad4ad33e1493519b73d16f44db807cbeaaeb3d0"
+  },
+  "changed_blobs": {
+    "tests/test_resident_developmental_cognition.py": "73028e4c9c6238fbcbdfb20cb35fa92f52ccde07"
+  },
+  "checks": [
+    {
+      "command": "Focused fresh-process source-bound task-family episode",
+      "result": "passed"
+    },
+    {
+      "command": "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "result": "passed"
+    },
+    {
+      "command": "UTF-8 decode, no-NUL, and trailing-whitespace scan",
+      "result": "passed"
+    }
+  ],
+  "fixture": {
+    "durable_custody": "installation-scoped canonical invocation receipts",
+    "verifier": "ResidentCognitiveInvocationReceiptReader",
+    "synthetic_invocation_status": "admitted_simulation",
+    "local_model_inference_effect": false,
+    "actual_nonsynthetic_inference_verified": false,
+    "history_present_correct": "3/3",
+    "history_withheld_correct": "0/3",
+    "history_restored_correct": "3/3"
+  },
+  "claims": {
+    "real_model_behavior": false,
+    "learning_established": false,
+    "production_acceptance": false
+  }
+}

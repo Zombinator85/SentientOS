@@ -1,0 +1,60 @@
+{
+  "sequence": 250,
+  "title": "Condition-complete resource evidence drives bounded computational recommendations",
+  "source_commit": "749eeea2aa63e4cd23e1dfe1edbddf6adfcdd5f1",
+  "source_tree": "23f8effa4a16b0dc711fda79bfdfe704412cd74d",
+  "source_parent_commit": "a613ab7e9e497c5b882787709250d4a6acdbff0a",
+  "source_parent_tree": "40eb82c96b0ed1f8db27fffb2eb5db2e622d5c23",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "a613ab7e9e497c5b882787709250d4a6acdbff0a",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true
+  },
+  "changed_blobs": [
+    {
+      "mode": "100644",
+      "path": "sentientos/resident_developmental_cognition.py",
+      "sha": "4dde945278a9eb8763c4c84174bbf57c01ea4c4e"
+    },
+    {
+      "mode": "100644",
+      "path": "tests/test_resident_developmental_cognition.py",
+      "sha": "a1eec497214923c34e0a6cdc1b44bf3e1637c854"
+    },
+    {
+      "mode": "100644",
+      "path": "docs/development/resource_informed_cognition_task_acceptance.json",
+      "sha": "f2c6642fe17ebad4126f9577a9850a1cc9699525"
+    }
+  ],
+  "validation": {
+    "resident_developmental_cognition_module": "92 passed",
+    "focused_resource_lineage_writeback_intervention_and_adverse_transfer": "41 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "condition_complete_outcomes": [
+      "history_present",
+      "history_withheld",
+      "history_restored"
+    ],
+    "condition_joins_bind_run_score_inference_receipt_resource_source_and_receipt_digest": true,
+    "unqualified_or_mismatched_resource_evidence": "preserved as unknown or unqualified",
+    "recommendation_evaluator": "resource_quality_then_measured_call_units:v1",
+    "frozen_requirement": "full suite correctness from source task descriptor",
+    "higher_cost_quality_case": "passed",
+    "lower_cost_equal_quality_case": "passed",
+    "negative_transfer_case": "history_withheld recommended when history-present quality failed",
+    "incomparable_measurement_case": "no recommendation",
+    "bounded_history_input_binder": "carries comparison recommendation",
+    "fresh_process_history_budget_behavior": "adverse family ordering test passed"
+  },
+  "limitations": [
+    "Fixture resource rows and deterministic task oracle do not establish deployed model improvement or external outcomes.",
+    "Cross-condition recommendations sourced from actual ledger records and recovered as a durable decision in a fresh process remain open.",
+    "No effect authority or production activation is granted."
+  ]
+}

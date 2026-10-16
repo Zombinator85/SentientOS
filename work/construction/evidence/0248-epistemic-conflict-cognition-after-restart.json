@@ -1,0 +1,44 @@
+{
+  "sequence": 248,
+  "title": "Conflicting independent evidence reaches later cognition after owner restart",
+  "source_commit": "cbdcfdcac1b961ad23b790a7a1296d909593a845",
+  "source_tree": "99f3b865393c8b36af448703a755dd17bdd2a6e2",
+  "source_parent_commit": "b821ec3d7bc733775dba36f6ffbdaa148872cd92",
+  "source_parent_tree": "7eb9e3f7db4d29b7e19d8509215bed84239d973a",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "b821ec3d7bc733775dba36f6ffbdaa148872cd92",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true
+  },
+  "changed_blobs": [
+    {
+      "mode": "100644",
+      "path": "tests/test_resident_epistemic_development.py",
+      "sha": "f99e29144932126570df2fd5f27af3d886950eed"
+    },
+    {
+      "mode": "100644",
+      "path": "docs/development/persistent_epistemic_cognition_continuity_acceptance.json",
+      "sha": "a96849fa501fca0d8cf1024e232be2e0915833f6"
+    }
+  ],
+  "validation": {
+    "epistemic_and_cognition_matrix": "40 passed",
+    "test_py_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "independent_support_and_contradiction_preserved": true,
+    "original_observation_times_preserved": true,
+    "epistemic_owner_reconstructed_and_receipts_verified": true,
+    "later_cognition_received_contested_semantic_packet": true,
+    "cognition_observation_binds_exact_state_digest": true,
+    "authority": false
+  },
+  "limits": [
+    "Cognition inference uses deterministic fixture model.",
+    "No external truth guarantee or effect authority is established."
+  ]
+}

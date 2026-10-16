@@ -4,7 +4,7 @@ SentientOS tools read configuration from `.env`. Run `python .env.sync.autofill.
 Every variable shown below also appears in `.env.example` with the same default value.
 The table below explains each variable and its default behavior.
 
-### Node discovery, pairing, and thin-client controls
+## Node discovery, pairing, and thin-client controls
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ The table below explains each variable and its default behavior.
 | `WEBUI_ROOT` | Directory containing static UI assets | `apps/webui` |
 | `SENTIENTOS_API_PORT` | API port advertised in LAN beacons | `5000` |
 | `SENTIENTOS_UI_PORT` | UI port advertised in LAN beacons | `5000` |
-### Generating a Secure `CONNECTOR_TOKEN`
+## Generating a Secure `CONNECTOR_TOKEN`
 
 Linux/macOS:
 
@@ -40,7 +40,7 @@ Windows (PowerShell):
 
 You can also run `python -c "import secrets, sys; print(secrets.token_hex(32))"` on any platform.
 
-### Setting Variables in Cloud Dashboards
+## Setting Variables in Cloud Dashboards
 
 Most platforms provide a web UI to manage environment variables. On Render or Railway, open your service settings and add the variables shown below. The connector uses `CONNECTOR_TOKEN` and `PORT` at minimum. Additional logging behavior is controlled by `SSE_TIMEOUT`, `LOG_STDOUT`, and `LOG_COLLECTOR_URL` in [`openai_connector.py`](../openai_connector.py).
 
@@ -198,7 +198,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 
 > **Heartbeat semantics:** heartbeat/keepalive signals (including UDP heartbeats and SSE ticks) exist solely to keep monitoring streams connected. They must not be interpreted as liveness, persistence preference, or self-maintenance intent.
 
-### Audit and Self‑Defense Logs
+## Audit and Self‑Defense Logs
 
 The following variables control where SentientOS writes security related logs:
 

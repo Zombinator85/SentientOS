@@ -3,15 +3,19 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
+import math
+from dataclasses import asdict, dataclass, replace
 from typing import Any, Mapping, Sequence
 
 EVIDENCE_SCHEMA = "sentientos.embodiment_self_observation:v1"
 MANIFEST_SCHEMA = "sentientos.avatar_body_manifest:v1"
 POSTURES = frozenset({"production", "rehearsal", "synthetic_test"})
+FRESHNESS_POSTURES = frozenset({"current", "fresh", "aging", "stale", "expired", "unknown", "not_applicable"})
 CLASSES = frozenset({"body_manifest", "sensor_observation", "actuator_observation",
                      "avatar_commanded_state", "avatar_renderer_reported_state",
                      "avatar_independently_observed_state", "fulfillment_observation"})
+MAX_EMBODIMENT_OBSERVATIONS = 64
+MAX_EVIDENCE_ID_CHARS = 512
 FORBIDDEN = frozenset({"authority", "permission", "policy", "goal", "consciousness", "sentience"})
 FALSE_AUTHORITY = {"decision_authority": False, "admission_authority": False,
                    "execution_authority": False, "adoption_authority": False,
@@ -29,6 +33,8 @@ def semantic_digest(value: object) -> str:
 
 def _bounded(value: Any) -> Any:
     result: Any
+    if isinstance(value, float) and not math.isfinite(value):
+        raise EmbodimentEvidenceError("evidence_number_nonfinite")
     if isinstance(value, (str, bool, int, float)) or value is None:
         result = value
     elif isinstance(value, (list, tuple)):
@@ -106,12 +112,15 @@ class EmbodimentObservation:
     schema_version: str = EVIDENCE_SCHEMA
 
     def validate(self) -> None:
+        identity_fields = (self.source_id, self.source_schema, self.source_digest,
+            self.observed_at, self.provenance_class, self.freshness, self.subject_id, self.subject_kind)
         if (self.schema_version != EVIDENCE_SCHEMA or self.evidence_class not in CLASSES
-                or self.posture not in POSTURES or not all((self.source_id, self.source_schema,
-                                                            self.source_digest, self.observed_at,
-                                                            self.provenance_class, self.freshness,
-                                                            self.subject_id, self.subject_kind))):
+                or self.posture not in POSTURES
+                or any(not isinstance(value, str) or not value
+                    or len(value) > MAX_EVIDENCE_ID_CHARS for value in identity_fields)):
             raise EmbodimentEvidenceError("embodiment_evidence_invalid")
+        if not isinstance(self.freshness, str) or self.freshness not in FRESHNESS_POSTURES:
+            raise EmbodimentEvidenceError("embodiment_freshness_invalid")
         if self.effect_proven and self.evidence_class != "fulfillment_observation":
             raise EmbodimentEvidenceError("effect_proof_requires_fulfillment_evidence")
         if self.posture == "synthetic_test" and self.provenance_class == "production":
@@ -127,32 +136,58 @@ class EmbodimentEvidenceOwner:
     """Explicitly injected evidence owner; performs no discovery or effects."""
 
     def __init__(self, observations: Sequence[EmbodimentObservation]) -> None:
-        self._observations = tuple(observations)
-        for observation in self._observations:
+        bounded: list[EmbodimentObservation] = []
+        for observation in observations:
+            if len(bounded) >= MAX_EMBODIMENT_OBSERVATIONS:
+                raise EmbodimentEvidenceError("embodiment_observation_count_exceeded")
+            if not isinstance(observation, EmbodimentObservation):
+                raise EmbodimentEvidenceError("embodiment_evidence_invalid")
             observation.validate()
+            captured_payload = _bounded(dict(observation.payload))
+            bounded.append(replace(observation, payload=captured_payload))
+        self._observations = tuple(bounded)
 
     def world_state_records(self) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
-        seen: dict[str, str] = {}
+        seen: dict[str, tuple[str, str]] = {}
         for item in self._observations:
             item.validate()
-            if item.source_id in seen and seen[item.source_id] != item.source_digest:
-                raise EmbodimentEvidenceError("source_identity_digest_changed")
-            seen[item.source_id] = item.source_digest
-            is_fulfillment = item.evidence_class == "fulfillment_observation"
-            records.append({
-                "source_kind": "fulfillment" if is_fulfillment else "embodiment",
+            # This wrapper validates shape and bounds only. It has no issuer or
+            # receipt verifier, so caller labels cannot establish production
+            # provenance, event time, independent observation, fulfillment, or effect proof.
+            payload = dict(item.payload)
+            claimed_event_times = {
+                name: payload.pop(name) for name in (
+                    "created_at", "commanded_at", "completed_at", "observed_at", "evaluated_at")
+                if name in payload}
+            record = {
+                "source_kind": "embodiment",
                 "source_id": item.source_id, "schema_version": item.source_schema,
                 "subject_id": item.subject_id,
                 "subject_kind": item.subject_kind,
-                "stage": "execution" if is_fulfillment else "observation",
-                "disposition": "recorded", "evidence_strength": item.provenance_class,
-                "staleness": item.freshness, "observed_at": item.observed_at,
-                "effect_claimed": item.effect_claimed, "effect_proven": item.effect_proven,
-                "payload": {"embodiment_evidence_class": item.evidence_class,
+                "stage": "observation",
+                "disposition": "recorded", "evidence_strength": "unverified_caller_assertion",
+                "staleness": "unknown", "observed_at": None,
+                "effect_claimed": item.effect_claimed or item.effect_proven,
+                "effect_proven": False,
+                "payload": {**payload, "embodiment_evidence_class": item.evidence_class,
                             "evidence_posture": item.posture,
-                            "source_semantic_digest": item.source_digest, **dict(item.payload)},
-            })
+                            "declared_provenance_class": item.provenance_class,
+                            "declared_source_freshness": item.freshness,
+                            "caller_claimed_observed_at": item.observed_at,
+                            "caller_claimed_payload_event_times": claimed_event_times,
+                            "observer_issuer_posture": "unverified_caller_assertion",
+                            "caller_claimed_effect_proven": item.effect_proven,
+                            "source_semantic_digest": item.source_digest},
+            }
+            identity = (item.source_digest, semantic_digest(record))
+            previous = seen.get(item.source_id)
+            if previous is not None:
+                if previous != identity:
+                    raise EmbodimentEvidenceError("source_identity_digest_changed")
+                continue
+            seen[item.source_id] = identity
+            records.append(record)
         return records
 
 

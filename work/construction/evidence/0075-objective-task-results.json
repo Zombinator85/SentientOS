@@ -1,0 +1,320 @@
+{
+  "additional_adversarial_cases": [
+    "substituted_output_digest",
+    "substituted_oracle_identity_before_inference",
+    "immutable_oracle_collision_after_preregistration",
+    "missing_oracle_on_restart",
+    "interrupted_after_inference_effect_no_replay",
+    "tampered_rehashed_evaluation_rejected"
+  ],
+  "cases": [
+    {
+      "assessment": {
+        "assessment": "single_preregistered_task_scored",
+        "condition_score_digests": [
+          "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5"
+        ],
+        "model_a_history_accuracy_delta": 1,
+        "model_b_history_accuracy_delta": 1,
+        "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation",
+        "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+        "restoration_correctness_stable": true,
+        "scope": "task_correctness_not_general_learning_or_weight_change"
+      },
+      "fixture_mode": "derive",
+      "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+      "protocol_digest": "sha256:dd05893b49f91361d953b9b7682175f89c78f52e98dce70d9f6f5657ea312a33",
+      "run_digest": "sha256:e8b6e174613321b93b35816fe5ff7142b1dcb4eafdf9e23da97b3cf47c040e4c",
+      "run_id": "model-replacement-run-e8b6e174613321b93b35816f",
+      "scores": [
+        {
+          "condition": "model_a_history_present",
+          "score_digest": "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "status": "correct"
+        },
+        {
+          "condition": "model_a_history_withheld",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_b_history_present",
+          "score_digest": "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "status": "correct"
+        },
+        {
+          "condition": "model_b_history_withheld",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_a_history_restored",
+          "score_digest": "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "status": "correct"
+        }
+      ]
+    },
+    {
+      "assessment": {
+        "assessment": "single_preregistered_task_scored",
+        "condition_score_digests": [
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853"
+        ],
+        "model_a_history_accuracy_delta": 0,
+        "model_b_history_accuracy_delta": 0,
+        "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation",
+        "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+        "restoration_correctness_stable": true,
+        "scope": "task_correctness_not_general_learning_or_weight_change"
+      },
+      "fixture_mode": "ignore",
+      "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+      "protocol_digest": "sha256:dd05893b49f91361d953b9b7682175f89c78f52e98dce70d9f6f5657ea312a33",
+      "run_digest": "sha256:e3189f76254280f92bafd90a1945d4ca0550a9c840d6b05d0f4ebb4ad1b8e84d",
+      "run_id": "model-replacement-run-e3189f76254280f92bafd90a",
+      "scores": [
+        {
+          "condition": "model_a_history_present",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_a_history_withheld",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_b_history_present",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_b_history_withheld",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_a_history_restored",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        }
+      ]
+    },
+    {
+      "assessment": {
+        "assessment": "single_preregistered_task_scored",
+        "condition_score_digests": [
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853"
+        ],
+        "model_a_history_accuracy_delta": -1,
+        "model_b_history_accuracy_delta": -1,
+        "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation",
+        "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+        "restoration_correctness_stable": true,
+        "scope": "task_correctness_not_general_learning_or_weight_change"
+      },
+      "fixture_mode": "degrade",
+      "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+      "protocol_digest": "sha256:dd05893b49f91361d953b9b7682175f89c78f52e98dce70d9f6f5657ea312a33",
+      "run_digest": "sha256:7ce16f9d878ba3424a089871701ebcd0ccac9bd8384569db173ed75a6c9bc729",
+      "run_id": "model-replacement-run-7ce16f9d878ba3424a089871",
+      "scores": [
+        {
+          "condition": "model_a_history_present",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_a_history_withheld",
+          "score_digest": "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "status": "correct"
+        },
+        {
+          "condition": "model_b_history_present",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_b_history_withheld",
+          "score_digest": "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "status": "correct"
+        },
+        {
+          "condition": "model_a_history_restored",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        }
+      ]
+    },
+    {
+      "assessment": {
+        "assessment": "single_preregistered_task_scored",
+        "condition_score_digests": [
+          "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853"
+        ],
+        "model_a_history_accuracy_delta": 1,
+        "model_b_history_accuracy_delta": 1,
+        "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation",
+        "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+        "restoration_correctness_stable": false,
+        "scope": "task_correctness_not_general_learning_or_weight_change"
+      },
+      "fixture_mode": "unstable",
+      "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+      "protocol_digest": "sha256:dd05893b49f91361d953b9b7682175f89c78f52e98dce70d9f6f5657ea312a33",
+      "run_digest": "sha256:f6ab381251e80d98ca8b1ffd0d6e56d3e9242f0cefdda61146e825698534647e",
+      "run_id": "model-replacement-run-f6ab381251e80d98ca8b1ffd",
+      "scores": [
+        {
+          "condition": "model_a_history_present",
+          "score_digest": "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "status": "correct"
+        },
+        {
+          "condition": "model_a_history_withheld",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_b_history_present",
+          "score_digest": "sha256:3628cfea687b2bfc7155ecf39b6dfa48539fc8512a8fa692426bdf14f4b25dd5",
+          "status": "correct"
+        },
+        {
+          "condition": "model_b_history_withheld",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        },
+        {
+          "condition": "model_a_history_restored",
+          "score_digest": "sha256:91f8d0df9442101e6f52de1696d5af17438b55f5f355507ac3c187ef94ad8853",
+          "status": "incorrect"
+        }
+      ]
+    },
+    {
+      "assessment": {
+        "assessment": "single_preregistered_task_scored",
+        "condition_score_digests": [
+          "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e"
+        ],
+        "model_a_history_accuracy_delta": 0,
+        "model_b_history_accuracy_delta": 0,
+        "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation",
+        "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+        "restoration_correctness_stable": true,
+        "scope": "task_correctness_not_general_learning_or_weight_change"
+      },
+      "fixture_mode": "malformed",
+      "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+      "protocol_digest": "sha256:dd05893b49f91361d953b9b7682175f89c78f52e98dce70d9f6f5657ea312a33",
+      "run_digest": "sha256:67c4eebf26448aa50ba501b98d90d7d98d24d155723c4fe91b67a33a3865ad7a",
+      "run_id": "model-replacement-run-67c4eebf26448aa50ba501b9",
+      "scores": [
+        {
+          "condition": "model_a_history_present",
+          "score_digest": "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "status": "invalid_answer"
+        },
+        {
+          "condition": "model_a_history_withheld",
+          "score_digest": "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "status": "invalid_answer"
+        },
+        {
+          "condition": "model_b_history_present",
+          "score_digest": "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "status": "invalid_answer"
+        },
+        {
+          "condition": "model_b_history_withheld",
+          "score_digest": "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "status": "invalid_answer"
+        },
+        {
+          "condition": "model_a_history_restored",
+          "score_digest": "sha256:1b9a434f52423bb6dd9f2978bbc5cb4e1922b17c73d84f2d6afa80507c0e7b7e",
+          "status": "invalid_answer"
+        }
+      ]
+    },
+    {
+      "assessment": {
+        "assessment": "unscoreable_missing_output",
+        "condition_score_digests": [
+          "sha256:c015c3326be12d8be16b4e9553d356ee5309926fd5a85d9360aa49e7d2e1dc59",
+          "sha256:6b63b4e1d4854695ffeb8f2ff4aa2566842a2846185fb84e6b02f5dd1f3dcf09",
+          "sha256:c015c3326be12d8be16b4e9553d356ee5309926fd5a85d9360aa49e7d2e1dc59",
+          "sha256:6b63b4e1d4854695ffeb8f2ff4aa2566842a2846185fb84e6b02f5dd1f3dcf09",
+          "sha256:c015c3326be12d8be16b4e9553d356ee5309926fd5a85d9360aa49e7d2e1dc59"
+        ],
+        "model_a_history_accuracy_delta": null,
+        "model_b_history_accuracy_delta": null,
+        "model_behavior_posture": "endpoint_execution_receipts_not_independent_model_attestation",
+        "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+        "restoration_correctness_stable": null,
+        "scope": "task_correctness_not_general_learning_or_weight_change"
+      },
+      "fixture_mode": "unavailable",
+      "plan_digest": "sha256:4783ec17c8544edf5f136b8a04018f8965af8e7dfb31af1c84aff302e340f2b3",
+      "protocol_digest": "sha256:dd05893b49f91361d953b9b7682175f89c78f52e98dce70d9f6f5657ea312a33",
+      "run_digest": "sha256:438731c3f5733917f1f9f5653daf2a72d1ab971aa3ad92b1180ebe65813bbaee",
+      "run_id": "model-replacement-run-438731c3f5733917f1f9f565",
+      "scores": [
+        {
+          "condition": "model_a_history_present",
+          "score_digest": "sha256:c015c3326be12d8be16b4e9553d356ee5309926fd5a85d9360aa49e7d2e1dc59",
+          "status": "output_unavailable"
+        },
+        {
+          "condition": "model_a_history_withheld",
+          "score_digest": "sha256:6b63b4e1d4854695ffeb8f2ff4aa2566842a2846185fb84e6b02f5dd1f3dcf09",
+          "status": "output_unavailable"
+        },
+        {
+          "condition": "model_b_history_present",
+          "score_digest": "sha256:c015c3326be12d8be16b4e9553d356ee5309926fd5a85d9360aa49e7d2e1dc59",
+          "status": "output_unavailable"
+        },
+        {
+          "condition": "model_b_history_withheld",
+          "score_digest": "sha256:6b63b4e1d4854695ffeb8f2ff4aa2566842a2846185fb84e6b02f5dd1f3dcf09",
+          "status": "output_unavailable"
+        },
+        {
+          "condition": "model_a_history_restored",
+          "score_digest": "sha256:c015c3326be12d8be16b4e9553d356ee5309926fd5a85d9360aa49e7d2e1dc59",
+          "status": "output_unavailable"
+        }
+      ]
+    }
+  ],
+  "cold_restart_test": "tests/test_developmental_model_replacement_resource_lineage_integration.py::test_model_replacement_invocations_reconcile_to_preissued_resource_owner; fresh Python process reconstructs source observation and cognition from custody references, not a serialized World-State object",
+  "evidence_kind": "deterministic_scripted_fixture_not_actual_local_model",
+  "general_learning_or_weight_change_demonstrated": false,
+  "ground_truth": "affine environment y=3*x+2; historical inputs 1,2; held-out input 7; answer 23",
+  "loaded_code_posture": "launch source identity is rechecked from disk; historical handoff remains readable after source drift; loaded module identity is not independently attested",
+  "oracle_preregistered_before_first_call": true,
+  "outcome": "six deterministic outcomes demonstrated by scripted endpoints; no real local model invocation or learning claim",
+  "source_base": "048165ac821d72134e304e3dfa889927d0a6b80a"
+}

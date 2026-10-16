@@ -24,7 +24,7 @@ def test_runtime_config_reconstructs_exact_custody_and_rejects_tamper(tmp_path: 
     loaded = load_runtime_config(config)
     assert LongitudinalSelfModelOwner(loaded.custody_root).history()[0].tick_id == "tick-1"
     path = next((custody / "reconciliations").glob("*.json")); raw=json.loads(path.read_text())
-    raw["tick_id"]="tampered"; path.write_text(json.dumps(raw))
+    raw["tick_id"]="tampered"; path.write_text(json.dumps(raw, sort_keys=True, indent=2) + "\n")
     with pytest.raises(LongitudinalSelfModelError, match="digest_mismatch"):
         LongitudinalSelfModelOwner(loaded.custody_root).history()
 
@@ -66,15 +66,26 @@ def test_intervention_controls_and_external_scoring_reject_self_certification(tm
 
 def test_resident_receipt_binds_exact_prior_projection(tmp_path: Path) -> None:
     factual = LongitudinalSelfModelOwner(tmp_path / "self-model")
-    factual.reconcile(snapshot(record()), tick_id="tick-1")
+    historic_trial = record(source="experiment:history-intervention", subject="trial-a",
+        disposition="history_presence_associated_stable_difference")
+    historic_trial.update({"source_kind": "embodiment",
+        "subject_kind": "developmental_history_intervention_experiment"})
+    factual.reconcile(snapshot(historic_trial), tick_id="tick-1")
     projection = factual.cognitive_projection(before_tick="tick-2", max_claims=2,
-        allowed_predicates=("software_generation", "cognitive_model_identity"))
+        allowed_predicates=("lifecycle.observation.disposition",))
     assert projection is not None
+    projected_claim = projection.selected_claims[0]
+    assert projected_claim["claim_category"] == "historical_interpretation"
+    assert projected_claim["freshness"] == "unknown"
+    assert projected_claim["current_truth"] is False and projected_claim["interpretation"] is True
     cognition, fake = cognition_owner(tmp_path / "cognition")
     result = cognition.run_tick(snapshot=cognition_snapshot(), tick_id="tick-2", prior_self_model=projection)
     assert result.cognition_observation_ids
     request = next(item for item in fake.requests if item.purpose == "resident_developmental_retrieval_cognition")
     assert request.upstream_evidence["self_model_projection_digest"] == projection.projection_digest
+    prompt = json.loads(request.prompt)
+    assert "Treat every prior self-model claim's category" in prompt["instruction"]
+    assert prompt["prior_self_model"]["selected_claims"][0] == projected_claim
     receipt = json.loads((cognition.observations_root / f"{result.cognition_observation_ids[0]}.json").read_text())
     assert receipt["prior_tick_proven"] is True
     assert receipt["self_model_claim_ids"] == list(projection.selected_claim_ids)

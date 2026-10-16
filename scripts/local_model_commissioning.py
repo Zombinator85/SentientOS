@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sentientos.config import GenerationConfig
 from sentientos.local_model_commissioning import doctor, inspect_artifact, render_bundle, verify_bundle
@@ -55,6 +58,8 @@ def main() -> int:
         production_command.add_argument("--evidence-root", type=Path, required=True)
         production_command.add_argument("--installation-identity", required=True)
         production_command.add_argument("--correlation-id", required=True)
+        production_command.add_argument("--max-new-tokens", type=int, default=8,
+            help="operator-approved commissioning and invocation ceiling (1..512; default 8)")
     command.add_argument("--approval-json", type=Path, required=True)
     status = sub.add_parser("status")
     status.add_argument("--activation-path", type=Path, required=True)
@@ -85,11 +90,13 @@ def main() -> int:
             handle = InstallationStateRegistry.system().open(InstallationIdentity.parse(args.installation_identity))
             if args.command == "intent":
                 result = dict(prepare_commissioning_intent(
-                    chain, installation_handle=handle, correlation_id=args.correlation_id))
+                    chain, installation_handle=handle, correlation_id=args.correlation_id,
+                    max_new_tokens=args.max_new_tokens))
             else:
                 result = commission_production(chain, installation_handle=handle,
                     approval_evidence=json.loads(args.approval_json.read_text()),
-                    control_plane_kernel=get_control_plane_kernel(), correlation_id=args.correlation_id)
+                    control_plane_kernel=get_control_plane_kernel(), correlation_id=args.correlation_id,
+                    max_new_tokens=args.max_new_tokens)
         else:
             model, _ = load_activation(args.activation_path)
             try:

@@ -1,0 +1,28 @@
+{
+  "sequence": 236,
+  "title": "Explicit campaign runtime selection",
+  "source_commit": "0df408435dd8a7cd96a462ecd5a586eeb4a532d8",
+  "source_tree": "3a9220c7b24c081f018d7a04e1fa72b5817474a0",
+  "source_parent_commit": "dae78c8e48f4370cd1d536e538cafdf9d790a1dd",
+  "source_parent_tree": "ff06c901e40c58d25f472d8d991a0958f8ef3611",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "dae78c8e48f4370cd1d536e538cafdf9d790a1dd",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7248,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {"path": "tests/test_maintenance_post_adoption_attribution_campaign.py", "sha": "d02509f2eac8e6b1b2182e1b310654c6b70067f9", "mode": "100644"},
+    {"path": "docs/development/campaign_runtime_selection_config_task_acceptance.json", "sha": "32e4268901cf9f238de28be025c5b96762433702", "mode": "100644"}
+  ],
+  "validation": {"focused_tests": "3 passed", "python_compile": "passed", "git_diff_check": "passed"},
+  "limits": [
+    "The campaign result is a synthetic fixture; the configured path does not authenticate the original measurement issuers.",
+    "Runtime signal evaluation remains proposal-only and does not execute maintenance."
+  ]
+}

@@ -30,7 +30,7 @@ Use `steward_rotation.py` to automatically open the handoff issue when a new ste
 
 ### Requirements for New Stewards
 - Participation in at least one monthly audit cycle.
-- Completed onboarding review of [PROCEDURE_ONBOARDING.md](PROCEDURE_ONBOARDING.md).
+- Completed onboarding review of [PROCEDURE_ONBOARDING.md](RITUAL_ONBOARDING.md).
 - Familiarity with memory law and log cleanup tools.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.

@@ -1,0 +1,36 @@
+{
+  "sequence": 234,
+  "title": "Cross-campaign outcome contradiction",
+  "source_commit": "c709da507d505fca6177110a6da79626aa28d634",
+  "source_tree": "a79a269c7bd7743838617cb16921e4aff49c6770",
+  "source_parent_commit": "f957e8f1d20df840d2bf32760ec0b0b8d51efda7",
+  "source_parent_tree": "ea3f9a302ff85b2b2c79d438c276debdc7bd08c5",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "f957e8f1d20df840d2bf32760ec0b0b8d51efda7",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7242,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {"path": "sentientos/governed_improvement_signal_plane.py", "sha": "41c24269131b06449b166af5ef6c2d054907ee2d", "mode": "100644"},
+    {"path": "sentientos/maintenance_post_adoption_attribution_campaign.py", "sha": "c844647d22d03b6914d167077634a1f920506edf", "mode": "100644"},
+    {"path": "tests/test_maintenance_post_adoption_attribution_campaign.py", "sha": "c16202ab96df29a07aefb260ec9b883bf72d6456", "mode": "100644"},
+    {"path": "docs/development/campaign_history_contradiction_task_acceptance.json", "sha": "b5c5bc02e8d5cd8784893ea05075c4e4d2339209", "mode": "100644"}
+  ],
+  "validation": {
+    "focused_tests": "26 passed",
+    "targeted_mypy": "passed for maintenance candidate modules",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "Source issuers remain caller-supplied and unverified.",
+    "The observations are synthetic fixtures; no production adoption or causal benefit is claimed.",
+    "Confounded and insufficient evidence is deliberately retained without proposal routing."
+  ]
+}

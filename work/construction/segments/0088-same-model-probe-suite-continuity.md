@@ -1,0 +1,11 @@
+# 0088 — Compose probe suites with same-model history intervention
+
+Source baseline: `331629c98b4ef560a2a570320712e7e511a6a13d`, tree `38c4829faae1b55b3d0dc8035d5bd57585efd982`. The same-model history owner reused the shared receipt-bound objective scorer, but its task-plan writer/verifier remained restricted to the scalar affine task and `exact_integer_answer_v1`. As a result, a v2 suite was available to model replacement but could not be preregistered through the existing same-model history-present/withheld/restored owner.
+
+The same-model plan now selects a distinct bounded suite rubric and reconstructs its probe list under the unchanged objective protocol identity rules. Historical v1 scalar task plans and scalar score/evaluation payloads retain their prior canonical scope. Suite score projections preserve per-condition correct counts only when present, keeping historical payload reconstruction stable.
+
+A deterministic same-model fixture transferred two of four answers from two prior examples, with zero correct answers when history was withheld and two again when the exact history was restored. The count and signed deltas survived run recovery, canonical World-State projection, authorized developmental-history writeback, a fresh cognition owner, and N+1 history retrieval. It remains a bounded task association, not generalized learning or real-model performance.
+
+Four focused developmental modules passed **120 tests, 0 failed, 0 skipped**. Changed Python compiled and `git diff --check` passed; typing was not run. Evidence: `work/construction/evidence/0088-same-model-probe-suite-junit.xml`, `work/construction/evidence/0088-same-model-probe-suite-results.json`, and `work/construction/evidence/0088-hosted-checks-seq87.json`. Seq87 hosted Source Validation and Helm smoke passed; invariant/docs/self-check failed at existing privileged and environment boundaries, recorded exactly in `work/construction/evidence/0088-hosted-checks-seq87.json`.
+
+Next: inspect durable cognition's retained projection for any consumer that drops the per-probe metric or conflates it with canonical belief/authority; then continue through a concrete adjacent continuity dependency. Real-model execution still requires external artifact custody and the existing exact commissioning and operator approval.

@@ -1,0 +1,28 @@
+{
+  "assertions": [
+    "score deltas retain correct denominator and sign across baseline, relevant and adverse episodes",
+    "truncated output produces null contrasts and explicit unscoreable posture",
+    "restoration comparisons remain separate and no learning/improvement claim is emitted"
+  ],
+  "checks": {
+    "focused_tests": {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-recon8-contrast-final-g SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-recon8-contrast-final-r SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-recon8-contrast-final-f SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-recon8-contrast-final-k PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-recon8-contrast-final-t PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-recon8-contrast-final-t/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "result": "3 passed in 67.82s",
+      "scope": "deterministic fake invokers only; no live model"
+    },
+    "python_compile": "passed: sentientos/resident_developmental_cognition.py, tests/test_resident_developmental_cognition.py"
+  },
+  "not_established": [
+    "actual local-model behavior",
+    "performance improvement",
+    "production model inference"
+  ],
+  "predecessor_sequence": 158,
+  "predecessor_source_commit": "d40f008dd72ba736292f0dcb6702f97640ce9ff9",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 159,
+  "source_commit": "103b098be19b1d01c5f9890d6a29437d6d8e3ddd",
+  "source_tree": "78f6e04de83811fa6e5e13aa95077e9d30bfa470",
+  "title": "bounded per-episode objective contrasts",
+  "unverified_for_production": true
+}

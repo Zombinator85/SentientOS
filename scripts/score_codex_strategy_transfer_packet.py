@@ -1,0 +1,67 @@
+"""Score separately recorded external strategy proposals with the canonical evaluator."""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+from sentientos.embodied_consequence import (canonical_bytes,
+    score_operator_codex_strategy_responses,
+    score_operator_codex_strategy_multi_event_responses)
+from sentientos.operator_codex_response_journal import recover_operator_codex_responses
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate_json_key:{key}")
+        result[key] = value
+    return result
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--scorer-manifest", required=True)
+    parser.add_argument("--preregistration", required=True)
+    parser.add_argument("--subject-packets", required=True)
+    response_source = parser.add_mutually_exclusive_group(required=True)
+    response_source.add_argument("--responses",
+        help="JSON mapping opaque packet IDs to exact raw output and session/settings fields")
+    response_source.add_argument("--response-journal",
+        help="directory of exclusive per-packet operator response records")
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    manifest = json.loads(Path(args.scorer_manifest).read_text(encoding="utf-8"),
+        object_pairs_hook=_unique_object)
+    preregistration = json.loads(Path(args.preregistration).read_text(encoding="utf-8"),
+        object_pairs_hook=_unique_object)
+    journal_recovery = None
+    if args.response_journal:
+        responses, journal_recovery = recover_operator_codex_responses(
+            journal_dir=args.response_journal, preregistration=preregistration)
+    else:
+        responses = json.loads(Path(args.responses).read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_object)
+    packet_dir = Path(args.subject_packets)
+    packets = {path.stem: json.loads(path.read_text(encoding="utf-8"),
+        object_pairs_hook=_unique_object) for path in packet_dir.glob("*.json")}
+    if manifest.get("schema_version") == "sentientos.operator_codex_strategy_multi_event_scorer:v1":
+        scores = score_operator_codex_strategy_multi_event_responses(scorer_manifest=manifest,
+            preregistration=preregistration, subject_packets=packets, responses=responses)
+        scoring_status = scores["status"]
+    else:
+        scores = score_operator_codex_strategy_responses(scorer_manifest=manifest,
+            preregistration=preregistration, subject_packets=packets, responses=responses)
+        scoring_status = scores["strategy_scoring"]["status"]
+    Path(args.output).write_bytes(canonical_bytes(scores) + b"\n")
+    print(json.dumps({"score_digest": scores["score_digest"],
+        "strategy_scoring_status": scoring_status,
+        "response_journal_recovery": journal_recovery,
+        "output": args.output}, sort_keys=True, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

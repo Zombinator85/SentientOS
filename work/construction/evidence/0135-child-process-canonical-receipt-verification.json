@@ -1,0 +1,32 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "commands": [
+      "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py scripts/inspect_resident_objective_result.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixture_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 164,
+    "production_acceptance": "deferred"
+  },
+  "changed_files": {
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 222323,
+      "git_blob": "7d3da51fc2bff6d0aeb9859f0af9a2921366ad16",
+      "sha256": "635ccbd71ade4d300a128d3352e6893f5e436567d7e0fcc90066721cd103a74f"
+    }
+  },
+  "implementation": {
+    "negative_control": "After successful recovery, the test changes the request digest inside one persisted invocation receipt while preserving its identity path. A second child reconstruction rejects it as cognition_invocation_receipt_reconciliation_failed.",
+    "no_replay": "The original fake invoker call count is unchanged by child recovery, receipt inspection, and substituted-receipt rejection.",
+    "positive_control": "The child reconstructs the interrupted three-condition score using ResidentCognitiveInvocationReceiptReader over an explicit InstallationStateReadOnlyView, including the canonical resident-serving receipt and privilege witness fixture.",
+    "read_only": "The positive recovery child leaves installation custody bytes unchanged; no recovery step writes to the installation receipt root.",
+    "scope": "This closes a test-composition gap: the prior child used a local field-comparison verifier. Persisted invocation and serving evidence are still fixtures, not a real model execution."
+  },
+  "objective": "Use the actual installation-scoped read-only receipt verifier during child-process recovery and prove it rejects a substituted persisted inference receipt.",
+  "schema_version": 1,
+  "sequence": 135,
+  "source_commit": "93441a4bc6632ea08110d3e8d9a4c3b4d60a59ab",
+  "source_tree": "e4e670268955f08ac47604fac3ebfd8484eb6e44"
+}

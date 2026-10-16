@@ -1,0 +1,24 @@
+{
+  "schema_version": "sentientos.prospective_acceptance_manifest:v1",
+  "task": "verify canonical identities on all workspace-file effect records",
+  "source_checkpoint": "04d7cff2e7a99cac7b1f37e79737fa90604a97a3",
+  "source_tree": "e6c4b75b4b1564b397298a7c0afa892b312ad782",
+  "status": "executed_hermetic_unverified_for_production",
+  "pytest_command": "/tmp/sentientos-test-venv/bin/python -m pytest tests/test_workspace_file_effect.py -m no_legacy_skip",
+  "result": {
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "environment": "disposable workspace under pytest tmp_path"
+  },
+  "test_nodes": [
+    "tests/test_workspace_file_effect.py::test_every_owner_record_verifier_rejects_semantic_field_substitution",
+    "tests/test_workspace_file_effect.py::test_create_mode_writes_one_file_and_receipt_flags",
+    "tests/test_workspace_file_effect.py::test_rollback_created_file_removes_exact_target_and_preserves_sibling"
+  ],
+  "limitations": [
+    "The canonical SHA-256 digest detects stale or accidental substitution only; it is not an authenticated signature or independent custody proof.",
+    "Workspace-file effect records remain in-memory and are not admitted as defensive-consequence evidence.",
+    "No production effect or host actuation was performed."
+  ]
+}

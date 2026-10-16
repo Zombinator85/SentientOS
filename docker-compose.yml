@@ -8,21 +8,13 @@ services:
     volumes:
       - ./scripts:/scripts:ro
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
-import time;\n\
-url='http://localhost:3928';\n\
-\n\
-try:\n\
-    urllib.request.urlopen(url)\n\
-    sys.exit(0)\n\
-except Exception:\n\
-    sys.exit(1)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3928', timeout=2).close()"]
       interval: 5s
       timeout: 3s
       retries: 5
   bridge1:
     image: python:3.11-slim
-    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:5000 && python -m http.server 9977"]
+    command: ["python", "-m", "http.server", "9977"]
     ports:
       - "9977:9977"
     volumes:
@@ -32,20 +24,13 @@ except Exception:\n\
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
-import time;\n\
-url='http://localhost:9977';\n\
-try:\n\
-    urllib.request.urlopen(url)\n\
-    sys.exit(0)\n\
-except Exception:\n\
-    sys.exit(1)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9977', timeout=2).close()"]
       interval: 5s
       timeout: 3s
       retries: 5
   bridge2:
     image: python:3.11-slim
-    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:5000 && python -m http.server 9988"]
+    command: ["python", "-m", "http.server", "9988"]
     ports:
       - "9988:9988"
     volumes:
@@ -55,20 +40,13 @@ except Exception:\n\
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
-import time;\n\
-url='http://localhost:9988';\n\
-try:\n\
-    urllib.request.urlopen(url)\n\
-    sys.exit(0)\n\
-except Exception:\n\
-    sys.exit(1)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9988', timeout=2).close()"]
       interval: 5s
       timeout: 3s
       retries: 5
   bridge3:
     image: python:3.11-slim
-    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:5000 && python -m http.server 9966"]
+    command: ["python", "-m", "http.server", "9966"]
     ports:
       - "9966:9966"
     volumes:
@@ -78,14 +56,7 @@ except Exception:\n\
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
-import time;\n\
-url='http://localhost:9966';\n\
-try:\n\
-    urllib.request.urlopen(url)\n\
-    sys.exit(0)\n\
-except Exception:\n\
-    sys.exit(1)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9966', timeout=2).close()"]
       interval: 5s
       timeout: 3s
       retries: 5

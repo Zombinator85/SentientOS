@@ -1,0 +1,1010 @@
+{
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited--15]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-0]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-False]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-None]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[timed_out--15]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[timed_out-0]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[unknown-0]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[bad_seal]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[context_missing]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[cycle_missing]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[extra]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[missing]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[start_missing]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[symlink]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[truncated]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[wrong_schema]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[addition]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[bytes]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[deletion]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[environment_value]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[mode]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_commands]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_contexts]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_cycles]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_plans]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_results]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_starts]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_commands]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_contexts]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_cycles]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_plans]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_results]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_starts]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_commands]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_contexts]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_cycles]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_plans]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_results]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_starts]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_commands]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_contexts]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_cycles]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_plans]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_results]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_starts]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durable_failure_never_becomes_ready_after_reconstruction[False]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_durable_failure_never_becomes_ready_after_reconstruction[True]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-exit]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-launch]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-source_postcheck]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-exit]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-launch]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-source_postcheck]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[admitted_scope_digest]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[attempt_id]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[change_manifest_digest]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[implementation_result_digest]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[implementation_session_id]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[lease_digest]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[lease_id]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[patch_digest]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[policy_digest]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[task_id]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[terminal_worktree_head]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[validation_cycle_ordinal]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[validation_ref_id]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[worktree_descriptor_digest]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_integrity_only_legacy_result_is_not_cli_readiness": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[append_failure]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[conflict]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[missing_predecessor]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[torn]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[wrong_attempt]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_no_journal_diagnostic_validation_cannot_land": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-aggregate]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-command_result]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-context]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-cycle]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-plan]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-readiness]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-stage_start]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-terminal]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-validation_started]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-aggregate]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-command_result]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-context]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-cycle]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-plan]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-readiness]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-stage_start]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-terminal]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-validation_started]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_real_cli_success_uses_owner_custody": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[argv]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[duplicate]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[kind]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[order]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[required]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[timeout]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validator_replaced_at_same_path_is_denied_before_execution": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[attempt_id-crossed]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[base_sha-crossed]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[command_result_digests-value1]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[correctable-True]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[required_stage_outcomes-value0]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[session_id-crossed]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[skipped_stages-value2]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[source_drift_proof-value4]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[task_id-crossed]": 0,
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[total_budget_consumed_seconds--1]": 0,
+    "tests/test_maintenance_validation_execution.py::test_failed_validator_records_immutable_failure_result": 0,
+    "tests/test_maintenance_validation_execution.py::test_passing_validation_records_ready_for_commit_status": 0,
+    "tests/test_maintenance_validation_execution.py::test_timeout_remains_timeout_when_child_exits_zero": 0,
+    "tests/test_maintenance_validation_execution.py::test_validation_commands_use_argv_without_command_interpreter": 0,
+    "tests/test_maintenance_validation_execution.py::test_validation_source_drift_fails_closed": 0,
+    "tests/test_maintenance_validation_execution.py::test_validation_timeout_terminates_child_and_grandchild": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_legitimate_real_validation_commits_and_enqueues_idempotently": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_queued_proof_does_not_require_a_retained_detached_worktree": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-local_fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-pull_request]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-local_fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-pull_request]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-local_fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-pull_request]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-local_fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-pull_request]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-local_fast_forward_base_ref]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-pull_request]": 0,
+    "tests/test_maintenance_validation_landing_gate.py::test_staged_tree_is_checked_before_commit_object_creation": 0,
+    "tests/test_maintenance_validation_recovery.py::test_process_concurrent_advance_runs_one_validation_and_one_correction": 0,
+    "tests/test_maintenance_validation_recovery.py::test_real_watchdog_recovers_killed_failed_controller_without_readiness": 0,
+    "tests/test_maintenance_validation_recovery.py::test_recovery_after_command_result_persistence_does_not_rerun_command": 0,
+    "tests/test_maintenance_validation_recovery.py::test_recovery_after_correction_completion_reuses_same_attempt_and_session": 0,
+    "tests/test_maintenance_validation_recovery.py::test_recovery_after_validation_result_persistence_appends_only_missing_event": 0,
+    "tests/test_maintenance_watchdog_closed_loop.py::test_production_cli_process_real_fake_cycle_reaches_idle": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "call_phase_outcome_count": 140,
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durable_failure_never_becomes_ready_after_reconstruction[False]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durable_failure_never_becomes_ready_after_reconstruction[True]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[timed_out-0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[timed_out--15]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited--15]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-None]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-False]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[unknown-0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[required_stage_outcomes-value0]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[command_result_digests-value1]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[skipped_stages-value2]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[total_budget_consumed_seconds--1]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[source_drift_proof-value4]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[task_id-crossed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[attempt_id-crossed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[session_id-crossed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[base_sha-crossed]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[correctable-True]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[truncated]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[wrong_schema]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[bad_seal]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[missing]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[extra]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[symlink]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[start_missing]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[cycle_missing]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[context_missing]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[task_id]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[lease_id]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[lease_digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[admitted_scope_digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[attempt_id]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[implementation_session_id]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[implementation_result_digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[validation_ref_id]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[validation_cycle_ordinal]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[policy_digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[worktree_descriptor_digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[change_manifest_digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[patch_digest]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[terminal_worktree_head]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[order]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[kind]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[argv]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[timeout]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[duplicate]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[required]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[bytes]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[mode]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[addition]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[deletion]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[environment_value]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_real_cli_success_uses_owner_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_integrity_only_legacy_result_is_not_cli_readiness",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-plan]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-context]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-cycle]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-stage_start]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-command_result]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-aggregate]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-validation_started]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-terminal]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-readiness]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-plan]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-context]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-cycle]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-stage_start]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-command_result]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-aggregate]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-validation_started]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-terminal]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-readiness]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-launch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-exit]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-source_postcheck]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-launch]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-exit]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-source_postcheck]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_plans]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_contexts]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_cycles]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_starts]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_commands]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_results]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_plans]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_contexts]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_cycles]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_starts]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_commands]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_results]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_plans]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_contexts]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_cycles]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_starts]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_commands]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_results]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_plans]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_contexts]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_cycles]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_starts]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_commands]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_results]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[torn]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[conflict]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[append_failure]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[missing_predecessor]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[wrong_attempt]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_validator_replaced_at_same_path_is_denied_before_execution",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_acceptance.py::test_no_journal_diagnostic_validation_cannot_land",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-pull_request]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-local_fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-pull_request]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-local_fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-pull_request]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-local_fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-pull_request]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-local_fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-pull_request]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-local_fast_forward_base_ref]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_legitimate_real_validation_commits_and_enqueues_idempotently",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_queued_proof_does_not_require_a_retained_detached_worktree",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_landing_gate.py::test_staged_tree_is_checked_before_commit_object_creation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_execution.py::test_passing_validation_records_ready_for_commit_status",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_execution.py::test_failed_validator_records_immutable_failure_result",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_execution.py::test_validation_timeout_terminates_child_and_grandchild",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_execution.py::test_timeout_remains_timeout_when_child_exits_zero",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_execution.py::test_validation_source_drift_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_execution.py::test_validation_commands_use_argv_without_command_interpreter",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_recovery.py::test_recovery_after_command_result_persistence_does_not_rerun_command",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_recovery.py::test_recovery_after_validation_result_persistence_appends_only_missing_event",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_recovery.py::test_recovery_after_correction_completion_reuses_same_attempt_and_session",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_recovery.py::test_process_concurrent_advance_runs_one_validation_and_one_correction",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_validation_recovery.py::test_real_watchdog_recovers_killed_failed_controller_without_readiness",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_maintenance_watchdog_closed_loop.py::test_production_cli_process_real_fake_cycle_reaches_idle",
+      "outcome": "failed",
+      "phase": "call"
+    }
+  ],
+  "pytest_exit_code": 1,
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "selected_node_ids": [
+    "tests/test_maintenance_validation_acceptance.py::test_durable_failure_never_becomes_ready_after_reconstruction[False]",
+    "tests/test_maintenance_validation_acceptance.py::test_durable_failure_never_becomes_ready_after_reconstruction[True]",
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[timed_out-0]",
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[timed_out--15]",
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited--15]",
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-None]",
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-False]",
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[exited-0]",
+    "tests/test_maintenance_validation_acceptance.py::test_completion_facts_cannot_be_relabelled_success[unknown-0]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[required_stage_outcomes-value0]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[command_result_digests-value1]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[skipped_stages-value2]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[total_budget_consumed_seconds--1]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[source_drift_proof-value4]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[task_id-crossed]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[attempt_id-crossed]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[session_id-crossed]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[base_sha-crossed]",
+    "tests/test_maintenance_validation_acceptance.py::test_validly_resealed_aggregate_contradictions_are_denied[correctable-True]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[truncated]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[wrong_schema]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[bad_seal]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[missing]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[extra]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[symlink]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[start_missing]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[cycle_missing]",
+    "tests/test_maintenance_validation_acceptance.py::test_corrupt_or_missing_custody_is_nonready[context_missing]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[task_id]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[lease_id]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[lease_digest]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[admitted_scope_digest]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[attempt_id]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[implementation_session_id]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[implementation_result_digest]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[validation_ref_id]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[validation_cycle_ordinal]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[policy_digest]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[worktree_descriptor_digest]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[change_manifest_digest]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[patch_digest]",
+    "tests/test_maintenance_validation_acceptance.py::test_independently_crossed_plan_bindings_fail_before_launch[terminal_worktree_head]",
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[order]",
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[kind]",
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[argv]",
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[timeout]",
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[duplicate]",
+    "tests/test_maintenance_validation_acceptance.py::test_resealed_stage_plan_is_recomputed_from_policy[required]",
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[bytes]",
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[mode]",
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[addition]",
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[deletion]",
+    "tests/test_maintenance_validation_acceptance.py::test_downtime_context_is_never_rebased[environment_value]",
+    "tests/test_maintenance_validation_acceptance.py::test_real_cli_success_uses_owner_custody",
+    "tests/test_maintenance_validation_acceptance.py::test_integrity_only_legacy_result_is_not_cli_readiness",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-plan]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-context]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-cycle]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-stage_start]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-command_result]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-aggregate]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-validation_started]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-terminal]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[before-readiness]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-plan]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-context]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-cycle]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-stage_start]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-command_result]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-aggregate]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-validation_started]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-terminal]",
+    "tests/test_maintenance_validation_acceptance.py::test_persistence_fault_matrix_reconstructs_disk_custody[after-readiness]",
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-launch]",
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-exit]",
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[before-source_postcheck]",
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-launch]",
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-exit]",
+    "tests/test_maintenance_validation_acceptance.py::test_execution_fault_matrix_never_relaunches_indeterminate_stage[after-source_postcheck]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_plans]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_contexts]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_cycles]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_starts]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_commands]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[file_fsync-maintenance_validation_results]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_plans]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_contexts]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_cycles]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_starts]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_commands]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[parent_fsync-maintenance_validation_results]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_plans]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_contexts]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_cycles]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_starts]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_commands]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[write-maintenance_validation_results]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_plans]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_contexts]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_cycles]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_starts]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_commands]",
+    "tests/test_maintenance_validation_acceptance.py::test_durability_failure_is_explicit_and_retained[flush-maintenance_validation_results]",
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[torn]",
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[conflict]",
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[append_failure]",
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[missing_predecessor]",
+    "tests/test_maintenance_validation_acceptance.py::test_journal_reconciliation_failures_cannot_confer_readiness[wrong_attempt]",
+    "tests/test_maintenance_validation_acceptance.py::test_validator_replaced_at_same_path_is_denied_before_execution",
+    "tests/test_maintenance_validation_acceptance.py::test_no_journal_diagnostic_validation_cannot_land",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-pull_request]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[plan-local_fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-pull_request]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit-local_fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-pull_request]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[commit_retry-local_fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-pull_request]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication-local_fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-pull_request]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_semantically_failed_custody_stops_every_real_landing_entry[publication_retry-local_fast_forward_base_ref]",
+    "tests/test_maintenance_validation_landing_gate.py::test_legitimate_real_validation_commits_and_enqueues_idempotently",
+    "tests/test_maintenance_validation_landing_gate.py::test_queued_proof_does_not_require_a_retained_detached_worktree",
+    "tests/test_maintenance_validation_landing_gate.py::test_staged_tree_is_checked_before_commit_object_creation",
+    "tests/test_maintenance_validation_execution.py::test_passing_validation_records_ready_for_commit_status",
+    "tests/test_maintenance_validation_execution.py::test_failed_validator_records_immutable_failure_result",
+    "tests/test_maintenance_validation_execution.py::test_validation_timeout_terminates_child_and_grandchild",
+    "tests/test_maintenance_validation_execution.py::test_timeout_remains_timeout_when_child_exits_zero",
+    "tests/test_maintenance_validation_execution.py::test_validation_source_drift_fails_closed",
+    "tests/test_maintenance_validation_execution.py::test_validation_commands_use_argv_without_command_interpreter",
+    "tests/test_maintenance_validation_recovery.py::test_recovery_after_command_result_persistence_does_not_rerun_command",
+    "tests/test_maintenance_validation_recovery.py::test_recovery_after_validation_result_persistence_appends_only_missing_event",
+    "tests/test_maintenance_validation_recovery.py::test_recovery_after_correction_completion_reuses_same_attempt_and_session",
+    "tests/test_maintenance_validation_recovery.py::test_process_concurrent_advance_runs_one_validation_and_one_correction",
+    "tests/test_maintenance_validation_recovery.py::test_real_watchdog_recovers_killed_failed_controller_without_readiness",
+    "tests/test_maintenance_watchdog_closed_loop.py::test_production_cli_process_real_fake_cycle_reaches_idle"
+  ],
+  "session_finish_reached": true,
+  "tests_collected": 140,
+  "tests_executed": 140,
+  "tests_failed": 1,
+  "tests_passed": 139,
+  "tests_selected": 140,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0
+}

@@ -29,6 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--new-cli", action="append", default=[])
     p.add_argument("--test-path", action="append", default=[])
     p.add_argument("--doc-path", action="append", default=[])
+    p.add_argument("--existing-target", action="append", default=[])
     p.add_argument("--capability-id", default="")
     p.add_argument("--authority-principal", default="")
     p.add_argument("--requested-effect", action="append", default=[])
@@ -46,6 +47,7 @@ def main(argv: list[str] | None = None) -> int:
         new_cli=tuple(a.new_cli),
         test_path=tuple(a.test_path),
         doc_path=tuple(a.doc_path),
+        existing_target_paths=tuple(a.existing_target),
         capability_id=a.capability_id,
         authority_principal=a.authority_principal,
         requested_effects=tuple(a.requested_effect),

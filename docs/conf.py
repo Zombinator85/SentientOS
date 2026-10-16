@@ -15,9 +15,6 @@ extensions = [
 
 html_theme = 'sphinxawesome_theme'
 
-# Enable basic search with the Sphinx Awesome theme
-extensions.append('sphinxawesome_theme.highlighting')
-
 source_suffix = {
     '.rst': 'restructuredtext',
     '.md': 'markdown',

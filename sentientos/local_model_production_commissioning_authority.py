@@ -87,8 +87,11 @@ def current_proof(handle: InstallationStateHandle, acquisition_plan: Mapping[str
     return dict(proof)
 
 
-def build_intent(chain: Mapping[str, Any], handle: InstallationStateHandle, *, correlation_id: str) -> Mapping[str, Any]:
+def build_intent(chain: Mapping[str, Any], handle: InstallationStateHandle, *, correlation_id: str,
+                 max_new_tokens: int = 8) -> Mapping[str, Any]:
     """Build immutable governance intent before the first construction effect."""
+    if type(max_new_tokens) is not int or not 1 <= max_new_tokens <= 512:
+        raise CommissioningAuthorityError("commissioning_generation_ceiling_invalid")
     if not correlation_id or correlation_id.casefold() in PLACEHOLDERS or "*" in correlation_id:
         raise CommissioningAuthorityError("commissioning_correlation_id_invalid")
     evidence = chain.get("authoritative_evidence")
@@ -109,7 +112,7 @@ def build_intent(chain: Mapping[str, Any], handle: InstallationStateHandle, *, c
     probe = {"mode": "bounded_model_construction_vocab_only", "semantic_generations": 0, "n_ctx": 64,
              "timeout_seconds": 60}
     smoke = {"prompt_id": "sentientos.local_model_commissioning_smoke:v1", "max_calls": 1,
-             "max_input_chars": 128, "max_output_chars": 128, "max_new_tokens": 8, "timeout_seconds": 20}
+             "max_input_chars": 128, "max_output_chars": 128, "max_new_tokens": max_new_tokens, "timeout_seconds": 20}
     receipt_identity = str(receipt["receipt_semantic_digest"])
     value: dict[str, Any] = {
         "schema_version": INTENT_SCHEMA, "target_principal": PRINCIPAL, "target_capability": CAPABILITY,

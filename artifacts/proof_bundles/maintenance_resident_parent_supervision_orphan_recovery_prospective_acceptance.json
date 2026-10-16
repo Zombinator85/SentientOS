@@ -1,0 +1,30 @@
+{
+  "schema_version": "sentientos.prospective_exact_node_acceptance:v1",
+  "status": "prospective_unexecuted",
+  "source_base_sha": "76c35e821a602666cb86fffd2395715a3fbbb053",
+  "task_scope": "Prevent duplicate resident launches after parent restart; only permit a bounded recovery attempt after the persisted child's PID is independently observed absent.",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_parent_supervision_owner_lock_is_singleton",
+      "rationale": "A second parent cannot acquire the same state-root lifetime lock."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_denies_launch_when_prior_child_pid_is_present",
+      "rationale": "A present prior PID blocks new child launch; the supervisor neither adopts nor signals it."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_restarted_parent_recovers_only_after_prior_pid_is_absent",
+      "rationale": "A bounded restart reservation is durably recorded before a new exact child launch when the prior PID is absent."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_budget_panic_shutdown_and_reconstruction_prevent_resurrection",
+      "rationale": "Existing restart-budget and shutdown latches remain enforced."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_exact_same_lineage_death_recovery_requires_readiness_and_links_receipts",
+      "rationale": "Existing same-lineage unexpected-death recovery remains acceptance coverage."
+    }
+  ],
+  "execution_policy": "Author only; do not execute during construction.",
+  "production_status": "unverified"
+}

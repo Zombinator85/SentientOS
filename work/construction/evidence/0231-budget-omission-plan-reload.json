@@ -1,0 +1,42 @@
+{
+  "sequence": 231,
+  "title": "Budget omission plan reload",
+  "source_commit": "8fb4b5e21cf79c09546182ec6167f78febdf8707",
+  "source_tree": "ed0ce8dcce931caeef0dd24d916dee9d83d61108",
+  "source_parent_commit": "7d7d434c43ca76d9e9de8b2115c4171e08d81be4",
+  "source_parent_tree": "38c300b378c7e059a197a5923ed034e4a9cf843b",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "7d7d434c43ca76d9e9de8b2115c4171e08d81be4",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7232,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched"
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/work_plan.py",
+      "sha": "3d215bdeeb1d2d00d961f31a14a289375dbae781",
+      "mode": "100644"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_plan.py",
+      "sha": "c3e071e7fcf4943fbc0492af306559fa70e488c9",
+      "mode": "100644"
+    },
+    {
+      "path": "sentientos/tests/test_work_plan_load.py",
+      "sha": "1b216feac7b1585334d85a7a5f1f8747b67d084c",
+      "mode": "100644"
+    }
+  ],
+  "validation": {
+    "goal_plan_persistence_and_execution": "38 passed",
+    "python_compile": "passed: sentientos/work_plan.py and two test modules",
+    "git_diff_check": "passed",
+    "test_environment": "explicit project naked-pytest opt-in; PYTHONPATH bound to recovered source"
+  },
+  "known_environment_limit": "canonical editable-install bootstrap still unavailable because the configured proxy is unreachable and setuptools is absent"
+}

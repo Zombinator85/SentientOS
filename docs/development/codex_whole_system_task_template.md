@@ -1,6 +1,6 @@
 # Whole-System Codex Task Template
 
-Use this compact issue structure. Stable repository law is inherited from root [`AGENTS.md`](../../AGENTS.md); validation policy comes from [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md), and executable commands come only from [`codex_finalize_landing.md`](codex_finalize_landing.md).
+Use this compact issue structure. Stable repository law is inherited from root [`AGENTS.md`](https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md); validation policy comes from [`codex_validation_and_landing_contract.md`](codex_validation_and_landing_contract.md), and executable commands come only from [`codex_finalize_landing.md`](codex_finalize_landing.md).
 
 ## Objective
 State the complete bounded subsystem outcome and operator value.

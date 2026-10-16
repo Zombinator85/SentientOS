@@ -1,0 +1,18 @@
+{
+  "continuation_custody": "passed_89_prior_segments",
+  "failed": 0,
+  "finding": "Developmental model-replacement and same-model history-intervention experiment dispositions were classified as current_state; they are immutable historical trial interpretations.",
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 3947,
+    "path": "work/construction/evidence/0090-developmental-experiment-historical-category-junit.xml",
+    "sha256": "4eb1c4f120856b1fc13ae6a412106ef82ca2bbf990adf0ea0acae97e24165e04"
+  },
+  "passed": 25,
+  "python_compilation": "passed",
+  "sequence": 90,
+  "skipped": 0,
+  "source_baseline_commit": "113f44154e82c81338f1ec8035958e71d532989a",
+  "source_baseline_tree": "41a870ad85c19d079e90ea9fb51927bf79a9729a",
+  "status": "construction_tested_unverified_for_production"
+}

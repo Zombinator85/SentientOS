@@ -1,0 +1,19 @@
+{
+  "behavior": {
+    "evidence": "damaged quarantine bytes remain byte-for-byte unchanged",
+    "invalid_state": "structured blocked result with quarantine_active=null and exact typed custody error",
+    "mutation": "returns before remediation lookup, privileged admission, clear, or state publication"
+  },
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed",
+    "quarantine_clear_trace_binding_and_status_modules": "6 passed"
+  },
+  "limits": [
+    "Real receipt-chain, anchor, doctrine, and federation gates are not stubbed in this regression.",
+    "Test uses only disposable local state roots and does not authorize a clear.",
+    "No production operation is verified."
+  ],
+  "scope": "make privileged quarantine clear report invalid protective custody explicitly and preserve damaged evidence",
+  "status": "focused_hermetic_clear_refusal_verified_not_production_acceptance"
+}

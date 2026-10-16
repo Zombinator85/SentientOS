@@ -1,0 +1,56 @@
+{
+  "sequence": 209,
+  "title": "Versioned action adequacy criterion for strategy transfer",
+  "status": "source implementation and integrated fixture acceptance",
+  "starting_head": "a15ac197b2979bd07b5c629097b61b7e81154f6c",
+  "starting_tree": "4c287c18086ed3fbf9291583c9ddfbe584cdade7",
+  "source_commit": "a286ae19b725c30d2877550a413ce41390c25024",
+  "source_tree": "79702e5568451f88862bb9ab8de938d782726802",
+  "source_paths": [
+    {
+      "path": "sentientos/embodied_consequence.py",
+      "blob": "bd1cc5f37134033b46ece3b3242b953f0a062850"
+    },
+    {
+      "path": "tests/test_embodied_consequence.py",
+      "blob": "eb1741391e2b9941a0f6ff04c76c186bd353f8cd"
+    },
+    {
+      "path": "scripts/build_codex_strategy_transfer_packet.py",
+      "blob": "420c0edb63b4c989c01421b9a954869b70560576"
+    }
+  ],
+  "change": {
+    "decision_quality_preregistration_v2_preserved": true,
+    "versioned_extension": "sentientos.embodied_strategy_decision_quality_preregistration:v3",
+    "private_decision_basis_fields": [
+      "expected_action_class",
+      "evidence_sufficiency"
+    ],
+    "evidence_sufficiency_values": [
+      "supports_bounded_recommendation",
+      "requires_more_observation"
+    ],
+    "new_criterion": "action_matches_frozen_evidence_sufficiency",
+    "condition_labels_used": false,
+    "aggregate_score": null,
+    "subject_packet_contains_private_basis": false,
+    "preregistered_basis_digest_bound": true
+  },
+  "validation": {
+    "tests": [
+      "tests/test_embodied_consequence.py (28 passed)",
+      "test_operator_codex_strategy_packet_reuses_verified_history_scorer",
+      "test_preregistered_decision_basis_rejects_indiscriminate_caution"
+    ],
+    "compileall": "passed for sentientos/embodied_consequence.py, scripts/build_codex_strategy_transfer_packet.py, and tests/test_embodied_consequence.py",
+    "diff_check": "passed",
+    "provider_invocations": 0,
+    "physical_effects": 0,
+    "real_model_sessions": 0
+  },
+  "limitations": [
+    "The experiment-specific private decision basis still requires independent archival before real subject sessions.",
+    "The regression and integration outcomes use controlled fixture inputs; they establish no measured cognitive benefit."
+  ]
+}

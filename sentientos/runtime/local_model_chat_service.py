@@ -10,16 +10,22 @@ import os
 import json
 import subprocess
 import sys
+import uuid
+from datetime import datetime, timezone
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 
-from sentientos.installation_state import InstallationIdentity
+from sentientos.installation_state import InstallationIdentity, InstallationStateHandle
 from sentientos.local_model_production_serving import _operation_id
 from sentientos.local_model_production_serving import _semantic_digest
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.chat_process_generation import (
+    publish_chat_process_handoff, source_generation,
+    verify_stored_chat_process_handoff, verify_supervised_chat_process_handoff,
+)
 
 from .services import ChildProcessServiceAdapter, HealthResult
 from .supervisor import RuntimeServiceDescriptor, ServiceRegistry
@@ -69,21 +75,66 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
     """Fixed-launcher child custody plus loopback semantic readiness."""
 
     def __init__(self, config: LocalModelChatStartup, *,
-                 probe: Callable[[str], bool] | None = None) -> None:
+                 probe: Callable[[str], bool] | None = None,
+                 installation_handle: InstallationStateHandle | None = None) -> None:
         config.validate()
         assert config.enabled and config.installation_identity and config.serving_operation_id
         root = Path(__file__).resolve().parents[2]
-        argv = self._launcher_argv(config, root=root)
+        if (installation_handle is not None
+                and installation_handle.identity.value != InstallationIdentity.parse(config.installation_identity).value):
+            raise ValueError("chat_process_handoff_installation_mismatch")
+        if installation_handle is not None and os.name != "posix":
+            raise ValueError("chat_process_handoff_publication_unsupported_platform")
         self._config = config
         self._root = root
-        super().__init__(name=SERVICE_ID, argv=argv, cwd=root, environment=os.environ)
+        self._installation_handle = installation_handle
+        self._handoff_id = uuid.uuid4().hex if installation_handle is not None else None
+        self._published_handoff_record: dict[str, object] | None = None
+        self._prior_startup_snapshot: dict[str, object] | None = None
+        environment = dict(os.environ)
+        for key in ("PYTHONHOME", "PYTHONSTARTUP", "PYTHONINSPECT", "PYTHONUSERBASE"):
+            environment.pop(key, None)
+        environment["PYTHONPATH"] = str(root)
+        environment["PYTHONNOUSERSITE"] = "1"
+        self._launch_environment = environment
+        argv = self._launcher_argv(config, root=root, runtime_handoff_id=self._handoff_id)
+        super().__init__(name=SERVICE_ID, argv=argv, cwd=root, environment=environment)
         self._readiness_url = f"http://{config.host}:{config.port}/readyz"
         self._probe = probe or _probe_readiness
         self._stopped = False
 
+    def bind_prior_startup_snapshot(self, snapshot: Mapping[str, object]) -> None:
+        if self._installation_handle is None:
+            raise ValueError("chat_process_handoff_installation_handle_required")
+        if snapshot.get("installation_identity") != self._installation_handle.identity.value:
+            raise ValueError("chat_process_predecessor_installation_mismatch")
+        snapshot_digest = snapshot.get("snapshot_semantic_digest")
+        supervisor_generation = snapshot.get("runtime_supervisor_generation")
+        if (not isinstance(snapshot_digest, str) or len(snapshot_digest) != 64
+                or any(character not in "0123456789abcdef" for character in snapshot_digest)
+                or not isinstance(supervisor_generation, str) or not supervisor_generation):
+            raise ValueError("chat_process_predecessor_snapshot_invalid")
+        self._prior_startup_snapshot = None
+        predecessor = snapshot.get("chat_process_handoff")
+        if predecessor is not None and not isinstance(predecessor, Mapping):
+            raise ValueError("chat_process_predecessor_handoff_malformed")
+        if isinstance(predecessor, Mapping):
+            historical = verify_stored_chat_process_handoff(
+                handle=self._installation_handle,
+                handoff_id=str(predecessor.get("handoff_id", "")),
+                expected_digest=str(predecessor.get("handoff_digest", "")))
+            for key in ("handoff_id", "handoff_digest", "process_instance_id",
+                    "software_generation_digest", "process_id", "parent_process_id",
+                    "startup_timestamp", "source_generation_scope"):
+                if predecessor.get(key) != historical.get(key):
+                    raise ValueError("chat_process_predecessor_handoff_mismatch")
+            self._prior_startup_snapshot = dict(snapshot)
+
     @staticmethod
     def _launcher_argv(config: LocalModelChatStartup, *, root: Path,
-                       expected_activation_state_digest: str | None = None) -> tuple[str, ...]:
+                       expected_activation_state_digest: str | None = None,
+                       runtime_handoff_id: str | None = None,
+                       expected_source_generation_digest: str | None = None) -> tuple[str, ...]:
         assert config.installation_identity is not None and config.serving_operation_id is not None
         argv: tuple[str, ...] = (sys.executable, str(root / "scripts" / "local_model_chat.py"),
                 "--installation-identity", config.installation_identity,
@@ -91,6 +142,10 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
                 "--host", config.host, "--port", str(config.port))
         if expected_activation_state_digest is not None:
             argv += ("--expected-activation-state-digest", expected_activation_state_digest)
+        if runtime_handoff_id is not None:
+            argv += ("--runtime-handoff-id", runtime_handoff_id)
+        if expected_source_generation_digest is not None:
+            argv += ("--expected-software-generation-digest", expected_source_generation_digest)
         if config.resource_provisioning_id is not None:
             argv += ("--resource-provisioning-id", config.resource_provisioning_id)
         return argv
@@ -108,10 +163,56 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         self._config = LocalModelChatStartup(True, self._config.installation_identity,
                                              replacement, self._config.host, self._config.port,
                                              self._config.resource_provisioning_id)
+        self._handoff_id = uuid.uuid4().hex if self._installation_handle is not None else None
+        self._published_handoff_record = None
         self._argv = self._launcher_argv(self._config, root=self._root,
-                                         expected_activation_state_digest=expected)
+            expected_activation_state_digest=expected, runtime_handoff_id=self._handoff_id)
         self._stopped = False
+        self.start()
+
+    def start(self) -> None:
+        if self._process is not None and self._process.poll() is None:
+            return
+        source_snapshot = None
+        if self._installation_handle is not None and self._handoff_id is not None:
+            source_snapshot = source_generation(self._root)
+            self._argv = self._launcher_argv(self._config, root=self._root,
+                runtime_handoff_id=self._handoff_id,
+                expected_source_generation_digest=source_snapshot[0])
         super().start()
+        if self._installation_handle is None or self._handoff_id is None:
+            return
+        process = self._process
+        if process is None or process.poll() is not None:
+            raise RuntimeError("chat_process_exited_before_handoff_publication")
+        startup_timestamp = datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+        try:
+            self._published_handoff_record = publish_chat_process_handoff(
+                handle=self._installation_handle, handoff_id=self._handoff_id,
+                argv=self._argv, environment=self._launch_environment,
+                working_directory=self._cwd, process_id=process.pid,
+                parent_process_id=os.getpid(), startup_timestamp=startup_timestamp,
+                python_executable=self._argv[0], repository_root=self._root,
+                prior_startup_snapshot=self._prior_startup_snapshot,
+                source_snapshot=source_snapshot)
+        except Exception:
+            self.force_stop()
+            raise
+
+    def current_runtime_handoff(self) -> dict[str, object] | None:
+        if self._installation_handle is None or self._handoff_id is None:
+            return None
+        process = self._process
+        if process is None or process.poll() is not None:
+            raise RuntimeError("chat_process_runtime_handoff_child_not_running")
+        try:
+            return verify_supervised_chat_process_handoff(
+                handle=self._installation_handle, handoff_id=self._handoff_id,
+                process_id=process.pid, parent_process_id=os.getpid(), argv=self._argv,
+                environment=self._launch_environment, working_directory=self._cwd,
+                python_executable=self._argv[0], repository_root=self._root)
+        except Exception as exc:
+            raise RuntimeError("chat_process_runtime_handoff_invalid") from exc
 
     @property
     def startup_configuration(self) -> LocalModelChatStartup:
@@ -125,8 +226,9 @@ class LocalModelChatServiceAdapter(ChildProcessServiceAdapter):
         process_health = super().health()
         if not process_health.ready:
             return HealthResult(False, "process_exited")
-        ready = self._probe(self._readiness_url)
-        return HealthResult(ready, "serving_current" if ready else "serving_unavailable")
+        if not self._probe(self._readiness_url):
+            return HealthResult(False, "serving_unavailable")
+        return HealthResult(True, "serving_current")
 
     def stop(self) -> None:
         if self._stopped:
@@ -154,15 +256,21 @@ def _probe_readiness(url: str) -> bool:
 
 def build_runtime_service_registry(
     config: LocalModelChatStartup,
-    *, adapter_factory: Callable[[LocalModelChatStartup], LocalModelChatServiceAdapter] = LocalModelChatServiceAdapter,
+    *, adapter_factory: Callable[..., LocalModelChatServiceAdapter] = LocalModelChatServiceAdapter,
+    installation_handle: InstallationStateHandle | None = None,
 ) -> ServiceRegistry:
     """Build the canonical registry without touching serving when chat is disabled."""
     config.validate()
     registry = ServiceRegistry()
-    adapter = adapter_factory(config) if config.enabled else DisabledLocalModelChatAdapter()
+    service_adapter: LocalModelChatServiceAdapter | DisabledLocalModelChatAdapter
+    if config.enabled:
+        service_adapter = (adapter_factory(config, installation_handle=installation_handle)
+                   if installation_handle is not None else adapter_factory(config))
+    else:
+        service_adapter = DisabledLocalModelChatAdapter()
     registry.register(RuntimeServiceDescriptor(
         service_id=SERVICE_ID, display_name="Hardened local-model chat",
         service_kind="hardened_local_model_chat", enabled=config.enabled,
         health_posture="semantic", restart_policy="never", restart_budget=0,
-    ), adapter)
+    ), service_adapter)
     return registry

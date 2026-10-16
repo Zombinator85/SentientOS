@@ -3,9 +3,10 @@
 This module supplies storage mechanics only.  An installation identity and a state
 handle are not capabilities and confer no model-catalog deployment authority.
 
-The strong implementation currently requires POSIX descriptor-relative opens,
-``O_NOFOLLOW``, kernel ``flock``, ``fsync``, and same-directory ``os.replace``.
-Other platforms fail closed rather than silently weakening the durability promise.
+Mutation and lock custody require POSIX descriptor-relative opens, ``O_NOFOLLOW``,
+kernel ``flock``, ``fsync``, and same-directory ``os.replace``. Windows exposes
+only an independently handle-bound read-only view; it does not emulate mutation
+or interprocess locking.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Callable
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 try:
     import fcntl
@@ -30,6 +32,8 @@ _IDENTITY_RE = re.compile(r"[a-z][a-z0-9-]{0,62}\Z")
 _WINDOWS_RESERVED = frozenset(
     {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
 )
+_READ_ONLY_VIEW_TOKEN = object()
+_WINDOWS_READ_ONLY_VIEW_TOKEN = object()
 
 
 class InstallationStateError(RuntimeError):
@@ -154,6 +158,23 @@ class InstallationStateRegistry:
         _verify_absolute_directory_chain(root)
         return InstallationStateHandle._authenticated(identity, root, self)
 
+    def open_read_only(self, identity: InstallationIdentity) -> "InstallationStateReadOnlyView | WindowsInstallationStateReadOnlyView":
+        """Open one installation identity through an API with no state-mutation operations."""
+        root = self.state_root_for(identity)
+        if os.name == "nt":
+            try:
+                # Empty explicit selection validates the exact installation
+                # root through the Windows handle walker without enumerating it.
+                read_regular_files(root, max_entries=1, max_file_bytes=1,
+                    max_total_bytes=1, selected_names=())
+            except WindowsHandleCustodyError as exc:
+                raise InstallationStateError("installation_state_root_unavailable_or_unsafe") from exc
+            return WindowsInstallationStateReadOnlyView._from_registry(identity, root, self)
+        _require_platform_contract()
+        _verify_absolute_directory_chain(root)
+        handle = InstallationStateHandle._authenticated(identity, root, self)
+        return InstallationStateReadOnlyView._from_handle(handle)
+
 
 @dataclass(frozen=True, init=False)
 class InstallationStateHandle:
@@ -259,6 +280,17 @@ class InstallationStateHandle:
         finally:
             os.close(parent_fd)
 
+    def read_regular_bounded(self, obj: InstallationStateObject, *, max_bytes: int) -> bytes:
+        """Read one fixed installation object without following links or exceeding a byte bound."""
+        self._require_bound(obj)
+        if type(max_bytes) is not int or max_bytes < 1:
+            raise InstallationStateError("invalid_read_bound")
+        parent_fd, name = _open_parent(self.root, obj.relative.parts)
+        try:
+            return _read_regular_at_bounded(parent_fd, name, max_bytes=max_bytes)
+        finally:
+            os.close(parent_fd)
+
     def read_optional_regular(self, obj: InstallationStateObject) -> bytes | None:
         """Securely read a regular object, distinguishing only genuine absence.
 
@@ -275,13 +307,37 @@ class InstallationStateHandle:
         finally:
             os.close(parent_fd)
 
-    def list_regular_names(self, directory: InstallationStateObject) -> tuple[str, ...]:
+    def read_optional_regular_bounded(self, obj: InstallationStateObject, *, max_bytes: int) -> bytes | None:
+        """Bounded descriptor-safe optional read; only a genuinely absent name is absence."""
+        self._require_bound(obj)
+        if type(max_bytes) is not int or max_bytes < 1:
+            raise InstallationStateError("invalid_read_bound")
+        parent_fd, name = _open_parent(self.root, obj.relative.parts)
+        try:
+            try:
+                os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                return None
+            return _read_regular_at_bounded(parent_fd, name, max_bytes=max_bytes)
+        finally:
+            os.close(parent_fd)
+
+    def list_regular_names(self, directory: InstallationStateObject, *, max_entries: int | None = None) -> tuple[str, ...]:
         """Enumerate a fixed, bound state directory without following substitutions."""
         self._require_bound(directory)
+        if max_entries is not None and (type(max_entries) is not int or max_entries < 1):
+            raise InstallationStateError("invalid_directory_entry_bound")
         _require_platform_contract()
         fd = _open_directory(self.root, directory.relative.parts)
         try:
-            names = sorted(os.listdir(fd))
+            names: list[str] = []
+            with os.scandir(fd) as entries:
+                for entry in entries:
+                    name = entry.name
+                    if max_entries is not None and len(names) >= max_entries:
+                        raise InstallationStateError("state_directory_entry_bound_exceeded")
+                    names.append(name)
+            names.sort()
             for name in names:
                 if name in {".", ".."} or "/" in name or "\\" in name:
                     raise InstallationStateError("state_directory_entry_invalid")
@@ -297,6 +353,82 @@ class InstallationStateHandle:
     def _require_bound(self, obj: InstallationStateObject) -> None:
         if not isinstance(obj, InstallationStateObject) or obj._handle is not self:
             raise InstallationStateError("state_object_binding_mismatch")
+
+
+class InstallationStateReadOnlyView:
+    """Read-only capability view over fixed installation custody objects."""
+
+    __slots__ = ("_handle",)
+
+    def __init__(self, handle: InstallationStateHandle, *, _token: object = None) -> None:
+        if _token is not _READ_ONLY_VIEW_TOKEN or type(handle) is not InstallationStateHandle:
+            raise InstallationStateError("read_only_view_construction_forbidden")
+        self._handle = handle
+
+    @classmethod
+    def _from_handle(cls, handle: InstallationStateHandle) -> "InstallationStateReadOnlyView":
+        return cls(handle, _token=_READ_ONLY_VIEW_TOKEN)
+
+    @property
+    def identity(self) -> InstallationIdentity:
+        return self._handle.identity
+
+    def read_optional_regular_bounded(self, relative: str, *, max_bytes: int) -> bytes | None:
+        return self._handle.read_optional_regular_bounded(
+            self._handle.fixed_object(relative), max_bytes=max_bytes)
+
+    def read_regular_bounded(self, relative: str, *, max_bytes: int) -> bytes:
+        return self._handle.read_regular_bounded(
+            self._handle.fixed_object(relative), max_bytes=max_bytes)
+
+    def list_regular_names(self, relative: str, *, max_entries: int) -> tuple[str, ...]:
+        return self._handle.list_regular_names(
+            self._handle.fixed_object(relative), max_entries=max_entries)
+
+
+class WindowsInstallationStateReadOnlyView:
+    """Windows installation custody view with bounded reads and no write API."""
+
+    __slots__ = ("identity", "root", "_registry")
+
+    def __init__(self, identity: InstallationIdentity, root: Path,
+                 registry: InstallationStateRegistry, *, _token: object = None) -> None:
+        if (_token is not _WINDOWS_READ_ONLY_VIEW_TOKEN
+                or root != registry.state_root_for(identity)):
+            raise InstallationStateError("read_only_view_construction_forbidden")
+        self.identity, self.root, self._registry = identity, root, registry
+
+    @classmethod
+    def _from_registry(cls, identity: InstallationIdentity, root: Path,
+                       registry: InstallationStateRegistry) -> "WindowsInstallationStateReadOnlyView":
+        return cls(identity, root, registry, _token=_WINDOWS_READ_ONLY_VIEW_TOKEN)
+
+    def _path(self, relative: str) -> Path:
+        parsed = StateRelativePath.parse(relative)
+        return self.root.joinpath(*parsed.parts)
+
+    def read_optional_regular_bounded(self, relative: str, *, max_bytes: int) -> bytes | None:
+        try:
+            return read_explicit_file(self._path(relative), max_bytes=max_bytes)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return None
+            raise InstallationStateError("state_read_failed") from exc
+
+    def read_regular_bounded(self, relative: str, *, max_bytes: int) -> bytes:
+        try:
+            return read_explicit_file(self._path(relative), max_bytes=max_bytes)
+        except WindowsHandleCustodyError as exc:
+            raise InstallationStateError("state_read_failed") from exc
+
+    def list_regular_names(self, relative: str, *, max_entries: int) -> tuple[str, ...]:
+        directory = self.root.joinpath(*StateRelativePath.parse(relative).parts)
+        try:
+            entries = read_regular_files(directory, max_entries=max_entries,
+                max_file_bytes=4_194_304, max_total_bytes=16_777_216, suffix="")
+        except WindowsHandleCustodyError as exc:
+            raise InstallationStateError("state_directory_enumeration_failed") from exc
+        return tuple(name for name, _ in entries)
 
 
 class ExclusiveStateLock:
@@ -356,6 +488,8 @@ def _verify_absolute_directory_chain(path: Path) -> None:
             next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
                               dir_fd=fd)
             os.close(fd); fd = next_fd
+    except FileNotFoundError as exc:
+        raise InstallationStateError("installation_state_root_missing") from exc
     except OSError as exc:
         raise InstallationStateError("installation_state_root_unsafe") from exc
     finally:
@@ -393,6 +527,9 @@ def _open_parent(root: Path, parts: tuple[str, ...]) -> tuple[int, str]:
                               dir_fd=fd)
             os.close(fd); fd = next_fd
         return fd, parts[-1]
+    except FileNotFoundError as exc:
+        os.close(fd)
+        raise InstallationStateError("state_parent_missing") from exc
     except OSError as exc:
         os.close(fd)
         raise InstallationStateError("state_parent_unsafe") from exc
@@ -406,6 +543,9 @@ def _open_directory(root: Path, parts: tuple[str, ...]) -> int:
             os.close(fd)
             fd = next_fd
         return fd
+    except FileNotFoundError as exc:
+        os.close(fd)
+        raise InstallationStateError("state_directory_missing") from exc
     except OSError as exc:
         os.close(fd)
         raise InstallationStateError("state_directory_unsafe") from exc
@@ -438,6 +578,32 @@ def _read_regular_at(parent_fd: int, name: str) -> bytes:
                 chunks.append(block)
         finally:
             os.close(fd)
+    except OSError as exc:
+        raise InstallationStateError("state_object_read_failed") from exc
+
+
+def _read_regular_at_bounded(parent_fd: int, name: str, *, max_bytes: int) -> bytes:
+    try:
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent_fd)
+        try:
+            _require_regular_fd(fd)
+            info = os.fstat(fd)
+            if info.st_size > max_bytes:
+                raise InstallationStateError("state_object_size_bound_exceeded")
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                block = os.read(fd, min(65536, max_bytes + 1 - total))
+                if not block:
+                    return b"".join(chunks)
+                chunks.append(block)
+                total += len(block)
+                if total > max_bytes:
+                    raise InstallationStateError("state_object_size_bound_exceeded")
+        finally:
+            os.close(fd)
+    except InstallationStateError:
+        raise
     except OSError as exc:
         raise InstallationStateError("state_object_read_failed") from exc
 

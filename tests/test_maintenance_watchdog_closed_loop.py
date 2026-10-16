@@ -7,6 +7,8 @@ import pytest
 from scripts.maintenance_loop_watchdog import main
 from sentientos import maintenance_loop_watchdog as watchdog
 from sentientos.maintenance_validation_controller import ValidationPolicy
+from sentientos import maintenance_validation_controller as validation
+from sentientos import maintenance_task_journal as journal
 from tests.maintenance_watchdog_implementation_fixtures import NOW, setup
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -40,6 +42,21 @@ def test_production_cli_process_real_fake_cycle_reaches_idle(tmp_path, capsys):
     assert len(list((state / "maintenance_leases").glob("*.json"))) == 1
     assert len(list((state / "maintenance_agent_sessions").glob("*.json"))) == 1
     assert len(list((state / "maintenance_validation_results").glob("*.json"))) == 2
+    results=[json.loads(path.read_text()) for path in (state/'maintenance_validation_results').glob('*.json')]
+    failed=next(r for r in results if r['terminal_status']=='validation_failed_correctable')
+    passed=next(r for r in results if r['terminal_status']=='validation_ready_for_commit')
+    assert failed['validation_ref_id']!=passed['validation_ref_id']
+    assert failed['result_digest']==validation.seal(failed,'result_digest')
+    assert passed['cumulative_task_validation_seconds']==failed['total_budget_consumed_seconds']+passed['total_budget_consumed_seconds']
+    old_commands=[json.loads(path.read_text()) for path in (state/'maintenance_validation_commands'/failed['validation_ref_id']).glob('*.json')]
+    assert any(c['exit_code']!=0 for c in old_commands)
+    assert all(c['result_digest']==validation.seal(c,'result_digest') for c in old_commands)
+    replay=journal.replay_journal(journal.journal_path_for(state,failed['task_id'],repo_root=repo))
+    ready=[e for e in replay.events if e.event_type=='ready_to_commit_recorded']
+    # The controller and the commit owner each record their existing readiness
+    # event; neither may name the failed corrective cycle.
+    assert ready and {e.payload['validation_ref_id'] for e in ready}=={passed['validation_ref_id']}
+    assert any(e.event_type=='validation_failed' and e.payload['result_digest']==failed['result_digest'] for e in replay.events)
     assert len(list((state / "maintenance_commit_results").glob("*.json"))) == 1
     assert len(list((state / "maintenance_publication_results").glob("*.json"))) == 1
     invocations = list((state / "maintenance_codex_invocations").glob("*.json"))

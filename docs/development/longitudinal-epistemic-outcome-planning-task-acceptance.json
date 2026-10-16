@@ -1,0 +1,37 @@
+{
+  "task_id": "longitudinal-epistemic-outcome-planning",
+  "version": 1,
+  "required_pytest_nodes": [
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_prior_partial_or_unknown_outcome_informs_later_plan",
+      "role": "successful_path",
+      "expected": "An exact recovered partial or unknown non-idempotent outcome is bound into a later plan, suppresses replay of that goal's destructive apply step, and leaves independent goal work eligible."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_prior_plan_without_recovered_run_blocks_outcome_informed_planning",
+      "role": "authority_boundary",
+      "expected": "A caller-supplied prior plan without its exact persisted run cannot influence planning."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_partial_forge_outcome_is_durable_and_does_not_satisfy_dependency",
+      "role": "integration",
+      "expected": "A partial forge outcome remains distinct from success, does not satisfy its dependent task, and survives work-run and journal recovery."
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer",
+      "role": "integration",
+      "expected": "Adverse and supporting outcomes survive owner and process reconstruction; contested history changes later cognition, gates the tagged destructive plan, and under a constrained budget defers the tagged goal while selecting an independent goal. The projection digest is retained in planning evidence."
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_non_meaning_bearing_epistemic_projection_cannot_influence_planning",
+      "role": "authority_boundary",
+      "expected": "A legacy projection without canonical proposition and active-evidence meaning is rejected before it can affect task planning."
+    }
+  ],
+  "non_claims": [
+    "a partial task outcome establishes goal completion",
+    "a prior run grants operator mutation authority",
+    "the fixture demonstrates production learning or external truth",
+    "unknown non-idempotent work may be replayed"
+  ]
+}

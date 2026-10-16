@@ -1,0 +1,20 @@
+{
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "enabled_forge_invalid_custody_and_forge_queue_daemon": "22 passed with -m legacy",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "Index rebuild is observability only and adds no authorization or recovery behavior.",
+    "Test uses a fixture effector solely to prove the real daemon never calls it on invalid custody.",
+    "No production operation or external effect was run; construction remains unverified for production."
+  ],
+  "ordering": [
+    "request receipt is durably marked rejected_quarantine_custody",
+    "rejection event is emitted through the ordinary Forge event owner",
+    "ordinary index rebuild publishes null active state and typed invalid custody"
+  ],
+  "scope": "refresh Forge observability after terminal rejection for invalid quarantine custody",
+  "security_observation": "The real enabled daemon test's effector call count remains zero; the rejected receipt and index snapshot both identify the custody failure.",
+  "status": "focused_hermetic_daemon_to_index_path_verified_not_production_acceptance"
+}

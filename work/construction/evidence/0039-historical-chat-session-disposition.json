@@ -1,0 +1,49 @@
+{
+  "authority": false,
+  "dispositions": [
+    {
+      "classification": "B_superseded_by_stronger_current_contract",
+      "current_owner_behavior": "Current chat code binds each assistant turn to the exact invocation receipt, active serving identity and observed loaded identity; verifies serving lifetime against the same session/user turn; only labels activation predecessor continuity after verifying the prior invocation receipt and adjacent activation predecessor state. Production configuration requires a launcher-issued process handoff, puts transcript files under the installation handle and rejects memory roots overlapping installation custody.",
+      "evidence": "Current source blob 33f8ba2a; production chat configuration and process-generation fixture tests; current chat/session test module.",
+      "historical_behavior": "allow an existing conversation after serving model identity changes; persist exact active/loaded identities, invocation receipt and predecessor relationship; store production transcripts under installation custody while keeping canonical memory user-scoped.",
+      "path": "sentientos/chat_service.py"
+    },
+    {
+      "classification": "B_superseded_by_stronger_current_contract",
+      "current_owner_behavior": "Current store uses held-handle/no-follow reads, rejects unsupported publication platforms, validates sequence/revision/turn IDs/text digests/timestamps/model identities, and binds selected roles plus linkage digests into the context snapshot digest. The assembled history remains an untrusted data block.",
+      "evidence": "Current source blob 23154303; chat/session recovery and end-to-end resource/process-generation tests.",
+      "historical_behavior": "read session custody with bounded safe reads, validate turn IDs/content/timestamps/linkage/model digests, include role and linkage in context snapshot identity, and label per-turn identity provenance as untrusted.",
+      "path": "sentientos/conversation_session.py"
+    }
+  ],
+  "effects_performed": [],
+  "historical_artifact": {
+    "bytes": 399831,
+    "path": "/tmp/sentientos-original-candidate-2e320/tracked-changes-excluding-conflicted-journal.patch",
+    "sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307"
+  },
+  "limitations": [
+    "The hardened chat module uses a fixture inference/verifier for service-level contract checks; it is not end-to-end production receipt evidence.",
+    "The existing process/resource integration uses deterministic fixture inference and proves the fixture owner path, not real-model learning or production behavior."
+  ],
+  "production_verified": false,
+  "source": {
+    "current_blobs": {
+      "sentientos/chat_service.py": "33f8ba2aa67e9ee1cc03c28a2bf29390deae960e",
+      "sentientos/conversation_session.py": "231543032c451bbb730398934749494ea2a05552",
+      "tests/test_chat_service_hardened_serving.py": "b6ff2d1720feff02eecdfee656bbc092d6e2d17b"
+    },
+    "parent_commit": "5df255579b8ee82e26ff95893a3e74f3ff230068",
+    "parent_tree": "ee85199169305464c82f7f4b92bff4cafe0ac740",
+    "tested_source_tree": "ba6ab40c99deede9659e7c768f3cac45a9d5d4ad"
+  },
+  "test_reconciliation": {
+    "broader_chat_owner_run": "Interrupted after approximately 90 seconds because selected chat recovery/runtime tests had not completed; no result is claimed for the broad run.",
+    "compilation": "test module compiled",
+    "focused_command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q --tb=short tests/test_chat_service_hardened_serving.py",
+    "focused_failed": 0,
+    "focused_passed": 10,
+    "prior_failures": "The preserved hardened chat unit test still called production configuration without the now-required runtime process handoff, and its fake successful inference receipt lacked current output and lineage fields. These failures were stale test contracts, not evidence that production should bypass the handoff or output-verification gates.",
+    "repair": "Updated the unit fixture to verify the required missing-handoff refusal before custody, provide a bounded fixture receipt contract to the service unit, assert model-switch continuity only when the prior fixture receipt verifies the adjacent activation lineage, and expect predecessor invocation/runtime handoff linkage on later calls."
+  }
+}

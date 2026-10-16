@@ -1,0 +1,87 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_resource_observation_world_state_integration.py::test_explicit_read_only_resource_owner_reaches_runtime_world_state": 0,
+    "sentientos/tests/test_resource_observation_world_state_integration.py::test_owner_produced_invocation_and_debit_reach_world_state": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 2,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "048165ac821d72134e304e3dfa889927d0a6b80a",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "sentientos/tests/test_resource_observation_world_state_integration.py::test_explicit_read_only_resource_owner_reaches_runtime_world_state",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_resource_observation_world_state_integration.py::test_owner_produced_invocation_and_debit_reach_world_state",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "cab3b3ef0e6db627d36783fe08551798fb77a71bf6c812067f5b804ab5125613",
+  "provenance_hash": "b434844eef2f8ba3521c82a8e838f9992c8c2ba5c7a0f061036a657ffeb79fe1",
+  "pytest_args": [
+    "sentientos/tests/test_resource_observation_world_state_integration.py",
+    "-q",
+    "--junitxml=/tmp/gr5-resource-worldstate-junit.xml"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/tmp/sentientos-gr5-venv/bin/python",
+  "repo_root": "/workspace/work/sentientos-gr5",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "595078fddb0049ba9ffe7fc0af5c5ff5",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "sentientos/tests/test_resource_observation_world_state_integration.py::test_explicit_read_only_resource_owner_reaches_runtime_world_state",
+    "sentientos/tests/test_resource_observation_world_state_integration.py::test_owner_produced_invocation_and_debit_reach_world_state"
+  ],
+  "selection_flags": [
+    "sentientos/tests/test_resource_observation_world_state_integration.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 2,
+  "tests_executed": 2,
+  "tests_failed": 0,
+  "tests_passed": 2,
+  "tests_selected": 2,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T22:58:13.750655+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

@@ -1,0 +1,44 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "commands": [
+      "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest --override-ini addopts= -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixture_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 164,
+    "production_acceptance": "deferred",
+    "tests": [
+      "composition-state bytes unchanged by completed progression report",
+      "incomplete report leaves state bytes unchanged before explicit recovery",
+      "legacy-compatible state parsing",
+      "same/different generation control progression",
+      "child-process readback preserves fixture posture",
+      "interrupted score run recovers and reaches later World-State/writeback"
+    ]
+  },
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 249355,
+      "git_blob": "c7a4a48c1b15d9f3169644b6c274007c51e60885",
+      "sha256": "c73e76f9868b9118b689d17092f05af3d6005584acfdba785d4f559444e3093b"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 211429,
+      "git_blob": "a55a021e26a9eebd158e1107093dd319392afedf",
+      "sha256": "bb8cfd46a825d8d7f1668cd7970571043306a8d19fd617056244a72a47d61561"
+    }
+  },
+  "implementation": {
+    "compatibility": "Legacy v1 composition checkpoints without incomplete_ticks remain readable for inspection.",
+    "completed_semantics": "Only tick-completed task-family runs are scored for progression, using exact request and invocation receipt verifiers.",
+    "incomplete_semantics": "A referenced interrupted episode is returned as incomplete after all request identities are checked; it is not silently omitted, reconstructed, or promoted by the inspector.",
+    "state_read": "Reads one bounded, canonical, digest-verified composition checkpoint via the explicit custody reader; no _state() recovery or state publication."
+  },
+  "objective": "Ensure progression inspection is genuinely read-only and preserves truthful incomplete episode state.",
+  "schema_version": 1,
+  "sequence": 131,
+  "source_commit": "5a369cbe18b630e05e9c60302ce511480688f266",
+  "source_tree": "38d118ba2ea985fac7789869910fc783bc532ef7"
+}

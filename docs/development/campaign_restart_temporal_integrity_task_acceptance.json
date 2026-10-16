@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "0df408435dd8a7cd96a462ecd5a586eeb4a532d8",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_reconstruction_keeps_historical_event_time_after_restart",
+      "rationale": "Fresh daemon process reconstructs a selected durable result and retains its historical event time and proposal-only posture."
+    },
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_plane_uses_only_selected_recovered_campaign_results",
+      "rationale": "Control-plane admission routes the selected recovered result while preserving lineage and zero-effect boundaries."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_reconstruction_keeps_historical_event_time_after_restart"
+  ]
+}

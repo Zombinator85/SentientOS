@@ -1,21 +1,39 @@
 # SentientOS Documentation
 
-## Start with the current architecture
+## Start with purpose, map, and status
 
-- [Current Architecture](architecture/public_technical_overview.md) — canonical present-tense system anatomy and maturity boundaries.
-- [Current System Atlas](architecture/system_atlas_index.md) — pointer to the fresh SHA-bound census and preserved historical snapshots.
-- [Whole-System Maturity Report](architecture/whole_system_maturity_report.md) — lifecycle-by-lifecycle implementation, composition, production evidence, and projected closure.
+- [Current Architecture](architecture/public_technical_overview.md) — runtime anatomy, source scope, composition, and evidence boundaries.
+- [Current System Atlas](architecture/system_atlas_index.md) — pointer to the newest immutable SHA-bound census and preserved historical snapshots.
+- [Whole-System Maturity Report](architecture/whole_system_maturity_report.md) — lifecycle-by-lifecycle implementation, composition, production evidence, and projected closure at the selected source.
+- [Source-bound system atlas](architecture/repository_system_atlas_84c5687c.md) — exact tree census, owner paths, explicit configuration, temporal boundaries, and known gaps.
 - [Relationship to Established Terminology](architecture/relationship_to_existing_terminology.md) — qualified comparisons to AOS, cognitive architecture, memory, embodiment, runtime assurance, and software-evolution literature.
-- [Project Thesis and Maturity](architecture/sentientos_project_thesis.md) — cradle hypothesis, philosophy, invariants, and current maturity.
+- [Project Thesis](architecture/sentientos_project_thesis.md) — developmental ambition, philosophy, and invariants.
 - [Roadmap and Research Trajectory](architecture/sentientos_trajectory_and_missing_organs.md) — deferred organs and research horizons.
 - [Reviewer Release Readiness](architecture/reviewer_release_readiness_index.md) — subsystem proof and historical landing evidence.
 
-Current architecture and terminology pages describe the integrated present. Subsystem
-contracts define bounded capability details; historical phase/proof documents preserve
-the status at their landing and must not be read as a newer CURRENT summary.
+SentientOS aims to become a continuing, world-coupled developmental operating
+environment in which experience can affect later cognition, strategy, procedure,
+and conduct across replaceable cognitive and software machinery. Hosted operation
+is the present implementation trajectory; native trusted-substrate ownership is
+the intended lower-layer trajectory. This ambition does not imply a runtime belief,
+motivational directive, or present capability.
 
+For this documentation update, published `main` was observed at
+`197e2a4ceeb13ab59a88fd531283355e15e1fd7d`; the frozen construction source is
+`84c5687c841e83187d8017c4b84fd6b038937432` with tree
+`20c7a14e8909c63d108c94f07cc088357a16943e`; and the atlas index selects that
+immutable source snapshot. Construction source commit `1770ab54e2c87a4a2c83ddd4d4c34afd6f6027db`
+adds the opt-in resource-consumption observer after that census; it is not folded
+into the immutable atlas and has only compilation checks. The earlier `b7df2a07`
+census remains preserved in the historical chain.
+Production evidence is separate and requires qualifying real execution or
+observation. An implementation or composed path does not establish a production
+event, consequence, learning, or improvement. The atlas captures source structure;
+it does not assert independently observed execution or production outcomes.
 
-SentientOS is a developmental operating-system architecture for persistent machine cognition with replaceable cognitive and software machinery. Its current implementation is hosted; native substrate ownership remains a projected trajectory.
+Subsystem contracts define bounded capability details; historical phase and proof
+documents preserve status at their landing and do not override later source or
+evidence.
 
 ## Start here
 
@@ -30,10 +48,11 @@ SentientOS is a developmental operating-system architecture for persistent machi
 - [architecture/guarded_executor_path_packet.md](architecture/guarded_executor_path_packet.md) — metadata-only guarded executor path packet for later guarded invocation packet review.
 
 ```{toctree}
-:maxdepth: 2
+:hidden:
+:glob:
 
-api/index
-experimental_features
+*
+**/*
 ```
 
 ## Documentation build dependency contract
@@ -57,8 +76,13 @@ current docs dependency surface is the `docs` optional dependency group in
 `pyproject.toml`, mirrored by `scripts/build_docs.py` for the minimal bootstrap
 path.
 
-SentientOS prioritizes operator accountability, auditability, and safe
-shutdown.
+Governance preserves the difference between epistemic claims, motivational
+assumptions, and authority over consequences. Evidence can change what is
+justified without authorizing action. Hard operational boundaries should coexist
+with an open developmental interior: **constraint is not motivation**, and
+**NO_GRADIENT is not NO_LEARNING**. Preserve justified conclusions across
+contributor handoffs with their scope, evidence, rejected objections, and
+conditions for reopening; a new session alone does not invalidate them.
 
 The [causal introspection topology](architecture/causal_introspection_topology.md)
 documents bounded owner-local self-observation, immutable snapshot custody, and
@@ -66,7 +90,7 @@ the next-tick World-State firewall.
 
 ## Cold-start current-state path
 
-Read, in order: the repository [README](../README.md), [one-page thesis](../one_pager.md),
+Read, in order: the repository [README](https://github.com/Zombinator85/SentientOS/blob/main/README.md), [one-page thesis](https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md),
 [public technical overview](architecture/public_technical_overview.md), [project
 thesis](architecture/sentientos_project_thesis.md), [whole-system maturity
 report](architecture/whole_system_maturity_report.md), [trajectory and open

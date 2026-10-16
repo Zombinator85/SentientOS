@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "sequence": 219,
+  "title": "Journal interrupted goal tasks",
+  "source_commit": "9c1c01eddb320761d94f6e06485d01d91e7ab754",
+  "source_tree": "6364b11e4b7f44fc675211f61f68231893beb8de",
+  "source_files": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "git_blob_sha": "8cf3a509e830a0a731e062f7f6cf51c65b71f16e"
+    },
+    {
+      "path": "sentientos/work_plan_execution_journal.py",
+      "git_blob_sha": "84f56b87cce0804c119950bc50c3ceff8b4bf55e"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_run.py",
+      "git_blob_sha": "7eeb301a21cf2d428aa67a2069a24f29096da38e"
+    },
+    {
+      "path": "sentientos/tests/test_work_plan_execution_journal.py",
+      "git_blob_sha": "bc5ae3a11b5cf6f4dc32b057ed518644e1a6c26a"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_work_plan_execution_journal.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_state_update.py",
+      "sentientos/tests/test_work_plan_load.py"
+    ],
+    "passed_test_count": 27,
+    "compiled": [
+      "sentientos/goal_executor.py",
+      "sentientos/work_plan_execution_journal.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_work_plan_execution_journal.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "task-start event is durably appended before execution and terminal event after execution",
+      "fresh executor does not replay a task with an existing terminal result",
+      "a started task without a terminal result remains explicitly unknown and is not replayed",
+      "independent tasks in the same plan can continue",
+      "journal digest and exact plan binding are validated"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:4ecf6029c598fb598c5dc7fc2f7eeb2f4604edaa8f1d57f58116d7bbc033f103"
+}

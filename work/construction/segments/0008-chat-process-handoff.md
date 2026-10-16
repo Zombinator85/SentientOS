@@ -1,0 +1,9 @@
+## 2026-10-12 — exercise the installed chat process-generation handoff
+
+- Fresh GitHub source at start was `b7b7f496d71368867f901b8022bee93b271ee057`, tree `0457c7f172f948d4e2a6f3236f24777888748efe`; `main` remained its ancestor at `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Traced the canonical `RuntimeSupervisor` → `LocalModelChatServiceAdapter` → child `scripts/local_model_chat.py` path. The adapter already issues installation-scoped, source-measured handoffs; parent and child verifiers preserve separate liveness/identity checks. This is source-level issuer composition and local process evidence, not system attestation.
+- A real subprocess test revealed `_canonical()` converted an argv list to `dict`, making the actual handoff publisher fail before custody publication. Changed canonical serialization to preserve JSON arrays while retaining mapping semantics.
+- Added a hermetic process test that uses the actual adapter `start()` and durable handoff publisher, then verifies the live child from parent and child, including exact process-instance and software-generation identities. No model, inference, or production activation is used.
+- Corrected the startup test's stale public signature assertion to include the existing explicit trusted installation-handle injection.
+- Focused startup tests passed 17/17 with `--noconftest`; changed files compiled and `git diff --check` passed. Exact command and limits are recorded in `work/chat_process_handoff_acceptance.json`.
+- Next dependency: join the authenticated process handoff to an invocation receipt and read-only resource projection in one fixture, then trace eligibility through configured World-State and later cognition. Production model activation, real model behavior, host resource measurement, and production acceptance remain unverified.

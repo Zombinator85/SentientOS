@@ -1,0 +1,58 @@
+{
+  "classification": "deterministic_fixture_only_no_real_model_invoked",
+  "cold_process_run_recovery": "completed immutable run and objective score revalidated in a fresh Python child process; no inference replay",
+  "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/gr5-objective-governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/gr5-objective-runtime PULSE_TRUST_EPOCH_ROOT=/tmp/gr5-objective-pulse PULSE_TRUST_EPOCH_STATE=/tmp/gr5-objective-pulse/state.json SENTIENTOS_FEDERATION_ROOT=/tmp/gr5-objective-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/gr5-objective-kernel /tmp/sentientos-gr5-venv/bin/python -m scripts.run_tests tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_cognition.py -q --junitxml=/tmp/gr5-objective-final.xml",
+  "compilation": "py_compile passed for all three modified Python files",
+  "errors": 0,
+  "failures": 0,
+  "limitations": [
+    "fixture invoker only",
+    "no actual local model called",
+    "does not establish general learning or weight change",
+    "interrupted mid-trial objective reconstruction not yet covered"
+  ],
+  "modified_tested_file_sha256": {
+    "sentientos/developmental_history_intervention_experiment.py": "caafdd27faa93e6643dc78132061587e38b8c0885fa4fe3230ce64103d325ed4",
+    "sentientos/resident_developmental_cognition.py": "a20bd2fdf6be2cd3252619692afcc929b4e6df4a44ae6115191f5a10d519ab07",
+    "tests/test_resident_developmental_cognition.py": "3b102d07a9749b5d8bd9708f1cc105e2c0ea998d15794b5c82d1abc4ce427e70"
+  },
+  "plan_order": "canonical objective task plan persisted before the first condition inference",
+  "schema_version": "sentientos.construction.objective_experiment_result:v1",
+  "skipped": 0,
+  "test_outcomes": {
+    "degradation": {
+      "correctness_delta": -1,
+      "history_present": false,
+      "history_withheld": true,
+      "restored": false
+    },
+    "history_associated_improvement": {
+      "correctness_delta": 1,
+      "history_present": true,
+      "history_withheld": false,
+      "restored": true
+    },
+    "malformed_duplicate_key": "incorrect_not_success",
+    "missing_output": "unscoreable_missing_output",
+    "no_difference": {
+      "correctness_delta": 0,
+      "history_present": true,
+      "history_withheld": true,
+      "restored": true
+    },
+    "rehashed_score_substitution": "rejected_on_recovery",
+    "unstable_restored_history": {
+      "history_present": true,
+      "history_withheld": false,
+      "restoration_correctness_stable": false,
+      "restored": false
+    }
+  },
+  "tests": 108,
+  "typing": "mypy executable was unavailable in this environment; no typing result claimed",
+  "verified_base_commit": "180b15e4f3bcf39d8813e54337509880c99817d5",
+  "verified_base_tree": "3780cf0446ddc58d431596d959da69da25577e5c",
+  "workspace_git_head": "048165ac821d72134e304e3dfa889927d0a6b80a",
+  "workspace_git_head_is_not_test_source_identity": true,
+  "workspace_staged_tree_matches_verified_base": true
+}

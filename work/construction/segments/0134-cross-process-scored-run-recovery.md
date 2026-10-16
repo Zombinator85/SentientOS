@@ -1,0 +1,8 @@
+# 0134 — recover an interrupted scored episode in a child process
+
+- Continues from freshly reverified source commit `761ad22f30e5a0fb8dd3c6673b5f0c58682d4a11`, tree `7f68449a3e3e0b1063749d6034ba44479fb5323b`.
+- The task-family recovery test now serializes the fixture-issued governed invocation receipts, launches a separate Python interpreter, reconstructs the admission ledger, writeback owner, cognition owner, and experiment store, and invokes the existing interrupted-run recovery path. The child rebuilds the aggregate run from all three durable condition scores, verifies its exact receipt lineage, and exposes the recovered run through the existing read-only projection reference API.
+- A fresh parent owner then reads the same immutable run identity. The same scored result proceeds into the ordinary daemon World-State projection and admitted history path. The fixture invocation count remains unchanged after the original episode: inspection and recovery do not replay inference.
+- Focused suites: **164 passed, 0 failed** across resident cognition, history intervention, model replacement, objective scoring, and writeback. Changed tests compiled. Persisted receipt records and model behavior are test fixtures; this is restart/recovery evidence only, not production or model-improvement evidence. Untested for production.
+- Evidence: `work/construction/evidence/0134-cross-process-scored-run-recovery.json` (SHA-256 `eddbbb8db0b20aca63bab0ba5ccbf54d90fd53b0fb0d738b8a4ec3d017238391`).
+- Next: inspect earlier task-source and writeback crash boundaries, contradiction handling, and bounded-result inspection; then continue to actual host readiness only if supported artifacts exist.

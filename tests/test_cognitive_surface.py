@@ -1,5 +1,8 @@
 import ast
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -132,3 +135,27 @@ def test_replay_equivalence_with_and_without_cognition():
     with_cognition = CoreLoop(cognitive_surface=CognitiveSurface()).run_cycle(state)
     assert with_cognition["cognitive_proposals"], "Expected cognitive proposals"
     assert _strip_cognitive(baseline) == _strip_cognitive(with_cognition)
+
+
+def test_consciousness_integration_import_is_not_cyclic_in_fresh_process() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    env = dict(os.environ)
+    current_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join(
+        value for value in (str(repo_root), current_pythonpath) if value
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from sentientos.consciousness.integration import cycle_gate_status; "
+            "assert isinstance(cycle_gate_status(), dict)",
+        ],
+        cwd=repo_root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "sequence": 213,
+  "title": "Honest outcomes for unimplemented plan tasks",
+  "source_commit": "232a3c9a70e242799369bd0a0dde21aa642fc977",
+  "source_tree": "e9e989072f1788d4509456ed99ac9bba2f51d4ee",
+  "source_files": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "git_blob_sha": "cc20a099bbb16b351134d3404538750b56531642"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_run.py",
+      "git_blob_sha": "45ebd4ac18db2a9861b2ca433248470604378071"
+    },
+    {
+      "path": "sentientos/tests/test_goal_state_update.py",
+      "git_blob_sha": "d2b3e810158d9adc2bb0f89c20f39d2babcb3d0f"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_state_update.py"
+    ],
+    "passed_test_count": 10,
+    "compiled": [
+      "sentientos/goal_executor.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_state_update.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "fetch and doc_update no-op plans now produce skipped task_kind_not_implemented with no artifacts",
+      "plan supplied commands for unsupported kinds remain rejected",
+      "goal-state tests now invoke the current API and isolate completion outcome for transition assertions"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:a0ecf8c5596ead972c6a9a612c21fdd88dcd2680fd9c577c36eb075937b3e104"
+}

@@ -1,0 +1,74 @@
+{
+  "sequence": 259,
+  "title": "Bind durable task outcomes into later goal plans",
+  "source_parent_commit": "3bd792924081ae40b11ae35f4510a969a6aa855d",
+  "source_parent_tree": "ff9854feec26de2aea67623041637312d881acb5",
+  "source_commit": "a0a1d64c5afe6c4495d7f1f9ba95b15283b82868",
+  "source_tree": "333ca43c6e6b856acf86d70e4f8f31931437b3d6",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "3bd792924081ae40b11ae35f4510a969a6aa855d",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "mode": "100644",
+      "sha": "de5bdc1efdd08a9ea6c3a858bdcc91f60fb9ef23"
+    },
+    {
+      "path": "sentientos/work_plan.py",
+      "mode": "100644",
+      "sha": "a8c5cc22cd482cb5c8d5cb2241e0bd1da31aa5a6"
+    },
+    {
+      "path": "sentientos/resident_epistemic_development.py",
+      "mode": "100644",
+      "sha": "a396f8231764ef14291c430b72af1f5b09434c2c"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_plan.py",
+      "mode": "100644",
+      "sha": "dc96e2cc1fe2cfc60c2b7c7d4748f75f18d7ceca"
+    },
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "1a6b7b1d644b1603fe9704e00fd90378a3b3e5a0"
+    },
+    {
+      "path": "docs/development/longitudinal-epistemic-outcome-planning-task-acceptance.json",
+      "mode": "100644",
+      "sha": "da0b6b9ed548b3146bcc67684a96fe7016418387"
+    }
+  ],
+  "validation": {
+    "goal_executor_plan_nodes": "8 passed",
+    "goal_executor_terminal_and_authority_nodes": "2 passed",
+    "epistemic_causal_and_longitudinal_cognition_nodes": "57 passed",
+    "python_compile": "passed",
+    "whitespace_and_conflict_marker_check": "passed"
+  },
+  "observations": {
+    "prior_run_requires_exact_persisted_plan_identity": true,
+    "missing_prior_run": "planning_blocked",
+    "partial_outcome": "destructive_apply_requires_review",
+    "unknown_non_idempotent_outcome": "destructive_apply_requires_review",
+    "independent_goal_progress": "eligible",
+    "prior_outcome_payload_digest_bound_into_new_plan": true,
+    "contextual_tie_generates_directional_revision": false,
+    "later_cognition_output_changes_with_delivered_evidence": true,
+    "production_effects": false,
+    "truth_claim": false,
+    "authority_expansion": false
+  },
+  "limitations": [
+    "Fresh operating-system-process reconstruction of the complete proposition trace remains open.",
+    "Epistemic history does not yet alter goal allocation; current planning behavior is bound to durable work-run outcomes.",
+    "No live forge apply or production activation was performed."
+  ]
+}

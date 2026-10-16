@@ -1,0 +1,32 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 171,
+  "source_commit": "cabb61b31de94c50b5375e2eedee70cd2e099069",
+  "source_tree": "49564edd7381f823a5836c3784147851db637d25",
+  "predecessor_segment_sha256": "ce68ba5aa8b57e140fe4783a7c4769e77663f15cef483fbd775de2ed886e3c74",
+  "scope": "fixture-backed source-to-history-to-later-cognition evidence",
+  "changed_paths": [
+    "sentientos/resident_developmental_cognition.py",
+    "sentientos/resident_developmental_writeback.py",
+    "tests/test_resident_developmental_cognition.py"
+  ],
+  "behavioral_checks": {
+    "passed": [
+      "tests/test_resident_developmental_cognition.py::test_admitted_family_example_supports_second_heldout_episode_after_restart",
+      "tests/test_resident_developmental_cognition.py::test_interrupted_scored_family_run_recovers_into_later_world_state_without_replay"
+    ],
+    "py_compile": "passed",
+    "utf8_and_nul_checks": "passed",
+    "production_verification": false,
+    "actual_model_behavior_measured": false,
+    "performance_improvement_established": false
+  },
+  "design": {
+    "receipt_linkage": "condition receipt digest is carried in execution posture and cross-checked against the separately retained exact invocation receipt identity",
+    "independent_backend_observation": false,
+    "historical_missing_execution_posture": "explicitly unavailable; no retroactive inference",
+    "selected_evidence_limit_bytes": 10240,
+    "measured_composed_evidence_bytes": 9399
+  },
+  "next_dependency": "bounded task/source relevance selection and adverse-history transfer across another episode"
+}

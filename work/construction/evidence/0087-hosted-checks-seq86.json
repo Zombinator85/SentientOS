@@ -1,0 +1,34 @@
+{
+  "commit": "59e12375217064d4080e640e712a615965942abe",
+  "observed": [
+    {
+      "conclusion": "success",
+      "name": "Source validation (unprivileged)",
+      "status": "completed"
+    },
+    {
+      "conclusion": null,
+      "name": "helm-k8s-test",
+      "status": "in_progress"
+    },
+    {
+      "cause": "prompt_assembler administrator gate during test collection",
+      "conclusion": "failure",
+      "name": "invariants",
+      "status": "completed"
+    },
+    {
+      "cause": "build_docs requires administrator/Lumos approval",
+      "conclusion": "failure",
+      "name": "docs",
+      "status": "completed"
+    },
+    {
+      "cause": "/glow permission, missing sentientos import, protected Forge CI authorization",
+      "conclusion": "failure",
+      "name": "self-check",
+      "status": "completed"
+    }
+  ],
+  "tree": "76ff595a04cea9bba6eb18ef8eb1d0ee14227c64"
+}

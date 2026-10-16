@@ -1,0 +1,22 @@
+{
+  "task_id": "developmental-resource-learning-loop",
+  "version": 1,
+  "required_pytest_nodes": [
+    {
+      "node_id": "tests/test_developmental_resource_learning_integration.py::test_governed_three_condition_resource_learning_survives_admission",
+      "role": "successful_path",
+      "expected": "A three-condition governed fixture uses owner-issued resource contexts, real ledger receipts, a recovered experiment, World-State lineage, normal developmental admission, and a distinct fresh-process held-out task with a source-bound recommendation and independent quality check."
+    },
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_admitted_family_example_supports_second_heldout_episode_after_restart",
+      "role": "adversarial_contract",
+      "expected": "Missing, mismatched, crossed, or unqualified resource lineages remain unknown; isolated fixture comparisons cover quality and cost orderings."
+    }
+  ],
+  "non_claims": [
+    "real-model improvement",
+    "independent model backend observation",
+    "measured shared host CPU or GPU attribution",
+    "resource evidence as authority or current truth"
+  ]
+}

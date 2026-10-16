@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.300" timestamp="2026-10-09T13:11:26.359273+00:00" hostname="cc5d580fe3a9"><testcase classname="tests.test_plan_maintenance_authority_continuity_script" name="test_cli_help_is_bounded" time="0.003" /></testsuite></testsuites>

@@ -1,0 +1,58 @@
+{
+  "sequence": 264,
+  "title": "Compare current and retained model identity",
+  "source_parent_commit": "4d18cfb2798e2ee71fa66fba7ae0573af2643cc2",
+  "source_parent_tree": "b987b4780f88efaccf6e7596d71fde0b88a1d8f4",
+  "source_commit": "9f74715905027ab5b0ed64e6328470c14d4c5011",
+  "source_tree": "de48419f044908d3fc11e5ec096be4ab37111cc0",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "4d18cfb2798e2ee71fa66fba7ae0573af2643cc2",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "d1c442040832c5389c90b86e6641bb723f609d41"
+    },
+    {
+      "path": "sentientos/resident_cognitive_model_serving.py",
+      "mode": "100644",
+      "sha": "1a14629af8a6f34a1237446f261cddd229919e56"
+    },
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "ea7395381a5c9d0135053a3153a5006ff5c56c79"
+    },
+    {
+      "path": "tests/test_resident_cognitive_model_serving.py",
+      "mode": "100644",
+      "sha": "2e868d62fff80f7f7900dc8e46be5d0286d591c5"
+    }
+  ],
+  "validation": {
+    "selected_task_family_and_model_drift_tests": "6 passed",
+    "python_compile": "passed",
+    "whitespace_and_conflict_marker_check": "passed",
+    "canonical_test_runner": "blocked: dependency installation requires sandbox network access"
+  },
+  "observations": {
+    "current_identity_observation": "read_only_non_invalidating_serving_session_check",
+    "same_identity_relation": "same_family_same_model_task_scope_unverified",
+    "different_identity_relation": "cross_model_transfer_not_established",
+    "missing_identity_relation": "model_identity_unbound_transfer_not_established",
+    "compact_packet_preserves_relation_and_target_digest": true,
+    "production_effects": false,
+    "authority_expansion": false
+  },
+  "limitations": [
+    "Model identity relation does not validate task-family applicability or authorize transfer.",
+    "No production effect or live forge apply occurred."
+  ]
+}

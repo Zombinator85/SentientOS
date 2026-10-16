@@ -18,7 +18,7 @@ def _collect_sse_events(response: _StreamResponse, count: int) -> list[dict[str,
     events: list[dict[str, object]] = []
     current: dict[str, object] = {"data": []}
     for raw_line in response.iter_lines():
-        line = raw_line.decode("utf-8")
+        line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
         if not line:
             data_lines = current.get("data", [])
             if isinstance(data_lines, list) and data_lines:
@@ -102,6 +102,7 @@ def test_pressure_stream_reconnect_no_dupe_and_bounds(
     assert len(all_entries) == 205
     assert len(tail_entries) == 200
 
+    monkeypatch.setattr(dashboard_api.PressureEventStream, "tail", lambda self, start_cursor, *, should_stop: iter(()))
     client = TestClient(dashboard_api.create_app())
     with client.stream("GET", "/api/pressure/stream?limit=500") as response:
         first_batch = _collect_sse_events(response, 3)
@@ -163,9 +164,12 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     _write_drift_event(log_path, "POSTURE_STUCK", "2024-01-02")
     _write_drift_event(log_path, "PLUGIN_DOMINANCE", "2024-01-01")
 
+    monkeypatch.setattr(dashboard_api.DriftEventStream, "tail", lambda self, start_cursor, *, should_stop: iter(()))
     client = TestClient(dashboard_api.create_app())
-    with client.stream("GET", "/api/drift/stream?limit=2") as response:
-        first_batch = _collect_sse_events(response, 1)
+    response = client.get("/api/drift/stream?limit=2")
+    assert response.status_code == 200, response.text
+    first_batch = _collect_sse_events(response, 1)
+    assert first_batch, response.text
 
     first_payload = _event_payload(first_batch[-1])
     first_nested_payload = first_payload.get("payload")
@@ -173,10 +177,10 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     last_date = str(first_nested.get("date", ""))
     _write_drift_event(log_path, "MOTION_STARVATION", "2024-01-03")
 
-    with client.stream(
-        "GET", f"/api/drift/stream?limit=2&since_date={last_date}"
-    ) as response:
-        second_batch = _collect_sse_events(response, 1)
+    response = client.get(f"/api/drift/stream?limit=2&since_date={last_date}")
+    assert response.status_code == 200, response.text
+    second_batch = _collect_sse_events(response, 1)
+    assert second_batch, response.text
 
     combined_dates = [_event_date(event) for event in first_batch + second_batch]
     assert len(combined_dates) == len(set(combined_dates))

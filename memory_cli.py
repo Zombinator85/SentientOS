@@ -1,5 +1,13 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
 from __future__ import annotations
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
@@ -21,15 +29,20 @@ import memory_tail
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 import presence_analytics as pa
 import ritual
+def _read_legacy_memory_entries() -> list[dict[str, Any]]:
+    """Read legacy fragments through the shared identity-validating owner."""
+    entries: list[dict[str, Any]] = []
+    for path in mm._legacy_fragment_paths():
+        value = mm._load_fragment(path.stem)
+        if value is not None:
+            entries.append(value)
+    return entries
+
+
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""
-    path = mm.RAW_PATH
-    files = sorted(path.glob("*.json"))[-last:]
-    for fp in files:
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
-            continue
+    entries = _read_legacy_memory_entries()[-last:]
+    for data in entries:
         emo = data.get("emotions", {})
         if emo:
             label = max(emo, key=emo.get)
@@ -41,13 +54,8 @@ def show_timeline(last: int) -> None:
 
 def playback(last: int) -> None:
     """Print recent entries with emotion labels and source breakdown if present."""
-    path = mm.RAW_PATH
-    files = sorted(path.glob("*.json"))[-last:]
-    for fp in files:
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
-            continue
+    entries = _read_legacy_memory_entries()[-last:]
+    for data in entries:
         emo = data.get("emotions", {})
         breakdown = data.get("emotion_breakdown", {})
         label = max(emo, key=emo.get) if emo else "none"
@@ -81,13 +89,8 @@ def list_memory(limit: int, since: str | None) -> None:
             since_dt = datetime.datetime.fromisoformat(since)
         except Exception:
             pass
-    files = sorted(mm.RAW_PATH.glob("*.json"))
     entries: list[tuple[str, dict[str, Any]]] = []
-    for fp in files:
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
-            continue
+    for data in _read_legacy_memory_entries():
         ts = data.get("timestamp")
         if since_dt and ts:
             try:
@@ -286,7 +289,11 @@ def main() -> None:
             reason=args.reason or "",
         )
     elif args.cmd == "tomb":
-        entries = mm.list_tomb(tag=args.tag, reason=args.reason, date=args.date)
+        try:
+            entries = mm.list_tomb(tag=args.tag, reason=args.reason, date=args.date)
+        except mm.MemorySidecarIncompleteError as exc:
+            print(f"Tomb history incomplete: {exc}")
+            return
         for e in entries:
             if args.json:
                 print(json.dumps(e))

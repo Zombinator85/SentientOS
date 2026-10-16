@@ -74,3 +74,103 @@ def test_external_consumer_uses_generic_verifier_but_cannot_mint(tmp_path):
     with pytest.raises(ValueError, match="revoked"): controller.execute(request, credential_handle=handle, admission=admission, current_sequence=4)
     assert isinstance(controller.transport, NullExternalModelTransport)
 
+
+
+def test_admission_ledger_uses_private_bounded_file_custody(tmp_path):
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("descriptor-relative admission publication requires POSIX")
+    ledger = AdmissionLedger(tmp_path / "custody" / "admissions.json")
+    ledger.save((), ())
+    metadata = ledger.path.stat()
+    assert stat.S_ISREG(metadata.st_mode)
+    assert metadata.st_uid == os.geteuid()
+    assert metadata.st_mode & 0o077 == 0
+    assert ledger.load() == ((), ())
+
+
+def test_admission_ledger_refuses_symlinked_parent_custody(tmp_path):
+    import os
+
+    if os.name != "posix":
+        pytest.skip("no-follow admission publication requires POSIX")
+    external = tmp_path / "external"
+    external.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(external, target_is_directory=True)
+    ledger = AdmissionLedger(alias / "admissions.json")
+    with pytest.raises(AdmissionError, match="publication_failed"):
+        ledger.save((), ())
+    assert list(external.iterdir()) == []
+
+
+def test_concurrent_admission_issuers_preserve_distinct_sequences(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    path = tmp_path / "authority" / "ledger.json"
+    barrier = Barrier(2)
+
+    def issue(admission_id, sequence):
+        ledger = AdmissionLedger(path)
+        authority = RuntimeAdmissionAuthority(definitions={CAPABILITY: DEFINITION}, ledger=ledger)
+        barrier.wait()
+        return authority.issue(
+            admission_id=admission_id, capability_id=CAPABILITY, definition_version=1,
+            subsystem_kind="fixture", principal_id="controller-a", principal_kind="fixture_controller",
+            effects=("bounded_external_model_network_egress",), subject_id="service-a:endpoint-a",
+            request_configuration_digest="sha256:binding", provenance="operator-reviewed-fixture",
+            issued_sequence=sequence, valid_through_sequence=5,
+            affirmative_preconditions=("operator_fixture_approval",))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(issue, "parallel-a", 2)
+        second = pool.submit(issue, "parallel-b", 3)
+        first.result()
+        second.result()
+
+    admissions, revocations = AdmissionLedger(path).load()
+    assert revocations == ()
+    assert {item.admission_id for item in admissions} == {"parallel-a", "parallel-b"}
+    assert {item.issued_sequence for item in admissions} == {2, 3}
+
+
+def test_admission_current_sequence_includes_revocations(tmp_path):
+    authority, verifier, admission = issued(tmp_path)
+    authority.revoke(admission.admission_id, sequence=4,
+        reason_category="operator_policy_change", provenance="fixture")
+    ledger = AdmissionLedger(tmp_path / "admissions.json")
+    assert ledger.current_sequence() == 4
+    assert ledger.next_sequence() == 5
+    with pytest.raises(AdmissionError, match="revoked"):
+        verify(verifier, admission, current_sequence=ledger.current_sequence())
+
+
+def test_concurrent_issue_next_allocates_sequences_inside_locked_transaction(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    path = tmp_path / "authority" / "ledger.json"
+    barrier = Barrier(2)
+
+    def issue_next():
+        authority = RuntimeAdmissionAuthority(definitions={CAPABILITY: DEFINITION},
+            ledger=AdmissionLedger(path))
+        barrier.wait()
+        return authority.issue_next(admission_id_for_sequence=lambda sequence: f"allocated-{sequence}",
+            capability_id=CAPABILITY, definition_version=1, subsystem_kind="fixture",
+            principal_id="controller-a", principal_kind="fixture_controller",
+            effects=("bounded_external_model_network_egress",), subject_id="service-a:endpoint-a",
+            request_configuration_digest="sha256:binding", provenance="operator-reviewed-fixture",
+            affirmative_preconditions=("operator_fixture_approval",))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(issue_next)
+        second = pool.submit(issue_next)
+        results = (first.result(), second.result())
+
+    assert {item.admission_id for item in results} == {"allocated-1", "allocated-2"}
+    assert {item.issued_sequence for item in results} == {1, 2}
+    assert len(AdmissionLedger(path).load()[0]) == 2

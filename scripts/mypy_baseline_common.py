@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 from typing import Any, Iterable, Sequence
 
 BASELINE_PATH = Path("vow/mypy_baseline.json")
@@ -29,6 +30,13 @@ DEFAULT_MYPY_COMMAND = (
     "scripts/",
     "sentientos/",
 )
+
+
+def resolve_mypy_command(command: Sequence[str]) -> list[str]:
+    """Run the stable manifest command with the interpreter we version-checked."""
+    if command and command[0] == "python":
+        return [sys.executable, *command[1:]]
+    return list(command)
 STABLE_GENERATED_AT = "stable-baseline-refresh"
 SCHEMA_VERSION = 2
 STATUS_CLEAN = "mypy_baseline_clean"

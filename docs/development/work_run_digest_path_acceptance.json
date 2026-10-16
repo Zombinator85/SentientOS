@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "task": "Derive work-run artifact paths from the full plan digest",
+  "successful_path_nodes": [
+    "sentientos/tests/test_work_plan_load.py::test_existing_run_artifact_recovers_against_exact_plan",
+    "sentientos/tests/test_goal_executor_run.py::test_completed_task_is_not_reexecuted_when_same_plan_is_recovered"
+  ],
+  "adversarial_nodes": [
+    "sentientos/tests/test_work_plan_load.py::test_persisted_run_rejects_caller_controlled_path_identity",
+    "sentientos/tests/test_work_plan_load.py::test_existing_run_rejects_same_task_ids_with_changed_plan_definition"
+  ],
+  "authority_limits": [
+    "Caller-controlled run identifiers cannot select filesystem paths.",
+    "The complete plan digest remains the artifact identity.",
+    "No new command or effect authority is introduced."
+  ]
+}

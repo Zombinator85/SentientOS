@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="53" time="2.886" timestamp="2026-10-07T12:35:09.446266+00:00" hostname="cc5d580fe3a9"><testcase classname="tests.test_stateful_import_lifecycle" name="test_inertness_verifier_covers_stateful_import_roots" time="0.804" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_integration_memory_construction_and_reconfigure_do_not_create_custody" time="0.002" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_integration_memory_reads_existing_custody_and_creates_on_write" time="0.011" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_strategy_engine_construction_is_inert_and_use_creates_storage" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_strategy_engine_hydrates_existing_state_and_reconfiguration" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_codex_public_exports_are_lazy_and_identity_compatible" time="0.003" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[raw]" time="0.008" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[index]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[tomb]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[observation]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[jsonl]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[topic]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[session]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[turn]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_mutations_authorize_before_filesystem_effect[goals]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_denial_prevents_write_and_headless_skips_lumos[headless]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_denial_prevents_write_and_headless_skips_lumos[auto_approve]" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_one_legacy_memory_operation_authorizes_once_across_private_writes" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_memory_reads_existing_raw_fragments_and_missing_custody" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_reflection_authorizes_before_first_write" time="0.001" /><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_tomb_purge_authorizes_unlink_separately" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'PermissionError'&gt;">tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-106/test_legacy_tomb_purge_authori0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7f7a49368140&gt;
+
+    def test_legacy_tomb_purge_authorizes_unlink_separately(tmp_path: Path, monkeypatch) -&gt; None:
+        import memory_manager as memory
+    
+        raw = tmp_path / "raw"
+        raw.mkdir()
+        fragment = raw / "old.json"
+        fragment.write_text(json.dumps({"id": "old", "timestamp": "2000-01-01T00:00:00"}), encoding="utf-8")
+        monkeypatch.setattr(memory, "RAW_PATH", raw)
+        monkeypatch.setattr(memory, "TOMB_PATH", tmp_path / "tomb.jsonl")
+        monkeypatch.setattr(memory, "VECTOR_INDEX_PATH", tmp_path / "vector.idx")
+        approvals = 0
+        def approve_lumos():
+            nonlocal approvals
+            approvals += 1
+            if approvals == 2:
+                raise PermissionError("unlink approval denied")
+        monkeypatch.setattr(memory, "require_admin_banner", lambda: None)
+        monkeypatch.setattr(memory, "require_lumos_approval", approve_lumos)
+&gt;       with pytest.raises(PermissionError, match="unlink approval denied"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE &lt;class 'PermissionError'&gt;
+
+tests/test_stateful_import_lifecycle.py:284: Failed</failure></testcase><testcase classname="tests.test_stateful_import_lifecycle" name="test_legacy_glow_storage_authorizes_before_digest_effect" time="0.001"><failure message="Failed: DID NOT RAISE &lt;class 'PermissionError'&gt;">tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-106/test_legacy_glow_storage_autho0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7f7a493614f0&gt;
+
+    def test_legacy_glow_storage_authorizes_before_digest_effect(tmp_path: Path, monkeypatch) -&gt; None:
+        import memory_manager as memory
+    
+        calls: list[str] = []
+        monkeypatch.setattr(memory, "SCREEN_DIGEST_PATH", tmp_path / "screen.jsonl")
+        monkeypatch.setattr(memory, "DIGEST_DIR", tmp_path / "digests")
+        monkeypatch.setattr(memory, "HIGHLIGHT_DIR", tmp_path / "highlights")
+        monkeypatch.setattr(memory, "require_admin_banner", lambda: calls.append("admin"))
+        def approve_lumos():
+            calls.append("lumos")
+            if calls.count("lumos") == 2:
+                raise PermissionError("glow approval denied")
+        monkeypatch.setattr(memory, "require_lumos_approval", approve_lumos)
+&gt;       with pytest.raises(PermissionError, match="glow approval denied"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE &lt;class 'PermissionError'&gt;
+
+tests/test_stateful_import_lifecycle.py:303: Failed</failure></testcase><testcase classname="tests.test_stateful_import_lifecycle" name="test_node_registry_default_binds_without_materializing_data_root" time="0.002" /><testcase classname="tests.test_architect_import_boundaries" name="test_architect_import_isolated_and_inert" time="0.139" /><testcase classname="tests.test_architect_import_boundaries" name="test_construction_reads_configuration_without_creating_storage" time="0.001" /><testcase classname="tests.test_architect_import_boundaries" name="test_authorization_precedes_filesystem_process_git_ledger_and_pulse_effects" time="0.001" /><testcase classname="tests.test_architect_import_boundaries" name="test_activation_authorizes_before_directory_creation_and_subscription" time="0.001" /><testcase classname="tests.test_architect_import_boundaries" name="test_denial_stops_filesystem_and_process_effects" time="0.001" /><testcase classname="tests.test_header_repair_import_inertness" name="test_header_tools_only_authorize_at_file_write_boundary[scripts.ritual_header_repair-fix_file]" time="0.002" /><testcase classname="tests.test_header_repair_import_inertness" name="test_header_tools_only_authorize_at_file_write_boundary[fix_header_subset-process_file]" time="0.001" /><testcase classname="tests.test_header_repair_import_inertness" name="test_header_tools_only_authorize_at_file_write_boundary[scripts.fix_header_subset-process_file]" time="0.001" /><testcase classname="tests.test_import_privilege_boundaries" name="test_scripts_lock_import_is_inert" time="0.001" /><testcase classname="tests.test_import_privilege_boundaries" name="test_privilege_sensitive_library_imports_are_inert[experiment_tracker]" time="0.004" /><testcase classname="tests.test_import_privilege_boundaries" name="test_privilege_sensitive_library_imports_are_inert[privilege_lint_cli]" time="0.027" /><testcase classname="tests.test_import_privilege_boundaries" name="test_privilege_sensitive_library_imports_are_inert[plugin_bus]" time="0.001" /><testcase classname="tests.test_import_privilege_boundaries" name="test_privilege_sensitive_library_imports_are_inert[gui_stub]" time="0.001" /><testcase classname="tests.test_import_privilege_boundaries" name="test_privilege_lint_cli_main_enforces_guards_before_argument_handling" time="0.003" /><testcase classname="tests.test_import_privilege_boundaries" name="test_privilege_lint_cli_direct_execution_denies_non_admin_before_help" time="0.136" /><testcase classname="tests.test_import_privilege_boundaries" name="test_audit_cli_keeps_privilege_at_execution_boundary[scripts/verify_audits.py-action0]" time="0.246" /><testcase classname="tests.test_import_privilege_boundaries" name="test_audit_cli_keeps_privilege_at_execution_boundary[scripts/audit_immutability_verifier.py-action1]" time="0.207" /><testcase classname="tests.test_import_privilege_boundaries" name="test_control_plane_federation_import_path_is_inert" time="0.125" /><testcase classname="tests.test_import_privilege_boundaries" name="test_scripts_lock_check_is_unprivileged" time="0.001" /><testcase classname="tests.test_import_privilege_boundaries" name="test_scripts_lock_effects_authorize_before_mutation" time="0.001" /><testcase classname="tests.test_import_privilege_boundaries" name="test_api_package_import_is_inert" time="0.042" /><testcase classname="tests.test_import_privilege_boundaries" name="test_actuator_import_has_no_privilege_or_runtime_effects" time="0.080" /><testcase classname="tests.test_import_privilege_boundaries" name="test_actuator_import_does_not_create_log_directory" time="0.093" /><testcase classname="tests.test_import_privilege_boundaries" name="test_actuator_autonomous_log_directory_is_created_only_at_write_boundary" time="0.012" /><testcase classname="tests.test_import_privilege_boundaries" name="test_actuator_protected_effects_authorize_before_execution" time="0.001" /><testcase classname="tests.test_import_privilege_boundaries" name="test_external_plugins_are_rejected_without_execution" time="0.001" /><testcase classname="tests.test_emotion_pump" name="test_emotion_pump_import_is_inert" time="0.001" /><testcase classname="tests.test_emotion_pump" name="test_emotion_pump_run_authorizes_before_runtime_effects" time="0.001" /><testcase classname="tests.test_emotion_pump" name="test_emotion_pump_latest_vector" time="0.001" /><testcase classname="tests.test_emotion_pump" name="test_emotion_pump_model_bridge_log_fields" time="0.004"><failure message="SystemExit: Access denied: run as Administrator to reach protected memory and policy state.">tmp_path = PosixPath('/tmp/pytest-of-agent/pytest-106/test_emotion_pump_model_bridge0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x7f7a48a2a030&gt;
+
+    def test_emotion_pump_model_bridge_log_fields(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -&gt; None:
+        log = tmp_path / "log.jsonl"
+        monkeypatch.setenv("MODEL_BRIDGE_LOG", str(log))
+        monkeypatch.setenv("MODEL_PROVIDER", "llama_cpp")
+&gt;       import model_bridge as mb
+
+tests/test_emotion_pump.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+model_bridge.py:6: in &lt;module&gt;
+    require_admin_banner()  # Sanctuary Privilege Ritual
+    ^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def require_admin_banner() -&gt; None:
+        """Display the privilege banner and enforce administrator rights."""
+    
+        user = getpass.getuser()
+        tool = Path(sys.argv[0]).stem
+        print_privilege_banner(tool)
+        global pl
+        if (
+            isinstance(pl, _StubLedger)
+            and pl.__class__ is _StubLedger
+            and pl.log_privilege == _StubLedger.log_privilege
+        ):
+            import presence_ledger as pl_module
+    
+            pl = pl_module
+        _log_privilege = pl.log_privilege
+        try:
+            import privilege_lint as pl_lint
+    
+            pl_lint.audit_use("cli", tool)  # type: ignore[attr-defined]  # runtime plugin may lack stubs
+        except Exception:
+            pass
+        if is_admin():
+            _log_privilege(user, platform.system(), tool, "success")
+            logger.info(ADMIN_BANNER)
+            return
+    
+        if os.name == "nt":
+            try:
+                import ctypes  # windows admin API
+    
+                windll = getattr(ctypes, "windll", None)
+                if windll is None:
+                    raise RuntimeError("No windll")
+                _log_privilege(user, platform.system(), tool, "escalated")
+                windll.shell32.ShellExecuteW(
+                    None,
+                    "runas",
+                    sys.executable,
+                    " ".join(sys.argv),
+                    None,
+                    1,
+                )
+                sys.exit()
+            except Exception:
+                _log_privilege(user, platform.system(), tool, "failed")
+                sys.exit(FAIL_MESSAGE)
+        else:
+            _log_privilege(user, platform.system(), tool, "failed")
+&gt;           sys.exit(FAIL_MESSAGE)
+E           SystemExit: Access denied: run as Administrator to reach protected memory and policy state.
+
+sentientos/admin_utils.py:132: SystemExit</failure></testcase></testsuite></testsuites>

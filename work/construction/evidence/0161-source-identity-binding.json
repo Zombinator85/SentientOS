@@ -1,0 +1,24 @@
+{
+  "sequence": 161,
+  "source_commit": "1d23b1eea68127f01910e905ce5618b6f57e6f18",
+  "source_tree": "f0b1b560a617451a39eb248fae995b68fbe45e3a",
+  "changes": [
+    "Bind completed history-run source ID and World-State subject identity at projection owner.",
+    "Reject substituted task outcome, source identity, and subject identity.",
+    "Ensure current cognition prompt omits raw oracle values and parameter names."
+  ],
+  "tests": [
+    {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-recon8-sourceproof-g SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-recon8-sourceproof-r SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-recon8-sourceproof-f SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-recon8-sourceproof-k PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-recon8-sourceproof-t PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-recon8-sourceproof-t/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "result": "2 passed in 103.99s"
+    },
+    {
+      "command": "python -m py_compile sentientos/resident_developmental_writeback.py tests/test_resident_developmental_cognition.py",
+      "result": "passed"
+    }
+  ],
+  "limits": [
+    "Fixture-issued inference only; no real model behavior, measured learning, performance improvement, or production evidence."
+  ],
+  "next_dependency": "Replace public task/plan hashes derived from private low-entropy oracle fields while preserving historical receipt verification."
+}

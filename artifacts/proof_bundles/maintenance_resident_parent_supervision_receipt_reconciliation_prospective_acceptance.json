@@ -1,0 +1,34 @@
+{
+  "schema_version": "sentientos.prospective_exact_node_acceptance:v1",
+  "status": "prospective_unexecuted",
+  "source_base_sha": "ab06b521553096bb7f8b5cbd4dc44f58cc1c8c09",
+  "task_scope": "Validate bounded parent receipt custody against the persisted supervisor snapshot and refuse replay when a crash leaves the receipt journal ahead of snapshot state.",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_state_publication_failure_blocks_followup_receipts",
+      "rationale": "A successfully appended receipt followed by failed state replacement prevents later writes that could compound uncertainty."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_corrupt_receipt_chain_fails_closed_without_republication",
+      "rationale": "A digest-invalid parent receipt chain is rejected without writing a new receipt into its custody."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_receipt_ahead_of_snapshot_is_rejected_without_sequence_reuse",
+      "rationale": "An append-before-snapshot crash posture is preserved as fail-closed and cannot duplicate receipt sequence."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_exact_same_lineage_death_recovery_requires_readiness_and_links_receipts",
+      "rationale": "Valid bounded receipt chains and snapshots reconstruct the existing same-lineage recovery path."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_invalid_state_recovery_does_not_append_duplicate_parent_receipt",
+      "rationale": "Corrupt snapshots do not permit later receipt publication."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_persisted_provenance_or_configuration_mismatch_fails_closed",
+      "rationale": "Foreign snapshot and configuration bindings remain denied."
+    }
+  ],
+  "execution_policy": "Author only; no execution during construction.",
+  "production_status": "unverified"
+}

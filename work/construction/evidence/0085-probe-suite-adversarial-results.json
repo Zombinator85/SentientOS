@@ -1,0 +1,31 @@
+{
+  "claims": [
+    "Malformed answer bytes under the multi-probe rubric remain a scored failure and cannot become a successful result.",
+    "The test uses deterministic fixture endpoints and does not demonstrate real-model performance."
+  ],
+  "details": "Added an adversarial multi-probe malformed duplicate-key answer case. The experiment completes as an observation, all affected scores are invalid_answer/false, and no false success is recorded. The full focused objective-scoring module passes.",
+  "failed": 0,
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 3352,
+    "path": "work/construction/evidence/0085-probe-suite-adversarial-junit.xml",
+    "sha256": "cf3361f9eed29ca9e34b3d79540fd86c2a666a987c4674043df7a4785a270441",
+    "testsuite": {
+      "errors": null,
+      "failures": null,
+      "hostname": null,
+      "name": "pytest tests",
+      "skipped": null,
+      "tests": null,
+      "time": null,
+      "timestamp": null
+    }
+  },
+  "passed": 20,
+  "python_compilation": "passed",
+  "sequence": 85,
+  "skipped": 0,
+  "source_baseline_commit": "1d3c0aaf8240424576f8fa2e42bd3d1ec124d7a8",
+  "source_baseline_tree": "c46ff57562c1c4bd9c6dcc70add05213ffa0eddd",
+  "status": "construction_tested_unverified_for_production"
+}

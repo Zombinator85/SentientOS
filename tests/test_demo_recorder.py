@@ -57,3 +57,42 @@ def test_demo_recorder_running_property(tmp_path, monkeypatch):
     assert rec.running
     rec.stop()
     assert not rec.running
+
+
+def test_demo_recorder_headless_uses_synthetic_frame(tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
+    monkeypatch.chdir(tmp_path)
+    rec = dr_mod.DemoRecorder()
+
+    commands = []
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: commands.append(args[0]))
+
+    rec.start()
+    rec.stop()
+
+    assert len(rec.frames) == 1
+    assert rec._stream is None
+    assert rec._screen_thread is None
+    assert rec.frames[0].suffix == ".ppm"
+    assert rec.frames[0].read_bytes().startswith(b"P6\n640 360\n255\n")
+    out = rec.export()
+    assert out.name.endswith(".mp4")
+    assert "-vf" not in commands[0]
+    assert list((tmp_path / f".demo_{out.stem}").glob("frame_*.ppm"))
+
+
+def test_demo_recorder_exports_dict_event_subtitles(tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
+    monkeypatch.chdir(tmp_path)
+    rec = dr_mod.DemoRecorder()
+    commands = []
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: commands.append(args[0]))
+
+    rec.start()
+    rec.stop()
+    rec.turns.append({"reply": "The simulated council responds."})
+    out = rec.export()
+
+    assert "-vf" in commands[0]
+    subtitle = next((tmp_path / f".demo_{out.stem}").glob("subs.srt"))
+    assert "The simulated council responds." in subtitle.read_text(encoding="utf-8")

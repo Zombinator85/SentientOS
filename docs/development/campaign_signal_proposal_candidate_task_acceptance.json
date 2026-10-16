@@ -1,0 +1,27 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b05b563895e16bfe614d47e8d22b8cdfb340b6d4",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_candidate_collector_closed_loop.py::test_candidate_consumer_ignores_diagnostic_and_blocked_signal_routes",
+      "rationale": "Only routed proposal candidates enter maintenance candidate planning; diagnostic and blocked historical records are excluded."
+    },
+    {
+      "node_id": "tests/test_maintenance_candidate_collector_closed_loop.py::test_campaign_source_uncertainty_survives_candidate_adaptation",
+      "rationale": "Campaign source limitations, source references, and proposal-selection-only authority survive adaptation with low confidence."
+    },
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_plane_uses_only_selected_recovered_campaign_results",
+      "rationale": "The exact owner-recovered campaign signal becomes a provenance-qualified bounded maintenance candidate."
+    },
+    {
+      "node_id": "tests/test_maintenance_candidate_collector_closed_loop.py::test_process_real_governed_source_to_fake_publication_reaches_idle",
+      "rationale": "The existing isolated closed-loop consumer continues to accept a route-eligible governed signal through fixture-only validation and publication."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_candidate_collector_closed_loop.py::test_campaign_source_uncertainty_survives_candidate_adaptation"
+  ]
+}

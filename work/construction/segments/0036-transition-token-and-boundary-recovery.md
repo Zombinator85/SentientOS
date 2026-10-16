@@ -1,0 +1,15 @@
+# 2026-10-12 — preserve exact activation and quiescence lineage across the live transition handoff
+
+- Fresh GitHub parent: `codex/construct-sentientos` at `b612ac0b598d1b14edecc5acd06bbbd7ffdc1f54`, tree `93d575b25a157d06ba261ffc5a92d0705a87e02c`. Work continued in the isolated exact-source clone; the dirty `/workspace/SentientOS` checkout remains untouched.
+
+- The actual daemon transition composer built its initial history boundary from active-state and serving-receipt fields but omitted the verified activation-history digest and commissioning model identity. The rehearsal's canonical protocol included both, so the daemon rejected a legitimate protocol before processing any transition stage. The composer now reconstructs those values from `verify_current_activation()` and uses the same complete boundary as the rehearsal owner.
+
+- A second handoff defect appeared after quiescence: the transition journal adds operator request provenance to the completion record, but the serving operation treated the whole record as the process-local quiescence token. The capability therefore failed equality against the gate-issued token, preventing serving after activation. Controller recovery and the serving-stage adapter now extract only the six gate-issued token fields, allow only the optional `operator_request` provenance field beside them, and still require exact `gate.verifies()` equality. Unexpected extra fields remain incomplete/invalid; they are not ignored.
+
+- Test fixtures were brought up to current owner contracts: synthetic activation operations now carry their required transition-stage labels, fake serving sessions include canonical stage bindings and receipt lineage, and identity-free malformed mailbox bytes are asserted to fail closed without inventing an identity-bound rejection receipt.
+
+- Exact tested source tree: `b870932f4c378473e9de676d2039c16a338e2824`. Focused transition, daemon composition, causal introspection, operator custody, admission, and replacement-campaign selection: **169 passed**. Separate legacy-quarantined software-succession projection suite: **6 passed** using explicit `-m legacy`. Changed Python files compiled. A targeted strict mypy attempt returned **204 diagnostics** across the selected existing transition/daemon modules; it is recorded as not clean, and broad typing cleanup was not hidden or claimed. Full command and evidence are in `work/construction/evidence/0036-transition-token-and-boundary.json`.
+
+- The actual daemon composition helper now completes the fixture A→B→A transition rehearsal and preserves its exact serving/retrieval evidence; this is not a production runtime, real-model performance, or improvement result. No live external effect or authority grant was introduced.
+
+- Next: examine the observed-versus-activated software-generation handoff into developmental-history and recovered cognition; require an independently verified runtime/process receipt and retain unknown when only repository or activation declarations exist. Continue partial historical hunk reconciliation without restoring the weaker historical serving verifier.

@@ -1,0 +1,44 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "commands": [
+      "python -m py_compile scripts/inspect_resident_objective_result.py sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "python scripts/inspect_resident_objective_result.py --help",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest --override-ini addopts= -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixtures_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 164,
+    "production_acceptance": "deferred",
+    "tests": [
+      "existing single-result inspector remains read-only",
+      "progression inspector reports the same digest-bound result as the owner",
+      "progression inspection leaves every fixture custody file unchanged",
+      "model-invoked and write-performed fields remain false",
+      "CLI help exposes both single and repeated-request forms"
+    ]
+  },
+  "changed_files": {
+    "scripts/inspect_resident_objective_result.py": {
+      "bytes": 10066,
+      "git_blob": "0916edd7fcad068945c9735d7be0c09434f2796c",
+      "sha256": "42fa6ddff2b3da1d9345c47ef948f60b570b9ae978c0971b11bea30ec8127bb2"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 213039,
+      "git_blob": "1ff01172f538d1d773d4797ea319ddbacbee7e36",
+      "sha256": "0ce7e9b72abc179cc781f1b7cecdc41dca8e9e9e0165da86b2e0da4057507bd8"
+    }
+  },
+  "implementation": {
+    "controls": "Receipt-verifies exact request/run/score lineage and reports exact model and generation identities, denominators, compatibility, and non-learning posture.",
+    "interface": "The existing single-request options remain supported. Repeated --request ID DIGEST selects bounded multi-episode progression inspection.",
+    "read_only": "Uses the state reader and progression method which does not recover ticks or publish writes. Result explicitly states model_invoked=false and write_performed=false.",
+    "reuse": "The command builds the configured cognition owner with the installation-scoped read-only invocation receipt reader, existing admission ledger, and existing writeback owner."
+  },
+  "objective": "Expose exact task-family progression inspection through the existing read-only operator result tool.",
+  "schema_version": 1,
+  "sequence": 132,
+  "source_commit": "4d2a1bf88da809aa45a687cfe6d0256005c4a3e1",
+  "source_tree": "8c5dd1b200977bf0e9fc3c5444b09e2df695129c"
+}

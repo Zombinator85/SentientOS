@@ -1,0 +1,53 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 144,
+  "title": "resource lineage to objective score binding",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "e075177b793a956f339bb9adbca6b8123f5f943c",
+    "tree": "2ae475197dbbe11ef9cc3ccfdff483bec643cb06"
+  },
+  "base": {
+    "commit": "e6123dc03a9fceeeb8f198cad5338ba422090252",
+    "tree": "668b545872592087365d865e77025e42121a4942"
+  },
+  "integrations": [
+    "resource lineage projection retains exact condition-score identity alongside authenticated consumption measurements",
+    "developmental writeback validates the outcome's inference receipt against the resource-linked invocation before retaining it",
+    "unscored legacy runs remain explicit and compatible"
+  ],
+  "positive_control": "genuine governed invocation receipt and ledger reconciliation paired with a bounded fixture score to exercise the condition join",
+  "negative_control": "substituted score-to-invocation receipt identity rejected by existing writeback projection",
+  "scope": "resource consumption and correctness are co-attributable but no resource-to-correctness causal effect or model learning claim is made",
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "sentientos/host_resource_runtime.py",
+        "sentientos/resident_developmental_writeback.py",
+        "tests/test_strategy_resource_lineage_integration.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "passed": 24,
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-a54-seq144c/governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-a54-seq144c/runtime SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-a54-seq144c/federation SENTIENTOS_REPO_ROOT=/tmp/sentientos-a54-seq144c/repo SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-a54-seq144c/kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-a54-seq144c/trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-a54-seq144c/trust/trust.json .venv/bin/pytest --override-ini addopts='' -q tests/test_strategy_resource_lineage_integration.py tests/test_resident_developmental_writeback.py"
+    },
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "production_verification": "not_performed",
+    "real_model_performance": "not_observed"
+  },
+  "limitations": [
+    "condition score is a deterministic fixture outcome in the join regression, not a real model performance result",
+    "resource attribution does not show that consumption caused correctness",
+    "construction remains unverified for production"
+  ],
+  "next_dependency": "trace exact experiment condition/resource lineage through succession and completed family progression; identify whether a fixed-evidence A/B comparison can reuse scored history without mixing resource cost, model identity, or oracle inputs",
+  "publication": {
+    "expected_head": "e6123dc03a9fceeeb8f198cad5338ba422090252",
+    "commit": "e075177b793a956f339bb9adbca6b8123f5f943c",
+    "tree": "2ae475197dbbe11ef9cc3ccfdff483bec643cb06",
+    "remote_readback": "commit, tree, and changed blobs independently verified"
+  }
+}

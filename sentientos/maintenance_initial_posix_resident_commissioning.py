@@ -6,13 +6,13 @@ decision; only then can immutable external custody and one launch be attempted.
 """
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
 import stat
 import subprocess
 import time
+from sentientos.platform_fcntl import FLOCK_SUPPORTED
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -22,6 +22,7 @@ from sentientos import maintenance_authority_continuity as continuity
 from sentientos import maintenance_resident_runtime_adoption as resident
 from sentientos import maintenance_successor_generation_adoption as successor
 from sentientos import maintenance_wake_daemon_adoption as wake
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 from sentientos.control_plane_kernel import (
     AdmissionOutcome, AuthorityClass, ControlActionRequest, ControlPlaneKernel,
     LifecyclePhase,
@@ -38,6 +39,7 @@ STARTUP_SCHEMA = "sentientos.maintenance_initial_posix_resident_startup_ready:v1
 STARTUP_GATE_ENV = "SENTIENTOS_INITIAL_RESIDENT_COMMISSIONING_INTENT"
 STARTUP_ROOT_ENV = "SENTIENTOS_INITIAL_RESIDENT_COMMISSIONING_CUSTODY"
 ZERO_DIGEST = "sha256:" + "0" * 64
+MAX_COMMISSIONING_INPUT_BYTES = 1_048_576
 EFFECTS = tuple(sorted((
     "exact_initial_resident_repository_state_read", "exact_posix_resident_host_capability_read",
     "exact_initial_maintenance_authority_profile_read", "bounded_initial_resident_commissioning_custody_write",
@@ -75,9 +77,12 @@ def digest(value: Any, omitted: str | None = None) -> str:
 
 def _load(path: str | Path, code: str) -> dict[str, Any]:
     source = Path(path)
-    if source.is_symlink() or not source.is_file(): raise CommissioningError(code)
-    try: value = json.loads(source.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc: raise CommissioningError(code) from exc
+    try:
+        raw = read_explicit_file(source, max_bytes=MAX_COMMISSIONING_INPUT_BYTES)
+        value = json.loads(raw.decode("utf-8"))
+    except (WindowsHandleCustodyError, OSError, UnicodeError, json.JSONDecodeError,
+            RecursionError) as exc:
+        raise CommissioningError(code) from exc
     if not isinstance(value, dict): raise CommissioningError(code)
     return value
 
@@ -126,7 +131,7 @@ def doctor(value: Mapping[str, Any], *, platform_name: str | None = None) -> dic
         return {"schema_version": "sentientos.maintenance_initial_posix_resident_doctor:v1",
                 "status": "initial_resident_commissioning_not_ready", "reason_codes": [exc.code], "read_only": True}
     posix = (os.name if platform_name is None else platform_name) == "posix"
-    if not posix or not hasattr(fcntl, "flock"): reasons.append("posix_locking_required")
+    if not posix or not FLOCK_SUPPORTED: reasons.append("posix_locking_required")
     repo = Path(m["repository_root"]); custody = Path(m["custody_root"])
     try:
         if _unsafe_symlink(repo) or repo.resolve(strict=True) != repo: reasons.append("repository_symlink_or_realpath_mismatch")
@@ -299,6 +304,67 @@ def _verify_custody(root: Path, intent: Mapping[str, Any], *, require_complete: 
             raise CommissioningError("initial_launch_provenance_tampered")
         result.update(receipt_digest=claimed, launch_provenance=receipt["launch_provenance"])
     return result
+
+
+def verify_commissioned_resident_config(config_path: str | Path) -> dict[str, Any]:
+    """Recover an exact commissioned resident config without relaunching it."""
+    path = Path(config_path)
+    if not path.is_absolute() or path.name != "resident-adoption.json" or path.is_symlink():
+        raise CommissioningError("resident_commissioned_config_path_invalid")
+    root = path.parent
+    if _unsafe_symlink(root):
+        raise CommissioningError("resident_commissioning_root_symlinked")
+    try:
+        metadata = os.lstat(root)
+    except OSError as exc:
+        raise CommissioningError("resident_commissioning_custody_unavailable") from exc
+    if (not stat.S_ISDIR(metadata.st_mode)
+            or (os.name == "posix" and (
+                metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != 0o700))):
+        raise CommissioningError("resident_commissioning_root_custody_invalid")
+    try:
+        config = resident.load_config(path)
+        intent = _load(root / "intent.json", "commissioning_intent_missing")
+        if not isinstance(intent, dict) or not isinstance(intent.get("manifest"), dict):
+            raise CommissioningError("commissioning_intent_invalid")
+        claimed_intent_digest = intent.get("intent_digest")
+        if (not isinstance(claimed_intent_digest, str)
+                or digest(intent, "intent_digest") != claimed_intent_digest):
+            raise CommissioningError("commissioning_intent_digest_invalid")
+        first_body = dict(intent)
+        first_body["intent_id"] = ""
+        first_body["intent_digest"] = ""
+        first_digest = digest(first_body, "intent_digest")
+        expected_id = "initial-resident-intent-" + first_digest.split(":", 1)[-1][:24]
+        if intent.get("intent_id") != expected_id:
+            raise CommissioningError("commissioning_intent_identity_invalid")
+        manifest = validate_manifest(intent["manifest"])
+        if Path(manifest["custody_root"]).resolve() != root.resolve():
+            raise CommissioningError("commissioning_root_binding_mismatch")
+        state_root = root / "resident-state"
+        if Path(config["state_root"]).resolve() != state_root.resolve():
+            raise CommissioningError("resident_config_state_root_mismatch")
+        try:
+            state_metadata = os.lstat(state_root)
+        except OSError as exc:
+            raise CommissioningError("resident_state_root_unavailable") from exc
+        if (not stat.S_ISDIR(state_metadata.st_mode)
+                or (os.name == "posix" and (
+                    state_metadata.st_uid != os.geteuid()
+                    or stat.S_IMODE(state_metadata.st_mode) != 0o700))):
+            raise CommissioningError("resident_state_root_custody_invalid")
+        details = _verify_custody(root, intent, require_complete=True)
+        approval = _load(root / "approval.json", "runtime_operator_approval_missing")
+        if approval.get("source") != "external_operator" or approval.get("synthetic") is not False:
+            raise CommissioningError("synthetic_commissioning_rejected")
+        if details.get("resident_config_digest") != config.get("config_digest"):
+            raise CommissioningError("resident_config_commissioning_digest_mismatch")
+    except CommissioningError:
+        raise
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise CommissioningError("resident_commissioning_custody_invalid") from exc
+    return {"status": "initial_resident_commissioning_verified",
+            "resident_config": config, **details, "read_only": True}
 
 
 def verify(value: Mapping[str, Any]) -> dict[str, Any]:

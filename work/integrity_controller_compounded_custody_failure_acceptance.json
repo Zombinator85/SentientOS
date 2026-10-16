@@ -1,0 +1,20 @@
+{
+  "behavior": {
+    "authority": "mutation, publication, and automerge remain disallowed",
+    "pressure_gate": "adds a separate integrity_pressure_input failure with source path and error code",
+    "pressure_measurement": "level and metrics remain null; only an explicitly labeled lockdown-threshold policy fallback is used internally",
+    "quarantine_gate": "retains exact failed protective-state custody result"
+  },
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed",
+    "quarantine_pressure_and_integrity_controller_cases": "5 passed, 2 deselected by marker"
+  },
+  "limits": [
+    "Fallback is policy calculation only and is not presented as observed pressure.",
+    "Test uses disposable malformed local records; no production state is touched.",
+    "No production verification is established."
+  ],
+  "scope": "preserve explicit quarantine custody failure in integrity-controller output when incident-pressure input is independently unusable",
+  "status": "focused_hermetic_compounded_custody_failure_verified_not_production_acceptance"
+}

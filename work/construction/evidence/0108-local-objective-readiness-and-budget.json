@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "source_commit": "344be902824b3f9b1cfc56362b5e53598a001051",
+  "source_tree": "ed2b5bdd12a839b205e94951d61d5527c66d6d00",
+  "parent_commit": "cdabb39390f050f0c9ba476160b544fd40bb6740",
+  "parent_tree": "0facad60bfabc04c13b6f092d8f90e989188b8b8",
+  "changed_files": {
+    "sentientos/local_model_commissioning.py": {"git_blob": "f1e32ba996b912256cbb21bf41714eb74523b607", "sha256": "9315521d000225e3dc1f186a6e62242b7744a4cf0b84afd1580baab37321b941"},
+    "scripts/doctor_resident_objective_experiment.py": {"git_blob": "b93a12a57ab874125fd1c3d1392071caa57f406c", "sha256": "1cb282aa0826d4d59c676d6b39782820756ef89c443aeb85f26ae39a0cf04421"},
+    "tests/test_local_model_commissioning.py": {"git_blob": "0c1a7a8e03182c2eba58e7a6532cef7bd1b84443", "sha256": "feeefd702500cc7213cbca09dc28ee9f9bf7d793a8c7dd64dc3dda61c02bcfef"},
+    "tests/test_resident_objective_experiment_readiness.py": {"git_blob": "0edc5fe999862dea19fb7cb1f035a312f1236874", "sha256": "d9792d8cc5bc76b006d8564d250862db4e8c0c1660ed83d5af370089dbbbce4b"},
+    "sentientos/developmental_model_replacement_production_trial.py": {"git_blob": "405aa79b20b987d649fc2e342bb493e54abce3a6", "sha256": "86193e7092ea9ee3689945c132f9e43002f27c47fc57162fbf709f3580ee016d"},
+    "tests/test_developmental_model_replacement_production_trial.py": {"git_blob": "ed24ecdd3c8bab86dbc01e0ccc835b471261412f", "sha256": "8851543917f7d684f013b0043875c5435fdad5883b3cae02107e36cf317be914"},
+    "docs/development/resident_developmental_cognition.md": {"git_blob": "565a848bcbe8119cb86c50cee6bfe0a32bfc5d7f", "sha256": "66e834b55452100f0955ed474e813555a48143b95fc52fb081a603487a2d09a5"},
+    "docs/development/developmental_model_replacement_production_trial.md": {"git_blob": "ab034cc3b3ff1a76bd6269618ff94cb013d6c67d", "sha256": "21d59ee317b2d368f8ebd52dfd19b9486eed7fe78e4be024c24879485dd40ed3"},
+    "docs/local_model_commissioning.md": {"git_blob": "f9e03d2c267b7ce30f62bf6ae1da9f9aed16e6b3", "sha256": "c2a1ff6b86eae643e8bafed2e36f9f277dcf8a0d06987f7b16dc65512d5ed9a2"}
+  },
+  "validation": {
+    "focused_tests": {"passed": 85, "failed": 0, "skipped": 0, "groups": ["local model commissioning and readiness", "model-replacement experiment", "campaign", "experimental serving", "production trial"]},
+    "resident_cognition_and_scoring_tests": {"passed": 110, "failed": 0, "skipped": 0},
+    "py_compile": "passed for changed Python sources and tests",
+    "mypy": "Success: no issues found in sentientos/local_model_commissioning.py, sentientos/developmental_model_replacement_production_trial.py, scripts/doctor_resident_objective_experiment.py",
+    "direct_doctor": {"exit_code": 2, "status": "preflight_blocked", "artifact_reason": "git_lfs_pointer_not_model_payload", "artifact_size_bytes": 127, "model_generation": false, "download": false, "serving_activation": false, "inference_admission": false},
+    "parent_hosted_checks": {"source_validation": "success", "helm_k8s_test": "success", "docs": "failure", "self_check": "failure", "invariants": "failure", "commit": "cdabb39390f050f0c9ba476160b544fd40bb6740"},
+    "actual_model_invoked": false,
+    "production_verified": false
+  },
+  "boundaries": {
+    "ambient_model_discovery": false,
+    "provider_egress": false,
+    "artifact_download": false,
+    "new_authority": false,
+    "external_host_claim": false
+  }
+}

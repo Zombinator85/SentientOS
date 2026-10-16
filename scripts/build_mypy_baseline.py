@@ -10,11 +10,11 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.mypy_baseline_common import BASELINE_PATH, CANONICAL_MYPY_VERSION, DEFAULT_MYPY_COMMAND, build_manifest, manifest_to_text, normalize_mypy_version, parse_mypy_output, sanitized_mypy_environment
+from scripts.mypy_baseline_common import BASELINE_PATH, CANONICAL_MYPY_VERSION, DEFAULT_MYPY_COMMAND, build_manifest, manifest_to_text, normalize_mypy_version, parse_mypy_output, resolve_mypy_command, sanitized_mypy_environment
 
 
 def _run_command(command: list[str]) -> tuple[int, str]:
-    completed = subprocess.run(command, check=False, capture_output=True, text=True, env=sanitized_mypy_environment(), cwd=REPO_ROOT)
+    completed = subprocess.run(resolve_mypy_command(command), check=False, capture_output=True, text=True, env=sanitized_mypy_environment(), cwd=REPO_ROOT)
     output = completed.stdout
     if completed.stderr:
         output = f"{output}\n{completed.stderr}" if output else completed.stderr

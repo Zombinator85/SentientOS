@@ -215,3 +215,50 @@ def test_real_control_plane_runtime_admission_and_regressions(tmp_path: Path) ->
     wrong_class = commissioning.ControlActionRequest(commissioning.ACTION, AuthorityClass.REPAIR,
         commissioning.PRINCIPAL, commissioning.CAPABILITY, LifecyclePhase.RUNTIME, {"correlation_id": "class"})
     assert kernel.admit(wrong_class).authority_class is AuthorityClass.REPAIR
+
+
+def test_parent_config_recovery_requires_complete_external_commissioning(tmp_path: Path) -> None:
+    manifest = fixture(tmp_path)
+    intent = commissioning.prepare_intent(manifest)
+    evidence = approval(intent, synthetic=False)
+    path = external_approval(manifest, evidence)
+    commissioning.commission(
+        manifest, evidence, kernel=Kernel(), correlation_id="parent-config",
+        clock=lambda: NOW, launch_runner=launch,
+        allow_synthetic_approval_for_tests=True, approval_evidence_path=path)
+    root = Path(str(manifest["custody_root"]))
+    recovered = commissioning.verify_commissioned_resident_config(
+        root / "resident-adoption.json")
+    assert recovered["status"] == "initial_resident_commissioning_verified"
+    assert recovered["resident_config"]["config_digest"] == resident.load_config(
+        root / "resident-adoption.json")["config_digest"]
+    assert recovered["read_only"] is True
+
+
+def test_parent_config_recovery_rejects_synthetic_commissioning(tmp_path: Path) -> None:
+    manifest = fixture(tmp_path)
+    intent = commissioning.prepare_intent(manifest)
+    commissioning.commission(
+        manifest, approval(intent, synthetic=True), kernel=Kernel(),
+        correlation_id="synthetic-parent-config", clock=lambda: NOW,
+        launch_runner=launch, allow_synthetic_approval_for_tests=True)
+    root = Path(str(manifest["custody_root"]))
+    with pytest.raises(commissioning.CommissioningError, match="synthetic_commissioning_rejected"):
+        commissioning.verify_commissioned_resident_config(root / "resident-adoption.json")
+
+
+def test_parent_config_recovery_rejects_changed_state_root_permissions(tmp_path: Path) -> None:
+    manifest = fixture(tmp_path)
+    intent = commissioning.prepare_intent(manifest)
+    evidence = approval(intent, synthetic=False)
+    path = external_approval(manifest, evidence)
+    commissioning.commission(
+        manifest, evidence, kernel=Kernel(), correlation_id="parent-state-root",
+        clock=lambda: NOW, launch_runner=launch,
+        allow_synthetic_approval_for_tests=True, approval_evidence_path=path)
+    root = Path(str(manifest["custody_root"]))
+    os.chmod(root / "resident-state", 0o755)
+    with pytest.raises(commissioning.CommissioningError,
+                       match="resident_state_root_custody_invalid"):
+        commissioning.verify_commissioned_resident_config(
+            root / "resident-adoption.json")

@@ -6,6 +6,7 @@ import copy
 import json
 from contextlib import suppress
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -26,9 +27,11 @@ def _read_ledger() -> list[dict]:
 
 
 @pytest.fixture(autouse=True)
-def clean_ledger():
+def clean_ledger(tmp_path, monkeypatch):
     """Ensure each test observes a clean ledger file."""
 
+    ledger_path = tmp_path / "daemon" / "logs" / "codex.jsonl"
+    monkeypatch.setattr(sys.modules[__name__], "LEDGER_PATH", ledger_path)
     with suppress(FileNotFoundError):
         LEDGER_PATH.unlink()
     yield
@@ -62,6 +65,7 @@ def base_config(tmp_path):
         "federation_enabled": True,
         "federation_peers": ["192.0.2.10"],
         "log_dir": tmp_path,
+        "ledger_path": LEDGER_PATH,
     }
 
 

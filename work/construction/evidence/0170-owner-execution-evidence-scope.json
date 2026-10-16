@@ -1,0 +1,48 @@
+{
+  "schema_version": "sentientos.construction.acceptance_evidence:v1",
+  "purpose": "Separate owner-receipt execution evidence from independent backend observation",
+  "baseline": {
+    "parent_commit": "d1c4021d8c1e8287fcfbd704373dfd04bafd3cb0",
+    "parent_tree": "1d51fb321564dad54f28434ba5609c9a7cfc0f27"
+  },
+  "publication": {
+    "source_commit": "a5b6b0fd64b4ad7723b9b2faec70b2a9ff08d2fd",
+    "source_tree": "986ff07c34fb41ec9c8890084e48b5a9a845eb31",
+    "parent": "d1c4021d8c1e8287fcfbd704373dfd04bafd3cb0"
+  },
+  "changed_blobs": {
+    "sentientos/resident_developmental_cognition.py": "3c2a4b08c9d8d39c9c0610d4b2d277caef7e01ea",
+    "tests/test_resident_developmental_cognition.py": "f90ff6c76c12bc48fa0b66956606402e0688811b"
+  },
+  "checks": [
+    {
+      "command": "three-episode fresh-process task-family integration test",
+      "result": "passed"
+    },
+    {
+      "command": "bounded task-family progression and interrupted-run recovery tests",
+      "result": "2 passed"
+    },
+    {
+      "command": "python -m py_compile changed module and test",
+      "result": "passed"
+    },
+    {
+      "command": "UTF-8/NUL/trailing-whitespace scans",
+      "result": "passed"
+    }
+  ],
+  "evidence_contract": {
+    "legacy_actual_nonsynthetic_boolean_preserved": true,
+    "authenticated_owner_receipt_scope_explicit": true,
+    "independent_backend_observation": false,
+    "per_condition_execution_evidence_posture": true,
+    "progression_preserves_posture": true,
+    "fixture_uses_admitted_simulation_and_false_local_inference_effect": true
+  },
+  "claims": {
+    "independent_backend_attestation": false,
+    "real_model_learning": false,
+    "production_acceptance": false
+  }
+}

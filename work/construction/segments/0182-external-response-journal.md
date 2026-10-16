@@ -1,0 +1,10 @@
+## 2026-10-14 checkpoint — journal external strategy responses across interruption
+
+- Started from sequence-181 evidence HEAD `31671138dbd79dde60b4f83516801b4009301038`, tree `f2ca300f0ec2edc27577cab14f6c7275684e551a`. Published source commit `a4c6bab5770427e176d9463a59b2325960f13742`, tree `f4a731cfe0ef4d483c0338d10dbe683fb623db14` through fresh expected-HEAD CAS.
+- Added a create-once per-packet response journal. Each operator-recorded response binds to the preregistration digest and exact packet digest; exclusive file creation prevents silently replacing an observed output. Recovery reports complete, missing, corrupt, or unknown entries, preserves damaged files as evidence, and never replays an external session.
+- Added a response-recording CLI and direct journal scoring input. Existing aggregate scoring remains unchanged; the score artifact digest is calculated over the scorer result, while journal recovery disposition is reported separately by the CLI.
+- Added coverage for exact reconstruction, partial completion, corrupt entries, duplicate packet writes, recording CLI, and identical scorer output from journal versus the prior response bundle. No inference-authentication, admission, or production authority was added.
+- Validation: targeted strategy-transfer integration test passed; changed files compile; mypy passed on the journal and two CLIs; both CLI help commands and `git diff --check` passed.
+- Limits: operator-collected responses remain unverified external observations. This is fixture-tested custody only; no Codex subjects were launched. Raw outputs over the scorer's existing bound remain represented by size/digest in score output.
+
+Next: extend the strategy protocol to multiple independently preregistered situations with fresh sessions per packet while keeping per-task consequence identity, condition order, and aggregate scoring/report denominators explicit. This is needed to assess repeatability beyond one situation without claiming significance from a pilot.

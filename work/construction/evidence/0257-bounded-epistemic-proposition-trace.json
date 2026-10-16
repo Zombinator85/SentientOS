@@ -1,0 +1,55 @@
+{
+  "sequence": 257,
+  "title": "Add bounded selected proposition trace to retained epistemic consequence",
+  "source_parent_commit": "df052e52b2f04911637e37ac2f24501940dcfa62",
+  "source_parent_tree": "542e5d889a0492a37025a80137a8cf43035b5097",
+  "source_commit": "678767c107432e47bf2dcc892b7f1e021574f01b",
+  "source_tree": "e3df8f6399ae81a24c7ff104288da7eaa9cac0b9",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "df052e52b2f04911637e37ac2f24501940dcfa62",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/resident_epistemic_development.py",
+      "mode": "100644",
+      "sha": "46f822941ebc47e007f6f450ff839fb01b0833b2"
+    },
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "e325be873b4ffa06c4a175147478f7b3ec5f2d4d"
+    },
+    {
+      "path": "docs/development/epistemic_proposition_trace_acceptance.json",
+      "mode": "100644",
+      "sha": "f4a7b8bb2ba94532c61d892f1107d4b35cd42ae7"
+    }
+  ],
+  "validation": {
+    "targeted_recovered_task_family_node": "passed",
+    "epistemic_and_causal_introspection_suites": "57 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "proposition_selection": "explicit and configured",
+    "maximum_events": 16,
+    "maximum_trace_bytes": 32768,
+    "receipt_recovery": "required and verified",
+    "original_observation_time": "preserved",
+    "later_cognition_projection": "exact digest recorded",
+    "truth": false,
+    "authority": false
+  },
+  "limitations": [
+    "Only a single positive deterministic fixture run is exercised.",
+    "Corrective two-outcome contest and independent behavioral comparison remain open.",
+    "Outcome-informed goal planning remains open."
+  ]
+}

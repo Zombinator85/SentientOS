@@ -10,8 +10,10 @@ import pytest
 from sentientos.resident_cognitive_model_serving import (
     ResidentCognitiveModelServingError, ResidentCognitiveServingSlot,
 )
+from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.resident_cognitive_model_transition_experiment import *
 from sentientos.resident_cognitive_model_transition_rehearsal import run
+from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
 
 pytestmark = pytest.mark.no_legacy_skip
 NOW = datetime(2026, 9, 24, 12, tzinfo=timezone.utc)
@@ -26,7 +28,10 @@ class Session:
                         "activation_state_semantic_digest": activation["state_semantic_digest"],
                         "activation_generation": activation["generation"],
                         "activation_receipt_id": activation["receipt_id"],
-                        "activation_receipt_semantic_digest": activation["receipt_semantic_digest"]}
+                        "activation_receipt_semantic_digest": activation["receipt_semantic_digest"],
+                        "activation_history_digest": activation.get("activation_history_digest"),
+                        "activation_predecessor_state_digest": activation.get("activation_predecessor_state_digest"),
+                        "activation_predecessor_posture": activation.get("activation_predecessor_posture")}
     def to_dict(self):
         return {"session_id": self.session_id, "binding": self.binding, "status": "production_current"}
 
@@ -41,28 +46,58 @@ class Slot:
 
 
 def activation_value(letter: str, generation: int):
+    predecessor = ("a" * 64) if generation > 1 else None
     return {"state_semantic_digest": letter * 64, "generation": generation,
-            "receipt_id": f"receipt-{letter}", "receipt_semantic_digest": letter * 64}
+            "receipt_id": f"receipt-{letter}", "receipt_semantic_digest": letter * 64,
+            "model_loaded": False, "serving_started": False, "inference_performed": False,
+            "commissioning_active_model_identity": {"identity_digest": "a" if generation != 2 else "b"},
+            "activation_history_digest": "h" * 64,
+            "activation_predecessor_state_digest": predecessor,
+            "activation_predecessor_posture": ("verified_predecessor_state" if predecessor
+                else "verified_initial_activation_without_predecessor")}
 
 
 class Operations:
     def __init__(self, slot, *, fail=None, mismatch=False):
         self.slot, self.fail, self.mismatch = slot, fail, mismatch
+        self.protocol = protocol()
     def activate_successor(self, context=None):
         if self.fail == "b_activation": raise RuntimeError("denied")
-        return {"activation": activation_value("b", 2)}
+        return {"activation": activation_value("b", 2), "activation_transition_stage": "A->B"}
     def serve_successor(self, activation):
         if self.fail == "b_serving": raise RuntimeError("serving")
-        identity = {"identity_digest": "wrong" if self.mismatch else "b"}
-        self.slot.current_controller = Serving(Session("session-b", identity, activation, "b-op"))
-        return {"session": self.slot.current_controller.session.to_dict()}
+        return self._serve(activation, "b_serving_bound", {"identity_digest": "wrong" if self.mismatch else "b"}, "b-op")
     def activate_restored_predecessor(self, context=None):
         if self.fail == "a_activation": raise RuntimeError("denied")
-        return {"activation": activation_value("c", 3)}
+        return {"activation": activation_value("c", 3), "activation_transition_stage": "B->A"}
+    def verify_historical_activation(self, activation):
+        return activation["commissioning_active_model_identity"]
+    def verify_historical_serving_session(self, session):
+        return {"receipt_id": "serving-receipt", "receipt_semantic_digest": "c" * 64}
+    def verify_transition_observation(self, stage, evidence):
+        return None
     def serve_restored_predecessor(self, activation):
         if self.fail == "a_serving": raise RuntimeError("serving")
-        self.slot.current_controller = Serving(Session("session-restored-a", {"identity_digest": "a"}, activation, "a-op"))
-        return {"session": self.slot.current_controller.session.to_dict()}
+        return self._serve(activation, "restored_a_serving_bound", {"identity_digest": "a"}, "a-op")
+
+    def _serve(self, activation, stage, identity, operation):
+        from sentientos.resident_cognitive_model_transition_experiment import stage_serving_binding
+        serving_admission = "serving-admission-" + stage
+        stage_binding = dict(stage_serving_binding(protocol=self.protocol, stage=stage,
+            activation=activation, expected_identity=identity, operation_id=operation))
+        activation_state = {key: value for key, value in activation.items()
+            if key not in {"receipt_id", "receipt_semantic_digest", "activation_history_digest",
+                           "activation_predecessor_state_digest", "activation_predecessor_posture",
+                           "commissioning_active_model_identity", "activation_transition_stage"}}
+        session = Session("pending", identity, activation, operation)
+        session.binding.update({"activation_state": activation_state,
+                                "model_serving_admission_ref": serving_admission,
+                                "installation_identity": self.protocol.value["installation_identity"]})
+        session.session_id = "resident-serving-session-" + semantic_digest(dict(session.binding))[:24]
+        self.slot.current_controller = Serving(session)
+        return {"stage_binding": stage_binding, "session": session.to_dict(),
+                "serving_admission": serving_admission, "serving_receipt_id": "serving-receipt",
+                "serving_receipt_semantic_digest": "c" * 64}
 
 
 def protocol():
@@ -124,6 +159,60 @@ def test_completed_stage_reconstructs(tmp_path):
         slot=slot, history_snapshot=lambda: boundary(slot), operations=ops,
         allow_synthetic_approval_for_tests=True, clock=lambda: NOW)
     assert rebuilt.phase == "a_to_b_transition_requested" and not rebuilt.health()["replay_forbidden"]
+
+
+def test_transition_journal_round_trips_canonical_appends_and_rejects_truncated_tail(tmp_path):
+    journal = TransitionJournal(tmp_path / "journal.jsonl")
+    appended = journal.append("a_to_b_transition_requested", {"request": "bounded"})
+
+    recovered = journal.entries()
+    assert recovered == [dict(appended)]
+
+    journal.path.write_bytes(journal.path.read_bytes().rstrip(b"\n"))
+    with pytest.raises(TransitionError, match="journal_noncanonical"):
+        journal.entries()
+
+
+def test_operator_request_provenance_does_not_replace_the_quiescence_capability(tmp_path):
+    ctl, _, _, slot, _ = controller(tmp_path)
+    advance(ctl, slot)
+    ctl.advance(approval=approval(ctl, slot), evidence={"timeout_seconds": 1},
+        operation_context={"request_id": "request-1", "request_digest": "d" * 64})
+
+    # The following stage reconstructs the persisted gate token from a journal
+    # entry that also carries operator request linkage.
+    advance(ctl, slot)
+    assert ctl.phase == "b_activation_committed"
+    assert ctl.health()["status"] == "in_progress"
+
+
+def test_malformed_operator_linkage_cannot_be_ignored_as_quiescence_metadata(tmp_path):
+    gate = ResidentCognitionQuiescenceGate()
+    journal = TransitionJournal(tmp_path / "journal.jsonl")
+    journal.append(PHASES[0], {"attempted_stage": PHASES[1]}, status="attempted")
+    journal.append(PHASES[1], {})
+    token = gate.quiesce(timeout_seconds=1, observation={})
+    journal.append("a_quiesced", {**dict(token), "operator_request": []})
+
+    rebuilt = ResidentCognitiveModelTransitionController(protocol=protocol(), journal=journal,
+        gate=gate, slot=Slot(), history_snapshot=lambda: history_boundary([]),
+        allow_synthetic_approval_for_tests=True, clock=lambda: NOW)
+    assert rebuilt.health()["status"] == "interrupted"
+    assert rebuilt.health()["reason"] == "quiescence_token_evidence_invalid"
+
+
+def test_serving_stage_rejects_malformed_quiescence_request_linkage():
+    gate = ResidentCognitionQuiescenceGate()
+    token = gate.quiesce(timeout_seconds=1, observation={})
+    operations = object.__new__(ResidentCognitiveTransitionStageOperations)
+    operations.gate = gate
+    operations.journal = type("Journal", (), {"entries": lambda self: [{
+        "status": "completed", "phase": "a_quiesced",
+        "evidence": {**dict(token), "operator_request": []},
+    }]})()
+
+    with pytest.raises(TransitionError, match="live_quiescence_evidence_invalid"):
+        operations._quiescence()
 
 
 def test_failed_effectful_stage_is_not_replayable_after_reconstruction(tmp_path):
@@ -225,7 +314,22 @@ def test_synthetic_approval_rejected_in_production(tmp_path):
         production.advance(approval=approval(production, slot))
 
 
-def test_stage_binding_grants_no_authority():
+def test_stage_binding_grants_no_authority_and_binds_activation_predecessor():
+    activation = activation_value("b", 2)
     binding = stage_serving_binding(protocol=protocol(), stage="b_serving_bound",
-        activation=activation_value("b", 2), expected_identity={"identity_digest": "b"}, operation_id="b-op")
+        activation=activation, expected_identity={"identity_digest": "b"}, operation_id="b-op")
+    assert binding["schema_version"] == BINDING_SCHEMA
+    assert binding["activation_predecessor_state_digest"] == activation["activation_predecessor_state_digest"]
+    assert binding["activation_predecessor_posture"] == "verified_predecessor_state"
+    session = Session("session-b", {"identity_digest": "b"}, activation, "b-op")
+    verify_stage_serving_binding(binding, protocol=protocol(), stage="b_serving_bound", session=session)
+    session.binding["activation_predecessor_state_digest"] = "c" * 64
+    with pytest.raises(TransitionError, match="transition_stage_serving_binding_mismatch"):
+        verify_stage_serving_binding(binding, protocol=protocol(), stage="b_serving_bound", session=session)
+    legacy_activation = dict(activation)
+    legacy_activation.pop("activation_predecessor_state_digest")
+    legacy_activation.pop("activation_predecessor_posture")
+    legacy = stage_serving_binding(protocol=protocol(), stage="b_serving_bound",
+        activation=legacy_activation, expected_identity={"identity_digest": "b"}, operation_id="b-op")
+    assert legacy["schema_version"] == LEGACY_BINDING_SCHEMA
     assert not binding["grants_activation"] and not binding["grants_model_serving"] and not binding["grants_inference"]

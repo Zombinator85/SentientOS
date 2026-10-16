@@ -1,0 +1,50 @@
+{
+  "sequence": 260,
+  "title": "Verify proposition history through fresh process reconstruction",
+  "source_parent_commit": "934265c4bfa2693f8c625cc307ded9d0fb6c71d5",
+  "source_parent_tree": "5267b5a32baf0cba2f8ccd07b7fa27deaba8a675",
+  "source_commit": "48b7a7cf69cd3f10cc13c7419e8de211c4269adb",
+  "source_tree": "d127335e6ef6119e3a8fce143c4a7500ab9af3c2",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "934265c4bfa2693f8c625cc307ded9d0fb6c71d5",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "edbac6f25d107a5271aaf15c5fc8ab2c26eb2bd5"
+    },
+    {
+      "path": "docs/development/longitudinal-epistemic-outcome-planning-task-acceptance.json",
+      "mode": "100644",
+      "sha": "283543d531d753194a4fb013920602fccaa96570"
+    }
+  ],
+  "validation": {
+    "longitudinal_epistemic_cognition_node": "passed",
+    "epistemic_development_and_causal_introspection": "57 passed",
+    "python_compile": "passed",
+    "whitespace_and_conflict_marker_check": "passed"
+  },
+  "observations": {
+    "separate_python_process": true,
+    "state_stance": "contested",
+    "source_run_digest_count": 4,
+    "state_event_count": 3,
+    "verified_mutation_receipt_count": 7,
+    "later_cognition_projection_digest_matches": true,
+    "production_effects": false,
+    "truth_claim": false,
+    "authority_expansion": false
+  },
+  "limitations": [
+    "Epistemic history has not yet changed goal allocation.",
+    "No production effect or mutation authority was added."
+  ]
+}

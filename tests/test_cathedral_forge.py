@@ -7,6 +7,7 @@ from sentientos.cathedral_forge import CathedralForge
 from sentientos.forge_env import ForgeEnv
 from sentientos.forge_goals import resolve_goal
 from sentientos.forge_model import CommandResult, CommandSpec
+from sentientos.integrity_pressure import IntegrityPressureInputError
 
 
 def _fake_env(root: Path) -> ForgeEnv:
@@ -56,6 +57,33 @@ def test_session_creation_and_cleanup(tmp_path: Path) -> None:
 
     forge._cleanup_session(session)
     assert session.cleanup_performed is True
+
+
+def test_invalid_pressure_custody_stops_before_forge_preparation(
+    tmp_path: Path, monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
+    feed = tmp_path / "pulse" / "integrity_incidents.jsonl"
+    feed.parent.mkdir(parents=True)
+    feed.write_bytes(b'{"created_at":')
+    forge_dir = tmp_path / "glow" / "forge"
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=forge_dir)
+    bootstrap_calls: list[Path] = []
+
+    def unexpected_bootstrap(root: Path) -> ForgeEnv:
+        bootstrap_calls.append(root)
+        raise AssertionError("sandbox bootstrap must follow integrity input validation")
+
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", unexpected_bootstrap)
+    try:
+        forge.run("forge_smoke_noop")
+    except IntegrityPressureInputError as exc:
+        assert exc.code == "incident_feed_row_invalid"
+    else:
+        raise AssertionError("invalid pressure custody must stop the run")
+
+    assert not bootstrap_calls
+    assert not forge_dir.exists()
+    assert not (tmp_path / ".forge").exists()
 
 
 def test_apply_records_command_results(tmp_path: Path, monkeypatch) -> None:

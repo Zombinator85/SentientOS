@@ -12,7 +12,6 @@ Example:
     python avatar_teaching_logger.py log alice bob avatar1 "crown ritual" --mood joy
     python avatar_teaching_logger.py list
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse

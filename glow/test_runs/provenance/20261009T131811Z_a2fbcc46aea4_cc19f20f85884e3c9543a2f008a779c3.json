@@ -1,0 +1,80 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 1,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "a2fbcc46aea483de44613f550ab3a5c6912ac8c5",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS/glow/test_runs/pytest_junitxml_3cb0121436c04981ae5ffed67f4991d7.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "6fa6642aec0cb0ef97844af861e83584384d100d78fe3e714d95fb0acad75505",
+  "provenance_hash": "b51aa6f6dbbc9cfb1d5a4c0ca2483ed8c3232482f55940c8c79b82c97df79e1a",
+  "pytest_args": [
+    "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/workspace/SentientOS/.venv/bin/python",
+  "repo_root": "/workspace/SentientOS",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "beff054c77a445f880079e1e0a9ce715",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness"
+  ],
+  "selection_flags": [
+    "tests/test_pytest_bootstrap_inertness.py::test_bootstrap_call_phase_witness"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 1,
+  "tests_executed": 1,
+  "tests_failed": 0,
+  "tests_passed": 1,
+  "tests_selected": 1,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-09T13:18:11.161506+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

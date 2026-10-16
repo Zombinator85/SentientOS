@@ -1,3 +1,12 @@
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
+from __future__ import annotations
 import pytest
 pytestmark=pytest.mark.no_legacy_skip
 import json

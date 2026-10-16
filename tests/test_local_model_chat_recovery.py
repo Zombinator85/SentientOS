@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 from pathlib import Path
+import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -11,8 +14,13 @@ from sentientos import local_model_production_serving as serving
 from sentientos.control_plane_kernel import (AdmissionOutcome, AuthorityClass,
                                               ControlActionRequest, ControlPlaneKernel,
                                               LifecyclePhase)
+from sentientos.federated_governance import reset_controller as reset_federated_governance_controller
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.local_model import ActiveModelIdentity
+from sentientos.local_model_production_serving import ProductionServingController
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.runtime_governor import reset_runtime_governor
+from sentientos.trust_ledger import reset_trust_ledger
 from sentientos.runtime.local_model_chat_recovery import (
     LocalModelChatRecoveryError,
     ProductionLocalModelChatRecoveryController,
@@ -29,17 +37,34 @@ pytestmark = pytest.mark.no_legacy_skip
 
 
 def activation() -> dict:
-    state = {"state_semantic_digest": "a" * 64, "generation": 7, "model_id": "model-1",
-             "artifact_id": "artifact-1", "runtime_id": "runtime-1", "authority_map_digest": "map-1"}
-    return {"active_state": state, "activation_receipt": {
-        "receipt_id": "activation-1", "receipt_semantic_digest": "activation-digest"}}
+    state = {"installation_identity": "install-1", "generation": 1, "model_id": "model-1",
+        "artifact_id": "artifact-1", "artifact_path": "/models/exact.gguf",
+        "artifact_sha256": "a" * 64, "artifact_size_bytes": 42, "route_id": "route-1",
+        "runtime_id": "runtime-1", "interpreter_path": "/runtime/python",
+        "load_configuration": {"n_ctx": 1024, "n_gpu_layers": 0},
+        "authority_map_digest": "map-1", "commissioning_receipt_id": "commissioning-1",
+        "commissioning_receipt_semantic_digest": "commissioning-digest"}
+    state["state_semantic_digest"] = semantic_digest(state)
+    prior = "ABSENT"
+    receipt = {"receipt_id": "activation-1", "receipt_semantic_digest": "activation-digest",
+        "resulting_state_digest": state["state_semantic_digest"],
+        "observed_prior_activation_state": prior, "expected_prior_activation_state": prior}
+    return {"active_state": state, "activation_receipt": receipt,
+        "catalog_proof": {"proof_semantic_digest": "proof-digest", "deployment_receipt_id": "deployment-1"},
+        "activation_history": ({"activation_receipt_id": receipt["receipt_id"],
+            "activation_receipt_semantic_digest": receipt["receipt_semantic_digest"],
+            "resulting_state_digest": state["state_semantic_digest"]},)}
 
 
 def receipt(operation: str = "serve-1") -> dict:
-    provenance = {"activation_state_semantic_digest": "a" * 64, "activation_generation": 7,
-        "activation_receipt_id": "activation-1", "activation_receipt_semantic_digest": "activation-digest",
-        "model_id": "model-1", "artifact_id": "artifact-1", "runtime_id": "runtime-1",
-        "authority_map_digest": "map-1"}
+    current = activation()
+    state, activation_receipt = current["active_state"], current["activation_receipt"]
+    provenance = {"activation_state_semantic_digest": state["state_semantic_digest"],
+        "activation_generation": state["generation"],
+        "activation_receipt_id": activation_receipt["receipt_id"],
+        "activation_receipt_semantic_digest": activation_receipt["receipt_semantic_digest"],
+        "model_id": state["model_id"], "artifact_id": state["artifact_id"],
+        "runtime_id": state["runtime_id"], "authority_map_digest": state["authority_map_digest"]}
     value = {"schema_version": "sentientos.local_model_serving_session_receipt:v1",
         "receipt_id": "receipt-" + operation, "session_id": "session-" + operation,
         "binding": {"installation_identity": "install-1", "serving_operation_id": operation, **provenance},
@@ -53,6 +78,91 @@ def snapshot() -> dict:
     return build_startup_snapshot(LocalModelChatStartup(True, "install-1", "serve-1"), "generation-1")
 
 
+class _ServingKernel:
+    def __init__(self) -> None:
+        self.requests = []
+
+    def admit(self, request):
+        self.requests.append(request)
+        return SimpleNamespace(outcome=AdmissionOutcome.ALLOW,
+            authority_class=request.authority_class, actor=request.actor,
+            action_kind=request.action_kind, target_subsystem=request.target_subsystem,
+            correlation_id=request.metadata["correlation_id"], admission_decision_ref="test-serving-admission")
+
+
+def _active_model_identity() -> ActiveModelIdentity:
+    return ActiveModelIdentity(engine="llama_cpp", resolved_artifact_path="/models/exact.gguf",
+        semantic_artifact_identity="sha256:" + "a" * 64, model_content_sha256="a" * 64,
+        artifact_size_bytes=42, sidecar_metadata_digest=None, configuration_digest="config-1",
+        candidate_index=0, posture="production", fallback=False)
+
+
+def _publish_serving_receipt(handle, operation: str, monkeypatch) -> dict:
+    evidence = activation()
+    monkeypatch.setattr(serving, "verify_current_activation", lambda *_a, **_k: evidence)
+    controller = ProductionServingController(handle, _ServingKernel(),
+        model_factory=lambda *_a: SimpleNamespace(active_identity=_active_model_identity(), close=lambda: None))
+    monkeypatch.setattr(controller, "_commissioning_identity", lambda _state: _active_model_identity().to_dict())
+    controller.establish(operation_id=operation)
+    matching = [item for item in verified_serving_receipts(handle)
+                if item["binding"]["serving_operation_id"] == operation]
+    assert len(matching) == 1
+    controller.close()
+    return matching[0]
+
+
+def _running_handoff_adapter(tmp_path: Path, handle, operation: str, monkeypatch):
+    """Launch a real child and exercise the installation-backed parent/child handoff verifier."""
+    root = tmp_path / "runtime-source"
+    (root / "sentientos").mkdir(parents=True)
+    scripts = root / "scripts"
+    scripts.mkdir()
+    result_path, release_path = tmp_path / "child-result.json", tmp_path / "release-child"
+    monkeypatch.setenv("TEST_REGISTRY_ROOT", str(handle._registry._base))
+    monkeypatch.setenv("TEST_CHILD_RESULT", str(result_path))
+    monkeypatch.setenv("TEST_RELEASE_CHILD", str(release_path))
+    (scripts / "local_model_chat.py").write_text("""\\
+import json, os, sys, time
+from pathlib import Path
+from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.chat_process_generation import verify_current_chat_process_handoff
+args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
+registry = InstallationStateRegistry._for_testing(Path(os.environ['TEST_REGISTRY_ROOT']))
+handle = registry.open(InstallationIdentity.parse(args['--installation-identity']))
+deadline = time.monotonic() + 5
+while True:
+    try:
+        handoff = verify_current_chat_process_handoff(handle=handle, handoff_id=args['--runtime-handoff-id'])
+        break
+    except Exception:
+        if time.monotonic() >= deadline:
+            raise
+        time.sleep(.01)
+Path(os.environ['TEST_CHILD_RESULT']).write_text(json.dumps(handoff, sort_keys=True))
+deadline = time.monotonic() + 20
+while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() < deadline:
+    time.sleep(.01)
+""", encoding="utf-8")
+    adapter = LocalModelChatServiceAdapter(
+        LocalModelChatStartup(True, handle.identity.value, operation, port=5500),
+        probe=lambda _url: True, installation_handle=handle)
+    adapter._root = root
+    adapter._cwd = root
+    package_root = Path(__file__).resolve().parents[1]
+    adapter._launch_environment["PYTHONPATH"] = os.pathsep.join((str(package_root), str(root)))
+    adapter._environment = dict(adapter._launch_environment)
+    adapter.start()
+    deadline = time.monotonic() + 5
+    while not result_path.exists() and time.monotonic() < deadline:
+        time.sleep(.01)
+    assert result_path.exists(), bytes(adapter._diagnostics).decode("utf-8", "replace")
+    child = json.loads(result_path.read_text(encoding="utf-8"))
+    parent = adapter.current_runtime_handoff()
+    assert child["process_instance_id"] == parent["process_instance_id"]
+    assert child["software_generation_digest"] == parent["software_generation_digest"]
+    return adapter, release_path
+
+
 def test_approved_unchanged_activation_recovery_intent_is_deterministic_and_zero_inference() -> None:
     arguments = dict(snapshot=snapshot(), prior_receipt=receipt(), activation=activation(),
                      replacement_serving_operation_id="serve-2", recovery_correlation_id="recover-1")
@@ -61,7 +171,7 @@ def test_approved_unchanged_activation_recovery_intent_is_deterministic_and_zero
     assert first["runtime_supervisor_generation"] == "generation-1"
     assert first["startup_configuration_digest"] == snapshot()["startup_configuration_digest"]
     assert first["prior_serving_receipt_semantic_digest"] == receipt()["receipt_semantic_digest"]
-    assert first["activation_state_semantic_digest"] == "a" * 64
+    assert first["activation_state_semantic_digest"] == activation()["active_state"]["state_semantic_digest"]
     assert first["recovery_inference"] is False
 
 
@@ -74,10 +184,8 @@ def test_replacement_operation_must_be_nonplaceholder_and_different(replacement:
 
 def test_globally_fresh_replacement_operation_rejects_any_older_lifetime(tmp_path: Path) -> None:
     handle = InstallationStateRegistry._for_testing(tmp_path).open(InstallationIdentity("install-1"), create=True)
-    directory = handle.fixed_object("local-model/serving/receipts"); handle.ensure_directory(directory)
-    import json
-    old = receipt("serve-old")
-    handle.durable_create(directory.child("old.json"), (json.dumps(old, sort_keys=True, separators=(",", ":")) + "\n").encode())
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        old = _publish_serving_receipt(handle, "serve-old", monkeypatch)
     assert len(verified_serving_receipts(handle)) == 1
     with pytest.raises(LocalModelChatRecoveryError, match="reused"):
         require_fresh_operation(handle, "serve-old", "serve-1")
@@ -93,9 +201,7 @@ def test_malformed_prior_serving_receipt_fails_closed(tmp_path: Path) -> None:
 
 def test_activation_race_guard_fails_before_model_serving_admission(monkeypatch, tmp_path: Path) -> None:
     handle = InstallationStateRegistry._for_testing(tmp_path).open(InstallationIdentity("install-1"), create=True)
-    observed = activation(); observed["active_state"]["installation_identity"] = "install-1"
-    observed["activation_receipt"]["resulting_state_digest"] = "a" * 64
-    observed["catalog_proof"] = {}
+    observed = activation()
     monkeypatch.setattr(serving, "verify_current_activation", lambda *_a, **_k: observed)
     class Kernel:
         def admit(self, _request): pytest.fail("MODEL_SERVING admission must not occur")
@@ -133,7 +239,22 @@ def test_recovery_surface_has_no_generic_process_or_model_escape() -> None:
     assert not parameters & forbidden
 
 
-def test_daemon_restart_independent_admission_uses_real_control_plane_kernel(tmp_path: Path) -> None:
+def test_daemon_restart_independent_admission_uses_real_control_plane_kernel(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The real governor bootstraps trust-epoch custody as part of admission.
+    # Keep that test-owned persistence local rather than depending on host
+    # /glow permissions or ambient state.
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_CONTROL_KERNEL_ROOT", str(tmp_path / "control-kernel"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(tmp_path / "pulse-trust"))
+    monkeypatch.setenv(
+        "PULSE_TRUST_EPOCH_STATE", str(tmp_path / "pulse-trust" / "epoch_state.json")
+    )
+    reset_federated_governance_controller()
+    reset_trust_ledger()
+    reset_runtime_governor()
     correlation = "local-model-chat-recovery:integration-1"
     decision = ControlPlaneKernel(decisions_path=tmp_path / "decisions.jsonl").admit(ControlActionRequest(
         action_kind="restart_daemon", authority_class=AuthorityClass.DAEMON_RESTART,
@@ -184,10 +305,12 @@ def test_recovery_approval_temporal_and_provenance_hardening(change, code) -> No
 def test_full_recovery_controller_transaction_and_denials(monkeypatch, tmp_path: Path, outcome) -> None:
     handle = InstallationStateRegistry._for_testing(tmp_path / "custody").open(
         InstallationIdentity("install-1"), create=True)
-    serving_dir = handle.fixed_object("local-model/serving/receipts"); handle.ensure_directory(serving_dir)
-    prior = receipt(); handle.durable_create(serving_dir.child("prior.json"),
-        (json.dumps(prior, sort_keys=True, separators=(",", ":")) + "\n").encode())
-    root = tmp_path / "runtime"; snap = snapshot(); write_startup_snapshot(snap, root)
+    prior = _publish_serving_receipt(handle, "serve-1", monkeypatch)
+    adapter, release_path = _running_handoff_adapter(tmp_path, handle, "serve-1", monkeypatch)
+    root = tmp_path / "runtime"
+    handoff = adapter.current_runtime_handoff()
+    snap = build_startup_snapshot(adapter.startup_configuration, "generation-1", runtime_handoff=handoff)
+    write_startup_snapshot(snap, root)
     intent = build_recovery_intent(snapshot=snap, prior_receipt=prior, activation=activation(),
         replacement_serving_operation_id="serve-2", recovery_correlation_id="recover-1")
     approval = approval_for(intent)
@@ -202,12 +325,18 @@ def test_full_recovery_controller_transaction_and_denials(monkeypatch, tmp_path:
         status=lambda: {"generation": "generation-1", "state": "running",
                         "services": {"local_model_chat": {"state": "unhealthy"}}},
         _observe_explicit_recovery=lambda _service: "healthy")
-    adapter = LocalModelChatServiceAdapter(LocalModelChatStartup(True, "install-1", "serve-1"))
     restarts = []
-    monkeypatch.setattr(adapter, "_restart_with_fresh_serving_operation",
-        lambda **kw: restarts.append(kw))
-    monkeypatch.setattr(adapter, "health", lambda: SimpleNamespace(reason="serving_current"))
-    monkeypatch.setattr(adapter, "force_stop", lambda: pytest.fail("successful readiness must not clean up"))
+    real_start = adapter.start
+    def start_with_serving_receipt():
+        real_start()
+        if adapter.startup_configuration.serving_operation_id == "serve-2":
+            _publish_serving_receipt(handle, "serve-2", monkeypatch)
+    monkeypatch.setattr(adapter, "start", start_with_serving_receipt)
+    real_restart = adapter._restart_with_fresh_serving_operation
+    def record_restart(**kwargs):
+        restarts.append(kwargs)
+        return real_restart(**kwargs)
+    monkeypatch.setattr(adapter, "_restart_with_fresh_serving_operation", record_restart)
     monkeypatch.setattr("sentientos.runtime.local_model_chat_recovery._current_activation", lambda _handle: activation())
     kernel = SimpleNamespace(requests=[])
     def admit(control_request):
@@ -219,18 +348,31 @@ def test_full_recovery_controller_transaction_and_denials(monkeypatch, tmp_path:
     kernel.admit = admit
     ctl = ProductionLocalModelChatRecoveryController(supervisor, adapter, kernel, handle,
         clock=lambda: 1767227400.0)
-    result = ctl.process_request(request["request_id"] + ".json")
-    assert len(kernel.requests) == 1
-    assert kernel.requests[0].authority_class is AuthorityClass.DAEMON_RESTART
-    assert kernel.requests[0].actor == "deterministic_local_model_chat_recovery_controller"
-    assert kernel.requests[0].target_subsystem == "local_model_chat"
-    if outcome is AdmissionOutcome.ALLOW:
-        assert result["terminal_status"] == "recovered" and len(restarts) == 1
-        assert result["model_serving_granted_by_recovery"] is False
-        assert result["inference_performed"] is False
-        assert result["local_model_inference_authority_granted"] is False
-        assert ctl.process_request(request["request_id"] + ".json") == result
-        assert ctl.process_pending() == (result,)
-        assert len(kernel.requests) == 1 and len(restarts) == 1
-    else:
-        assert result["terminal_status"] == "failed" and restarts == []
+    try:
+        result = ctl.process_request(request["request_id"] + ".json")
+        assert len(kernel.requests) == 1
+        assert kernel.requests[0].authority_class is AuthorityClass.DAEMON_RESTART
+        assert kernel.requests[0].actor == "deterministic_local_model_chat_recovery_controller"
+        assert kernel.requests[0].target_subsystem == "local_model_chat"
+        if outcome is AdmissionOutcome.ALLOW:
+            assert result["terminal_status"] == "recovered" and len(restarts) == 1
+            assert result["model_serving_granted_by_recovery"] is False
+            assert result["inference_performed"] is False
+            assert result["local_model_inference_authority_granted"] is False
+            assert result["predecessor_chat_process_handoff"] == handoff
+            successor_handoff = result["successor_chat_process_handoff"]
+            assert successor_handoff["handoff_id"] != handoff["handoff_id"]
+            assert successor_handoff["process_instance_id"] != handoff["process_instance_id"]
+            assert result["successor_serving_receipt_id"] is not None
+            assert ctl.process_request(request["request_id"] + ".json") == result
+            assert ctl.process_pending() == (result,)
+            assert len(kernel.requests) == 1 and len(restarts) == 1
+        else:
+            assert result["terminal_status"] == "failed" and restarts == []
+            assert result["daemon_restart_outcome"] == outcome.value
+            assert result["child_restart_attempted"] is False
+            assert not [item for item in verified_serving_receipts(handle)
+                       if item["binding"]["serving_operation_id"] == "serve-2"]
+    finally:
+        release_path.write_text("release\n", encoding="utf-8")
+        adapter.stop()

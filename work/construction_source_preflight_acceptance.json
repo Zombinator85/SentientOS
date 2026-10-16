@@ -1,0 +1,36 @@
+{
+  "existing_cases": [
+    "correct exact base",
+    "staged/unstaged/untracked work",
+    "unpublished commit",
+    "stale and dirty base",
+    "divergent history",
+    "expected-head race",
+    "same tree but different commit identity",
+    "remote URL mismatch",
+    "unreachable remote"
+  ],
+  "limits": [
+    "The helper remains read-only and does not fetch/check out the commit; unavailable local objects require a separate exact-ref source acquisition method.",
+    "No GitHub or production change occurred during the disposable fixture tests."
+  ],
+  "new_case": {
+    "effect": "Stale local source is never treated as the current remote baseline.",
+    "expected": "remote_commit_object_unavailable with local and remote identities kept separate; when expected_head is supplied the same observation returns branch_advanced_during_publication.",
+    "fixture": "Disposable local bare Git remote; no network remote access.",
+    "sequence": "Advance the bare origin from a second local clone without fetching into the inspected checkout."
+  },
+  "schema_version": 1,
+  "source_parent": {
+    "commit": "ada178bc412a9a2ebf82d225575947c7d959a568",
+    "tree": "9990918a63841f7b78b5b5b329dfc07a899f7eee"
+  },
+  "status": "source_preflight_rejects_unfetched_remote_advance_and_publication_race",
+  "test_source_sha256": "6ea1aa26b8c7e04929151f8c41f4dedf30c4d658e8782ad14919b44eda47863c",
+  "verification": {
+    "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q sentientos/tests/test_construction_source_preflight.py",
+    "compile": "python -m py_compile scripts/construction_source_preflight.py sentientos/tests/test_construction_source_preflight.py",
+    "diff_check": "git diff --check passed",
+    "result": "9 passed"
+  }
+}

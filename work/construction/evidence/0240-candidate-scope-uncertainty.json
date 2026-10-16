@@ -1,0 +1,41 @@
+{
+  "sequence": 240,
+  "title": "Candidate scope uncertainty remains a hard boundary",
+  "source_commit": "53cee2d02152517cf203cb48abe949f689fcfe36",
+  "source_tree": "1b5b24ab97b3df6713c3e28e096fa2d90820aec0",
+  "source_parent_commit": "594224ac7c3db21441f4dc7134d62decb5c8c6ee",
+  "source_parent_tree": "9fb0bc1befef4f3255dcc8ca94b84638326a1997",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "594224ac7c3db21441f4dc7134d62decb5c8c6ee",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7262,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {
+      "path": "tests/test_maintenance_post_adoption_attribution_campaign.py",
+      "sha": "ab4cc5cfac9dac4a863cd002e0ba2cc5451e65a7",
+      "mode": "100644"
+    }
+  ],
+  "validation": {
+    "focused_candidate_scope_test": "1 passed",
+    "campaign_collector_signal_suite": "29 passed, 2 pre-existing failures",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "known_failures": [
+    "Observational association test expects obsolete production_ready=true.",
+    "Epistemic adapter test omits the required owner argument."
+  ],
+  "limits": [
+    "The later candidate is preserved as proposal data but cannot be selected because no applicable subject path is evidenced.",
+    "Campaign outcomes are synthetic and original measurement issuers remain unverified.",
+    "No maintenance effect authority is added."
+  ]
+}

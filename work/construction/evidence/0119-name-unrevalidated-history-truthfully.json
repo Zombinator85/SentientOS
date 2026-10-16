@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "sequence": 119,
+  "source_commit": "2da7a58b10c0884d0abdc0fd2e4a2454135ee252",
+  "source_tree": "fad0160098abcf69e372807e9a97bce77ed0204c",
+  "previous_segment_sha256": "c019a5a26be9be9d3a7eb9d8b3fc2077d62f63f643a003ef4d3f43989aebfc4a",
+  "source_finding": {
+    "runtime_recovery": "verifies recorded admission and capability/effect/subject/configuration binding",
+    "preflight": "does not own or inject the runtime admission verifier",
+    "prior_claim": "receipt-linked history described as eligible"
+  },
+  "change": {
+    "history_status": "record_receipt_linked_admission_not_revalidated",
+    "admission_validation": "not_performed_by_read_only_preflight",
+    "runtime_recovery_validation": "not_performed_by_read_only_preflight",
+    "authority_effect": false
+  },
+  "acceptance": {
+    "command": ".venv/bin/python -m pytest -q tests/test_resident_objective_experiment_readiness.py",
+    "cases": 9,
+    "passed": 9,
+    "failed": 0,
+    "fixtures_only": true,
+    "actual_model_behavior_demonstrated": false
+  },
+  "static_checks": {
+    "py_compile": "passed",
+    "targeted_mypy": "passed",
+    "changed_file_trailing_whitespace": "none"
+  },
+  "boundaries": {
+    "admission_verifier_constructed": false,
+    "daemon_started": false,
+    "model_loaded": false,
+    "inference_admitted": false,
+    "authority_expanded": false,
+    "production_verified": false
+  },
+  "changed_files": {
+    "scripts/doctor_resident_objective_experiment.py": {
+      "bytes": 15454,
+      "sha256": "f37852cd0dbf8de96ae7aff3ef3f0cca8d74a136b32d184375d265eb9a54899d",
+      "git_blob": "bf2f4baae9f149d413a163b2de8d9b7108d07130"
+    },
+    "tests/test_resident_objective_experiment_readiness.py": {
+      "bytes": 13286,
+      "sha256": "b3f567053468390312e4d24c3e4623ebc95e5354ba9bb047fb8575fc85da4602",
+      "git_blob": "ff2c4b89683acae2383666b56ef2f9571230d4be"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "bytes": 17913,
+      "sha256": "2039a28f5d95bac860994d64263da6dc6a22a1ba9cb2cd2c9358e9b7a1ca0dc5",
+      "git_blob": "ebc9839b20ebaab46322df5a508b0c0f21e07b7f"
+    }
+  }
+}

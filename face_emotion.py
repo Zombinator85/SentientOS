@@ -16,7 +16,6 @@ All results are logged to ``logs/face_emotion.jsonl``.
 Integration Notes: call ``FaceEmotionDetector.webcam_loop`` with a ``MultiModalEmotionTracker`` instance to automatically update the fusion vector.
 """
 
-from __future__ import annotations
 from logging_config import get_log_path
 
 import json

@@ -5,7 +5,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 """Custom feedback rule helpers."""
-from __future__ import annotations
 from typing import Dict, Any
 
 

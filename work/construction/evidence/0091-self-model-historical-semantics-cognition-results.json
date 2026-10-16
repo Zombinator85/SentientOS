@@ -1,0 +1,25 @@
+{
+  "failed": 0,
+  "finding": "N+1 self-model projection preserves historical category, source observation-time vector and digest, status/freshness, interpretation, current_truth, and false authority map; same-tick projection remains unavailable.",
+  "focused_modules": [
+    "tests/test_longitudinal_self_model.py",
+    "tests/test_self_model_cognitive_consumption.py",
+    "tests/test_resident_developmental_cognition.py",
+    "tests/test_developmental_model_replacement_experiment.py",
+    "tests/test_developmental_history_intervention_experiment.py",
+    "tests/test_embodied_consequence.py"
+  ],
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 24074,
+    "path": "work/construction/evidence/0091-self-model-historical-semantics-cognition-junit.xml",
+    "sha256": "a01b480d2acaf9c7d24ab67792022af8a011b9bd575c95ac7a3c412b696b6799"
+  },
+  "passed": 151,
+  "python_compilation": "passed",
+  "sequence": 91,
+  "skipped": 0,
+  "source_baseline_commit": "00ddc4b0f56ac9c991111a5cf4a870e855bef8fb",
+  "source_baseline_tree": "fc1cbe0524eba1ea6a643944f59de770de68763e",
+  "status": "construction_tested_unverified_for_production"
+}

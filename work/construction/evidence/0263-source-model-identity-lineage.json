@@ -1,0 +1,54 @@
+{
+  "sequence": 263,
+  "title": "Preserve source model identity in task-family experience",
+  "source_parent_commit": "4ba94266692df0f97aeecd30cc61bfe2c70126c3",
+  "source_parent_tree_api_reported": "d0eda8abf6aa9728c50549267923b1a55a3cab4",
+  "source_parent_tree_note": "The commit endpoint returned a malformed 39-character tree oid. Reconstructed the parent content from verified seq262 source tree plus the five independently read-back seq262 continuation blobs; new source-commit comparison against the parent reports only the three intended source/test files.",
+  "source_commit": "ebac35de56070d80d7c78d0317b552fd463ecd6c",
+  "source_tree": "f5de1c3e3af22fa186c0d7996afc510d7c03c2a4",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "4ba94266692df0f97aeecd30cc61bfe2c70126c3",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "11a7a472e21b7408895eb33d8a4a901bbe0a067a"
+    },
+    {
+      "path": "sentientos/developmental_history_intervention_experiment.py",
+      "mode": "100644",
+      "sha": "12cc350bd17abc82aa5064d3cd85708d70ea345e"
+    },
+    {
+      "path": "tests/test_resident_developmental_cognition.py",
+      "mode": "100644",
+      "sha": "d05d04c273c2f3f658cccc73d9bd42663287b99e"
+    }
+  ],
+  "validation": {
+    "selected_task_family_and_model_drift_tests": "5 passed",
+    "python_compile": "passed",
+    "whitespace_and_conflict_marker_check": "passed by direct scan",
+    "canonical_test_runner": "blocked: dependency installation requires network access unavailable in sandbox"
+  },
+  "observations": {
+    "protocol_model_identity_digest_forwarded_to_outcome_payload": true,
+    "digest_matched_source_identity_preserved_in_history_projection": true,
+    "compact_history_packet_preserves_identity_binding": true,
+    "missing_or_mismatched_identity_retains_scored_history_as_unbound": true,
+    "target_model_applicability": "unbound",
+    "production_effects": false,
+    "authority_expansion": false
+  },
+  "limitations": [
+    "Target model identity is not yet joined to retrieved task-family examples; no cross-model transfer is inferred.",
+    "No production effect or live forge apply occurred."
+  ]
+}

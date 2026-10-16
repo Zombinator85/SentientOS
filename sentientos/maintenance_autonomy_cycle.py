@@ -5,7 +5,7 @@ all maintenance authority remain owned by the collector and watchdog.
 """
 from __future__ import annotations
 
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os

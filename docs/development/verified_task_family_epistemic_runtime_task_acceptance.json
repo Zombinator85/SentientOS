@@ -1,0 +1,17 @@
+{
+  "task_id": "verified-task-family-epistemic-runtime-consequence",
+  "version": 1,
+  "required_pytest_nodes": [
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+      "role": "successful_path",
+      "expected": "A recovered scored task-family run passes exact digest validation, two independent runtime admissions, durable epistemic evidence and state mutation, mutation receipt recovery, later cognition, and live-owner causal introspection without replaying the experiment."
+    }
+  ],
+  "non_claims": [
+    "external observation or independent evidence",
+    "objective truth or general model improvement",
+    "causal superiority established by introspection",
+    "effect authority or production activation"
+  ]
+}

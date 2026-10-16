@@ -18,11 +18,10 @@ jobs:
           python-version: '3.11'
       - name: Install project and packaging tools
         run: python -m pip install -e ".[test]" build twine cyclonedx-bom
-      - name: Validate candidate release without publication
-        run: |
-          python -c "import sentientos"
-          python scripts/publish_release.py --noop --tag "${{ github.ref_name }}"
-          python -m build
+      - name: Verify package imports are inert
+        run: python scripts/verify_import_inertness.py --output glow/test_runs/release_import_smoke.json
+      - name: Build release candidate without publication
+        run: python -m build
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v4.')

@@ -1,0 +1,69 @@
+{
+  "schema_version": "sentientos.integrity_pressure_input_acceptance:v1",
+  "verified_parent_commit": "a3ddfcc5d392e696b9bb5d67aa7c5da576eae921",
+  "verified_parent_tree": "34160039c7630e01167513bbd29910985fd261de",
+  "status": "bounded_local_parser_hermetically_checked_unverified_for_production",
+  "input": {
+    "path": "pulse/integrity_incidents.jsonl",
+    "writer": "sentientos.integrity_incident.append_incident_feed",
+    "authentication": "none; this feed remains mutable narrative, not an authenticated incident source",
+    "maximum_bytes": 1048576,
+    "maximum_physical_rows": 4096,
+    "maximum_row_bytes": 65536,
+    "maximum_triggers_per_row": 512,
+    "maximum_trigger_characters": 512,
+    "reader": "POSIX descriptor-bound owner/mode/single-link stable read; Windows explicit handle custody with private ACL requirement"
+  },
+  "semantics": {
+    "absent_feed": "zero rows, preserving existing first-use behavior",
+    "malformed_or_duplicate_json": "typed input error; no silent undercount",
+    "oversized_or_unstable_file": "typed input error; pressure calculation stops",
+    "unsafe_path_or_custody": "typed input error; pressure calculation stops",
+    "automatic_policy": "No new policy is defined; callers retain their existing failure behavior. ForgeDaemon catches this typed input failure before marking a request started and leaves it queued."
+  },
+  "tests": {
+    "command": "pytest sentientos/tests/test_integrity_pressure.py::test_compute_pressure_from_synthetic_incidents sentientos/tests/test_integrity_pressure.py::test_invalid_incident_feed_rows_block_pressure_calculation sentientos/tests/test_integrity_pressure.py::test_incident_feed_bounds_block_pressure_calculation sentientos/tests/test_integrity_pressure.py::test_incident_feed_symlink_is_not_followed tests/test_forge_queue_daemon.py::test_invalid_integrity_pressure_feed_defers_without_starting_forge_request -m 'legacy or no_legacy_skip' -q",
+    "result": "11 passed",
+    "python_compilation": "passed",
+    "git_diff_check": "passed",
+    "caller_preflight": "test_invalid_pressure_custody_stops_before_forge_preparation; test_run_smoke_profile_still_works; test_smoke_noop_uses_short_timeouts; 36-case bounded set passed"
+  },
+  "limitations": [
+    "Bounds and file custody do not authenticate incident content or prevent well-formed fabricated records.",
+    "The pressure policy has many callers; Windows runtime behavior and full caller-wide failure behavior were not exercised.",
+    "Malformed, oversized, or unavailable custody now blocks calculation instead of silently returning zero pressure; operators may observe fail-closed interruption.",
+    "No attack attribution, actual defensive action, external effect, or production operation is established.",
+    "The complete selected CathedralForge/pressure/queue set remains non-green with 15 failures, including audit-gating fixture assumptions and fake Session serialization; no blanket suite-pass claim is made.",
+    "The writer now enforces per-row parser compatibility, but feed-wide byte/row retention and concurrent writer serialization are not implemented; reaching the existing parser caps still yields typed unavailable pressure rather than silent zero."
+  ],
+  "caller_preflight": {
+    "owner": "sentientos.cathedral_forge.CathedralForge.run",
+    "behavior": "quarantine and bounded integrity-pressure inputs are read before campaign dispatch, plan writes, session creation, or sandbox bootstrap",
+    "invalid_feed": "IntegrityPressureInputError propagates; no plan/session/sandbox setup begins",
+    "authority_change": false,
+    "production_status": "untested"
+  },
+  "caller_preflight_test": {
+    "command": "/tmp/sentientos-test-venv/bin/python -m pytest tests/test_cathedral_forge.py::test_invalid_pressure_custody_stops_before_forge_preparation tests/test_cathedral_forge.py::test_run_smoke_profile_still_works tests/test_cathedral_forge.py::test_smoke_noop_uses_short_timeouts sentientos/tests/test_integrity_pressure.py tests/test_forge_queue_daemon.py -m 'legacy or no_legacy_skip' -q",
+    "result": "36 passed"
+  },
+  "broader_check": {
+    "command": "/tmp/sentientos-test-venv/bin/python -m pytest tests/test_cathedral_forge.py sentientos/tests/test_integrity_pressure.py tests/test_forge_queue_daemon.py -m 'legacy or no_legacy_skip' -q",
+    "result": "15 failed; broader module is not green",
+    "notable_failures": [
+      "existing CathedralForge audit-gating test environment assumptions",
+      "fake Session fixtures not JSON serializable"
+    ],
+    "interpretation": "failures were outside the new preflight assertion; focused boundary and smoke positive controls passed"
+  },
+  "producer_contract": {
+    "owner": "sentientos.integrity_incident.write_incident / append_incident_feed",
+    "reader": "sentientos.integrity_pressure._read_incidents",
+    "behavior": "writer rejects invalid event time, non-boolean quarantine flag, malformed or over-limit trigger list, and serialized row above reader limit before incident artifact/feed publication",
+    "identity_or_authenticity": "unchanged; this validation is schema compatibility, not an issuer or signature"
+  },
+  "producer_tests": {
+    "command": "/tmp/sentientos-test-venv/bin/python -m pytest sentientos/tests/test_integrity_pressure.py::test_incident_owner_publishes_rows_accepted_by_bounded_pressure_reader sentientos/tests/test_integrity_pressure.py::test_incident_owner_rejects_row_outside_reader_trigger_bound_before_writing sentientos/tests/test_integrity_pressure.py::test_compute_pressure_from_synthetic_incidents tests/test_cathedral_forge.py::test_invalid_pressure_custody_stops_before_forge_preparation tests/test_cathedral_forge.py::test_run_smoke_profile_still_works -m 'legacy or no_legacy_skip' -q --tb=no",
+    "result": "5 passed"
+  }
+}

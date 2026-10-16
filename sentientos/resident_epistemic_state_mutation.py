@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import json
+import errno
 import os
+import stat
+from datetime import datetime
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Mapping, TypeVar
+from typing import Any, Callable, Mapping, Sequence, TypeVar
 
 from .codex_task_authority_admission import RESIDENT_EPISTEMIC_STATE_MUTATION
 from .persistent_epistemic_state import (
@@ -15,6 +18,8 @@ from .persistent_epistemic_state import (
     make_epistemic_update_candidate, make_evidence_binding,
 )
 from .runtime_admission import AdmissionError, AdmissionEvidence, RuntimeAdmissionVerifier
+from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
+from .private_file_custody import PrivateFileCustodyError, publish_immutable_bytes
 
 PRINCIPAL = "deterministic_resident_epistemic_state_controller"
 EVIDENCE_BINDING_EFFECTS = tuple(sorted({
@@ -31,6 +36,11 @@ STATE_UPDATE_EFFECTS = tuple(sorted({
 }))
 SOURCE_PROOF_SCHEMA = "sentientos.epistemic_evidence_source_proof:v1"
 RECEIPT_SCHEMA = "sentientos.resident_epistemic_mutation_receipt:v1"
+INTENT_SCHEMA = "sentientos.resident_epistemic_mutation_intent:v2"
+LEGACY_INTENT_SCHEMA = "sentientos.resident_epistemic_mutation_intent:v1"
+MAX_MUTATION_CUSTODY_ENTRIES = 65_536
+MAX_MUTATION_CUSTODY_FILE_BYTES = 1_048_576
+MAX_MUTATION_CUSTODY_TOTAL_BYTES = 67_108_864
 ReceiptT = TypeVar("ReceiptT", bound="EvidenceBindingMutationReceipt | EpistemicStateMutationReceipt")
 
 
@@ -95,13 +105,53 @@ class ResidentEpistemicStateMutationController:
         self.owner, self.admission_verifier = owner, admission_verifier
         self.current_sequence = current_sequence
         self.receipt_root = Path(receipt_root)
-        if self.receipt_root.exists() and self.receipt_root.is_symlink():
-            raise EpistemicMutationError("receipt_root_symlink_forbidden")
+        try:
+            receipt_root_stat = self.receipt_root.lstat()
+        except FileNotFoundError:
+            receipt_root_stat = None
+        except OSError as exc:
+            raise EpistemicMutationError("receipt_root_unavailable") from exc
+        if receipt_root_stat is not None and (
+                stat.S_ISLNK(receipt_root_stat.st_mode) or not stat.S_ISDIR(receipt_root_stat.st_mode)):
+            raise EpistemicMutationError("receipt_root_invalid")
         for stage in ("evidence", "state"):
             path = self.receipt_root / "receipts" / stage
-            path.mkdir(parents=True, exist_ok=True)
-            if path.is_symlink(): raise EpistemicMutationError("receipt_path_symlink_forbidden")
+            if os.name == "nt":
+                try:
+                    stage_stat = path.lstat()
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    raise EpistemicMutationError("receipt_path_unavailable") from exc
+                if stat.S_ISLNK(stage_stat.st_mode) or not stat.S_ISDIR(stage_stat.st_mode):
+                    raise EpistemicMutationError("receipt_path_invalid")
+            else:
+                path.mkdir(parents=True, exist_ok=True)
+                if path.is_symlink() or not path.is_dir():
+                    raise EpistemicMutationError("receipt_path_invalid")
+        self._recovery_status: dict[str, Any] = {"status": "unchecked",
+            "pending_evidence_intent_count": 0, "pending_state_intent_count": 0,
+            "pending_transaction_count": 0, "recovered_receipt_count": 0}
+        self._verified_mutation_bound_state_digests: set[str] = set()
+        self.intent_root = self.receipt_root / "operations"
+        if os.name == "posix":
+            self.intent_root.mkdir(parents=True, exist_ok=True)
+        if self.intent_root.exists() and (self.intent_root.is_symlink() or not self.intent_root.is_dir()):
+            raise EpistemicMutationError("mutation_intent_root_invalid")
         self.verify_receipts()
+
+    @staticmethod
+    def _validate_source_event_time(value: Any) -> None:
+        if value == "undated":
+            return
+        if not isinstance(value, str) or not value or len(value) > 128:
+            raise EpistemicMutationError("source_proof_recorded_at_invalid")
+        try:
+            instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise EpistemicMutationError("source_proof_recorded_at_invalid") from exc
+        if instant.tzinfo is None or instant.utcoffset() is None:
+            raise EpistemicMutationError("source_proof_recorded_at_invalid")
 
     @staticmethod
     def evidence_configuration_digest(*, binding: EvidenceBinding, proposition_digest: str,
@@ -136,30 +186,461 @@ class ResidentEpistemicStateMutationController:
 
     def _write_receipt(self, stage: str, receipt: ReceiptT) -> ReceiptT:
         path = self.receipt_root / "receipts" / stage / f"{receipt.receipt_id}.json"
-        if path.is_symlink(): raise EpistemicMutationError("receipt_symlink_forbidden")
         raw = canonical_bytes(asdict(receipt)) + b"\n"
-        try: fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        except FileExistsError:
-            if path.read_bytes() != raw: raise EpistemicMutationError("immutable_receipt_collision")
-            return receipt
-        with os.fdopen(fd, "wb") as stream: stream.write(raw)
+        self._publish_immutable(path, raw, collision="immutable_receipt_collision")
         return receipt
 
-    def verify_receipts(self) -> None:
+    @staticmethod
+    def _read_bounded(path: Path, *, missing_ok: bool = False) -> bytes | None:
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_NONBLOCK", 0))
+            before = os.fstat(descriptor)
+            if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                    or before.st_size > MAX_MUTATION_CUSTODY_FILE_BYTES):
+                raise EpistemicMutationError("mutation_custody_file_invalid")
+            chunks: list[bytes] = []; remaining = MAX_MUTATION_CUSTODY_FILE_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk: break
+                chunks.append(chunk); remaining -= len(chunk)
+            raw = b"".join(chunks); after = os.fstat(descriptor)
+            if (len(raw) > MAX_MUTATION_CUSTODY_FILE_BYTES or len(raw) != before.st_size
+                    or after.st_size != before.st_size or after.st_mtime_ns != before.st_mtime_ns
+                    or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+                raise EpistemicMutationError("mutation_custody_file_changed")
+            return raw
+        except FileNotFoundError:
+            if missing_ok: return None
+            raise EpistemicMutationError("mutation_custody_file_missing")
+        except EpistemicMutationError:
+            raise
+        except OSError as exc:
+            raise EpistemicMutationError("mutation_custody_file_unavailable") from exc
+        finally:
+            if descriptor is not None: os.close(descriptor)
+
+    @staticmethod
+    def _publish_immutable(path: Path, raw: bytes, *, collision: str) -> bool:
+        if os.name != "posix":
+            raise EpistemicMutationError("mutation_custody_publication_unsupported_platform")
+        if len(raw) > MAX_MUTATION_CUSTODY_FILE_BYTES:
+            raise EpistemicMutationError("mutation_custody_file_unbounded")
+        try:
+            return publish_immutable_bytes(path, raw,
+                max_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                collision_code=collision)
+        except PrivateFileCustodyError as exc:
+            if exc.code == collision:
+                raise EpistemicMutationError(collision) from exc
+            if exc.code == "payload_size_limit_exceeded":
+                raise EpistemicMutationError("mutation_custody_file_unbounded") from exc
+            if exc.code == "publication_unsupported":
+                raise EpistemicMutationError(
+                    "mutation_custody_publication_unsupported_platform") from exc
+            cause = exc.__cause__
+            if (exc.code in {"directory_root_invalid", "directory_permissions_invalid",
+                    "directory_path_permissions_invalid"}
+                    or (isinstance(cause, OSError) and cause.errno in {errno.ENOTDIR, errno.ELOOP})):
+                raise EpistemicMutationError("mutation_custody_parent_invalid") from exc
+            raise EpistemicMutationError("mutation_custody_publication_failed") from exc
+
+    def _write_state_intent(self, *, candidate: EpistemicUpdateCandidate,
+                            admission: AdmissionEvidence, operation_id: str,
+                            correlation_id: str) -> None:
+        semantic = {"schema": INTENT_SCHEMA, "stage": "state", "candidate": asdict(candidate),
+            "admission_id": admission.admission_id,
+            "admission_binding_digest": admission.binding_digest,
+            "operation_id": operation_id, "correlation_id": correlation_id}
+        intent_id, intent_digest = _identity("epistemic-intent", semantic)
+        payload = {**semantic, "intent_id": intent_id, "intent_digest": intent_digest}
+        filename = intent_id.split(":", 1)[1] + ".json"
+        published = self._publish_immutable(self.intent_root / filename,
+            canonical_bytes(payload) + b"\n", collision="mutation_intent_identity_collision")
+        if not published:
+            raise EpistemicMutationError("mutation_intent_replay_blocked")
+
+    def _write_evidence_intent(self, *, binding: EvidenceBinding,
+                               source_proof: EpistemicEvidenceSourceProof,
+                               admission: AdmissionEvidence, operation_id: str,
+                               correlation_id: str) -> None:
+        semantic = {"schema": INTENT_SCHEMA, "stage": "evidence", "binding": asdict(binding),
+            "source_proof": asdict(source_proof),
+            "admission_id": admission.admission_id,
+            "admission_binding_digest": admission.binding_digest,
+            "operation_id": operation_id, "correlation_id": correlation_id}
+        intent_id, intent_digest = _identity("epistemic-intent", semantic)
+        payload = {**semantic, "intent_id": intent_id, "intent_digest": intent_digest}
+        filename = intent_id.split(":", 1)[1] + ".json"
+        published = self._publish_immutable(self.intent_root / filename,
+            canonical_bytes(payload) + b"\n", collision="mutation_intent_identity_collision")
+        if not published:
+            raise EpistemicMutationError("mutation_intent_replay_blocked")
+
+    def _recover_state_receipts(self) -> None:
+        pending_evidence_intents = 0
+        pending_state_intents = 0
+        validated_mutation_state_digests: set[str] = set()
+        # lstat is read-only on both platforms and distinguishes a truly
+        # absent root from a dangling symlink. Windows still uses only its
+        # bounded handle reader below; it never repairs custody here.
+        try:
+            root_stat = self.intent_root.lstat()
+        except FileNotFoundError:
+            if self.owner._published_mutation_bound_state_digests:
+                raise EpistemicMutationError("mutation_lineage_intent_root_missing")
+            self._recovery_status = {"status": "verified", "pending_evidence_intent_count": 0,
+                "pending_state_intent_count": 0,
+                "pending_transaction_count": self.owner._incomplete_admission_bound_transactions,
+                "recovered_receipt_count": 0}
+            self.owner._accept_mutation_lineage_verification(())
+            self._verified_mutation_bound_state_digests = set()
+            return
+        except OSError as exc:
+            raise EpistemicMutationError("mutation_intent_root_unavailable") from exc
+        if (os.name != "nt"
+                and (stat.S_ISLNK(root_stat.st_mode) or not stat.S_ISDIR(root_stat.st_mode))):
+            raise EpistemicMutationError("mutation_intent_root_invalid")
+        owner_counts = self.owner.verify()
+        try:
+            entries: Sequence[tuple[str, bytes | None]]
+            if os.name == "nt":
+                entries = read_regular_files(self.intent_root,
+                    max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
+                    max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                    max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
+            else:
+                if self.intent_root.is_symlink() or not self.intent_root.is_dir():
+                    raise EpistemicMutationError("mutation_intent_root_invalid")
+                paths = sorted(self.intent_root.glob("*.json"))
+                if len(paths) > MAX_MUTATION_CUSTODY_ENTRIES:
+                    raise EpistemicMutationError("mutation_intent_retention_limit_exceeded")
+                entries = tuple((path.name, self._read_bounded(path)) for path in paths)
+                if sum(len(raw or b"") for _, raw in entries) > MAX_MUTATION_CUSTODY_TOTAL_BYTES:
+                    raise EpistemicMutationError("mutation_intent_retention_limit_exceeded")
+        except WindowsHandleCustodyError as exc:
+            raise EpistemicMutationError("mutation_intent_windows_recovery_failed") from exc
+        states = {value.get("state_digest"): value for value in self.owner._read("states")}
+        events = {value.get("event_id"): value for value in self.owner._read("updates")}
+        transactions = self.owner._read("transactions")
+        completed_event_intents: dict[str, tuple[str, str, str]] = {}
+        recovered_receipts: list[EvidenceBindingMutationReceipt | EpistemicStateMutationReceipt] = []
+        for name, raw in entries:
+            if raw is None: raise EpistemicMutationError("mutation_intent_missing")
+            try:
+                value = json.loads(raw.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+                raise EpistemicMutationError("mutation_intent_corrupt") from exc
+            stage = value.get("stage") if isinstance(value, dict) else None
+            payload_field = "binding" if stage == "evidence" else "candidate" if stage == "state" else None
+            legacy = isinstance(value, dict) and value.get("schema") == LEGACY_INTENT_SCHEMA
+            current = isinstance(value, dict) and value.get("schema") == INTENT_SCHEMA
+            expected_fields = {"schema", "stage", payload_field, "admission_id",
+                "admission_binding_digest", "operation_id", "correlation_id", "intent_id", "intent_digest"}
+            if current and stage == "evidence":
+                expected_fields.add("source_proof")
+            if (not isinstance(value, dict) or set(value) != expected_fields
+                    or canonical_bytes(value) + b"\n" != raw
+                    or not (legacy or current) or payload_field is None):
+                raise EpistemicMutationError("mutation_intent_shape_invalid")
+            if payload_field is None:
+                raise EpistemicMutationError("mutation_intent_shape_invalid")
+            semantic: dict[str, Any] = {key: value[key] for key in expected_fields
+                if key not in {"intent_id", "intent_digest"} and isinstance(key, str)}
+            intent_id, intent_digest = _identity("epistemic-intent", semantic)
+            if (value.get("intent_id"), value.get("intent_digest"), name) != (
+                    intent_id, intent_digest, intent_id.split(":", 1)[1] + ".json"):
+                raise EpistemicMutationError("mutation_intent_identity_mismatch")
+            if any(not isinstance(value.get(field), str) or not value[field]
+                    for field in ("admission_id", "admission_binding_digest", "operation_id", "correlation_id")):
+                raise EpistemicMutationError("mutation_intent_binding_invalid")
+            try:
+                admission = self.admission_verifier.recorded_admission(str(value["admission_id"]))
+            except AdmissionError as exc:
+                raise EpistemicMutationError("mutation_intent_admission_missing") from exc
+            if admission.binding_digest != value["admission_binding_digest"]:
+                raise EpistemicMutationError("mutation_intent_admission_mismatch")
+            operation_id, correlation_id = str(value["operation_id"]), str(value["correlation_id"])
+            if stage == "evidence":
+                try:
+                    binding_raw = dict(value["binding"])
+                    binding_raw["upstream_binding_ids"] = tuple(binding_raw["upstream_binding_ids"])
+                    binding = EvidenceBinding(**binding_raw)
+                    expected_binding = make_evidence_binding(**{
+                        key: item for key, item in asdict(binding).items()
+                        if key not in {"binding_id", "binding_digest", "schema_version"}})
+                    proposition = self.owner.proposition(binding.proposition_id)
+                except (KeyError, TypeError, ValueError, EpistemicStateError) as exc:
+                    raise EpistemicMutationError("mutation_intent_binding_invalid") from exc
+                if binding != expected_binding or dict(binding.authority) != FALSE_AUTHORITY:
+                    raise EpistemicMutationError("mutation_intent_binding_digest_mismatch")
+                if current:
+                    try:
+                        source_proof_raw = dict(value["source_proof"])
+                        source_proof = EpistemicEvidenceSourceProof(**source_proof_raw)
+                        expected_proof = make_epistemic_evidence_source_proof(**{
+                            key: item for key, item in asdict(source_proof).items()
+                            if key not in {"proof_id", "proof_digest", "schema_version"}})
+                    except (KeyError, TypeError, ValueError, EpistemicMutationError) as exc:
+                        raise EpistemicMutationError("mutation_intent_source_proof_invalid") from exc
+                    self._validate_source_event_time(source_proof.recorded_at)
+                    binding_fields = (binding.source_artifact_id, binding.source_digest,
+                        binding.source_schema, binding.source_class, binding.observation_time)
+                    proof_fields = (source_proof.source_artifact_id, source_proof.source_digest,
+                        source_proof.source_schema, source_proof.source_class, source_proof.recorded_at)
+                    if (source_proof != expected_proof or dict(source_proof.authority) != FALSE_AUTHORITY
+                            or binding_fields != proof_fields
+                            or admission.provenance != source_proof.provenance_id):
+                        raise EpistemicMutationError("mutation_intent_source_proof_binding_mismatch")
+                configuration = self.evidence_configuration_digest(binding=binding,
+                    proposition_digest=proposition.proposition_digest, operation_id=operation_id)
+                try:
+                    for effect in EVIDENCE_BINDING_EFFECTS:
+                        self.admission_verifier.verify(admission, current_sequence=admission.issued_sequence,
+                            capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, principal_id=PRINCIPAL,
+                            effect=effect, subject_id=binding.binding_id,
+                            request_configuration_digest=configuration)
+                except AdmissionError as exc:
+                    raise EpistemicMutationError("mutation_intent_admission_recovery_rejected") from exc
+                stored = [item for item in self.owner.bindings(binding.proposition_id)
+                          if item.binding_id == binding.binding_id]
+                if not stored:
+                    pending_evidence_intents += 1
+                    continue  # Interrupted before append; never replay the mutation.
+                if stored != [binding]:
+                    raise EpistemicMutationError("mutation_intent_binding_conflict")
+                evidence_raw_receipt = EvidenceBindingMutationReceipt("", "", "evidence_binding_append",
+                    binding.binding_id, binding.binding_digest, binding.proposition_id,
+                    binding.source_artifact_id, binding.source_digest, admission.admission_id,
+                    admission.binding_digest, PRINCIPAL, operation_id, correlation_id)
+                receipt_id, receipt_digest = _identity("epistemic-mutation-receipt", evidence_raw_receipt.payload())
+                recovered_receipts.append(replace(evidence_raw_receipt, receipt_id=receipt_id,
+                                                  receipt_digest=receipt_digest))
+                continue
+            try:
+                candidate_raw = dict(value["candidate"])
+                candidate_raw["evidence_binding_ids"] = tuple(candidate_raw["evidence_binding_ids"])
+                candidate = EpistemicUpdateCandidate(**candidate_raw)
+                expected_candidate = make_epistemic_update_candidate(**{
+                    key: item for key, item in asdict(candidate).items() if key != "candidate_id"})
+            except (KeyError, TypeError, ValueError, EpistemicStateError) as exc:
+                raise EpistemicMutationError("mutation_intent_candidate_invalid") from exc
+            if candidate != expected_candidate:
+                raise EpistemicMutationError("mutation_intent_candidate_digest_mismatch")
+            configuration = self.state_configuration_digest(candidate=candidate, operation_id=operation_id)
+            try:
+                for effect in STATE_UPDATE_EFFECTS:
+                    self.admission_verifier.verify(admission, current_sequence=admission.issued_sequence,
+                        capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, principal_id=PRINCIPAL,
+                        effect=effect, subject_id=candidate.candidate_id,
+                        request_configuration_digest=configuration)
+            except AdmissionError as exc:
+                raise EpistemicMutationError("mutation_intent_admission_recovery_rejected") from exc
+            matching_events = [event for event in events.values()
+                if event.get("candidate_id") == candidate.candidate_id
+                and event.get("correlation_id") == correlation_id
+                and event.get("proposition_id") == candidate.proposition_id]
+            if not matching_events:
+                pending_state_intents += 1
+                continue  # Interrupted before state commit; preserve, never replay.
+            if len(matching_events) != 1:
+                raise EpistemicMutationError("mutation_intent_event_ambiguous")
+            event = matching_events[0]
+            event_binding = (str(value["admission_id"]), operation_id, correlation_id)
+            previous_intent = completed_event_intents.get(str(event["event_id"]))
+            if previous_intent is not None and previous_intent != event_binding:
+                raise EpistemicMutationError("mutation_intent_event_conflict")
+            completed_event_intents[str(event["event_id"])] = event_binding
+            state = states.get(event.get("successor_state_digest"))
+            if (state is None or event.get("prior_state_digest") != candidate.predecessor_state_digest
+                    or event.get("reason") != candidate.reason
+                    or state.get("generation") != event.get("generation")
+                    or state.get("predecessor_state_digest") != candidate.predecessor_state_digest
+                    or state.get("stance") != candidate.proposed_stance
+                    or state.get("evidence_set_digest") != digest(sorted(candidate.evidence_binding_ids))):
+                raise EpistemicMutationError("mutation_intent_state_lineage_mismatch")
+            matching_transactions = [transaction for transaction in transactions
+                if isinstance(transaction.get("state"), Mapping)
+                and isinstance(transaction.get("event"), Mapping)
+                and transaction["state"].get("state_digest") == state.get("state_digest")
+                and transaction["event"].get("event_id") == event.get("event_id")]
+            expected_mutation_binding = {"candidate_id": candidate.candidate_id,
+                "candidate_digest": candidate.candidate_digest, "admission_id": admission.admission_id,
+                "admission_binding_digest": admission.binding_digest,
+                "operation_id": operation_id, "correlation_id": correlation_id}
+            if not matching_transactions:
+                raise EpistemicMutationError("mutation_intent_transaction_missing")
+            if (len(matching_transactions) != 1
+                    or matching_transactions[0].get("mutation_binding") != expected_mutation_binding):
+                raise EpistemicMutationError("mutation_intent_transaction_binding_mismatch")
+            validated_mutation_state_digests.add(str(state["state_digest"]))
+            state_raw_receipt = EpistemicStateMutationReceipt("", "", "epistemic_state_update",
+                candidate.candidate_id, candidate.proposition_id, candidate.predecessor_state_digest,
+                str(state["state_id"]), str(state["state_digest"]), str(event["event_id"]),
+                str(event["event_digest"]), str(state["evidence_set_digest"]), int(state["generation"]),
+                admission.admission_id, admission.binding_digest, PRINCIPAL, operation_id, correlation_id)
+            receipt_id, receipt_digest = _identity("epistemic-mutation-receipt", state_raw_receipt.payload())
+            recovered_receipts.append(replace(state_raw_receipt, receipt_id=receipt_id,
+                                               receipt_digest=receipt_digest))
+        expected_receipts: dict[str, dict[str, bytes]] = {"evidence": {}, "state": {}}
+        for receipt in recovered_receipts:
+            if isinstance(receipt, EvidenceBindingMutationReceipt):
+                receipt_stage = "evidence"
+            elif isinstance(receipt, EpistemicStateMutationReceipt):
+                receipt_stage = "state"
+            else:
+                raise EpistemicMutationError("mutation_receipt_recovery_type_invalid")
+            name = f"{receipt.receipt_id}.json"
+            receipt_bytes = canonical_bytes(asdict(receipt)) + b"\n"
+            previous = expected_receipts[receipt_stage].get(name)
+            if previous is not None and previous != receipt_bytes:
+                raise EpistemicMutationError("mutation_receipt_recovery_identity_conflict")
+            expected_receipts[receipt_stage][name] = receipt_bytes
+
+        # A receipt is recoverable custody only when a verified durable intent
+        # independently derives its exact bytes. Reject orphaned or substituted
+        # receipt files before repairing any missing receipt.
+        for receipt_stage in ("evidence", "state"):
+            directory = self.receipt_root / "receipts" / receipt_stage
+            receipt_entries: Sequence[tuple[str, bytes | None]]
+            if os.name == "nt":
+                try:
+                    directory_stat = directory.lstat()
+                except FileNotFoundError:
+                    receipt_entries = ()
+                except OSError as exc:
+                    raise EpistemicMutationError("receipt_path_unavailable") from exc
+                else:
+                    if (stat.S_ISLNK(directory_stat.st_mode)
+                            or not stat.S_ISDIR(directory_stat.st_mode)):
+                        raise EpistemicMutationError("receipt_path_invalid")
+                    try:
+                        receipt_entries = read_regular_files(directory,
+                            max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
+                            max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                            max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
+                    except WindowsHandleCustodyError as exc:
+                        raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
+            else:
+                if directory.is_symlink() or not directory.is_dir():
+                    raise EpistemicMutationError("receipt_path_symlink_forbidden")
+                paths = sorted(directory.glob("*.json"))
+                if len(paths) > MAX_MUTATION_CUSTODY_ENTRIES:
+                    raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+                receipt_entries = tuple((path.name, self._read_bounded(path)) for path in paths)
+                if sum(len(raw or b"") for _, raw in receipt_entries) > MAX_MUTATION_CUSTODY_TOTAL_BYTES:
+                    raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+            for name, raw in receipt_entries:
+                if raw is None or expected_receipts[receipt_stage].get(name) != raw:
+                    raise EpistemicMutationError("mutation_receipt_without_verified_intent")
+
+        for receipt in recovered_receipts:
+            if type(receipt) is EvidenceBindingMutationReceipt:
+                receipt_stage = "evidence"
+            elif type(receipt) is EpistemicStateMutationReceipt:
+                receipt_stage = "state"
+            else:
+                raise EpistemicMutationError("mutation_receipt_recovery_type_invalid")
+            if os.name == "nt":
+                # Windows recovery is deliberately read-only. Accept only an
+                # already published byte-identical receipt; never repair custody
+                # by writing from this inspection path.
+                directory = self.receipt_root / "receipts" / receipt_stage
+                try:
+                    published = dict(read_regular_files(directory,
+                        max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
+                        max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                        max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES))
+                except WindowsHandleCustodyError as exc:
+                    raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
+                name = f"{receipt.receipt_id}.json"
+                expected = canonical_bytes(asdict(receipt)) + b"\n"
+                if published.get(name) != expected:
+                    raise EpistemicMutationError("mutation_receipt_recovery_publication_unsupported")
+            else:
+                self._write_receipt(receipt_stage, receipt)
+        published_mutation_state_digests = self.owner._published_mutation_bound_state_digests
+        if published_mutation_state_digests != validated_mutation_state_digests:
+            raise EpistemicMutationError("mutation_lineage_intent_missing_or_unverified")
+        self._verified_mutation_bound_state_digests = set(validated_mutation_state_digests)
+        self.owner._accept_mutation_lineage_verification(
+            tuple(sorted(validated_mutation_state_digests)))
+        self._recovery_status = {"status": ("incomplete" if pending_evidence_intents or pending_state_intents
+                or owner_counts.get("incomplete_admission_bound_transactions", 0) else "verified"),
+            "pending_evidence_intent_count": pending_evidence_intents,
+            "pending_state_intent_count": pending_state_intents,
+            "pending_transaction_count": int(owner_counts.get("incomplete_admission_bound_transactions", 0)),
+            "recovered_receipt_count": len(recovered_receipts)}
+
+    @property
+    def recovery_status(self) -> Mapping[str, Any]:
+        return dict(self._recovery_status)
+
+    def verify_receipts(self) -> Mapping[str, Any]:
+        self._recover_state_receipts()
         for stage, cls in (("evidence", EvidenceBindingMutationReceipt), ("state", EpistemicStateMutationReceipt)):
-            for path in sorted((self.receipt_root / "receipts" / stage).glob("*.json")):
-                if path.is_symlink(): raise EpistemicMutationError("receipt_symlink_forbidden")
-                try: receipt = cls(**json.loads(path.read_text()))
-                except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            directory = self.receipt_root / "receipts" / stage
+            entries: Sequence[tuple[str, bytes | None]]
+            if os.name == "nt":
+                try:
+                    directory_stat = directory.lstat()
+                except FileNotFoundError:
+                    entries = ()
+                except OSError as exc:
+                    raise EpistemicMutationError("receipt_path_unavailable") from exc
+                else:
+                    if (stat.S_ISLNK(directory_stat.st_mode)
+                            or not stat.S_ISDIR(directory_stat.st_mode)):
+                        raise EpistemicMutationError("receipt_path_invalid")
+                    try:
+                        entries = read_regular_files(directory, max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
+                            max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
+                            max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
+                    except WindowsHandleCustodyError as exc:
+                        raise EpistemicMutationError("mutation_receipt_windows_recovery_failed") from exc
+            else:
+                if directory.is_symlink() or not directory.is_dir():
+                    raise EpistemicMutationError("receipt_path_symlink_forbidden")
+                paths = sorted(directory.glob("*.json"))
+                if len(paths) > MAX_MUTATION_CUSTODY_ENTRIES:
+                    raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+                entries = tuple((path.name, self._read_bounded(path)) for path in paths)
+                if sum(len(raw or b"") for _, raw in entries) > MAX_MUTATION_CUSTODY_TOTAL_BYTES:
+                    raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+            for receipt_name, receipt_bytes in entries:
+                if receipt_bytes is None: raise EpistemicMutationError("mutation_receipt_missing")
+                try:
+                    value = json.loads(receipt_bytes.decode("utf-8"))
+                    if canonical_bytes(value) + b"\n" != receipt_bytes:
+                        raise EpistemicMutationError("mutation_receipt_noncanonical")
+                    receipt = cls(**value)
+                except (UnicodeError, TypeError, ValueError, json.JSONDecodeError) as exc:
                     raise EpistemicMutationError("mutation_receipt_corrupt") from exc
                 rid, rdigest = _identity("epistemic-mutation-receipt", receipt.payload())
-                if (receipt.receipt_id, receipt.receipt_digest) != (rid, rdigest) or path.stem != rid:
+                if ((receipt.receipt_id, receipt.receipt_digest) != (rid, rdigest)
+                        or receipt.authority is not False or receipt.storage_verified is not True
+                        or receipt.principal != PRINCIPAL
+                        or receipt.stage != ("evidence_binding_append" if stage == "evidence"
+                                             else "epistemic_state_update")
+                        or receipt_name != rid + ".json"):
                     raise EpistemicMutationError("mutation_receipt_identity_mismatch")
+        return self.recovery_status
 
     def append_evidence_binding(self, *, binding: EvidenceBinding,
                                 source_proof: EpistemicEvidenceSourceProof,
                                 admission: AdmissionEvidence, operation_id: str,
                                 correlation_id: str) -> EvidenceBindingMutationReceipt:
+        with self.admission_verifier.authorized_local_commit():
+            return self._append_evidence_binding_locked(binding=binding,
+                source_proof=source_proof, admission=admission,
+                operation_id=operation_id, correlation_id=correlation_id)
+
+    def _append_evidence_binding_locked(self, *, binding: EvidenceBinding,
+                                source_proof: EpistemicEvidenceSourceProof,
+                                admission: AdmissionEvidence, operation_id: str,
+                                correlation_id: str) -> EvidenceBindingMutationReceipt:
+        self._validate_source_event_time(source_proof.recorded_at)
         self.owner.verify(); proposition = self.owner.proposition(binding.proposition_id)
         expected = make_evidence_binding(**{k:v for k,v in asdict(binding).items()
                                             if k not in {"binding_id","binding_digest","schema_version"}})
@@ -179,6 +660,10 @@ class ResidentEpistemicStateMutationController:
             proposition_digest=proposition.proposition_digest, operation_id=operation_id)
         self._admit(admission, effects=EVIDENCE_BINDING_EFFECTS,
                     subject_id=binding.binding_id, configuration_digest=configuration)
+        if admission.provenance != source_proof.provenance_id:
+            raise EpistemicMutationError("source_proof_admission_provenance_mismatch")
+        self._write_evidence_intent(binding=binding, source_proof=source_proof,
+            admission=admission, operation_id=operation_id, correlation_id=correlation_id)
         self.owner.bind_evidence(binding); self.owner.verify()
         matches = [item for item in self.owner.bindings(binding.proposition_id) if item.binding_id == binding.binding_id]
         if matches != [binding] or dict(matches[0].authority) != FALSE_AUTHORITY:
@@ -193,6 +678,19 @@ class ResidentEpistemicStateMutationController:
                                 admission: AdmissionEvidence, operation_id: str,
                                 correlation_id: str, tick: int,
                                 recorded_at: str) -> EpistemicStateMutationReceipt:
+        with self.admission_verifier.authorized_local_commit():
+            return self._commit_update_candidate_locked(candidate=candidate,
+                admission=admission, operation_id=operation_id,
+                correlation_id=correlation_id, tick=tick, recorded_at=recorded_at)
+
+    def _commit_update_candidate_locked(self, *, candidate: EpistemicUpdateCandidate,
+                                admission: AdmissionEvidence, operation_id: str,
+                                correlation_id: str, tick: int,
+                                recorded_at: str) -> EpistemicStateMutationReceipt:
+        try:
+            self.owner.validate_update_timestamp(tick=tick, recorded_at=recorded_at)
+        except EpistemicStateError as exc:
+            raise EpistemicMutationError(f"epistemic_update_context_invalid:{exc}") from exc
         self.owner.verify(); self.owner.proposition(candidate.proposition_id)
         try:
             expected = make_epistemic_update_candidate(**{k:v for k,v in asdict(candidate).items()
@@ -209,8 +707,26 @@ class ResidentEpistemicStateMutationController:
         if any(item not in known or known[item].withdrawn for item in candidate.evidence_binding_ids):
             raise EpistemicMutationError("candidate_evidence_missing_foreign_or_withdrawn")
         # A binding receipt is evidence of append only; its admission may never authorize this stage.
-        used_evidence_admissions = {json.loads(path.read_text())["admission_id"] for path in
-            (self.receipt_root / "receipts" / "evidence").glob("*.json")}
+        evidence_receipt_paths = sorted((self.receipt_root / "receipts" / "evidence").glob("*.json"))
+        if len(evidence_receipt_paths) > MAX_MUTATION_CUSTODY_ENTRIES:
+            raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
+        used_evidence_admissions: set[str] = set()
+        for path in evidence_receipt_paths:
+            raw_bytes = self._read_bounded(path)
+            try:
+                raw_receipt = json.loads((raw_bytes or b"").decode("utf-8"))
+                if canonical_bytes(raw_receipt) + b"\n" != raw_bytes:
+                    raise EpistemicMutationError("mutation_receipt_noncanonical")
+                stored_receipt = EvidenceBindingMutationReceipt(**raw_receipt)
+            except (UnicodeError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                raise EpistemicMutationError("mutation_receipt_corrupt") from exc
+            stored_id, stored_digest = _identity("epistemic-mutation-receipt", stored_receipt.payload())
+            if ((stored_receipt.receipt_id, stored_receipt.receipt_digest) != (stored_id, stored_digest)
+                    or path.name != stored_id + ".json" or stored_receipt.stage != "evidence_binding_append"
+                    or stored_receipt.principal != PRINCIPAL or stored_receipt.authority is not False
+                    or not stored_receipt.storage_verified):
+                raise EpistemicMutationError("mutation_receipt_identity_mismatch")
+            used_evidence_admissions.add(stored_receipt.admission_id)
         if admission.admission_id in used_evidence_admissions:
             raise EpistemicMutationError("separate_stage_admission_required")
         configuration = self.state_configuration_digest(candidate=candidate, operation_id=operation_id)
@@ -218,13 +734,20 @@ class ResidentEpistemicStateMutationController:
                     configuration_digest=configuration)
         previous_ids = set(self.owner.active_binding_ids(candidate.proposition_id))
         active_ids = set(candidate.evidence_binding_ids)
+        self._write_state_intent(candidate=candidate, admission=admission,
+            operation_id=operation_id, correlation_id=correlation_id)
         state, event = self.owner.commit_update(proposition_id=candidate.proposition_id,
             expected_predecessor_digest=candidate.predecessor_state_digest,
             stance=candidate.proposed_stance, reason=candidate.reason,
             active_binding_ids=tuple(sorted(active_ids)),
             added_binding_ids=tuple(sorted(active_ids - previous_ids)),
             removed_binding_ids=tuple(sorted(previous_ids - active_ids)), candidate=candidate,
-            correlation_id=correlation_id, tick=tick, recorded_at=recorded_at)
+            correlation_id=correlation_id, tick=tick, recorded_at=recorded_at,
+            mutation_binding={"candidate_id": candidate.candidate_id,
+                "candidate_digest": candidate.candidate_digest,
+                "admission_id": admission.admission_id,
+                "admission_binding_digest": admission.binding_digest,
+                "operation_id": operation_id, "correlation_id": correlation_id})
         self.owner.verify(); current = self.owner.current_state(candidate.proposition_id)
         events = self.owner.update_events(candidate.proposition_id)
         paired = [item for item in events if item.event_id == event.event_id]
@@ -240,4 +763,8 @@ class ResidentEpistemicStateMutationController:
             event.event_id, event.event_digest, state.evidence_set_digest, state.generation,
             admission.admission_id, admission.binding_digest, PRINCIPAL, operation_id, correlation_id)
         rid, rdigest = _identity("epistemic-mutation-receipt", raw.payload())
-        return self._write_receipt("state", replace(raw, receipt_id=rid, receipt_digest=rdigest))
+        receipt = self._write_receipt("state", replace(raw, receipt_id=rid, receipt_digest=rdigest))
+        self._verified_mutation_bound_state_digests.add(state.state_digest)
+        self.owner._accept_mutation_lineage_verification(
+            tuple(sorted(self._verified_mutation_bound_state_digests)))
+        return receipt

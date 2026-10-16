@@ -1,0 +1,37 @@
+{
+  "sequence": 232,
+  "title": "Verified campaign outcomes into governed signals",
+  "source_commit": "d429354dc3072317e3ed2fdb555e75ade7e48fdf",
+  "source_tree": "5e42b331fac5a31525e19f1666d56595ccd01ba6",
+  "source_parent_commit": "79ab1cd3b131714380a674493ea3b4992bd5cb14",
+  "source_parent_tree": "cf396dbb17bf94bb9b4e04677d7f5a06031b4347",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "79ab1cd3b131714380a674493ea3b4992bd5cb14",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7235,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {"path": "sentientos/maintenance_post_adoption_attribution_campaign.py", "sha": "7e35520049cf9941b859fefac96d18fe4ba5cedf", "mode": "100644"},
+    {"path": "sentientosd.py", "sha": "dc6616c66d43be148bf9bc9b7a202bfe12f6808e", "mode": "100644"},
+    {"path": "tests/test_maintenance_post_adoption_attribution_campaign.py", "sha": "ea975a0a0da0cb12fa6082c24abc893f63daf22c", "mode": "100644"},
+    {"path": "docs/development/governed_campaign_signal_composition_task_acceptance.json", "sha": "e1fa24c629db4cc6bc1851a35853773a1794e27d", "mode": "100644"}
+  ],
+  "validation": {
+    "selected_tests": "12 passed",
+    "broader_tests": "53 passed, 5 failed in pre-existing test/environment contracts",
+    "python_compile": "passed",
+    "git_diff_check": "passed",
+    "targeted_mypy": "repository baseline errors remain; no reported errors in added lines"
+  },
+  "limitations": [
+    "Campaign control-source issuers remain caller-supplied and unverified; signals preserve this qualification.",
+    "Runtime fixture uses synthetic campaign records and a fixture proposal-evaluation admission; it is not production evidence.",
+    "Five broader-suite failures remain outside this source change and are recorded in the segment."
+  ]
+}

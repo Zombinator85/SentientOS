@@ -1,0 +1,39 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "commands": [
+      "python -m py_compile scripts/inspect_resident_objective_result.py tests/test_resident_developmental_cognition.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest --override-ini addopts= -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixtures_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 164,
+    "positive_controls": [
+      "three uniquely staged task instances and nonoverlapping probe sets survive request archiving",
+      "first acquisition record is selected after five newer unrelated history records",
+      "transfer outcome returns through canonical World-State and ordinary writeback",
+      "third task staging requires and finds at least two admitted family records",
+      "all family source facts remain absent from current evidence in present/withheld/restored conditions",
+      "progression reports exact same model/generation controls and fixture-only posture"
+    ],
+    "production_acceptance": "deferred"
+  },
+  "changed_files": {
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 214087,
+      "git_blob": "9ef0bd77108a48f2ee628eecb9e9315179fa3766",
+      "sha256": "1b980d10b9f63edc74897c369fa665f04d43ab3af53aa249d554d0fb66cdbf55"
+    }
+  },
+  "implementation": {
+    "durable_requests": "Each episode is staged with its exact request identity and retained through the existing bounded immutable archive.",
+    "episode_chain": "The first scored family outcome enters World-State and ordinary admitted history. A later held-out task score is then projected back to World-State, admitted through the same writeback owner, and used to preregister a third disjoint probe suite.",
+    "leakage": "Task-family source facts present in the World-State are excluded from every condition current-evidence projection. The score/report contains counts and receipt identities, not oracle parameters or answer text.",
+    "measurement": "The owner progression view verifies three exact task/run/receipt identities, reports chronological episodes and the same exact fixture model/generation controls, and explicitly states that performance improvement and learning are not established."
+  },
+  "objective": "Compose acquisition, transferred outcome, feedback writeback, and a further distinct held-out task into a measurable three-episode fixture progression.",
+  "schema_version": 1,
+  "sequence": 133,
+  "source_commit": "333a0cef3b0aaea70c22609f772a176427867803",
+  "source_tree": "77f1662acb9c0e70d49e60aff15f4dbbc814d9f4"
+}

@@ -1,0 +1,27 @@
+{
+  "changes": {
+    "incident_name_enumeration": "bounded at 4096 JSON entries and 5120 total directory entries",
+    "incident_read": "latest deterministic filename only, bounded to 1048576 bytes, owner-safe no-follow and stability read on POSIX; explicit reparse-safe bounded read on Windows",
+    "semantic_validation": "strict UTF-8 and JSON, duplicate-key rejection, v1-or-legacy schema handling, required identity/event time, bounded trigger shape",
+    "invalid_latest": "reported as invalid custody with a reason and no older incident fallback",
+    "summary": "carries explicit bounded_record_valid, bounded_legacy_record, absent, invalid, unavailable, or unsupported posture; this is local record custody, not issuer authentication"
+  },
+  "focused_results": {
+    "combined_sentientos/tests/test_integrity_pressure.py_test_integrity_quarantine.py_test_forge_observatory.py": "54 passed",
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "configuration_correction": {
+    "prior_clear_test_failure": "The earlier runtime_governor_error persisted when only governor and trust-epoch roots were set.",
+    "diagnosed_missing_roots": ["SENTIENTOS_FEDERATION_ROOT", "SENTIENTOS_REPO_ROOT"],
+    "complete_quarantine_module_with_all_disposable_roots": "9 passed"
+  },
+  "limitations": [
+    "A bounded incident artifact is not an authenticated producer record and does not establish hostile activity or defensive consequence.",
+    "The separate pressure feed remains local unsigned narrative, even though its publisher and referenced artifact are now bounded and identity-bound.",
+    "Windows directory-name enumeration is bounded but not held under a single directory handle; the selected file is subsequently opened through the reparse-safe reader."
+  ],
+  "source_parent_commit": "9b75130a784490b10c7bfd8624990cca65e94d70",
+  "source_parent_tree": "814ef446c36f7d0cc22761998df4cf67ccbba30f",
+  "status": "construction_fixture_verified_not_production_acceptance"
+}

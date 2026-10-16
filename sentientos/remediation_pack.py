@@ -1,19 +1,37 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import json
+import os
 from pathlib import Path
+import re
 from typing import Any
 
 from sentientos.recovery_allowlist import is_allowlisted
-from sentientos.artifact_catalog import append_catalog_entry, latest_for_incident, latest_for_trace, latest_successful_remediation_run, load_catalog_artifact
+from sentientos.artifact_catalog import append_catalog_entry, latest_for_incident, latest_for_trace, load_catalog_artifact
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, normalize
 from sentientos.recovery_tasks import append_task_record, list_tasks
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError,
+    list_bounded_json_names_at,
+    open_private_directory,
+    read_private_file_at,
+    publish_immutable_bytes,
+)
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 SCHEMA_VERSION = 1
 PACKS_DIR = Path("glow/forge/remediation/packs")
 PACKS_PULSE_PATH = Path("pulse/remediation_packs.jsonl")
 RUNS_DIR = Path("glow/forge/remediation/runs")
+INTENTS_DIR = Path("glow/forge/remediation/intents")
+MAX_REMEDIATION_PACK_BYTES = 1_048_576
+MAX_REMEDIATION_RUN_BYTES = 1_048_576
+MAX_REMEDIATION_RUN_FILES = 512
+_PACK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+_RUN_FILE_RE = re.compile(r"^run_[0-9]{8}T[0-9]{6}Z_[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\.json$")
+_INTENT_FILE_RE = re.compile(r"^intent_([0-9]{8}T[0-9]{6}Z)_([A-Za-z0-9][A-Za-z0-9_.-]{0,127})\.json$")
 
 
 _REASON_STEP_LIBRARY: dict[str, list[dict[str, object]]] = {
@@ -348,30 +366,272 @@ def find_pack_for_incident_or_trace(
 
 def latest_run_for_pack(repo_root: Path, *, pack_id: str) -> dict[str, object] | None:
     root = repo_root.resolve()
-    entry = latest_successful_remediation_run(root, pack_id)
-    if entry is not None:
-        payload = load_catalog_artifact(root, entry)
-        if payload is not None:
-            return payload
-    candidates = sorted((root / RUNS_DIR).glob(f"run_*_{pack_id}.json"), key=lambda item: item.name)
-    if not candidates:
+    if not isinstance(pack_id, str) or not _PACK_ID_RE.fullmatch(pack_id):
+        return _invalid_run_projection(pack_id, "pack_id_invalid")
+    run_dir = root / RUNS_DIR
+    intent_dir = root / INTENTS_DIR
+    names: tuple[str, ...] = ()
+    intent_names: tuple[str, ...] = ()
+    for directory, destination in ((run_dir, "runs"), (intent_dir, "intents")):
+        try:
+            found = _bounded_run_names(directory)
+        except (PrivateFileCustodyError, WindowsHandleCustodyError) as exc:
+            if _custody_code(exc) not in {"directory_root_missing", "explicit_file_missing"}:
+                return _invalid_run_projection(pack_id, _custody_code(exc))
+            found = ()
+        if destination == "runs":
+            names = found
+        else:
+            intent_names = found
+    suffix = f"_{pack_id}.json"
+    candidates = sorted(name for name in names if name.startswith("run_") and name.endswith(suffix))
+    intent_suffix = f"_{pack_id}.json"
+    intent_candidates = sorted(name for name in intent_names
+        if name.startswith("intent_") and name.endswith(intent_suffix))
+    if not candidates and not intent_candidates:
         return None
-    payload = _load_json(candidates[-1])
-    if not payload:
-        return None
+
+    # Intent is published before the first remediation command. The latest
+    # intent shadows prior completed reports until its exact final report is
+    # durably available and bound back to the intent bytes.
+    selected_intent: dict[str, object] | None = None
+    selected_intent_name: str | None = None
+    selected_intent_digest: str | None = None
+    if intent_candidates:
+        selected_intent_name = intent_candidates[-1]
+        if not _INTENT_FILE_RE.fullmatch(selected_intent_name):
+            return _invalid_run_projection(pack_id, "run_intent_filename_invalid",
+                report_path=(INTENTS_DIR / selected_intent_name).as_posix())
     try:
-        payload, _warnings = normalize(payload, SchemaName.REMEDIATION_RUN)
-    except SchemaCompatibilityError:
-        return None
-    payload["report_path"] = str(candidates[-1].relative_to(repo_root.resolve()))
+        pack_path = root / PACKS_DIR / f"pack_{pack_id}.json"
+        pack_bytes = _read_bounded_file(pack_path, max_bytes=MAX_REMEDIATION_PACK_BYTES)
+        pack = _strict_json_object(pack_bytes)
+        pack, _warnings = normalize(pack, SchemaName.REMEDIATION_PACK)
+    except (OSError, ValueError, UnicodeError, SchemaCompatibilityError,
+            PrivateFileCustodyError, WindowsHandleCustodyError) as exc:
+        report_path = (INTENTS_DIR / selected_intent_name).as_posix() if selected_intent_name else None
+        return _invalid_run_projection(pack_id, _custody_code(exc), report_path=report_path)
+
+    expected_pack_path = str((PACKS_DIR / f"pack_{pack_id}.json").as_posix())
+    if pack.get("pack_id") != pack_id:
+        return _invalid_run_projection(pack_id, "pack_identity_mismatch")
+    if selected_intent_name is not None:
+        intent_relative = (INTENTS_DIR / selected_intent_name).as_posix()
+        try:
+            intent_bytes = _read_bounded_file(intent_dir / selected_intent_name,
+                max_bytes=MAX_REMEDIATION_RUN_BYTES)
+            selected_intent = _strict_json_object(intent_bytes)
+            selected_intent_digest = hashlib.sha256(intent_bytes).hexdigest()
+        except (OSError, ValueError, UnicodeError, PrivateFileCustodyError,
+                WindowsHandleCustodyError) as exc:
+            return _invalid_run_projection(pack_id, _custody_code(exc), report_path=intent_relative)
+        code = _validate_remediation_intent(selected_intent, name=selected_intent_name,
+            pack_id=pack_id, pack_path=expected_pack_path, pack=pack, pack_bytes=pack_bytes)
+        if code is not None:
+            return _invalid_run_projection(pack_id, code, report_path=intent_relative)
+        expected_run_name = str(selected_intent["run_id"]) + ".json"
+        if expected_run_name not in candidates:
+            return _invalid_run_projection(pack_id, "run_interrupted_without_final_report",
+                report_path=intent_relative)
+        if candidates[-1] != expected_run_name:
+            return _invalid_run_projection(pack_id, "run_report_conflicts_with_latest_intent",
+                report_path=(RUNS_DIR / candidates[-1]).as_posix())
+        name = expected_run_name
+    else:
+        # Historical reports remain readable when no intent exists.
+        name = candidates[-1]
+    relative = (RUNS_DIR / name).as_posix()
+    if not _RUN_FILE_RE.fullmatch(name):
+        return _invalid_run_projection(pack_id, "run_filename_invalid", report_path=relative)
+    try:
+        run_bytes = _read_bounded_file(run_dir / name, max_bytes=MAX_REMEDIATION_RUN_BYTES)
+        payload = _strict_json_object(run_bytes)
+    except (OSError, ValueError, UnicodeError, PrivateFileCustodyError,
+            WindowsHandleCustodyError) as exc:
+        return _invalid_run_projection(pack_id, _custody_code(exc), report_path=relative)
+    code = _validate_remediation_run(payload, name=name, pack_id=pack_id,
+        pack_path=expected_pack_path,
+        pack=pack, pack_bytes=pack_bytes)
+    if code is None and selected_intent is not None:
+        if (payload.get("intent_id") != selected_intent.get("intent_id")
+                or payload.get("intent_sha256") != selected_intent_digest):
+            code = "run_intent_binding_mismatch"
+    elif code is None and (payload.get("intent_id") is not None or payload.get("intent_sha256") is not None):
+        code = "run_intent_missing"
+    if code is not None:
+        invalid = dict(payload)
+        invalid["status"] = "invalid"
+        invalid["custody_status"] = "invalid:" + code
+        invalid["report_path"] = relative
+        return invalid
+    payload["custody_status"] = "locally_reconciled"
+    payload["report_path"] = relative
+    # This field names the limit: filesystem custody and internal consistency
+    # do not authenticate the runner or independently prove external effects.
+    payload["execution_authenticity"] = "owner_report_not_independently_authenticated"
     return payload
+
+
+def _validate_remediation_intent(payload: dict[str, object], *, name: str,
+        pack_id: str, pack_path: str, pack: dict[str, object], pack_bytes: bytes) -> str | None:
+    match = _INTENT_FILE_RE.fullmatch(name)
+    if match is None:
+        return "run_intent_filename_invalid"
+    stamp = match.group(1)
+    intent_id = name[:-5]
+    expected_run_id = f"run_{stamp}_{pack_id}"
+    if (type(payload.get("schema_version")) is not int or payload.get("schema_version") != 1
+            or payload.get("intent_id") != intent_id or payload.get("run_id") != expected_run_id
+            or payload.get("pack_id") != pack_id or pack.get("pack_id") != pack_id
+            or payload.get("pack_path") != pack_path
+            or payload.get("pack_sha256") != hashlib.sha256(pack_bytes).hexdigest()
+            or payload.get("incident_id") != pack.get("incident_id")
+            or payload.get("governance_trace_id") != pack.get("governance_trace_id")
+            or payload.get("status") != "started"):
+        return "run_intent_identity_mismatch"
+    started_at = payload.get("started_at")
+    if not isinstance(started_at, str):
+        return "run_intent_time_missing"
+    try:
+        parsed = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+    except ValueError:
+        return "run_intent_time_invalid"
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return "run_intent_time_invalid"
+    steps = pack.get("steps")
+    if not isinstance(steps, list) or payload.get("step_count") != len(steps) or type(payload.get("step_count")) is not int:
+        return "run_intent_step_count_mismatch"
+    step_bytes = json.dumps(steps, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    if payload.get("steps_sha256") != hashlib.sha256(step_bytes).hexdigest():
+        return "run_intent_steps_digest_mismatch"
+    return None
 
 
 def remediation_status_for_pack(repo_root: Path, *, pack_id: str) -> tuple[str, dict[str, object] | None]:
     run_payload = latest_run_for_pack(repo_root, pack_id=pack_id)
     if run_payload is None:
         return ("missing", None)
+    if str(run_payload.get("custody_status", "")).startswith("invalid:"):
+        return ("invalid", run_payload)
     return ("completed" if str(run_payload.get("status")) == "completed" else "failed", run_payload)
+
+
+def _bounded_run_names(path: Path) -> tuple[str, ...]:
+    if os.name == "nt":
+        rows = read_regular_files(path, max_entries=MAX_REMEDIATION_RUN_FILES,
+            max_file_bytes=MAX_REMEDIATION_RUN_BYTES, max_total_bytes=MAX_REMEDIATION_RUN_BYTES,
+            suffix=".json")
+        return tuple(name for name, _data in rows)
+    directory_fd = open_private_directory(path, create=False)
+    try:
+        return list_bounded_json_names_at(directory_fd, max_entries=MAX_REMEDIATION_RUN_FILES,
+            max_directory_entries=MAX_REMEDIATION_RUN_FILES * 4)
+    finally:
+        os.close(directory_fd)
+
+
+def _read_bounded_file(path: Path, *, max_bytes: int) -> bytes:
+    if os.name == "nt":
+        return read_explicit_file(path, max_bytes=max_bytes)
+    directory_fd = open_private_directory(path.parent, create=False)
+    try:
+        return read_private_file_at(directory_fd, path.name, max_bytes=max_bytes,
+            require_private_mode=False)
+    finally:
+        os.close(directory_fd)
+
+
+def _strict_json_object(data: bytes) -> dict[str, object]:
+    if type(data) is not bytes or len(data) > max(MAX_REMEDIATION_RUN_BYTES, MAX_REMEDIATION_PACK_BYTES):
+        raise ValueError("artifact_size_invalid")
+
+    def unique_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        output: dict[str, object] = {}
+        for key, value in pairs:
+            if key in output:
+                raise ValueError("duplicate_json_key")
+            output[key] = value
+        return output
+
+    value = json.loads(data.decode("utf-8", errors="strict"), object_pairs_hook=unique_pairs,
+        parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("invalid_json_constant")))
+    if not isinstance(value, dict):
+        raise ValueError("json_object_required")
+    return value
+
+
+def _validate_remediation_run(payload: dict[str, object], *, name: str, pack_id: str,
+        pack_path: str, pack: dict[str, object], pack_bytes: bytes) -> str | None:
+    run_id = payload.get("run_id")
+    expected_id = name[:-5]
+    if (type(payload.get("schema_version")) is not int or payload.get("schema_version") != 1
+            or run_id != expected_id or payload.get("pack_id") != pack_id
+            or payload.get("pack_path") != pack_path):
+        return "run_identity_mismatch"
+    if pack.get("pack_id") != pack_id:
+        return "pack_identity_mismatch"
+    if payload.get("incident_id") != pack.get("incident_id"):
+        return "run_incident_mismatch"
+    if payload.get("pack_sha256") is not None and payload.get("pack_sha256") != hashlib.sha256(pack_bytes).hexdigest():
+        return "run_pack_digest_mismatch"
+    generated_at = payload.get("generated_at")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        return "run_time_missing"
+    try:
+        parsed_time = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+    except ValueError:
+        return "run_time_invalid"
+    if parsed_time.tzinfo is None or parsed_time.utcoffset() is None:
+        return "run_time_invalid"
+    expected_steps = pack.get("steps")
+    actual_steps = payload.get("steps")
+    if not isinstance(expected_steps, list) or not isinstance(actual_steps, list):
+        return "run_steps_missing"
+    if len(actual_steps) > len(expected_steps):
+        return "run_steps_exceed_pack"
+    completed = payload.get("status") == "completed"
+    if completed and (len(expected_steps) == 0 or len(actual_steps) != len(expected_steps)):
+        return "completed_run_steps_incomplete"
+    failed_seen = False
+    for index, (expected, actual) in enumerate(zip(expected_steps, actual_steps)):
+        if not isinstance(expected, dict) or not isinstance(actual, dict):
+            return "run_step_invalid"
+        expected_name = expected.get("name") if isinstance(expected.get("name"), str) else f"step_{index}"
+        command = expected.get("command")
+        if (actual.get("index") != index or type(actual.get("index")) is not int
+                or actual.get("name") != expected_name or actual.get("command") != command
+                or not isinstance(command, str) or len(command) > 4096):
+            return "run_step_identity_mismatch"
+        allowed, exit_code, step_status = actual.get("allowed"), actual.get("exit_code"), actual.get("status")
+        if type(allowed) is not bool or type(exit_code) is not int:
+            return "run_step_result_invalid"
+        success = allowed and exit_code == 0 and step_status == "ok"
+        failure = (not allowed or exit_code != 0) and step_status == "failed"
+        if not success and not failure:
+            return "run_step_result_inconsistent"
+        if failed_seen:
+            return "run_steps_after_failure"
+        if failure:
+            failed_seen = True
+        stderr = actual.get("stderr")
+        if stderr is not None and (not isinstance(stderr, str) or len(stderr.encode("utf-8")) > 16_384):
+            return "run_step_stderr_invalid"
+    if completed and failed_seen:
+        return "completed_run_contains_failure"
+    if payload.get("status") not in {"completed", "failed"}:
+        return "run_status_invalid"
+    return None
+
+
+def _invalid_run_projection(pack_id: object, code: str, *, report_path: str | None = None) -> dict[str, object]:
+    return {"run_id": None, "pack_id": pack_id, "status": "invalid",
+        "report_path": report_path, "custody_status": "invalid:" + code,
+        "execution_authenticity": "owner_report_not_independently_authenticated"}
+
+
+def _custody_code(exc: BaseException) -> str:
+    code = getattr(exc, "code", None)
+    return str(code or str(exc) or type(exc).__name__)
 
 
 def _read_jsonl(path: Path) -> list[dict[str, object]]:

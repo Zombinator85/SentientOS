@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "sequence": 120,
+  "source_commit": "715843bd204927e188f483ece24adf8482324b10",
+  "source_tree": "75c49d91eb61d20dc76120d506bfc647f645c662",
+  "previous_segment_sha256": "6cf03cce2e3f1b2ec94ac26144f270fe5244ef1ffa99924a8ede3799351adb17",
+  "implementation": {
+    "owner_api": "ResidentDevelopmentalWritebackController.inspect_completed_records",
+    "verification_scope": [
+      "canonical_record_and_candidate_identity",
+      "source_and_interpretation_lineage",
+      "exact_writeback_receipt_binding",
+      "recorded_runtime_admission",
+      "capability_effect_subject_and_request_configuration"
+    ],
+    "repair_or_replay": false,
+    "writer_lock_acquired": false,
+    "authority_issuer_constructed": false
+  },
+  "acceptance": {
+    "command": ".venv/bin/python -m pytest -q tests/test_resident_objective_experiment_readiness.py tests/test_resident_developmental_cognition.py::test_tick_n_admitted_developmental_writeback_is_durable_and_bounded tests/test_resident_developmental_cognition.py::test_read_only_recovery_inspection_never_repairs_missing_writeback_receipt tests/test_resident_developmental_cognition.py::test_readiness_accepts_history_after_actual_owner_admission_recovery_check tests/test_resident_developmental_cognition.py::test_restart_recovers_writeback_committed_before_composition_checkpoint",
+    "cases": 13,
+    "passed": 13,
+    "failed": 0,
+    "fixture_backed_cognition": true,
+    "actual_local_model_behavior": false
+  },
+  "static_checks": {
+    "py_compile": "passed",
+    "targeted_mypy": "passed",
+    "changed_file_trailing_whitespace": "none"
+  },
+  "boundaries": {
+    "model_loaded": false,
+    "inference_admitted": false,
+    "daemon_started": false,
+    "external_effects": false,
+    "authority_expanded": false,
+    "production_verified": false
+  },
+  "changed_files": {
+    "sentientos/resident_developmental_writeback.py": {
+      "bytes": 112946,
+      "sha256": "bd618e7dfe4aec370ee46c2484a77c41a917b772cda18e58d0b46b296b29d822",
+      "git_blob": "7a4ff0655515a4a8f94f6d4957a1d28e3cd27ee2"
+    },
+    "scripts/doctor_resident_objective_experiment.py": {
+      "bytes": 15080,
+      "sha256": "de3791c2ce9a39adeca76cae99af77d3e06c699b5427a5e1b3c286c58450c268",
+      "git_blob": "eb0121c150dacea959e93a074fa23c5db78c62d3"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 80152,
+      "sha256": "44d0402c516fd4b4d44a536c1064c056c2cf271a6b07d6b78217a443d3c02cde",
+      "git_blob": "19ebff85ee464f7eca39876b49a3a658bc3822ad"
+    },
+    "tests/test_resident_objective_experiment_readiness.py": {
+      "bytes": 13879,
+      "sha256": "164e38bcff7171ba54f142dabacda81a23263413b864f72ae0c7fb0d9856b3a1",
+      "git_blob": "fac76ef6d81af7b7e566b8b899fb34b79dd98c61"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "bytes": 18310,
+      "sha256": "de73f2434d42a1712da37bcf482152862e5d443b8eb9ac8a45a71b5e36893a82",
+      "git_blob": "4279f124154f8e0be14a541507d9ad87e32ebfa5"
+    }
+  }
+}

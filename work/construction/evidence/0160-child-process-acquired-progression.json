@@ -1,0 +1,28 @@
+{
+  "assertions": [
+    "subprocess reconstructs positive family-history provenance from durable owner roots",
+    "the three episode relevance sets and score contrasts are byte-equivalent to parent read-only report",
+    "no parent inference requests are added during child reconstruction"
+  ],
+  "checks": {
+    "focused_tests": {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-recon8-child-g SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-recon8-child-r SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-recon8-child-f SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-recon8-child-k PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-recon8-child-t PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-recon8-child-t/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only",
+      "result": "2 passed in 69.48s",
+      "scope": "new Python process; test receipts serialized from fixture invoker; no model replay"
+    },
+    "python_compile": "passed: tests/test_resident_developmental_cognition.py"
+  },
+  "not_established": [
+    "actual local model",
+    "learning or performance improvement",
+    "production inference"
+  ],
+  "predecessor_sequence": 159,
+  "predecessor_source_commit": "103b098be19b1d01c5f9890d6a29437d6d8e3ddd",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 160,
+  "source_commit": "dffb2a4ed3d3d90abc79dc73e32b561424ef93b1",
+  "source_tree": "6bd53110703169a5a25489bfd0586b7c55611130",
+  "title": "child-process acquired history progression",
+  "unverified_for_production": true
+}

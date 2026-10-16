@@ -1,25 +1,26 @@
-"""Explicit operator composition for hardened local production chat."""
+"""Installed production chat entrypoint with a pre-import source-generation check."""
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
-from sentientos.chat_service import configure_production_chat, run
+
+def _verify_expected_source_generation() -> None:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--expected-software-generation-digest")
+    args, _unknown = parser.parse_known_args()
+    if args.expected_software_generation_digest is None:
+        return
+    from sentientos.chat_process_generation import source_generation
+    root = Path(__file__).resolve().parents[1]
+    observed, _members = source_generation(root)
+    if observed != args.expected_software_generation_digest:
+        raise SystemExit("chat_process_preimport_source_generation_mismatch")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--installation-identity", required=True)
-    parser.add_argument("--serving-operation-id", required=True)
-    parser.add_argument("--expected-activation-state-digest")
-    parser.add_argument("--resource-provisioning-id")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=5000)
-    args = parser.parse_args()
-    configure_production_chat(installation_identity=args.installation_identity,
-                              serving_operation_id=args.serving_operation_id,
-                              expected_activation_state_digest=args.expected_activation_state_digest,
-                              resource_provisioning_id=args.resource_provisioning_id)
-    run(host=args.host, port=args.port)
+_verify_expected_source_generation()
+
+from sentientos.chat_service import main
 
 
 if __name__ == "__main__":

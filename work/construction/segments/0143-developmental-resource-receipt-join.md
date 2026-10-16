@@ -1,0 +1,11 @@
+# Sequence 143 — Join developmental objective conditions to reconciled resource receipts
+
+Verified source commit `f58446029817a03407f16ce0977b5702709561a7`, tree `bb1337c3db559fc0baeb6e45dc47bf6f7e4dd090`, published by expected-HEAD CAS from `018feab6521e6857cfba87ab0f2ec75cc076df3d`. The branch was independently read back at the new commit.
+
+The existing host-resource projection now joins bounded developmental-history experiment conditions to the already authenticated resource-ledger invocation projection by exact invocation receipt identity and resource-linkage digest. It preserves task-family, protocol, history condition, model identity, allocation, attempt, consumption receipt, and effect-receipt references. It carries only ledger-backed compact measurements and their observation time; token counts and shared host CPU/GPU remain unknown. Missing, partial, substituted, or unreconciled linkage is represented as degraded evidence, not silently dropped or upgraded.
+
+The resident daemon selects this distinct resource-lineage subject kind through its existing World-State source ordering. The existing developmental writeback projection carries the bounded attribution forward with its authenticated selected-evidence binding. No allocation, invocation, effect, authorization, or learning authority is added.
+
+The integration fixture uses a genuine governed local-model invocation and its actual ledger consumption/reconciliation, then supplies a narrowly labeled synthetic developmental-condition source row to exercise the identity join and later writeback contract. It does not demonstrate a real developmental episode, model learning, capability gain, or performance improvement.
+
+Validation performed before publication: all changed Python files compiled. The focused lineage integration and model-replacement lineage tests passed (2 passed); host-resource and daemon closure tests passed (7 passed); the broader targeted cognition/writeback/resource selection passed (27 passed). A targeted mypy attempt reported 38 diagnostics across two modules, and a broader imported-file attempt reported 1028 diagnostics across 141 files; typing is not established. No hosted CI, full validation, production verification, or real-model acquisition experiment was performed. Construction remains unverified for production.

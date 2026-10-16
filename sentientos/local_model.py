@@ -353,6 +353,15 @@ class _LlamaCppBackend(_ModelBackend):
         history: Sequence[str],
         generation: Dict[str, Any],
     ) -> str:
+        output, _ = self.generate_with_metadata(prompt, history, generation)
+        return output
+
+    def generate_with_metadata(
+        self,
+        prompt: str,
+        history: Sequence[str],
+        generation: Dict[str, Any],
+    ) -> tuple[str, Dict[str, Any]]:
         structured_output_schema = generation.pop("structured_output_schema", None)
         params = self._generation.as_kwargs(**generation)
         completion_params: dict[str, Any] = {
@@ -371,8 +380,28 @@ class _LlamaCppBackend(_ModelBackend):
         response = self._llama.create_chat_completion(
             messages=[{"role": "user", "content": prompt}], **completion_params,
         )
-        output = response.get("choices", [{}])[0].get("message", {}).get("content", "")
-        return str(output).strip()
+        choice = response.get("choices", [{}])[0] if isinstance(response, dict) else {}
+        message = choice.get("message", {}) if isinstance(choice, dict) else {}
+        output = message.get("content", "") if isinstance(message, dict) else ""
+        finish_reason = choice.get("finish_reason") if isinstance(choice, dict) else None
+        finish_reason = finish_reason if finish_reason in {"stop", "length"} else "unknown"
+        usage = response.get("usage", {}) if isinstance(response, dict) else {}
+
+        def bounded_count(name: str) -> int | None:
+            value = usage.get(name) if isinstance(usage, dict) else None
+            return value if type(value) is int and 0 <= value <= 131072 else None
+
+        token_limit_reached = (True if finish_reason == "length" else
+            False if finish_reason == "stop" else None)
+        metadata = {
+            "schema_version": "sentientos.llama_cpp_completion_observation:v1",
+            "backend": "llama_cpp",
+            "finish_reason": finish_reason,
+            "completion_tokens": bounded_count("completion_tokens"),
+            "prompt_tokens": bounded_count("prompt_tokens"),
+            "token_limit_reached": token_limit_reached,
+        }
+        return str(output).strip(), metadata
 
 
 def _cuda_available() -> bool:
@@ -480,6 +509,21 @@ class LocalModel:
         if not isinstance(response, str) or not response.strip():
             raise ModelLoadError("active backend returned an empty response")
         return response
+
+    def generate_governed_with_metadata(self, prompt: str, **overrides: Any
+            ) -> tuple[str, Dict[str, Any] | None]:
+        """Return the backend text and bounded backend-reported completion facts when available."""
+        if self.active_identity.fallback:
+            raise ModelLoadError("active backend is a simulation or fallback")
+        metadata_generator = getattr(self.backend, "generate_with_metadata", None)
+        if callable(metadata_generator):
+            response, metadata = metadata_generator(str(prompt).strip(), (), dict(overrides))
+        else:
+            response = self.backend.generate(str(prompt).strip(), (), dict(overrides))
+            metadata = None
+        if not isinstance(response, str) or not response.strip():
+            raise ModelLoadError("active backend returned an empty response")
+        return response, metadata
 
     @classmethod
     def _initialise_backend(

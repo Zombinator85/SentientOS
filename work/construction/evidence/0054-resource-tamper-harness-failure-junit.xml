@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.223" timestamp="2026-10-12T18:54:47.043305+00:00" hostname="26f42f715b9f"><testcase classname="tests.test_resource_invocation_process_generation_integration" name="test_parent_child_resource_invocation_generation_reaches_world_state" time="0.376"><failure message="AttributeError: 'InstallationStateHandle' object has no attribute 'open'">tests/test_resource_invocation_process_generation_integration.py:175: in test_parent_child_resource_invocation_generation_reaches_world_state
+    writer = registry.open(identity)
+             ^^^^^^^^^^^^^
+E   AttributeError: 'InstallationStateHandle' object has no attribute 'open'</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,40 @@
+{
+  "sequence": 252,
+  "title": "Append-only retries resume interrupted safe checks and gate dependents",
+  "source_commit": "a2ad6e20b456c8cbe5ec2aed851e3977ca75e105",
+  "source_tree": "7d8d15c3b0a94bc3e86770ddd2de9d84e613d16a",
+  "source_parent_commit": "5f661237bd0cbb7c0fa8700f62292cac1bb97dd7",
+  "source_parent_tree": "6c70d0694899572f60acc5eaa8c061bb8c1e629d",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "5f661237bd0cbb7c0fa8700f62292cac1bb97dd7",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true
+  },
+  "changed_blobs": [
+    {"mode": "100644", "path": "sentientos/goal_executor.py", "sha": "40d7bf4edfff93b65d08a8ad2186d9fe7f2f7952"},
+    {"mode": "100644", "path": "sentientos/work_plan_execution_journal.py", "sha": "bf12055a3c58b852a6926932be2d770895d59ce7"},
+    {"mode": "100644", "path": "sentientos/tests/test_goal_executor_run.py", "sha": "5f4185a753bb33d9864e306231ab8404b84c453a"},
+    {"mode": "100644", "path": "docs/development/interrupted_safe_task_progression_acceptance.json", "sha": "16b830a9bed2e6716cad8d15fd29cbcf8e28f5c6"}
+  ],
+  "validation": {
+    "goal_executor_run_plan_and_work_plan_tests": "35 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "safe_retry_kinds": ["diagnostic", "verify"],
+    "retry_requires_non_destructive_task": true,
+    "journal_retry_event": "digest_chained_numbered_attempt:v3",
+    "repeated_interruption_recovery": "passed",
+    "dependent_task": "runs only after recovered check records success",
+    "interrupted_forge_proposal_or_apply": "remains unknown and is not replayed",
+    "independent_task_progress": "preserved"
+  },
+  "limitations": [
+    "Only allowlisted non-destructive diagnostic and verification tasks are retryable.",
+    "Unknown non-idempotent outcomes remain unresolved and their dependent work stays blocked.",
+    "No mutation authority, activation, or goal completion is claimed."
+  ]
+}

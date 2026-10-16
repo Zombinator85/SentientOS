@@ -1,0 +1,33 @@
+{
+  "claims": [
+    "Four relevant developmental modules passed 119 focused tests after the multi-probe scoring and projection changes.",
+    "Partial fixture correctness is measured separately from all-or-nothing exact-suite correctness; this is not a real-model result or general learning claim."
+  ],
+  "details": "Probe-suite scores now preserve the exact number of correct answers in each bounded suite, with signed A/B history deltas and restoration count delta. The old boolean task correctness remains for compatibility. A partial A result (2/4 correct) now remains distinguishable from no difference (0/4), and all metrics survive the bounded World-State\u2192authorized developmental-history\u2192later-tick cognition path. No same-tick or current-truth promotion is added.",
+  "failed": 0,
+  "git_diff_check": "passed",
+  "hosted_checks_path": "work/construction/evidence/0087-hosted-checks-seq86.json",
+  "junit": {
+    "bytes": 19562,
+    "path": "work/construction/evidence/0087-probe-counts-later-cognition-junit.xml",
+    "sha256": "78979acec019ba90911fe837f36c601543043d1bbd70d5644aac6fd4954daf79",
+    "testsuite": {
+      "errors": null,
+      "failures": null,
+      "hostname": null,
+      "name": "pytest tests",
+      "skipped": null,
+      "tests": null,
+      "time": null,
+      "timestamp": null
+    }
+  },
+  "passed": 119,
+  "python_compilation": "passed",
+  "sequence": 87,
+  "skipped": 0,
+  "source_baseline_commit": "59e12375217064d4080e640e712a615965942abe",
+  "source_baseline_tree": "76ff595a04cea9bba6eb18ef8eb1d0ee14227c64",
+  "status": "construction_tested_unverified_for_production",
+  "typing": "not run"
+}

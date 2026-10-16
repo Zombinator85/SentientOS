@@ -1,0 +1,48 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 147,
+  "title": "admitted history constructor for model succession",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "ce7c9fbd7536f93073b4bd2f004eb1f9f72a2369",
+    "tree": "d997a284e2c35686b5923c6fc4304f7b27a881e3"
+  },
+  "base": {
+    "commit": "87a9f8ff74ae70612774d8f1724cf364df91e397",
+    "tree": "6072d9dee1554e009c7ac69d471505bbc759e62f"
+  },
+  "implementation": "FrozenCausalContext.create_from_admitted_history uses the existing read-only writeback verifier/inventory and retrieval owner; exact selected ids, digests, record set digest, and canonical stored payload are derived from completed records with matching durable receipts",
+  "positive_control": "existing resource invocation/process-generation A/B integration passes real writeback owner-admitted records into the deterministic replacement fixture",
+  "negative_control": "non-admitted record identity rejected; no history repair/write occurs",
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "sentientos/developmental_model_replacement_experiment.py",
+        "tests/test_resource_invocation_process_generation_integration.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "passed": 1,
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-a54-seq147e/g SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-a54-seq147e/r SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-a54-seq147e/f SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-a54-seq147e/k PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-a54-seq147e/t PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-a54-seq147e/t/s .venv/bin/pytest --override-ini addopts='' -m legacy -q tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+      "default_selector": "skipped due to legacy marker; skipped run not counted"
+    },
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "production_verification": "not_performed",
+    "real_model_performance": "not_observed"
+  },
+  "limitations": [
+    "synthetic endpoints consume the context in the test; actual deployed model internal use is unobserved",
+    "the canonical A/B rehearsal found zero history effect under both synthetic models",
+    "constructor verifies point-in-time admission; subsequent immutable store custody is still revalidated by downstream owners"
+  ],
+  "next_dependency": "run the read-only progression/result inspector path against the exact condition-history identities and verify no replay or publication, then inspect the source-backed host experiment handoff; real local model and serving prerequisites are external and must remain explicit",
+  "publication": {
+    "expected_head": "87a9f8ff74ae70612774d8f1724cf364df91e397",
+    "commit": "ce7c9fbd7536f93073b4bd2f004eb1f9f72a2369",
+    "tree": "d997a284e2c35686b5923c6fc4304f7b27a881e3",
+    "remote_readback": "commit, tree, and changed blobs independently verified"
+  }
+}

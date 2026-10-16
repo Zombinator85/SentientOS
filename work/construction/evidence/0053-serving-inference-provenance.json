@@ -1,0 +1,144 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_local_model_serving_inference.py::test_authority_digest_mismatch_fails_before_generation": 0,
+    "tests/test_local_model_serving_inference.py::test_caller_linkage_is_namespaced_and_cannot_override_serving_evidence": 0,
+    "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage": 0,
+    "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[defer]": 0,
+    "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[deny]": 0,
+    "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[quarantine]": 0,
+    "tests/test_local_model_serving_inference.py::test_post_generation_stale_output_is_suppressed_and_effect_recorded": 0,
+    "tests/test_local_model_serving_inference.py::test_pre_effect_stale_session_denies_generation": 0,
+    "tests/test_local_model_serving_inference.py::test_requires_current_session_and_exposes_no_generation_escape": 0,
+    "tests/test_local_model_serving_inference.py::test_stable_conversation_identity_excludes_serving_lifetime": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 10,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-gr4-exact/glow/test_runs/pytest_junitxml_7667b203c0c441038b41fb2264f3c1a0.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[deny]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[defer]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[quarantine]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_pre_effect_stale_session_denies_generation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_post_generation_stale_output_is_suppressed_and_effect_recorded",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_requires_current_session_and_exposes_no_generation_escape",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_authority_digest_mismatch_fails_before_generation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_stable_conversation_identity_excludes_serving_lifetime",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_local_model_serving_inference.py::test_caller_linkage_is_namespaced_and_cannot_override_serving_evidence",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "8390484f298fe52d0d6799ad5be97b64a0fb2ebd68d59bfb1afb9c901439c029",
+  "provenance_hash": "c1ca17e40eaa5d4b6752dc0f39bb20d457dedc7236678e7f437058a6181a93ca",
+  "pytest_args": [
+    "-q",
+    "tests/test_local_model_serving_inference.py",
+    "--tb=short"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "812136411be0415f9fed4637e2dedf76",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_local_model_serving_inference.py::test_exact_serving_backed_generation_has_independent_admission_and_linkage",
+    "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[deny]",
+    "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[defer]",
+    "tests/test_local_model_serving_inference.py::test_inference_denial_occurs_before_generation[quarantine]",
+    "tests/test_local_model_serving_inference.py::test_pre_effect_stale_session_denies_generation",
+    "tests/test_local_model_serving_inference.py::test_post_generation_stale_output_is_suppressed_and_effect_recorded",
+    "tests/test_local_model_serving_inference.py::test_requires_current_session_and_exposes_no_generation_escape",
+    "tests/test_local_model_serving_inference.py::test_authority_digest_mismatch_fails_before_generation",
+    "tests/test_local_model_serving_inference.py::test_stable_conversation_identity_excludes_serving_lifetime",
+    "tests/test_local_model_serving_inference.py::test_caller_linkage_is_namespaced_and_cannot_override_serving_evidence"
+  ],
+  "selection_flags": [
+    "tests/test_local_model_serving_inference.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 10,
+  "tests_executed": 10,
+  "tests_failed": 0,
+  "tests_passed": 10,
+  "tests_selected": 10,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T18:49:48.539417+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

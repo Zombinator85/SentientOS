@@ -1,13 +1,45 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 import json
+import os
 from pathlib import Path
+import stat
 from typing import Any
 
 
 WORK_PLAN_DIR = Path("glow/forge/work_plans")
 WORK_PLAN_PULSE_PATH = Path("pulse/work_plans.jsonl")
+WORK_RUN_DIR = Path("glow/forge/work_runs")
+MAX_WORK_RUN_BYTES = 1_048_576
+_PLAN_FIELDS = {"schema_version", "plan_id", "created_at", "context", "selected_goals", "tasks"}
+_TASK_FIELDS = {"schema_version", "task_id", "goal_id", "kind", "commands", "callable_ref",
+    "risk_cost", "throughput_cost", "preconditions", "expected_artifacts", "destructive",
+    "depends_on"}
+_LEGACY_TASK_FIELDS = _TASK_FIELDS - {"depends_on"}
+_OMISSION_FIELDS = {"goal_id", "kind", "reason"}
+_OMISSION_KINDS_BY_REASON = {
+    "task_kind_not_implemented": {"fetch", "doc_update"},
+    "risk_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
+    "throughput_budget_exceeded": {"diagnostic", "verify", "forge_propose", "forge_apply"},
+    "prior_terminal_outcome_requires_review": {"forge_apply"},
+    "epistemic_position_requires_review": {"forge_apply"},
+}
+
+
+class WorkPlanError(ValueError):
+    """A persisted plan is malformed or internally inconsistent."""
+
+
+@dataclass(frozen=True, slots=True)
+class TaskOmission:
+    goal_id: str
+    kind: str
+    reason: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {"goal_id": self.goal_id, "kind": self.kind, "reason": self.reason}
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,11 +55,13 @@ class Task:
     preconditions: dict[str, object]
     expected_artifacts: tuple[str, ...]
     destructive: bool
+    depends_on: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["commands"] = list(self.commands)
         payload["expected_artifacts"] = list(self.expected_artifacts)
+        payload["depends_on"] = list(self.depends_on)
         return payload
 
 
@@ -39,6 +73,7 @@ class WorkPlan:
     context: str
     selected_goals: tuple[str, ...]
     tasks: tuple[Task, ...]
+    omissions: tuple[TaskOmission, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -48,7 +83,14 @@ class WorkPlan:
             "context": self.context,
             "selected_goals": list(self.selected_goals),
             "tasks": [task.to_dict() for task in self.tasks],
+            "omissions": [omission.to_dict() for omission in self.omissions],
         }
+
+    def identity_digest(self) -> str:
+        """Bind a completed run to every persisted plan field and task cost."""
+        canonical = json.dumps(self.to_dict(), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        return hashlib.sha256(canonical).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +123,7 @@ class WorkPlanRun:
     quarantine_active: bool
     task_runs: tuple[TaskRun, ...]
     reason_stack: tuple[str, ...]
+    plan_digest: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -93,6 +136,7 @@ class WorkPlanRun:
             "quarantine_active": self.quarantine_active,
             "task_runs": [task.to_dict() for task in self.task_runs],
             "reason_stack": list(self.reason_stack),
+            "plan_digest": self.plan_digest,
         }
 
 
@@ -100,71 +144,263 @@ class WorkPlanRun:
 def persist_work_plan(repo_root: Path, plan: WorkPlan) -> str:
     root = repo_root.resolve()
     plan_path = root / WORK_PLAN_DIR / f"plan_{_safe_id(plan.created_at)}.json"
-    plan_path.parent.mkdir(parents=True, exist_ok=True)
-    plan_path.write_text(json.dumps(plan.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    _append_jsonl(
-        root / WORK_PLAN_PULSE_PATH,
-        {
-            "created_at": plan.created_at,
-            "plan_id": plan.plan_id,
-            "context": plan.context,
-            "selected_goals": list(plan.selected_goals),
-            "task_count": len(plan.tasks),
-            "path": str(plan_path.relative_to(root)),
-        },
-    )
+    if _write_json_once(plan_path, plan.to_dict()):
+        _append_jsonl(
+            root / WORK_PLAN_PULSE_PATH,
+            {
+                "created_at": plan.created_at,
+                "plan_id": plan.plan_id,
+                "context": plan.context,
+                "selected_goals": list(plan.selected_goals),
+                "task_count": len(plan.tasks),
+                "path": str(plan_path.relative_to(root)),
+            },
+        )
     return str(plan_path.relative_to(root))
 
 
 def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
+    if (not isinstance(run, WorkPlanRun) or run.schema_version != 2
+            or not isinstance(run.plan_digest, str) or len(run.plan_digest) != 64
+            or any(character not in "0123456789abcdef" for character in run.plan_digest)):
+        raise WorkPlanError("work_run_plan_binding_required")
+    if run.run_id != f"run_{run.plan_digest}":
+        raise WorkPlanError("work_run_identity_invalid")
     root = repo_root.resolve()
-    run_path = root / "glow/forge/work_runs" / f"run_{_safe_id(run.created_at)}_{run.plan_id}.json"
-    run_path.parent.mkdir(parents=True, exist_ok=True)
-    run_path.write_text(json.dumps(run.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    _append_jsonl(
-        root / "pulse/work_runs.jsonl",
-        {
-            "created_at": run.created_at,
-            "run_id": run.run_id,
-            "plan_id": run.plan_id,
-            "status": run.status,
-            "operating_mode": run.operating_mode,
-            "quarantine_active": run.quarantine_active,
-            "task_count": len(run.task_runs),
-            "path": str(run_path.relative_to(root)),
-        },
-    )
+    run_path = root / WORK_RUN_DIR / f"{run.run_id}.json"
+    if _write_json_once(run_path, run.to_dict()):
+        _append_jsonl(
+            root / "pulse/work_runs.jsonl",
+            {
+                "created_at": run.created_at,
+                "run_id": run.run_id,
+                "plan_id": run.plan_id,
+                "status": run.status,
+                "operating_mode": run.operating_mode,
+                "quarantine_active": run.quarantine_active,
+                "task_count": len(run.task_runs),
+                "path": str(run_path.relative_to(root)),
+            },
+        )
     return str(run_path.relative_to(root))
 
 
+def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPlanRun | None:
+    """Load a prior run only when its exact plan and task identities validate."""
+    if not isinstance(plan, WorkPlan) or not isinstance(created_at, str) or not created_at:
+        raise WorkPlanError("work_run_lookup_identity_invalid")
+    if created_at != plan.created_at:
+        raise WorkPlanError("work_run_lookup_plan_time_mismatch")
+    run_id = work_run_id(plan, created_at=created_at)
+    path = repo_root.resolve() / WORK_RUN_DIR / f"{run_id}.json"
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        legacy_path = repo_root.resolve() / WORK_RUN_DIR / (
+            f"run_{_safe_id(created_at)}_{plan.plan_id}.json")
+        if legacy_path.exists():
+            raise WorkPlanError("work_run_legacy_plan_binding_unavailable")
+        return None
+    except OSError as exc:
+        raise WorkPlanError("work_run_artifact_unreadable") from exc
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_WORK_RUN_BYTES:
+        raise WorkPlanError("work_run_artifact_bounds_invalid")
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_WORK_RUN_BYTES):
+                raise WorkPlanError("work_run_artifact_changed_during_open")
+            chunks: list[bytes] = []
+            remaining = MAX_WORK_RUN_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(65_536, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+        finally:
+            os.close(descriptor)
+        if len(raw) > MAX_WORK_RUN_BYTES:
+            raise WorkPlanError("work_run_artifact_bounds_invalid")
+        payload = json.loads(raw.decode("utf-8"))
+    except WorkPlanError:
+        raise
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkPlanError("work_run_artifact_unreadable") from exc
+    if isinstance(payload, dict) and payload.get("plan_digest") != plan.identity_digest():
+        raise WorkPlanError("work_run_plan_identity_mismatch")
+    if (not isinstance(payload, dict) or set(payload) != {
+            "schema_version", "run_id", "plan_id", "created_at", "status",
+            "operating_mode", "quarantine_active", "task_runs", "reason_stack",
+            "plan_digest"}
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 2
+            or payload.get("run_id") != run_id or payload.get("plan_id") != plan.plan_id
+            or payload.get("created_at") != created_at
+            or not isinstance(payload.get("operating_mode"), str)
+            or not payload["operating_mode"]
+            or type(payload.get("quarantine_active")) is not bool
+            or not isinstance(payload.get("task_runs"), list)
+            or len(payload["task_runs"]) != len(plan.tasks)
+            or not isinstance(payload.get("reason_stack"), list)
+            or len(payload["reason_stack"]) > 12
+            or any(not isinstance(item, str) for item in payload["reason_stack"])):
+        raise WorkPlanError("work_run_artifact_shape_invalid")
+    expected_task_fields = {"task_id", "goal_id", "kind", "status", "reason",
+        "started_at", "finished_at", "duration_ms", "artifacts", "destructive"}
+    task_runs: list[TaskRun] = []
+    for task, row in zip(plan.tasks, payload["task_runs"], strict=True):
+        if (not isinstance(row, dict) or set(row) != expected_task_fields
+                or row.get("task_id") != task.task_id or row.get("goal_id") != task.goal_id
+                or row.get("kind") != task.kind
+                or row.get("status") not in {"success", "failed", "skipped", "partial"}
+                or (row.get("reason") is not None and not isinstance(row["reason"], str))
+                or (row.get("status") == "partial"
+                    and (not isinstance(row.get("reason"), str) or not row["reason"]))
+                or not isinstance(row.get("started_at"), str) or not row["started_at"]
+                or not isinstance(row.get("finished_at"), str) or not row["finished_at"]
+                or type(row.get("duration_ms")) is not int or row["duration_ms"] < 0
+                or not isinstance(row.get("artifacts"), list)
+                or any(not isinstance(item, str) or len(item) > 1024 for item in row["artifacts"])
+                or type(row.get("destructive")) is not bool
+                or row["destructive"] != (task.destructive or task.kind == "forge_apply")):
+            raise WorkPlanError("work_run_task_identity_invalid")
+        task_runs.append(TaskRun(task.task_id, task.goal_id, task.kind, row["status"],
+            row["reason"], row["started_at"], row["finished_at"], row["duration_ms"],
+            tuple(row["artifacts"]), row["destructive"]))
+    expected_reasons = [row.reason for row in task_runs
+        if row.status in {"failed", "skipped", "partial"} and row.reason][:12]
+    if payload["reason_stack"] != expected_reasons:
+        raise WorkPlanError("work_run_reason_stack_invalid")
+    if not task_runs or all(row.status == "skipped" for row in task_runs):
+        expected_status = "skipped"
+    elif any(row.status == "failed" for row in task_runs):
+        expected_status = "failed"
+    elif any(row.status in {"skipped", "partial"} for row in task_runs):
+        expected_status = "partial"
+    else:
+        expected_status = "ok"
+    if payload.get("status") != expected_status:
+        raise WorkPlanError("work_run_status_mismatch")
+    canonical = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if raw != canonical:
+        raise WorkPlanError("work_run_artifact_noncanonical")
+    return WorkPlanRun(2, run_id, plan.plan_id, created_at, expected_status,
+        payload["operating_mode"], payload["quarantine_active"], tuple(task_runs),
+        tuple(payload["reason_stack"]), payload["plan_digest"])
+
+
+def work_run_id(plan: WorkPlan, *, created_at: str) -> str:
+    """Give each exact plan a distinct immutable run artifact identity."""
+    if (not isinstance(plan, WorkPlan) or created_at != plan.created_at):
+        raise WorkPlanError("work_run_lookup_plan_time_mismatch")
+    return f"run_{plan.identity_digest()}"
+
+
+def _write_json_once(path: Path, value: dict[str, object]) -> bool:
+    """Write an immutable artifact, allowing only an exact idempotent replay."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        with path.open("xb") as handle:
+            handle.write(encoded)
+            handle.flush()
+    except FileExistsError:
+        try:
+            existing = path.read_bytes()
+        except OSError as exc:
+            raise WorkPlanError("work_plan_artifact_unreadable") from exc
+        if existing != encoded:
+            raise WorkPlanError("work_plan_artifact_identity_conflict")
+        return False
+    except OSError as exc:
+        raise WorkPlanError("work_plan_artifact_write_failed") from exc
+    return True
+
+
 def load_work_plan(path: Path) -> WorkPlan:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkPlanError("work_plan_unreadable") from exc
+    if (not isinstance(payload, dict) or set(payload) not in (_PLAN_FIELDS, _PLAN_FIELDS | {"omissions"})
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 1
+            or any(not isinstance(payload.get(key), str) or not payload[key] or len(payload[key]) > 512
+                for key in ("plan_id", "created_at", "context"))
+            or not isinstance(payload.get("selected_goals"), list)
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in payload["selected_goals"])
+            or len(payload["selected_goals"]) != len(set(payload["selected_goals"]))
+            or not isinstance(payload.get("tasks"), list)):
+        raise WorkPlanError("work_plan_shape_invalid")
     tasks = []
-    for row in payload.get("tasks", []):
-        if not isinstance(row, dict):
-            continue
-        tasks.append(
-            Task(
-                schema_version=int(row.get("schema_version", 1)),
-                task_id=str(row.get("task_id", "")),
-                goal_id=str(row.get("goal_id", "")),
-                kind=str(row.get("kind", "diagnostic")),
-                commands=tuple(str(item) for item in row.get("commands", []) if isinstance(item, str)),
-                callable_ref=str(row.get("callable_ref")) if isinstance(row.get("callable_ref"), str) else None,
-                risk_cost=max(0, int(row.get("risk_cost", 0))),
-                throughput_cost=max(0, int(row.get("throughput_cost", 0))),
-                preconditions={str(k): v for k, v in (row.get("preconditions") if isinstance(row.get("preconditions"), dict) else {}).items()},
-                expected_artifacts=tuple(str(item) for item in row.get("expected_artifacts", []) if isinstance(item, str)),
-                destructive=bool(row.get("destructive", False)),
-            )
-        )
+    task_ids: set[str] = set()
+    goals = set(payload["selected_goals"])
+    for row in payload["tasks"]:
+        if (not isinstance(row, dict) or set(row) not in (_TASK_FIELDS, _LEGACY_TASK_FIELDS)
+                or type(row.get("schema_version")) is not int or row["schema_version"] != 1
+                or any(not isinstance(row.get(key), str) or not row[key] or len(row[key]) > 256
+                    for key in ("task_id", "goal_id", "kind"))
+                or row["goal_id"] not in goals or row["task_id"] in task_ids
+                or not isinstance(row.get("commands"), list)
+                or any(not isinstance(item, str) or len(item) > 4096 for item in row["commands"])
+                or (row.get("callable_ref") is not None and not isinstance(row["callable_ref"], str))
+                or any(type(row.get(key)) is not int or row[key] < 0
+                    for key in ("risk_cost", "throughput_cost"))
+                or not isinstance(row.get("preconditions"), dict)
+                or ("requires_mutation" in row["preconditions"]
+                    and type(row["preconditions"]["requires_mutation"]) is not bool)
+                or not isinstance(row.get("expected_artifacts"), list)
+                or any(not isinstance(item, str) or len(item) > 1024 for item in row["expected_artifacts"])
+                or type(row.get("destructive")) is not bool):
+            raise WorkPlanError("work_plan_task_invalid")
+        depends_on = row.get("depends_on", [])
+        if (not isinstance(depends_on, list)
+                or any(not isinstance(item, str) or not item or len(item) > 256
+                    for item in depends_on)
+                or len(depends_on) != len(set(depends_on))):
+            raise WorkPlanError("work_plan_task_dependencies_invalid")
+        inferred_destructive = (row["kind"] == "forge_apply"
+            or row["preconditions"].get("requires_mutation") is True)
+        if row["destructive"] != inferred_destructive:
+            raise WorkPlanError("work_plan_destructive_classification_mismatch")
+        task_ids.add(row["task_id"])
+        tasks.append(Task(schema_version=row["schema_version"], task_id=row["task_id"],
+            goal_id=row["goal_id"], kind=row["kind"], commands=tuple(row["commands"]),
+            callable_ref=row["callable_ref"], risk_cost=row["risk_cost"],
+            throughput_cost=row["throughput_cost"], preconditions=dict(row["preconditions"]),
+            expected_artifacts=tuple(row["expected_artifacts"]), destructive=row["destructive"],
+            depends_on=tuple(depends_on)))
+    task_positions = {task.task_id: index for index, task in enumerate(tasks)}
+    for index, task in enumerate(tasks):
+        if any(dependency not in task_positions or task_positions[dependency] >= index
+                for dependency in task.depends_on):
+            raise WorkPlanError("work_plan_task_dependencies_invalid")
+    omissions_raw = payload.get("omissions", [])
+    if not isinstance(omissions_raw, list) or len(omissions_raw) > 256:
+        raise WorkPlanError("work_plan_omissions_invalid")
+    omissions: list[TaskOmission] = []
+    omission_ids: set[tuple[str, str]] = set()
+    for row in omissions_raw:
+        if (not isinstance(row, dict) or set(row) != _OMISSION_FIELDS
+                or not isinstance(row.get("goal_id"), str) or row["goal_id"] not in goals
+                or not isinstance(row.get("kind"), str)
+                or not isinstance(row.get("reason"), str)
+                or row["kind"] not in _OMISSION_KINDS_BY_REASON.get(row["reason"], set())
+                or (row["goal_id"], row["kind"]) in omission_ids):
+            raise WorkPlanError("work_plan_omissions_invalid")
+        omission_ids.add((row["goal_id"], row["kind"]))
+        omissions.append(TaskOmission(row["goal_id"], row["kind"], row["reason"]))
     return WorkPlan(
-        schema_version=int(payload.get("schema_version", 1)),
-        plan_id=str(payload.get("plan_id", "")),
-        created_at=str(payload.get("created_at", "")),
-        context=str(payload.get("context", "manual")),
-        selected_goals=tuple(str(item) for item in payload.get("selected_goals", []) if isinstance(item, str)),
+        schema_version=payload["schema_version"],
+        plan_id=payload["plan_id"],
+        created_at=payload["created_at"],
+        context=payload["context"],
+        selected_goals=tuple(payload["selected_goals"]),
         tasks=tuple(tasks),
+        omissions=tuple(omissions),
     )
 
 
@@ -180,10 +416,14 @@ def _safe_id(value: str) -> str:
 
 __all__ = [
     "Task",
+    "TaskOmission",
     "TaskRun",
     "WorkPlan",
     "WorkPlanRun",
+    "WorkPlanError",
     "load_work_plan",
+    "load_work_run",
+    "work_run_id",
     "persist_work_plan",
     "persist_work_run",
 ]

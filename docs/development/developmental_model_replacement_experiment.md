@@ -6,6 +6,8 @@ This explicitly invoked instrument asks what digest-level observations change wh
 
 `sentientos.developmental_model_replacement_context:v1` binds the exact snapshot and current-projection IDs/digests, fact IDs, projected fact/source/conflict content digest, developmental record IDs/digests and record-set digest, instruction/template digest, inference budget, temperature-zero generation posture, schema, and optional repository generation identity. The semantic prompt is constructed from that object once: matching A/B conditions are byte-equivalent except that withheld conditions contain no history projection. Neither model labels nor lineage evidence enter the prompt.
 
+When a caller already has an exact task/source selection, `FrozenCausalContext.create_from_admitted_history(writeback=..., history_record_ids=...)` rechecks the writeback owner's completed records and receipts, then freezes their IDs, digests, and bounded record content for both endpoints. Task-family score lineage remains inside its admitted source fact. This factory does not decide task relevance or create a history admission.
+
 Each `CognitiveModelIdentity` binds model ID, semantic artifact identity, content SHA-256, known size and sidecar digest, configuration digest, engine/runtime family, candidate index, production/fallback posture, exact authority-record custody, and the exact active-model identity structure. A and B must differ in semantic artifact/content/configuration identity. Identity is not inferred from a display name. Model identity is neither system identity, runtime identity, nor configuration identity.
 
 ## Provenance is evidence, not authority

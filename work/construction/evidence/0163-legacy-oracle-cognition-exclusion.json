@@ -1,0 +1,49 @@
+{
+  "schema_version": "sentientos.construction.acceptance_evidence:v1",
+  "purpose": "Legacy oracle commitment exclusion from cognition-facing paths",
+  "baseline": {
+    "source_commit": "710846a7708f0f1a6289187051c26286228f6115",
+    "source_tree": "1e67c21c01470218fac24245c1aff670022732aa"
+  },
+  "publication": {
+    "source_commit": "629805a99fdbdef5340eb2f96a3959720b0fd077",
+    "source_tree": "3dfabb4bbe6b7682c92f9ecc5c10d5a50ab3d188",
+    "parent": "6770021fb698b9dfc2e128d330435c826578a586"
+  },
+  "changed_blobs": {
+    "sentientos/developmental_history_intervention_experiment.py": "24ba8d679e5e1234eb21c6e04c0685ac6093ac72",
+    "sentientos/developmental_model_replacement_experiment.py": "bce56132c6a0b75e814b3d1f9188f78e4a627a17",
+    "sentientos/resident_developmental_cognition.py": "94dc6f85c3ef7d61deea107e7965deb994fbc432",
+    "sentientos/resident_developmental_writeback.py": "4fe4406caf6b5f85ec6d55236b66416907b398ef",
+    "tests/test_resident_developmental_cognition.py": "54e9e943a06e84134bd7f40cbe2ab483b9537232",
+    "tests/test_developmental_objective_scoring.py": "7b6a87a1fa8af393a9af3f9281c429e4ac59d71c"
+  },
+  "checks": [
+    {
+      "command": "python -m py_compile on four changed owners and two test modules",
+      "result": "passed"
+    },
+    {
+      "command": "bounded trailing-whitespace scan across six changed Python files",
+      "result": "passed"
+    },
+    {
+      "command": "focused history-intervention and objective-scoring owner tests",
+      "result": "34 passed"
+    },
+    {
+      "command": "five task-family acquisition, adverse, progression, feedback, and restart/no-replay tests",
+      "result": "5 passed"
+    },
+    {
+      "command": "legacy objective current-context exclusion regression",
+      "result": "1 passed"
+    }
+  ],
+  "claims": {
+    "fixture_outcome_only": true,
+    "actual_local_model_learning": false,
+    "production_acceptance": false,
+    "authority_expanded": false
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "b5380d6a621e0447cabf77c8aab3250a99219bbf",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_resource_world_state_reread_keeps_event_identity_and_never_redebits",
+      "rationale": "Repeated projection and fresh-ledger reconstruction preserve the exact historical receipt identity, separate retrieval time from event identity, and do not debit completed consumption again."
+    },
+    {
+      "node_id": "tests/test_governed_local_model_resource_allocation.py::test_provisional_restore_survives_restart_and_entry_is_irrevocable",
+      "rationale": "The existing ledger recovery contract continues to distinguish a restored pre-inference attempt from an irrevocably begun attempt."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_governed_local_model_resource_allocation.py::test_resource_world_state_reread_keeps_event_identity_and_never_redebits"
+  ]
+}

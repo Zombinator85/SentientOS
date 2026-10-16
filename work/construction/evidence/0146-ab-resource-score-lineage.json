@@ -1,0 +1,62 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 146,
+  "title": "A/B resource and objective score lineage",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "2636c913b24dc8e573caf8b9aad47207d1accafe",
+    "tree": "25606702f7b5913cb6eb826f91d3291e146d6f8f"
+  },
+  "base": {
+    "commit": "f0e9aeffea4245f9672213d9eca57786d3b36a6f",
+    "tree": "2a12907975939804422160791f5941d05d78b260"
+  },
+  "integrations": [
+    "model-replacement World-State conditions project compact score identity without oracle answers",
+    "resource records join exact score to the same condition inference receipt and reconciled resource ledger lineage",
+    "resident writeback rejects score receipt substitution for model replacement conditions",
+    "existing cross-process restart and later-cognition composition remains included in integration test"
+  ],
+  "scored_conditions": [
+    "model_a_history_present",
+    "model_a_history_withheld",
+    "model_b_history_present",
+    "model_b_history_withheld",
+    "model_a_history_restored"
+  ],
+  "positive_control": "canonical synthetic A/B objective-scored rehearsal; real governed invocation receipts and ledger consumption evidence in the owner integration test",
+  "negative_control": "substituted score inference receipt digest is rejected by the resident writeback projection",
+  "scope": "links measured resource receipts and deterministic fixture correctness to condition identity; does not establish that resource use caused correctness, model learning, or physical external outcome",
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "sentientos/developmental_model_replacement_experiment.py",
+        "sentientos/host_resource_runtime.py",
+        "sentientos/resident_developmental_writeback.py",
+        "tests/test_developmental_model_replacement_resource_lineage_integration.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "passed": 24,
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-a54-seq146c/governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-a54-seq146c/runtime SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-a54-seq146c/federation SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-a54-seq146c/kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-a54-seq146c/trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-a54-seq146c/trust/trust.json .venv/bin/pytest --override-ini addopts='' -q tests/test_developmental_model_replacement_resource_lineage_integration.py tests/test_resident_developmental_writeback.py"
+    },
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "production_verification": "not_performed",
+    "real_model_performance": "not_observed"
+  },
+  "limitations": [
+    "the A/B worker and objective benchmark are deterministic synthetic fixtures",
+    "canonical rehearsal found no history effect under either model",
+    "actual local model availability and user-host serving path remain unobserved"
+  ],
+  "next_dependency": "verify the exact committed resource/succession lineage reaches the read-only inspector and family progression CLI with no replay; then assess whether any further source-side gap remains before real-model host prerequisites",
+  "publication": {
+    "expected_head": "f0e9aeffea4245f9672213d9eca57786d3b36a6f",
+    "commit": "2636c913b24dc8e573caf8b9aad47207d1accafe",
+    "tree": "25606702f7b5913cb6eb826f91d3291e146d6f8f",
+    "remote_readback": "commit, tree, and changed blobs independently verified"
+  }
+}

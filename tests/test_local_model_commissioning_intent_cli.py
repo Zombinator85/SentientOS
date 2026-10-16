@@ -1,3 +1,11 @@
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
 from __future__ import annotations
 
 import json
@@ -88,6 +96,44 @@ def test_cli_intent_equals_canonical_build_intent_and_is_deterministic(
     assert getattr(opened[0], "value") == "machine-one"
     assert cli.main() == 0
     assert capsys.readouterr().out == first
+
+
+def test_cli_intent_can_bind_an_explicit_bounded_generation_ceiling(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    chain, handle, proof = _evidence(); _authority_stubs(monkeypatch, proof)
+    monkeypatch.setattr(cli, "_production_chain", lambda root: chain)
+    monkeypatch.setattr("scripts.local_model_commissioning.InstallationStateRegistry.system",
+                        lambda: SimpleNamespace(open=lambda identity: handle))
+    monkeypatch.setattr(sys, "argv", ["local_model_commissioning.py", "intent", "--evidence-root", "/evidence",
+        "--installation-identity", "machine-one", "--correlation-id", "commissioning-one",
+        "--max-new-tokens", "32"])
+    assert cli.main() == 0
+    emitted = json.loads(capsys.readouterr().out)
+    expected = dict(build_intent(chain, handle, correlation_id="commissioning-one", max_new_tokens=32))
+    assert emitted == expected
+    assert emitted["smoke_contract"]["max_new_tokens"] == 32
+
+
+def test_cli_commission_reuses_the_approved_generation_ceiling(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+        tmp_path: Path) -> None:
+    chain, handle, proof = _evidence(); _authority_stubs(monkeypatch, proof)
+    monkeypatch.setattr(cli, "_production_chain", lambda root: chain)
+    monkeypatch.setattr("scripts.local_model_commissioning.InstallationStateRegistry.system",
+                        lambda: SimpleNamespace(open=lambda identity: handle))
+    observed: dict[str, object] = {}
+    def commission_stub(*args: object, **kwargs: object) -> dict[str, object]:
+        observed.update(kwargs)
+        return {"status": "stubbed-test-only", "semantic_generations": 0}
+    monkeypatch.setattr(cli, "commission_production", commission_stub)
+    monkeypatch.setattr(cli, "get_control_plane_kernel", lambda: object())
+    approval = tmp_path / "approval.json"; approval.write_text("{}")
+    monkeypatch.setattr(sys, "argv", ["local_model_commissioning.py", "commission", "--evidence-root", "/evidence",
+        "--installation-identity", "machine-one", "--correlation-id", "commissioning-one",
+        "--approval-json", str(approval), "--max-new-tokens", "32"])
+    assert cli.main() == 0
+    assert observed["max_new_tokens"] == 32
+    assert json.loads(capsys.readouterr().out)["status"] == "stubbed-test-only"
 
 
 def test_cli_intent_is_zero_effect_and_uses_no_effectful_commission_path(

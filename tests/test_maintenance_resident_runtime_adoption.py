@@ -355,3 +355,75 @@ def test_no_marker_fresh_restart_with_incomplete_transition_is_blocked(
         cfg, process_observer=lambda: _observer(cfg, 2), execve=lambda *_: None)
     with pytest.raises(ValueError, match="foreign_predecessor_process_provenance"):
         sentientosd._prepare_resident_runtime_startup(restarted)
+
+
+def test_resident_transition_journal_reader_accepts_writer_lf_frames(tmp_path: Path) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    disabled = _disabled(cfg)
+    _journal_prefix(disabled, 1)
+    journal = Path(str(disabled["transition_journal_path"])).read_bytes()
+
+    assert journal.endswith(b"\n")
+    assert resident._rows(disabled) == [json.loads(journal[:-1].decode("utf-8"))]
+
+
+@pytest.mark.parametrize("framing", ("missing-final-lf", "crlf"))
+def test_resident_transition_journal_reader_rejects_invalid_lf_framing(
+    tmp_path: Path, framing: str,
+) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    disabled = _disabled(cfg)
+    _journal_prefix(disabled, 1)
+    path = Path(str(disabled["transition_journal_path"]))
+    journal = path.read_bytes()
+    path.write_bytes(journal[:-1] if framing == "missing-final-lf" else journal.replace(b"\n", b"\r\n"))
+
+    with pytest.raises(ValueError):
+        resident._rows(disabled)
+
+
+
+def test_current_execution_provenance_limits_identity_scope_to_process_and_source(
+    tmp_path: Path,
+) -> None:
+    cfg, _generation, _, _ = _fixture(tmp_path)
+    controller = resident.MaintenanceResidentRuntimeAdoptionController(
+        cfg, process_observer=lambda: _observer(cfg))
+    controller.capture_baseline()
+    current = controller.current_execution_provenance()
+    assert current["process_identity_scope"] == (
+        "pid_startup_argv_executable_entrypoint_module_origin_and_environment")
+    assert current["software_generation_scope"] == (
+        "configured_manifest_and_clean_repository_state_at_observation")
+    assert current["loaded_code_identity_posture"] == "not_independently_attested"
+
+
+def test_verified_transition_projection_reports_exact_omitted_prefix(tmp_path: Path) -> None:
+    cfg, _, _, _ = _fixture(tmp_path)
+    disabled = _disabled(cfg)
+    total = 70
+    for sequence in range(total):
+        transaction = sequence // len(resident.PHASES)
+        evidence = {
+            "lineage_id": f"lineage-{transaction}",
+            "predecessor_generation_digest": f"sha256:predecessor-{transaction}",
+            "successor_generation_digest": f"sha256:successor-{transaction}",
+            "continuity_receipt_digest": f"sha256:continuity-{transaction}",
+            "pending_handoff_event_digest": f"sha256:handoff-{transaction}",
+        }
+        resident._append(disabled, resident.PHASES[sequence % len(resident.PHASES)],
+            f"transition-{transaction}", evidence)
+
+    retained, omission = resident.read_transition_event_projection(disabled, limit=48)
+
+    assert len(retained) == 48
+    assert retained[0]["event_digest"]
+    assert retained[-1]["event_digest"]
+    assert omission == {
+        "journal_head_digest": retained[-1]["event_digest"],
+        "omitted_event_count": 22,
+        "last_omitted_event_digest": retained[0]["prior_event_digest"],
+        "first_retained_prior_digest": retained[0]["prior_event_digest"],
+        "retained_event_count": 48,
+        "retained_tail_limit": 48,
+    }

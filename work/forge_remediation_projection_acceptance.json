@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "scope": "Forge observability uses reconciled remediation custody instead of catalog or attempt claims",
+  "source_base": {
+    "commit": "f47bed0a607b5e894dd6291ccf08cfdb603a0223",
+    "tree": "452455763c16a583dcce9cfb9f8f1722080af539"
+  },
+  "source_sha256": {
+    "sentientos/forge_index.py": "53ddc4512fb77e22cf669e3e84911f7b6469611e490f849c6a882163797529eb",
+    "sentientos/tests/test_forge_index_remediation_custody.py": "d4b1a28048c6e55ec19e53dfb9ecd847d78de7ddf592b5e56b8e220b829d36b0",
+    "sentientos/tests/test_forge_observatory.py": "bf3305a0035622aa37865e7a2ad97dcb221be8a4bc00c194b786d2bbd1504030"
+  },
+  "behavior": [
+    "A catalog-only completed run is projected as invalid unless the remediation owner reconciles report and intent custody.",
+    "An orphan pre-execution intent remains visible as interrupted/invalid even if a catalog claims completion.",
+    "Auto-remediation attempt status becomes succeeded only when its exact pack and run identity match the latest owner-reconciled completed run.",
+    "Quarantine-linked run status is obtained from the same remediation custody owner; raw run-file fallback was removed.",
+    "A genuine owner-produced completed report and matching auto-attempt row remain the positive control."
+  ],
+  "checks": {
+    "command": "uv run --no-project --with pytest==8.4.2 pytest -q sentientos/tests/test_forge_observatory.py sentientos/tests/test_forge_index_quarantine_linkage.py sentientos/tests/test_forge_index_remediation_custody.py sentientos/tests/test_remediation_run_custody.py sentientos/tests/test_remediation_pack.py",
+    "result": "39 passed",
+    "python_compileall": "passed for all changed Python files",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "The reconciled owner report remains local custody evidence and is not independent proof that an external consequence occurred.",
+    "This construction was tested hermetically; production behavior remains unverified.",
+    "No remediation command, provider, external effect, or production activation was performed."
+  ],
+  "status": "focused_observability_acceptance_passed; production_unverified"
+}

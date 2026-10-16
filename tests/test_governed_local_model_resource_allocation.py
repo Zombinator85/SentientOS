@@ -112,6 +112,43 @@ def test_fail_closed_substitution_exhaustion_and_attempt_uniqueness(tmp_path: Pa
         allocation.epoch = 12
 
 
+def test_resource_world_state_reread_keeps_event_identity_and_never_redebits(tmp_path: Path) -> None:
+    from sentientos.host_resource_runtime import resource_consumption_world_state_records
+
+    principal, authenticated, current, policy, ledger, allocator, allocation = context(tmp_path)
+    attempt = allocator.final_gate(allocation=allocation, principal=principal,
+        authenticated=authenticated, current=current, policy=policy, current_time=NOW,
+        durable_attempt_nonce="reread")
+    begun = allocator.record_backend_entry(allocation, attempt, observed_at="2026-09-21T08:30:00Z")
+    measured = allocator.append_receipt(allocation, attempt, state="measured_completed",
+        observed_at="2026-09-21T08:30:01Z", measurement=allocator.measurement(allocation,
+            generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=4,
+            returned_output_size_bytes=4, latency_ms=10, invocation_outcome="completed"))
+    allocator.append_receipt(allocation, attempt, state="reconciled",
+        observed_at="2026-09-21T08:30:02Z", measurement=allocator.measurement(allocation,
+            generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=4,
+            returned_output_size_bytes=4, latency_ms=10, invocation_outcome="completed"),
+        effect_receipt_digest="a" * 64)
+    before = ledger.snapshot_counts()
+    first = resource_consumption_world_state_records(ledger=ledger,
+        observed_at="2026-09-21T08:31:00Z")[0]
+
+    recovered = GovernedLocalModelResourceLedger(ledger.path)
+    second = resource_consumption_world_state_records(ledger=recovered,
+        observed_at="2026-09-22T08:31:00Z")[0]
+
+    assert first["digest"] == second["digest"]
+    assert first["observed_at"] is None and second["observed_at"] is None
+    assert first["retrieved_at"] != second["retrieved_at"]
+    assert first["payload"]["ledger_digest"] == second["payload"]["ledger_digest"]
+    assert [row["receipt_digest"] for row in first["payload"]["consumption_receipts"]] == [
+        row["receipt_digest"] for row in second["payload"]["consumption_receipts"]]
+    assert begun.receipt_digest in {row["receipt_digest"] for row in first["payload"]["consumption_receipts"]}
+    assert measured.receipt_digest in {row["receipt_digest"] for row in first["payload"]["consumption_receipts"]}
+    assert recovered.snapshot_counts() == before
+    assert recovered.remaining_calls(allocation.allocation_id) == 1
+
+
 @pytest.mark.parametrize("bad", [True, 0, -1])
 def test_integer_bounds_reject_bool_and_nonpositive(bad: object) -> None:
     with pytest.raises(GovernedLocalModelResourceError):
@@ -151,3 +188,76 @@ def test_module_has_no_effect_or_serving_authority_surface() -> None:
     import sentientos.governed_local_model_resource_allocation as module
     forbidden = {"issue_admission", "load_model", "select_model", "activate_serving", "issue_principal", "issue_grant", "write_policy"}
     assert forbidden.isdisjoint(vars(module))
+
+
+def test_resource_ledger_rejects_symlinked_custody_file(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX ledger file custody is required")
+    root = tmp_path / "ledger-root"
+    root.mkdir(mode=0o700)
+    external = tmp_path / "external-ledger.json"
+    external.write_text("unchanged", encoding="utf-8")
+    link = root / "resource-ledger.json"
+    link.symlink_to(external)
+    with pytest.raises(GovernedLocalModelResourceError, match="ledger_file_not_regular"):
+        GovernedLocalModelResourceLedger(link)
+    assert external.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_replace_status_reports_visible_but_uncertain_directory_commit(tmp_path: Path, monkeypatch) -> None:
+    import os
+    import stat
+
+    import sentientos.private_file_custody as custody
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor replacement is required")
+    target = tmp_path / "private" / "ledger.json"
+    target.parent.mkdir(mode=0o700)
+    real_fsync = os.fsync
+
+    def fail_directory_fsync(descriptor: int) -> None:
+        if stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            raise OSError("simulated directory durability uncertainty")
+        real_fsync(descriptor)
+
+    monkeypatch.setattr(custody.os, "fsync", fail_directory_fsync)
+    durable = custody.replace_private_bytes_with_status(
+        target, b"candidate", max_bytes=64)
+    assert durable is False
+    assert target.read_bytes() == b"candidate"
+
+
+def test_replace_status_reports_visible_but_uncertain_directory_close(
+        tmp_path: Path, monkeypatch) -> None:
+    import os
+    import stat
+
+    import sentientos.private_file_custody as custody
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor replacement is required")
+    target = tmp_path / "private" / "ledger.json"
+    target.parent.mkdir(mode=0o700)
+    directory_stat = target.parent.stat()
+    real_close = os.close
+    failed = False
+
+    def close_directory_with_uncertain_status(descriptor: int) -> None:
+        nonlocal failed
+        opened = os.fstat(descriptor)
+        if (not failed and stat.S_ISDIR(opened.st_mode)
+                and opened.st_dev == directory_stat.st_dev
+                and opened.st_ino == directory_stat.st_ino):
+            failed = True
+            real_close(descriptor)
+            raise OSError("simulated directory close uncertainty")
+        real_close(descriptor)
+
+    monkeypatch.setattr(custody.os, "close", close_directory_with_uncertain_status)
+    durable = custody.replace_private_bytes_with_status(
+        target, b"candidate", max_bytes=64)
+    assert durable is False
+    assert target.read_bytes() == b"candidate"

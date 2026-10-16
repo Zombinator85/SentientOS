@@ -1,0 +1,26 @@
+{
+  "compatibility": "preregistered EXPERIMENT_CONTEXT_INSTRUCTION constant unchanged; qualifier added only to ordinary cognition with prior self-model",
+  "failed": 0,
+  "finding": "Actual resident cognition prompt now receives historical self-model claim qualifiers and provenance attached; no prompt-template digest changes for existing controlled experiments.",
+  "focused_modules": [
+    "tests/test_longitudinal_self_model.py",
+    "tests/test_self_model_cognitive_consumption.py",
+    "tests/test_resident_developmental_cognition.py",
+    "tests/test_developmental_model_replacement_experiment.py",
+    "tests/test_developmental_history_intervention_experiment.py",
+    "tests/test_embodied_consequence.py"
+  ],
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 24074,
+    "path": "work/construction/evidence/0092-self-model-consumer-qualifier-junit.xml",
+    "sha256": "2c3432e4109393705916870885d1643832e4b65e80411b7e31802c461ab90f57"
+  },
+  "passed": 151,
+  "python_compilation": "passed",
+  "sequence": 92,
+  "skipped": 0,
+  "source_baseline_commit": "4d77a93f05815598642b1a0a9cdc923bc36e045b",
+  "source_baseline_tree": "408b5416736002aaf4968510367d2e5a109ac8a2",
+  "status": "construction_tested_unverified_for_production"
+}

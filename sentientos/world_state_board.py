@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 SCHEMA_VERSION="world_state_board.v1"
-LIFECYCLE_STAGES=("observation","proposal","review","admission","execution","rollback","adoption","repository_handoff","repository_landing")
+LIFECYCLE_STAGES=("observation","history","proposal","review","admission","attempt","execution","rollback","adoption","repository_handoff","repository_landing")
 FALSE_AUTHORITY={"decision_authority":False,"admission_authority":False,"execution_authority":False,"adoption_authority":False,"repository_mutation_authority":False}
 
 class WorldStateSourceKind(str, Enum):
@@ -50,37 +50,107 @@ class WorldStateValidationResult: valid:bool; findings:tuple[str,...]
 
 def _canon(o:Any)->str: return json.dumps(o, sort_keys=True, separators=(",",":"), default=lambda x: asdict(x) if hasattr(x,"__dataclass_fields__") else str(x))
 def digest(o:Any)->str: return hashlib.sha256(_canon(o).encode()).hexdigest()
+def record_digest(record: Mapping[str, Any]) -> str:
+    """Canonical digest for a World-State producer record, excluding self-digest."""
+    content = {k: v for k, v in record.items() if k not in {"digest", "observed_at", "retrieved_at", "latency", "absolute_path", "temporary_root", "process_id", "dashboard_request_time", "output_location"}}
+    return digest(content)
 def _sid(prefix:str, payload:Any)->str: return f"{prefix}-{digest(payload)[:16]}"
 def to_dict(o:Any)->Any: return json.loads(_canon(o))
 def _parse_time(s:str|None):
-    if not s: return None
-    try: return datetime.fromisoformat(s.replace("Z","+00:00"))
-    except ValueError: return None
+    if not isinstance(s, str) or not s: return None
+    try:
+        parsed = datetime.fromisoformat(s.replace("Z","+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset() is None: return None
+        return parsed.astimezone(timezone.utc)
+    except (OverflowError, ValueError): return None
 
 def staleness_for(kind:str, observed_at:str|None, now:datetime)->str:
     historical={"specification_amendment","repository_mutation_handoff","genesis_candidate"}
     if kind in historical: return "not_applicable"
+    if now.tzinfo is None or now.utcoffset() is None: return "unknown"
     t=_parse_time(observed_at)
     if t is None: return "undated"
-    age=(now-t).total_seconds()
+    age=(now.astimezone(timezone.utc)-t).total_seconds()
+    if age < 0: return "unknown"
     if age < 3600: return "fresh"
     if age < 86400: return "aging"
     if age < 7*86400: return "stale"
     return "expired"
 
+def _source_staleness(kind:str, observed_at:str|None, declared:Any, now:datetime)->str:
+    """Combine event age with producer posture without allowing freshness upgrades."""
+    calculated=staleness_for(kind,observed_at,now)
+    if declared is None: return calculated
+    value=str(declared).lower()
+    aliases={"current":"fresh"}
+    value=aliases.get(value,value)
+    rank={"not_applicable":0,"fresh":0,"aging":1,"stale":2,"expired":3,
+          "undated":4,"unknown":4}
+    if value not in rank: return "unknown"
+    if value in {"unknown","undated"}: return value
+    if calculated in {"unknown","undated"}: return calculated
+    if calculated == "not_applicable": return value if value in {"stale","expired"} else calculated
+    if value == "not_applicable": return calculated
+    return value if rank[value]>rank[calculated] else calculated
+
 class WorldStateBoardBuilder:
     def __init__(self, *, allowed_roots:Sequence[Path|str]=(), max_source_count:int=64, max_artifact_size:int=1048576, clock:Callable[[],datetime]|None=None):
+        if (type(max_source_count) is not int or max_source_count < 1
+                or type(max_artifact_size) is not int or max_artifact_size < 1):
+            raise ValueError("world_state_bounds_invalid")
         self.allowed_roots=tuple(str(Path(r).resolve()) for r in allowed_roots); self.max_source_count=max_source_count; self.max_artifact_size=max_artifact_size; self.clock=clock or (lambda: datetime.now(timezone.utc))
     def build(self, records:Sequence[Mapping[str,Any]]=(), *, manifest_id:str="world-state-manifest") -> WorldStateSnapshot:
-        now=self.clock(); sources=[]; facts=[]; conflicts=[]; lineage=[]; seen={}
+        now=self.clock(); sources=[]; facts=[]; conflicts=[]; lineage=[]; seen={}; seen_event_times={}; event_time_conflicts=set()
         if len(records)>self.max_source_count: records=records[:self.max_source_count]; conflicts.append(WorldStateConflict("conflict-source-count","manifest_bounds","manifest",(),"error","maximum source count exceeded"))
         for i,r in enumerate(records):
+            if not isinstance(r, Mapping):
+                conflicts.append(WorldStateConflict(_sid("conflict",("invalid-source-record", i)),
+                    "invalid_source_record", f"record:{i}", (), "error", "source record is not a mapping"))
+                continue
             kind=str(r.get("source_kind", r.get("kind","capability_registry")))
             if kind not in {k.value for k in WorldStateSourceKind}: raise ValueError(f"unsupported source kind: {kind}")
-            sid=str(r.get("source_id") or f"{kind}:{i}"); content={k:v for k,v in r.items() if k not in {"observed_at","retrieved_at","latency","absolute_path","temporary_root","process_id","dashboard_request_time","output_location"}}
-            dg=str(r.get("digest") or digest(content)); finding="ok"
-            if r.get("digest") and r.get("digest") != digest(content): finding="digest-mismatch"
-            st=staleness_for(kind, r.get("observed_at"), now)
+            try:
+                record_size = len(_canon(r).encode("utf-8"))
+            except (RecursionError, TypeError, ValueError):
+                record_size = self.max_artifact_size + 1
+            if record_size > self.max_artifact_size:
+                raw_source_id = r.get("source_id")
+                sid = (str(raw_source_id) if isinstance(raw_source_id, str)
+                    and 0 < len(raw_source_id) <= 256 else f"{kind}:oversized:{i}")
+                raw_digest = r.get("digest")
+                dg = (raw_digest if isinstance(raw_digest, str) and len(raw_digest) <= 256
+                    else "oversized-or-unavailable")
+                sources.append(WorldStateSourceRef(sid, kind, "oversized", dg,
+                    False, "redacted", "unknown", "artifact-too-large"))
+                if sid in seen and seen[sid] != dg:
+                    conflicts.append(WorldStateConflict(_sid("conflict",(sid, seen[sid], dg)),
+                        "source_digest_mismatch", sid, (), "error",
+                        "one semantic source id has different digests"))
+                seen[sid] = dg
+                conflicts.append(WorldStateConflict(_sid("conflict",(sid, dg, "artifact-too-large")),
+                    "source_artifact_oversized", sid, (), "error",
+                    "source record exceeds configured artifact bound"))
+                continue
+            sid=str(r.get("source_id") or f"{kind}:{i}"); content={k:v for k,v in r.items() if k not in {"digest","observed_at","retrieved_at","latency","absolute_path","temporary_root","process_id","dashboard_request_time","output_location"}}
+            dg=str(r.get("digest") or record_digest(r)); finding="ok"
+            if r.get("digest") and r.get("digest") != record_digest(r): finding="digest-mismatch"
+            raw_effect_claimed = r.get("effect_claimed", False)
+            raw_effect_proven = r.get("effect_proven", False)
+            effect_flags_valid = (type(raw_effect_claimed) is bool
+                                  and type(raw_effect_proven) is bool)
+            if not effect_flags_valid and finding == "ok":
+                finding = "invalid-effect-flag-type"
+            st=_source_staleness(kind, r.get("observed_at"), r.get("staleness"), now)
+            event_token = _canon(r.get("observed_at"))
+            source_event_tokens = seen_event_times.setdefault(sid, set())
+            source_event_tokens.add(event_token)
+            if len(source_event_tokens) > 1:
+                finding="observation-time-conflict"; st="unknown"
+                if sid not in event_time_conflicts:
+                    conflicts.append(WorldStateConflict(_sid("conflict",(sid, sorted(source_event_tokens))),
+                        "source_observation_time_mismatch", sid, (), "error",
+                        "one semantic source identity has conflicting observation times"))
+                    event_time_conflicts.add(sid)
             src=WorldStateSourceRef(sid,kind,str(r.get("schema_version","v1")),dg,bool(r.get("required",False)), "redacted", st, finding)
             sources.append(src)
             if sid in seen and seen[sid]!=dg: conflicts.append(WorldStateConflict(_sid("conflict",(sid,seen[sid],dg)),"source_digest_mismatch",sid,(),"error","one semantic source id has different digests"))
@@ -88,15 +158,25 @@ class WorldStateBoardBuilder:
             subj=WorldStateSubject(str(r.get("subject_id",sid)), str(r.get("subject_kind",kind)))
             stage=str(r.get("stage","observation"));
             if stage not in LIFECYCLE_STAGES: raise ValueError(f"unsupported lifecycle stage: {stage}")
-            disp=str(r.get("disposition","unknown")); eff=bool(r.get("effect_claimed",False)); proven=bool(r.get("effect_proven",False))
+            disp=str(r.get("disposition","unknown"))
+            # Never let truthy strings, integers, or containers masquerade as
+            # a typed effect claim or proof in the aggregate World-State.
+            eff=raw_effect_claimed if effect_flags_valid else False
+            proven=raw_effect_proven if effect_flags_valid else False
             payload=dict(r.get("payload",{}))
             fid=_sid("fact",(subj.subject_id,subj.subject_kind,stage,disp,src.digest,payload,eff,proven))
             facts.append(WorldStateFact(fid,subj,stage,disp,str(r.get("evidence_strength","recorded")),src,payload,eff,proven,r.get("observed_at")))
+            if not effect_flags_valid:
+                conflicts.append(WorldStateConflict(_sid("conflict",(sid,"effect-flag-type-invalid",fid)),
+                    "effect_flag_type_invalid",sid,(fid,),"error",
+                    "effect_claimed and effect_proven must be JSON booleans"))
         conflicts += self._detect_conflicts(facts)
         entities=self._entities(facts,conflicts)
         counts=self._counts(sources,facts)
         summary=WorldStateBoardSummary(counts=counts, conflicts=len(conflicts), pending_review=sum(f.disposition in {"pending","ready_for_review"} for f in facts), denied=sum(f.disposition=="deny" for f in facts), deferred=sum(f.disposition=="deferred" for f in facts), blocked=sum(f.disposition=="blocked" for f in facts), degraded=sum(s.finding!="ok" for s in sources), contradicted=len(conflicts), execution_attempts=sum(f.stage=="execution" for f in facts), proven_completions=sum(f.stage=="execution" and f.effect_proven for f in facts), rollbacks=sum(f.stage=="rollback" for f in facts), adoptions=sum(f.stage=="adoption" for f in facts), repository_handoffs=sum(f.stage=="repository_handoff" for f in facts), repository_landings=sum(f.stage=="repository_landing" for f in facts), unproven_effect_claims=sum(f.effect_claimed and not f.effect_proven for f in facts))
-        man=WorldStateSourceManifest(manifest_id,digest((self.allowed_roots, [to_dict(s) for s in sources])),self.allowed_roots,tuple(sorted(sources,key=lambda s:s.source_id)),self.max_source_count,self.max_artifact_size)
+        manifest_sources=tuple(sorted(sources,key=lambda s:s.source_id))
+        manifest_digest=digest((self.allowed_roots,[to_dict(source) for source in manifest_sources]))
+        man=WorldStateSourceManifest(manifest_id,manifest_digest,self.allowed_roots,manifest_sources,self.max_source_count,self.max_artifact_size)
         base={"schema_version":SCHEMA_VERSION,"manifest_digest":man.digest,"sources":[to_dict(s) for s in man.sources],"facts":[to_dict(f) for f in sorted(facts,key=lambda f:f.fact_id)],"conflicts":[to_dict(c) for c in sorted(conflicts,key=lambda c:c.conflict_id)],"summary":to_dict(summary),"authority":FALSE_AUTHORITY}
         dg=digest(base); snap=WorldStateSnapshot(f"world-state-{dg[:16]}",dg,man,man.sources,tuple(sorted(facts,key=lambda f:f.fact_id)),tuple(sorted(conflicts,key=lambda c:c.conflict_id)),tuple(lineage),entities,summary,{"observed_at":now.isoformat(),"schema_version":SCHEMA_VERSION},summary.degraded>0, any(s.staleness in {"stale","expired","undated"} for s in sources), bool(conflicts), "valid", FALSE_AUTHORITY)
         return snap
@@ -132,7 +212,70 @@ def validate_snapshot(snapshot:WorldStateSnapshot)->WorldStateValidationResult:
     expected=digest({"schema_version":SCHEMA_VERSION,"manifest_digest":snapshot.manifest.digest,"sources":[to_dict(s) for s in snapshot.sources],"facts":[to_dict(f) for f in snapshot.facts],"conflicts":[to_dict(c) for c in snapshot.conflicts],"summary":to_dict(snapshot.summary),"authority":snapshot.authority})
     findings=[]
     if expected!=snapshot.digest: findings.append("snapshot_digest_mismatch")
-    if any(snapshot.authority.values()): findings.append("authority_field_true")
+    if snapshot.snapshot_id != f"world-state-{expected[:16]}":
+        findings.append("snapshot_identity_mismatch")
+    expected_manifest_digest = digest((snapshot.manifest.allowed_roots,
+        [to_dict(source) for source in snapshot.manifest.sources]))
+    if (snapshot.manifest.digest != expected_manifest_digest
+            or tuple(snapshot.sources) != tuple(snapshot.manifest.sources)):
+        findings.append("source_manifest_identity_mismatch")
+    for fact in snapshot.facts:
+        expected_fact_id = _sid("fact",(fact.subject.subject_id,fact.subject.subject_kind,
+            fact.stage,fact.disposition,fact.source.digest,dict(fact.payload),
+            fact.effect_claimed,fact.effect_proven))
+        if (type(fact.effect_claimed) is not bool or type(fact.effect_proven) is not bool
+                or fact.fact_id != expected_fact_id or fact.source not in snapshot.sources):
+            findings.append("fact_identity_mismatch")
+            break
+    count_categories = ("subject_kind", "source_kind", "lifecycle_stage",
+        "disposition", "evidence_strength", "staleness_posture")
+    expected_counts: dict[str, dict[str, int]] = {category: {} for category in count_categories}
+    def increment(category: str, value: Any) -> None:
+        key = str(value)
+        expected_counts[category][key] = expected_counts[category].get(key, 0) + 1
+    for source in snapshot.sources:
+        increment("source_kind", source.kind)
+        increment("staleness_posture", source.staleness)
+    for fact in snapshot.facts:
+        increment("subject_kind", fact.subject.subject_kind)
+        increment("lifecycle_stage", fact.stage)
+        increment("disposition", fact.disposition)
+        increment("evidence_strength", fact.evidence_strength)
+    expected_summary = WorldStateBoardSummary(
+        counts=expected_counts,
+        conflicts=len(snapshot.conflicts),
+        pending_review=sum(fact.disposition in {"pending", "ready_for_review"}
+                           for fact in snapshot.facts),
+        denied=sum(fact.disposition == "deny" for fact in snapshot.facts),
+        deferred=sum(fact.disposition == "deferred" for fact in snapshot.facts),
+        blocked=sum(fact.disposition == "blocked" for fact in snapshot.facts),
+        degraded=sum(source.finding != "ok" for source in snapshot.sources),
+        contradicted=len(snapshot.conflicts),
+        execution_attempts=sum(fact.stage == "execution" for fact in snapshot.facts),
+        proven_completions=sum(fact.stage == "execution" and fact.effect_proven
+                               for fact in snapshot.facts),
+        rollbacks=sum(fact.stage == "rollback" for fact in snapshot.facts),
+        adoptions=sum(fact.stage == "adoption" for fact in snapshot.facts),
+        repository_handoffs=sum(fact.stage == "repository_handoff" for fact in snapshot.facts),
+        repository_landings=sum(fact.stage == "repository_landing" for fact in snapshot.facts),
+        unproven_effect_claims=sum(fact.effect_claimed and not fact.effect_proven
+                                   for fact in snapshot.facts),
+    )
+    if _canon(snapshot.summary) != _canon(expected_summary):
+        findings.append("summary_identity_mismatch")
+    if (not isinstance(snapshot.authority, Mapping)
+            or dict(snapshot.authority) != FALSE_AUTHORITY
+            or any(type(value) is not bool for value in snapshot.authority.values())):
+        findings.append("authority_contract_invalid")
+    if (snapshot.validation_posture != "valid"
+            or type(snapshot.degraded) is not bool
+            or snapshot.degraded != (snapshot.summary.degraded > 0)
+            or type(snapshot.stale) is not bool
+            or snapshot.stale != any(source.staleness in {"stale", "expired", "undated"}
+                                     for source in snapshot.sources)
+            or type(snapshot.contradicted) is not bool
+            or snapshot.contradicted != bool(snapshot.conflicts)):
+        findings.append("snapshot_posture_mismatch")
     return WorldStateValidationResult(not findings,tuple(findings))
 
 def diff_snapshots(before:WorldStateSnapshot, after:WorldStateSnapshot)->WorldStateDelta:

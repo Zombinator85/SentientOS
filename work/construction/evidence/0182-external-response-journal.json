@@ -1,0 +1,56 @@
+{
+  "sequence": 182,
+  "title": "Crash-tolerant operator response journal for external strategy sessions",
+  "status": "[untested] construction",
+  "starting_head": "31671138dbd79dde60b4f83516801b4009301038",
+  "starting_tree": "f2ca300f0ec2edc27577cab14f6c7275684e551a",
+  "source_paths": [
+    {
+      "path": "sentientos/operator_codex_response_journal.py",
+      "blob": "1e5875c09f388cc59c6d8b2de6f90fd6c8f00403",
+      "sha256": "1a3bb97d60d7198658ec4daeed8c9dd70f0d989081defa9d34f1e10cab8662c3"
+    },
+    {
+      "path": "scripts/record_codex_strategy_response.py",
+      "blob": "62d552f5cee5f223543284380da211124563fdc6",
+      "sha256": "1126d33ae53719fdc1950c1dbbed28989779cd98198498fab6cd2fae11f0532d"
+    },
+    {
+      "path": "scripts/score_codex_strategy_transfer_packet.py",
+      "blob": "1729e91ce28a75eaeb7ea0eb6dd39f918c0d6a28",
+      "sha256": "031d7ab44ad8f00713dc7270a2e9e10de57111171493af3b5ec2941f141aec9a"
+    },
+    {
+      "path": "tests/test_embodied_consequence.py",
+      "blob": "224a664f8421b0b747803dc60f3c8c307bb83c0c",
+      "sha256": "5e9ed720e16ccd2e1d86f42b909943a85171c2de8224d2f02bf45a3c3ce486d4"
+    },
+    {
+      "path": "work/experiments/operator_codex_strategy_transfer_v1.md",
+      "blob": "30861262cce15314ca3660933729170510b5c222",
+      "sha256": "56ea3cf8619685e64972520bbfea2eea0e047f600c8bed540e804418f9755f92"
+    }
+  ],
+  "behavior": {
+    "packet_recording": "exclusive create-once response envelope",
+    "identity": "preregistration and packet digest bound",
+    "recovery": "explicit complete/partial/corrupt/unknown disposition",
+    "session_replay": "never",
+    "authority": "operator-recorded unverified external output; no admission or execution"
+  },
+  "validation": {
+    "operator_strategy_transfer_integration": "1 passed",
+    "compileall": "passed",
+    "targeted_mypy": "3 changed source/CLI files passed",
+    "cli_help": "passed",
+    "diff_check": "passed"
+  },
+  "limitations": "Fixture-tested only; zero fresh Codex sessions. Operator-recorded data is not an authenticated inference receipt. No production authority or weight change is claimed.",
+  "source_commit": "a4c6bab5770427e176d9463a59b2325960f13742",
+  "source_tree": "f4a731cfe0ef4d483c0338d10dbe683fb623db14",
+  "remote_readback": {
+    "branch_head": "a4c6bab5770427e176d9463a59b2325960f13742",
+    "tree": "f4a731cfe0ef4d483c0338d10dbe683fb623db14",
+    "changed_blob_ids": "all five paths independently resolved in the live recursive tree and match uploaded Git blob IDs"
+  }
+}

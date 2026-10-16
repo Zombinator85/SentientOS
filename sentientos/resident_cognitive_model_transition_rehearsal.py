@@ -7,10 +7,11 @@ from pathlib import Path
 from typing import Any, Mapping, cast
 
 from .control_plane_kernel import ControlPlaneKernel
-from .local_model_production_activation import verify_current_activation
+from .local_model_production_activation import verify_current_activation, verify_historical_activation_selection
 from .local_runtime_provisioning import semantic_digest
 from .resident_cognitive_model_serving import (
     ResidentCognitiveModelServingController, ResidentCognitiveServingSlot,
+    verify_resident_serving_session_receipt,
 )
 from .resident_cognitive_model_serving_rehearsal import (
     FIXED, _Worker, _activate, _approval, _fixture, _owner, _snapshot,
@@ -23,10 +24,16 @@ from .resident_cognitive_model_transition_experiment import (
 )
 
 
-def _activation(result: Mapping[str, Any]) -> dict[str, Any]:
+def _activation(result: Mapping[str, Any], *, activation_history_digest: str | None = None,
+               commissioning_active_model_identity: Mapping[str, Any] | None = None) -> dict[str, Any]:
     state, receipt = result["active_state"], result["activation_receipt"]
-    return {**dict(state), "receipt_id": receipt["receipt_id"],
-            "receipt_semantic_digest": receipt["receipt_semantic_digest"]}
+    value = {**dict(state), "receipt_id": receipt["receipt_id"],
+             "receipt_semantic_digest": receipt["receipt_semantic_digest"]}
+    if activation_history_digest is not None:
+        value["activation_history_digest"] = activation_history_digest
+    if commissioning_active_model_identity is not None:
+        value["commissioning_active_model_identity"] = dict(commissioning_active_model_identity)
+    return value
 
 
 class _RealTransitionOperations:
@@ -34,9 +41,11 @@ class _RealTransitionOperations:
     def __init__(self, *, handle: Any, kernel: Any, receipts: list[dict[str, Any]],
                  identities: list[dict[str, Any]], protocol: TransitionProtocol,
                  journal: TransitionJournal, gate: ResidentCognitionQuiescenceGate,
-                 slot: ResidentCognitiveServingSlot) -> None:
+                 slot: ResidentCognitiveServingSlot,
+                 developmental_owner: Any) -> None:
         self.handle, self.kernel, self.receipts, self.identities = handle, kernel, receipts, identities
         self.protocol, self.journal, self.gate, self.slot = protocol, journal, gate, slot
+        self.developmental_owner = developmental_owner
         self.controllers: list[ResidentCognitiveModelServingController] = []
         self.workers: list[_Worker] = []
 
@@ -58,14 +67,57 @@ class _RealTransitionOperations:
         bound = self.slot.bind_transition_verified(controller, gate=self.gate, quiescence=token,
                                                    stage_binding=binding, protocol=self.protocol, stage=stage)
         self.controllers.append(controller)
+        durable_receipt = verify_resident_serving_session_receipt(self.handle, bound.to_dict())
         return {"stage_binding": dict(binding), "session": bound.to_dict(),
+                "serving_receipt_id": durable_receipt["receipt_id"],
+                "serving_receipt_semantic_digest": durable_receipt["receipt_semantic_digest"],
                 "serving_admission": bound.binding["model_serving_admission_ref"]}
+
+    def verify_historical_activation(self, activation: Mapping[str, Any]) -> Mapping[str, Any]:
+        return verify_historical_activation_selection(
+            self.handle, activation, allow_synthetic_evidence_for_tests=True)
+
+    def verify_historical_serving_session(self, session: Mapping[str, Any]) -> Mapping[str, Any]:
+        receipt = verify_resident_serving_session_receipt(self.handle, session)
+        return {"receipt_id": receipt["receipt_id"],
+                "receipt_semantic_digest": receipt["receipt_semantic_digest"]}
+
+    def verify_transition_observation(self, stage: str, evidence: Mapping[str, Any]) -> None:
+        if stage == "b_epoch_observed":
+            serving_phase, model_role = "b_serving_bound", "successor_b"
+        elif stage == "post_restoration_observed":
+            serving_phase, model_role = "restored_a_serving_bound", "restored_a"
+        else:
+            raise ValueError("transition_observation_stage_invalid")
+        matches = [entry for entry in self.journal.entries()
+            if entry.get("status") == "completed" and entry.get("phase") == serving_phase]
+        if len(matches) != 1:
+            raise ValueError("transition_observation_serving_predecessor_ambiguous")
+        session = matches[0].get("evidence", {}).get("session")
+        if not isinstance(session, Mapping):
+            raise ValueError("transition_observation_serving_predecessor_missing")
+        self.verify_historical_serving_session(session)
+        b_evidence = None
+        if stage == "post_restoration_observed":
+            b_matches = [entry for entry in self.journal.entries()
+                if entry.get("status") == "completed" and entry.get("phase") == "b_epoch_observed"]
+            if len(b_matches) != 1:
+                raise ValueError("transition_b_epoch_predecessor_ambiguous")
+            b_evidence = b_matches[0].get("evidence")
+        self.developmental_owner.verify_transition_observation(
+            stage=stage, evidence=evidence,
+            expected_model_identity=self.protocol.value[model_role]["active_model_identity"],
+            expected_serving_session=session, b_epoch_evidence=b_evidence)
 
     def activate_successor(self, context: Any | None = None) -> Mapping[str, Any]:
         current = verify_current_activation(self.handle, allow_synthetic_evidence_for_tests=True)
         result = _activate(self.handle, self.receipts[1]["receipt_id"], self.kernel,
                            current["active_state"]["state_semantic_digest"], "transition-b")
-        return {"activation": _activation(result),
+        verified = verify_current_activation(self.handle, allow_synthetic_evidence_for_tests=True)
+        history_digest = semantic_digest({"activation_history": list(verified["activation_history"])})
+        return {"activation": _activation(result, activation_history_digest=history_digest,
+                    commissioning_active_model_identity=verified["commissioning_active_model_identity"]),
+                "activation_transition_stage": "A->B",
                 "activation_admission": result["activation_receipt"]["model_activation_admission_ref"]}
 
     def serve_successor(self, activation: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -76,7 +128,11 @@ class _RealTransitionOperations:
         current = verify_current_activation(self.handle, allow_synthetic_evidence_for_tests=True)
         result = _activate(self.handle, self.receipts[0]["receipt_id"], self.kernel,
                            current["active_state"]["state_semantic_digest"], "transition-restored-a")
-        return {"activation": _activation(result),
+        verified = verify_current_activation(self.handle, allow_synthetic_evidence_for_tests=True)
+        history_digest = semantic_digest({"activation_history": list(verified["activation_history"])})
+        return {"activation": _activation(result, activation_history_digest=history_digest,
+                    commissioning_active_model_identity=verified["commissioning_active_model_identity"]),
+                "activation_transition_stage": "B->A",
                 "activation_admission": result["activation_receipt"]["model_activation_admission_ref"]}
 
     def serve_restored_predecessor(self, activation: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -93,7 +149,10 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     handle, identities, receipts, _, kernel = _fixture(root)
 
     activation_a_result = _activate(handle, receipts[0]["receipt_id"], kernel, "ABSENT", "transition-initial-a")
-    activation_a = _activation(activation_a_result)
+    activation_a_verified = verify_current_activation(handle, allow_synthetic_evidence_for_tests=True)
+    activation_a = _activation(activation_a_result,
+        activation_history_digest=semantic_digest({"activation_history": list(activation_a_verified["activation_history"])}),
+        commissioning_active_model_identity=activation_a_verified["commissioning_active_model_identity"])
     initial_workers: list[_Worker] = []
     def initial_factory(_: Any, __: Any) -> _Worker:
         worker = _Worker(identities[0]); initial_workers.append(worker); return worker
@@ -113,9 +172,12 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     def boundary() -> Mapping[str, Any]:
         verified = verify_current_activation(handle, allow_synthetic_evidence_for_tests=True)
         session = slot.current_controller.current_session()
+        activation_value = _activation(verified,
+            activation_history_digest=semantic_digest({"activation_history": list(verified["activation_history"])}),
+            commissioning_active_model_identity=verified["commissioning_active_model_identity"])
         return developmental_history_boundary(store=cognition.writeback.store,
             composition_state_path=cognition.state_path,
-            activation=_activation(verified), session=session.to_dict() if session is not None else None)
+            activation=activation_value, session=session.to_dict() if session is not None else None)
 
     initial_boundary = boundary()
     protocol = TransitionProtocol.create(installation_identity=handle.identity.value,
@@ -124,7 +186,8 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         b_operation_id="transition-serve-b", restored_a_operation_id="transition-serve-restored-a")
     journal = TransitionJournal(root / "transition.journal.jsonl")
     operations = _RealTransitionOperations(handle=handle, kernel=kernel, receipts=receipts,
-        identities=identities, protocol=protocol, journal=journal, gate=gate, slot=slot)
+        identities=identities, protocol=protocol, journal=journal, gate=gate, slot=slot,
+        developmental_owner=cognition)
     controller = ResidentCognitiveModelTransitionController(protocol=protocol, journal=journal,
         gate=gate, slot=slot, history_snapshot=boundary, operations=operations,
         allow_synthetic_approval_for_tests=True, clock=lambda: FIXED)
@@ -240,10 +303,17 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
         raise RuntimeError("b_epoch_durable_writeback_missing")
     b_record = cognition.writeback.store.get(b_cycle.written_record_id)
     b_receipt = cognition.writeback.store.get_receipt(b_cycle.writeback_receipt_id)
-    advance(evidence={"b_record_id": b_record.record_id, "b_record_digest": b_record.record_digest,
+    b_observation = next((cognition.verified_cognition_observation(observation_id)
+        for observation_id in b_cycle.cognition_observation_ids
+        if cognition.verified_cognition_observation(observation_id).get("active_model_identity") == identities[1]), None)
+    if b_observation is None:
+        raise RuntimeError("b_epoch_authenticated_cognition_observation_missing")
+    advance(evidence={"b_tick_id": "transition-b-epoch",
+                      "b_observation_id": b_observation["observation_id"],
+                      "b_observation_digest": b_observation["observation_digest"],
+                      "b_record_id": b_record.record_id, "b_record_digest": b_record.record_digest,
                       "b_writeback_receipt_id": b_receipt.receipt_id,
-                      "b_writeback_receipt_digest": b_receipt.receipt_digest,
-                      "boundary": dict(boundary())})
+                      "b_writeback_receipt_digest": b_receipt.receipt_digest})
     advance()  # restoration request
     advance(evidence={"timeout_seconds": 1})
     advance()  # real activate_production restored A
@@ -253,16 +323,19 @@ def run(root: Path, *, live_operator_ingress: bool = False) -> dict[str, Any]:
     advance()  # resume
     resume_inference_deltas.append(sum(worker.calls for worker in initial_workers + transition_workers) - before_resume)
     restored_cycle = owner.run_tick(snapshot=_snapshot(4), tick_id="transition-restored-a-epoch")
-    observations = [json.loads(path.read_text(encoding="utf-8")) for path in
-                    sorted(cognition.observations_root.glob("*.json"))]
-    restored_observations = [x for x in observations if x["tick_id"] == "transition-restored-a-epoch"]
+    restored_observations = [
+        cognition.verified_cognition_observation(observation_id)
+        for observation_id in restored_cycle.cognition_observation_ids
+        if cognition.verified_cognition_observation(observation_id).get("tick_id")
+            == "transition-restored-a-epoch"]
     if not restored_observations:
         raise RuntimeError("restored_a_ordinary_cognition_missing")
     restored_observation = next((x for x in restored_observations
                                  if b_record.record_id in x["retrieved_record_ids"]), None)
     if restored_observation is None:
         raise RuntimeError("restored_a_did_not_retrieve_b_record")
-    advance(evidence={"restored_a_observation_id": restored_observation["observation_id"],
+    advance(evidence={"restored_a_tick_id": "transition-restored-a-epoch",
+                      "restored_a_observation_id": restored_observation["observation_id"],
                       "restored_a_observation_digest": restored_observation["observation_digest"],
                       "restored_a_inference_receipt_id": restored_observation["inference_receipt_id"],
                       "restored_a_inference_receipt_digest": restored_observation["inference_receipt_digest"],

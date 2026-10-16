@@ -1,0 +1,22 @@
+{
+  "changes": {
+    "feed_artifact_path": "append_incident_feed requires the deterministic path derived from the incident timestamp and full incident identity digest",
+    "artifact_custody": "explicit owner-safe read with byte bound, no-follow and stable-file checks on POSIX; explicit handle-safe bounded read on Windows",
+    "artifact_content": "the referenced artifact bytes must exactly equal the canonical serialization of the incident payload before a feed row can be published",
+    "normal_owner_path": "write_incident retains bounded feed preflight, immutable artifact publication, then atomic feed publication on POSIX",
+    "failure": "missing, substituted, or mismatched artifact references fail before feed mutation"
+  },
+  "focused_results": {
+    "sentientos/tests/test_integrity_pressure.py": "24 passed",
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "Artifact and pressure feed remain local owner-generated records without an authenticated independent incident issuer.",
+    "The pressure feed remains mutable narrative even though each newly appended row is now bound to the exact artifact bytes and canonical path.",
+    "No attack, independent corroboration, defensive consequence, or production behavior is established."
+  ],
+  "source_parent_commit": "5f0cfab44be1be05e378e0f4296bc58aa71f5766",
+  "source_parent_tree": "297385968977f7e7026601963be56cde0681b778",
+  "status": "construction_fixture_verified_not_production_acceptance"
+}

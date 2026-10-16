@@ -1,0 +1,32 @@
+{
+  "schema": "sentientos.construction.acceptance_evidence:v1",
+  "status": "focused_hermetic_tests_passed_unverified_for_production",
+  "source": {
+    "repository": "Zombinator85/SentientOS",
+    "branch": "codex/construct-sentientos",
+    "base_commit": "067fbbf5b199caff3f9dca65aed76f3c8d92b756",
+    "base_tree": "5af5cc6bdcc566687ff0e33ea4c1cbfad2e2972b",
+    "published_test_commit": "069e57663aa2d8dd14c074b8ce03d03dd7135d44"
+  },
+  "tests": {
+    "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-suite/governor SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-gr4-suite/runtime SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-gr4-suite/federation SENTIENTOS_REPO_ROOT=/tmp/sentientos-gr4-suite/repo PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-gr4-suite/trust PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-gr4-suite/trust/state.json /tmp/sentientos-exact-venv/bin/python -m pytest -q tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_campaign.py --tb=short --junitxml=work/construction/evidence/0070-controlled-history-succession-junit.xml",
+    "result": "48 passed, 0 failed, 0 skipped",
+    "junit_path": "work/construction/evidence/0070-controlled-history-succession-junit.xml",
+    "junit_sha256": "5c4d0ebf56e025e0dc0e32960fb662ba88106a99e18bd9a24996070df9cf72de",
+    "changed_modules_compilation": "passed",
+    "diff_check": "passed"
+  },
+  "source_observed_semantics": {
+    "history_intervention": "history_present_withheld_restored; exact record ids/digests and invariant context are bound; output differences are digest-level",
+    "model_replacement": "model_a_present_withheld; model_b_present_withheld; model_a_restored; protocols bind model/provenance/context and recover without replay",
+    "claim_boundary": "bounded observed association only; no learning, correctness, capability improvement, or acquisition/transfer success is established by digest differences"
+  },
+  "remaining_dependency": {
+    "description": "No independent task rubric or trusted answer oracle is currently bound to these experiment protocols. Actual acquisition/transfer performance requires an authorized live model execution against a source-defined, independently scored task set.",
+    "not_done": [
+      "no provider or production model was invoked",
+      "no performance claim was synthesized from fixture output digests",
+      "no evaluation authority or ground truth was invented"
+    ]
+  }
+}

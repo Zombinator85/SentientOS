@@ -1,5 +1,7 @@
 # SentientOS Repository Agent Map
 
+Project purpose and contributor orientation: read the [canonical README](README.md), [project thesis](docs/architecture/sentientos_project_thesis.md), and [current source-bound system map](docs/architecture/system_atlas_index.md) before making architecture claims. Preserve the distinction between intended development, implemented composition, and demonstrated outcomes.
+
 SentientOS prioritizes operator accountability, auditability, and safe shutdown. Privileged actions and consequential effects require attributable evidence.
 
 ## Canonical governance
@@ -40,6 +42,16 @@ The policy source is [`docs/development/codex_validation_and_landing_contract.md
 - Memory-chain profiles: [`docs/development/codex_memory_chain_task_profile.md`](docs/development/codex_memory_chain_task_profile.md) and [`docs/development/codex_memory_chain_recovery_profile.md`](docs/development/codex_memory_chain_recovery_profile.md)
 
 ## Validation commands
+
+## Construction mode
+
+Construction branches may implement bounded, reviewable increments without
+running the full pytest, mypy, matrix, strict-audit, bootstrap, or landing
+ritual. Such work must be explicitly marked **untested** in its commit and
+handoff. Construction does not authorize weakening custody, authorization,
+effect enforcement, or production activation. Production acceptance runs the
+canonical validation and landing workflow after the construction increment is
+complete.
 
 Use the canonical command reference above for landing. Core contribution checks are:
 

@@ -11,8 +11,15 @@ from sentientos.attestation_snapshot import verify_recent_snapshots
 from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.doctrine_identity import verify_doctrine_identity
 from sentientos.federation_integrity import federation_integrity_gate
-from sentientos.integrity_pressure import compute_integrity_pressure
-from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.integrity_pressure import (
+    INCIDENT_FEED_PATH, IntegrityPressureInputError, compute_integrity_pressure,
+)
+from sentientos.integrity_quarantine import (
+    QUARANTINE_PATH,
+    QuarantineState,
+    QuarantineStateError,
+    load_state_with_status as load_quarantine_state,
+)
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
@@ -29,6 +36,7 @@ class IntegrityGateResult:
     reason: str
     evidence_paths: list[str]
     checked_at: str
+    failed_record_sha256: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -37,6 +45,7 @@ class IntegrityGateResult:
             "reason": self.reason,
             "evidence_paths": list(self.evidence_paths),
             "checked_at": self.checked_at,
+            "failed_record_sha256": self.failed_record_sha256,
         }
 
 
@@ -47,7 +56,8 @@ class IntegrityStatus:
     strategic_posture: str
     operating_mode: str
     pressure_summary: dict[str, object]
-    quarantine_active: bool
+    quarantine_active: bool | None
+    quarantine_custody_status: str
     risk_budget_summary: dict[str, object]
     mutation_allowed: bool
     publish_allowed: bool
@@ -68,6 +78,7 @@ class IntegrityStatus:
             "operating_mode": self.operating_mode,
             "pressure_summary": self.pressure_summary,
             "quarantine_active": self.quarantine_active,
+            "quarantine_custody_status": self.quarantine_custody_status,
             "risk_budget_summary": self.risk_budget_summary,
             "mutation_allowed": self.mutation_allowed,
             "publish_allowed": self.publish_allowed,
@@ -117,21 +128,70 @@ class IntegrityBudget:
 def evaluate_integrity(repo_root: Path, *, policy_hash: str, replay_mode: bool = False) -> IntegrityStatus:
     _ = replay_mode
     root = repo_root.resolve()
+    quarantine_root = Path(os.path.abspath(os.fspath(repo_root)))
     checked_at = iso_now()
-    quarantine = load_quarantine_state(root)
-    pressure = compute_integrity_pressure(root)
+    try:
+        quarantine_load = load_quarantine_state(quarantine_root)
+        quarantine = quarantine_load.state
+        quarantine_active: bool | None = quarantine.active
+        quarantine_custody_status = quarantine_load.custody_status.value
+        quarantine_gate = IntegrityGateResult(
+            "quarantine_custody", "ok", quarantine_custody_status,
+            [QUARANTINE_PATH.as_posix()], checked_at,
+        )
+    except QuarantineStateError as exc:
+        # Unknown protective state is treated as active for all internal policy
+        # calculations, while the public diagnostic remains explicitly unknown.
+        quarantine = QuarantineState(
+            active=True, freeze_forge=True, allow_automerge=False,
+            allow_publish=False, allow_federation_sync=False, notes=[],
+        )
+        quarantine_active = None
+        quarantine_custody_status = "invalid:" + exc.code
+        quarantine_gate = IntegrityGateResult(
+            "quarantine_custody", "fail", "quarantine_custody_invalid:" + exc.code,
+            [QUARANTINE_PATH.as_posix()], checked_at,
+        )
     posture = resolve_posture()
-    throughput = derive_throughput_policy(integrity_pressure_level=pressure.level, quarantine=quarantine)
+    pressure_error: str | None = None
+    try:
+        pressure = compute_integrity_pressure(root)
+    except IntegrityPressureInputError as exc:
+        # Preserve a failed integrity result when its independent incident
+        # input is also unusable. The fallback is only for restrictive policy
+        # calculation; the public pressure measurement remains unknown.
+        pressure_error = exc.code
+        policy_pressure_level = posture.throughput_lockdown_level
+        pressure_summary: dict[str, object] = {
+            "level": None, "metrics": None,
+            "custody_status": "invalid:" + exc.code,
+            "policy_calculation": "lockdown_threshold_fallback",
+        }
+    else:
+        policy_pressure_level = pressure.level
+        pressure_summary = {
+            "level": pressure.level, "metrics": pressure.metrics.to_dict(),
+            "custody_status": "valid",
+        }
+    throughput = derive_throughput_policy(
+        integrity_pressure_level=policy_pressure_level, quarantine=quarantine,
+    )
     budget = compute_risk_budget(
         repo_root=root,
         posture=posture.posture,
-        pressure_level=pressure.level,
+        pressure_level=policy_pressure_level,
         operating_mode=throughput.mode,
-        quarantine_active=quarantine.active,
+        quarantine_active=True if quarantine_active is None else quarantine_active,
     )
     integrity_budget = IntegrityBudget.from_env()
 
-    gates: list[IntegrityGateResult] = []
+    gates: list[IntegrityGateResult] = [quarantine_gate]
+    if pressure_error is not None:
+        gates.append(IntegrityGateResult(
+            "integrity_pressure_input", "fail",
+            "integrity_pressure_input_invalid:" + pressure_error,
+            [INCIDENT_FEED_PATH.as_posix()], checked_at,
+        ))
     gates.append(_gate_doctrine(root, checked_at))
     gates.append(_gate_receipt_chain(root, checked_at))
     gates.append(_gate_receipt_anchor(root, checked_at))
@@ -159,12 +219,13 @@ def evaluate_integrity(repo_root: Path, *, policy_hash: str, replay_mode: bool =
         "witness_attempts_per_window": integrity_budget.max_witness_attempts_per_window,
     }
     return IntegrityStatus(
-        schema_version=1,
+        schema_version=3,
         ts=checked_at,
         strategic_posture=posture.posture,
         operating_mode=throughput.mode,
-        pressure_summary={"level": pressure.level, "metrics": pressure.metrics.to_dict()},
-        quarantine_active=quarantine.active,
+        pressure_summary=pressure_summary,
+        quarantine_active=quarantine_active,
+        quarantine_custody_status=quarantine_custody_status,
         risk_budget_summary=risk_budget_summary(budget),
         mutation_allowed=mutation_allowed,
         publish_allowed=publish_allowed,
@@ -185,17 +246,27 @@ def _verification_budgeted_gates(root: Path, checked_at: str, budget: IntegrityB
         ("rollup_signatures", _gate_rollup_signatures),
         ("strategic_signatures", _gate_strategic_signatures),
     ]
-    active = [name for name, fn in plans if fn(root, checked_at, budget, dry_run=True) is not None]
+    planned = {
+        name: fn(root, checked_at, budget, dry_run=True)
+        for name, fn in plans
+    }
+    active = [name for name, _fn in plans if planned[name] is not None]
     priority = {"attestation_snapshot_signatures": 1, "rollup_signatures": 2, "strategic_signatures": 3}
     allowed = set(sorted(active, key=lambda name: priority[name], reverse=True)[: budget.max_verify_streams_per_tick])
 
     results: list[IntegrityGateResult] = []
     for name, fn in plans:
-        gate = fn(root, checked_at, budget, dry_run=False)
-        if gate is None:
+        if planned[name] is None:
             continue
         if name not in allowed:
             results.append(IntegrityGateResult(name=name, status="skipped", reason="skipped_budget_exhausted", evidence_paths=[], checked_at=checked_at))
+            continue
+        gate = fn(root, checked_at, budget, dry_run=False)
+        if gate is None:
+            # Configuration may be changed by the environment between the
+            # planning and execution phases. Preserve the coverage gap rather
+            # than silently presenting an absent gate as a completed check.
+            results.append(IntegrityGateResult(name=name, status="skipped", reason="disabled_before_verification", evidence_paths=[], checked_at=checked_at))
             continue
         results.append(gate)
     return results
@@ -249,7 +320,11 @@ def _gate_snapshot_signatures(root: Path, checked_at: str, budget: IntegrityBudg
     result = verify_recent_snapshots(root, last=budget.max_verify_items_per_stream)
     if result.status == "ok":
         return IntegrityGateResult("attestation_snapshot_signatures", "ok", "ok", [], checked_at)
-    return IntegrityGateResult("attestation_snapshot_signatures", result.status, result.reason or "snapshot_signature_verify_failed", [], checked_at)
+    return IntegrityGateResult(
+        "attestation_snapshot_signatures", result.status,
+        result.reason or "snapshot_signature_verify_failed", [], checked_at,
+        result.failed_record_sha256,
+    )
 
 
 def _gate_rollup_signatures(root: Path, checked_at: str, budget: IntegrityBudget, *, dry_run: bool = False) -> IntegrityGateResult | None:

@@ -24,8 +24,13 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.event_stream import record as record_event, record_forge_event
 from sentientos.forge_index import update_index_incremental
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
-from sentientos.integrity_pressure import compute_integrity_pressure, update_pressure_state
-from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.integrity_pressure import (
+    IntegrityPressureInputError, compute_integrity_pressure, update_pressure_state,
+)
+from sentientos.integrity_quarantine import (
+    QuarantineStateError,
+    load_state as load_quarantine_state,
+)
 from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.risk_budget import compute_risk_budget
@@ -58,7 +63,9 @@ class ForgeDaemon:
         forge: CathedralForge | None = None,
         repo_root: Path | None = None,
     ) -> None:
-        self.repo_root = (repo_root or Path.cwd()).resolve()
+        supplied_root = repo_root or Path.cwd()
+        self.repo_root_custody = Path(os.path.abspath(os.fspath(supplied_root)))
+        self.repo_root = self.repo_root_custody.resolve()
         self.queue = queue or ForgeQueue()
         self.forge = forge or CathedralForge(repo_root=self.repo_root)
         self.lock_path = self.repo_root / ".forge" / "forge.lock"
@@ -79,8 +86,39 @@ class ForgeDaemon:
         if request is None:
             return
 
-        quarantine = load_quarantine_state(self.repo_root)
-        pressure_snapshot = compute_integrity_pressure(self.repo_root)
+        try:
+            quarantine = load_quarantine_state(self.repo_root_custody)
+        except QuarantineStateError as exc:
+            # Quarantine custody is a pre-effector gate. Record a terminal
+            # non-execution receipt and return before any Forge work begins.
+            self.queue.mark_finished(
+                request.request_id,
+                status="rejected_quarantine_custody",
+                report_path=None,
+                error=exc.code,
+            )
+            self._emit(
+                f"ForgeDaemon rejected request {request.request_id}: invalid quarantine custody",
+                level="error",
+            )
+            # Use the normal event/index composition after the durable terminal
+            # receipt. The index has an explicit unknown-custody projection.
+            self._emit_forge_event(
+                status="rejected_quarantine_custody", request=request, error=exc.code,
+            )
+            return
+        try:
+            pressure_snapshot = compute_integrity_pressure(self.repo_root)
+        except IntegrityPressureInputError as exc:
+            # Do not turn damaged narrative input into zero pressure or a
+            # started request. Leave custody queued for a later tick after
+            # the input can be read and validated.
+            self._emit(
+                f"ForgeDaemon deferred request {request.request_id}: "
+                f"integrity pressure input unavailable ({exc.code})",
+                level="error",
+            )
+            return
         pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
         throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
         posture = resolve_posture()
@@ -376,7 +414,11 @@ class ForgeDaemon:
             "message": message or status,
             "provenance_run_id": provenance_run_id,
             "provenance_path": provenance_path,
-            "level": "warning" if status in {"rejected_policy", "skipped_budget", "lock_skip"} else "info",
+            "level": (
+                "error" if status == "rejected_quarantine_custody"
+                else "warning" if status in {"rejected_policy", "skipped_budget", "lock_skip"}
+                else "info"
+            ),
             "operating_mode": os.getenv("SENTIENTOS_MODE_FORCE") or None,
         }
         record_forge_event(payload)

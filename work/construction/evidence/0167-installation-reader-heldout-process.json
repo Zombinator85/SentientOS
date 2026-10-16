@@ -1,0 +1,47 @@
+{
+  "schema_version": "sentientos.construction.acceptance_evidence:v1",
+  "purpose": "Fresh-process task-family transfer through installation-scoped invocation receipt recovery",
+  "baseline": {
+    "parent_commit": "b9be6f71759dee3e40cd8a1750b8c17b313bada1",
+    "parent_tree": "9a23041ac0387233e9fcf7461c209751f8b28697"
+  },
+  "publication": {
+    "source_commit": "eb89f0e942ed5fa408b68be9caeb996f2817c4f8",
+    "source_tree": "7d4c17c852ba30555ce3681d988be2ef8a437cd0",
+    "parent": "b9be6f71759dee3e40cd8a1750b8c17b313bada1"
+  },
+  "changed_blobs": {
+    "tests/test_resident_developmental_cognition.py": "88e0342e9f31864ef792a17949ca7a8bf9a9d603"
+  },
+  "checks": [
+    {
+      "command": "Focused fresh-process transfer, current-context isolation, adverse-example, and progression group",
+      "result": "4 passed"
+    },
+    {
+      "command": "python -m py_compile sentientos/resident_developmental_cognition.py tests/test_resident_developmental_cognition.py",
+      "result": "passed"
+    },
+    {
+      "command": "UTF-8 decode, no-NUL, and trailing-whitespace scan",
+      "result": "passed"
+    }
+  ],
+  "experiment": {
+    "child_process": true,
+    "receipt_custody": "installation-scoped canonical receipt files",
+    "verifier": "ResidentCognitiveInvocationReceiptReader",
+    "serving_session_and_witness": "test fixture custody",
+    "inference_issuer": "deterministic fake backend",
+    "history_present_correct": "3/3",
+    "history_withheld_correct": "0/3",
+    "history_restored_correct": "3/3",
+    "altered_receipt_rejected_before_new_invocation": true,
+    "production_local_model_execution": false,
+    "actual_learning_or_performance_improvement": false
+  },
+  "claims": {
+    "authority_expanded": false,
+    "production_acceptance": false
+  }
+}

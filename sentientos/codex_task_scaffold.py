@@ -45,6 +45,7 @@ class CodexTaskScaffoldRequest:
     new_cli_path: tuple[str, ...] = ()
     expected_test_paths: tuple[str, ...] = ()
     expected_doc_paths: tuple[str, ...] = ()
+    existing_target_paths: tuple[str, ...] = ()
     expected_fixture_roots: tuple[str, ...] = ()
     capability_id: str = ""
     proof_bundle_artifact_kind: str = ""
@@ -79,6 +80,7 @@ class CodexTaskScaffold:
     expected_files: tuple[str, ...]
     expected_tests: tuple[str, ...]
     expected_docs: tuple[str, ...]
+    existing_target_paths: tuple[str, ...]
     expected_fixture_roots: tuple[str, ...]
     required_integrations: tuple[str, ...]
     forbidden_surfaces: tuple[str, ...]
@@ -121,7 +123,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
     banned = ("invoke codex", "openai", "provider", "github api", "create branch", "create pr", "subprocess", "shell execution", "workspace execution", "lifecycle orchestration")
     if any(term in all_text.lower() for term in banned):
         blockers.append("forbidden_authority_surface_requested")
-    if request.prompt_mode == "whole_system" and not (request.new_module_path or request.new_cli_path or request.expected_test_paths or request.expected_doc_paths):
+    if request.prompt_mode == "whole_system" and not (request.new_module_path or request.new_cli_path or request.expected_test_paths or request.expected_doc_paths or request.existing_target_paths):
         warnings.append("whole_system_paths_missing")
 
     preset = get_preset(request.subsystem_kind) if request.subsystem_kind in list_preset_ids() else None
@@ -130,6 +132,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
     expected_files = _norm(request.new_module_path + request.new_cli_path)
     expected_tests = _norm(request.expected_test_paths)
     expected_docs = _norm(request.expected_doc_paths)
+    existing_targets = _norm(request.existing_target_paths)
     expected_fixture_roots = _norm(request.expected_fixture_roots or ((f"tests/fixtures/{request.capability_id}/",) if request.subsystem_kind == "metadata_verification" and request.capability_id else ()))
     forbidden = _norm(request.forbidden_behaviors or (preset.default_forbidden_surfaces if preset else (
         "Do not invoke Codex.", "Do not call OpenAI/provider APIs or use network egress.", "Do not call GitHub APIs.", "Do not invoke shell/subprocess from library code.", "Do not integrate an action wing.",
@@ -155,7 +158,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
     elif request.prompt_mode == "whole_system":
         prompt = (
             "Use AGENTS.md Whole-System Codex Operating Doctrine, whole-system task template, and validation/landing contract.\n"
-            "Required sequence: 1. Run bootstrapper. 2. If bootstrap status is blocked, stop and do not implement. "
+            "For tasks under the normal landing lifecycle, required sequence: 1. Run bootstrapper. 2. If bootstrap status is blocked, stop and do not implement. "
             "3. Implement only if bootstrap is ready/ready_with_warnings. 4. Run required validation. "
             "5. Run pre-commit finalizer and require ready_to_commit. 6. Commit. "
             "7. Run post-commit/pr-metadata finalizer and require ready_for_pr_metadata. "
@@ -163,21 +166,25 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
             "Critical landing rule: run the full relevant validation matrix after the final task-caused code/doc/test change and before final reporting or PR metadata.\n"
             "Pre-commit finalizer commands for normal implementation tasks should include --allow-current-tracked-changes and --allow-current-task-files.\n"
             "Before PR metadata, run python scripts/codex_pr_metadata_guard.py verify --title <COMMIT_TITLE> --intended-commit-title <COMMIT_TITLE> --pre-commit-finalizer-json /tmp/<task>_pre_commit.json --pr-metadata-finalizer-json /tmp/<task>_pr_metadata.json --matrix-json-path /tmp/work_item_review_packet_matrix.json --summary and require pr_metadata_guard_ready.\n"
+            "Construction exception: an explicitly authorized bounded construction task may omit bootstrap and landing steps when AGENTS.md permits; mark it [untested]. This exception does not authorize using a blocked bootstrap artifact as a contract.\n"
             "Do not return 'feature exists but full matrix not run.' Do not offer to run matrix later.\n"
             "Do not create PR metadata before green final validation.\n"
             "Also require a ready PR metadata guard; do not commit if either finalizer phase or guard is blocked.\n"
             f"Goal: {request.task_goal}\nSubsystem: {request.task_name} ({request.subsystem_kind})."
+            + (f"\nExisting tracked maintenance targets: {', '.join(existing_targets)}. These paths identify scope only; they grant no execution or authority." if existing_targets else "")
             + (f"\nExpected task-owned fixture roots: {', '.join(expected_fixture_roots)}." if expected_fixture_roots else "")
         )
     else:
         prompt = (
             "Use AGENTS.md narrow repair doctrine and keep scope explicitly narrow.\n"
             "If bootstrap status is blocked, stop and do not implement from blocked prompt artifacts.\n"
+            "An explicitly authorized bounded construction task may use the AGENTS.md construction exception instead of a non-required landing bootstrap; mark such work [untested]. A blocked artifact remains diagnostic.\n"
             "No whole-system expansion unless task-caused fallout requires it.\n"
             "Run minimal relevant validation and regression checks.\n"
             "If no changes are required, do not fabricate commit/PR metadata.\n"
             "Run python scripts/codex_pr_metadata_guard.py verify and require pr_metadata_guard_ready, bind the exact PR body to the validated evidence, then stop; PR publication is external to this workspace.\n"
             f"Goal: {request.task_goal}\nRepair target: {request.task_name} ({request.subsystem_kind})."
+            + (f"\nExisting tracked maintenance targets: {', '.join(existing_targets)}. These paths identify scope only; they grant no execution or authority." if existing_targets else "")
         )
     final_report_contract = _norm(preset.default_final_report_items) if preset else ("exact files changed", "full command matrix results", "unresolved risks")
     payload = {
@@ -188,6 +195,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
         "prompt": prompt,
         "validation_commands": validation_commands,
         "expected_files": expected_files,
+        "existing_target_paths": existing_targets,
         "expected_fixture_roots": expected_fixture_roots,
         "deliverables": deliverables,
     }
@@ -204,6 +212,7 @@ def build_codex_task_scaffold(request: CodexTaskScaffoldRequest, policy: CodexTa
         expected_files=expected_files,
         expected_tests=expected_tests,
         expected_docs=expected_docs,
+        existing_target_paths=existing_targets,
         expected_fixture_roots=expected_fixture_roots,
         required_integrations=required_integrations,
         forbidden_surfaces=forbidden,

@@ -37,6 +37,24 @@ def test_missing_unexecuted_skipped_and_failed_nodes_block(tmp_path):
         assert verify(manifest, provenance)["status"] == "task_acceptance_blocked"
 
 
+def test_setup_phase_skip_cannot_satisfy_a_required_call_node(tmp_path):
+    manifest, provenance = _files(tmp_path)
+    payload = json.loads(provenance.read_text(encoding="utf-8"))
+    payload["node_outcomes"] = [
+        {"node_id": NODE, "phase": "setup", "outcome": "skipped"}
+    ]
+    payload["tests_selected"] = 1
+    payload["tests_executed"] = 0
+    payload["tests_skipped"] = 1
+    provenance.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = verify(manifest, provenance)
+    assert result["status"] == "task_acceptance_blocked"
+    assert result["node_outcomes"][0]["phase"] == "setup"
+    assert result["node_outcomes"][0]["outcome"] == "skipped"
+    assert result["node_outcomes"][0]["passed"] is False
+
+
 def test_stale_or_tampered_provenance_is_rejected(tmp_path):
     manifest, provenance = _files(tmp_path, sha="0" * 40)
     assert "repository_sha_mismatch" in verify(manifest, provenance)["reasons"]

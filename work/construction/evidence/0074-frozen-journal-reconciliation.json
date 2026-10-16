@@ -1,0 +1,41 @@
+{
+  "canonical_provenance_sha256": "2c279086ae6a0890cb1a51baa3d67eb980dd35028f6eddb8539e33795cb234ff",
+  "current_journal_before_repair": {
+    "bytes": 593553,
+    "git_blob_sha": "08c48a387cd8eca12426e33a39d9f658c5ffea2d",
+    "sha256": "3f0a5ed1934b1433b0e1a4539e1e068a996dc0cb14901d1e223274f262905460"
+  },
+  "diagnostic_index_defects": [
+    "stale_segment44_predecessor",
+    "duplicate_sequence65",
+    "stale_first_sequence65_digest",
+    "checkpoint_missing_latest_segment_hash"
+  ],
+  "frozen_journal": {
+    "bytes": 586585,
+    "frozen": true,
+    "git_blob_sha": "5127025527ec6248a159b228b6929a196f1449d1",
+    "path": "work/sentientos_night_watch_continuation.md",
+    "sha256": "1e2ddf6bdf8de2851fb752c4189035d6d7a46e0653aa53bdec37ffcd972ef7dd",
+    "source_commit": "613a14b959451deff64442e5a2ed6145be3e7aac"
+  },
+  "historical_segments_changed": false,
+  "junit_sha256": "7d4be37e3d9b785c57efdf1c72e5f3836e2ffe782011a6f97b48d0ed061f5175",
+  "original_index": {
+    "bytes": 33406,
+    "path": "work/construction/evidence/0074-original-index.json",
+    "sha256": "6640acc24e428db088b5c11ae44c3edfc7ed5fc32beadee6c70aea028c04cc26"
+  },
+  "production_verification": false,
+  "recovered_suffix": {
+    "byte_exact_recombination": true,
+    "bytes": 6968,
+    "path": "work/construction/segments/0073-recovered-frozen-journal-suffix.md",
+    "sha256": "cc10c1c2deed99bc47d4c21c94c9ccb5b3ab49cd16bd4797fd5c9a16edad5fe1"
+  },
+  "schema": "sentientos.construction.frozen_journal_reconciliation:v1",
+  "source_commit": "00023a269a2f3a0ebb08334a53465a57e2849702",
+  "source_tree": "6b71895e08991788ee78fe19acd726b69226e668",
+  "tests": "15 passed via canonical scripts.run_tests",
+  "typing": "mypy --follow-imports=silent: two changed source scripts passed"
+}

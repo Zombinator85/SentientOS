@@ -22,12 +22,13 @@ from scripts.mypy_baseline_common import (
     manifest_records,
     parse_mypy_output,
     normalize_mypy_version,
+    resolve_mypy_command,
     sanitized_mypy_environment,
 )
 
 
 def _run_command(command: list[str]) -> str:
-    completed = subprocess.run(command, check=False, capture_output=True, text=True, env=sanitized_mypy_environment(), cwd=REPO_ROOT)
+    completed = subprocess.run(resolve_mypy_command(command), check=False, capture_output=True, text=True, env=sanitized_mypy_environment(), cwd=REPO_ROOT)
     output = completed.stdout
     if completed.stderr:
         output = f"{output}\n{completed.stderr}" if output else completed.stderr

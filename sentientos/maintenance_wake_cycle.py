@@ -1,7 +1,7 @@
 """Recovery-first, bounded coordinator for maintenance probe and autonomy APIs."""
 from __future__ import annotations
 
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os
@@ -14,6 +14,7 @@ from typing import Any, Mapping
 from sentientos import maintenance_autonomy_cycle as autonomy
 from sentientos import maintenance_candidate_collector as collector
 from sentientos import maintenance_health_probe as health
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 CONFIG_SCHEMA = "sentientos.maintenance_wake_cycle_config:v1"
 RECEIPT_SCHEMA = "sentientos.maintenance_wake_cycle_receipt:v1"
@@ -81,9 +82,10 @@ def validate_config(value: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def load_config(path: str | Path) -> dict[str, Any]:
-    source = Path(path)
-    if source.is_symlink() or not source.is_file(): raise ValueError("config_path_unsafe")
-    value = json.loads(source.read_text(encoding="utf-8"))
+    try:
+        value = json.loads(read_explicit_file(Path(path), max_bytes=65_536).decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("config_path_unsafe") from exc
     if not isinstance(value, Mapping): raise ValueError("config_not_object")
     return validate_config(value)
 

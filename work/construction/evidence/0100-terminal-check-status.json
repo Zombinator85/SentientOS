@@ -1,0 +1,64 @@
+{
+  "actual_model_invoked": false,
+  "external_prerequisites": [
+    "commissioned artifact bytes",
+    "authenticated commissioned runtime receipt",
+    "preregistered exact two-model protocol",
+    "exact operator approval",
+    "independent serving and per-inference admission",
+    "authorized independent loaded-image observer if loaded-code attestation is claimed"
+  ],
+  "hosted_checks": {
+    "commit": "b0f01d221a028f24a8ac27a3ae83777fa1c3ae98",
+    "no_privileged_retries": true,
+    "runs": [
+      {
+        "check_run_id": 115078437815,
+        "conclusion": "success",
+        "name": "Source validation (unprivileged)",
+        "status": "completed"
+      },
+      {
+        "check_run_id": 115078437991,
+        "conclusion": "success",
+        "name": "helm-k8s-test",
+        "status": "completed"
+      },
+      {
+        "check_run_id": 115078438080,
+        "conclusion": "failure",
+        "name": "self-check",
+        "observed_reason": "administrator-only protected-memory/policy access denied; protected-root and environment failures also present",
+        "status": "completed"
+      },
+      {
+        "check_run_id": 115078438006,
+        "conclusion": "failure",
+        "name": "docs",
+        "observed_reason": "Access denied: run as Administrator to reach protected memory and policy state",
+        "status": "completed"
+      },
+      {
+        "check_run_id": 115078437728,
+        "conclusion": "failure",
+        "name": "invariants",
+        "observed_reason": "pytest internal error from administrator-only protected-memory/policy access denied",
+        "status": "completed"
+      }
+    ]
+  },
+  "loaded_code_posture": "not_independently_attested",
+  "production_verified": false,
+  "provider_egress": false,
+  "schema_version": 1,
+  "source_commit": "b0f01d221a028f24a8ac27a3ae83777fa1c3ae98",
+  "source_tree": "2a893d45313f4f9d92ecb975f4096e1e10f5c30b",
+  "targeted_mypy": {
+    "command": ".venv/bin/python -m mypy tests/test_resident_developmental_cognition.py",
+    "exit_code": 1,
+    "files_in_import_graph": 144,
+    "reported_diagnostics": 1092,
+    "status": "not_clean_repository_import_graph diagnostics; not evidence of a clean targeted type result"
+  },
+  "test_source_correction_scope": "Only tests/test_resident_developmental_cognition.py changed relative to exact seq98 source; experiment, launcher and production modules remained byte-identical."
+}

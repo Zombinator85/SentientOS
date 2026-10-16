@@ -1,0 +1,8 @@
+# 0133 — connect acquisition, feedback, and a third held-out family task
+
+- Continues from freshly reverified source commit `333a0cef3b0aaea70c22609f772a176427867803`, tree `77f1662acb9c0e70d49e60aff15f4dbbc814d9f4`.
+- Extended the complete fixture episode so all request identities are durably staged and archived. The first verified probe outcome is written through World-State and normal admitted developmental history; the subsequent held-out transfer score returns through another World-State projection and ordinary writeback; a third nonoverlapping family task is then staged against both admitted outcomes.
+- The third task's source-fact IDs remain excluded from all current-evidence conditions; only selected history carries retained examples. The three-run owner progression verifies chronological task, run, score, invocation, and same model/generation identities. Fixture answers and oracle parameters do not leak into the progression report. The report explicitly does not establish learning or improvement.
+- Focused suites: **164 passed, 0 failed** across resident cognition, history intervention, model replacement, objective scoring, and writeback. Changed Python/test files compiled. All model endpoints and receipts are deterministic fixtures; no actual model behavior is demonstrated. Untested for production.
+- Evidence: `work/construction/evidence/0133-three-episode-task-family-loop.json` (SHA-256 `c179967bf31537a2dabaf1473a109546e0e5ae44fc282bb6557ccfe40b85675f`).
+- Next: continue targeted interruption and adversarial provenance controls at source projection, developmental interpretation, and admission boundaries; preserve the same no-answer-leakage and no-replay guarantees.

@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "sequence": 216,
+  "title": "Reject malformed persisted work plans",
+  "source_commit": "1dbe11ea91ce6f63dbf978030c4c60ab88d35eb9",
+  "source_tree": "3e948e29c7c40d7da98624cc27cd718c1e052e86",
+  "source_files": [
+    {
+      "path": "sentientos/work_plan.py",
+      "git_blob_sha": "04efda1bd7705f016883290af3cc220e18403e55"
+    },
+    {
+      "path": "sentientos/tests/test_work_plan_load.py",
+      "git_blob_sha": "f8801ada1fb8552b97d2c1a9c3ff9b47a83920b4"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_work_plan_load.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_state_update.py"
+    ],
+    "passed_test_count": 17,
+    "compiled": [
+      "sentientos/work_plan.py",
+      "sentientos/tests/test_work_plan_load.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "valid version-1 plans round-trip exactly",
+      "malformed rows reject the entire plan instead of being dropped",
+      "duplicate task IDs and unselected goal references are rejected",
+      "destructive classification and mutation precondition cannot diverge",
+      "boolean/string schema values are not coerced to integer versions"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:5c7e7b2a81e28d3d1f7c4aab8e4f609f4f4e58b9acffacf3772a1cc5e5c255bc"
+}

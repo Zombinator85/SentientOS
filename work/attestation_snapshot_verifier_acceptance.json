@@ -1,0 +1,42 @@
+{
+  "schema_version": "sentientos.attestation_snapshot_verifier_acceptance:v1",
+  "verified_parent_commit": "0913313e0274ec74aea428a963215341b16ebaf5",
+  "status": "configured_verifier_context_reaches_cognition_unverified_for_production",
+  "changes": [
+    "bounded signature-index bytes and rows and bounded recent verification count",
+    "strict UTF-8 JSONL parsing with duplicate-key rejection",
+    "descriptor-safe no-follow reads for signature index, envelopes, and signed snapshots",
+    "canonical snapshot path and timestamp identity binding in signer and verifier",
+    "Windows handle-based read-only file custody path",
+    "optional daemon World-State projection uses the existing verifier opt-in and fixed owner identity",
+    "explicit audit_trust cognition allowlisting can retain exact verifier-result context",
+    "epistemic adaptation forces verifier failures to context-only unknown dependency",
+    "first-turn and history-conditioned cognition explicitly retain cause/attack uncertainty"
+  ],
+  "failure_semantics": {
+    "corrupt_index": "warning_or_enforced_failure_by_existing_policy",
+    "snapshot_symlink_or_invalid_custody": "warning_or_enforced_failure_by_existing_policy",
+    "first_use_missing_signature_directory": "skipped_signature_missing",
+    "missing_signer": "skipped_signer_disabled",
+    "world_state_projection": "absent_unless_SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY_is_1",
+    "resident_cognition": "requires_explicit_audit_trust_source_allowlist"
+  },
+  "tests": {
+    "focused_attestation_and_integrity_controller": {
+      "passed": 11,
+      "failed": 0
+    },
+    "quarantine_and_verifier_cognition_regression": {
+      "passed": 96,
+      "failed": 0,
+      "deselected": 29
+    },
+    "python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "limitations": [
+    "HMAC test signer and disposable files are hermetic fixtures, not production signing evidence.",
+    "Windows handle-custody branch was not executed on Windows.",
+    "No attack attribution, defensive effect, or production operation is established."
+  ]
+}

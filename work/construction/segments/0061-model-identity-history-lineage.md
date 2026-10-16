@@ -1,0 +1,8 @@
+## 2026-10-12 — preserve distinct invocation and cognitive model identities in recovered history
+
+- Fresh remote before this increment: `2e3b358317bc8e5d62f8970da28257896f2e4135`, tree `3b2fdbc2ab7e32485130aae5ede14c1303ceedea`; published `main` remains `197e2a4ceeb13ab59a88fd531283355e15e1fd7d`.
+- Exact parent blobs for `sentientos/embodied_consequence.py` and `tests/test_embodied_consequence.py` matched the isolated source before editing (`66d36d259965695391a6f8871a98c899c117e042` and `2d9259e383088d27d4302325ea50648aea5fc19e`).
+- Fixed the recovered developmental-history resource evidence reader: for model replacement it now verifies the linkage model id against `model_attribution.invocation_model_id`, while preserving `model_attribution.model_id` as the separate cognitive/catalog identity. Historical strategy rows without an explicit invocation id continue to join on their existing model id. Both identities are returned separately in the history resource binding.
+- Added a downstream regression covering a verified resource-linked model replacement, a legacy strategy linkage positive control, and an invocation-model substitution negative control.
+- Focused `tests/test_embodied_consequence.py`: 23 passed, 0 failed, 0 skipped. JUnit SHA-256 is recorded in the evidence JSON. Python compilation and `git diff --check` passed. These are local fixture tests in a synthetic runner checkout; production behavior remains unverified.
+- Next: inspect the actual cognition consumer and writeback/recovery boundaries for any further assumption that collapses catalog, invocation authority-map, and model provenance identities; then continue remaining bounded reconciliation dependencies.

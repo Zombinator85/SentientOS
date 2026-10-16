@@ -1,0 +1,32 @@
+{
+  "sequence": 235,
+  "title": "Resource event reread across restart",
+  "source_commit": "afb2fcb3367b90aa51dfc4fc2c38a82678f908e8",
+  "source_tree": "454372cb8c6ca659f81aa62e0f3a0dc94eb38ed6",
+  "source_parent_commit": "b5380d6a621e0447cabf77c8aab3250a99219bbf",
+  "source_parent_tree": "720afcf6a1c6518fc37af3a682d5cbb70327de70",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "b5380d6a621e0447cabf77c8aab3250a99219bbf",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7245,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {"path": "tests/test_governed_local_model_resource_allocation.py", "sha": "ada5d3ad6af76c91ea773e365b0b3e6700e07750", "mode": "100644"},
+    {"path": "docs/development/resource_world_state_reread_task_acceptance.json", "sha": "0b54f7875bb58173f322502b380d1df3a1d6a987", "mode": "100644"}
+  ],
+  "validation": {
+    "focused_resource_suites": "18 passed, 1 skipped",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "This increment verifies an existing history identity boundary and does not add new source behavior.",
+    "The ledger exercise is synthetic; no external host measurement is claimed."
+  ]
+}

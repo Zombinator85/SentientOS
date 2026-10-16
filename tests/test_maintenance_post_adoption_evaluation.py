@@ -92,10 +92,16 @@ def test_temporal_identity_measurement_authority_and_replay_fail_closed(tmp_path
 
 def test_tamper_fails_reconstruction_and_epistemic_adapter_uses_owner(tmp_path):
     owner,result=run(tmp_path/"evaluation",protocol(),{"target":False},{"target":True})
-    path=next((tmp_path/"evaluation"/"evaluations").glob("*.json")); raw=json.loads(path.read_text()); raw["result"]="target_expectation_contradicted"; path.write_text(json.dumps(raw))
-    with pytest.raises(PostAdoptionEvaluationError): MaintenancePostAdoptionEvaluationOwner(tmp_path/"evaluation")
     epistemic=PersistentEpistemicStateOwner(tmp_path/"epistemic",allowed_namespaces=["maintenance"])
     proposition=make_proposition(namespace="maintenance",subject="task-1",predicate="successor_consequence",object_value={"generation":5,"protocol":result.protocol_digest},polarity="positive",qualifiers={},temporal_scope={"generation":5},context_scope={"protocol":result.protocol_id},proposition_class="predictive")
-    epistemic.register_proposition(proposition); binding=post_adoption_epistemic_binding(proposition_id=proposition.proposition_id,evaluation=result,observed_at=result.evaluated_at); epistemic.bind_evidence(binding)
+    epistemic.register_proposition(proposition)
+    binding=post_adoption_epistemic_binding(proposition_id=proposition.proposition_id,
+        evaluation=result,observed_at=result.evaluated_at,owner=owner)
+    epistemic.bind_evidence(binding)
     state,_=epistemic.commit_update(proposition_id=proposition.proposition_id,expected_predecessor_digest=None,stance="provisionally_supported",reason="new_evidence",active_binding_ids=[binding.binding_id],added_binding_ids=[binding.binding_id],correlation_id=result.evaluation_id,tick=5,recorded_at="2026-01-01T00:05:00Z")
     assert state.proposition_id==proposition.proposition_id
+    path=next((tmp_path/"evaluation"/"evaluations").glob("*.json")); raw=json.loads(path.read_text()); raw["result"]="target_expectation_contradicted"; path.write_text(json.dumps(raw))
+    with pytest.raises(PostAdoptionEvaluationError): MaintenancePostAdoptionEvaluationOwner(tmp_path/"evaluation")
+    with pytest.raises(PostAdoptionEvaluationError,match="history_corrupt"):
+        post_adoption_epistemic_binding(proposition_id=proposition.proposition_id,
+            evaluation=result,observed_at=result.evaluated_at,owner=owner)

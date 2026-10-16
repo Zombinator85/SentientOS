@@ -11,31 +11,32 @@ from sentientos.constitutional_mutation_fabric import TypedMutationAction, Mutat
 from sentientos.doctrine_identity import verify_doctrine_identity
 from sentientos.event_stream import record_forge_event
 from sentientos.federation_integrity import federation_integrity_gate
-from sentientos.integrity_incident import build_base_context, build_incident
-from sentientos.integrity_quarantine import clear, load_state
+from sentientos.integrity_incident import (
+    build_base_context, build_incident, inspect_quarantine_incident_custody,
+)
+from sentientos.integrity_quarantine import QuarantineStateError, clear, load_state
 from sentientos.receipt_anchors import verify_receipt_anchors
 from sentientos.receipt_chain import verify_receipt_chain
 from sentientos.remediation_pack import find_pack_for_incident_or_trace, remediation_status_for_pack
 from sentientos.artifact_catalog import latest_for_incident, latest_for_trace
 
 
-def _latest_quarantine_trace_id(repo_root: Path) -> str | None:
-    path = repo_root / "pulse/governance_traces.jsonl"
-    if not path.exists():
+def _quarantine_trace_id_from_incident(
+    repo_root: Path, *, incident_id: str | None, activated_at: str | None,
+) -> str | None:
+    """Use only the trace reference in the exact validated incident artifact.
+
+    A mutable global trace stream cannot establish which trace activated the
+    currently active quarantine. Missing or invalid artifact custody disables
+    this optional linkage; it never falls back to another incident's trace.
+    """
+    custody = inspect_quarantine_incident_custody(
+        repo_root, incident_id=incident_id, activated_at=activated_at,
+    )
+    if custody.get("artifact_status") != "valid":
         return None
-    lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-    for line in reversed(lines):
-        try:
-            payload = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        if str(payload.get("final_decision", "")) in {"hold", "block", "quarantine_active"}:
-            trace_id = payload.get("trace_id")
-            if isinstance(trace_id, str) and trace_id:
-                return trace_id
-    return None
+    trace_id = custody.get("incident_governance_trace_id")
+    return trace_id if isinstance(trace_id, str) and trace_id.strip() else None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -77,10 +78,24 @@ def main(argv: list[str] | None = None) -> int:
     if bool(federation.get("blocked")) and not allow_divergence:
         failures.append("federation_integrity_diverged")
 
-    quarantine = load_state(root)
+    try:
+        quarantine = load_state(root)
+    except QuarantineStateError as exc:
+        checks["quarantine"] = {
+            "active": None,
+            "custody_status": "invalid:" + exc.code,
+        }
+        print(json.dumps({
+            "status": "blocked",
+            "failures": ["quarantine_custody_invalid"],
+            "checks": checks,
+        }, indent=2, sort_keys=True))
+        return 1
     require_remediation = os.getenv("SENTIENTOS_QUARANTINE_REQUIRE_REMEDIATION", "0") == "1"
     override = os.getenv("SENTIENTOS_QUARANTINE_REMEDIATION_OVERRIDE", "0") == "1"
-    quarantine_trace_id = _latest_quarantine_trace_id(root)
+    quarantine_trace_id = _quarantine_trace_id_from_incident(
+        root, incident_id=quarantine.last_incident_id, activated_at=quarantine.activated_at,
+    )
     linked_pack = find_pack_for_incident_or_trace(
         root,
         incident_id=quarantine.last_incident_id,

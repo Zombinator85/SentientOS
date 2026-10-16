@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
+from types import SimpleNamespace
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -11,6 +14,24 @@ from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
 from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
 from sentientos.local_model_commissioning import FILES, doctor, inspect_artifact, render_bundle, verify_bundle
+
+
+def test_documented_commissioning_cli_starts_from_repository_root(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "local_model_commissioning.py"
+    result = subprocess.run([sys.executable, str(script), "--help"],
+        cwd=script.parents[1], capture_output=True, text=True, check=False)
+    assert result.returncode == 0
+    assert "inspect" in result.stdout and "doctor" in result.stdout
+    allowed_root = tmp_path / "models"
+    allowed_root.mkdir()
+    pointer = allowed_root / "tracked.gguf"
+    pointer.write_bytes(b"version https://git-lfs.github.com/spec/v1\n"
+        b"oid sha256:" + b"b" * 64 + b"\nsize 123456\n")
+    blocked = subprocess.run([sys.executable, str(script), "inspect",
+        "--model-path", str(pointer), "--allowed-root", str(allowed_root)],
+        cwd=script.parents[1], capture_output=True, text=True, check=False)
+    assert blocked.returncode == 2
+    assert json.loads(blocked.stdout)["reason"] == "git_lfs_pointer_not_model_payload"
 
 
 def _artifact(root: Path, content: bytes = b"GGUF-local-test-bytes") -> Path:
@@ -96,11 +117,26 @@ def test_controlled_loader_identity_exact_map_call_path(monkeypatch: pytest.Monk
     assert authority.record_for_active_identity(identity, "discernment_judgment") is not None
 
 
+def test_lfs_pointer_is_not_mistaken_for_local_model_payload(tmp_path: Path) -> None:
+    models = tmp_path / "models"
+    models.mkdir()
+    pointer = models / "tracked.gguf"
+    pointer.write_bytes(b"version https://git-lfs.github.com/spec/v1\n"
+        b"oid sha256:" + b"a" * 64 + b"\nsize 123456\n")
+    with pytest.raises(ValueError, match="git_lfs_pointer_not_model_payload"):
+        inspect_artifact(pointer, allowed_root=models)
+
+
 def test_doctor_is_zero_generation_and_handoff_never_runs_calibration(tmp_path: Path,
                                                                      monkeypatch: pytest.MonkeyPatch) -> None:
     models = tmp_path / "models"; model = _artifact(models)
     state = tmp_path / "state"; render_bundle(model, allowed_root=models, state_root=state)
     report = doctor(state)
+    assert report["calibration_readiness"] == "awaiting_process_real_identity_verification"
+    assert report["live_discernment_prerequisites_satisfiable"] is False
+    assert report["live_calibration_can_be_attempted"] is False
+    assert "process_real_load_and_exact_active_identity_verification_required" in report[
+        "calibration_readiness_reason_codes"]
     assert report["semantic_model_generations"] == 0
     assert report["calibration_cases_run"] == 0
     handoff = json.loads((state / FILES["handoff"]).read_text())
@@ -116,4 +152,54 @@ def test_real_verification_never_labels_unavailable_dependency_as_production(tmp
     monkeypatch.setattr("sentientos.local_model_commissioning.importlib.util.find_spec", lambda name: None)
     proof = verify_bundle(state, load=True)["load_verification"]
     assert proof["status"] == "external_prerequisite_unavailable"
+    assert proof["process_real"] is False
+
+
+def test_load_verification_closes_the_inspected_runtime_without_generation(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    models = tmp_path / "models"; artifact = _artifact(models)
+    state = tmp_path / "state"; render_bundle(artifact, allowed_root=models, state_root=state)
+    from sentientos.local_model import LocalModel
+    from sentientos.local_model_commissioning import _config_from_mapping, _load_proof
+
+    config = _config_from_mapping(json.loads((state / FILES["config"]).read_text()))
+    closed: list[bool] = []
+    class Runtime:
+        def close(self) -> None:
+            closed.append(True)
+        def create_chat_completion(self, **_: object) -> None:
+            raise AssertionError("load proof must never generate")
+    backend = SimpleNamespace(_llama=Runtime(), metadata={"engine": "llama_cpp"})
+    identity = SimpleNamespace(to_dict=lambda: {"model_id": "model-a"})
+    authority = SimpleNamespace(record_for_active_identity=lambda *_: SimpleNamespace(model_id="model-a"))
+    monkeypatch.setattr("sentientos.local_model_commissioning.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr(LocalModel, "_initialise_backend", staticmethod(lambda *_: (backend, backend.metadata)))
+    monkeypatch.setattr(LocalModel, "_identity_for", staticmethod(lambda *_: identity))
+
+    proof = _load_proof(config, authority)  # type: ignore[arg-type]
+
+    assert proof["status"] == "exact_active_identity_verified"
+    assert proof["semantic_model_generations"] == 0
+    assert closed == [True]
+
+
+def test_load_verification_does_not_report_ready_when_runtime_cannot_be_closed(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    models = tmp_path / "models"; artifact = _artifact(models)
+    state = tmp_path / "state"; render_bundle(artifact, allowed_root=models, state_root=state)
+    from sentientos.local_model import LocalModel
+    from sentientos.local_model_commissioning import _config_from_mapping, _load_proof
+
+    config = _config_from_mapping(json.loads((state / FILES["config"]).read_text()))
+    backend = SimpleNamespace(metadata={"engine": "llama_cpp"})
+    identity = SimpleNamespace(to_dict=lambda: {"model_id": "model-a"})
+    authority = SimpleNamespace(record_for_active_identity=lambda *_: SimpleNamespace(model_id="model-a"))
+    monkeypatch.setattr("sentientos.local_model_commissioning.importlib.util.find_spec", lambda _: object())
+    monkeypatch.setattr(LocalModel, "_initialise_backend", staticmethod(lambda *_: (backend, backend.metadata)))
+    monkeypatch.setattr(LocalModel, "_identity_for", staticmethod(lambda *_: identity))
+
+    proof = _load_proof(config, authority)  # type: ignore[arg-type]
+
+    assert proof["status"] == "external_prerequisite_unavailable"
+    assert proof["reason"] == "model_runtime_unload_unavailable"
     assert proof["process_real"] is False

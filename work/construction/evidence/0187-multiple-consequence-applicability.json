@@ -1,0 +1,34 @@
+{
+  "sequence": 187,
+  "title": "Preserve multiple consequence event identity and unverified applicability",
+  "status": "[untested] construction",
+  "starting_head": "ad8e90056d1a43cc421951830f175c93a5324339",
+  "starting_tree": "dbe1f2add605d2ecc8cb7e4bb940ebd81975a275",
+  "source_commit": "918a30f4933a34c7d205882ceb05142449136e19",
+  "source_tree": "8369d6a0a58a59044dac5caaa770cd80a3429c2e",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"05b975cd7574f3a1158ee4b496f26dbef511b0ee","sha256":"bd6142503a82aa5d89b957c650cc940ab274ab7e5b6eda16b49cd1a78abaad5b"},
+    {"path":"tests/test_embodied_consequence.py","blob":"3e60c5ca94cd447c953edf8af2d6cebd91b99660","sha256":"6ca130346783827f4c83486e5f7b0f27ef4481e34c9973019b449333b1b9ae54"}
+  ],
+  "validation": {
+    "embodied_and_transfer_packet":"35 passed",
+    "strategy_and_model_replacement_resource_lineage":"2 passed",
+    "resident_developmental_cognition":"92 passed with writable governor path",
+    "new_multiple_event_positive_and_adversarial_cases":"passed",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "remote_readback": {
+    "branch_head":"918a30f4933a34c7d205882ceb05142449136e19",
+    "tree":"8369d6a0a58a59044dac5caaa770cd80a3429c2e",
+    "changed_blobs":"both exact source/test identities independently present in recursive tree"
+  },
+  "authority_posture": {
+    "source_record_admission_verified":false,
+    "applicability_independently_verified":false,
+    "synthetic_event_created":false,
+    "improvement_claimed":false,
+    "execution_authority_added":false
+  },
+  "limitations":"Fixture tests demonstrate identity preservation and fail-closed applicability posture only. Multiple events are not yet integrated into external packet construction or objective decision-quality evaluation."
+}

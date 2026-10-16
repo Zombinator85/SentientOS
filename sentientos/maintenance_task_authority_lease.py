@@ -4,7 +4,8 @@ Metadata only: no implementation, validation, Git, publication, host, or runtime
 """
 from __future__ import annotations
 
-import argparse, fcntl, fnmatch, hashlib, json, os
+from sentientos.platform_fcntl import fcntl
+import argparse,  fnmatch, hashlib, json, os
 from pathlib import Path
 from typing import Any, Mapping, Sequence, cast
 

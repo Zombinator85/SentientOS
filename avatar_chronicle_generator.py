@@ -11,7 +11,6 @@ Compile a markdown chronicle of avatar creation, blessings, and retirements.
 Example:
     python avatar_chronicle_generator.py --out chronicle.md
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse

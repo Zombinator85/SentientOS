@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "task": "Bind recovered work runs to the complete persisted plan definition",
+  "successful_path_nodes": [
+    "sentientos/tests/test_work_plan_load.py::test_existing_run_artifact_recovers_against_exact_plan",
+    "sentientos/tests/test_goal_executor_run.py::test_completed_task_is_not_reexecuted_when_same_plan_is_recovered"
+  ],
+  "adversarial_nodes": [
+    "sentientos/tests/test_work_plan_load.py::test_existing_run_rejects_same_task_ids_with_changed_plan_definition",
+    "sentientos/tests/test_work_plan_load.py::test_existing_run_artifact_rejects_substituted_task_identity"
+  ],
+  "authority_limits": [
+    "Run recovery records no new command or effect authority.",
+    "Legacy runs without a full plan digest fail closed when a legacy artifact is present.",
+    "Changed plans receive a distinct immutable run identity."
+  ]
+}

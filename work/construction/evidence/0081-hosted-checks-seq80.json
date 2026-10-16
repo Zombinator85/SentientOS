@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "conclusion": "success",
+      "name": "Source validation (unprivileged)",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "helm-k8s-test",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "name": "invariants",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "name": "self-check",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "name": "docs",
+      "status": "completed"
+    }
+  ],
+  "combined_commit_statuses": [],
+  "commit": "8ba5aa649e8ddf5c76dc3a328f7616fb6677a865",
+  "source": "GitHub commit check-runs endpoint queried by exact SHA"
+}

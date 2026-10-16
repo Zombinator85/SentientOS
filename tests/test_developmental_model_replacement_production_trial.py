@@ -6,8 +6,10 @@ import pytest
 
 from sentientos.developmental_model_replacement_production_trial import (
     RECEIPT_SCHEMA, ProductionTrialError, _exact, _file_snapshot,
+    _objective_answer_bytes, _validate_objective_inference_budget,
     verify_production_trial_receipt,
 )
+from sentientos.developmental_model_replacement_experiment import ObjectivePredictionTask
 from sentientos.local_runtime_provisioning import semantic_digest
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -77,8 +79,30 @@ def test_existing_campaign_and_five_condition_owners_are_reused() -> None:
     assert "DevelopmentalModelReplacementCampaign.reconstruct" in source
     assert "DevelopmentalModelReplacementExperiment(" in source
     assert "CONDITION_ORDER" not in source
+    assert "objective_task: ObjectivePredictionTask | None = None" in source
+    assert source.count("objective_task=objective_task") >= 2
+    assert "objective_task_plan_not_preregistered" in source
+    assert "campaign_objective_task_binding_invalid" in source
 
 
 def test_no_identity_or_improvement_claims() -> None:
     source = Path("sentientos/developmental_model_replacement_production_trial.py").read_text().lower()
     assert all(term not in source for term in ("model b is better", "identity persisted", "selfhood", "consciousness"))
+
+
+def test_scored_trial_keeps_output_bytes_and_generation_tokens_as_separate_units() -> None:
+    task = ObjectivePredictionTask(1_000_000, 123_456, 1, tuple(range(2, 17)))
+    required_output_bytes = _objective_answer_bytes(task)
+    assert required_output_bytes > 64
+    # A tokenizer may encode this compact JSON in fewer tokens than UTF-8 bytes.
+    _validate_objective_inference_budget(task, {
+        "max_output_chars": required_output_bytes, "max_new_tokens": 64,
+    })
+    with pytest.raises(ProductionTrialError, match="objective_output_budget_insufficient"):
+        _validate_objective_inference_budget(task, {
+            "max_output_chars": required_output_bytes - 1, "max_new_tokens": 64,
+        })
+    with pytest.raises(ProductionTrialError, match="objective_generation_budget_invalid"):
+        _validate_objective_inference_budget(task, {
+            "max_output_chars": 1024, "max_new_tokens": 513,
+        })

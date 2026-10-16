@@ -1,0 +1,74 @@
+{
+  "completed_nodes": [
+    "A2/A4-A6: explicitly selected owner-recovered campaign outcomes retain provenance, classify routes, detect cross-campaign adverse/positive contradictions, and fail closed on selection-config tampering; recovery was verified in a fresh process.",
+    "B1/B2: only eligible proposal-routed signals become later maintenance candidates; campaign source uncertainty and exact lineage survive adaptation.",
+    "C2: resource reread after fresh ledger reconstruction preserves receipt identity and does not debit again.",
+    "A7 partial: seq237 fresh-process runtime signal reconstruction preserves the declared campaign completion event time and source digest with adoption/mutation false; owner ordering and prior-tick exclusion are still open.",
+    "A7: maintenance-loop owner order and shared tick identity are pinned from admitted campaign signal evaluation through same-tick World-State, cognition, transition, epistemic development, self-model reconciliation, and causal introspection; zero-effect posture is asserted.",
+    "B3 partial: actual adverse/corrective/later-distinct campaign outcomes compose through the signal plane; original contradiction is blocked and a separate later finding creates a constrained proposal candidate.",
+    "B3 partial: a later distinct campaign finding routes to a low-confidence candidate with source uncertainty; the actual selector rejects it as candidate_scope_unknown because no subject path is evidenced.",
+    "A8: selected campaign history closes into same-tick World-State and cognition; current record is absent from pre-inference history and becomes retrievable only after fresh owner reconstruction on the following tick, with source digest preserved and zero authority effects.",
+    "C3 partial: a resource-linked multi-probe developmental task-family outcome with absent or mismatched denominator is degraded as score_binding_invalid; expected family probe count is bound through writeback while non-family scalar history remains compatible.",
+    "C3: family denominator admission now covers resident developmental-history and model-replacement runs; score schema survives projection, family identity reconstructs, family-suite output budgeting works, and missing counts remain degraded diagnostics through the resource owner and writeback projection.",
+    "E1 partial: task run recovery is bound to the canonical full plan definition; changes to commands, dependencies, costs, and omissions cannot reuse prior completion evidence, while exact-plan task replay remains idempotent.",
+    "E1 partial: work-run paths are derived only from the full plan digest; caller-controlled traversal identities are rejected before artifact persistence.",
+    "E1 partial: append-only task execution journals now bind to full plan identity; exact-plan legacy journal recovery is retained and changed definitions with reused plan IDs receive isolated journals.",
+    "C4-C8 partial: canonical developmental writeback preserves measured resource receipts and later task-family retrieval exposes them only under exact run, score, condition, inference-receipt, and resource-source bindings; bounded retrieval remains unknown when evidence is unavailable or mismatched.",
+    "D1-D8 partial: independent support and contradiction persist with event times and distinct source identities, survive epistemic-owner reconstruction and receipt verification, and reach later cognition as a contested semantic packet bound to the exact state digest.",
+    "D1-D8 partial: objective-task owner now forwards a verified prior epistemic projection into the normal cognition binder; held-out task-family scores bind its exact projection/state digests and preserve deterministic three-condition oracle scoring through restart-backed history retrieval.",
+    "C4-C8 partial: canonical task-family retrieval retains all three independently scored treatment outcomes and exact condition-specific inference/resource receipt lineage; a frozen-task requirement and deterministic quality-first/call-unit recommendation reaches the bounded cognition input binder; missing/unqualified evidence remains unknown; positive, negative-transfer, economical, and incomparable cases are covered.",
+    "D1-D8 partial: owner-verified preregistered held-out task-family consequences now bind to the persistent epistemic owner as bounded support, contradiction, or contextual evidence; unknown dependency/freshness and deterministic-fixture qualification survive append-only correction and fresh-owner reconstruction.",
+    "E1-E8 partial: exact-plan execution now resumes repeated interruptions for non-destructive allowlisted diagnostic/verify tasks through digest-chained numbered retries; dependent tasks wait for durable success, while interrupted non-idempotent forge proposal/apply tasks remain unknown and blocked.",
+    "E1-E8 partial: forge partial_success is now distinct from task success, persisted in task journals/work runs, and cannot satisfy dependent tasks; independent tasks progress and partial state recovers without claiming goal completion.",
+    "C4-C8 prerequisite: resident developmental cognition accepts an optional owner-issued resource context and requests a distinct context for each preregistered condition; actual ledger receipt admission and later-decision recovery remain open.",
+    "C4-C8: a genuine three-condition governed task-family fixture produces exact ledger receipts; run recovery, World-State lineage, normal four-fact developmental admission, fresh-process held-out recommendation, independent quality evaluation, and no-consumption replay all pass. Fixture-only performance and unknown host attribution remain explicit.",
+    "D1-D8 partial: an exact recovered scored task-family outcome now passes configured proposition binding, separate runtime evidence/state admissions, mutation receipt recovery, later cognition, and live-owner causal introspection metadata; ties remain contextual without directional state mutation.",
+    "D1-D8 partial: seq257 exposes an explicitly selected, bounded per-proposition trace joining verified evidence, state/event generations, admission receipts, original observation times, and exact later cognition projection through fresh-owner reconstruction.",
+    "D1-D8 partial: seq258 requires every proposition evidence binding and state generation in a selected trace to join to a verified mutation receipt; missing trace joins fail closed.",
+    "D1-D8 partial: seq259 admits adverse acquisition, adverse transfer, contextual tie, and later support through the runtime; reconstructed-owner state remains contested, trace receipts join, and a separately evaluated cognition call changes its output from delivered evidence. Fresh operating-system-process trace recovery remains open.",
+    "E1-E8 partial: seq259 validates the exact prior work run before follow-up planning, binds the prior run payload digest into the new plan identity, withholds repeated destructive apply after partial/failed/unknown outcomes, and keeps independent goals eligible.",
+    "D1-D8: seq260 reconstructs the contested proposition, four source outcomes, three state events, seven verified mutation receipts, and exact later-cognition projection in a separate Python process.",
+    "E1-E8 partial: seq261 binds a validated meaning-bearing contested epistemic projection to exact proposition-tagged goals; the projection digest is in the plan identity and destructive apply requires review while untagged goals proceed.",
+    "E1-E8 partial: seq262 uses the same canonical epistemic projection validator in allocation and task planning; under a constrained budget contested evidence defers the explicitly tagged goal and selects independent work, with projection identity retained.",
+    "E1-E8 partial: seq263 carries the preregistered source model identity and digest into bounded task-family experience; tampered or missing identity remains explicitly unbound without dropping historical outcomes. Target identity applicability remains open.",
+    "E1-E8 partial: seq264 compares current serving identity with retained protocol-bound source identity, labels same/different/unknown relations, and keeps same-family task scope explicitly unverified.",
+    "E1-E8 partial: seq265 gates structured task-family guidance to exact current/source model identity; cross-model and unbound history remains recoverable through omission digests and score summaries without becoming task examples.",
+    "E1-E8 partial: seq266 proves in a fresh process that same-model task-family examples reach a later episode while a different-model target receives no task examples and retains source, positive-score, and omission evidence.",
+    "E1-E8 partial: seq267 requires proposition-scoped family applicability, exact protocol model identity, and an identity observation fresh at plan creation; both allocation and executor fail closed on missing, stale, or changed identity, and plan identity binds scopes, omissions, prior-run digest, and no-replay outcomes.",
+    "E1-E8 partial: seq268 wires a read-only current-serving-identity observation into orchestrator allocation and canonical plan creation; digest and timestamp are retained without session acquisition or model invocation.",
+    "E1-E8 partial: seq269 preserves bounded comparison outcomes and measurement identities in downstream cognition, with source digest binding and same-model/drift gates intact; next connect daemon prior-projection owner to canonical planning."
+  ],
+  "current_source_commit": "2f838f17b2472b54ff68990851c9da5918eda19e",
+  "current_source_tree": "ecae3a284ca8cda474210a675755fc903332e456",
+  "external_blockers": [
+    "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
+  ],
+  "known_test_failures": [
+    "Observational association test expects obsolete production_ready=true.",
+    "Epistemic adapter test omits the now-required owner argument."
+  ],
+  "last_checkpoint_sequence": 269,
+  "next_executable_nodes": [
+    {
+      "node": "E1-E8",
+      "program": "E",
+      "work": "Wire the daemon\u2019s verified prior-projection owner into canonical planning, preserving bounded selection, source identity, applicability, and drift gates; then verify the integrated developmental history trajectory."
+    },
+    {
+      "node": "F1-F8",
+      "program": "F",
+      "work": "Advance multi-episode strategy correction, negative transfer, applicability, historical relevance, model-identity separation, and later distinct decisions."
+    },
+    {
+      "node": "B4-B8",
+      "program": "B",
+      "work": "Assess explicit evidence-bound applicability mapping for collector scan/selection without inventing a target path."
+    },
+    {
+      "node": "X1-X4",
+      "program": "Integration",
+      "work": "Connect maintenance, resource, epistemic, goals, developmental history, and recovery through substantive owner-to-owner trajectories."
+    }
+  ],
+  "schema": "sentientos.reconciliation_queue:v1"
+}

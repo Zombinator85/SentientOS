@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Creator Outreach Agent
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 

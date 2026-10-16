@@ -50,7 +50,7 @@ These additions make consensus execution observable end-to-end and resilient to 
 
 Operators can rehearse the full lifecycle with the sample plan in
 `demos/consensus/small_plan.json`. Follow the scripted walkthrough in
-[`demos/README.md`](../demos/README.md) to:
+[`demos/README.md`](https://github.com/Zombinator85/SentientOS/blob/main/demos/README.md) to:
 
 1. submit a verification job,
 2. start a 2-of-3 consensus run,

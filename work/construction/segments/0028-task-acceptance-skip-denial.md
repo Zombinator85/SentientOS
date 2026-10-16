@@ -1,0 +1,7 @@
+## 2026-10-12 — prove setup skips cannot satisfy exact acceptance
+
+- The new CI acceptance step selects four provenance regressions by exact node ID. Added the task verifier's direct negative control: a selected node with `{phase: setup, outcome: skipped}` is not a passing call and remains `task_acceptance_blocked`.
+- The CI selection and manifest now include this denial node; `tests/test_task_acceptance_verifier.py` is part of the hosted unprivileged source-validation run. The task-acceptance manifest remains bound dynamically to the workflow commit SHA and verifies the real `run_tests` provenance.
+- The focused canonical command over reporter, digest, airlock parity, task-acceptance verification, and hosted-workflow contract modules passed **36/36** with zero skips. Because the reconstructed source workspace lacks an original commit object, this command ran in a disposable temporary Git harness bound to synthetic local commit `53a7f0e633929b3b84813622b09010577a7b4f35`; this is test scaffolding only, not source or hosted acceptance identity.
+- The real source-validation outcome for prior commit `9539fa4…` is still inaccessible through configured Actions status tools. Continue to label its hosted result unknown until an artifact/run is independently retrieved.
+- Next: publish this exact-node denial control, then pursue the next source-backed semantic reconciliation hunk. Preserve the distinction between this local test harness, the published branch SHA, hosted CI, and runtime evidence.

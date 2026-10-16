@@ -1,0 +1,110 @@
+{
+  "canonical_runner_attempt": {
+    "command": "python -m scripts.run_tests -q tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_experimental_serving.py --tb=short",
+    "diagnostic_path": "work/construction/evidence/0059-canonical-runner-blocker.txt",
+    "diagnostic_sha256": "f1359eaf12dc8a0f658379911cde5482acb796e74b60479f98f751ad3a2ae1ac",
+    "reason": "editable build isolation could not obtain setuptools>=78.1.1 because configured proxy access failed with Operation not permitted; no tests were collected by canonical runner",
+    "status": "blocked_before_test_execution"
+  },
+  "compilation": {
+    "command": "python -m py_compile sentientos/developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_experiment.py",
+    "status": "passed"
+  },
+  "diff_check": {
+    "command": "git diff --check",
+    "status": "passed"
+  },
+  "focused_execution": {
+    "airlock_bypass": true,
+    "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 /tmp/sentientos-test-venv/bin/python -m pytest -q -rs tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_experimental_serving.py --tb=short --junitxml=glow/test_runs/0059-model-replacement-event-time-junit.xml",
+    "failed": 0,
+    "junit_path": "glow/test_runs/0059-model-replacement-event-time-junit.xml",
+    "junit_sha256": "e8f06749e9ed0f6c135866d9fa55eb8758781715a9e4b1cd6831a1d56ed536d3",
+    "nodes": [
+      "tests.test_developmental_model_replacement_experiment::test_serving_receipt_references_survive_controlled_run_recovery",
+      "tests.test_developmental_model_replacement_experiment::test_recovered_model_replacement_preserves_event_time_without_reconstruction_freshness",
+      "tests.test_developmental_model_replacement_experiment::test_model_replacement_event_time_rejects_unzoned_or_malformed_metadata",
+      "tests.test_developmental_model_replacement_experiment::test_preregistered_five_condition_model_replacement_experiment",
+      "tests.test_developmental_model_replacement_experiment::test_exact_shared_current_and_history_state_across_models",
+      "tests.test_developmental_model_replacement_experiment::test_history_association_measured_independently_under_both_models",
+      "tests.test_developmental_model_replacement_experiment::test_bounded_history_classifications[True-False-history_association_observed_model_a_only]",
+      "tests.test_developmental_model_replacement_experiment::test_bounded_history_classifications[False-True-history_association_observed_model_b_only]",
+      "tests.test_developmental_model_replacement_experiment::test_bounded_history_classifications[False-False-no_observable_history_effect_either_model]",
+      "tests.test_developmental_model_replacement_experiment::test_exact_model_a_restoration",
+      "tests.test_developmental_model_replacement_experiment::test_semantic_epistemic_projection_v2_and_legacy_v1_identity_are_accepted",
+      "tests.test_developmental_model_replacement_experiment::test_provenance_claim_remains_source_bound_non_truth_metadata",
+      "tests.test_developmental_model_replacement_experiment::test_absent_provenance_is_unknown_not_inferred_from_name",
+      "tests.test_developmental_model_replacement_experiment::test_same_model_supplied_as_a_and_b_is_rejected",
+      "tests.test_developmental_model_replacement_experiment::test_crossed_or_tampered_provenance_is_rejected",
+      "tests.test_developmental_model_replacement_experiment::test_model_identity_drift_and_a_restoration_mismatch_fail_closed",
+      "tests.test_developmental_model_replacement_experiment::test_orphan_condition_terminal_is_not_recovered_as_unstarted",
+      "tests.test_developmental_model_replacement_experiment::test_nonproduction_fallback_and_identity_tampering_are_rejected",
+      "tests.test_developmental_model_replacement_experiment::test_protocol_provenance_and_run_custody_detect_tampering",
+      "tests.test_developmental_model_replacement_experiment::test_developmental_history_mutation_attempt_is_detected_before_inference",
+      "tests.test_developmental_model_replacement_experiment::test_generation_posture_and_purpose_are_fixed",
+      "tests.test_developmental_model_replacement_experimental_serving::test_preregistration_before_load_verified_loader",
+      "tests.test_developmental_model_replacement_experimental_serving::test_tampered_preregistered_protocol_fails",
+      "tests.test_developmental_model_replacement_experimental_serving::test_operator_approval_precedes_load_and_is_exact",
+      "tests.test_developmental_model_replacement_experimental_serving::test_synthetic_vs_production_evidence_posture",
+      "tests.test_developmental_model_replacement_experimental_serving::test_runtime_schemas_and_effect_surface_are_exact",
+      "tests.test_developmental_model_replacement_experimental_serving::test_historical_receipt_reconciler_fails_closed_on_missing_and_substituted_custody"
+    ],
+    "passed": 27,
+    "scope": "focused local fixture/owner tests only; no exact-SHA canonical, hosted, actual-model, or production evidence",
+    "skipped": 0,
+    "tests": 27
+  },
+  "historical_hunk_dispositions": [
+    {
+      "coverage": "new focused projection/reprojection and malformed-time tests; adjacent experimental serving suite ran locally.",
+      "current_owner_context": "sentientos/developmental_model_replacement_experiment.py::_inference_event_time, ModelReplacementArtifactStore.world_state_records; sentientos/developmental_model_replacement_experimental_serving.py::ExperimentalCognitiveEndpoint.infer",
+      "disposition": "A_incorporated",
+      "finding": "Current source preserves a timezone-aware receipt timestamp as historical metadata, marks it invocation_receipt_metadata_unverified, and does not set World-State observed_at from recovery/projection time. Missing time remains unknown.",
+      "id": "model-replacement-event-time"
+    },
+    {
+      "coverage": "source comparison plus adjacent local suite; not canonical acceptance.",
+      "current_owner_context": "sentientos/developmental_model_replacement_experiment.py::ModelReplacementArtifactStore._read_json and artifact directory reader",
+      "disposition": "B_superseded_or_strengthened",
+      "finding": "Current bounded reader requires canonical JSON, no-follow descriptor access, regular single-link files, bounded reads, and stable descriptor identity/size/mtime after read; at least as strict as the historical canonical-byte hunk.",
+      "id": "model-replacement-artifact-reader"
+    },
+    {
+      "coverage": "focused experiment suite; running software attribution remains explicitly unknown/unbound.",
+      "current_owner_context": "DevelopmentalModelReplacementExperiment._observe; ModelReplacementArtifactStore.world_state_records",
+      "disposition": "A_incorporated",
+      "finding": "Current immutable observation binds model identity/artifact, model-development provenance, request/inference receipt identities, context, condition, and resource linkage when present. Model and repository declaration are distinct from running software generation.",
+      "id": "model-and-request-lineage"
+    },
+    {
+      "coverage": "source inspection; no running-process observation was made.",
+      "current_owner_context": "ModelReplacementArtifactStore.world_state_records declared_repository_generation_identity/posture and software_generation_identity/posture",
+      "disposition": "B_superseded_or_strengthened",
+      "finding": "Current source labels the frozen context value as a declaration and leaves running software generation unbound; it avoids treating a Git/software declaration as process observation.",
+      "id": "repository-generation-versus-running-software"
+    }
+  ],
+  "historical_patch": {
+    "hunk_scope": "sentientos/developmental_model_replacement_experiment.py and sentientos/developmental_model_replacement_experimental_serving.py",
+    "path": "/tmp/sentientos-original-candidate-2e320/tracked-changes-excluding-conflicted-journal.patch",
+    "sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307"
+  },
+  "production_status": "unverified",
+  "runner_workspace_commit": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "runner_workspace_note": "synthetic test harness commit; not the source commit under test",
+  "schema_version": 1,
+  "source_blobs": {
+    "sentientos/developmental_model_replacement_experiment.py": {
+      "git_blob": "b50fd5eac90f36ea1a5e3b17011fb201e117d4b5"
+    },
+    "sentientos/developmental_model_replacement_experimental_serving.py": {
+      "git_blob": "7dd8dfdc3aa3cc5d32f50e54c5a43ff966962767"
+    },
+    "tests/test_developmental_model_replacement_experiment.py": {
+      "base_remote_blob": "608fc1dbe15ac7a7a5a91972a4441a371ec9ebd9",
+      "git_blob": "02fc234b04ba2aa45575c6ba4086f72d61333687"
+    }
+  },
+  "source_commit": "242d5ebf2fc0b9c82b2937daf8f08a96b2958232",
+  "source_tree": "0bf9890241f475ac728f8f5ce56120c7e49f3584"
+}

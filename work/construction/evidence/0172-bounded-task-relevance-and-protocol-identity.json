@@ -1,0 +1,44 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 172,
+  "source_commit": "32c1291a481416b207a8f6947f3f959df8982970",
+  "source_tree": "615c8439fc9607690c4498b982ed9973d0421059",
+  "predecessor_segment_sha256": "61bd62d0c49a76b6678384ae89812af0fc83bd6ceaf1cf2a68ff9eb7131d3573",
+  "scope": "bounded task-family history selection and preregistered prompt-admitted history identity",
+  "changed_paths": [
+    "scripts/stage_resident_objective_intervention.py",
+    "sentientos/developmental_history_intervention_experiment.py",
+    "sentientos/resident_developmental_cognition.py",
+    "tests/test_resident_developmental_cognition.py"
+  ],
+  "changed_blobs": {
+    "scripts/stage_resident_objective_intervention.py": "81d6af414ebddd31ce9218ae4e4d2fb28e6062ca",
+    "sentientos/developmental_history_intervention_experiment.py": "3b0b4b1efa3ff12debf4f2cda2587e0bac1de7c2",
+    "sentientos/resident_developmental_cognition.py": "b00a2a00506ce32a2e7ed33d8e54210c3536ed1f",
+    "tests/test_resident_developmental_cognition.py": "138bda9fa2742abf85d599755a01d9e8a120325d"
+  },
+  "behavioral_checks": {
+    "passed": [
+      "tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_is_preserved_as_adverse_history",
+      "tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only",
+      "tests/test_resident_developmental_cognition.py::test_objective_staging_arguments_can_require_exact_task_family_history",
+      "tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant"
+    ],
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "remote_source_tree_and_blob_readback": "passed",
+    "actual_model_behavior_measured": false,
+    "production_verification": false,
+    "performance_improvement_established": false
+  },
+  "design": {
+    "selection_order": "exact public task-probe overlap, then checkpoint recency",
+    "outcome_correctness_used_as_selection_filter": false,
+    "protocol_record_identity": "exact complete records admitted by pre-inference bounded cognition binding",
+    "available_history_omission_selection_manifest_bound": true,
+    "condition_selection_drift_check": "retained",
+    "independent_backend_observation": false
+  },
+  "next_dependency": "adversarially validate bounded selection under a saturated prompt with competing positive and adverse task-family records, stable tie-breaking, omission evidence, and downstream outcome lineage"
+}

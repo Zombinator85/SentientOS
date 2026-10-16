@@ -3,10 +3,15 @@ import json
 
 import pytest
 
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError, list_bounded_json_names_at, open_private_directory,
+)
 from sentientos.persistent_epistemic_state import (
     FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
     PropositionRelation, evidence_posture, make_cognitive_projection,
-    make_evidence_binding, make_proposition,
+    make_evidence_binding, make_proposition, make_epistemic_update_candidate, _write_new,
+    MeaningBearingEpistemicCognitiveProjection, semantic_packets_for_projection,
+    validate_cognitive_projection,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -101,11 +106,139 @@ def test_owner_projection_is_verified_latest_bounded_deterministic_and_empty(tmp
     with pytest.raises(EpistemicStateError): owner.cognitive_projection(max_states=2)
 
 
+def test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    propositions = [make_proposition(namespace="embodiment", subject="robot:g7",
+        predicate="renderer_observed", object_value={"pose": "wave"}, polarity="positive",
+        qualifiers={"renderer": "r1"}, temporal_scope={"window": window},
+        context_scope={"location": place}, proposition_class="predictive",
+        statement="exact canonical statement")
+        for window, place in (("trial-a", "left"), ("trial-b", "right"))]
+    states = []
+    for index, proposition_value in enumerate(propositions):
+        owner.register_proposition(proposition_value)
+        support = binding(proposition_value, f"support-{index}")
+        owner.bind_evidence(support)
+        state, _ = owner.commit_update(proposition_id=proposition_value.proposition_id,
+            expected_predecessor_digest=None, stance="provisionally_supported",
+            reason="initialization", active_binding_ids=[support.binding_id],
+            added_binding_ids=[support.binding_id],
+            correlation_id=f"position-{index}", tick=index + 1,
+            recorded_at="2026-01-01T00:00:00Z", confidence={"range": "wide"})
+        states.append(state)
+    projection = owner.cognitive_projection(max_states=2, current_tick=3)
+    assert isinstance(projection, MeaningBearingEpistemicCognitiveProjection)
+    validate_cognitive_projection(projection, require_meaning=True)
+    packets = semantic_packets_for_projection(projection)
+    assert [packet["state"]["stance"] for packet in packets] == [
+        "provisionally_supported", "provisionally_supported"]
+    assert {packet["proposition"]["temporal_scope"]["window"] for packet in packets} == {
+        "trial-a", "trial-b"}
+    assert {packet["proposition"]["context_scope"]["location"] for packet in packets} == {
+        "left", "right"}
+    assert all(packet["proposition"]["proposition_digest"] ==
+        next(p.proposition_digest for p in propositions
+             if p.proposition_id == packet["proposition"]["proposition_id"])
+        for packet in packets)
+    recovered = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    replay = recovered.cognitive_projection(max_states=2, current_tick=3)
+    assert replay is not None and replay.projection_digest == projection.projection_digest
+
+
+def test_semantic_projection_rejects_substituted_meaning_and_bad_join(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    proposition_value = proposition()
+    owner.register_proposition(proposition_value)
+    state, _ = owner.commit_update(proposition_id=proposition_value.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=[], correlation_id="initial", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    projection = owner.cognitive_projection(max_states=1, current_tick=2)
+    assert projection is not None
+    substituted = dict(projection.propositions[0])
+    substituted["context_scope"] = {"fixture": "substituted"}
+    with pytest.raises(EpistemicStateError, match="semantic|digest|join"):
+        validate_cognitive_projection(replace(projection,
+            propositions=(substituted,)), require_meaning=True)
+    mismatched_state = dict(projection.states[0])
+    mismatched_state["proposition_id"] = "proposition:" + "0" * 24
+    with pytest.raises(EpistemicStateError):
+        validate_cognitive_projection(replace(projection, states=(mismatched_state,)),
+            require_meaning=True)
+    legacy = make_cognitive_projection([state], source_tick=1, current_tick=2)
+    validate_cognitive_projection(legacy)
+    assert not getattr(legacy, "schema_version", None)
+
+
+def test_stale_position_keeps_stale_freshness_in_prior_packet(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    stale = binding(p, "stale-source", freshness="stale")
+    owner.bind_evidence(stale)
+    state, _ = owner.commit_update(proposition_id=p.proposition_id,
+        expected_predecessor_digest=None, stance="provisionally_supported",
+        reason="initialization", active_binding_ids=[stale.binding_id],
+        added_binding_ids=[stale.binding_id], correlation_id="stale-prior", tick=4,
+        recorded_at="2026-01-01T00:00:00Z")
+    projection = owner.cognitive_projection(max_states=1, current_tick=5)
+    assert projection is not None
+    packet = semantic_packets_for_projection(projection)[0]
+    assert packet["state"]["state_digest"] == state.state_digest
+    assert packet["state"]["freshness"] == "stale"
+    assert packet["interpretation_posture"] == "canonical_prior_position_not_current_truth"
+    assert packet["evidence_posture"]["posture"] == "all_evidence_stale"
+
+
+
+def test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    candidate = make_epistemic_update_candidate(
+        proposition_id=p.proposition_id, predecessor_state_digest=None,
+        proposed_stance="unknown", evidence_binding_ids=(), reason="initialization",
+        rationale="explicit initialization", uncertainty="unknown", model_id=None,
+        proposer_kind="deterministic_rule", proposer_id="recovery-fixture")
+    state, event = owner.commit_update(
+        proposition_id=p.proposition_id, expected_predecessor_digest=None,
+        stance="unknown", reason="initialization", active_binding_ids=(),
+        candidate=candidate, mutation_binding={
+            "candidate_id": candidate.candidate_id, "candidate_digest": "sha256:fixture",
+            "admission_id": "admission:fixture", "admission_binding_digest": "sha256:admission",
+            "operation_id": "operation:fixture", "correlation_id": "correlation:fixture"},
+        correlation_id="correlation:fixture", tick=1, recorded_at="2026-01-01T00:00:00Z")
+
+    (tmp_path / "states" / f"{state.generation:012d}-{state.state_id}.json").unlink()
+    (tmp_path / "updates" / f"{event.generation:012d}-{event.event_id}.json").unlink()
+
+    recovered = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    assert recovered.current_state(p.proposition_id) is None
+    recovered_counts = recovered.verify()
+    assert recovered_counts["states"] == recovered_counts["updates"] == 0
+    assert recovered_counts["incomplete_admission_bound_transactions"] == 1
+
+    # Storage-only legacy transactions retain their established repair behavior.
+    legacy_root = tmp_path / "legacy"
+    legacy = PersistentEpistemicStateOwner(legacy_root, allowed_namespaces=["embodiment"])
+    legacy_proposition = proposition(statement="legacy storage-only")
+    legacy.register_proposition(legacy_proposition)
+    legacy_state, legacy_event = legacy.commit_update(
+        proposition_id=legacy_proposition.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=(), correlation_id="legacy", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    (legacy_root / "states" / f"{legacy_state.generation:012d}-{legacy_state.state_id}.json").unlink()
+    (legacy_root / "updates" / f"{legacy_event.generation:012d}-{legacy_event.event_id}.json").unlink()
+    legacy_recovered = PersistentEpistemicStateOwner(
+        legacy_root, allowed_namespaces=["embodiment"])
+    assert legacy_recovered.current_state(legacy_proposition.proposition_id) == legacy_state
+
 def test_authority_and_fabricated_or_missing_evidence_fail_closed(tmp_path):
     owner=PersistentEpistemicStateOwner(tmp_path,allowed_namespaces=["embodiment"]); p=proposition(); owner.register_proposition(p)
     with pytest.raises(EpistemicStateError,match="authority"):
         make_evidence_binding(proposition_id=p.proposition_id,source_artifact_id="model-text",source_digest="sha256:x",source_schema="model.free_text:v1",source_class="model_text",observation_time="2026-01-01T00:00:00Z",evidence_relation="supports",dependency_kind="unknown_dependency",dependency_group=None,upstream_binding_ids=(),freshness="current",reliability_posture="unknown",authority={**FALSE_AUTHORITY,"permission":True})
-    with pytest.raises(EpistemicStateError,match="not_found"):
+    with pytest.raises(EpistemicStateError,match="epistemic_evidence_delta_invalid"):
         owner.commit_update(proposition_id=p.proposition_id,expected_predecessor_digest=None,stance="supported",reason="new_evidence",active_binding_ids=["missing"],correlation_id="x",tick=1,recorded_at="2026-01-01T00:00:00Z")
 
 
@@ -121,3 +254,100 @@ def test_calibration_is_proposition_specific_and_temporally_bound(tmp_path):
         owner.record_calibration(proposition_id=a.proposition_id,forecast_artifact_id="forecast",forecast_state_digest=state_a.state_digest,observed_outcome_id="outcome",comparison_result="contradicted",source_binding_ids=(evidence.binding_id,),resolved_at="2025-01-01T00:00:00Z")
     event=owner.record_calibration(proposition_id=a.proposition_id,forecast_artifact_id="forecast",forecast_state_digest=state_a.state_digest,observed_outcome_id="outcome",comparison_result="contradicted",source_binding_ids=(evidence.binding_id,),resolved_at="2026-01-01T00:01:00Z")
     assert event.proposition_id==a.proposition_id and owner.verify()["calibrations"]==1
+
+
+@pytest.mark.parametrize("tick", [-1, True])
+def test_invalid_update_tick_cannot_publish_poisoned_transaction(tmp_path, tick):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    with pytest.raises(EpistemicStateError, match="epistemic_update_tick_invalid"):
+        owner.commit_update(
+            proposition_id=p.proposition_id, expected_predecessor_digest=None,
+            stance="unknown", reason="initialization", active_binding_ids=(),
+            correlation_id="invalid-tick", tick=tick, recorded_at="2026-01-01T00:00:00Z")
+    assert list((tmp_path / "transactions").glob("*.json")) == []
+    assert owner.verify()["updates"] == 0
+
+
+def test_update_recorded_at_requires_bounded_aware_timestamp(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    p = proposition()
+    owner.register_proposition(p)
+    with pytest.raises(EpistemicStateError, match="epistemic_recorded_at_invalid"):
+        owner.commit_update(
+            proposition_id=p.proposition_id, expected_predecessor_digest=None,
+            stance="unknown", reason="initialization", active_binding_ids=(),
+            correlation_id="invalid-time", tick=1, recorded_at="2026-01-01T00:00:00")
+    assert list((tmp_path / "transactions").glob("*.json")) == []
+
+
+def test_epistemic_collection_read_and_write_reject_symlinked_directory(tmp_path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor-bound publication is required")
+    root = tmp_path / "owner"
+    owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("test",))
+    target = tmp_path / "external"
+    target.mkdir()
+    original = root / "bindings"
+    original.rename(root / "bindings-original")
+    original.symlink_to(target, target_is_directory=True)
+
+    with pytest.raises(EpistemicStateError, match="epistemic_collection_invalid"):
+        owner._read("bindings")
+    with pytest.raises(EpistemicStateError, match="epistemic_custody_root_invalid"):
+        _write_new(original / "attacker.json", {"untrusted": True})
+    assert list(target.iterdir()) == []
+
+
+def test_epistemic_mutation_lock_rejects_symlink_and_shared_permissions(tmp_path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX no-follow lock custody is required")
+    root = tmp_path / "owner"
+    owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("test",))
+    external = tmp_path / "external"
+    external.write_text("untouched", encoding="utf-8")
+    (root / ".epistemic-mutation.lock").symlink_to(external)
+    with pytest.raises(EpistemicStateError, match="epistemic_mutation_lock_unavailable"):
+        with owner._mutation_lock():
+            pass
+    assert external.read_text(encoding="utf-8") == "untouched"
+
+    (root / ".epistemic-mutation.lock").unlink()
+    lock = root / ".epistemic-mutation.lock"
+    lock.write_bytes(b"")
+    lock.chmod(0o644)
+    with pytest.raises(EpistemicStateError, match="epistemic_mutation_lock_invalid"):
+        with owner._mutation_lock():
+            pass
+
+
+def test_private_directory_json_inventory_is_bounded(tmp_path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("POSIX descriptor inventory is required")
+    root = tmp_path / "records"
+    root.mkdir(mode=0o700)
+    (root / "one.json").write_text("{}", encoding="utf-8")
+    (root / "ignored.tmp").write_text("temporary", encoding="utf-8")
+    descriptor = open_private_directory(root, create=False)
+    try:
+        assert list_bounded_json_names_at(
+            descriptor, max_entries=1, max_directory_entries=2) == ("one.json",)
+        (root / "overflow.tmp").write_text("temporary", encoding="utf-8")
+        with pytest.raises(PrivateFileCustodyError, match="directory_entry_limit_exceeded"):
+            list_bounded_json_names_at(
+                descriptor, max_entries=1, max_directory_entries=2)
+        (root / "overflow.tmp").unlink()
+        (root / "two.json").write_text("{}", encoding="utf-8")
+        with pytest.raises(PrivateFileCustodyError, match="directory_file_count_limit_exceeded"):
+            list_bounded_json_names_at(
+                descriptor, max_entries=1, max_directory_entries=3)
+    finally:
+        import os
+        os.close(descriptor)

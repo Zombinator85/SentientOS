@@ -1,0 +1,35 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 173,
+  "source_commit": "205a84168a4128df5cfbbb36435970481e1e5343",
+  "source_tree": "c3e346bc429e228b186ca345adbb986ad08b6607",
+  "predecessor_segment_sha256": "54cd1eb808dec1d9377e8bb85e4ee53daa53e88c293a0b47d06772083146c76c",
+  "scope": "preserve task-probe relevance ordering through complete-suffix prompt-budget admission",
+  "changed_paths": ["sentientos/resident_developmental_cognition.py"],
+  "changed_blobs": {
+    "sentientos/resident_developmental_cognition.py": "40059644d837eb44af346ead9f70f8c2143dac8a"
+  },
+  "behavioral_checks": {
+    "passed": [
+      "tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_is_preserved_as_adverse_history",
+      "tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only",
+      "tests/test_resident_developmental_cognition.py::test_objective_staging_arguments_can_require_exact_task_family_history",
+      "tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant"
+    ],
+    "py_compile": "passed",
+    "git_diff_check": "passed",
+    "remote_tree_and_blob_readback": "passed",
+    "actual_model_behavior_measured": false,
+    "production_verification": false,
+    "performance_improvement_established": false
+  },
+  "design": {
+    "prompt_admission": "complete suffix of relevance-ascending order; suffix shrinkage keeps highest relevance",
+    "tie_breaker": "checkpoint recency",
+    "task_family_records_rank_above_unrelated_fillers": true,
+    "selection_drift_check": "retained",
+    "omission_and_selection_manifest_identity": "bound by sequence 172 protocol schema"
+  },
+  "next_dependency": "explicit saturated-budget adversarial coverage with competing positive and adverse task-family records and post-restart omission/progression lineage"
+}

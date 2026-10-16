@@ -1,0 +1,27 @@
+{
+  "sequence": 181,
+  "title": "Blinded external strategy transfer packet and scorer",
+  "status": "[untested] construction",
+  "starting_head": "1ad6d19af36f2aec7f37329f911614eb7bba1bde",
+  "starting_tree": "3e5f977f482ec95485d93b8df71bfe69caad944f",
+  "source_commit": "75656820765a24803d6b2f52e09d7efdb7bc6a40",
+  "source_tree": "8ba9abb56ddabdf2e1a3099dd2c930aff0328212",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"50c408607e8676af90d500c6e62aa928877bc7bd","sha256":"39d6de9ae0df55af89a3f01d17f5ab17bd6ded5f9c4f1b057668ef7c365b92cc"},
+    {"path":"scripts/build_codex_strategy_transfer_packet.py","blob":"aa61efb9e4385db64b93bb1581eefa6e4344bc23","sha256":"68459c0624c3b4b173390834523494a48b8aa4fa92ccab11320d161f27b8346c"},
+    {"path":"scripts/score_codex_strategy_transfer_packet.py","blob":"674dc4e8ccfe0c61ae58f4c6d9ea50391d935003","sha256":"c413aa0e5dabcc2377c9c6959ed243307ccc5a148a9c84ebb90ec5eff066949f"},
+    {"path":"tests/test_embodied_consequence.py","blob":"8804734d7f09990cd4dd963785c9c9adcbf702a4","sha256":"37e135fe44ea338ffdbafeb60f4a23d35cef5b9a9c2c3747f06a60c8e7c9976b"},
+    {"path":"work/experiments/operator_codex_strategy_transfer_v1.md","blob":"fca4efab7e44ac9ade81a43a3dcc5efea3b66360","sha256":"c03dccddbefa8417bf8f7b22a699da762cc35e3141b9006d2391462569cb2599"}
+  ],
+  "change":"Added a blinded three-condition external strategy recommendation packet and scorer over existing verified consequence history and canonical strategy evaluation; no execution authority is exposed.",
+  "validation": {
+    "focused_tests":"73 passed",
+    "staging_progression_restart":"4 passed",
+    "targeted_mypy":"CLI scripts passed; changed source section has no findings, pre-existing findings elsewhere remain",
+    "compileall":"passed",
+    "cli_help":"passed",
+    "diff_check":"passed"
+  },
+  "limitations":"Fixture-tested, not real-model-tested. Zero fresh Codex subject sessions. Broad cognition downstream writeback failure remains; strategy integration collection lacks cryptography. Operator-reported settings and external outputs are not authenticated inference receipts. No production effect or weight change is claimed.",
+  "remote_readback":{"branch_head":"75656820765a24803d6b2f52e09d7efdb7bc6a40","tree":"8ba9abb56ddabdf2e1a3099dd2c930aff0328212","tree_paths_and_blob_ids":"independently fetched and matched all five changed paths"}
+}

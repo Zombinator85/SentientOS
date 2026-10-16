@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,10 @@ def _iso_now() -> str:
 
 
 def _runtime_dir(repo_root: Path) -> Path:
+    configured = os.environ.get("SENTIENTOS_RUNTIME_STATE_ROOT")
+    if configured:
+        runtime_root = Path(configured)
+        return runtime_root if runtime_root.is_absolute() else repo_root / runtime_root
     return repo_root / "glow" / "runtime"
 
 

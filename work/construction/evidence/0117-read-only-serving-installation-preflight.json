@@ -1,0 +1,104 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "case_count": 19,
+    "failed": 0,
+    "fixture_backed_cognition": true,
+    "invocation_kind": "focused_pytest_exact_nodes",
+    "passed": 19,
+    "selected_node_ids": [
+      "tests/test_resident_objective_experiment_readiness.py::test_readiness_is_explicitly_preflight_only_and_does_not_mutate",
+      "tests/test_resident_objective_experiment_readiness.py::test_readiness_rejects_lfs_pointer_without_treating_it_as_payload",
+      "tests/test_resident_objective_experiment_readiness.py::test_readiness_cli_uses_only_explicit_paths_and_never_authorizes",
+      "tests/test_resident_objective_experiment_readiness.py::test_readiness_names_review_state_without_claiming_execution",
+      "tests/test_resident_objective_experiment_readiness.py::test_readiness_rejects_missing_configured_installation_root",
+      "tests/test_resident_objective_experiment_readiness.py::test_host_runtime_report_is_observational_and_does_not_infer_gpu_or_admission",
+      "tests/test_resident_objective_experiment_readiness.py::test_non_posix_runtime_is_not_mistaken_for_supported_experiment_custody",
+      "tests/test_resident_developmental_cognition.py::test_tick_n_admitted_developmental_writeback_is_durable_and_bounded",
+      "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
+      "tests/test_resident_developmental_cognition.py::test_same_model_history_intervention_uses_preregistered_objective_oracle",
+      "tests/test_resident_developmental_cognition.py::test_objective_request_digest_collision_and_no_history_are_terminal",
+      "tests/test_resident_developmental_cognition.py::test_same_model_probe_suite_partial_scores_reach_later_cognition",
+      "tests/test_resident_developmental_cognition.py::test_all_four_substrates_reach_ordinary_cognition_when_comparison_disabled",
+      "tests/test_resident_developmental_cognition.py::test_history_comparison_keeps_self_model_and_epistemic_bindings_constant"
+    ],
+    "skipped": 0
+  },
+  "boundaries": {
+    "authority_expanded": false,
+    "daemon_started": false,
+    "inference_admitted": false,
+    "model_loaded": false,
+    "production_verified": false,
+    "request_staged": false
+  },
+  "changed_files": {
+    "docs/development/resident_developmental_cognition.md": {
+      "bytes": 17313,
+      "git_blob": "3f874586fdfc36fbdcb836be5cfee5a3c179c31c",
+      "sha256": "ba4cbf4f5217c938d5bab91bc19ebdddb438ddab226cbefc4f1a08227243fe65"
+    },
+    "scripts/doctor_resident_objective_experiment.py": {
+      "bytes": 13005,
+      "git_blob": "bf73afa85bf98a51cb993e484791d8c4392ed9cb",
+      "sha256": "df95c1538b65f04c7562083c1a0ee41c2ccbb3cba0e48e114376dc28d5908c95"
+    },
+    "tests/test_resident_objective_experiment_readiness.py": {
+      "bytes": 9533,
+      "git_blob": "5543047db7007a19de9e09f9e15c662a0ebb35c6",
+      "sha256": "fda2e002b416db36493e478bd7f6d5ffa26f77fb9aa2034fd7ab4d0ee292f69b"
+    }
+  },
+  "host_observation": {
+    "cuda_status": "not_observed",
+    "filesystem_crash_durability": "not_observed",
+    "inference_admission": "not_observed",
+    "llama_cpp_package_available": false,
+    "machine": "x86_64",
+    "posix_custody_primitives": "available_filesystem_unverified",
+    "python": "CPython 3.12.14",
+    "serving_session": "not_observed",
+    "system": "Linux",
+    "wsl_indicated": false
+  },
+  "previous_segment_sha256": "df5ebc017f18c512ec071be2232134b7e68f47a6fd8b31a77a9181bf1a8e8f9e",
+  "publication": {
+    "expected_head": "e7fe68610bc9cc53948263f0360e9cac228f73ee",
+    "status": "not_yet_attempted"
+  },
+  "schema_version": 1,
+  "sequence": 117,
+  "sequence_116_remote_verification": {
+    "all_changed_blobs_read_back": true,
+    "commit": "e7fe68610bc9cc53948263f0360e9cac228f73ee",
+    "hosted_checks": {
+      "docs": "failure",
+      "helm_k8s_test": "success",
+      "invariants": "failure",
+      "self_check": "failure",
+      "source_validation": "success"
+    },
+    "hosted_failure_findings": {
+      "docs": "make docs / build_docs.py failed with same admin gate",
+      "invariants": "pytest collection internal error from admin-gated prompt_assembler import; SystemExit Access denied",
+      "self_check": "scripts.lock install failed; emitted CI baseline reported 52 failures"
+    },
+    "tree": "e3a7348ae05f757fdb96d1467a5437290fc95711"
+  },
+  "source_commit": "e7fe68610bc9cc53948263f0360e9cac228f73ee",
+  "source_owner_blob_ids": {
+    "docs/development/resident_developmental_cognition.md": "035bfe819afd49229acf6be26afd1022f5b1873a",
+    "scripts/doctor_resident_objective_experiment.py": "f1ea8105d26742db982061588d6136cca0eaab39",
+    "sentientos/installation_state.py": "036901ab88e7c5ab974866374f482e1c8262cde6",
+    "sentientos/resident_cognitive_model_serving.py": "1f589b185ed3ae3ef87aaf37e0d38a664602f7a0",
+    "tests/test_resident_objective_experiment_readiness.py": "688f0ebee137d1d43946f19a6602af4c926f6ff9"
+  },
+  "source_tree": "e3a7348ae05f757fdb96d1467a5437290fc95711",
+  "static_checks": {
+    "diff_check": "no whitespace errors",
+    "doctor_cli_help": "passed",
+    "mypy_command": "python -m mypy --follow-imports=silent scripts/doctor_resident_objective_experiment.py tests/test_resident_objective_experiment_readiness.py",
+    "mypy_status": "passed",
+    "py_compile_status": "passed"
+  }
+}

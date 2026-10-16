@@ -1,0 +1,21 @@
+{
+  "failed": 0,
+  "finding": "historical_interpretation claims now have temporal_scope=historical; N+1 projection preserves this alongside unknown freshness, source time digest, current_truth=false, interpretation=true, and false authority.",
+  "focused_modules": [
+    "tests/test_longitudinal_self_model.py",
+    "tests/test_self_model_cognitive_consumption.py"
+  ],
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 4557,
+    "path": "work/construction/evidence/0093-historical-temporal-scope-junit.xml",
+    "sha256": "287eb81e63e6b1f1b26a6a12dfc26bea74898f6a896d6206011f3227b8737572"
+  },
+  "passed": 29,
+  "python_compilation": "passed",
+  "sequence": 93,
+  "skipped": 0,
+  "source_baseline_commit": "fbb8cd504beebc8304c6f4da1d92e8238e07aed5",
+  "source_baseline_tree": "2295ebe2858e355ca6670e13f8e4e369c613446a",
+  "status": "construction_tested_unverified_for_production"
+}

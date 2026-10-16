@@ -1,0 +1,9 @@
+## 2026-10-13 checkpoint — bind bounded task relevance and admitted history before inference
+
+- Continued from remotely verified source commit `cabb61b31de94c50b5375e2eedee70cd2e099069`; published source commit `32c1291a481416b207a8f6947f3f959df8982970` (tree `615c8439fc9607690c4498b982ed9973d0421059`).
+- Task-family history selection now ranks matching records by exact overlap with the current public probe inputs, then checkpoint recency. Outcome correctness is not a selection filter, so positive and adverse historical outcomes remain eligible. Operator staging uses the same deterministic ranking.
+- Before protocol creation or inference, the owner applies the real bounded cognition binder to the complete eligible history. The protocol record IDs and digests identify the exact complete records admitted by that prompt budget. The full available set, omitted identities, omission reason, and selection manifest remain digest-bound in custody. Conditions deterministically repeat selection over the same eligible set; strict drift verification remains enabled.
+- Five affected tests passed, covering task-family staging, adverse history, progression, integrated history comparison, and family-example flow. Python compilation passed for all four changed Python files. `git diff --check` passed. Independent remote fetch confirmed source tree and all changed blob identities.
+- The integrated fixture reports `receipt_does_not_establish_backend_entry`; its assertion now reflects that source receipt posture. The test continues to require `learning_established` false. This does not establish real-model behavior or production readiness.
+
+Next: adversarially validate bounded selection under a saturated prompt with competing positive and adverse task-family records, including stable tie-breaking, omission evidence, and downstream outcome lineage.

@@ -14,7 +14,7 @@ Do not use this profile to authorize live memory writes, provider invocation, pr
 
 `AGENTS.md` remains the root operating law. This profile only summarizes recurring memory-chain expectations so future prompts can reference a stable profile instead of repeating the same paragraphs. If this profile and `AGENTS.md` conflict, `AGENTS.md` wins.
 
-The hot path is mandatory: bootstrap first; stop on blocked bootstrap artifacts; do not commit on `unknown_dirty_tree` or `manual_review_required`; do not treat focused tests as sufficient when matrix/governance validation is required; require `ready_to_commit` before commit; require `ready_for_pr_metadata` before PR metadata; require `pr_metadata_guard_ready` before `make_pr`.
+For work entering the normal landing lifecycle, the hot path is mandatory: bootstrap first; stop on blocked bootstrap artifacts; do not commit on `unknown_dirty_tree` or `manual_review_required`; do not treat focused tests as sufficient when matrix/governance validation is required; require `ready_to_commit` before commit; require `ready_for_pr_metadata` before PR metadata; require `pr_metadata_guard_ready` before `make_pr`. The explicitly authorized bounded construction exception in `AGENTS.md` can omit non-required bootstrap and landing steps for `[untested]` increments.
 
 ## Relationship to codex_whole_system_task_template.md
 
@@ -24,7 +24,7 @@ For explicit surgical repairs, use [`codex_narrow_repair_task_template.md`](code
 
 ## Required bootstrap posture
 
-Run the Codex task bootstrapper before implementation. Implement only from `ready` or `ready_with_warnings` bootstrap output. If bootstrap returns `blocked`, stop and report the blocker; blocked prompt/scaffold artifacts are diagnostic only and must not be used as implementation contracts.
+Run the Codex task bootstrapper when this profile requires the scaffold or normal landing lifecycle, and supply supported metadata including `--subsystem-kind`. Implement from `ready` or `ready_with_warnings` output only when bootstrap is required. The explicit construction exception in `AGENTS.md` may authorize a bounded `[untested]` construction task without imposing this scaffold or full landing lifecycle. If bootstrap is required and returns `blocked`, report the blocker and do not use its diagnostic artifact as an implementation contract.
 
 Use only the supported bootstrap CLI flags documented in [`codex_bootstrap_invocation_contract.md`](codex_bootstrap_invocation_contract.md). Unsupported bootstrap flags are invocation errors rather than ready/blocked bootstrap decisions; if argument parsing exits nonzero, stop, fix the invocation, and rerun bootstrap before implementation. For repair prompts, do not invent `--existing-module` or `--existing-cli`; use `--new-module` / `--new-cli` only when intentionally naming the path surface the scaffold should reason about, even if it already exists, or omit those flags and list delta-specific files in the prompt.
 

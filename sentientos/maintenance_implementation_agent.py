@@ -5,7 +5,8 @@ Git, publication, host actuation, runtime adoption, or repository mutation.
 """
 from __future__ import annotations
 
-import fcntl, hashlib, json, os
+from sentientos.platform_fcntl import fcntl
+import hashlib, json, os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence, cast

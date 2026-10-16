@@ -12,7 +12,6 @@ Outputs markdown by default.
 Example:
     python avatar_mood_recap.py --days 1 --out recap.md
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse

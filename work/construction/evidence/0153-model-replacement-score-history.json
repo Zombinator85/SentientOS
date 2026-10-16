@@ -1,0 +1,28 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 153,
+  "title": "model-replacement score provenance to admitted history",
+  "source_commit": "0c51ac677b4a3b077bc22a7d30cccedc7a870a1a",
+  "source_tree": "a35220fcc7d7462bfdac2b14233f53546e70f6cb",
+  "predecessor_sequence": 152,
+  "predecessor_source_commit": "755fc80847edd6140849fa2aef64a3a9903a6de6",
+  "changes": [
+    "Only uniformly verified v3 family-suite scores with matching task plan/task/evaluator and five exact score digests produce an objective score contract.",
+    "Resident writeback validates the contract's exact shape, digest syntax, score evaluation bindings, and prefixed canonical contract digest before retaining it.",
+    "Integrated test proves the admitted score contract reaches later historical writeback and is not current truth."
+  ],
+  "checks": {
+    "python_compile": "passed: sentientos/developmental_model_replacement_experiment.py, sentientos/resident_developmental_writeback.py, tests/test_resident_developmental_cognition.py",
+    "focused_test": {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-recon8-cost5-g SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-recon8-cost5-r SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-recon8-cost5-f SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-recon8-cost5-k PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-recon8-cost5-t PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-recon8-cost5-t/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "result": "1 passed in 78.83s",
+      "scope": "deterministic hermetic fixture; no live model invoked"
+    },
+    "encoding_review": "changed Python files decode as UTF-8, contain no NUL bytes, and have no trailing whitespace"
+  },
+  "evidence_scope": {
+    "established": "score lineage is projected and admitted as historical evidence through the tested fixture composition",
+    "not_established": ["real-model learning", "actual acquisition or transfer", "performance improvement", "production execution"]
+  },
+  "unverified_for_production": true
+}

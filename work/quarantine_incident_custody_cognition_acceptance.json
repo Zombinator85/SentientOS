@@ -1,0 +1,31 @@
+{
+  "status": "construction_fixture_verified_not_production_acceptance",
+  "scope": "active quarantine incident-reference reconciliation into World-State, resident cognition, later-tick history, and epistemic context",
+  "source_path": {
+    "owner": "sentientos.integrity_incident.inspect_quarantine_incident_custody",
+    "composition": "RuntimeMaintenanceSurfaces.build_world_state_board",
+    "consumers": [
+      "ResidentDevelopmentalCognitionOwner current evidence and durable history projection",
+      "ResidentEpistemicDevelopmentRuntime evidence adapter"
+    ]
+  },
+  "semantics": {
+    "historical_event_time": "active quarantine's validated activated_at retained as incident_activated_at",
+    "observation_time": "daemon tick carried independently as World-State observed_at",
+    "reconstruction": "read-only; does not repair, replay, or synthesize artifact/feed records",
+    "incomplete_identity_or_reference_change": "incomplete_identity or conflict, never complete",
+    "authority": "none; feed remains unauthenticated and no attack, hostile intent, compromise, or defensive consequence is established",
+    "epistemic_relation": "contextualizes with unknown_dependency and no independence basis"
+  },
+  "focused_results": {
+    "sentientosd_cognition_epistemic_world_state_modules": "97 passed, 8 skipped",
+    "compilation_changed_python_and_tests": "passed",
+    "git_diff_check": "passed"
+  },
+  "known_limits": [
+    "Local artifact/feed consistency does not authenticate the incident publisher or establish an attack.",
+    "Catalog publication is not part of this reconciliation projection.",
+    "The hermetic cognition test uses deterministic fixture invocation; it does not demonstrate model learning or defensive performance.",
+    "Construction work remains unverified for production."
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "sequence": 123,
+  "source_commit": "ffe0e6c80146b078165776e8050aae801c9e717e",
+  "source_tree": "7758097d99d3c727e1588fa6043a107d451d51b5",
+  "previous_segment_sha256": "5a2de258b14a5a9fe743e289764a6ebb51b9fea917ef8356dd49ff730ac40d66",
+  "source_finding": "completed objective runs were projected only from explicit startup-selected run references, so a one-shot run could not flow to later World-State without manually re-entering its identities",
+  "implementation": {
+    "read_only_completed_run_reference_inspection": true,
+    "fixed_state_file_only": true,
+    "bounded_references": 32,
+    "request_run_score_and_receipt_reverification": true,
+    "requires_actual_nonsynthetic_inference_posture": true,
+    "automatic_daemon_projection": true,
+    "subsequent_snapshot_only": true,
+    "uses_existing_world_state_projector": true,
+    "incomplete_run_policy": "exclude unless existing recovery has checkpointed complete scored run and exact digest",
+    "conflict_policy": "degraded projection; no identity substitution",
+    "effect_authority_added": false
+  },
+  "acceptance": {
+    "commands": [
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_sentientosd_runtime_closure.py",
+      "python -m py_compile sentientos/resident_developmental_cognition.py sentientosd.py tests/test_resident_developmental_cognition.py"
+    ],
+    "cognition_and_experiment_tests": {
+      "passed": 90,
+      "failed": 0
+    },
+    "daemon_runtime_closure_tests": {
+      "passed": 28,
+      "failed": 0
+    },
+    "python": "CPython 3.12 local isolated source workspace",
+    "fixture_scope": "receipt-verification and model responses used test doubles; no genuine model behavior established",
+    "new_regression": {
+      "later_projection_and_cognition_consumption": true,
+      "state_read_only_during_inspection": true,
+      "request_substitution_rejected": true
+    }
+  },
+  "typing": {
+    "command": ".venv/bin/mypy sentientos/resident_developmental_cognition.py sentientosd.py --follow-imports=silent",
+    "result": "failed_existing_owner_diagnostics",
+    "reported_existing_errors": 229,
+    "new_source_ranges_diagnostics": 0
+  },
+  "publication_limits": {
+    "git_diff_check": "unavailable_no_git_directory_in_isolated_workspace",
+    "production_verified": false,
+    "windows_verified": false,
+    "model_invoked": false
+  },
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 222211,
+      "sha256": "ef77364aaf570fc2a232a6e3677b8cbb2d7a7d0bc6914df04325b927d592568c",
+      "git_blob": "3bbc210ce726a45a29c416c9320abcbcf2d663f3"
+    },
+    "sentientosd.py": {
+      "bytes": 264877,
+      "sha256": "27e66bdda8eed5e7dfe040fa53dd5c687cc60edd940ff340e857850662b543b0",
+      "git_blob": "2b23d2c1fa2d6266a00a755e6166eeee732785f6"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 179470,
+      "sha256": "de30b13957d822fe0e2f3d5f7d76130616486c52330c4f8aed7e53a54c10ee7d",
+      "git_blob": "89bdf3f7f3b74221ab3c97505988b755c6d13e3f"
+    }
+  },
+  "external_boundaries": {
+    "actual_model_execution": false,
+    "windows_or_wsl_execution": false,
+    "production_inference": false,
+    "operator_authority_changed": false
+  }
+}

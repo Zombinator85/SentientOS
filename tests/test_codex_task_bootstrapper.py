@@ -18,6 +18,47 @@ def test_bootstrap_ready_and_metadata_only_boundaries() -> None:
     assert result.generated_prompt_text
 
 
+@pytest.mark.no_legacy_skip
+def test_bootstrap_missing_subsystem_is_actionable_scaffold_block_not_planner_or_authority_failure() -> None:
+    result = bootstrap_codex_task(CodexTaskBootstrapRequest(
+        task_name="Bootstrap reproduction",
+        task_goal="repair unprivileged CI evidence emission",
+    ))
+    assert result.status == "blocked"
+    assert result.blocker_codes == ("insufficient_required_metadata", "missing_subsystem_kind")
+    assert result.planner_result_summary["status"] == "ready"
+    assert result.planner_result_summary["blocker_codes"] == []
+    assert result.scaffold_result_summary["status"] == "codex_task_scaffold_insufficient_metadata"
+    assert result.scaffold_result_summary["blocker_codes"] == ["insufficient_required_metadata"]
+    assert result.scaffold_verifier_result_summary["status"] == "codex_task_scaffold_verifier_incomplete"
+    assert "scaffold_verifier_incomplete" not in result.warning_codes
+    assert result.artifact_classification == "diagnostic"
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    ("scope", "path", "goal"),
+    (
+        ("ci_workflow_maintenance", ".github/workflows/ci.yml", "Update the existing .github/workflows/ci.yml source-validation job"),
+        ("construction_custody_reconciliation", "work/construction/index.json", "Reconcile tracked work/construction/index.json custody"),
+        ("bootstrap_reliability_repair", "sentientos/codex_task_bootstrapper.py", "Repair narrow bootstrap metadata diagnostics"),
+    ),
+)
+def test_bootstrap_accepts_scoped_existing_file_maintenance(scope: str, path: str, goal: str) -> None:
+    result = bootstrap_codex_task(CodexTaskBootstrapRequest(
+        task_name="Existing file maintenance",
+        task_goal=goal,
+        subsystem_kind=scope,
+        existing_target_paths=(path,),
+    ))
+    assert result.status in {"ready", "ready_with_warnings"}
+    assert result.blocker_codes == ()
+    scaffold = result.generated_scaffold_json["scaffold"]
+    assert tuple(scaffold["expected_files"]) == ()
+    assert tuple(scaffold["existing_target_paths"]) == (path,)
+    assert "grant no execution or authority" in scaffold["generated_prompt"]
+
+
 def test_bootstrap_blocks_for_forbidden_authority_request() -> None:
     result = bootstrap_codex_task(
         CodexTaskBootstrapRequest(

@@ -1,0 +1,43 @@
+{
+  "schema_version": "sentientos.prospective_exact_node_acceptance:v1",
+  "status": "prospective_unexecuted",
+  "source_base_sha": "70e49a6534ad5ed2c4cb7e7107739701d0a0e247",
+  "task_scope": "Restore exact LF-framed reader compatibility with both canonical software-succession journal writers.",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_resident_transition_journal_reader_accepts_writer_lf_frames",
+      "rationale": "Canonical resident transition writer output remains readable."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_resident_transition_journal_reader_rejects_invalid_lf_framing[missing-final-lf]",
+      "rationale": "Torn final record without LF remains rejected."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_runtime_adoption.py::test_resident_transition_journal_reader_rejects_invalid_lf_framing[crlf]",
+      "rationale": "CRLF substitution remains noncanonical."
+    },
+    {
+      "node_id": "tests/test_maintenance_successor_generation_adoption.py::test_successor_handoff_journal_reader_accepts_writer_lf_frames",
+      "rationale": "Successor writer output remains readable and reconstructs N1."
+    },
+    {
+      "node_id": "tests/test_maintenance_successor_generation_adoption.py::test_successor_handoff_journal_reader_rejects_invalid_lf_framing[missing-final-lf]",
+      "rationale": "Torn final record without LF remains rejected."
+    },
+    {
+      "node_id": "tests/test_maintenance_successor_generation_adoption.py::test_successor_handoff_journal_reader_rejects_invalid_lf_framing[crlf]",
+      "rationale": "CRLF substitution remains noncanonical."
+    },
+    {
+      "node_id": "tests/test_maintenance_successor_generation_adoption.py::test_real_default_builder_hands_off_n0_to_n1_then_n1_to_n2",
+      "rationale": "Full two-generation positive acceptance is deferred."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_resident_runtime_adoption.py::test_resident_transition_journal_reader_accepts_writer_lf_frames",
+    "tests/test_maintenance_successor_generation_adoption.py::test_successor_handoff_journal_reader_accepts_writer_lf_frames",
+    "tests/test_maintenance_successor_generation_adoption.py::test_real_default_builder_hands_off_n0_to_n1_then_n1_to_n2"
+  ],
+  "execution_policy": "Do not execute nodes during construction; run only in later authorized acceptance.",
+  "production_status": "unverified"
+}

@@ -1,0 +1,37 @@
+{
+  "sequence": 179,
+  "title": "Codex experiment integrity and verified record discovery",
+  "status": "[untested] construction",
+  "starting_head": "5195beadb32a199ae362c248357c6d39d80fd576",
+  "starting_tree": "45f2f2b6928de5bedc9fe31ed0126bab509ac89e",
+  "source_commit": "a57f41d3a9d1ba54a28f7934fcb1e61a797924f1",
+  "source_tree": "ef9c552312f55d5f529c7886441e348405b5ffb9",
+  "source_paths": [
+    {"path": "sentientos/codex_transfer_packet.py", "blob": "f4c5612ae23ca17658420fc1ce16571e64df0ada", "sha256": "4ff45926d3a2257bafa77e99b0b76b7908171594fc8b8c810269b57415290adb"},
+    {"path": "scripts/build_codex_transfer_packet.py", "blob": "48d0c7a3d60f3608bd5f3a743d03a88265f44271", "sha256": "9693548d4412943a22d224ef8b8a736fed45c3640f445c11faad4238ad2b9200"},
+    {"path": "scripts/score_codex_transfer_packet.py", "blob": "73552d9f5b908e52f4646c539d45ff55a50f2b9c", "sha256": "eeb6882316dd33220e8709f80ffad2481679af14b554a27b6d54cbe5435ac16e"},
+    {"path": "scripts/list_codex_transfer_records.py", "blob": "a44fde7a28b7cd40037cf155acaa8d2ae9415ead", "sha256": "c49a08d2e05c6e00b4f7583a8fc7099da1408e6443397526416ed51a4a2a9d4f"},
+    {"path": "tests/test_codex_transfer_packet.py", "blob": "1e8d35120da088c2f966d8114fe3e056cbba74e5", "sha256": "689c9f1fe19f5a0721fd0ef62baa3fe3356e1dbed97d506736af906e1d0245ce"},
+    {"path": "work/experiments/operator_codex_transfer_v1.md", "blob": "fffc731c1c36ea0e0ac8380af8cea8e651f2d9a7", "sha256": "00fe556d2abc3ff77be85b148ffb2ed4ca58836d7c6cc582d56de8f2c44fe788"}
+  ],
+  "repair": [
+    "Align the exact subject JSON response contract with objective scoring and preserve distinct unscoreable/interrupted outcomes.",
+    "Use a bounded source-fact provenance projection and verify original admitted records through the configured read-only owner.",
+    "Reject adverse correctness labels that contradict the declared shared target mapping.",
+    "Bind scoring to exact packet digests, a separate preregistration artifact, the full five-condition set, salted task commitment, and answer-key/oracle correspondence.",
+    "Provide a privacy-bounded read-only inventory command for verified admitted history."
+  ],
+  "validation": {
+    "focused_bundle": "71 passed: packet/scorer, history intervention, writeback, strategy, and embodied consequence suites",
+    "staging_progression_restart": "4 passed: task-family staging, admitted history, progression, and restart reconstruction",
+    "mypy": "passed on 4 changed Python source files",
+    "compileall": "passed on changed Python and test files",
+    "cli_help": "history discovery, builder, and scorer entry points passed",
+    "diff_check": "passed",
+    "additional_findings": [
+      "A wider resident cognition run reproduces a separate downstream record rejection: developmental_history_execution_condition_invalid. This increment does not modify that validator.",
+      "The strategy resource-lineage integration suite could not collect because cryptography is absent from the available Python environment."
+    ]
+  },
+  "limitations": "No fresh Codex subject sessions, real-model inference, weight updates, provider calls, external result admission, or production effects occurred. Preregistration integrity still depends on operator-held independent archival/timestamp custody; file hashing alone is not independent custody. Construction is unverified for production."
+}

@@ -20,6 +20,7 @@ from sentientos import maintenance_local_codex_foreman as foreman
 from sentientos import maintenance_workspace_custody as custody
 from sentientos import maintenance_task_authority_lease as authority
 from sentientos import maintenance_validation_controller as validation
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 MANIFEST_SCHEMA = "sentientos.maintenance_activation_profile_manifest:v1"
 BACKEND_MANIFEST_SCHEMA = "sentientos.maintenance_activation_profile_manifest:v2"
@@ -63,10 +64,13 @@ def digest(value: Any, omitted: str | None = None) -> str:
 
 
 def _load(path: str | Path) -> dict[str, Any]:
-    p = Path(path)
-    if p.is_symlink() or not p.is_file():
-        raise ValueError("profile_input_not_regular")
-    return cast(dict[str, Any], json.loads(p.read_text(encoding="utf-8")))
+    try:
+        value = json.loads(read_explicit_file(Path(path), max_bytes=1_048_576).decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("profile_input_not_regular") from exc
+    if not isinstance(value, dict):
+        raise ValueError("profile_input_not_object")
+    return cast(dict[str, Any], value)
 
 
 def _timestamp(value: Any) -> datetime:

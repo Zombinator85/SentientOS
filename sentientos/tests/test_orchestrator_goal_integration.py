@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from sentientos.local_model_authority import digest_payload
 from sentientos.orchestrator import OrchestratorConfig, tick
 
 
@@ -76,3 +77,41 @@ def test_tick_emits_goal_allocation_artifact_and_trace(tmp_path: Path) -> None:
     assert isinstance(index_payload["last_selected_goals"], list)
     assert isinstance(index_payload["last_deferred_goal_count"], int)
     assert isinstance(index_payload["goal_graph_hash"], str)
+
+
+def test_tick_binds_read_only_target_model_observation_to_plan(tmp_path: Path) -> None:
+    _seed_repo(tmp_path)
+
+    class Observer:
+        calls = 0
+        identity = {"provider": "fixture", "model": "orchestrator-target"}
+
+        def observed_current_model_identity(self):
+            self.calls += 1
+            return dict(self.identity)
+
+        def invoke(self, *args, **kwargs):
+            raise AssertionError("planning must not invoke the model")
+
+        def current_session(self, *args, **kwargs):
+            raise AssertionError("planning must not acquire a serving session")
+
+    observer = Observer()
+    result = tick(tmp_path,
+        config=OrchestratorConfig(True, 300, False, False, False, False, False),
+        target_model_identity_observer=observer)
+
+    assert observer.calls == 1
+    report = json.loads((tmp_path / result.tick_report_path).read_text(encoding="utf-8"))
+    allocation_path = report["goal_allocation"]["artifact_path"]
+    allocation = json.loads((tmp_path / allocation_path).read_text(encoding="utf-8"))
+    expected_digest = "sha256:" + digest_payload(observer.identity)
+    assert allocation["target_active_model_identity_digest"] == expected_digest
+    assert allocation["target_identity_observed_at"] == allocation["generated_at"]
+
+    plans = list((tmp_path / "glow/forge/work_plans").glob("plan_*.json"))
+    assert plans
+    plan = json.loads(plans[-1].read_text(encoding="utf-8"))
+    assert f"target_model_identity_digest={expected_digest}" in plan["context"]
+    assert ("target_identity_observed_at="
+        + allocation["target_identity_observed_at"]) in plan["context"]

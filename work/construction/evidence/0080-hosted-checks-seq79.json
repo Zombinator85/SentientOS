@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "conclusion": "success",
+      "name": "Source validation (unprivileged)",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "name": "helm-k8s-test",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "name": "invariants",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "name": "self-check",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "name": "docs",
+      "status": "completed"
+    }
+  ],
+  "commit": "7db78f57635aff2acdd06f808d4ca36ba5e0538d",
+  "production_acceptance_claimed": false,
+  "source_validation_means_collection/source_validation_only": true
+}

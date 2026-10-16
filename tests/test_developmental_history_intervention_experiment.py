@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,6 +12,9 @@ from sentientos.developmental_history_intervention_experiment import (
     make_protocol, summarize, verify_protocol,
 )
 from sentientos.local_model_authority import digest_payload
+from sentientos.resident_developmental_cognition import (
+    ResidentCognitionObservation, ResidentDevelopmentalCognitionError,
+)
 from tests.test_resident_developmental_cognition import FakeInvoker, owner, snapshot
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -40,8 +43,34 @@ def test_protocol_is_deterministic_preregistered_and_tamper_detecting(tmp_path: 
 
 def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
     def observation(condition: str, output: str, records: tuple[str, ...]):
-        return SimpleNamespace(condition_id=condition, observation_id=condition,
-            observation_digest="sha256:" + condition, output_digest=output, retrieved_record_ids=records)
+        present = bool(records)
+        item = ResidentCognitionObservation(
+            observation_id="", observation_digest="", condition_id=condition,
+            tick_id="tick-n-plus-one", correlation_id="experiment:tick-n-plus-one",
+            model_id="model-a", model_artifact_digest="sha256:model",
+            request_id="request-" + condition, request_digest="sha256:request:" + condition,
+            inference_receipt_id="receipt-" + condition,
+            inference_receipt_digest="sha256:receipt:" + condition,
+            output_digest=digest_payload({"output": output}),
+            authority_map_digest="sha256:authority", active_model_identity={"model": "model-a"},
+            generation_config={"temperature": 0}, current_snapshot_id="snapshot",
+            current_snapshot_digest="sha256:snapshot", current_projection_id="projection",
+            current_projection_digest="sha256:projection", current_fact_ids=("fact",),
+            retrieved_record_ids=records,
+            retrieved_record_digests=(("sha256:record",) if present else ()),
+            developmental_projection_present=present,
+            self_model_projection_present=False, epistemic_projection_present=False,
+            schema_version="sentientos.resident_cognition_observation:v5",
+        )
+        semantic = asdict(item)
+        semantic.pop("observation_id"); semantic.pop("observation_digest")
+        semantic.pop("developmental_history_selection")
+        for field in ("resource_allocation_digest", "resource_attempt_id",
+                "resource_consumption_receipt_digests", "resource_linkage_digest"):
+            semantic.pop(field)
+        digest = "sha256:" + digest_payload(semantic)
+        return replace(item, observation_id="devcog-" + digest[7:31], observation_digest=digest)
+
     stable = summarize(protocol(), [observation("history_present", "a", ("record",)),
         observation("history_withheld", "b", ()), observation("history_restored", "a", ("record",))])
     assert stable["classification"] == "history_presence_associated_stable_difference"
@@ -49,6 +78,51 @@ def test_stable_difference_and_no_difference_are_bounded_descriptions() -> None:
     same = summarize(protocol(), [observation("history_present", "a", ("record",)),
         observation("history_withheld", "a", ()), observation("history_restored", "a", ("record",))])
     assert same["classification"] == "no_observable_history_difference"
+
+
+def test_v2_comparison_rejects_unbound_observations_and_digest_rebinding() -> None:
+    lightweight = lambda condition, records: SimpleNamespace(
+        condition_id=condition, observation_id=condition,
+        observation_digest="sha256:" + condition, output_digest="same",
+        retrieved_record_ids=records)
+    with pytest.raises(DevelopmentalHistoryInterventionError, match="observation_identity_unbound"):
+        summarize(protocol(), [lightweight("history_present", ("record",)),
+            lightweight("history_withheld", ()), lightweight("history_restored", ("record",))])
+
+    def bound(condition: str, output: str, records: tuple[str, ...]):
+        present = bool(records)
+        item = ResidentCognitionObservation(
+            observation_id="", observation_digest="", condition_id=condition,
+            tick_id="tick-n-plus-one", correlation_id="experiment:tick-n-plus-one",
+            model_id="model-a", model_artifact_digest="sha256:model",
+            request_id="request-" + condition, request_digest="sha256:request:" + condition,
+            inference_receipt_id="receipt-" + condition,
+            inference_receipt_digest="sha256:receipt:" + condition,
+            output_digest=digest_payload({"output": output}), authority_map_digest="sha256:authority",
+            active_model_identity={"model": "model-a"}, generation_config={"temperature": 0},
+            current_snapshot_id="snapshot", current_snapshot_digest="sha256:snapshot",
+            current_projection_id="projection", current_projection_digest="sha256:projection",
+            current_fact_ids=("fact",), retrieved_record_ids=records,
+            retrieved_record_digests=(("sha256:record",) if present else ()),
+            developmental_projection_present=present)
+        semantic = asdict(item); semantic.pop("observation_id"); semantic.pop("observation_digest")
+        digest = "sha256:" + digest_payload(semantic)
+        return replace(item, observation_id="devcog-" + digest[7:31], observation_digest=digest)
+
+    observations = [bound("history_present", "a", ("record",)),
+        bound("history_withheld", "b", ()), bound("history_restored", "a", ("record",))]
+    observations[0] = replace(observations[0], output_digest=digest_payload({"output": "tampered"}))
+    with pytest.raises(DevelopmentalHistoryInterventionError, match="observation_identity_mismatch"):
+        summarize(protocol(), observations)
+
+
+def test_run_recovery_rejects_self_consistent_but_unbound_controlled_claim(tmp_path: Path) -> None:
+    store = DevelopmentalExperimentStore(tmp_path)
+    run_id = store.persist_run({"protocol": {"protocol_id": "missing"},
+        "conditions": [], "summary": {}, "validity": "valid_controlled_observation",
+        "contamination_reasons": []})
+    with pytest.raises(DevelopmentalHistoryInterventionError, match="run_artifact_control_invalid"):
+        store.load_run(run_id)
 
 
 def test_actual_current_evidence_is_bounded_and_independent_of_writeback_dedup(tmp_path: Path) -> None:
@@ -78,15 +152,78 @@ def test_formal_run_preregisters_then_withholds_without_mutating_and_restores_ex
     assert record_path.read_bytes() == before
     run = json.loads((composition.experiments.runs / f"{result.changed_cognition_measurement_id}.json").read_text())
     assert run["validity"] == "valid_controlled_observation"
+    recovered_run = composition.experiments.load_run(result.changed_cognition_measurement_id)
+    assert recovered_run == run
     assert run["protocol"]["record_digests"] == calls[2].upstream_evidence["record_digests"]
     assert not list((tmp_path / "history" / "records").glob("*withheld*"))
+
+
+def test_interrupted_history_intervention_recovers_incomplete_without_replaying(tmp_path: Path) -> None:
+    first, _ = owner(tmp_path)
+    retained_record_id = first.run_tick(snapshot=snapshot(), tick_id="tick-n").written_record_id
+    assert retained_record_id
+
+    class InterruptOnWithheldCondition(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt):
+            if (request.purpose == "resident_developmental_history_intervention_experiment"
+                    and request.linkage.get("condition_id") == "history_withheld"):
+                raise KeyboardInterrupt("fixture_interrupted_between_history_conditions")
+            return super().invoke(request, persist=persist,
+                                  include_output_in_receipt=include_output_in_receipt)
+
+    interrupted, _ = owner(tmp_path, comparison=True,
+                           invoker=InterruptOnWithheldCondition())
+    with pytest.raises(KeyboardInterrupt,
+                       match="fixture_interrupted_between_history_conditions"):
+        interrupted.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
+
+    protocols = list(interrupted.experiments.protocols.glob("*.json"))
+    assert len(protocols) == 1
+    protocol_id = protocols[0].stem
+    recovered_protocol = interrupted.experiments.load_protocol(protocol_id)
+    assert recovered_protocol.record_ids == (retained_record_id,)
+    assert len(list(interrupted.experiments.runs.glob("*.json"))) == 0
+
+    interrupted_rows = [row for row in interrupted._recover_observation_ticks(
+        include_records=True).values() if row.get("tick_id") == "tick-n-plus-one"]
+    assert [row["condition_id"] for row in interrupted_rows] == ["history_present"]
+    assert interrupted_rows[0]["retrieved_record_ids"] == [retained_record_id]
+    assert interrupted._state()["incomplete_ticks"] == [{
+        "tick_id": "tick-n-plus-one", "snapshot_id": snapshot(2).snapshot_id,
+        "snapshot_digest": snapshot(2).digest, "status": "interrupted_recovered"}]
+
+    restarted, replay_invoker = owner(tmp_path, comparison=True)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+                       match="tick_already_completed"):
+        restarted.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
+    assert replay_invoker.requests == []
+    assert [row["condition_id"] for row in restarted._recover_observation_ticks(
+        include_records=True).values() if row.get("tick_id") == "tick-n-plus-one"] == [
+            "history_present"]
+    assert len(list(restarted.experiments.runs.glob("*.json"))) == 0
+
+    # The failed tick remains incomplete without preventing new later-tick
+    # cognition over the retained history. This is a new protocol identity,
+    # not a replay or completion claim for the interrupted experiment.
+    later = restarted.run_tick(snapshot=snapshot(3), tick_id="tick-n-plus-two")
+    assert later.status == "completed"
+    assert later.prior_record_ids == (retained_record_id,)
+    assert [request.linkage.get("condition_id") for request in replay_invoker.requests
+            if request.purpose == "resident_developmental_history_intervention_experiment"
+            and request.linkage.get("condition_id")] == [
+                "history_present", "history_withheld", "history_restored"]
+    assert later.changed_cognition_measurement_id is not None
+    recovered_run = restarted.experiments.load_run(later.changed_cognition_measurement_id)
+    assert recovered_run["validity"] == "valid_controlled_observation"
+    assert any(row.get("tick_id") == "tick-n-plus-one"
+               for row in restarted._state()["incomplete_ticks"])
 
 
 def test_missing_record_is_not_deliberate_withholding(tmp_path: Path) -> None:
     first, _ = owner(tmp_path); first.run_tick(snapshot=snapshot(), tick_id="tick-n")
     next((tmp_path / "history" / "records").glob("*.json")).unlink()
     composition, _ = owner(tmp_path, comparison=True)
-    with pytest.raises(Exception, match="record_missing_or_corrupt"):
+    with pytest.raises(Exception, match="developmental_history_recovery_failed"):
         composition.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
 
 
@@ -112,3 +249,48 @@ def test_active_model_drift_invalidates_before_later_condition(tmp_path: Path) -
         composition.run_tick(snapshot=snapshot(2), tick_id="tick-n-plus-one")
     assert list(composition.experiments.protocols.glob("*.json"))
     assert len(list(composition.experiments.runs.glob("*.json"))) == 0
+
+
+def test_experiment_artifact_publication_is_private_and_immutable(tmp_path: Path) -> None:
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("descriptor-relative experiment publication requires POSIX")
+    experiment_store = DevelopmentalExperimentStore(tmp_path)
+    path = experiment_store.protocols / "devexp-protocol-000000000000000000000000.json"
+    payload = {"bounded": "protocol"}
+    experiment_store._write_immutable(path, payload)
+    metadata = path.stat()
+    assert stat.S_ISREG(metadata.st_mode)
+    assert metadata.st_uid == os.geteuid()
+    assert metadata.st_mode & 0o077 == 0
+    assert experiment_store._read_json(path) == payload
+    experiment_store._write_immutable(path, payload)
+    with pytest.raises(DevelopmentalHistoryInterventionError, match="artifact_identity_collision"):
+        experiment_store._write_immutable(path, {"bounded": "substitution"})
+
+
+def test_experiment_artifact_publication_rejects_symlinked_owner_root(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        pytest.skip("no-follow experiment publication requires POSIX")
+    target = tmp_path / "external"
+    target.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(target, target_is_directory=True)
+    experiment_store = DevelopmentalExperimentStore(alias)
+    path = experiment_store.protocols / "devexp-protocol-000000000000000000000000.json"
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+                       match="experiment_artifact_custody_invalid|experiment_artifact_publication_failed"):
+        experiment_store._write_immutable(path, {"bounded": "protocol"})
+    assert list(target.iterdir()) == []
+
+
+def test_experiment_store_rejects_canonical_memory_subtree() -> None:
+    from sentientos.canonical_memory import sentientos_memory_dir
+
+    with pytest.raises(DevelopmentalHistoryInterventionError,
+                       match="experiment_root_overlaps_canonical_memory"):
+        DevelopmentalExperimentStore(sentientos_memory_dir())

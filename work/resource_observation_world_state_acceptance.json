@@ -1,0 +1,49 @@
+{
+  "checks": {
+    "git_diff_check": "passed",
+    "individual_integration_result": "1 passed",
+    "pytest_command": "uv run --offline --no-project --with pytest==8.4.2 pytest -q sentientos/tests/test_forge_observatory.py sentientos/tests/test_forge_index_quarantine_linkage.py sentientos/tests/test_forge_index_remediation_custody.py sentientos/tests/test_remediation_run_custody.py sentientos/tests/test_remediation_pack.py sentientos/tests/test_resource_observation_world_state_integration.py",
+    "pytest_result": "40 passed",
+    "python_compileall": "passed for the three changed Python files"
+  },
+  "findings": [
+    {
+      "defect": "The observer deleted its validated issuer catalog and revocation registry before using them in RootIssuerProvenanceVerifier and PrincipalCurrentnessVerifier, raising UnboundLocalError on every otherwise-valid bundle.",
+      "path": "sentientos/production_chat_resource_observation.py",
+      "repair": "Retain the validated immutable read-only views through both checks; no mutation or allocation API is added."
+    },
+    {
+      "defect": "An installation with no chat runtime observation yet has a missing fixed parent directory; the optional read surfaced state_parent_missing as an invalid runtime observation.",
+      "path": "sentientos/chat_process_generation.py",
+      "repair": "Treat only state_parent_missing as genuine optional absence; unsafe parent traversal, malformed data, and other read failures still fail closed."
+    }
+  ],
+  "limitations": [
+    "This fixture proves source-level composition through real owners using a temporary test installation; it does not prove a separate production process or deployment is running.",
+    "No local model inference, external provider, physical measurement, or effect was performed.",
+    "Windows runtime custody was not exercised."
+  ],
+  "positive_control": {
+    "observed": [
+      "A genuine temporary installation-state bundle was produced by the existing producer owner.",
+      "The actual read-only ProductionChatResourceObservationOwner was injected into RuntimeMaintenanceSurfaces.",
+      "The actual World-State builder projected exact installation, provisioning, manifest, and allocation identities.",
+      "Missing invocation and consumption records remained zero; shared host usage stayed unknown; effect flags stayed false.",
+      "The source ledger bytes were unchanged by read-only observation and projection."
+    ],
+    "result": "passed",
+    "test": "sentientos/tests/test_resource_observation_world_state_integration.py::test_explicit_read_only_resource_owner_reaches_runtime_world_state"
+  },
+  "schema_version": 1,
+  "scope": "repair the configured installation observer so verified resource custody reaches the resident World-State board",
+  "source_parent": {
+    "commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7",
+    "tree": "3aa226608c66b192715f1e16284b01ba503f0395"
+  },
+  "source_sha256": {
+    "sentientos/chat_process_generation.py": "783b0065ac8f12d0aac05ab437f31910676dac3a42b567bda78bf7af8554f6a1",
+    "sentientos/production_chat_resource_observation.py": "63bddf35bd8680e6a321f9288a0730b40320a157328e0d91bd9ccfe8e40c9ce1",
+    "sentientos/tests/test_resource_observation_world_state_integration.py": "ccd13519b8985bca9fd96e7319d7fe5da6f9e7f9613c1e5ea66e01f8be6f8f57"
+  },
+  "status": "focused_installed_fixture_acceptance_passed; production_unverified"
+}

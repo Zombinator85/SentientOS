@@ -1,0 +1,44 @@
+{
+  "schema_version": "sentientos.prospective_acceptance_manifest:v1",
+  "task": "fail-closed quarantine custody and defensive consumer gate",
+  "source_checkpoint": "dc8b2d4871446604182b38ed02fed733be5042b3",
+  "source_tree": "e7f43d4a2f3f3ca95edf46665c1f98564cba45f6",
+  "status": "executed_hermetic_unverified_for_production",
+  "pytest_command": "/tmp/sentientos-test-venv/bin/python -m pytest -q -m legacy tests/test_integrity_quarantine_custody.py sentientos/tests/test_integrity_quarantine.py sentientos/tests/test_integrity_controller.py sentientos/tests/test_quarantine_remediation.py tests/test_forge_queue_daemon.py",
+  "result": {
+    "passed": 49,
+    "failed": 0,
+    "skipped": 0,
+    "environment": "local-dev-relaxed with disposable governor, federation, control-plane, pulse-trust, data, and log roots"
+  },
+  "test_nodes": [
+    "tests/test_integrity_quarantine_custody.py::test_first_use_and_historical_v1_mode_are_distinct_and_readable",
+    "tests/test_integrity_quarantine_custody.py::test_malformed_custody_is_not_defaulted",
+    "tests/test_integrity_quarantine_custody.py::test_semantically_invalid_v1_fields_are_rejected",
+    "tests/test_integrity_quarantine_custody.py::test_oversized_wrong_type_hardlinked_and_permission_unsafe_files_fail_closed",
+    "tests/test_integrity_quarantine_custody.py::test_symlink_directory_fifo_and_substituted_root_are_rejected",
+    "tests/test_integrity_quarantine_custody.py::test_unstable_read_is_rejected",
+    "tests/test_integrity_quarantine_custody.py::test_atomic_publication_and_clear_round_trip",
+    "tests/test_integrity_quarantine_custody.py::test_acknowledgment_preserves_active_protective_state",
+    "tests/test_integrity_quarantine_custody.py::test_clear_cannot_repair_or_overwrite_damaged_active_evidence",
+    "tests/test_integrity_quarantine_custody.py::test_save_cannot_repair_or_overwrite_invalid_existing_evidence",
+    "tests/test_integrity_quarantine_custody.py::test_failed_publication_before_replace_preserves_active_state",
+    "tests/test_integrity_quarantine_custody.py::test_directory_fsync_uncertainty_is_reported_without_retry",
+    "tests/test_integrity_quarantine_custody.py::test_controller_reports_unknown_custody_and_denies_all_mutation",
+    "tests/test_integrity_quarantine_custody.py::test_controller_does_not_resolve_away_a_substituted_repository_root",
+    "tests/test_integrity_quarantine_custody.py::test_enabled_forge_is_stopped_before_effector_on_invalid_custody",
+    "tests/test_integrity_quarantine_custody.py::test_first_use_does_not_block_independently_allowed_forge_work",
+    "tests/test_integrity_quarantine_custody.py::test_valid_inactive_state_does_not_block_independently_allowed_forge_work",
+    "sentientos/tests/test_integrity_quarantine.py::test_quarantine_clear_requires_then_passes",
+    "sentientos/tests/test_quarantine_remediation.py::test_quarantine_clear_succeeds_with_completed_run",
+    "tests/test_forge_queue_daemon.py::test_daemon_writes_receipt_with_report_path"
+  ],
+  "claims_not_established": [
+    "production runtime behavior",
+    "protection against malicious deletion of all custody history",
+    "protection against valid-looking forgery by a trusted state writer",
+    "protection against trusted-host compromise or rollback without an independent historical anchor",
+    "Windows runtime behavior",
+    "independent production acceptance"
+  ]
+}

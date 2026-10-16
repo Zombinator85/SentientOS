@@ -1,0 +1,22 @@
+{
+  "schema_version": "sentientos.integrity_verification_budget_acceptance:v1",
+  "verified_parent_commit": "66290c7437e25e59d47c25798b9ae4bbd3c97fed",
+  "verified_parent_tree": "6833d26d438f7bee00c98419a611e9480ade5b16",
+  "status": "focused_hermetic_checks_passed_unverified_for_production",
+  "owner": "sentientos.integrity_controller._verification_budgeted_gates",
+  "behavior": "dry-run activation selection precedes actual execution; over-budget gates are reported skipped without invoking their verifier",
+  "test": {
+    "command": "/tmp/sentientos-test-venv/bin/python -m pytest sentientos/tests/test_integrity_controller.py -q --tb=short",
+    "result": "4 passed",
+    "coverage": [
+      "only the selected signature gate receives dry_run=False",
+      "over-budget active gates remain explicit skipped_budget_exhausted results",
+      "deterministic status hash positive control",
+      "corrupt enabled snapshot index still fails closed"
+    ]
+  },
+  "limitations": [
+    "The scheduler test stubs gate functions solely to verify execution budgeting; it does not claim signature verification performance or production behavior.",
+    "No full-system audit, production validation, or external issuer was exercised."
+  ]
+}

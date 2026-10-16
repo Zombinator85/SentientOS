@@ -73,6 +73,20 @@ def test_ready_scaffold_includes_pr_metadata_guard_sequence() -> None:
 
 
 @pytest.mark.no_legacy_skip
+def test_whole_system_scaffold_states_construction_exception_without_weakening_blocked_hard_stop() -> None:
+    result = build_codex_task_scaffold(CodexTaskScaffoldRequest(
+        task_name="bounded construction repair",
+        task_goal="Repair a local workflow diagnostic",
+        subsystem_kind="developer_workflow_metadata",
+    ))
+    prompt = result.scaffold.generated_prompt
+    assert "For tasks under the normal landing lifecycle" in prompt
+    assert "Construction exception" in prompt and "AGENTS.md permits" in prompt
+    assert "does not authorize using a blocked bootstrap artifact as a contract" in prompt
+    assert "If bootstrap status is blocked, stop" in prompt
+
+
+@pytest.mark.no_legacy_skip
 def test_metadata_verification_scaffold_declares_capability_fixture_root() -> None:
     result = build_codex_task_scaffold(
         CodexTaskScaffoldRequest(

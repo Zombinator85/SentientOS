@@ -1,0 +1,9 @@
+# Sequence 251 - Evaluated task-family outcomes enter persistent epistemics
+
+The verified developmental experiment store now exposes a narrow conversion from a recovered, digest-matched, three-condition task-family result to an epistemic evidence binding. It accepts only the owner-reconstructed protocol, condition observations, objective score checkpoints, and recomputed preregistered evaluation. An incomplete score suite, missing event time, wrong run digest, or non-family task cannot be promoted by this adapter.
+
+The binding records the verified run identity and digest, classifies the present-versus-withheld correctness delta as supporting, contradicting, or contextualizing, and retains the condition event-time boundary. It marks dependency and freshness unknown and identifies the deterministic evaluator as a bounded task-family experiment rather than an external observation. The exercised outcome was append-only committed to the persistent epistemic owner and survived fresh owner reconstruction with unresolved dependency and all authority flags false.
+
+Validation: the affected developmental cognition, history intervention, and epistemic development suites passed (127 tests) with governor/runtime state redirected to temporary writable roots. Changed Python sources compiled and `git diff --check` passed. The initial attempt without the required temporary governor root hit the read-only `/glow` fixture environment; the rerun with isolated roots passed.
+
+Limits: the tested outcome is from a deterministic fixture evaluator and does not establish general learning, deployed model improvement, external truth, or independent evidence. The source path for actually ledger-backed resource comparison and durable recommendation recovery remains open. D1-D8 still needs the admitted runtime mutation controller and a later cognition/causal-introspection consumer connected to this correction.

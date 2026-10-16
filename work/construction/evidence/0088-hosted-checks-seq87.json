@@ -1,0 +1,55 @@
+{
+  "checks": [
+    {
+      "conclusion": "success",
+      "job_id": 115066256956,
+      "name": "Source validation (unprivileged)",
+      "run_id": 38326492144,
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "job_id": 115066256858,
+      "name": "helm-k8s-test",
+      "run_id": 38326492144,
+      "status": "completed"
+    },
+    {
+      "cause": "protected prompt_assembler administrator gate during pytest collection",
+      "conclusion": "failure",
+      "failed_steps": [
+        "Run invariant tests",
+        "Analyze test provenance trends",
+        "Analyze router telemetry trends"
+      ],
+      "job_id": 115066256096,
+      "name": "invariants",
+      "run_id": 38326492096,
+      "status": "completed"
+    },
+    {
+      "cause": "CI runner /glow permission, missing sentientos import, protected Forge CI authorization",
+      "conclusion": "failure",
+      "failed_steps": [
+        "Run python -m scripts.lock install"
+      ],
+      "job_id": 115066256830,
+      "name": "self-check",
+      "run_id": 38326492144,
+      "status": "completed"
+    },
+    {
+      "cause": "scripts/build_docs.py administrator/Lumos approval gate",
+      "conclusion": "failure",
+      "failed_steps": [
+        "Run make docs"
+      ],
+      "job_id": 115066256792,
+      "name": "docs",
+      "run_id": 38326492144,
+      "status": "completed"
+    }
+  ],
+  "commit": "331629c98b4ef560a2a570320712e7e511a6a13d",
+  "tree": "38c4829faae1b55b3d0dc8035d5bd57585efd982"
+}

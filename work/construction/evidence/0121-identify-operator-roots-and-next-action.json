@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "sequence": 121,
+  "source_commit": "b0964c791a050e106952361f08f83fabafa029e6",
+  "source_tree": "b041495528d6ba4ffe88b2c3b4ae63175041cbd7",
+  "previous_segment_sha256": "88fa986338a81a4267ca93990bd9862904c1cb28ffda7edf01bb80990b01d528",
+  "change": {
+    "configured_cognition_roots_reported": true,
+    "identity_derived_installation_state_root_reported": true,
+    "failed_expected_root_labeled_unverified": true,
+    "next_operator_actions_bounded": true,
+    "trial_execution_ready": false
+  },
+  "acceptance": {
+    "command": ".venv/bin/python -m pytest -q tests/test_resident_objective_experiment_readiness.py tests/test_resident_developmental_cognition.py::test_readiness_accepts_history_after_actual_owner_admission_recovery_check",
+    "cases": 10,
+    "passed": 10,
+    "failed": 0,
+    "fixture_backed_history": true,
+    "actual_local_model_behavior": false
+  },
+  "static_checks": {
+    "py_compile": "passed",
+    "targeted_mypy": "passed",
+    "changed_file_trailing_whitespace": "none"
+  },
+  "hosted_checks_for_b0964c7": {
+    "source_validation": "success",
+    "helm_k8s_test": "success",
+    "invariants": "failure: pytest collection SystemExit from protected administrator gate in prompt_assembler",
+    "docs": "failure: make docs hits protected administrator gate",
+    "self_check": "failure: scripts.lock install failed; emitted CI baseline reported 52 failures"
+  },
+  "boundaries": {
+    "daemon_started": false,
+    "model_loaded": false,
+    "request_staged": false,
+    "inference_admitted": false,
+    "authority_expanded": false,
+    "production_verified": false
+  },
+  "changed_files": {
+    "scripts/doctor_resident_objective_experiment.py": {
+      "bytes": 17255,
+      "sha256": "fdf0a0c90ab1a36cb4990eb737a1592ba5de1d0cf2cc01cfdc56a24f9d3b9336",
+      "git_blob": "50a9d0af31e436eeea7783d7536129a6b24f62f8"
+    },
+    "tests/test_resident_objective_experiment_readiness.py": {
+      "bytes": 13504,
+      "sha256": "f1b9749b50236d280139b58d455a538f785c69a3b10d375417334537480d58ba",
+      "git_blob": "b2d94e7e19262ed3b39b04ec866b9daa64a07317"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 174419,
+      "sha256": "d2653ab13d52113aa3cc70a5e8d816fa684fc37f42e309ac7414423d941e5faf",
+      "git_blob": "c1d9b55154b098f75fe05674c10da61764931af2"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "bytes": 18239,
+      "sha256": "0514daeefe969ee6517929d3fe94a08ac609c540a0a046a770091edfc3ca5f0e",
+      "git_blob": "599abf0232605d24ca01844380b6e67653c952ba"
+    }
+  }
+}

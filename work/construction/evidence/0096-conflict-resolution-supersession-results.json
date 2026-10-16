@@ -1,0 +1,22 @@
+{
+  "errors": 0,
+  "failed": 0,
+  "finding": "Longitudinal claim reconciliation now preserves all direct predecessors across mixed-category conflict resolution and source-evidence replacement.",
+  "focused_modules": [
+    "tests/test_longitudinal_self_model.py",
+    "tests/test_self_model_cognitive_consumption.py"
+  ],
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 5162,
+    "path": "work/construction/evidence/0096-conflict-resolution-supersession-junit.xml",
+    "sha256": "f9dbf01e51e609b6c7c2637478a4963a0e9d1c1a819b5611032ff4a4770256e6"
+  },
+  "passed": 33,
+  "python_compilation": "passed",
+  "sequence": 96,
+  "skipped": 0,
+  "source_baseline_commit": "e7247044171958b2fd338d98fb4451e242822600",
+  "source_baseline_tree": "f5f1ffa6ae37145eacaf5e8cdea3dff5d712f999",
+  "status": "construction_tested_unverified_for_production"
+}

@@ -1,0 +1,3 @@
+Command: python -m scripts.run_tests -q tests/test_strategy_resource_lineage_integration.py --tb=short
+
+The canonical runner attempted `pip install --no-deps -e .` with isolated build dependencies, then failed before collection because it could not fetch `setuptools>=78.1.1`: HTTPS proxy connection to proxy:8080 returned `Operation not permitted`. The runner reported `editable_ok=false` and refused to execute the suite. No canonical result is claimed.

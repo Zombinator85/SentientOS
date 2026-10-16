@@ -23,6 +23,7 @@ from scripts.mypy_baseline_common import (
     records_digest,
     normalize_mypy_version,
     sanitized_mypy_environment,
+    resolve_mypy_command,
 )
 from scripts import build_mypy_baseline, check_mypy_baseline
 
@@ -171,6 +172,12 @@ def test_canonical_command_disables_site_packages_and_is_nonincremental() -> Non
     assert "--no-site-packages" in DEFAULT_MYPY_COMMAND
     assert "--no-incremental" in DEFAULT_MYPY_COMMAND
     assert DEFAULT_MYPY_COMMAND[DEFAULT_MYPY_COMMAND.index("--config-file") + 1] == "pyproject.toml"
+
+
+def test_runtime_command_uses_version_checked_python_interpreter() -> None:
+    resolved = resolve_mypy_command(DEFAULT_MYPY_COMMAND)
+    assert resolved[0] == check_mypy_baseline.sys.executable
+    assert resolved[1:] == list(DEFAULT_MYPY_COMMAND[1:])
 
 
 def test_ambient_python_and_mypy_paths_are_sanitized() -> None:

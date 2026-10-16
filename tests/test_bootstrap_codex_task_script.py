@@ -194,6 +194,106 @@ def test_script_plan_output_includes_metadata_fixture_root(tmp_path: Path) -> No
     payload = json.loads(plan.read_text(encoding="utf-8"))
     assert payload["fixture_root"] == "tests/fixtures/memory_commit_execution_gate/"
 
+
+@pytest.mark.no_legacy_skip
+def test_existing_ci_target_cli_emits_deterministic_diagnostics(tmp_path: Path, capsys) -> None:
+    outputs = [tmp_path / "first", tmp_path / "second"]
+    for output in outputs:
+        code = main([
+            "--task-name", "CI source-validation maintenance",
+            "--task-goal", "Update tracked .github/workflows/ci.yml source-validation steps",
+            "--subsystem-kind", "ci_workflow_maintenance",
+            "--existing-target", ".github/workflows/ci.yml",
+            "--summary-output", str(output / "summary.json"),
+            "--plan-output", str(output / "plan.json"),
+            "--scaffold-output", str(output / "scaffold.json"),
+            "--prompt-output", str(output / "prompt.txt"),
+            "--verifier-output", str(output / "verifier.json"),
+            "--summary",
+        ])
+        assert code == 0
+        summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+        assert summary["status"] == "ready"
+        assert summary["planner_result_summary"]["status"] == "ready"
+        assert summary["planned_paths"]["module_path"] == ""
+        assert summary["generated_scaffold_json"]["scaffold"]["existing_target_paths"] == [".github/workflows/ci.yml"]
+        assert '"status": "ready"' in capsys.readouterr().out
+    for name in ("summary.json", "plan.json", "scaffold.json", "prompt.txt", "verifier.json"):
+        assert (outputs[0] / name).read_bytes() == (outputs[1] / name).read_bytes()
+
+
+@pytest.mark.no_legacy_skip
+@pytest.mark.parametrize(
+    ("goal", "extra", "reason"),
+    (
+        ("Use GitHub API to start the workflow", (), "forbidden_authority_surface_requested"),
+        ("Enable network egress for the workflow", (), "forbidden_authority_surface_requested"),
+        ("Execute shell commands from this maintenance task", (), "forbidden_authority_surface_requested"),
+        ("Update tracked .github/workflows/ci.yml", ("--existing-target", "../.github/workflows/ci.yml"), "path_traversal_or_metacharacters"),
+        ("Update tracked .github/workflows/ci.yml", ("--capability-id", "sentientos.model_mirror.publish", "--authority-principal", "operator", "--requested-effect", "publish_model"), "authority_subsystem_not_admitted"),
+    ),
+)
+def test_scoped_maintenance_still_blocks_authority_and_unsafe_paths(tmp_path: Path, goal: str, extra: tuple[str, ...], reason: str) -> None:
+    summary = tmp_path / "summary.json"
+    code = main([
+        "--task-name", "CI maintenance",
+        "--task-goal", goal,
+        "--subsystem-kind", "ci_workflow_maintenance",
+        "--existing-target", ".github/workflows/ci.yml",
+        *extra,
+        "--summary-output", str(summary),
+    ])
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    assert code == 1
+    assert payload["status"] == "blocked"
+    assert reason in payload["blocker_codes"]
+    assert payload["artifact_classification"] == "diagnostic"
+    assert "BLOCKED_DO_NOT_IMPLEMENT" in payload["generated_prompt_text"]
+
+
+@pytest.mark.no_legacy_skip
+def test_authority_definition_registration_cannot_request_capability(tmp_path: Path) -> None:
+    summary = tmp_path / "summary.json"
+    code = main([
+        "--task-name", "Unauthorized definition registration",
+        "--task-goal", "Register a model publication capability",
+        "--subsystem-kind", "authority_definition_registration",
+        "--capability-id", "sentientos.model_mirror.publish",
+        "--summary-output", str(summary),
+    ])
+    payload = json.loads(summary.read_text(encoding="utf-8"))
+    assert code == 1
+    assert "authority_definition_registration_cannot_request_capability" in payload["blocker_codes"]
+    assert payload["artifact_classification"] == "diagnostic"
+
+
+@pytest.mark.no_legacy_skip
+def test_missing_subsystem_diagnostic_artifacts_are_deterministic_and_actionable(tmp_path: Path, capsys) -> None:
+    outputs = [tmp_path / "first", tmp_path / "second"]
+    for output in outputs:
+        code = main([
+            "--task-name", "Great Reconciliation III",
+            "--task-goal", "repair unprivileged CI evidence emission and reconcile construction custody",
+            "--summary-output", str(output / "summary.json"),
+            "--plan-output", str(output / "plan.json"),
+            "--scaffold-output", str(output / "scaffold.json"),
+            "--prompt-output", str(output / "prompt.txt"),
+            "--verifier-output", str(output / "verifier.json"),
+            "--summary",
+        ])
+        assert code == 1
+        summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+        assert summary["status"] == "blocked"
+        assert summary["blocker_codes"] == ["insufficient_required_metadata", "missing_subsystem_kind"]
+        assert summary["planner_result_summary"]["status"] == "ready"
+        assert summary["scaffold_result_summary"]["status"] == "codex_task_scaffold_insufficient_metadata"
+        assert summary["scaffold_result_summary"]["blocker_codes"] == ["insufficient_required_metadata"]
+        assert "scaffold_verifier_incomplete" not in summary["warning_codes"]
+        assert "BLOCKED_DO_NOT_IMPLEMENT" in (output / "prompt.txt").read_text(encoding="utf-8")
+        assert '"status": "blocked"' in capsys.readouterr().out
+    for name in ("summary.json", "plan.json", "scaffold.json", "prompt.txt", "verifier.json"):
+        assert (outputs[0] / name).read_bytes() == (outputs[1] / name).read_bytes()
+
 SUPPORTED_BOOTSTRAP_FLAGS = {
     "--task-name",
     "--task-goal",
@@ -212,6 +312,7 @@ SUPPORTED_BOOTSTRAP_FLAGS = {
     "--new-cli",
     "--test-path",
     "--doc-path",
+    "--existing-target",
     "--capability-id",
     "--proof-bundle-artifact-kind",
     "--commit-title",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -16,6 +17,7 @@ def _run(
     tmp_path: Path,
     module_root: Path = ROOT,
     modules: tuple[str, ...] | None = None,
+    env: dict[str, str] | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
     output = tmp_path / "result.json"
     completed = subprocess.run(
@@ -27,6 +29,7 @@ def _run(
         text=True,
         capture_output=True,
         check=False,
+        env=env,
     )
     return completed, json.loads(output.read_text(encoding="utf-8"))
 
@@ -113,6 +116,16 @@ def test_import_verifier_accepts_explicit_import_inertness_inventory(tmp_path):
     assert all(item["privilege_invoked"] == [] for item in result["module_results"])
     assert all(item["effects_invoked"] == [] for item in result["module_results"])
     assert all(item["environment_changes"] == {} for item in result["module_results"])
+
+
+def test_privilege_linter_import_does_not_autoapprove_from_ci_environment(tmp_path: Path) -> None:
+    env = dict(os.environ)
+    env["CI"] = "true"
+    env.pop("LUMOS_AUTO_APPROVE", None)
+    completed, result = _run(tmp_path, modules=("privilege_lint_cli",), env=env)
+    assert completed.returncode == 0
+    assert result["status"] == "import_inertness_ready"
+    assert result["module_results"][0]["environment_changes"] == {}
 
 
 def test_import_verifier_rejects_package_privilege_invocation(tmp_path):

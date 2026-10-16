@@ -1,0 +1,51 @@
+{
+  "changed_files": {
+    "sentientos/developmental_history_intervention_experiment.py": "12b7799661cd5c4b8a3d7a8bbf62a9b41312f33af63b671517ebb4bd5d39a05a",
+    "sentientos/resident_developmental_cognition.py": "8d4526872fc28f8fd337fb5c1e99635ab33435715a2dc558c9a599693e1b7fec",
+    "tests/test_resident_developmental_cognition.py": "2887b010492915ef3f17c2b6fd681317e76eba4a6355e78f2457a3ead5568cd0"
+  },
+  "compilation": {
+    "files": [
+      "sentientos/developmental_history_intervention_experiment.py",
+      "sentientos/resident_developmental_cognition.py",
+      "tests/test_resident_developmental_cognition.py"
+    ],
+    "status": "passed"
+  },
+  "focused_tests": {
+    "command": "PYTHONPATH=. SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-v6h-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-v6h-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-v6-kernel SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-v6-runtime SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-v6h-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-v6h-pulse/epoch.json .venv/bin/python -m pytest -o addopts='' -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_objective_scoring.py --tb=short",
+    "failed": 0,
+    "new_regression_node": "tests/test_resident_developmental_cognition.py::test_same_model_truncated_objective_output_recovers_as_unscoreable",
+    "passed": 105,
+    "skipped": 0
+  },
+  "hosted_checks_for_prior_implementation": {
+    "commit": "ed7febc6a51b065b77b358c163f3fb7cae0a3598",
+    "docs": "failure:115108360617",
+    "helm_smoke": "success:115108360619",
+    "invariants": "failure:115108360596",
+    "rerun": false,
+    "self_check": "failure:115108360429",
+    "source_validation": "success:115108360582"
+  },
+  "production_verified": false,
+  "provider_egress": false,
+  "real_model_invoked": false,
+  "schema_version": 1,
+  "source_commit": "14336df14a9dd9a5aebd6f1f2ef01879ad4bbdd3",
+  "source_tree": "912dc5e789f784988fbbcd5293783a84df7048b0",
+  "targeted_mypy": {
+    "history_intervention_experiment": "passed",
+    "modified_receipt_return_diagnostic": false,
+    "resident_developmental_cognition": "non_clean",
+    "resident_mypy_diagnostics": 13
+  },
+  "truncation_recovery": {
+    "assessment": "unscoreable_truncated_output",
+    "correctness_and_correct_count": null,
+    "legacy_unmarked_scores_compatible": true,
+    "output_truncated_bound_to_exact_session_receipt": true,
+    "run_recovery_preserves_flag": true,
+    "score_checkpoint_preserves_flag": true
+  }
+}

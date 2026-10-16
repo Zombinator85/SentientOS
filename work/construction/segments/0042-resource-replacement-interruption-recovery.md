@@ -1,0 +1,7 @@
+# 2026-10-12 — preserve incomplete A/B recovery over resource-derived history
+
+- Fresh remote parent: `codex/construct-sentientos` at `93cf858847a2c65bec351c54e1262044b23101e6`, tree `af506dcc892d139e0b6ec71ae630f3f5534f1286`.
+- The same composed test now interrupts the existing five-condition model-replacement owner immediately after its canonical first-condition start is durable, using the exact resource-derived frozen context and recovered history record set. A newly constructed experiment owner reads that condition as `started_without_terminal_no_replay`, persists `execution_incomplete`, reports zero inspections as inference calls, and invokes neither fixture endpoint again. The three-condition history experiment and full A/B/A control still execute and recover earlier in the same path.
+- The single composed, legacy-quarantined integration node passes (**1 passed**); changed test compiles and `git diff --check` passes. Evidence is recorded at `work/construction/evidence/0042-resource-replacement-interruption-recovery.json`.
+- This simulates interruption after the durable condition-start boundary with `KeyboardInterrupt`; it is not a process-kill/fsync fault-injection or production runtime proof. A/B endpoints remain deterministic fixtures.
+- Next: inspect the `DevelopmentalHistoryInterventionExperiment` store's analogous crash window and recovery contract when its three conditions are interrupted after protocol preregistration; then reconcile the historical developmental-history intervention and writeback hunks against this composed path.

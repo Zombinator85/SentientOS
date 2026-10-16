@@ -1,0 +1,31 @@
+{
+  "changed_files": {
+    "sentientos/tests/test_artifact_catalog.py": "8ddead09174535f9a7c90c784134a60da5d0532a51b5b4fe3b7f730a6288b168",
+    "sentientos/tests/test_remediation_run_custody.py": "1e67c30835869b02748a867d816b016d17272683121c2abc002a864c11fae5d1"
+  },
+  "environment_reconciliation": "Hermetic test setup now resets existing federation, runtime-governor, trust-ledger, trust-epoch, and control-plane singletons after temporary roots are configured. This prevents stale import-time /glow paths from causing sandbox-only failures; no admission check was replaced.",
+  "limits": [
+    "A crash after a command may have executed remains an incomplete, non-replayable run; this work proves refusal, not automatic continuation or proof of the command effect.",
+    "Windows, external effects, and production execution were not tested."
+  ],
+  "recovery_case": {
+    "automatic_retry": "denied:prior_run_custody_invalid",
+    "command_call_count": 1,
+    "direct_retry": "denied:prior_run_custody_invalid",
+    "effect_authenticity": "fixture command boundary; no external effect or production operation",
+    "reconstructed_status": "invalid:run_interrupted_without_final_report",
+    "trigger": "The real execute_pack_file owner publishes a durable immutable intent, then the only allowed command boundary reports success; final-report publication is interrupted."
+  },
+  "schema_version": 1,
+  "source_parent": {
+    "commit": "6d5aaee90b8a283eb4adff704efdfd0114ec6661",
+    "tree": "16037341b668c6c896dc1597bf8e6b7e35156032"
+  },
+  "status": "interrupted_run_is_fail_closed_and_refuses_replay; focused_acceptance_passed; production_unverified",
+  "verification": {
+    "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q sentientos/tests/test_remediation_run_custody.py sentientos/tests/test_forge_index_remediation_custody.py sentientos/tests/test_quarantine_remediation_trace_binding.py sentientos/tests/test_artifact_catalog.py sentientos/tests/test_remediation_pack.py sentientos/tests/test_auto_remediation.py",
+    "compile": "python -m py_compile sentientos/tests/test_remediation_run_custody.py sentientos/tests/test_artifact_catalog.py",
+    "diff_check": "git diff --check passed",
+    "result": "28 passed"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "sequence": 258,
+  "title": "Require complete verified receipt joins for selected epistemic traces",
+  "source_parent_commit": "658e769caba36dbd8189bc9ebbce880dab1b740e",
+  "source_parent_tree": "931267433c2397e2509eca39b2d92ecb093c8855",
+  "source_commit": "a59a2a117574aabda9a76417f98a07f223ec06d9",
+  "source_tree": "1717dd488ea4a23a1bdd62e5b4b80c018a1f839a",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "658e769caba36dbd8189bc9ebbce880dab1b740e",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true,
+    "remote_tree_verified": true,
+    "changed_blobs_independently_rehashed": true
+  },
+  "changed_blobs": [
+    {
+      "path": "sentientos/resident_epistemic_development.py",
+      "mode": "100644",
+      "sha": "9089c468b779afaa41569b6e96decb205beee78f"
+    }
+  ],
+  "validation": {
+    "recovered_task_family_trace_node": "passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "evidence_receipt_join_required": true,
+    "state_receipt_join_required": true,
+    "missing_join": "trace_rejected",
+    "fixture_scope": "deterministic_single_outcome",
+    "truth": false,
+    "authority": false
+  },
+  "limitations": [
+    "Adverse-to-corrective longitudinal outcomes and contested revision are not implemented.",
+    "Condition-independent later behavioral outcome and outcome-informed goal planning remain open."
+  ]
+}

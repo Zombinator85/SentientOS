@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "sequence": 122,
+  "source_commit": "f0231f8e65db4ed3d336b16bd0c119486439519e",
+  "source_tree": "afcb5ad9406bebc4442eae6169f448b6caa7cd6e",
+  "previous_segment_sha256": "2384741dda691ac5d4b0d13b2eee74a87aa4791dccf67490e970b15f0c94232a",
+  "source_finding": "selected cognition and serving config paths are not authenticated to the separately running daemon process",
+  "change": {
+    "running_daemon_binding": "not_observed_explicit_config_paths_only",
+    "unobserved_runtime_gate_added": true,
+    "operator_action_requires_process_config_confirmation": true
+  },
+  "acceptance": {
+    "command": ".venv/bin/python -m pytest -q tests/test_resident_objective_experiment_readiness.py tests/test_resident_developmental_cognition.py::test_readiness_accepts_history_after_actual_owner_admission_recovery_check",
+    "cases": 10,
+    "passed": 10,
+    "failed": 0,
+    "fixture_backed_history": true,
+    "daemon_or_model_execution": false
+  },
+  "static_checks": {
+    "py_compile": "passed",
+    "targeted_mypy": "passed",
+    "changed_file_trailing_whitespace": "none"
+  },
+  "hosted_checks_for_f0231f8": {
+    "source_validation": "success",
+    "helm_k8s_test": "success",
+    "invariants": "failure: protected administrator gate during prompt_assembler import",
+    "docs": "failure: make docs hit protected administrator gate",
+    "self_check": "failure: scripts.lock install failed; emitted CI baseline reported 52 failures"
+  },
+  "boundaries": {
+    "daemon_started": false,
+    "model_loaded": false,
+    "request_staged": false,
+    "inference_admitted": false,
+    "authority_expanded": false,
+    "production_verified": false
+  },
+  "changed_files": {
+    "scripts/doctor_resident_objective_experiment.py": {
+      "bytes": 17510,
+      "sha256": "216d5083675bd48f9dfd8e1273ccc3e0ee57af2f0f47b93ee697d971d22dace8",
+      "git_blob": "33e21c7c1e0cb8e638bf2f6f69deecba5e709252"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 174745,
+      "sha256": "87d98d84bbef926890327b2a8512b17e290585165f96f58d65762967eaf8c478",
+      "git_blob": "1efd473338e84643f15ae9cbb971c51536f433a0"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "bytes": 18425,
+      "sha256": "3f6dd4e0befbca16849baec03f5220b65e479a6910171d99aac7c8d5d5f0a466",
+      "git_blob": "ac14cbd9eb6df4358483dc79248f867f18e67d05"
+    }
+  }
+}

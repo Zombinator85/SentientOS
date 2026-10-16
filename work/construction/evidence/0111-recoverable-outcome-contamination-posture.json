@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source_commit": "ac264e0b3860717a71551a752e036dff9494856a",
+  "source_tree": "29fa8b16400d03571069513bfe5f21748b92f8be",
+  "parent_commit": "3285f3821bd88f11bc27e008a50ec864d13e097d",
+  "parent_tree": "e2a7f976abc58a010dba0c2603a9b12b3840c6a0",
+  "related_commit": "3285f3821bd88f11bc27e008a50ec864d13e097d",
+  "changed_files": {
+    "sentientos/developmental_history_intervention_experiment.py": {
+      "git_blob": "11f6446a336afab727420068169e7fa293257086",
+      "sha256": "c9f6bdb21d9ed4ef2496ab6941ce2ecaf31c44752f72c769046f20fef6f5e277"
+    },
+    "sentientos/resident_developmental_cognition.py": {
+      "git_blob": "ae70b922d5d6709ccf6a7fb760f40e922e781f48",
+      "sha256": "c47efec4ab4985062a3a881768256b5a3358f0ef38320baafe1d7b6007153084"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "git_blob": "3878fb730793c9341dbe067e56eb6665b3740386",
+      "sha256": "ad1064e5909a567d3ae2bb98658997935ec5095dbe5e06bd945ab32315a98ad9"
+    },
+    "docs/development/resident_developmental_cognition.md": {
+      "git_blob": "03799ffb2d6a5acac7efa8d0ff632eca11ab6480",
+      "sha256": "2140c5ba62ccd16e5258fd8f0530e06a118e66c96d01ec4d70cd8c3948d1d797"
+    }
+  },
+  "validation": {
+    "focused_tests": {
+      "passed": 112,
+      "failed": 0,
+      "skipped": 0,
+      "suites": [
+        "resident developmental cognition",
+        "developmental history intervention experiment",
+        "developmental objective scoring"
+      ]
+    },
+    "py_compile": "passed for changed Python modules and test",
+    "whitespace": "all changed files checked; no trailing whitespace",
+    "cold_restart_result_inspection": "canonical restart recovery and read-only result inspection returned the same run digest; no inference replay; fixture custody bytes/path set unchanged",
+    "actual_nonsynthetic_inference": false,
+    "production_verified": false,
+    "expected_head_cas": {
+      "expected": "3285f3821bd88f11bc27e008a50ec864d13e097d",
+      "published": "ac264e0b3860717a71551a752e036dff9494856a",
+      "succeeded": true
+    },
+    "hosted_checks": "not yet queried"
+  },
+  "boundaries": {
+    "model_loaded": false,
+    "inference_replayed": false,
+    "new_authority": false,
+    "production_activation": false,
+    "contamination_cleanliness_certified": false
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "integration_observations": [
+    "Actual adapter-launched child verified its installation-scoped process/source handoff and matched its configured serving operation.",
+    "Child used the existing governed installation allocation and produced an admitted fixture inference receipt with resource attempt, consumption, and effect-receipt lineage.",
+    "Read-only observer and RuntimeMaintenanceSurfaces produced canonical World-State process-generation and causal-consumption facts; all effect authority/proof flags remained false and shared host CPU/GPU usage remained unknown.",
+    "An explicit source selector admitted the qualified World-State resource fact through ResidentEpistemicDevelopmentRuntime and its separate runtime admissions.",
+    "Recovered persistent epistemic state stayed unavailable at its mutation tick and became eligible at the next tick only after constructing the mutation controller, which reverified durable receipts as daemon startup does."
+  ],
+  "limitations": [
+    "Inference used a deterministic test backend, not an acquired local model.",
+    "No provider, production activation, external effect, physical resource measurement, or developmental performance improvement was demonstrated.",
+    "Windows execution and canonical acceptance remain unverified."
+  ],
+  "schema_version": 1,
+  "source_parent": {
+    "commit": "5648051fcdc5d4b01e64da61c4c236af4f796062",
+    "tree": "46354a151bfcbda7c998ddcb65b6ec72070e0b74"
+  },
+  "source_sha256": {
+    "tests/test_resource_invocation_process_generation_integration.py": "f5bf253ced6cfd6d1619ddd8edf2319de455d6ce635c6f4c3ec0701a99743114"
+  },
+  "status": "resource-to-world-state-to-authorized-epistemic-mutation-to-later-cognition-recovery_path_passed; production_unverified",
+  "verification": {
+    "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q tests/test_resource_invocation_process_generation_integration.py tests/test_local_model_serving_inference.py tests/test_local_model_chat_runtime_startup.py sentientos/tests/test_resource_observation_world_state_integration.py tests/test_resident_epistemic_development.py tests/test_persistent_epistemic_state.py",
+    "compile": "python -m py_compile tests/test_local_model_serving_inference.py tests/test_resource_invocation_process_generation_integration.py",
+    "diff_check": "git diff --check passed",
+    "result": "65 passed"
+  }
+}

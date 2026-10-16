@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "sequence": 223,
+  "title": "Carry introspection snapshot diagnostics into World-State",
+  "source_commit": "2525931e905a45511a9d073a3e956ce982748595",
+  "source_tree": "ea620cbb7104a95640cb407d5dd3012247e48da4",
+  "source_files": [
+    {
+      "path": "sentientos/causal_introspection.py",
+      "git_blob_sha": "0629897238b00172d7ef333e46ac77bef55a6ec6"
+    },
+    {
+      "path": "tests/test_causal_introspection.py",
+      "git_blob_sha": "196f762f61e85cf6a1fc1791d951f9e190d1a4f5"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "tests/test_causal_introspection.py",
+      "tests/test_sentientosd_causal_introspection_composition.py"
+    ],
+    "passed_test_count": 41,
+    "compiled": [
+      "sentientos/causal_introspection.py",
+      "tests/test_causal_introspection.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "next-generation World-State receives partial-capture findings and unresolved conflicts",
+      "diagnostic preserves snapshot identity and original capture tick",
+      "diagnostic retains owner/domain/error class without exception message",
+      "conflicts retain observation key and projection IDs with no winner",
+      "diagnostic is bounded and reports omitted counts",
+      "diagnostic authority and effect claims remain false"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:b6632fba54acd9cf2321197cffd1f4cb62f069d30100b4f92f75c3fba0d5597d"
+}

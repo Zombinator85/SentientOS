@@ -48,7 +48,7 @@ harness; the canonical path remains `python -m scripts.run_tests`.
 Bootstrap failure and pytest failure must stay distinct in provenance:
 
 - dependency bootstrap failure records `exit_reason=install-failed` before
-  pytest is invoked;
+  the test runner is invoked;
 - import-airlock failure records `exit_reason=airlock-failed` before pytest is
   invoked;
 - assertion or collection failures after pytest starts remain pytest outcomes,

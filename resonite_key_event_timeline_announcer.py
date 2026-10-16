@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Key Event Timeline Announcer
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 

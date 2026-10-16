@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
+import tempfile
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence, cast
@@ -22,6 +24,9 @@ MAX_OBSERVATIONS = 128
 MAX_FINDINGS = 32
 MAX_PROJECTION_BYTES = 131_072
 MAX_SNAPSHOT_BYTES = 2_097_152
+MAX_SNAPSHOT_GENERATIONS = 4096
+MAX_SNAPSHOT_CUSTODY_BYTES = 268_435_456
+MAX_CONFIG_BYTES = 16_384
 
 DOMAINS = frozenset({
     "installation", "model_supply", "model_serving", "model_succession",
@@ -212,23 +217,69 @@ def load_config(path: str | Path | None = None) -> IntrospectionConfig | None:
     selected = str(path) if path is not None else os.environ.get(CONFIG_ENV)
     if not selected:
         return None
-    payload = json.loads(Path(selected).read_text(encoding="utf-8"))
+    config_path = Path(selected)
+    try:
+        metadata = config_path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_CONFIG_BYTES:
+            raise IntrospectionError("configuration_file_unbounded_or_not_regular")
+        descriptor = os.open(config_path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                    or opened.st_dev != metadata.st_dev or opened.st_size > MAX_CONFIG_BYTES):
+                raise IntrospectionError("configuration_file_changed_during_open")
+            chunks: list[bytes] = []
+            remaining = MAX_CONFIG_BYTES + 1
+            while remaining:
+                chunk = os.read(descriptor, min(4096, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            config_data = b"".join(chunks)
+            if len(config_data) > MAX_CONFIG_BYTES:
+                raise IntrospectionError("configuration_file_unbounded_or_not_regular")
+        finally:
+            os.close(descriptor)
+        payload = json.loads(config_data.decode("utf-8"))
+    except IntrospectionError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise IntrospectionError("configuration_unavailable_or_invalid") from exc
+    if not isinstance(payload, dict):
+        raise IntrospectionError("configuration_object_required")
     if payload.get("schema") != SCHEMA_VERSION:
         raise IntrospectionError("unsupported_config_schema")
-    root = Path(str(payload.get("custody_root", "")))
+    allowed = {"schema", "enabled", "custody_root", "world_state_consumption_enabled",
+        "max_projections", "enabled_domains", "required_domains"}
+    if set(payload) - allowed or not {"schema", "enabled", "custody_root",
+            "world_state_consumption_enabled", "enabled_domains", "required_domains"} <= set(payload):
+        raise IntrospectionError("configuration_shape_invalid")
+    if (not isinstance(payload["enabled"], bool)
+            or not isinstance(payload["world_state_consumption_enabled"], bool)):
+        raise IntrospectionError("configuration_boolean_invalid")
+    root_value = payload.get("custody_root")
+    if not isinstance(root_value, str) or not root_value:
+        raise IntrospectionError("absolute_custody_root_required")
+    root = Path(root_value)
     if not root.is_absolute():
         raise IntrospectionError("absolute_custody_root_required")
-    enabled = tuple(str(item) for item in payload.get("enabled_domains", ()))
-    required = tuple(str(item) for item in payload.get("required_domains", ()))
+    raw_enabled = payload["enabled_domains"]
+    raw_required = payload["required_domains"]
+    if (not isinstance(raw_enabled, list) or not isinstance(raw_required, list)
+            or any(not isinstance(item, str) for item in (*raw_enabled, *raw_required))):
+        raise IntrospectionError("configuration_domains_invalid")
+    enabled = tuple(raw_enabled)
+    required = tuple(raw_required)
     if len(set(enabled)) != len(enabled) or len(set(required)) != len(required):
         raise IntrospectionError("duplicate_config_domain")
     if not set(enabled) <= DOMAINS or not set(required) <= set(enabled):
         raise IntrospectionError("invalid_config_domains")
-    maximum = int(payload.get("max_projections", MAX_PROJECTIONS))
-    if maximum < 1 or maximum > MAX_PROJECTIONS:
+    maximum = payload.get("max_projections", MAX_PROJECTIONS)
+    if not isinstance(maximum, int) or isinstance(maximum, bool) or maximum < 1 or maximum > MAX_PROJECTIONS:
         raise IntrospectionError("invalid_max_projections")
-    return IntrospectionConfig(bool(payload.get("enabled", False)), root,
-        bool(payload.get("world_state_consumption_enabled", False)), maximum,
+    return IntrospectionConfig(payload["enabled"], root,
+        payload["world_state_consumption_enabled"], maximum,
         enabled, required)
 
 
@@ -288,6 +339,10 @@ def validate_projection(projection: OwnerIntrospectionProjection, *, capture_pos
             raise IntrospectionError("credential_material_rejected")
         if key in FORBIDDEN_KEYS:
             raise IntrospectionError("semantic_collapse_rejected")
+        if (not isinstance(observation.source_refs, tuple)
+                or any(not isinstance(reference_id, str) or reference_id not in reference_ids
+                    for reference_id in observation.source_refs)):
+            raise IntrospectionError("observation_source_reference_unresolved")
         if capture_posture == "synthetic_test" and observation.production_posture == "production":
             raise IntrospectionError("synthetic_cannot_claim_production")
         if key == "effect_proven" and observation.bounded_value is True:
@@ -355,6 +410,11 @@ class LiveOwnerMetadataProvider:
         self._domain = domain
         self._inspect = inspect
         self._observation_classes = dict(observation_classes)
+        if (domain not in DOMAINS or not self._observation_classes
+                or any(not isinstance(key, str) or not key for key in self._observation_classes)
+                or any(not isinstance(value, str) or value not in OBSERVATION_CLASSES
+                    for value in self._observation_classes.values())):
+            raise IntrospectionError("live_provider_observation_schema_invalid")
 
     def project(self, context: CaptureContext) -> OwnerIntrospectionProjection:
         metadata = dict(self._inspect())
@@ -433,12 +493,43 @@ def validate_snapshot(snapshot: CausalIntrospectionSnapshot, predecessor: Causal
         raise IntrospectionError("snapshot_bytes_exceeded")
 
 
+def _snapshot_capacity_error(generation: int, custody_bytes: int, next_snapshot_bytes: int) -> str | None:
+    """Return the recovery limit that a prospective append would violate."""
+    if generation < 0 or custody_bytes < 0 or next_snapshot_bytes < 0:
+        return "snapshot_capacity_measurement_invalid"
+    if generation >= MAX_SNAPSHOT_GENERATIONS:
+        return "snapshot_generation_limit_exceeded"
+    if custody_bytes + next_snapshot_bytes > MAX_SNAPSHOT_CUSTODY_BYTES:
+        return "snapshot_custody_limit_exceeded"
+    return None
+
+
 class CausalIntrospectionRuntime:
     def __init__(self, config: IntrospectionConfig, registrations: Sequence[ProviderRegistration]):
+        if not isinstance(config, IntrospectionConfig) or config.schema != SCHEMA_VERSION:
+            raise IntrospectionError("unsupported_config_schema")
+        if (type(config.enabled) is not bool
+                or type(config.world_state_consumption_enabled) is not bool):
+            raise IntrospectionError("configuration_boolean_invalid")
+        if not isinstance(config.custody_root, Path) or not config.custody_root.is_absolute():
+            raise IntrospectionError("absolute_custody_root_required")
+        if (type(config.max_projections) is not int or config.max_projections < 1
+                or config.max_projections > MAX_PROJECTIONS):
+            raise IntrospectionError("invalid_max_projections")
+        if (not isinstance(config.enabled_domains, tuple)
+                or not isinstance(config.required_domains, tuple)
+                or any(not isinstance(item, str) for item in (*config.enabled_domains, *config.required_domains))):
+            raise IntrospectionError("configuration_domains_invalid")
+        if (len(set(config.enabled_domains)) != len(config.enabled_domains)
+                or len(set(config.required_domains)) != len(config.required_domains)):
+            raise IntrospectionError("duplicate_config_domain")
+        if (not set(config.enabled_domains) <= DOMAINS
+                or not set(config.required_domains) <= set(config.enabled_domains)):
+            raise IntrospectionError("invalid_config_domains")
+        if not isinstance(registrations, Sequence) or len(registrations) > config.max_projections:
+            raise IntrospectionError("provider_count_exceeded")
         self.config = config
         self.registrations = tuple(sorted(registrations, key=lambda item: (item.domain, item.owner_id)))
-        if len(self.registrations) > config.max_projections:
-            raise IntrospectionError("provider_count_exceeded")
         if any(isinstance(item.provider, CausalIntrospectionRuntime) or item.owner_id == "causal_introspection_runtime" for item in self.registrations):
             raise IntrospectionError("recursive_fabric_provider_rejected")
         owners = [item.owner_id for item in self.registrations]
@@ -448,27 +539,116 @@ class CausalIntrospectionRuntime:
         if any(item.domain not in config.enabled_domains or item.domain not in DOMAINS for item in self.registrations):
             raise IntrospectionError("provider_domain_not_enabled")
 
-    def _paths(self) -> list[Path]:
-        if not self.config.custody_root.exists():
-            return []
-        return sorted(self.config.custody_root.glob("generation-*.json"))
+    def _validate_custody_root(self) -> bool:
+        try:
+            root_mode = self.config.custody_root.lstat().st_mode
+        except FileNotFoundError:
+            return False
+        if not stat.S_ISDIR(root_mode):
+            raise IntrospectionError("custody_root_invalid")
+        if os.name == "posix" and root_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            raise IntrospectionError("custody_root_writable_by_other_users")
+        return True
 
-    def reconstruct(self) -> tuple[CausalIntrospectionSnapshot, ...]:
+    def _paths(self) -> list[Path]:
+        if not self._validate_custody_root():
+            return []
+        paths = sorted(self.config.custody_root.glob("generation-*.json"))
+        if len(paths) > MAX_SNAPSHOT_GENERATIONS:
+            raise IntrospectionError("snapshot_generation_limit_exceeded")
+        return paths
+
+    @staticmethod
+    def _read_snapshot(path: Path) -> bytes:
+        try:
+            metadata = path.lstat()
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_SNAPSHOT_BYTES:
+                raise IntrospectionError("snapshot_file_unbounded_or_not_regular")
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            descriptor = os.open(path, flags)
+            try:
+                opened = os.fstat(descriptor)
+                if (not stat.S_ISREG(opened.st_mode) or opened.st_ino != metadata.st_ino
+                        or opened.st_dev != metadata.st_dev or opened.st_size > MAX_SNAPSHOT_BYTES):
+                    raise IntrospectionError("snapshot_file_changed_during_open")
+                chunks: list[bytes] = []
+                remaining = MAX_SNAPSHOT_BYTES + 1
+                while remaining:
+                    chunk = os.read(descriptor, min(65_536, remaining))
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    remaining -= len(chunk)
+                data = b"".join(chunks)
+                if len(data) > MAX_SNAPSHOT_BYTES:
+                    raise IntrospectionError("snapshot_file_unbounded_or_not_regular")
+                return data
+            finally:
+                os.close(descriptor)
+        except IntrospectionError:
+            raise
+        except OSError as exc:
+            raise IntrospectionError("snapshot_file_unavailable") from exc
+
+    @staticmethod
+    def _publish_snapshot(path: Path, data: bytes) -> None:
+        descriptor, temporary = tempfile.mkstemp(prefix=".causal-introspection-", suffix=".tmp",
+            dir=str(path.parent))
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.link(temporary, path, follow_symlinks=False)
+            directory = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        finally:
+            try:
+                os.unlink(temporary)
+            except FileNotFoundError:
+                pass
+
+    def _reconstruct_with_size(self) -> tuple[tuple[CausalIntrospectionSnapshot, ...], int]:
         snapshots: list[CausalIntrospectionSnapshot] = []
         paths = self._paths()
+        total_bytes = 0
         for expected_generation, path in enumerate(paths, 1):
-            if path.name != f"generation-{expected_generation:020d}.json" or path.is_symlink():
+            if path.name != f"generation-{expected_generation:020d}.json":
                 raise IntrospectionError("missing_or_ambiguous_generation")
-            snapshot = _decode_snapshot(json.loads(path.read_text(encoding="utf-8")))
+            data = self._read_snapshot(path)
+            total_bytes += len(data)
+            if total_bytes > MAX_SNAPSHOT_CUSTODY_BYTES:
+                raise IntrospectionError("snapshot_custody_limit_exceeded")
+            try:
+                snapshot = _decode_snapshot(json.loads(data.decode("utf-8")))
+            except IntrospectionError:
+                raise
+            except (UnicodeError, json.JSONDecodeError, KeyError, TypeError,
+                    ValueError, RecursionError) as exc:
+                raise IntrospectionError("snapshot_payload_invalid") from exc
+            if data != _canonical(_plain(snapshot)):
+                raise IntrospectionError("snapshot_noncanonical")
             validate_snapshot(snapshot, snapshots[-1] if snapshots else None)
             snapshots.append(snapshot)
-        return tuple(snapshots)
+        return tuple(snapshots), total_bytes
+
+    def reconstruct(self) -> tuple[CausalIntrospectionSnapshot, ...]:
+        snapshots, _total_bytes = self._reconstruct_with_size()
+        return snapshots
 
     def capture(self, context: CaptureContext) -> CausalIntrospectionSnapshot:
         if not self.config.enabled:
             raise IntrospectionError("introspection_disabled")
-        history = self.reconstruct()
+        history, custody_bytes = self._reconstruct_with_size()
         prior = history[-1] if history else None
+        # A crash before the atomic hard-link publication can leave a private
+        # staging file. It is not a committed generation and must never be
+        # silently carried alongside later captures or treated as evidence.
+        if next(self.config.custody_root.glob(".causal-introspection-*.tmp"), None) is not None:
+            raise IntrospectionError("snapshot_staging_recovery_required")
         projections: list[OwnerIntrospectionProjection] = []
         findings: list[CaptureFinding] = []
         for registration in self.registrations:
@@ -493,6 +673,11 @@ class CausalIntrospectionRuntime:
                     and prior.repository_tree == context.repository_tree):
                 return prior
             raise IntrospectionError("same_tick_content_conflict")
+        capacity_error = _snapshot_capacity_error(
+            prior.generation if prior else 0, custody_bytes, 0
+        )
+        if capacity_error is not None:
+            raise IntrospectionError(capacity_error)
         provisional = CausalIntrospectionSnapshot("", "", (prior.generation + 1 if prior else 1),
             prior.snapshot_digest if prior else None, context.tick_id, context.repository_revision,
             context.repository_tree, tuple(item.projection_id for item in projections),
@@ -501,20 +686,20 @@ class CausalIntrospectionRuntime:
         digest = _digest(_snapshot_payload(provisional))
         snapshot = replace(provisional, snapshot_id=f"causal-introspection-{digest[:20]}", snapshot_digest=digest)
         validate_snapshot(snapshot, prior)
-        self.config.custody_root.mkdir(parents=True, exist_ok=True)
+        self.config.custody_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self._validate_custody_root()
         target = self.config.custody_root / f"generation-{snapshot.generation:020d}.json"
         data = _canonical(_plain(snapshot))
+        capacity_error = _snapshot_capacity_error(snapshot.generation - 1, custody_bytes, len(data))
+        if capacity_error is not None:
+            raise IntrospectionError(capacity_error)
         try:
-            descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            self._publish_snapshot(target, data)
         except FileExistsError:
-            existing = target.read_bytes()
+            existing = self._read_snapshot(target)
             if existing != data:
                 raise IntrospectionError("same_generation_content_conflict")
             return _decode_snapshot(json.loads(existing))
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
         return snapshot
 
     @staticmethod
@@ -546,10 +731,67 @@ class CausalIntrospectionRuntime:
                 "disposition": "owner_reported", "evidence_strength": "owner_self_observation",
                 "payload": {"projection_id": projection.projection_id,
                     "projection_digest": projection.projection_digest,
+                    "introspection_snapshot_id": snapshot.snapshot_id,
+                    "introspection_snapshot_digest": snapshot.snapshot_digest,
+                    "introspection_snapshot_generation": snapshot.generation,
+                    "introspection_snapshot_predecessor_digest": snapshot.predecessor_snapshot_digest,
+                    "introspection_capture_tick": snapshot.capture_tick,
+                    "introspection_snapshot_completion_posture": snapshot.completion_posture,
                     "owner_kind": projection.owner_kind,
-                    "observation_keys": [item.observation_key for item in projection.observations],
-                    "causal_reference_ids": [item.reference_id for item in projection.causal_references],
+                    "observations": [{"key": item.observation_key,
+                        "value": item.bounded_value, "class": item.observation_class,
+                        "freshness": item.freshness, "evidence_posture": item.evidence_posture,
+                        "production_posture": item.production_posture,
+                        "source_refs": list(item.source_refs)}
+                        for item in projection.observations],
+                    "source_references": [_plain(item) for item in projection.source_references],
+                    "causal_references": [_plain(item) for item in projection.causal_references],
+                    "semantic_trace": {key: _plain(value)
+                        for key, value in projection.semantic_trace.items()},
                     "read_only": True, "current_truth": False, "authority": False},
+                # The projection capture is the event time. This record is only
+                # made available by a later-generation board and keeps its
+                # original observation time through that temporal boundary.
+                "observed_at": projection.capture_tick,
+                "effect_claimed": False, "effect_proven": False,
+            })
+        if snapshot.capture_findings or snapshot.conflicts:
+            retained_findings = snapshot.capture_findings[:MAX_PROJECTIONS]
+            retained_conflicts = snapshot.conflicts[:MAX_PROJECTIONS]
+            records.append({
+                "source_kind": "owner_introspection",
+                "source_id": f"introspection-diagnostics:{snapshot.snapshot_id}",
+                "schema_version": snapshot.schema_version,
+                "subject_id": "causal-introspection-snapshot",
+                "subject_kind": "snapshot_diagnostics",
+                "stage": "observation",
+                "disposition": "incomplete" if snapshot.capture_findings else "recorded",
+                "evidence_strength": "snapshot_integrity_metadata",
+                "payload": {
+                    "introspection_snapshot_id": snapshot.snapshot_id,
+                    "introspection_snapshot_digest": snapshot.snapshot_digest,
+                    "introspection_snapshot_generation": snapshot.generation,
+                    "introspection_snapshot_predecessor_digest": snapshot.predecessor_snapshot_digest,
+                    "introspection_capture_tick": snapshot.capture_tick,
+                    "introspection_snapshot_completion_posture": snapshot.completion_posture,
+                    "snapshot_completion_posture": snapshot.completion_posture,
+                    "capture_findings": [{
+                        "owner_id": item.owner_id, "domain": item.domain,
+                        "error_code": item.error_code, "error_class": item.error_class,
+                    } for item in retained_findings],
+                    "omitted_capture_finding_count": len(snapshot.capture_findings) - len(retained_findings),
+                    "conflicts": [{
+                        "observation_key": item.observation_key,
+                        "projection_ids": list(item.projection_ids),
+                    } for item in retained_conflicts],
+                    "omitted_conflict_count": len(snapshot.conflicts) - len(retained_conflicts),
+                    "conflict_count": len(snapshot.conflicts),
+                    "conflict_posture": "unresolved_no_winner_selected" if snapshot.conflicts else "none",
+                    "read_only": True, "current_truth": False, "authority": False,
+                },
+                # These are diagnostics about the captured snapshot, timed at
+                # the capture itself and exposed only through a later generation.
+                "observed_at": snapshot.capture_tick,
                 "effect_claimed": False, "effect_proven": False,
             })
         return records
@@ -573,7 +815,7 @@ COVERAGE_MANIFEST: tuple[Mapping[str, str], ...] = tuple(
         ("developmental_history", "implemented", "history custody identities and counts are bounded"),
         ("persistent_epistemics", "implemented", "state custody counts and mutation receipt references are bounded"),
         ("canonical_memory", "partial", "privacy-safe custody metadata only"),
-        ("causal_resources", "partial", "principal attribution exists; allocation is not inferred"),
+        ("causal_resources", "partial", "explicit installation-scoped principal/allocation/attempt/receipt custody is observable; shared host use and cross-service attribution remain unavailable"),
         ("embodiment", "implemented", "renderer, independent observation, and fulfillment evidence remain distinct"),
         ("federation", "partial", "local lifecycle/candidate metadata carries no adoption authority"),
         ("runtime_supervision", "implemented", "service lifecycle and restart evidence is inspectable without control"),

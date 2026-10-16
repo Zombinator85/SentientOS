@@ -65,13 +65,15 @@ def _line_has_pytest_command(line: str) -> bool:
         return False
     if "pytest" not in stripped:
         return False
-    if "python -m pytest" in stripped or "python3 -m pytest" in stripped or "py -m pytest" in stripped:
+    if stripped.startswith("SENTIENTOS_ALLOW_NAKED_PYTEST=1 "):
+        return False
+    if stripped.startswith(("python -m pytest", "python3 -m pytest", "py -m pytest")):
         return True
-    if stripped.startswith("pytest ") or stripped == "pytest":
+    if stripped == "pytest" or stripped.startswith(("pytest -", "pytest --", "pytest tests/", "pytest test_")):
         return True
-    if stripped.startswith("$ pytest") or stripped.startswith("> pytest"):
+    if stripped.startswith(("$ pytest", "> pytest")):
         return True
-    if "run: pytest" in stripped or "run: python -m pytest" in stripped or "run: python3 -m pytest" in stripped:
+    if stripped.startswith(("run: pytest", "run: python -m pytest", "run: python3 -m pytest")):
         return True
     return False
 

@@ -29,7 +29,7 @@ class ProductionChatResourceContextOwner:
 
     __slots__ = (
         "allocator", "allocation", "principal", "authenticated", "current",
-        "policy", "_nonce_source", "_clock",
+        "policy", "_nonce_source", "_clock", "_ledger_owner_lock",
     )
 
     def __init__(
@@ -43,6 +43,7 @@ class ProductionChatResourceContextOwner:
         policy: GovernedLocalModelResourcePolicy,
         nonce_source: Callable[[], str],
         clock: Callable[[], str],
+        ledger_owner_lock: Any | None = None,
     ) -> None:
         exact_types = (
             (allocator, GovernedLocalModelResourceAllocator),
@@ -80,6 +81,17 @@ class ProductionChatResourceContextOwner:
         self.policy = policy
         self._nonce_source = nonce_source
         self._clock = clock
+        self._ledger_owner_lock = ledger_owner_lock
+
+    @property
+    def has_single_process_custody(self) -> bool:
+        return self._ledger_owner_lock is not None
+
+    def close(self) -> None:
+        lock = self._ledger_owner_lock
+        self._ledger_owner_lock = None
+        if lock is not None:
+            lock.__exit__(None, None, None)
 
     def next_context(self) -> GovernedLocalModelResourceInvocationContext:
         """Create one context from custody alone, with one fresh trusted nonce."""
@@ -114,6 +126,21 @@ class ResourceBackedProductionChatInference:
 
     def current_conversation_model_identity(self) -> Mapping[str, Any]:
         return cast(Mapping[str, Any], self._delegate.current_conversation_model_identity())
+
+    def verify_stored_chat_invocation(self, *, receipt_id: str, receipt_digest: str,
+                                     session_id: str, user_turn_id: str,
+                                     assistant_text: str | None = None,
+                                     client_request_id_digest: str | None = None) -> Mapping[str, Any]:
+        return self._delegate.verify_stored_chat_invocation(receipt_id=receipt_id,
+            receipt_digest=receipt_digest, session_id=session_id, user_turn_id=user_turn_id,
+            assistant_text=assistant_text,
+            client_request_id_digest=client_request_id_digest)
+
+    def inspect_interrupted_chat_invocation(self, *, session_id: str, user_turn_id: str,
+                                             client_request_id_digest: str | None = None) -> Mapping[str, Any]:
+        return self._delegate.inspect_interrupted_chat_invocation(
+            session_id=session_id, user_turn_id=user_turn_id,
+            client_request_id_digest=client_request_id_digest)
 
     def generate(self, *, prompt: str, caller: str, correlation_id: str,
                  budget: LocalModelInvocationBudget,

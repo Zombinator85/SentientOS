@@ -26,7 +26,14 @@ from sentientos.control_plane_kernel import (
     LifecyclePhase,
 )
 from sentientos.runtime_governor import PostureRuleEvaluation, RuntimeGovernor
-from sentientosd import RuntimeMaintenanceSurfaces, _run_maintenance_tick
+from sentientos.runtime_governor import reset_runtime_governor
+from sentientosd import (
+    RuntimeMaintenanceSurfaces,
+    _attestation_snapshot_verification_world_state_record,
+    _integrity_controller_world_state_record,
+    _quarantine_incident_custody_world_state_record,
+    _run_maintenance_tick,
+)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -46,6 +53,81 @@ class _GovernorDecisionStub:
             "correlation_id": self.correlation_id,
         }
 
+
+def test_attestation_snapshot_world_state_source_requires_existing_opt_in(
+    monkeypatch, tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", raising=False)
+    assert _attestation_snapshot_verification_world_state_record(
+        tmp_path, observed_at="2026-10-11T00:00:00+00:00") is None
+
+
+def test_integrity_controller_observation_is_bounded_context_only_and_opt_in(
+    monkeypatch, tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    reset_runtime_governor()
+
+
+    monkeypatch.delenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", raising=False)
+    assert _integrity_controller_world_state_record(
+        tmp_path, observed_at="2026-10-12T00:00:00+00:00") is None
+
+    monkeypatch.setenv("SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION", "1")
+    monkeypatch.setenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "1")
+    record = _integrity_controller_world_state_record(
+        tmp_path, observed_at="2026-10-12T00:00:00+00:00")
+    assert record is not None
+    assert record["source_kind"] == "audit_trust"
+    assert record["schema_version"] == "sentientos.integrity_controller_observation:v2"
+    payload = record["payload"]
+    assert payload["observation_schema"] == record["schema_version"]
+    assert payload["source_owner"] == "sentientos.integrity_controller.evaluate_integrity"
+    assert payload["integrity_status_digest"] is not None
+    assert 0 < payload["gate_count"] <= 32
+    assert len(payload["gate_results"]) == payload["gate_count"]
+    assert payload["attack_established"] is False
+    assert payload["compromise_established"] is False
+    assert payload["effect_proven"] is False
+    assert payload["authority"] is False
+    assert "mutation_allowed" not in payload and "publish_allowed" not in payload
+
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, runtime_state_root=tmp_path / "runtime")
+    surfaces.build_world_state_board(tick_id="2026-10-12T00:00:01+00:00")
+    snapshot_value = surfaces.current_world_state_snapshot
+    assert snapshot_value is not None
+    fact = next(item for item in snapshot_value.facts
+        if item.subject.subject_kind == "integrity_controller_observation")
+    assert fact.source.kind == "audit_trust"
+    assert fact.payload["controller_posture"] in {"ok", "warn", "fail"}
+    assert surfaces._feedback["surfaces"]["attestation_snapshot_verification"]["status"] == (
+        next(gate["status"] for gate in fact.payload["gate_results"]
+             if gate["name"] == "attestation_snapshot_signatures"))
+    reset_runtime_governor()
+
+
+def test_quarantine_incident_reconciliation_preserves_second_read_failure(
+    monkeypatch, tmp_path: Path,
+) -> None:  # type: ignore[no-untyped-def]
+    def unavailable(_root):
+        raise sentientosd.QuarantineStateError("fixture_read_unavailable")
+
+    monkeypatch.setattr(sentientosd, "load_quarantine_state_with_status", unavailable)
+    record = _quarantine_incident_custody_world_state_record(
+        tmp_path, observed_at="2026-10-12T00:00:00+00:00",
+        expected_incident_id="incident-expected",
+        expected_activated_at="2026-10-11T23:59:00+00:00",
+    )
+    assert record is not None
+    assert record["payload"]["reconciliation_status"] == "observer_unavailable"
+    assert record["payload"]["incident_id"] == "incident-expected"
+    assert record["payload"]["artifact_status"] == "not_checked"
+    assert record["payload"]["feed_status"] == "not_checked"
+    assert record["payload"]["attack_established"] is False
+    assert record["payload"]["defensive_consequence_established"] is False
+    assert record["payload"]["authority"] is False
 
 class _GovernorStub:
     def __init__(self, *, allow: bool) -> None:
@@ -135,6 +217,82 @@ def test_maintenance_tick_invokes_all_runtime_surfaces(tmp_path: Path) -> None:
     assert surfaces.monitor_calls == 1
     assert forge.calls == 1
     assert merge.calls == 1
+
+
+def test_maintenance_tick_orders_campaign_signal_world_state_and_cognition(tmp_path: Path) -> None:
+    """The signal sees persisted campaign custody before current-tick world-state closure."""
+    events: list[tuple[str, str | None]] = []
+
+    class OrderedSurfaces(_RuntimeSurfaceSpy):
+        def identify_improvement_signals(self):
+            events.append(("signals", None))
+
+        def run_host_resource_observation_runtime(self, *, tick_id: str):
+            events.append(("resource", tick_id))
+            return {"status": "ok", "host_mutation_performed": False}
+
+        def run_host_privilege_review_rehearsal_runtime(self, *, tick_id: str):
+            events.append(("privilege", tick_id))
+            return {}
+
+        def run_host_execution_readiness_authorization_review_runtime(self, *, tick_id: str):
+            events.append(("execution_readiness", tick_id))
+            return {}
+
+        def run_host_controlled_authorization_safety_runtime(self, *, tick_id: str):
+            events.append(("authorization_safety", tick_id))
+            return {}
+
+        def run_host_live_grant_readiness_runtime(self, *, tick_id: str):
+            events.append(("grant_readiness", tick_id))
+            return {}
+
+        def build_world_state_board(self, *, tick_id: str):
+            events.append(("world_state", tick_id))
+            return {}
+
+        def run_resident_developmental_cognition(self, *, tick_id: str):
+            events.append(("cognition", tick_id))
+            return {"write_performed": False, "model_invoked": False}
+
+        def process_resident_cognitive_transition_request(self, *, tick_id: str):
+            events.append(("transition", tick_id))
+            return {"effect_performed": False}
+
+        def run_epistemic_development(self, *, tick_id: str):
+            events.append(("epistemic", tick_id))
+            return {"authority": False}
+
+        def reconcile_longitudinal_self_model(self, *, tick_id: str):
+            events.append(("self_model", tick_id))
+            return {"authority": False}
+
+        def capture_causal_introspection(self, *, tick_id: str):
+            events.append(("introspection", tick_id))
+            return {"authority": False}
+
+    kernel = ControlPlaneKernel(
+        runtime_governor=_GovernorStub(allow=True),  # type: ignore[arg-type]
+        decisions_path=tmp_path / "decisions.jsonl",
+    )
+    surfaces = OrderedSurfaces()
+    _run_maintenance_tick(
+        kernel=kernel,
+        runtime_surfaces=surfaces,  # type: ignore[arg-type]
+        contract_sentinel=_SentinelStub(),  # type: ignore[arg-type]
+        forge_daemon=_ForgeDaemonStub(),
+        merge_train=_MergeTrainStub(),
+    )
+
+    names = [name for name, _ in events]
+    assert names.index("signals") < names.index("resource") < names.index("world_state")
+    assert names.index("world_state") < names.index("cognition") < names.index("transition")
+    assert names.index("transition") < names.index("epistemic") < names.index("self_model")
+    assert names.index("self_model") < names.index("introspection")
+    tick_ids = {tick for _, tick in events if tick is not None}
+    assert len(tick_ids) == 1
+    assert surfaces.expand_calls == surfaces.cycle_calls == surfaces.guard_calls == surfaces.monitor_calls == 1
+    assert kernel.phase == LifecyclePhase.RUNTIME
 
 
 def test_runtime_surfaces_close_to_real_callable_paths(tmp_path: Path, monkeypatch) -> None:

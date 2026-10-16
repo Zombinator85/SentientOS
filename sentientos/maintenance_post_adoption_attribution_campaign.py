@@ -8,11 +8,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
+import stat
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from sentientos.maintenance_post_adoption_evaluation import Evaluation, FALSE_AUTHORITY
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PROTOCOL_SCHEMA = "sentientos.maintenance_post_adoption_attribution_campaign_protocol:v1"
 CONTROL_SCHEMA = "sentientos.maintenance_attribution_control_observation:v1"
@@ -23,6 +26,9 @@ CONTROL_DESIGNS = frozenset({"observed_environmental_stability", "matched_repeat
 SOURCE_CLASSES = frozenset({"world_state_evidence", "host_observation", "external_instrument", "operator_attested_observation", "independent_workload_replay", "contemporaneous_reference"})
 RESULTS = frozenset({"repeated_association_under_matched_controls", "repeated_target_contradiction_under_matched_controls", "environmental_confound_detected", "heterogeneous_repeated_outcome", "no_detectable_target_change", "insufficient_target_evidence", "insufficient_control_evidence", "measurement_failure", "interrupted_or_invalid_trial", "protected_regression_observed", "indeterminate"})
 TERMINAL_STATUSES = frozenset({"completed", "interrupted", "invalid"})
+MAX_ARTIFACT_BYTES = 131_072
+MAX_RECORDS_PER_KIND = 2_048
+WORLD_STATE_PROJECTION_SCHEMA = "sentientos.post_adoption_attribution_world_state_projection:v1"
 
 
 class AttributionCampaignError(ValueError):
@@ -40,6 +46,30 @@ def digest(value: Any) -> str:
 def _identity(prefix: str, payload: Mapping[str, Any]) -> tuple[str, str]:
     value = digest(payload)
     return f"{prefix}:{value[7:31]}", value
+
+
+def validate_world_state_projection_config(value: Mapping[str, Any]) -> dict[str, Any]:
+    config = dict(value)
+    expected = {"schema_version", "enabled", "store_root", "campaign_ids", "config_digest"}
+    if (set(config) != expected or config.get("schema_version") != WORLD_STATE_PROJECTION_SCHEMA
+            or type(config.get("enabled")) is not bool
+            or config.get("config_digest") != digest({key:item for key,item in config.items() if key != "config_digest"})):
+        raise AttributionCampaignError("campaign_projection_config_invalid")
+    if not config["enabled"]:
+        if config["store_root"] is not None or config["campaign_ids"] != []:
+            raise AttributionCampaignError("disabled_campaign_projection_must_be_empty")
+        return config
+    root, identities = config.get("store_root"), config.get("campaign_ids")
+    prefix = "attribution-campaign:"
+    if (not isinstance(root, str) or not os.path.isabs(root) or not isinstance(identities, list)
+            or not 1 <= len(identities) <= 32
+            or any(not isinstance(item, str) or len(item) != len(prefix) + 24
+                or not item.startswith(prefix)
+                or any(character not in "0123456789abcdef" for character in item[len(prefix):])
+                for item in identities)
+            or len(identities) != len(set(identities))):
+        raise AttributionCampaignError("campaign_projection_selection_invalid")
+    return config
 
 
 def _payload(value: Any, id_field: str, digest_field: str) -> dict[str, Any]:
@@ -146,6 +176,17 @@ def _evaluation_valid(value: Evaluation) -> bool:
     return bool(digest(value.payload()) == value.evaluation_digest and value.attribution_posture == "controlled_before_after_correlation_not_experimental_causation")
 
 
+def _classification(outcomes: set[str]) -> str:
+    if "protected_regression_observed" in outcomes: return "protected_regression_observed"
+    if "interrupted_or_invalid_trial" in outcomes: return "interrupted_or_invalid_trial"
+    if "measurement_failure" in outcomes: return "measurement_failure"
+    if "insufficient_target_evidence" in outcomes: return "insufficient_target_evidence"
+    if "insufficient_control_evidence" in outcomes: return "insufficient_control_evidence"
+    if "environmental_confound_detected" in outcomes: return "environmental_confound_detected"
+    if len(outcomes) > 1: return "heterogeneous_repeated_outcome"
+    return next(iter(outcomes), "indeterminate")
+
+
 def _trial_outcome(evaluation: Evaluation | None, controls: Sequence[ControlObservation], status: str, definitions: Sequence[ControlDefinition]) -> str:
     if status != "completed": return "interrupted_or_invalid_trial"
     if evaluation is None or not _evaluation_valid(evaluation): return "insufficient_target_evidence"
@@ -162,29 +203,182 @@ def _trial_outcome(evaluation: Evaluation | None, controls: Sequence[ControlObse
 
 class MaintenancePostAdoptionAttributionCampaignOwner:
     """Immutable, explicit-root custody for preregistered ordered campaigns."""
-    def __init__(self, root: str | Path) -> None:
-        self.root = Path(root).resolve(); self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if self.root.is_symlink(): raise AttributionCampaignError("campaign_custody_unsafe")
-        for name in ("protocols", "controls", "trials", "results", "signals"):
-            (self.root / name).mkdir(exist_ok=True, mode=0o700)
+    def __init__(self, root: str | Path, *, read_only: bool = False) -> None:
+        selected = Path(os.path.abspath(os.fspath(root)))
+        if selected == Path(selected.anchor):
+            raise AttributionCampaignError("campaign_custody_root_invalid")
+        self.root = selected
+        self.read_only = read_only
+        if not (os.name == "nt" and read_only):
+            self._require_descriptor_storage()
+        if not read_only:
+            for kind in ("protocols", "controls", "trials", "results", "signals"):
+                descriptor = self._open_kind_directory(kind, create=True)
+                os.close(descriptor)
         self.verify()
 
+    @staticmethod
+    def _require_descriptor_storage() -> None:
+        required = (os.open, os.mkdir, os.link, os.unlink)
+        if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW")
+                or any(function not in os.supports_dir_fd for function in required)):
+            raise AttributionCampaignError("campaign_unsupported_platform")
+
+    def _open_kind_directory(self, kind: str, *, create: bool) -> int:
+        if kind not in {"protocols", "controls", "trials", "results", "signals"}:
+            raise AttributionCampaignError("campaign_path_invalid")
+        self._require_descriptor_storage()
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | os.O_NOFOLLOW
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(os.sep, flags)
+            for component in (*self.root.parts[1:], kind):
+                if create:
+                    try:
+                        os.mkdir(component, 0o700, dir_fd=descriptor)
+                    except FileExistsError:
+                        pass
+                next_descriptor = os.open(component, flags, dir_fd=descriptor)
+                if not stat.S_ISDIR(os.fstat(next_descriptor).st_mode):
+                    os.close(next_descriptor)
+                    raise AttributionCampaignError("campaign_path_invalid")
+                os.close(descriptor)
+                descriptor = next_descriptor
+            return descriptor
+        except AttributionCampaignError:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise
+        except OSError as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if isinstance(exc, FileNotFoundError):
+                raise AttributionCampaignError("campaign_history_missing") from exc
+            raise AttributionCampaignError("campaign_path_invalid") from exc
+
     def _write(self, kind: str, identity: str, value: Any) -> None:
-        path = self.root / kind / (identity.replace(":", "-") + ".json")
+        if self.read_only:
+            raise AttributionCampaignError("campaign_store_read_only")
+        if (not isinstance(identity, str) or not identity or len(identity) > 256
+                or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-_" for character in identity)):
+            raise AttributionCampaignError("campaign_record_identity_invalid")
+        path_name = identity.replace(":", "-") + ".json"
         data = canonical_bytes(asdict(value) if not isinstance(value, Mapping) else value) + b"\n"
-        try: fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
-        except FileExistsError:
-            if path.read_bytes() != data: raise AttributionCampaignError("immutable_campaign_record_conflict")
-            return
-        with os.fdopen(fd, "wb") as handle: handle.write(data); handle.flush(); os.fsync(handle.fileno())
+        if len(data) > MAX_ARTIFACT_BYTES:
+            raise AttributionCampaignError("campaign_record_oversized")
+        directory_fd = self._open_kind_directory(kind, create=True)
+        temporary_name = ".campaign-" + secrets.token_hex(16) + ".tmp"
+        temporary_created = False
+        try:
+            try:
+                existing_fd = os.open(path_name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
+            except FileNotFoundError:
+                existing_fd = None
+            if existing_fd is not None:
+                os.close(existing_fd)
+                existing = self._read_named(directory_fd, path_name)
+                if canonical_bytes(existing) + b"\n" != data:
+                    raise AttributionCampaignError("immutable_campaign_record_conflict")
+                return
+            descriptor = os.open(temporary_name, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW,
+                0o600, dir_fd=directory_fd)
+            temporary_created = True
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(data); handle.flush(); os.fsync(handle.fileno())
+            try:
+                os.link(temporary_name, path_name, src_dir_fd=directory_fd,
+                    dst_dir_fd=directory_fd, follow_symlinks=False)
+            except FileExistsError:
+                existing = self._read_named(directory_fd, path_name)
+                if canonical_bytes(existing) + b"\n" != data:
+                    raise AttributionCampaignError("immutable_campaign_record_conflict")
+                return
+            os.fsync(directory_fd)
+        except AttributionCampaignError:
+            raise
+        except OSError as exc:
+            raise AttributionCampaignError("campaign_publication_failed") from exc
+        finally:
+            if temporary_created:
+                try:
+                    os.unlink(temporary_name, dir_fd=directory_fd)
+                    os.fsync(directory_fd)
+                except FileNotFoundError:
+                    pass
+            os.close(directory_fd)
+
+    @staticmethod
+    def _read_named(directory_fd: int, name: str) -> dict[str, Any]:
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_ARTIFACT_BYTES
+                    or metadata.st_nlink != 1):
+                raise AttributionCampaignError("campaign_history_corrupt")
+            chunks: list[bytes] = []
+            remaining = metadata.st_size
+            while remaining:
+                chunk = os.read(descriptor, min(remaining, 65_536))
+                if not chunk:
+                    raise AttributionCampaignError("campaign_history_corrupt")
+                chunks.append(chunk); remaining -= len(chunk)
+            raw = b"".join(chunks)
+            after = os.fstat(descriptor)
+            if (len(raw) != metadata.st_size or after.st_dev != metadata.st_dev
+                    or after.st_ino != metadata.st_ino or after.st_size != metadata.st_size
+                    or after.st_mtime_ns != metadata.st_mtime_ns):
+                raise AttributionCampaignError("campaign_history_corrupt")
+            value = json.loads(raw.decode("utf-8"))
+            if not isinstance(value, dict) or canonical_bytes(value) + b"\n" != raw:
+                raise AttributionCampaignError("campaign_history_corrupt")
+            return value
+        except AttributionCampaignError:
+            raise
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise AttributionCampaignError("campaign_history_corrupt") from exc
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
 
     def _read(self, kind: str) -> list[dict[str, Any]]:
-        values = []
-        for path in sorted((self.root / kind).glob("*.json")):
-            if path.is_symlink(): raise AttributionCampaignError("campaign_history_corrupt")
-            try: values.append(json.loads(path.read_text()))
-            except (OSError, json.JSONDecodeError) as exc: raise AttributionCampaignError("campaign_history_corrupt") from exc
-        return values
+        if os.name == "nt" and self.read_only:
+            identity_field = {"protocols":"campaign_id", "controls":"control_id", "trials":"trial_record_id",
+                "results":"result_id", "signals":"source_artifact"}[kind]
+            try:
+                entries = read_regular_files(self.root / kind, max_entries=MAX_RECORDS_PER_KIND,
+                    max_file_bytes=MAX_ARTIFACT_BYTES,
+                    max_total_bytes=MAX_RECORDS_PER_KIND * MAX_ARTIFACT_BYTES)
+                values: list[dict[str, Any]] = []
+                for name, raw in entries:
+                    value = json.loads(raw.decode("utf-8"))
+                    if (not isinstance(value, dict) or canonical_bytes(value) + b"\n" != raw
+                            or not isinstance(value.get(identity_field), str)
+                            or name != value[identity_field].replace(":", "-") + ".json"):
+                        raise AttributionCampaignError("campaign_history_corrupt")
+                    values.append(value)
+                return values
+            except AttributionCampaignError:
+                raise
+            except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError, OSError) as exc:
+                raise AttributionCampaignError("campaign_history_corrupt") from exc
+        directory_fd = self._open_kind_directory(kind, create=False)
+        try:
+            names = sorted(name for name in os.listdir(directory_fd) if name.endswith(".json"))
+            if len(names) > MAX_RECORDS_PER_KIND:
+                raise AttributionCampaignError("campaign_retention_limit_exceeded")
+            values = []
+            for name in names:
+                value = self._read_named(directory_fd, name)
+                identity_field = {"protocols":"campaign_id", "controls":"control_id", "trials":"trial_record_id",
+                    "results":"result_id", "signals":"source_artifact"}[kind]
+                identity = value.get(identity_field)
+                if not isinstance(identity, str) or name != identity.replace(":", "-") + ".json":
+                    raise AttributionCampaignError("campaign_history_corrupt")
+                values.append(value)
+            return values
+        finally:
+            os.close(directory_fd)
 
     def preregister(self, protocol: CampaignProtocol) -> CampaignProtocol:
         rebuilt = make_campaign_protocol(**{k:v for k,v in asdict(protocol).items() if k not in {"campaign_id","campaign_digest","schema_version","authority"}})
@@ -199,15 +393,68 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
             row[field] = tuple(row[field])
         return CampaignProtocol(**row)
 
+    def controls_for_trial(self, campaign_id: str, trial_id: str) -> tuple[ControlObservation, ...]:
+        """Return exact persisted controls for a trial after full store verification."""
+        self.verify()
+        rows = [row for row in self._read("controls")
+            if row.get("campaign_id") == campaign_id and row.get("trial_id") == trial_id]
+        values = []
+        for row in rows:
+            value = dict(row)
+            value["dependency_ids"] = tuple(value["dependency_ids"])
+            values.append(ControlObservation(**value))
+        return tuple(sorted(values, key=lambda item: item.observable_id))
+
+    def record_control(self, protocol: CampaignProtocol, control: ControlObservation) -> ControlObservation:
+        """Publish one immutable control observation so an interrupted trial can resume exactly."""
+        self.verify()
+        if self.read_only:
+            raise AttributionCampaignError("campaign_store_read_only")
+        if self.protocol(protocol.campaign_id) != protocol:
+            raise AttributionCampaignError("campaign_protocol_custody_mismatch")
+        if control.campaign_id != protocol.campaign_id or control.campaign_digest != protocol.campaign_digest:
+            raise AttributionCampaignError("control_campaign_lineage_mismatch")
+        fields = {key:value for key,value in asdict(control).items()
+            if key not in {"control_id", "control_digest", "campaign_id", "campaign_digest", "authority", "schema_version"}}
+        fields["dependency_ids"] = tuple(fields["dependency_ids"])
+        if make_control_observation(protocol, **fields) != control:
+            raise AttributionCampaignError("control_digest_mismatch")
+        if any(row.get("campaign_id") == protocol.campaign_id and row.get("trial_id") == control.trial_id
+                for row in self._read("trials")):
+            raise AttributionCampaignError("trial_already_terminal")
+        existing = [row for row in self._read("controls")
+            if row.get("campaign_id") == protocol.campaign_id and row.get("trial_id") == control.trial_id
+            and row.get("observable_id") == control.observable_id]
+        if existing:
+            if len(existing) != 1 or existing[0].get("control_id") != control.control_id:
+                raise AttributionCampaignError("trial_control_observation_conflict")
+            stored = dict(existing[0]); stored["dependency_ids"] = tuple(stored["dependency_ids"])
+            return ControlObservation(**stored)
+        if any(row.get("campaign_id") == protocol.campaign_id for row in self._read("results")):
+            raise AttributionCampaignError("completed_campaign_replay_forbidden")
+        self._write("controls", control.control_id, control)
+        return control
+
     def record_trial(self, protocol: CampaignProtocol, *, trial_id: str, evaluation: Evaluation | None,
                      controls: Sequence[ControlObservation], terminal_status: str, completed_at: str) -> CampaignTrial:
+        self.verify()
         stored = self.protocol(protocol.campaign_id)
         if stored != protocol: raise AttributionCampaignError("campaign_protocol_custody_mismatch")
         if any(x["campaign_id"] == protocol.campaign_id for x in self._read("results")): raise AttributionCampaignError("completed_campaign_replay_forbidden")
         if trial_id not in protocol.trial_ids or terminal_status not in TERMINAL_STATUSES: raise AttributionCampaignError("trial_not_preregistered")
+        if len({item.control_id for item in controls}) != len(controls) or len({item.observable_id for item in controls}) != len(controls):
+            raise AttributionCampaignError("duplicate_trial_control_evidence")
         order = protocol.trial_ids.index(trial_id)
         existing = self._read("trials")
         if any(x["campaign_id"] == protocol.campaign_id and x["trial_id"] == trial_id for x in existing): raise AttributionCampaignError("trial_retry_or_replacement_forbidden")
+        persisted_controls = [row for row in self._read("controls")
+            if row.get("campaign_id") == protocol.campaign_id and row.get("trial_id") == trial_id]
+        supplied_by_observable = {item.observable_id:item for item in controls}
+        for row in persisted_controls:
+            supplied = supplied_by_observable.get(row["observable_id"])
+            if (supplied is None or supplied.control_id != row["control_id"]
+                    or supplied.control_digest != row["control_digest"]):
+                raise AttributionCampaignError("trial_control_recovery_mismatch")
         expected_next = len([x for x in existing if x["campaign_id"] == protocol.campaign_id])
         if order != expected_next: raise AttributionCampaignError("trial_order_or_omission_forbidden")
         if any(x.campaign_digest != protocol.campaign_digest or x.trial_id != trial_id for x in controls): raise AttributionCampaignError("control_campaign_lineage_mismatch")
@@ -231,21 +478,30 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         self._write("trials", tid, value); return value
 
     def finalize(self, protocol: CampaignProtocol, *, completed_at: str) -> CampaignResult:
+        self.verify()
         if self.protocol(protocol.campaign_id) != protocol: raise AttributionCampaignError("campaign_protocol_custody_mismatch")
+        existing_results = [x for x in self._read("results") if x["campaign_id"] == protocol.campaign_id]
+        if existing_results:
+            existing = self.result(protocol.campaign_id)
+            if existing.completed_at == completed_at:
+                signal = campaign_improvement_signal_record(existing)
+                if signal:
+                    self._write("signals", existing.result_id, signal)
+                return existing
+            raise AttributionCampaignError("campaign_already_terminal")
         trials = sorted((CampaignTrial(**x) for x in self._read("trials") if x["campaign_id"] == protocol.campaign_id), key=lambda x:x.trial_order)
         if tuple(x.trial_id for x in trials) != protocol.trial_ids: raise AttributionCampaignError("campaign_incomplete_no_selective_aggregation")
         outcomes = {x.outcome for x in trials}
-        if "protected_regression_observed" in outcomes: classification = "protected_regression_observed"
-        elif "interrupted_or_invalid_trial" in outcomes: classification = "interrupted_or_invalid_trial"
-        elif "measurement_failure" in outcomes: classification = "measurement_failure"
-        elif "insufficient_target_evidence" in outcomes: classification = "insufficient_target_evidence"
-        elif "insufficient_control_evidence" in outcomes: classification = "insufficient_control_evidence"
-        elif "environmental_confound_detected" in outcomes: classification = "environmental_confound_detected"
-        elif len(outcomes) > 1: classification = "heterogeneous_repeated_outcome"
-        else: classification = next(iter(outcomes), "indeterminate")
+        classification = _classification(outcomes)
         controls = sorted((x for x in self._read("controls") if x["campaign_id"] == protocol.campaign_id),
                           key=lambda x:(protocol.trial_ids.index(x["trial_id"]), x["observable_id"]))
-        production_ready = protocol.evidence_class == "production" and all(x["evidence_class"] == "production" for x in controls)
+        consumed_control_ids = {identity for trial in trials for identity in trial.control_ids}
+        if consumed_control_ids != {row["control_id"] for row in controls}:
+            raise AttributionCampaignError("campaign_unconsumed_control_evidence")
+        # ``evidence_class`` and collector/source identities are caller supplied;
+        # this owner has no authenticated issuer verifier and cannot certify
+        # production readiness from those declarations alone.
+        production_ready = False
         lineage = (protocol.campaign_digest,) + tuple(x.trial_digest for x in trials) + tuple(x["control_digest"] for x in controls)
         raw = CampaignResult("", "", protocol.campaign_id, protocol.campaign_digest, protocol.trial_ids,
             tuple(x.trial_record_id for x in trials), tuple(x.trial_digest for x in trials),
@@ -259,6 +515,7 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
         return value
 
     def result(self, campaign_id: str) -> CampaignResult:
+        self.verify()
         rows = [x for x in self._read("results") if x["campaign_id"] == campaign_id]
         if len(rows) != 1: raise AttributionCampaignError("campaign_result_not_found")
         row = dict(rows[0])
@@ -266,37 +523,215 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
             row[field] = tuple(row[field])
         return CampaignResult(**row)
 
+    def world_state_records(self, *, campaign_ids: Sequence[str]) -> list[dict[str, Any]]:
+        """Project explicitly selected durable outcomes as non-authorizing context."""
+        from sentientos.world_state_board import record_digest
+        identities = tuple(campaign_ids)
+        if (len(identities) > 32 or any(not isinstance(item, str) or not item.startswith("attribution-campaign:")
+                or len(item) != len("attribution-campaign:") + 24
+                or any(character not in "0123456789abcdef" for character in item[len("attribution-campaign:"):])
+                for item in identities) or len(identities) != len(set(identities))):
+            raise AttributionCampaignError("campaign_world_state_selection_invalid")
+        records: list[dict[str, Any]] = []
+        for campaign_id in identities:
+            result = self.result(campaign_id)
+            protocol = self.protocol(campaign_id)
+            record: dict[str, Any] = {
+                "source_kind": "owner_introspection",
+                "source_id": "post-adoption-attribution:" + result.result_id,
+                "schema_version": RESULT_SCHEMA,
+                "subject_id": result.result_id,
+                "subject_kind": "post_adoption_attribution_campaign",
+                "stage": "observation",
+                "disposition": result.classification,
+                "evidence_strength": "digest_verified_campaign_custody_unverified_sources",
+                "payload": {
+                    "campaign_id": result.campaign_id,
+                    "campaign_digest": result.campaign_digest,
+                    "result_id": result.result_id,
+                    "result_digest": result.result_digest,
+                    "protocol_successor_generation": protocol.successor_generation,
+                    "protocol_successor_revision": protocol.successor_revision,
+                    "protocol_successor_tree": protocol.successor_tree,
+                    "adoption_identity_declared": protocol.adoption_identity,
+                    "trial_record_ids": list(result.trial_record_ids),
+                    "trial_digests": list(result.trial_digests),
+                    "evaluation_ids": list(result.evaluation_ids),
+                    "evaluation_digests": list(result.evaluation_digests),
+                    "control_ids": list(result.control_ids),
+                    "control_digests": list(result.control_digests),
+                    "reconstruction_lineage": list(result.reconstruction_lineage),
+                    "declared_completed_at": result.completed_at,
+                    "event_time_posture": "caller_declared_campaign_completion_time",
+                    "source_issuer_posture": "unverified_caller_supplied_sources",
+                    "production_ready": False,
+                    "current_truth": False,
+                    "authority": dict(FALSE_AUTHORITY),
+                },
+                "effect_claimed": False,
+                "effect_proven": False,
+            }
+            record["digest"] = record_digest(record)
+            if len(canonical_bytes(record)) > 65_536:
+                raise AttributionCampaignError("campaign_world_state_record_oversized")
+            records.append(record)
+        return records
+
     def verify(self) -> Mapping[str, int]:
-        protocols = {}
+        protocols: dict[str, CampaignProtocol] = {}
         for row in self._read("protocols"):
-            rebuilt = make_campaign_protocol(**{k:v for k,v in row.items() if k not in {"campaign_id","campaign_digest","schema_version","authority"}})
-            if rebuilt.campaign_digest != row["campaign_digest"]: raise AttributionCampaignError("campaign_history_corrupt")
-            protocols[row["campaign_id"]] = row
-        controls = {x["control_id"]:x for x in self._read("controls")}; trials = {x["trial_record_id"]:x for x in self._read("trials")}
-        for row in controls.values():
-            if row["campaign_id"] not in protocols or digest({k:v for k,v in row.items() if k not in {"control_id","control_digest"}}) != row["control_digest"]: raise AttributionCampaignError("campaign_history_corrupt")
+            fields = {k:v for k,v in row.items() if k not in {"campaign_id","campaign_digest","schema_version","authority"}}
+            fields["controls"] = tuple(ControlDefinition(**{**x, "admissible_source_classes":tuple(x["admissible_source_classes"])}) for x in fields["controls"])
+            for name in ("signal_ids", "evaluation_protocol_ids", "evaluation_protocol_digests", "target_observable_ids", "protected_invariant_ids", "trial_ids"):
+                fields[name] = tuple(fields[name])
+            rebuilt = make_campaign_protocol(**fields)
+            if (rebuilt.campaign_id != row.get("campaign_id") or rebuilt.campaign_digest != row.get("campaign_digest")
+                    or canonical_bytes(asdict(rebuilt)) != canonical_bytes(row) or row["campaign_id"] in protocols):
+                raise AttributionCampaignError("campaign_history_corrupt")
+            protocols[row["campaign_id"]] = rebuilt
+
+        control_rows = self._read("controls")
+        controls: dict[str, dict[str, Any]] = {}
+        control_slots: set[tuple[str, str, str]] = set()
+        for row in control_rows:
+            try:
+                protocol = protocols[row["campaign_id"]]
+                fields = {k:v for k,v in row.items() if k not in {"control_id","control_digest","campaign_id","campaign_digest","authority","schema_version"}}
+                fields["dependency_ids"] = tuple(fields["dependency_ids"])
+                rebuilt_control = make_control_observation(protocol, **fields)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise AttributionCampaignError("campaign_history_corrupt") from exc
+            if (rebuilt_control.control_id != row.get("control_id") or rebuilt_control.control_digest != row.get("control_digest")
+                    or canonical_bytes(asdict(rebuilt_control)) != canonical_bytes(row) or row["control_id"] in controls):
+                raise AttributionCampaignError("campaign_history_corrupt")
+            slot = (row["campaign_id"], row["trial_id"], row["observable_id"])
+            if slot in control_slots:
+                raise AttributionCampaignError("campaign_history_corrupt")
+            control_slots.add(slot)
             _false(row["authority"])
-        for row in trials.values():
-            if row["campaign_id"] not in protocols or any(x not in controls for x in row["control_ids"]) or digest({k:v for k,v in row.items() if k not in {"trial_record_id","trial_digest"}}) != row["trial_digest"]: raise AttributionCampaignError("campaign_history_corrupt")
-            _false(row["authority"])
-        for row in self._read("results"):
-            if row["campaign_id"] not in protocols or any(x not in trials for x in row["trial_record_ids"]) or row["classification"] not in RESULTS or digest({k:v for k,v in row.items() if k not in {"result_id","result_digest"}}) != row["result_digest"]: raise AttributionCampaignError("campaign_history_corrupt")
-            _false(row["authority"])
-        return {"protocols":len(protocols), "controls":len(controls), "trials":len(trials), "results":len(self._read("results")), "signals":len(self._read("signals"))}
+            controls[row["control_id"]] = row
+
+        trial_rows = self._read("trials")
+        trials: dict[str, dict[str, Any]] = {}
+        campaign_trials: dict[str, list[dict[str, Any]]] = {}
+        for row in trial_rows:
+            try:
+                protocol = protocols[row["campaign_id"]]
+                fields = dict(row)
+                for name in ("evaluation_lineage", "control_ids", "control_digests"):
+                    fields[name] = tuple(fields[name])
+                trial = CampaignTrial(**fields)
+                computed_id, computed_digest = _identity("attribution-trial", trial.payload())
+                order = protocol.trial_ids.index(trial.trial_id)
+                linked_controls = [controls[identity] for identity in trial.control_ids]
+                if (trial.campaign_digest != protocol.campaign_digest or trial.trial_order != order
+                        or trial.schema_version != TRIAL_SCHEMA
+                        or trial.evaluation_protocol_id != protocol.evaluation_protocol_ids[order]
+                        or trial.evaluation_protocol_digest != protocol.evaluation_protocol_digests[order]
+                        or trial.terminal_status not in TERMINAL_STATUSES or trial.outcome not in RESULTS
+                        or len(trial.control_ids) != len(set(trial.control_ids))
+                        or len({x["observable_id"] for x in linked_controls}) != len(linked_controls)
+                        or tuple(x["control_digest"] for x in linked_controls) != trial.control_digests
+                        or any(x["campaign_id"] != trial.campaign_id or x["trial_id"] != trial.trial_id for x in linked_controls)
+                        or (trial.terminal_status != "completed" and trial.outcome != "interrupted_or_invalid_trial")
+                        or (trial.terminal_status == "completed" and (not trial.evaluation_id or not trial.evaluation_digest))
+                        or (trial.trial_record_id, trial.trial_digest) != (computed_id, computed_digest)
+                        or trial.trial_record_id in trials):
+                    raise AttributionCampaignError("campaign_history_corrupt")
+            except (KeyError, TypeError, ValueError) as exc:
+                raise AttributionCampaignError("campaign_history_corrupt") from exc
+            _false(trial.authority)
+            trials[trial.trial_record_id] = row
+            campaign_trials.setdefault(trial.campaign_id, []).append(row)
+
+        for rows in campaign_trials.values():
+            orders = [row["trial_order"] for row in rows]
+            trial_ids = [row["trial_id"] for row in rows]
+            if len(orders) != len(set(orders)) or len(trial_ids) != len(set(trial_ids)):
+                raise AttributionCampaignError("campaign_history_corrupt")
+
+        result_rows = self._read("results")
+        results: dict[str, dict[str, Any]] = {}
+        result_values: dict[str, CampaignResult] = {}
+        for row in result_rows:
+            try:
+                protocol = protocols[row["campaign_id"]]
+                fields = dict(row)
+                for name in ("ordered_trial_ids", "trial_record_ids", "trial_digests", "evaluation_ids", "evaluation_digests", "control_ids", "control_digests", "reconstruction_lineage"):
+                    fields[name] = tuple(fields[name])
+                result = CampaignResult(**fields)
+                ordered_trials = sorted(campaign_trials.get(result.campaign_id, []), key=lambda x:x["trial_order"])
+                expected_controls = sorted((x for x in control_rows if x["campaign_id"] == result.campaign_id),
+                    key=lambda x:(protocol.trial_ids.index(x["trial_id"]), x["observable_id"]))
+                trial_control_ids = {identity for trial in ordered_trials for identity in trial["control_ids"]}
+                if trial_control_ids != {item["control_id"] for item in expected_controls}:
+                    raise AttributionCampaignError("campaign_history_corrupt")
+                expected_ids = tuple(x["trial_record_id"] for x in ordered_trials)
+                expected_digests = tuple(x["trial_digest"] for x in ordered_trials)
+                expected_ordered_trial_ids = tuple(x["trial_id"] for x in ordered_trials)
+                expected_evaluations = tuple(x["evaluation_id"] for x in ordered_trials if x["evaluation_id"])
+                expected_evaluation_digests = tuple(x["evaluation_digest"] for x in ordered_trials if x["evaluation_digest"])
+                expected_control_ids = tuple(x["control_id"] for x in expected_controls)
+                expected_control_digests = tuple(x["control_digest"] for x in expected_controls)
+                computed_id, computed_digest = _identity("attribution-result", result.payload())
+                expected_lineage = (protocol.campaign_digest,) + expected_digests + expected_control_digests
+                if ((result.result_id, result.result_digest) != (computed_id, computed_digest)
+                        or result.schema_version != RESULT_SCHEMA
+                        or result.campaign_digest != protocol.campaign_digest
+                        or result.ordered_trial_ids != protocol.trial_ids
+                        or expected_ordered_trial_ids != protocol.trial_ids
+                        or result.trial_record_ids != expected_ids or result.trial_digests != expected_digests
+                        or result.evaluation_ids != expected_evaluations or result.evaluation_digests != expected_evaluation_digests
+                        or result.control_ids != expected_control_ids or result.control_digests != expected_control_digests
+                        or result.reconstruction_lineage != expected_lineage
+                        or result.classification != _classification({x["outcome"] for x in ordered_trials})
+                        or result.attribution_posture != ATTRIBUTION_POSTURE or result.production_ready is not False
+                        or result.evidence_class != protocol.evidence_class or result.result_id in results):
+                    raise AttributionCampaignError("campaign_history_corrupt")
+            except (KeyError, TypeError, ValueError) as exc:
+                raise AttributionCampaignError("campaign_history_corrupt") from exc
+            _false(result.authority)
+            results[result.result_id] = row
+            result_values[result.result_id] = result
+        expected_signals = {identity: signal for identity, result in result_values.items()
+            if (signal := campaign_improvement_signal_record(result)) is not None}
+        signal_rows = self._read("signals")
+        if any(not isinstance(row.get("source_artifact"), str)
+                or row.get("source_artifact") not in expected_signals
+                or canonical_bytes(row) != canonical_bytes(expected_signals[row["source_artifact"]])
+                for row in signal_rows):
+            raise AttributionCampaignError("campaign_signal_lineage_invalid")
+        return {"protocols":len(protocols), "controls":len(controls), "trials":len(trials),
+            "results":len(results), "signals":len(signal_rows)}
 
 
-def campaign_epistemic_binding(*, proposition_id: str, result: CampaignResult) -> Any:
+def campaign_epistemic_binding(*, proposition_id: str, result: CampaignResult,
+                               owner: MaintenancePostAdoptionAttributionCampaignOwner) -> Any:
     from sentientos.persistent_epistemic_state import make_evidence_binding
-    relation = ("supports" if result.classification == "repeated_association_under_matched_controls" else
-                "contradicts" if result.classification in {"repeated_target_contradiction_under_matched_controls", "protected_regression_observed"} else "contextualizes")
-    return make_evidence_binding(proposition_id=proposition_id, source_artifact_id=result.result_id,
-        source_digest=result.result_digest, source_schema=result.schema_version, source_class="post_adoption_attribution_campaign",
-        observation_time=result.completed_at, evidence_relation=relation, dependency_kind="repeated_observation",
-        dependency_group=result.campaign_digest, upstream_binding_ids=(), freshness="current",
-        reliability_posture=f"{relation}:{result.classification}")
+    if owner.result(result.campaign_id) != result:
+        raise AttributionCampaignError("campaign_result_not_recovered_from_custody")
+    expected_id, expected_digest = _identity("attribution-result", result.payload())
+    _false(result.authority)
+    if (result.schema_version != RESULT_SCHEMA or result.attribution_posture != ATTRIBUTION_POSTURE
+            or result.classification not in RESULTS
+            or (result.result_id, result.result_digest) != (expected_id, expected_digest)):
+        raise AttributionCampaignError("campaign_result_identity_unverified")
+    # Control source identities/classes are caller supplied and have no
+    # authenticated issuer in this owner. Preserve the aggregate as historical
+    # context without calling it independent or fresh evidence.
+    return make_evidence_binding(proposition_id=proposition_id,
+        source_artifact_id=result.result_id, source_digest=result.result_digest,
+        source_schema=result.schema_version, source_class="post_adoption_attribution_campaign",
+        observation_time=result.completed_at, evidence_relation="contextualizes",
+        dependency_kind="unknown_dependency", dependency_group=None,
+        upstream_binding_ids=(), freshness="unknown",
+        reliability_posture="control_source_issuers_unverified")
 
 
-def developmental_evidence_record(result: CampaignResult) -> Mapping[str, Any]:
+def developmental_evidence_record(result: CampaignResult,
+                                  owner: MaintenancePostAdoptionAttributionCampaignOwner) -> Mapping[str, Any]:
+    if owner.result(result.campaign_id) != result:
+        raise AttributionCampaignError("campaign_result_not_recovered_from_custody")
     return {"source_kind":"post_adoption_attribution_campaign", "result_id":result.result_id,
         "result_digest":result.result_digest, "campaign_id":result.campaign_id, "campaign_digest":result.campaign_digest,
         "classification":result.classification, "evaluation_ids":result.evaluation_ids, "control_ids":result.control_ids,
@@ -304,18 +739,48 @@ def developmental_evidence_record(result: CampaignResult) -> Mapping[str, Any]:
         "interpretation_performed":False, "authority":dict(FALSE_AUTHORITY)}
 
 
-def campaign_improvement_signal_record(result: CampaignResult) -> Mapping[str, Any] | None:
+def campaign_improvement_signal_record(
+        result: CampaignResult, *, protocol: CampaignProtocol | None = None,
+        selection_config_digest: str | None = None) -> Mapping[str, Any] | None:
     kinds = {"repeated_target_contradiction_under_matched_controls":"recurring_failure",
-        "protected_regression_observed":"recurring_failure", "heterogeneous_repeated_outcome":"recurring_failure",
+        "protected_regression_observed":"recurring_failure", "heterogeneous_repeated_outcome":"diagnostic",
         "environmental_confound_detected":"telemetry_gap", "insufficient_control_evidence":"telemetry_gap",
-        "insufficient_target_evidence":"telemetry_gap", "measurement_failure":"telemetry_gap"}
+        "insufficient_target_evidence":"telemetry_gap", "measurement_failure":"telemetry_gap",
+        "repeated_association_under_matched_controls":"diagnostic",
+        "no_detectable_target_change":"diagnostic", "interrupted_or_invalid_trial":"diagnostic",
+        "indeterminate":"diagnostic"}
     kind = kinds.get(result.classification)
     if kind is None: return None
+    refs = [*result.reconstruction_lineage, "campaign_digest:" + result.campaign_digest,
+        "result_digest:" + result.result_digest,
+        *("evaluation_id:" + value for value in result.evaluation_ids),
+        *("control_id:" + value for value in result.control_ids),
+        "classification:" + result.classification,
+        "evidence_class:" + result.evidence_class,
+        "source_posture:control_source_issuers_unverified",
+        "read_only_projection:true"]
+    if protocol is not None:
+        if protocol.campaign_id != result.campaign_id or protocol.campaign_digest != result.campaign_digest:
+            raise AttributionCampaignError("campaign_signal_protocol_mismatch")
+        refs.extend(("protocol_schema:" + protocol.schema_version,
+            "selection_campaign_id:" + protocol.campaign_id,
+            "selection_proposal_id:" + protocol.proposal_id,
+            "selection_maintenance_task_id:" + protocol.maintenance_task_id,
+            "selection_proposal_id:" + protocol.proposal_id,
+            "selection_successor_generation:" + str(protocol.successor_generation),
+            "selection_successor_revision:" + protocol.successor_revision,
+            "selection_successor_tree:" + protocol.successor_tree))
+    if selection_config_digest is not None:
+        if (not isinstance(selection_config_digest, str) or len(selection_config_digest) != 71
+                or not selection_config_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in selection_config_digest[7:])):
+            raise AttributionCampaignError("campaign_signal_selection_digest_invalid")
+        refs.append("selection_config_digest:" + selection_config_digest)
     return {"source_kind":"post_adoption_attribution_campaign", "finding_kind":kind,
         "severity":"high" if result.classification == "protected_regression_observed" else "medium",
-        "description":f"Campaign-level {result.classification} for {result.campaign_id}",
+        "description":f"Campaign-level {result.classification} for {protocol.proposal_id if protocol else result.campaign_id}",
         "spec_id":result.campaign_id, "source_artifact":result.result_id, "source_digest":result.result_digest,
-        "evidence_refs":list(result.reconstruction_lineage), "observed_at":result.completed_at,
+        "evidence_refs":sorted(set(refs)), "observed_at":result.completed_at,
         "declared_constraints":["proposal_only","campaign_level_distinct_finding","no_repository_mutation","no_adoption","no_rollback"],
         "signal_handoff_only":True, "repository_mutation_performed":False, "adoption_performed":False,
         "provider_or_network_or_git_operation_performed":False, "trial_performed":False}

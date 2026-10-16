@@ -1,0 +1,178 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_persistent_governed_conversation.py::test_admission_denial_and_fabrication_cause_zero_write": 0,
+    "tests/test_persistent_governed_conversation.py::test_bounded_context_reconstruction": 0,
+    "tests/test_persistent_governed_conversation.py::test_canonical_data_root_is_frozen_after_import": 0,
+    "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success": 0,
+    "tests/test_persistent_governed_conversation.py::test_concurrent_same_session_append_preserves_both_revisions": 0,
+    "tests/test_persistent_governed_conversation.py::test_context_identity_binds_turn_model_provenance": 0,
+    "tests/test_persistent_governed_conversation.py::test_control_plane_denied_session_chat_preserves_only_unanswered_user_turn": 0,
+    "tests/test_persistent_governed_conversation.py::test_duplicate_or_malformed_session_fails_closed": 0,
+    "tests/test_persistent_governed_conversation.py::test_durable_session_reopen": 0,
+    "tests/test_persistent_governed_conversation.py::test_exact_admitted_retention_writes_canonical_memory_once": 0,
+    "tests/test_persistent_governed_conversation.py::test_explicit_retention_boundary": 0,
+    "tests/test_persistent_governed_conversation.py::test_legacy_sidecar_is_inert_but_visible": 0,
+    "tests/test_persistent_governed_conversation.py::test_malicious_recalled_memory_cannot_become_system_authority": 0,
+    "tests/test_persistent_governed_conversation.py::test_process_restart_resume_composed_success": 0,
+    "tests/test_persistent_governed_conversation.py::test_storage_rejects_symlink_and_size_and_cross_session_leakage": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 15,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-gr4-exact/glow/test_runs/pytest_junitxml_9930bb76af20418b9d3042b77e74e18e.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_durable_session_reopen",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_bounded_context_reconstruction",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_context_identity_binds_turn_model_provenance",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_malicious_recalled_memory_cannot_become_system_authority",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_control_plane_denied_session_chat_preserves_only_unanswered_user_turn",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_explicit_retention_boundary",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_process_restart_resume_composed_success",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_storage_rejects_symlink_and_size_and_cross_session_leakage",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_duplicate_or_malformed_session_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_concurrent_same_session_append_preserves_both_revisions",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_admission_denial_and_fabrication_cause_zero_write",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_exact_admitted_retention_writes_canonical_memory_once",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_canonical_data_root_is_frozen_after_import",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_persistent_governed_conversation.py::test_legacy_sidecar_is_inert_but_visible",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "a945e9ab4c2d3f234d8530de53d9c529231bb2de2beb762328460ab51440d83a",
+  "provenance_hash": "9d4d756298c35d135f629135b817f37f0a6c2cd3d251ade1619e5d975d2ccd42",
+  "pytest_args": [
+    "tests/test_persistent_governed_conversation.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "4a96467c075b4e719f3463de9e7a0a4c",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_persistent_governed_conversation.py::test_durable_session_reopen",
+    "tests/test_persistent_governed_conversation.py::test_bounded_context_reconstruction",
+    "tests/test_persistent_governed_conversation.py::test_context_identity_binds_turn_model_provenance",
+    "tests/test_persistent_governed_conversation.py::test_malicious_recalled_memory_cannot_become_system_authority",
+    "tests/test_persistent_governed_conversation.py::test_control_plane_denied_session_chat_preserves_only_unanswered_user_turn",
+    "tests/test_persistent_governed_conversation.py::test_explicit_retention_boundary",
+    "tests/test_persistent_governed_conversation.py::test_process_restart_resume_composed_success",
+    "tests/test_persistent_governed_conversation.py::test_composed_persistent_governed_conversation_success",
+    "tests/test_persistent_governed_conversation.py::test_storage_rejects_symlink_and_size_and_cross_session_leakage",
+    "tests/test_persistent_governed_conversation.py::test_duplicate_or_malformed_session_fails_closed",
+    "tests/test_persistent_governed_conversation.py::test_concurrent_same_session_append_preserves_both_revisions",
+    "tests/test_persistent_governed_conversation.py::test_admission_denial_and_fabrication_cause_zero_write",
+    "tests/test_persistent_governed_conversation.py::test_exact_admitted_retention_writes_canonical_memory_once",
+    "tests/test_persistent_governed_conversation.py::test_canonical_data_root_is_frozen_after_import",
+    "tests/test_persistent_governed_conversation.py::test_legacy_sidecar_is_inert_but_visible"
+  ],
+  "selection_flags": [
+    "tests/test_persistent_governed_conversation.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 15,
+  "tests_executed": 15,
+  "tests_failed": 0,
+  "tests_passed": 15,
+  "tests_selected": 15,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T18:20:03.762847+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

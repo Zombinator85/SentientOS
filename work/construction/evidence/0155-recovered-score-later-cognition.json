@@ -1,0 +1,25 @@
+{
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 155,
+  "title": "recovered score lineage into later cognition",
+  "source_commit": "4365da2649e9e72c552f0d0af5ca89fb6c2f9ed0",
+  "source_tree": "94661546ec20d27b80f93405dd043e1068b4d50f",
+  "predecessor_sequence": 154,
+  "predecessor_source_commit": "41bf0616a92362e77ec691bdc546451945a3211a",
+  "checks": {
+    "python_compile": "passed: sentientos/developmental_model_replacement_experiment.py, sentientos/resident_developmental_writeback.py, tests/test_resident_developmental_cognition.py",
+    "focused_test": {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-recon8-cost5-g SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-recon8-cost5-r SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-recon8-cost5-f SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-recon8-cost5-k PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-recon8-cost5-t PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-recon8-cost5-t/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_task_family_example_flows_through_admitted_history_and_is_not_current_context",
+      "result": "1 passed in 64.34s",
+      "scope": "hermetic deterministic fixtures; no live model invoked"
+    }
+  },
+  "assertions": [
+    "resident cognition owner restarted from durable state before a later tick",
+    "a distinct later source observation caused a later cognition request",
+    "the recovered developmental-history packet bound the admitted record and exact selected fact/source identity and digest",
+    "historical packet current_truth and authority remained false"
+  ],
+  "not_established": ["real-model learning", "actual acquisition or transfer", "performance improvement", "production operation"],
+  "unverified_for_production": true
+}

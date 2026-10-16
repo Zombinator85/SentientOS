@@ -1,0 +1,39 @@
+{
+  "commit": "6a8502675074eb9c116ded9b0d36eab67495c1f6",
+  "observed": [
+    {
+      "conclusion": "success",
+      "job_id": 115064769309,
+      "name": "Source validation (unprivileged)",
+      "status": "completed"
+    },
+    {
+      "conclusion": null,
+      "job_id": 115064769288,
+      "name": "helm-k8s-test",
+      "status": "in_progress"
+    },
+    {
+      "conclusion": "failure",
+      "diagnostic": "pytest collection imported prompt_assembler, whose existing require_admin_banner exited with Access denied; no privileged boundary changed",
+      "job_id": 115064768069,
+      "name": "invariants",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "diagnostic": "make docs called scripts/build_docs.py, which requires administrator/Lumos approval; no gate bypassed",
+      "job_id": 115064769305,
+      "name": "docs",
+      "status": "completed"
+    },
+    {
+      "conclusion": "failure",
+      "diagnostic": "PermissionError for /glow, ModuleNotFoundError for sentientos and protected Forge CI recorded unauthorized/52 failed contract-drift checks",
+      "job_id": 115064769128,
+      "name": "self-check",
+      "status": "completed"
+    }
+  ],
+  "tree": "0e220c690112b654c0e9dd42f779f6d5edb39c41"
+}

@@ -1,7 +1,7 @@
 """Bounded external producer of governed maintenance health evidence."""
 from __future__ import annotations
 
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os

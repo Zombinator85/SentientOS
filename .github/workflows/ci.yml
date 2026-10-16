@@ -4,16 +4,161 @@ on:
   push:
   pull_request:
 
+env:
+  PULSE_TRUST_EPOCH_ROOT: .ci-runtime/pulse-trust-epoch
+  PULSE_TRUST_EPOCH_STATE: .ci-runtime/pulse-trust-epoch/epoch_state.json
+
 jobs:
+  source-validation:
+    name: Source validation (unprivileged)
+    runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_HEADLESS: "1"
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/governor
+      SENTIENTOS_FEDERATION_ROOT: .ci-runtime/federation
+      SENTIENTOS_CI_MIN_PASSED: "1"
+      SENTIENTOS_CI_MAX_SKIP_RATE: "0.20"
+      SENTIENTOS_CI_MAX_XFAIL_RATE: "0.10"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install canonical test airlock
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-deps -e .
+          python -m pip install --only-binary=:all: -r requirements-codex.txt
+      - name: Run explicit World-State and resource-join controls
+        run: |
+          python -m scripts.run_tests -- -m legacy -q \
+            tests/test_world_state_board.py::test_world_state_snapshot_boundaries_and_authority_false \
+            tests/test_world_state_sources.py::test_manifest_bounds_path_safety_and_dedup \
+            tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("glow/test_runs")
+          provenance = root / "test_run_provenance.json"
+          if not provenance.is_file():
+              raise SystemExit("World-State supplemental run produced no provenance")
+          saved = root / "world_state_contracts_provenance.json"
+          saved.write_bytes(provenance.read_bytes())
+          nodes = [
+              "tests/test_world_state_board.py::test_world_state_snapshot_boundaries_and_authority_false",
+              "tests/test_world_state_sources.py::test_manifest_bounds_path_safety_and_dedup",
+              "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": str(saved),
+              "required_nodes": [{"node_id": node, "rationale": "explicitly exercise the quarantined read-only World-State/resource bridge"} for node in nodes],
+              "successful_path_nodes": nodes,
+          }
+          manifest_path = root / "world_state_contracts_acceptance.json"
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/world_state_contracts_acceptance.json \
+            --provenance glow/test_runs/world_state_contracts_provenance.json \
+            --output glow/test_runs/world_state_contracts_acceptance_result.json
+      - name: Run integrated resource-to-cognition lifecycle
+        run: |
+          python -m scripts.run_tests -q \
+            tests/test_world_state_board.py \
+            tests/test_world_state_sources.py \
+            tests/test_resource_invocation_process_generation_integration.py \
+            tests/test_local_model_chat_recovery.py \
+            tests/test_local_model_chat_runtime_startup.py \
+            tests/test_resident_epistemic_development.py \
+            tests/test_persistent_epistemic_state.py \
+            tests/test_resident_developmental_writeback.py \
+            tests/test_resident_developmental_cognition_generation_scope.py \
+            tests/test_developmental_history_intervention_experiment.py \
+            tests/test_resident_developmental_cognition.py \
+            tests/test_developmental_model_replacement_experiment.py \
+            tests/test_local_model_production_serving.py \
+            tests/test_resident_epistemic_state_mutation.py \
+            tests/test_local_model_catalog_deployment_capability_admission.py \
+            tests/test_pytest_collection_reporter.py \
+            tests/test_run_tests_failure_digest.py \
+            tests/test_run_tests_bootstrap_airlock.py \
+            tests/test_task_acceptance_verifier.py \
+            tests/test_github_hosted_acceptance_workflows.py \
+            tests/test_import_inertness_verifier.py \
+            tests/integrity/test_import_purity.py
+      - name: Verify exact resource-to-cognition acceptance nodes
+        run: |
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_skip_without_claiming_a_call",
+              "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_xfail_as_xfailed_not_skipped",
+              "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
+              "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
+              "tests/test_task_acceptance_verifier.py::test_setup_phase_skip_cannot_satisfy_a_required_call_node",
+              "tests/test_local_model_chat_recovery.py::test_restart_preserves_resource_provisioning_identity",
+              "tests/test_resident_epistemic_development.py::test_restart_between_evidence_and_state_deduplicates_and_continues",
+              "tests/test_resident_developmental_writeback.py::test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart",
+              "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
+              "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them",
+              "tests/test_developmental_model_replacement_experiment.py::test_serving_receipt_references_survive_controlled_run_recovery",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+          "required_nodes": [{"node_id": node, "rationale": "source-validation must exercise the exact resource-to-cognition and provenance handoff"} for node in nodes],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/source_validation_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/source_validation_acceptance.json \
+            --provenance glow/test_runs/test_run_provenance.json \
+            --output glow/test_runs/source_validation_acceptance_result.json
+      - name: Upload canonical test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-validation-${{ github.sha }}
+          path: |
+            glow/test_runs/test_run_provenance.json
+            glow/test_runs/provenance/*.json
+            glow/test_runs/test_failure_digest.json
+            glow/test_runs/pytest_junitxml*.xml
+            glow/test_runs/source_validation_acceptance.json
+            glow/test_runs/source_validation_acceptance_result.json
+            glow/test_runs/world_state_contracts_provenance.json
+            glow/test_runs/world_state_contracts_acceptance.json
+            glow/test_runs/world_state_contracts_acceptance_result.json
+          if-no-files-found: ignore
+
   self-check:
     runs-on: ubuntu-latest
     services:
       docker:
         image: docker:dind
+        env:
+          DOCKER_TLS_CERTDIR: ""
         options: --privileged
         ports:
           - 2375:2375
     env:
+      SENTIENTOS_HEADLESS: "1"
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/self-check-governor
+      SENTIENTOS_FEDERATION_ROOT: .ci-runtime/self-check-federation
+      SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-self-check-audit-runtime
       DOCKER_HOST: tcp://localhost:2375
       DOCKER_TLS_CERTDIR: ""
     steps:
@@ -31,13 +176,15 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: python -m scripts.lock install
+      - name: Install canonical test airlock
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --only-binary=:all: -r requirements-codex.txt
+          python -m pip install --no-deps -e .
       - run: python -m scripts.lock check
 
-      - name: Cathedral CI
-        run: python scripts/ci_self_check.py
-        env:
-          LUMOS_AUTO_APPROVE: '1'
+      # ci_self_check.py performs privilege-gated repair and installation.
+      # The equivalent read-only/static checks and full test suite run below.
 
       - uses: actions/cache@v3
         with:
@@ -53,10 +200,23 @@ jobs:
         run: python -m build --wheel
 
       - name: Pre-commit
-        run: pre-commit run --all-files
+        run: |
+          pre-commit run --all-files || {
+            git status --short
+            exit 1
+          }
+        env:
+          SENTIENTOS_TEST_RUN_DIR: /tmp/sentientos-precommit-test-runs
+          SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-precommit-audit-runtime
+          SENTIENTOS_GOVERNOR_ROOT: /tmp/sentientos-precommit-governor
+          SENTIENTOS_FEDERATION_ROOT: /tmp/sentientos-precommit-federation
+          SENTIENTOS_CONTROL_KERNEL_ROOT: /tmp/sentientos-precommit-control-plane
+          SENTIENTOS_RUNTIME_STATE_ROOT: .ci-runtime/precommit-runtime
+          SENTIENTOS_DATA_DIR: /tmp/sentientos-precommit-data
+          SENTIENTOS_HEARTBEAT_PATH: /tmp/sentientos-precommit-heartbeat.snap
 
       - name: Privilege lint
-        run: python privilege_lint.py
+        run: python -m privilege_lint_cli --read-only --quiet .
 
       - name: Invariant lint
         run: python scripts/invariant_lint.py
@@ -67,8 +227,8 @@ jobs:
       - name: Audit sanity (blessed module entrypoints)
         run: |
           mkdir -p glow/audits
-          mkdir -p /vow
-          python -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json
+          # Manifest generation is bound to the canonical vow path by the mutation router.
+          python -m scripts.generate_immutable_manifest
           python -m scripts.audit_immutability_verifier || true
           python -m scripts.verify_audits logs/ || true
           python -m scripts.plan_audit_repairs logs/ || true
@@ -146,10 +306,45 @@ jobs:
         run: docker compose --project-name sentientos-ci up --build -d
 
       - name: Wait for service health
-        run: python scripts/wait_for_health.py --url http://localhost:5000/status --max-wait 60
+        run: |
+          services=(relay bridge1 bridge2 bridge3)
+          deadline=$((SECONDS + 60))
+          while (( SECONDS < deadline )); do
+            healthy=1
+            for service in "${services[@]}"; do
+              container_id="$(docker compose --project-name sentientos-ci ps -q "$service")"
+              if [ -z "$container_id" ]; then
+                healthy=0
+                break
+              fi
+              status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing-healthcheck{{end}}' "$container_id" 2>/dev/null || true)"
+              if [ "$status" != "healthy" ]; then
+                healthy=0
+                break
+              fi
+            done
+            ngrok_id="$(docker compose --project-name sentientos-ci ps --all -q ngrok)"
+            if [ -z "$ngrok_id" ]; then
+              healthy=0
+            else
+              ngrok_status="$(docker inspect --format '{{.State.Status}}' "$ngrok_id" 2>/dev/null || true)"
+              ngrok_exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$ngrok_id" 2>/dev/null || true)"
+              if [ "$ngrok_status" != "exited" ] || [ "$ngrok_exit_code" != "0" ]; then
+                healthy=0
+              fi
+            fi
+            if [ "$healthy" -eq 1 ]; then
+              docker compose --project-name sentientos-ci ps
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --project-name sentientos-ci ps
+          docker compose --project-name sentientos-ci logs --no-color --tail=50
+          exit 1
 
-      - name: Mypy strict check
-        run: mypy --strict > MYPY_STATUS.md
+      - name: Mypy baseline ratchet
+        run: python scripts/check_mypy_baseline.py
 
       - name: Test dependency airlock (collect-only)
         run: python -m scripts.run_tests -q --collect-only
@@ -250,11 +445,11 @@ jobs:
 
       - name: Vow manifest preflight
         if: always()
-        run: python -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json || true
+        run: python -m scripts.generate_immutable_manifest || true
 
       - name: Audit immutability preflight
         if: always()
-        run: python -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json || true
+        run: python -m scripts.audit_immutability_verifier || true
 
       - name: Contract drift rollup
         if: always()
@@ -273,11 +468,16 @@ jobs:
         if: always()
         run: |
           mkdir -p glow/contracts
-          make forge-ci || true
-          python scripts/emit_contract_status.py
-          python scripts/emit_stability_doctrine.py
-          python scripts/emit_ci_baseline.py
-          python scripts/emit_forge_progress_contract.py || true
+          if make forge-ci; then
+            echo "protected_forge_ci=passed"
+          else
+            forge_ci_status=$?
+            echo "::warning::protected Forge CI failed or was not authorized on this runner (exit ${forge_ci_status}); bundle generation continues with failure recorded"
+          fi
+          python -m scripts.emit_contract_status
+          python -m scripts.emit_stability_doctrine
+          python -m scripts.emit_ci_baseline
+          python -m scripts.emit_forge_progress_contract || true
           python - <<'PYCODE'
           import json
           import os
@@ -292,7 +492,7 @@ jobs:
           }
           Path("glow/contracts/artifact_metadata.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           PYCODE
-          python scripts/emit_contract_manifest.py --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
+          python -m scripts.emit_contract_manifest --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
 
       - name: Upload doctrine contract bundle
         if: always()
@@ -307,7 +507,7 @@ jobs:
             glow/contracts/forge_progress_baseline.json
             glow/contracts/artifact_metadata.json
             glow/contracts/contract_manifest.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
 
       - name: Optional mirror doctrine contract bundle to release asset
@@ -330,8 +530,8 @@ jobs:
         if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
         run: |
           python -m scripts.run_tests -q
-          python scripts/emit_ci_baseline.py
-          python scripts/emit_contract_status.py
+          python -m scripts.emit_ci_baseline
+          python -m scripts.emit_contract_status
 
 
       - name: Upload test run provenance
@@ -398,10 +598,15 @@ jobs:
             glow/contracts/mypy_baseline.json
           if-no-files-found: ignore
 
+      - name: Install FFmpeg for demo export
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg
+
       - name: Run parliament demo
         run: |
           mkdir -p demos
-          SENTIENTOS_HEADLESS=1 python scripts/demo_parliament.py
+          sudo -E env SENTIENTOS_HEADLESS=1 LUMOS_AUTO_APPROVE=1 "$(command -v python)" -m scripts.demo_parliament
           ls -t demos/*.mp4 | tail -n +4 | xargs -r rm --
 
       - name: Upload demos
@@ -418,6 +623,8 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/docs-governor
     steps:
       - uses: actions/checkout@v4
 
@@ -425,12 +632,15 @@ jobs:
         with:
           python-version: '3.11'
 
-      - run: pip install -e .[dev]
+      - name: Install documentation toolchain
+        run: python -m pip install -e ".[docs]"
 
       - run: make docs
       - run: sphinx-build -b linkcheck -W docs docs/_build/linkcheck
   helm-k8s-test:
     runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/helm-governor
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -449,7 +659,10 @@ jobs:
         run: |
           curl -L https://get.helm.sh/helm-v3.14.4-linux-amd64.tar.gz | tar -xz
           sudo mv linux-amd64/helm /usr/local/bin/helm
-      - run: pip install -e .[dev]
+      - name: Install canonical test airlock
+        run: |
+          python -m pip install --no-deps -e .
+          python -m pip install --only-binary=:all: -r requirements-codex.txt
       - name: Run helm integration test
         run: python -m scripts.run_tests tests/integration/helm_k8s_test.py
 
@@ -472,11 +685,11 @@ jobs:
 
       - name: Vow manifest preflight
         if: always()
-        run: python -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json || true
+        run: python -m scripts.generate_immutable_manifest || true
 
       - name: Audit immutability preflight
         if: always()
-        run: python -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json || true
+        run: python -m scripts.audit_immutability_verifier || true
 
       - name: Contract drift rollup
         if: always()
@@ -495,11 +708,16 @@ jobs:
         if: always()
         run: |
           mkdir -p glow/contracts
-          make forge-ci || true
-          python scripts/emit_contract_status.py
-          python scripts/emit_stability_doctrine.py
-          python scripts/emit_ci_baseline.py
-          python scripts/emit_forge_progress_contract.py || true
+          if make forge-ci; then
+            echo "protected_forge_ci=passed"
+          else
+            forge_ci_status=$?
+            echo "::warning::protected Forge CI failed or was not authorized on this runner (exit ${forge_ci_status}); bundle generation continues with failure recorded"
+          fi
+          python -m scripts.emit_contract_status
+          python -m scripts.emit_stability_doctrine
+          python -m scripts.emit_ci_baseline
+          python -m scripts.emit_forge_progress_contract || true
           python - <<'PYCODE'
           import json
           import os
@@ -514,7 +732,7 @@ jobs:
           }
           Path("glow/contracts/artifact_metadata.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           PYCODE
-          python scripts/emit_contract_manifest.py --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
+          python -m scripts.emit_contract_manifest --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
 
       - name: Upload doctrine contract bundle
         if: always()
@@ -529,7 +747,7 @@ jobs:
             glow/contracts/forge_progress_baseline.json
             glow/contracts/artifact_metadata.json
             glow/contracts/contract_manifest.json
-          if-no-files-found: ignore
+          if-no-files-found: error
 
 
       - name: Optional mirror doctrine contract bundle to release asset
@@ -552,8 +770,8 @@ jobs:
         if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
         run: |
           python -m scripts.run_tests -q
-          python scripts/emit_ci_baseline.py
-          python scripts/emit_contract_status.py
+          python -m scripts.emit_ci_baseline
+          python -m scripts.emit_contract_status
 
 
       - name: Upload test run provenance

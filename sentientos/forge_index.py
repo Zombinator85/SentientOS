@@ -13,9 +13,13 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
-from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.integrity_quarantine import (
+    QuarantineState, QuarantineStateError, load_state_with_status as load_quarantine_state_with_status,
+)
 from sentientos.integrity_pressure import compute_integrity_pressure, load_pressure_state
+from sentientos.integrity_incident import inspect_quarantine_incident_custody
 from sentientos.recovery_tasks import backlog_count
+from sentientos.remediation_pack import latest_run_for_pack
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import derived_thresholds, resolve_posture
@@ -32,6 +36,17 @@ from sentientos.signed_strategic import latest_signature, latest_sig_hash_short
 from sentientos.goal_graph import load_goal_state
 from sentientos.strategic_adaptation import strategic_cooldown_until
 from sentientos.consistency_checks import compare_tick_vs_replay
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError,
+    list_bounded_json_names_at,
+    open_private_directory,
+    read_private_file_at,
+)
+from sentientos.windows_handle_custody import (
+    WindowsHandleCustodyError,
+    read_explicit_file,
+    verify_explicit_directory,
+)
 
 SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
@@ -81,7 +96,33 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     federation_integrity = federation_integrity_gate(root, context="forge_index")
     witness_status = _load_json(root / "glow/federation/anchor_witness_status.json")
     strategic_witness_status = _load_json(root / "glow/federation/strategic_witness_status.json")
-    quarantine = load_quarantine_state(root)
+    try:
+        quarantine_load = load_quarantine_state_with_status(root)
+    except QuarantineStateError as exc:
+        # Keep observability available while preserving the unknown state. The
+        # internal projection is restrictive; public identity remains null.
+        quarantine = QuarantineState(
+            active=True, freeze_forge=True, allow_automerge=False,
+            allow_publish=False, allow_federation_sync=False, notes=[],
+        )
+        quarantine_active: bool | None = None
+        quarantine_custody_status = "invalid:" + exc.code
+        quarantine_incident_custody: dict[str, object] = {
+            "status": "custody_invalid", "reason": exc.code,
+            "attack_established": False, "defensive_consequence_established": False,
+        }
+    else:
+        quarantine = quarantine_load.state
+        quarantine_active = quarantine.active
+        quarantine_custody_status = quarantine_load.custody_status.value
+        quarantine_incident_custody = (
+            inspect_quarantine_incident_custody(
+                root, incident_id=quarantine.last_incident_id, activated_at=quarantine.activated_at,
+            )
+            if quarantine.active
+            else {"status": "not_active", "attack_established": False,
+                  "defensive_consequence_established": False}
+        )
     pressure_snapshot = compute_integrity_pressure(root)
     pressure_state = load_pressure_state(root)
     throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
@@ -91,7 +132,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         posture=posture.posture,
         pressure_level=pressure_snapshot.level,
         operating_mode=throughput.mode,
-        quarantine_active=quarantine.active,
+        quarantine_active=True if quarantine_active is None else quarantine_active,
     )
     posture_thresholds = derived_thresholds(posture, warn_base=3, enforce_base=7, critical_base=12)
     incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
@@ -150,54 +191,73 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         latest_at = _parse_iso(_optional_str(last_auto_attempt.get("attempted_at")) or "")
         cooldown_minutes = max(1, int(os.getenv("SENTIENTOS_AUTO_REMEDIATION_COOLDOWN_MINUTES", "60")))
         if latest_status == "completed":
-            auto_status = "succeeded"
+            # Attempt logs are projections, not execution receipts. A claimed
+            # success is only shown as success when it names the exact latest
+            # run that the remediation custody owner reconciles.
+            attempt_pack_id = _optional_str(last_auto_attempt.get("pack_id"))
+            attempt_run_id = _optional_str(last_auto_attempt.get("run_id"))
+            owner_run = latest_run_for_pack(root, pack_id=attempt_pack_id) if attempt_pack_id else None
+            if (owner_run is not None
+                    and not str(owner_run.get("custody_status", "")).startswith("invalid:")
+                    and owner_run.get("status") == "completed"
+                    and owner_run.get("run_id") == attempt_run_id):
+                auto_status = "succeeded"
+            else:
+                auto_status = "unverified"
         elif latest_status == "failed":
             auto_status = "failed"
         if latest_at is not None and datetime.now(timezone.utc) - latest_at < timedelta(minutes=cooldown_minutes):
-            auto_status = "cooldown" if auto_status not in {"succeeded", "failed"} else auto_status
+            auto_status = "cooldown" if auto_status not in {"succeeded", "failed", "unverified"} else auto_status
     last_remediation_entry = catalog_latest(root, "remediation_pack")
     last_remediation = {"pack_id": (last_remediation_entry.get("id") if last_remediation_entry else None), "status": ((last_remediation_entry.get("summary") if isinstance(last_remediation_entry.get("summary"), dict) else {}).get("status") if last_remediation_entry else None), "governance_trace_id": ((last_remediation_entry.get("links") if isinstance(last_remediation_entry.get("links"), dict) else {}).get("trace_id") if last_remediation_entry else None)} if last_remediation_entry else (remediation_rows[-1] if remediation_rows else {})
-    remediation_runs = sorted((root / "glow/forge/remediation/runs").glob("run_*.json"), key=lambda item: item.name)
     last_run_entry = catalog_latest(root, "remediation_run")
     last_remediation_run_summary = None
     if last_run_entry is not None:
-        run_summary = {"pack_id": ((last_run_entry.get("links") if isinstance(last_run_entry.get("links"), dict) else {}).get("pack_id")), "status": ((last_run_entry.get("summary") if isinstance(last_run_entry.get("summary"), dict) else {}).get("status")), "generated_at": last_run_entry.get("ts")}
-        last_remediation_run_summary = json.dumps(run_summary, sort_keys=True)[:240]
-    elif remediation_runs:
-        run_payload = _load_json(remediation_runs[-1])
-        run_summary = {
-            "pack_id": run_payload.get("pack_id"),
-            "status": run_payload.get("status"),
-            "generated_at": run_payload.get("generated_at"),
-        }
+        links = last_run_entry.get("links") if isinstance(last_run_entry.get("links"), dict) else {}
+        pack_id = _optional_str(links.get("pack_id"))
+        verified_run = latest_run_for_pack(root, pack_id=pack_id) if pack_id else None
+        run_summary: dict[str, object]
+        if verified_run is None or str(verified_run.get("custody_status", "")).startswith("invalid:"):
+            run_summary = {"pack_id": pack_id, "status": "invalid",
+                "custody_status": str((verified_run or {}).get("custody_status")
+                    or "invalid:catalog_run_without_verified_owner_report")}
+        else:
+            run_summary = {"pack_id": pack_id, "run_id": verified_run.get("run_id"),
+                "status": verified_run.get("status"),
+                "custody_status": verified_run.get("custody_status"),
+                "generated_at": verified_run.get("generated_at")}
         last_remediation_run_summary = json.dumps(run_summary, sort_keys=True)[:240]
 
     quarantine_requires_remediation = os.getenv("SENTIENTOS_QUARANTINE_REQUIRE_REMEDIATION", "0") == "1"
-    quarantine_incident_id = quarantine.last_incident_id
+    quarantine_incident_id = quarantine.last_incident_id if quarantine_active is True else None
+    quarantine_trace_id = (
+        _optional_str(quarantine_incident_custody.get("incident_governance_trace_id"))
+        if quarantine.active and quarantine_incident_custody.get("artifact_status") == "valid"
+        else None
+    )
     related_pack = None
     if quarantine_incident_id:
         related_pack = catalog_latest_for_incident(root, quarantine_incident_id, kind="remediation_pack")
-    if related_pack is None and _optional_str(last_trace.get("trace_id")):
-        related_pack = catalog_latest_for_trace(root, _optional_str(last_trace.get("trace_id")) or "", kind="remediation_pack")
+    if related_pack is None and quarantine_trace_id:
+        related_pack = catalog_latest_for_trace(root, quarantine_trace_id, kind="remediation_pack")
     if related_pack is None:
         related_pack = _latest_pack_for_incident_or_trace(
             remediation_rows,
             incident_id=quarantine_incident_id,
-            governance_trace_id=_optional_str(last_trace.get("trace_id")),
+            governance_trace_id=quarantine_trace_id,
         )
     related_pack_id = _optional_str((related_pack.get("id") if "id" in related_pack else related_pack.get("pack_id"))) if related_pack else None
     related_run = None
     if related_pack_id:
-        run_entry = catalog_latest(root, "remediation_run")
-        if run_entry is not None and str((run_entry.get("links") if isinstance(run_entry.get("links"), dict) else {}).get("pack_id") or "") == related_pack_id:
-            related_run = {"run_id": run_entry.get("id"), "status": ((run_entry.get("summary") if isinstance(run_entry.get("summary"), dict) else {}).get("status"))}
-        if related_run is None:
-            related_run = _latest_run_for_pack(remediation_runs, pack_id=related_pack_id)
+        related_run = latest_run_for_pack(root, pack_id=related_pack_id)
     related_status = "missing"
     related_run_id: str | None = None
     if related_run is not None:
         related_run_id = _optional_str(related_run.get("run_id"))
-        related_status = "completed" if _optional_str(related_run.get("status")) == "completed" else "failed"
+        if str(related_run.get("custody_status", "")).startswith("invalid:"):
+            related_status = "invalid"
+        else:
+            related_status = "completed" if _optional_str(related_run.get("status")) == "completed" else "failed"
 
 
     orchestrator_rows, _orchestrator_corrupt = _read_jsonl(root / "pulse/orchestrator_ticks.jsonl")
@@ -294,9 +354,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "artifact_catalog_status": _artifact_catalog_status(root),
         "artifact_catalog_last_entry_at": _artifact_catalog_last_entry_at(root),
         "artifact_catalog_size_estimate": _artifact_catalog_size_estimate(root),
-        "quarantine_active": quarantine.active,
-        "quarantine_activated_at": quarantine.activated_at,
-        "quarantine_last_incident_id": quarantine.last_incident_id,
+        "quarantine_active": quarantine_active,
+        "quarantine_custody_status": quarantine_custody_status,
+        "quarantine_activated_at": quarantine.activated_at if quarantine_active is True else None,
+        "quarantine_last_incident_id": quarantine.last_incident_id if quarantine_active is True else None,
+        "quarantine_incident_custody": quarantine_incident_custody,
         "last_incident_summary": _incident_summary(latest_incident),
         "incident_count_last_24h": _incident_count_last_24h(incident_rows),
         "integrity_pressure_level": pressure_snapshot.level,
@@ -491,7 +553,10 @@ def _pending_from_rows(queue_rows: list[dict[str, object]], receipt_rows: list[d
     consumed = {
         row.get("request_id")
         for row in receipt_rows
-        if row.get("status") in {"started", "success", "failed", "skipped_budget", "rejected_policy"}
+        if row.get("status") in {
+            "started", "success", "failed", "skipped_budget", "rejected_policy",
+            "rejected_quarantine_custody",
+        }
     }
     pending = [row for row in queue_rows if row.get("request_id") not in consumed]
     def _priority(row: dict[str, object]) -> int:
@@ -566,13 +631,111 @@ def _latest_quarantines(root: Path) -> list[dict[str, object]]:
     return rows
 
 def _latest_incident(root: Path) -> dict[str, object]:
-    items = sorted((root / "glow/forge/incidents").glob("incident_*.json"), key=lambda item: item.name)
-    if not items:
-        return {}
-    return _load_json(items[-1])
+    directory = root / "glow/forge/incidents"
+    max_entries = 4096
+    max_bytes = 1_048_576
+    if os.name == "posix":
+        try:
+            directory_fd = open_private_directory(directory, create=False)
+        except PrivateFileCustodyError as exc:
+            if exc.code == "directory_root_missing":
+                return {"_forge_incident_custody": "absent"}
+            return {"_forge_incident_custody": "unavailable", "_forge_incident_reason": exc.code}
+        try:
+            try:
+                names = list_bounded_json_names_at(
+                    directory_fd, max_entries=max_entries,
+                    max_directory_entries=max_entries + 1024,
+                )
+                candidates = [name for name in names if name.startswith("incident_")]
+                if not candidates:
+                    return {"_forge_incident_custody": "absent"}
+                data = read_private_file_at(
+                    directory_fd, candidates[-1], max_bytes=max_bytes,
+                    require_private_mode=False, require_owner_read=True,
+                )
+            except PrivateFileCustodyError as exc:
+                return {"_forge_incident_custody": "invalid", "_forge_incident_reason": exc.code}
+        finally:
+            os.close(directory_fd)
+    elif os.name == "nt":
+        try:
+            verify_explicit_directory(directory)
+            windows_names: list[str] = []
+            entry_count = 0
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    entry_count += 1
+                    if entry_count > max_entries + 1024:
+                        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "directory_entry_limit_exceeded"}
+                    if entry.name.endswith(".json"):
+                        windows_names.append(entry.name)
+                        if len(windows_names) > max_entries:
+                            return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "directory_file_count_limit_exceeded"}
+            candidates = sorted(name for name in windows_names if name.startswith("incident_"))
+            if not candidates:
+                return {"_forge_incident_custody": "absent"}
+            data = read_explicit_file(directory / candidates[-1], max_bytes=max_bytes,
+                require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return {"_forge_incident_custody": "absent"}
+            return {"_forge_incident_custody": "invalid", "_forge_incident_reason": str(exc)}
+        except OSError as exc:
+            return {"_forge_incident_custody": "unavailable", "_forge_incident_reason": type(exc).__name__}
+    else:
+        return {"_forge_incident_custody": "unsupported"}
+
+    try:
+        payload = json.loads(
+            data.decode("utf-8", errors="strict"),
+            object_pairs_hook=_incident_unique_object,
+            parse_constant=_incident_reject_constant,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError, RecursionError):
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "json_invalid"}
+    if not isinstance(payload, dict):
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "object_required"}
+    if ("schema_version" in payload
+            and (type(payload["schema_version"]) is not int or payload["schema_version"] != 1)):
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "schema_unsupported"}
+    if not isinstance(payload.get("incident_id"), str) or not payload["incident_id"]:
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "incident_id_invalid"}
+    created_at = payload.get("created_at")
+    if _parse_iso(created_at if isinstance(created_at, str) else "") is None:
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "event_time_invalid"}
+    if "triggers" in payload and (
+        not isinstance(payload["triggers"], list)
+        or len(payload["triggers"]) > 512
+        or any(not isinstance(item, str) or len(item) > 512 for item in payload["triggers"])
+    ):
+        return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "triggers_invalid"}
+    payload["_forge_incident_custody"] = (
+        "bounded_record_valid" if "schema_version" in payload else "bounded_legacy_record"
+    )
+    return payload
+
+
+def _incident_unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in payload:
+            raise ValueError("duplicate_key")
+        payload[key] = value
+    return payload
+
+
+def _incident_reject_constant(value: str) -> None:
+    raise ValueError("invalid_json_constant:" + value)
 
 
 def _incident_summary(incident: dict[str, object]) -> dict[str, object]:
+    custody = incident.get("_forge_incident_custody")
+    if custody not in {"bounded_record_valid", "bounded_legacy_record"}:
+        return {
+            "custody_status": custody or "unknown",
+            "custody_reason": incident.get("_forge_incident_reason"),
+        }
     raw_triggers = incident.get("triggers")
     triggers: list[object] = raw_triggers if isinstance(raw_triggers, list) else []
     compact = [str(item) for item in triggers[:3]]
@@ -581,6 +744,7 @@ def _incident_summary(incident: dict[str, object]) -> dict[str, object]:
         "severity": incident.get("severity"),
         "triggers": compact,
         "incident_id": incident.get("incident_id"),
+        "custody_status": custody,
     }
 
 
@@ -832,16 +996,6 @@ def _latest_pack_for_incident_or_trace(
         if governance_trace_id and row_trace == governance_trace_id:
             return row
     return None
-
-
-def _latest_run_for_pack(runs: Sequence[Path], *, pack_id: str) -> dict[str, object] | None:
-    for path in reversed(list(runs)):
-        payload = _load_json(path)
-        if _optional_str(payload.get("pack_id")) != pack_id:
-            continue
-        return payload
-    return None
-
 
 
 def _artifact_catalog_status(root: Path) -> str:

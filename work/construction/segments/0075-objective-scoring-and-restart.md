@@ -1,0 +1,17 @@
+# 0075 — Preregistered objective scoring and restart continuity
+
+Source commit `048165ac821d72134e304e3dfa889927d0a6b80a`, tree `fa45c5a092c1632da9320b484d2a14975c03821d`.
+
+Added an opt-in exact-integer task oracle to the existing five-condition model-replacement experiment. The public task descriptor is in frozen current context; its bounded oracle plan is atomically persisted before inference and tied to protocol/context digests. Historical protocols and unscored artifacts retain their old identity. The served endpoint releases transient output bytes only when the preregistered plan digest is present. Scoring accepts only a canonical JSON integer answer of at most 256 UTF-8 bytes; the answer is checked against the endpoint output digest and independent fixture oracle. Persisted score evidence contains that minimal answer, its source digest, and a score digest; prompts are not added to the observation. This path grants no authority.
+
+Six fresh-custody deterministic endpoint cases yielded: history-associated correctness +1; no change 0; history-associated degradation −1; unstable restoration; invalid answer; and unavailable output reported unscoreable. These demonstrate the measurement and recovery behavior only, not local-model behavior, acquisition, or general learning. Additional tests reject digest substitution, oracle substitution, missing oracle, post-preregistration identity collision, and a rehashed false evaluation. An interruption after a call leaves the condition incomplete and recovery does not replay inference.
+
+Cold restart: the existing resource/model-replacement integration test launches a fresh Python process. It rebuilds the resource observation and World-State from durable installation/resource/model-run custody references, recovers epistemic/self-model history and runs later cognition without a serialized World-State surrogate. Historical timestamps and source identities remain read from those owners. This demonstrates the tested fixture path, not production behavior.
+
+Loaded-code boundary: parent and child independently bind launcher arguments/process identity to the measured on-disk source generation. The added source-drift case rejects current handoff verification while historical immutable custody remains verifiable. No current owner attests to modules already loaded in process memory; posture stays not independently attested.
+
+Validation: canonical runner — 58 focused developmental scoring, experiment, serving, chat-process handoff, and cold-restart lineage tests passed (0 skipped); a separate resource-observation World-State canonical run passed 2/2. Targeted mypy passed two production files; changed Python compilation and `git diff --check` passed. No full matrix, activation, provider, or production verification was performed.
+- `work/construction/evidence/0075-objective-task-results.json`: 15883 bytes, SHA-256 `c0b3be36a2ffaccf7989e7ec3f36b4e17ba0c57c90e9fadac8485bfa6cb4bfad`.
+- `work/construction/evidence/0075-scoring-restart-junit.xml`: 9556 bytes, SHA-256 `96c0255b7e8222f7b95a15eba4aa262e719e0981b1391a7c912baecaf335d1f2`.
+- `work/construction/evidence/0075-resource-worldstate-junit.xml`: 596 bytes, SHA-256 `febaa4ddc3ac851219c4cad7542ae7e490526db41ef3ab71248390342e046ace`.
+- `work/construction/evidence/0075-canonical-provenance.json`: 3323 bytes, SHA-256 `5bb460e1b3f6da561277c0e734357813414b7cb280ab5c00963c6253f3e2da8e`.

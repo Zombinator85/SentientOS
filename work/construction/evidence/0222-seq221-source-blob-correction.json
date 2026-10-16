@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "sequence": 222,
+  "title": "Repair and verify the sequence 221 source blob",
+  "source_commit": "d058c89523141f511b7fa8ce1ab71c20dd47b20e",
+  "source_tree": "616d5a2a9fc4a229b96023b44af048b942bdd9a5",
+  "source_files": [
+    {
+      "path": "sentientos/strategic_adaptation.py",
+      "git_blob_sha": "a6d7fde0b02dc737fcd6a8bd98866473acab6ef7"
+    },
+    {
+      "path": "sentientos/tests/test_strategic_adaptation.py",
+      "git_blob_sha": "d6ae18f6a1c228cd7c4019e7a81399436289ea2a"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_strategic_adaptation.py",
+      "sentientos/tests/test_goal_progress_update.py",
+      "sentientos/tests/test_goal_state_update.py"
+    ],
+    "passed_test_count": 9,
+    "compiled": [
+      "sentientos/strategic_adaptation.py",
+      "sentientos/tests/test_strategic_adaptation.py"
+    ],
+    "diff_check": "passed",
+    "independent_readback": "UTF-8 decode passed; source blob matches local Git object identity"
+  },
+  "authority": {
+    "automatic_strategic_change": false,
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:64a76120aad2e6cde528badf6cb6201b9231be56518d468750c6b8072487347a"
+}

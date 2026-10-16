@@ -1,0 +1,23 @@
+{
+  "sequence": 200,
+  "title": "Reconcile frozen score identities in a fresh process",
+  "status": "[untested] construction",
+  "starting_head": "c359441e43fe4142ab34c91b0a3281a78e41733c",
+  "starting_tree": "89b3a4a94a16df3854fe44c4a1b05443d8a36af6",
+  "source_commit": "7a832e6c98c05358e018196142bda82cc8b699bb",
+  "source_tree": "e7e154b176fa8bcfb34d3cb958c4832af5dceff9",
+  "source_paths": [
+    {"path":"tests/test_resident_developmental_cognition.py","blob":"aec279919aa6dd7ceeebfbae5a70582a9c6c377d","sha256":"7879234dd2224fcc983be33cb05a10684555381b582905cc4963a5ffbca76332"}
+  ],
+  "validation": {
+    "canonical_fresh_process_integration":"1 passed",
+    "frozen_selected_and_omitted_event_identities":"recomputed and matched",
+    "admitted_record_identities":"five distinct records recovered without duplicate IDs",
+    "original_rubric_identity":"matched; each archived score has no aggregate score and no label usage",
+    "distinct_later_task":"fixture proposal generated from rebuilt bounded history and scored with frozen rubric",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "authority_posture":{"synthetic_fixture":true,"execution_claimed":false,"physical_effect_claimed":false,"model_improvement_claimed":false,"aggregate_utility_score":null},
+  "acceptance_status":"PARTIAL: source custody and score recovery strengthened; post-restart governed invocation and completed-condition replay control remain"
+}

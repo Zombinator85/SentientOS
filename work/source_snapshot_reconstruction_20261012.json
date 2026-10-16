@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "status": "complete_exact_source_tree_reconstructed; focused_tests_passed; broader_chat_recovery_fixture_failures_remain; production_unverified",
+  "repository": "Zombinator85/SentientOS",
+  "branch": "codex/construct-sentientos",
+  "remote_source_commit": "208f861c4af940b8cf722b6d9ca4224004250a19",
+  "remote_source_tree": "ee7ba1812cde266596d3efce3041ee25755c4289",
+  "parent_commit": "8338bee9b666e203b72c04b558948f3251e0bf09",
+  "main_commit": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+  "merge_base": "197e2a4ceeb13ab59a88fd531283355e15e1fd7d",
+  "ahead_of_main": 667,
+  "behind_main": 0,
+  "original_commit_object_imported": false,
+  "source_tree_reconstruction": {
+    "method": "complete recursive Git tree metadata plus exact local Git object reuse and GitHub blob API retrieval",
+    "tree_entries": 6681,
+    "blob_paths": 6360,
+    "distinct_blob_identities": 6273,
+    "preexisting_local_blob_objects_reused": 6051,
+    "missing_blob_identities_recovered": 222,
+    "recovered_bytes": 5347918,
+    "recovered_blob_hashes_verified": 222,
+    "unrecovered_blob_identities": 0,
+    "computed_tree": "ee7ba1812cde266596d3efce3041ee25755c4289",
+    "expected_tree": "ee7ba1812cde266596d3efce3041ee25755c4289",
+    "exact_tree_match": true,
+    "original_dirty_checkout_modified": false
+  },
+  "cognition_repair": {
+    "file": "sentientos/resident_developmental_cognition.py",
+    "corrupt_blob": "fdd41c79264b6db2b331ba4ac0a7df35dcc5e2e9",
+    "repaired_blob": "0e44b68fea43936214ec8ca663603d1c7bca1145",
+    "published_readback_verified": true,
+    "published_readback_bytes": 160357,
+    "published_readback_sha256": "111b019bcb8f66e40b2ea104cea32e7718dd4c00cbf9bffc98fe8980f76abaae",
+    "checks": [
+      "UTF-8 decode",
+      "AST parse",
+      "py_compile",
+      "seven focused source-extracted selection cases"
+    ]
+  },
+  "test_runs": [
+    {
+      "scope": "cognition generation qualification; developmental history intervention; developmental writeback; epistemic development",
+      "command": "PYTHONPATH=. UV_CACHE_DIR=/tmp/sentientos-uv-cache uv run --offline --no-project --with pytest==8.4.2 pytest --noconftest -q tests/test_resident_developmental_cognition_generation_scope.py tests/test_developmental_history_intervention_experiment.py tests/test_resident_developmental_writeback.py tests/test_resident_epistemic_development.py",
+      "result": "60 passed",
+      "source": "complete exact-tree checkout"
+    },
+    {
+      "scope": "resource/invocation/World-State/chat recovery/developmental cognition and history",
+      "result": "247 cases; 241 passed; 6 failed",
+      "failed_nodes": [
+        "tests/test_local_model_chat_recovery.py::test_globally_fresh_replacement_operation_rejects_any_older_lifetime",
+        "tests/test_local_model_chat_recovery.py::test_activation_race_guard_fails_before_model_serving_admission",
+        "tests/test_local_model_chat_recovery.py::test_full_recovery_controller_transaction_and_denials[allow]",
+        "tests/test_local_model_chat_recovery.py::test_full_recovery_controller_transaction_and_denials[deny]",
+        "tests/test_local_model_chat_recovery.py::test_full_recovery_controller_transaction_and_denials[defer]",
+        "tests/test_local_model_chat_recovery.py::test_full_recovery_controller_transaction_and_denials[quarantine]"
+      ],
+      "diagnosis": "Current strict contracts require receipt IDs and custody filenames to be canonical; activation race fixtures omit predecessor/history lineage; full controller fixtures omit explicit installation handle and a running child handoff. No production behavior was weakened. These fixture failures predate this repair and are not in the repaired selector.",
+      "production": "unverified"
+    }
+  ],
+  "acceptance": {
+    "full_repository_run_tests": false,
+    "mypy": false,
+    "strict_audits": false,
+    "landing_finalizer": false,
+    "reason": "Focused and directly adjacent suites were run; broader lifecycle tests expose six stale chat-recovery fixtures that must be corrected before a complete acceptance claim. No PR, merge, or deploy was performed."
+  }
+}

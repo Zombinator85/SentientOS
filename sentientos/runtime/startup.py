@@ -1,19 +1,67 @@
 """Canonical explicit runtime startup and deterministic shutdown loop."""
 from __future__ import annotations
 
+import os
 import signal
 import threading
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from sentientos.control_plane_kernel import ControlPlaneKernel
-from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.installation_state import InstallationIdentity, InstallationStateError, InstallationStateRegistry
+from sentientos.chat_process_generation import (
+    ChatProcessGenerationError, publish_chat_process_runtime_observation,
+    read_stored_chat_process_runtime_observation, verify_stored_chat_process_handoff,
+)
 
 from .local_model_chat_service import (SERVICE_ID, LocalModelChatServiceAdapter,
                                        LocalModelChatStartup, build_runtime_service_registry)
 from .local_model_chat_recovery import (ProductionLocalModelChatRecoveryController,
-                                        build_startup_snapshot, write_startup_snapshot)
+                                        LocalModelChatRecoveryError, build_startup_snapshot,
+                                        exact_prior_serving_receipt, read_startup_snapshot,
+                                        write_startup_snapshot)
 from .supervisor import RuntimeSupervisor
+
+
+def _configured_serving_receipt_observation(adapter: LocalModelChatServiceAdapter,
+        handle: Any, handoff: Mapping[str, Any]) -> tuple[str, Mapping[str, Any] | None, str | None]:
+    """Select a receipt only when the stored launch handoff names the same operation."""
+    operation_id = handoff.get("configured_serving_operation_id")
+    adapter_operation = adapter.startup_configuration.serving_operation_id
+    if not isinstance(operation_id, str) or operation_id != adapter_operation:
+        return "configured_operation_not_verified", None, None
+    try:
+        receipt = exact_prior_serving_receipt(handle, operation_id)
+    except LocalModelChatRecoveryError as exc:
+        posture = ("configured_operation_receipt_unavailable"
+            if exc.code == "prior_serving_receipt_missing"
+            else "configured_operation_receipt_invalid")
+        return posture, None, operation_id
+    return "selected_receipt_for_configured_operation", receipt, operation_id
+
+
+def _require_prior_chat_child_absent(observation: Mapping[str, Any] | None) -> None:
+    """Deny a new child while the prior recorded chat PID may still be alive.
+
+    PID probing is used only to avoid duplicate launch. A present or unobservable
+    PID is never adopted, signalled, or treated as the same software generation.
+    """
+    if observation is None:
+        return
+    process_id = observation.get("process_id")
+    if type(process_id) is not int or process_id < 1:
+        raise RuntimeError("chat_runtime_prior_child_identity_invalid")
+    if os.name != "posix":
+        raise RuntimeError("chat_runtime_prior_child_presence_unavailable")
+    try:
+        os.kill(process_id, 0)
+    except ProcessLookupError:
+        return
+    except PermissionError as exc:
+        raise RuntimeError("chat_runtime_prior_child_presence_unknown") from exc
+    except OSError as exc:
+        raise RuntimeError("chat_runtime_prior_child_presence_unknown") from exc
+    raise RuntimeError("chat_runtime_prior_child_may_be_running")
 
 
 def run_canonical_runtime(
@@ -24,16 +72,68 @@ def run_canonical_runtime(
     stop_event: threading.Event | None = None,
     supervisor_factory: Callable[..., RuntimeSupervisor] = RuntimeSupervisor,
 ) -> int:
-    """Run one supervisor until an explicit termination signal/event.
+    """Run one installation owner until explicit termination.
 
-    Registration and validation happen before supervisor or child construction.
-    Observation never performs inference and this service's ``never`` policy prevents
-    failed or stale serving from being re-established automatically.
+    An installation-scoped lock prevents overlapping supervisors from
+    publishing competing current-process observations. The lock grants no
+    model, inference, memory, host, or external-effect authority.
     """
     if not 0.1 <= cadence_seconds <= 60.0:
         raise ValueError("runtime_cadence_out_of_range")
-    registry = build_runtime_service_registry(config)
+    handle = None
+    if config.enabled:
+        assert config.installation_identity is not None
+        handle = InstallationStateRegistry.system().open(
+            InstallationIdentity.parse(config.installation_identity))
+    owner_lock = None
+    if handle is not None:
+        lock_dir = handle.fixed_object("local-model/chat/runtime-locks")
+        handle.ensure_directory(lock_dir)
+        owner_lock = handle.exclusive_lock(
+            handle.fixed_object("local-model/chat/runtime-locks/supervisor.lock"), blocking=False)
+        try:
+            owner_lock.__enter__()
+        except InstallationStateError as exc:
+            raise RuntimeError("chat_runtime_installation_owner_already_held") from exc
+    try:
+        return _run_canonical_runtime_owned(config, handle, state_root=state_root,
+            cadence_seconds=cadence_seconds, stop_event=stop_event,
+            supervisor_factory=supervisor_factory)
+    finally:
+        if owner_lock is not None:
+            owner_lock.__exit__(None, None, None)
+
+
+def _run_canonical_runtime_owned(
+    config: LocalModelChatStartup,
+    handle: Any,
+    *,
+    state_root: Path | None,
+    cadence_seconds: float,
+    stop_event: threading.Event | None,
+    supervisor_factory: Callable[..., RuntimeSupervisor],
+) -> int:
+    registry = build_runtime_service_registry(config, installation_handle=handle)
+    if handle is not None:
+        try:
+            previous_runtime_observation = read_stored_chat_process_runtime_observation(handle)
+        except ChatProcessGenerationError as exc:
+            # Invalid custody is not equivalent to an absent predecessor. Do not
+            # overwrite it with a new process observation or risk duplicate launch.
+            raise RuntimeError("chat_runtime_prior_observation_untrusted") from exc
+        _require_prior_chat_child_absent(previous_runtime_observation)
     supervisor = supervisor_factory(registry, state_root=state_root)
+    previous_snapshot: dict[str, Any] | None = None
+    if config.enabled:
+        try:
+            previous_snapshot = read_startup_snapshot(supervisor.root)
+        except LocalModelChatRecoveryError as exc:
+            if exc.code != "runtime_startup_snapshot_unavailable":
+                raise
+    if config.enabled and previous_snapshot is not None:
+        startup_adapter = registry.adapter(SERVICE_ID)
+        assert isinstance(startup_adapter, LocalModelChatServiceAdapter)
+        startup_adapter.bind_prior_startup_snapshot(previous_snapshot)
     stopping = stop_event or threading.Event()
     previous: dict[signal.Signals, Any] = {}
 
@@ -44,24 +144,79 @@ def run_canonical_runtime(
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous[signum] = signal.getsignal(signum)
             signal.signal(signum, request_stop)
+    last_handoff: Mapping[str, Any] | None = None
     try:
         supervisor.start_all()
         recovery = None
+        chat_adapter: LocalModelChatServiceAdapter | None = None
         if config.enabled:
-            adapter = registry.adapter(SERVICE_ID)
-            assert isinstance(adapter, LocalModelChatServiceAdapter)
-            write_startup_snapshot(build_startup_snapshot(config, supervisor.generation), supervisor.root)
-            assert config.installation_identity is not None
-            handle = InstallationStateRegistry.system().open(
-                InstallationIdentity.parse(config.installation_identity))
+            candidate_adapter = registry.adapter(SERVICE_ID)
+            assert isinstance(candidate_adapter, LocalModelChatServiceAdapter)
+            chat_adapter = candidate_adapter
+            handoff = chat_adapter.current_runtime_handoff()
+            if not isinstance(handoff, Mapping):
+                raise RuntimeError("chat_process_runtime_handoff_unavailable")
+            last_handoff = dict(handoff)
+            write_startup_snapshot(build_startup_snapshot(
+                config, supervisor.generation, runtime_handoff=handoff), supervisor.root)
+            assert handle is not None
+            serving_posture, serving_receipt, serving_operation_id = (
+                _configured_serving_receipt_observation(chat_adapter, handle, handoff))
+            try:
+                publish_chat_process_runtime_observation(handle=handle,
+                    supervisor_generation=supervisor.generation, handoff=handoff,
+                    status="running_observed",
+                    configured_serving_receipt_posture=serving_posture,
+                    serving_receipt=serving_receipt,
+                    expected_serving_operation_id=serving_operation_id)
+            except ChatProcessGenerationError:
+                # The supervised chat runtime remains governed by its own
+                # lifecycle. A failed optional observation is not converted
+                # into a fabricated successful record.
+                pass
             recovery = ProductionLocalModelChatRecoveryController(
-                supervisor, adapter, ControlPlaneKernel(), handle)
+                supervisor, chat_adapter, ControlPlaneKernel(), handle)
         while not stopping.wait(cadence_seconds):
             supervisor.observe()
-            if recovery is not None:
+            if recovery is not None and chat_adapter is not None and handle is not None:
+                try:
+                    observed_handoff = chat_adapter.current_runtime_handoff()
+                except Exception:
+                    if last_handoff is not None:
+                        try:
+                            publish_chat_process_runtime_observation(
+                                handle=handle, supervisor_generation=supervisor.generation,
+                                handoff=last_handoff, status="not_verified",
+                                reason_code="current_handoff_unavailable",
+                                configured_serving_receipt_posture="runtime_not_verified")
+                        except ChatProcessGenerationError:
+                            pass
+                else:
+                    if isinstance(observed_handoff, Mapping):
+                        last_handoff = dict(observed_handoff)
+                        serving_posture, serving_receipt, serving_operation_id = (
+                            _configured_serving_receipt_observation(chat_adapter, handle, observed_handoff))
+                        try:
+                            publish_chat_process_runtime_observation(
+                                handle=handle, supervisor_generation=supervisor.generation,
+                                handoff=observed_handoff, status="running_observed",
+                                configured_serving_receipt_posture=serving_posture,
+                                serving_receipt=serving_receipt,
+                                expected_serving_operation_id=serving_operation_id)
+                        except ChatProcessGenerationError:
+                            pass
                 recovery.process_pending()
     finally:
         supervisor.shutdown()
+        if handle is not None and last_handoff is not None:
+            try:
+                publish_chat_process_runtime_observation(
+                    handle=handle, supervisor_generation=supervisor.generation,
+                    handoff=last_handoff, status="not_verified",
+                    reason_code="supervisor_shutdown",
+                    configured_serving_receipt_posture="runtime_not_verified")
+            except ChatProcessGenerationError:
+                pass
         for signum, handler in previous.items():
             signal.signal(signum, handler)
     return 0

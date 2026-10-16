@@ -1,0 +1,130 @@
+{
+  "evidence_postures": {
+    "configured_composition": "explicit owner handoffs exist; most are independently opt-in",
+    "full_acceptance": "not performed",
+    "implemented_mechanism": "source reviewed at exact tree",
+    "independently_observed_execution": "none established by this campaign",
+    "production_evidence": "none supplied or generated",
+    "runtime_enablement": "not established by source review"
+  },
+  "kind": "source_bound_hosted_lifecycle_reconciliation",
+  "minimum_hosted_composition": [
+    "A valid installation-state root and exact installation identity.",
+    "A locally installed and independently admitted model-serving operation; no provider is implied.",
+    "Explicit start of the chat runtime with serving operation and, if resource observation is desired, the provisioning ID.",
+    "A separately started sentientosd with matching installation identity and provisioning ID for read-only resource observation.",
+    "Independent epistemic-state, epistemic-development, cognition, and longitudinal-history configurations for those optional developmental paths."
+  ],
+  "paths": [
+    {
+      "authority_boundary": "Process lifecycle and observation do not grant model, resource-allocation, host-mutation, or external-effect authority.",
+      "composition": "The operations CLI starts the separately owned chat runtime. Canonical startup holds installation-scoped singleton custody, checks prior child and observation custody, launches a fixed child, and publishes source/process-bound handoff plus runtime observation through installation custody.",
+      "configuration": "Explicit runtime start arguments include installation identity and serving operation; resource provisioning is optional. The chat adapter remains disabled unless enabled explicitly.",
+      "id": "chat_process_lifecycle",
+      "owners": [
+        {
+          "lines": "218-230;276-285",
+          "path": "sentientos/ops/__main__.py",
+          "sha256": "648261000c91000c0c27d25e6e0fe560ffbfb9282249fb28517bcaaa0cadd9a0"
+        },
+        {
+          "lines": "67-113",
+          "path": "sentientos/runtime/startup.py",
+          "sha256": "64a0e09947548bde3d4e308d6f0df106d8e5c304ae2b6ad6e6312b3813ca37e9"
+        },
+        {
+          "lines": "37-57;95-150",
+          "path": "sentientos/runtime/local_model_chat_service.py",
+          "sha256": "476a34f3f9281194d481e11a6e26cb91931bbc999c65a976d8c93afeac97bec1"
+        },
+        {
+          "lines": "650-785;925-1005",
+          "path": "sentientos/chat_process_generation.py",
+          "sha256": "033b01fb2d5be73fd768f36ccb2a2bd7f71d025c859407da290934d421c07604"
+        }
+      ],
+      "status": "implemented_explicit_runtime_owner"
+    },
+    {
+      "authority_boundary": "Read-only observation only; no allocation or effect authority. Shared CPU/GPU/energy measurements are not inferred from invocation counts.",
+      "composition": "At the bound 4ecbde4 source, the daemon explicitly selected a read-only installation observer and intended to project its verified ledger into World-State. A disposable installed fixture showed observe() deterministically failed before projection: the validated issuer catalog and revocation registry were deleted before their verifier calls, and a genuinely absent runtime-observation parent was treated as invalid instead of optional absence. These are source defects at this revision, not production observations; follow-up source repairs are recorded in the next acceptance increment.",
+      "configuration": [
+        "SENTIENTOS_RESOURCE_OBSERVATION_INSTALLATION_IDENTITY",
+        "SENTIENTOS_RESOURCE_OBSERVATION_PROVISIONING_ID"
+      ],
+      "id": "resource_observation_to_world_state",
+      "missing_or_invalid": "Missing, incomplete, or invalid source custody produces explicit disabled/missing/invalid/degraded status; observation does not allocate resources.",
+      "owners": [
+        {
+          "lines": "134-135;1419-1432;1650-1685;3558-3590",
+          "path": "sentientosd.py",
+          "sha256": "a94f7a1c648732678e56edbdd4a7904923cf1ab0262f8a278d2e272aa54d793e"
+        },
+        {
+          "lines": "93-190;200-320",
+          "path": "sentientos/production_chat_resource_observation.py",
+          "sha256": "9c8f1ea15f1e19472af466ca970576b90259d34b8790370376f9405d02ac3d8c"
+        },
+        {
+          "lines": "282-380;922-1088;1270-1525",
+          "path": "sentientos/host_resource_runtime.py",
+          "sha256": "e690e066bb8f03092d12fb8dd9168c2c5b302d5549f7af6b1000a8eae05cee29"
+        }
+      ],
+      "status": "composition_path_present_but_execution_failed_at_bound_revision"
+    },
+    {
+      "authority_boundary": "Observation, interpretation, authorized state mutation, and cognition are separate owners. Retained state is historical interpretation, not current truth or effect permission.",
+      "composition": "Each daemon tick builds World-State, runs resident cognition using only eligible earlier persisted epistemic/self-model history, then evaluates current-tick epistemic development and longitudinal reconciliation. State writeback is separately configured and authority-gated; current-tick evidence is not consumed by same-tick cognition.",
+      "configuration": [
+        "SENTIENTOS_EPISTEMIC_STATE_CONFIG",
+        "SENTIENTOS_EPISTEMIC_DEVELOPMENT_CONFIG",
+        "SENTIENTOS_RESIDENT_DEVELOPMENTAL_COGNITION_CONFIG",
+        "SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG"
+      ],
+      "id": "world_state_to_cognition_and_epistemic_history",
+      "owners": [
+        {
+          "lines": "2498-2509;2536-2587;3063-3084",
+          "path": "sentientosd.py",
+          "sha256": "a94f7a1c648732678e56edbdd4a7904923cf1ab0262f8a278d2e272aa54d793e"
+        },
+        {
+          "lines": "36;102-160",
+          "path": "sentientos/resident_epistemic_development.py",
+          "sha256": "12f7e941f98a272a357dfd08c9882530f79e04f43b9271a11f0ccab7bbdc7dcf"
+        },
+        {
+          "lines": "579-660;1090-1125;1240-1270",
+          "path": "sentientos/persistent_epistemic_state.py",
+          "sha256": "dbc64dacfa741991518cb8df5564c4dfdd348e1dcb7214077e468a193e651446"
+        },
+        {
+          "lines": "114;855-930;2297-2365",
+          "path": "sentientos/resident_developmental_cognition.py",
+          "sha256": "9b2fa39e0b162a5e16d547865d8892a746c77e160ab45a3ee3e4a9bd94a99d2a"
+        },
+        {
+          "lines": "188-230;996-1045;1172-1215",
+          "path": "sentientos/longitudinal_self_model.py",
+          "sha256": "fb40839de7721c495e489ec26e96a62ef26ab7a0f2d143883dcdb0d843ed03ec"
+        }
+      ],
+      "status": "implemented_temporally_ordered_opt_in_composition"
+    }
+  ],
+  "schema_version": 1,
+  "source": {
+    "branch": "codex/construct-sentientos",
+    "commit": "4ecbde42b4ddf23beb2fd7ecdb30b036fa846bc7",
+    "repository": "Zombinator85/SentientOS",
+    "tree": "3aa226608c66b192715f1e16284b01ba503f0395"
+  },
+  "status": "source_reconciled; deployment_unobserved; production_unverified",
+  "unresolved_dependencies": [
+    "No live installation, serving operation, resource provisioning bundle, or running child was activated or observed in this campaign.",
+    "The lifecycle is source-composed but not shown enabled as one hosted deployment; configuration interoperability and restart behavior still require bounded acceptance in a disposable installed fixture.",
+    "No physical CPU, GPU, energy, or actuator measurement is available from these sources.",
+    "The bound source revision did not complete the resource-observation-to-World-State path; see the source-level blockers above and the follow-up repair acceptance."
+  ]
+}

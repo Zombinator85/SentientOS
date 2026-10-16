@@ -9,7 +9,6 @@ require_lumos_approval()
 Reference: [docs/TAG_EXTENSION_GUIDE.md](docs/TAG_EXTENSION_GUIDE.md)
 Templates and code patterns co-developed with OpenAI support.
 """
-from __future__ import annotations
 from typing import List, Dict
 
 EMOTIONAL_TAGS: List[Dict[str, object]] = [

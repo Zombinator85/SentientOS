@@ -1,0 +1,41 @@
+{
+  "sequence": 237,
+  "title": "Campaign event time after runtime restart",
+  "source_commit": "2358e22ab6107420d9a4fd4ac02d7fb3476b266d",
+  "source_tree": "5cba12f17aa8a4cb8e5e27f1db293d5c4e5d6290",
+  "source_parent_commit": "e98e438bc6b079c909ddc1a82ff3ddaf99d2d1d0",
+  "source_parent_tree": "a01749ed80f81d775251a67ed59927483385a244",
+  "remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "e98e438bc6b079c909ddc1a82ff3ddaf99d2d1d0",
+    "compare_and_swap": "succeeded",
+    "commit_parent_verified": true,
+    "commit_tree_verified": true,
+    "recursive_tree_entries": 7251,
+    "tree_truncated": false,
+    "ref_and_commit_readback": "matched",
+    "changed_blob_tree_readback": "matched"
+  },
+  "changed_blobs": [
+    {
+      "path": "tests/test_maintenance_post_adoption_attribution_campaign.py",
+      "sha": "1acd70b16f8995c37fbb4ec7e69a7608fd23ac0b",
+      "mode": "100644"
+    },
+    {
+      "path": "docs/development/campaign_restart_temporal_integrity_task_acceptance.json",
+      "sha": "307ea2c37eb7d3ccdf93a2bde47e3728440828c9",
+      "mode": "100644"
+    }
+  ],
+  "validation": {
+    "focused_tests": "2 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "This verifies synthetic campaign custody, not the original measurement issuers.",
+    "Runtime owner ordering and explicit prior-tick exclusion remain unverified.",
+    "The source increment adds restart regression coverage; it does not add production effect authority."
+  ]
+}

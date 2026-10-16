@@ -6,7 +6,9 @@ two narrow permissions.  It neither infers proposition meaning nor owns mutation
 from __future__ import annotations
 
 import json
+import hashlib
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -25,6 +27,7 @@ from .resident_epistemic_state_mutation import (
 )
 from .runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority
 from .world_state_board import WorldStateFact, WorldStateSnapshot, validate_snapshot
+from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 
 CONFIG_SCHEMA = "sentientos.resident_epistemic_development_config:v1"
 RULE_SCHEMA = "sentientos.resident_epistemic_development_rule:v1"
@@ -34,11 +37,33 @@ CONFIG_ENV = "SENTIENTOS_EPISTEMIC_DEVELOPMENT_CONFIG"
 MAX_BINDINGS_PER_TICK = 64
 MAX_PROPOSITIONS_PER_TICK = 16
 MAX_ACTIVE_EVIDENCE = 256
+MAX_EPISTEMIC_DEVELOPMENT_CONFIG_BYTES = 65_536
 SELECTOR_FIELDS = frozenset({"source_kind", "source_id", "subject_kind", "subject_id", "stage", "disposition"})
 
 
 class EpistemicDevelopmentError(ValueError):
     """Configuration, provenance, bound, or custody failed closed."""
+
+
+def _valid_optional_lower_sha256(value: Any) -> bool:
+    return (value is None or (type(value) is str and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)))
+
+
+def _latest_historical_event_time(values: list[str]) -> str | None:
+    """Return the original text for the latest valid instant, or stay unknown."""
+    if not values:
+        return None
+    parsed: list[tuple[datetime, str]] = []
+    for value in values:
+        try:
+            instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if instant.tzinfo is None or instant.utcoffset() is None:
+                return None
+            parsed.append((instant.astimezone(timezone.utc), value))
+        except (OverflowError, OSError, ValueError):
+            return None
+    return max(parsed, key=lambda item: (item[0], item[1]))[1]
 
 
 @dataclass(frozen=True)
@@ -67,10 +92,19 @@ class EpistemicDevelopmentFeedback:
     evidence_receipt_ids: tuple[str, ...]; state_receipt_ids: tuple[str, ...]
     successor_state_ids: tuple[str, ...]; generations: tuple[int, ...]
     next_tick_only: bool = True; authority: bool = False
+    recovery_status: str = "not_composed"
+    pending_evidence_intent_count: int = 0
+    pending_state_intent_count: int = 0
+    pending_transaction_count: int = 0
+    recovered_receipt_count: int = 0
 
 
 def load_epistemic_development_config(path: str | Path) -> EpistemicDevelopmentConfig:
-    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    try:
+        raw = json.loads(read_explicit_file(Path(path),
+            max_bytes=MAX_EPISTEMIC_DEVELOPMENT_CONFIG_BYTES).decode("utf-8"))
+    except (WindowsHandleCustodyError, UnicodeError, json.JSONDecodeError) as exc:
+        raise EpistemicDevelopmentError("configuration_unreadable_or_invalid") from exc
     if set(raw) != {"schema", "enabled", "max_new_bindings_per_tick", "max_updated_propositions_per_tick", "allowed_namespaces", "rules"}:
         raise EpistemicDevelopmentError("configuration_fields_invalid")
     rules = tuple(EpistemicDevelopmentRule(**item) for item in raw["rules"])
@@ -120,9 +154,96 @@ class ResidentEpistemicDevelopmentRuntime:
             if proposition.namespace not in config.allowed_namespaces or proposition.namespace not in owner.allowed_namespaces:
                 raise EpistemicDevelopmentError("proposition_namespace_not_allowed")
 
-    def _next_sequence(self) -> int:
-        admissions, revocations = self.ledger.load()
-        return max([x.issued_sequence for x in admissions] + [x.sequence for x in revocations], default=0) + 1
+    def trace_proposition(self, *, proposition_id: str, reconstructed_at: str,
+            max_events: int = 16, cognitive_tick: int | None = None) -> dict[str, Any]:
+        """Return a bounded, explicitly selected, read-only evidence-to-state trace.
+
+        Receipt verification is required before a state generation is described
+        as admitted. The trace is provenance, not a truth or authority judgment.
+        """
+        if (not isinstance(proposition_id, str) or not proposition_id
+                or isinstance(max_events, bool) or not isinstance(max_events, int)
+                or not 1 <= max_events <= 16 or not isinstance(reconstructed_at, str)
+                or not reconstructed_at or len(reconstructed_at) > 128):
+            raise EpistemicDevelopmentError("epistemic_trace_selection_invalid")
+        proposition = self.owner.proposition(proposition_id)
+        if not any(rule.proposition_id == proposition_id for rule in self.config.rules):
+            raise EpistemicDevelopmentError("epistemic_trace_proposition_not_configured")
+        recovery = self.controller.verify_receipts()
+        if recovery.get("status") != "verified":
+            raise EpistemicDevelopmentError("epistemic_trace_receipts_unverified")
+        bindings = self.owner.bindings(proposition_id)
+        events = self.owner.update_events(proposition_id)
+        if len(events) > max_events:
+            raise EpistemicDevelopmentError("epistemic_trace_event_bound_exceeded")
+        states = [state for state in self.owner._read("states")
+            if state.get("proposition_id") == proposition_id]
+        state_by_digest = {item["state_digest"]: item for item in states}
+        receipts: list[dict[str, Any]] = []
+        for stage in ("evidence", "state"):
+            directory = self.controller.receipt_root / "receipts" / stage
+            for path in sorted(directory.glob("*.json")):
+                raw = self.controller._read_bounded(path)
+                if raw is None:
+                    raise EpistemicDevelopmentError("epistemic_trace_receipt_missing")
+                value = json.loads(raw.decode("utf-8"))
+                if stage == "evidence" and value.get("binding_id") in {
+                        item.binding_id for item in bindings}:
+                    receipts.append({"receipt_id": value["receipt_id"],
+                        "receipt_digest": value["receipt_digest"], "stage": stage,
+                        "binding_id": value["binding_id"], "admission_id": value["admission_id"]})
+                if stage == "state" and value.get("successor_state_digest") in state_by_digest:
+                    receipts.append({"receipt_id": value["receipt_id"],
+                        "receipt_digest": value["receipt_digest"], "stage": stage,
+                        "generation": value["generation"],
+                        "successor_state_digest": value["successor_state_digest"],
+                        "admission_id": value["admission_id"]})
+        evidence_receipt_bindings = {item["binding_id"] for item in receipts
+            if item["stage"] == "evidence"}
+        state_receipt_digests = {item["successor_state_digest"] for item in receipts
+            if item["stage"] == "state"}
+        if (evidence_receipt_bindings != {item.binding_id for item in bindings}
+                or state_receipt_digests != set(state_by_digest)):
+            raise EpistemicDevelopmentError("epistemic_trace_receipt_link_missing")
+        active = {item.binding_id: item for item in bindings
+            if item.binding_id in set(self.owner.active_binding_ids(proposition_id))}
+        current = self.owner.current_state(proposition_id)
+        projection = (self.owner.cognitive_projection(max_states=1, current_tick=cognitive_tick)
+            if current is not None and cognitive_tick is not None else None)
+        trace = {"schema": "sentientos.epistemic_proposition_trace:v1",
+            "proposition": {"id": proposition.proposition_id,
+                "digest": proposition.proposition_digest, "subject": proposition.subject,
+                "predicate": proposition.predicate, "context_scope": dict(proposition.context_scope)},
+            "evidence": [{"binding_id": item.binding_id,
+                "binding_digest": item.binding_digest, "source_run_id": item.source_artifact_id,
+                "source_digest": item.source_digest, "relation": item.evidence_relation,
+                "observation_time": item.observation_time, "freshness": item.freshness,
+                "dependency_kind": item.dependency_kind,
+                "active": item.binding_id in active} for item in bindings],
+            "states": [{"state_id": item["state_id"], "state_digest": item["state_digest"],
+                "generation": item["generation"], "predecessor_digest": item.get("predecessor_state_digest"),
+                "stance": item["stance"], "dependency_unresolved": item["dependency_unresolved"],
+                "freshness": item["freshness"]} for item in sorted(states, key=lambda x: x["generation"])],
+            "events": [{"event_id": event.event_id, "event_digest": event.event_digest,
+                "generation": event.generation, "prior_state_digest": event.prior_state_digest,
+                "successor_state_digest": event.successor_state_digest,
+                "added_binding_ids": list(event.added_binding_ids),
+                "recorded_at": state_by_digest[event.successor_state_digest]["updated_at"]
+                    if event.successor_state_digest in state_by_digest else None}
+                for event in events],
+            "mutation_receipts": receipts,
+            "resulting_prior_projection": ({"projection_id": projection.projection_id,
+                "projection_digest": projection.projection_digest,
+                "state_digests": list(projection.state_digests),
+                "delivered_tick": getattr(projection, "current_tick", None)}
+                    if projection is not None else None),
+            "original_observation_times_preserved": True,
+            "reconstructed_at": reconstructed_at,
+            "receipt_recovery_status": recovery.get("status"),
+            "truth": False, "authority": False}
+        if len(json.dumps(trace, sort_keys=True, separators=(",", ":"))) > 32_768:
+            raise EpistemicDevelopmentError("epistemic_trace_size_bound_exceeded")
+        return trace
 
     @staticmethod
     def _matches(rule: EpistemicDevelopmentRule, fact: WorldStateFact) -> bool:
@@ -134,36 +255,803 @@ class ResidentEpistemicDevelopmentRuntime:
     @staticmethod
     def _adapt(snapshot: WorldStateSnapshot, fact: WorldStateFact,
                rule: EpistemicDevelopmentRule) -> tuple[Any, EvidenceBinding]:
-        observed = fact.observed_at or str(snapshot.custody.get("observed_at", ""))
-        artifact_id = f"{snapshot.snapshot_id}:{fact.fact_id}"
-        provenance = json.dumps({"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+        observed = fact.observed_at
+        historical_resource_fact = fact.source.kind == "resource_governor"
+        resource_invocation_lineage = (historical_resource_fact and fact.subject.subject_kind in {
+            "strategy_invocation_resource_lineage", "model_replacement_invocation_resource_lineage"})
+        resource_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        predecessor_reference = resource_payload.get("predecessor_invocation_reference")
+        predecessor_posture = resource_payload.get("predecessor_invocation_reference_posture")
+        parent_reference_fields = {
+            "receipt_id", "receipt_digest", "request_id", "source_user_turn_id"}
+        parent_reference_shape_valid = (
+            isinstance(predecessor_reference, Mapping)
+            and set(predecessor_reference) == parent_reference_fields
+            and isinstance(predecessor_reference.get("receipt_id"), str)
+            and len(predecessor_reference["receipt_id"]) == 30
+            and predecessor_reference["receipt_id"].startswith("lmrec-")
+            and all(character in "0123456789abcdef"
+                for character in predecessor_reference["receipt_id"][6:])
+            and isinstance(predecessor_reference.get("receipt_digest"), str)
+            and len(predecessor_reference["receipt_digest"]) == 64
+            and all(character in "0123456789abcdef"
+                for character in predecessor_reference["receipt_digest"])
+            and isinstance(predecessor_reference.get("request_id"), str)
+            and len(predecessor_reference["request_id"]) == 30
+            and predecessor_reference["request_id"].startswith("lmreq-")
+            and all(character in "0123456789abcdef"
+                for character in predecessor_reference["request_id"][6:])
+            and isinstance(predecessor_reference.get("source_user_turn_id"), str)
+            and len(predecessor_reference["source_user_turn_id"]) == 29
+            and predecessor_reference["source_user_turn_id"].startswith("turn-")
+            and all(character in "0123456789abcdef"
+                for character in predecessor_reference["source_user_turn_id"][5:]))
+        exact_parent_reference_claim_valid = (
+            predecessor_posture == "exact_predecessor_receipt_and_source_turn_reconciled"
+            and parent_reference_shape_valid)
+        chat_invocation_lineage_incomplete = (
+            historical_resource_fact
+            and fact.subject.subject_kind == "chat_process_software_generation_invocation"
+            and (fact.disposition != "recorded"
+                or (predecessor_reference is not None
+                    and not exact_parent_reference_claim_valid)
+                or (predecessor_posture
+                    == "exact_predecessor_receipt_and_source_turn_reconciled"
+                    and not exact_parent_reference_claim_valid)))
+        resource_findings = resource_payload.get("lineage_findings")
+        resource_findings_empty = (
+            isinstance(resource_findings, (list, tuple)) and not resource_findings)
+        incomplete_resource_lineage = (
+            (resource_invocation_lineage
+                and (fact.disposition != "verified" or not resource_findings_empty))
+            or chat_invocation_lineage_incomplete)
+        if (historical_resource_fact
+                and fact.subject.subject_kind == "causal_resource_consumption"):
+            incomplete_resource_lineage = incomplete_resource_lineage or (
+                fact.disposition != "recorded"
+                or resource_payload.get("lineage_posture") != "verified"
+                or not resource_findings_empty
+                or resource_payload.get("recovery_posture") != "reconciled_or_restored"
+                or resource_payload.get("retention_posture") != "complete")
+        historical_resource_introspection = (fact.source.kind == "owner_introspection"
+            and fact.subject.subject_kind == "causal_resources")
+        historical_unverified_owner_record = (fact.source.kind == "owner_introspection"
+            and fact.subject.subject_kind == "post_adoption_attribution_campaign")
+        if historical_unverified_owner_record:
+            # The World-State row is a retrieval of a campaign record, not the
+            # campaign's outcome event. Its declared completion time is
+            # caller supplied and cannot be promoted to an epistemic event
+            # timestamp without an authenticated source.
+            observed = None
+        historical_introspection_recovery_failure = (
+            fact.source.kind == "owner_introspection"
+            and fact.subject.subject_kind == "causal_introspection_recovery")
+        historical_introspection_diagnostics = (
+            fact.source.kind == "owner_introspection"
+            and fact.subject.subject_kind == "snapshot_diagnostics")
+        historical_software_launch_observation = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "observed_running_software_generation")
+        historical_transition_event = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind in {"resident_model_transition", "software_generation_transition",
+                "software_generation_transition_history_retention"}
+            and isinstance(fact.payload, Mapping))
+        historical_parent_lifecycle = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "resident_parent_lifecycle_history")
+        historical_chat_recovery_event = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "chat_process_recovery_transition"
+            and isinstance(fact.payload, Mapping)
+            and fact.payload.get("phase_evidence_posture")
+                == "canonical_installation_custody_and_digest_chain_checked_not_independently_signed")
+        historical_chat_runtime_observation = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "chat_process_runtime_generation_observation"
+            and isinstance(fact.payload, Mapping)
+            and isinstance(fact.payload.get("chat_process_runtime_observation"), Mapping)
+            and fact.payload.get("event_time_posture")
+                == "runtime_owner_observation_not_current_liveness")
+        historical_serving_operation_attempt = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "serving_operation_attempt"
+            and isinstance(fact.payload, Mapping)
+            and isinstance(fact.payload.get("serving_operation_attempt"), Mapping)
+            and fact.payload.get("event_time_posture")
+                == "reservation_time_not_model_load_time")
+        historical_serving_operation_history = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "serving_operation_history"
+            and isinstance(fact.payload, Mapping)
+            and fact.payload.get("historical_only") is True
+            and fact.payload.get("current_model_claimed") is False
+            and fact.payload.get("event_time_posture") in {
+                "owner_observed_model_load_time",
+                "reservation_time_model_load_outcome_unknown"})
+        current_running_model_candidate = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "observed_running_model")
+        current_model_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        verified_current_running_model_observation = (
+            current_running_model_candidate
+            and fact.stage == "observation" and fact.disposition == "observed"
+            and fact.evidence_strength in {
+                "serving_session_observation", "current_serving_owner_session"}
+            and isinstance(current_model_payload.get("running_model_identity_observed"), Mapping)
+            and bool(current_model_payload.get("running_model_identity_observed"))
+            and isinstance(current_model_payload.get("serving_session_id"), str)
+            and bool(current_model_payload.get("serving_session_id"))
+            and current_model_payload.get("event_time_posture")
+                == "serving_session_observation_time_not_model_load_time"
+            and isinstance(fact.observed_at, str)
+            and _latest_historical_event_time([fact.observed_at]) is not None
+            and current_model_payload.get("authority") is False
+            and current_model_payload.get("effect_proven") is False
+            and fact.effect_claimed is False and fact.effect_proven is False)
+        unverified_current_running_model_observation = (
+            current_running_model_candidate and not verified_current_running_model_observation)
+        current_software_candidate = (
+            fact.source.kind == "runtime_supervisor"
+            and fact.subject.subject_kind == "verified_current_running_software_generation")
+        current_software_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        def bound_digest(value: Any) -> bool:
+            return (isinstance(value, str) and len(value) == 71
+                and value.startswith("sha256:")
+                and all(character in "0123456789abcdef" for character in value[7:]))
+        verified_current_software_observation = (
+            current_software_candidate
+            and fact.stage == "observation" and fact.disposition == "observed"
+            and current_software_payload.get("currentness_posture")
+                == "owner_verified_process_and_source_at_observation"
+            and current_software_payload.get("event_time_posture")
+                == "owner_point_observation_time"
+            and current_software_payload.get("process_identity_scope")
+                == "pid_startup_argv_executable_entrypoint_module_origin_and_environment"
+            and current_software_payload.get("software_generation_scope")
+                == "configured_manifest_and_clean_repository_state_at_observation"
+            and current_software_payload.get("loaded_code_identity_posture")
+                == "not_independently_attested"
+            and bound_digest(current_software_payload.get("running_software_generation_observed"))
+            and bound_digest(current_software_payload.get("software_generation"))
+            and current_software_payload.get("running_software_generation_observed")
+                == current_software_payload.get("software_generation")
+            and bound_digest(current_software_payload.get("process_instance_id"))
+            and bound_digest(current_software_payload.get("provenance_digest"))
+            and isinstance(current_software_payload.get("repository_commit"), str)
+            and bool(current_software_payload.get("repository_commit"))
+            and isinstance(current_software_payload.get("repository_tree"), str)
+            and bool(current_software_payload.get("repository_tree"))
+            and isinstance(fact.observed_at, str)
+            and _latest_historical_event_time([fact.observed_at]) is not None
+            and current_software_payload.get("authority") is False
+            and current_software_payload.get("effect_proven") is False
+            and fact.effect_claimed is False and fact.effect_proven is False)
+        unverified_current_software_observation = (
+            current_software_candidate and not verified_current_software_observation)
+        historical_transition_observation = (
+            historical_transition_event
+            and fact.subject.subject_kind == "resident_model_transition"
+            and fact.payload.get("transition_phase") in {"b_epoch_observed", "post_restoration_observed"})
+        qualified_transition_observation = (
+            historical_transition_observation
+            and fact.disposition == "completed"
+            and fact.payload.get("transition_observation_posture")
+                == "owner_verified_durable_cognition_history_handoff")
+
+        historical_undated_consequence = (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind in {"embodied_strategy_experiment",
+                                               "developmental_model_replacement_experiment",
+                                               "embodied_consequence_chain",
+                                               "embodied_action_expectation",
+                                               "avatar_renderer_handoff",
+                                               "avatar_renderer_report",
+                                               "embodied_consequence_attribution",
+                                               "embodied_prediction_comparison",
+                                               "embodied_proposal_fulfillment_receipt"})
+        historical_consequence_chain = (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind == "embodied_consequence_chain")
+        historical_embodied_event_fields = {
+            "embodied_action_expectation": ("created_at",),
+            "avatar_renderer_handoff": ("commanded_at",),
+            "avatar_renderer_report": ("completed_at",),
+            "avatar_independently_observed_state": ("observed_at",),
+            "embodied_consequence_attribution": ("evaluated_at",),
+            "embodied_prediction_comparison": ("evaluated_at",),
+        }.get(fact.subject.subject_kind)
+        historical_strategy_proposal = (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind == "embodied_strategy_proposal")
+        historical_strategy_review = (fact.source.kind == "embodiment"
+            and fact.subject.subject_kind == "embodied_strategy_proposal_review")
+        unverified_embodiment_observation = (fact.source.kind == "embodiment"
+            and (isinstance(fact.payload.get("embodiment_evidence_class"), str)
+                or fact.subject.subject_kind == "avatar_independently_observed_state"))
+        source_integrity_conflict = (fact.source.finding != "ok" or any(
+            conflict.subject_id == fact.source.source_id
+            and conflict.conflict_type in {"source_digest_mismatch",
+                "source_observation_time_mismatch"}
+            for conflict in snapshot.conflicts))
+        quarantine_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        quarantine_custody_context = (
+            fact.source.kind == "quarantine"
+            and fact.subject.subject_kind == "quarantine_custody_observation"
+            and quarantine_payload.get("observation_schema")
+                == "sentientos.integrity_quarantine_custody_observation:v1"
+            and quarantine_payload.get("source_owner")
+                == "sentientos.integrity_quarantine.load_state_with_status"
+            and quarantine_payload.get("custody_result") in {
+                "first_use_absent", "valid_v1", "invalid", "observer_unavailable"}
+            and quarantine_payload.get("event_time_posture")
+                == "daemon_tick_point_observation_of_owner_read"
+            and quarantine_payload.get("independent_signature") is False
+            and quarantine_payload.get("attack_established") is False
+            and quarantine_payload.get("authority") is False
+            and quarantine_payload.get("effect_authority") is False
+            and fact.effect_claimed is False and fact.effect_proven is False)
+        quarantine_incident_custody_context = (
+            fact.source.kind == "quarantine"
+            and fact.source.source_id == "integrity-quarantine-incident-custody:resident-daemon"
+            and fact.subject.subject_kind == "quarantine_incident_custody_observation"
+            and fact.stage == "observation"
+            and fact.disposition in {"recorded", "degraded"}
+            and fact.evidence_strength == "owner_observed_local_incident_custody_reconciliation"
+            and quarantine_payload.get("observation_schema")
+                == "sentientos.integrity_quarantine_incident_custody_observation:v1"
+            and quarantine_payload.get("source_owner")
+                == "sentientos.integrity_incident.inspect_quarantine_incident_custody"
+            and quarantine_payload.get("reconciliation_status") in {
+                "complete_local_custody", "incomplete", "conflict",
+                "incomplete_identity", "observer_unavailable"}
+            and quarantine_payload.get("event_time_posture")
+                == "historical_activation_reference_reconciled_at_observation"
+            and quarantine_payload.get("feed_is_authenticated") is False
+            and quarantine_payload.get("attack_established") is False
+            and quarantine_payload.get("hostile_activity_established") is False
+            and quarantine_payload.get("defensive_consequence_established") is False
+            and quarantine_payload.get("cause_unknown") is True
+            and quarantine_payload.get("authority") is False
+            and quarantine_payload.get("current_truth") is False
+            and quarantine_payload.get("effect_proven") is False
+            and quarantine_payload.get("effect_authority") is False
+            and quarantine_payload.get("read_only") is True
+            and quarantine_payload.get("artifact_status") in {"valid", "missing", "invalid", "conflict", "not_checked"}
+            and quarantine_payload.get("feed_status") in {"present_unverified", "missing", "invalid", "conflict", "not_checked"}
+            and quarantine_payload.get("catalog_status") in {"present_unverified", "missing", "incomplete", "invalid", "conflict", "unsupported", "unavailable"}
+            and type(quarantine_payload.get("catalog_duplicate_count")) is int
+            and 0 <= quarantine_payload["catalog_duplicate_count"] <= 8_192
+            and quarantine_payload.get("catalog_row_is_authenticated") is False
+            and _valid_optional_lower_sha256(quarantine_payload.get("artifact_sha256"))
+            and _valid_optional_lower_sha256(quarantine_payload.get("feed_row_sha256"))
+            and _valid_optional_lower_sha256(quarantine_payload.get("catalog_entry_sha256"))
+            and fact.effect_claimed is False and fact.effect_proven is False)
+        attestation_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        attestation_snapshot_verification_context = (
+            fact.source.kind == "audit_trust"
+            and fact.source.source_id == "attestation-snapshot-verification:resident-daemon"
+            and fact.subject.subject_kind == "attestation_snapshot_verification_observation"
+            and fact.stage == "observation"
+            and fact.disposition == "degraded"
+            and fact.evidence_strength == "owner_observed_signature_chain_verification_failure"
+            and attestation_payload.get("observation_schema") in {
+                "sentientos.attestation_snapshot_verification_observation:v1",
+                "sentientos.attestation_snapshot_verification_observation:v2",
+            }
+            and (attestation_payload.get("failed_signature_record_sha256") is None
+                or (isinstance(attestation_payload.get("failed_signature_record_sha256"), str)
+                    and len(attestation_payload["failed_signature_record_sha256"]) == 64
+                    and all(ch in "0123456789abcdef"
+                        for ch in attestation_payload["failed_signature_record_sha256"])))
+            and attestation_payload.get("source_owner")
+                == "sentientos.attestation_snapshot.verify_recent_snapshots"
+            and attestation_payload.get("event_time_posture")
+                == "daemon_tick_point_observation_of_bounded_verifier"
+            and attestation_payload.get("verification_result") in {"warn", "fail"}
+            and attestation_payload.get("verification_ok") is False
+            and isinstance(attestation_payload.get("verification_reason"), str)
+            and type(attestation_payload.get("checked_signature_count")) is int
+            and 0 <= attestation_payload["checked_signature_count"] <= 64
+            and attestation_payload.get("cause_unknown") is True
+            and attestation_payload.get("attack_established") is False
+            and attestation_payload.get("hostile_activity_established") is False
+            and attestation_payload.get("compromise_established") is False
+            and attestation_payload.get("authority") is False
+            and attestation_payload.get("effect_proven") is False
+            and attestation_payload.get("effect_authority") is False
+            and attestation_payload.get("independent_signature") is False
+            and attestation_payload.get("read_only") is True
+            and fact.effect_claimed is False and fact.effect_proven is False)
+        integrity_payload = fact.payload if isinstance(fact.payload, Mapping) else {}
+        integrity_controller_context = (
+            fact.source.kind == "audit_trust"
+            and fact.source.source_id == "integrity-controller:resident-daemon"
+            and fact.subject.subject_kind == "integrity_controller_observation"
+            and fact.stage == "observation"
+            and fact.disposition in {"recorded", "degraded", "unavailable"}
+            and fact.evidence_strength in {
+                "source_integrity_status", "integrity_controller_observation_unavailable"}
+            and integrity_payload.get("observation_schema") in {
+                "sentientos.integrity_controller_observation:v1",
+                "sentientos.integrity_controller_observation:v2",
+            }
+            and integrity_payload.get("source_owner")
+                == "sentientos.integrity_controller.evaluate_integrity"
+            and integrity_payload.get("event_time_posture")
+                == "daemon_tick_point_observation_of_integrity_controller"
+            and integrity_payload.get("controller_posture") in {"ok", "warn", "fail", "unknown"}
+            and type(integrity_payload.get("gate_count")) is int
+            and 0 <= integrity_payload["gate_count"] <= 32
+            and isinstance(integrity_payload.get("gate_results"), list)
+            and len(integrity_payload["gate_results"]) == integrity_payload["gate_count"]
+            and all(isinstance(gate, Mapping)
+                and (gate.get("failed_record_sha256") is None
+                    or (isinstance(gate.get("failed_record_sha256"), str)
+                        and len(gate["failed_record_sha256"]) == 64
+                        and all(ch in "0123456789abcdef"
+                            for ch in gate["failed_record_sha256"])))
+                for gate in integrity_payload["gate_results"])
+            and integrity_payload.get("cause_unknown") is True
+            and integrity_payload.get("attack_established") is False
+            and integrity_payload.get("hostile_activity_established") is False
+            and integrity_payload.get("compromise_established") is False
+            and integrity_payload.get("effect_proven") is False
+            and integrity_payload.get("effect_authority") is False
+            and integrity_payload.get("authority") is False
+            and integrity_payload.get("current_truth") is False
+            and integrity_payload.get("read_only") is True
+            and fact.effect_claimed is False and fact.effect_proven is False
+        )
+        unverified_source_context = (historical_undated_consequence
+            or historical_unverified_owner_record
+            or historical_chat_recovery_event or historical_chat_runtime_observation
+            or historical_parent_lifecycle
+            or historical_introspection_recovery_failure
+            or historical_introspection_diagnostics
+            or historical_software_launch_observation
+            or unverified_current_running_model_observation
+            or historical_serving_operation_attempt or historical_serving_operation_history
+            or (historical_transition_observation and not qualified_transition_observation)
+            or historical_strategy_proposal
+            or historical_strategy_review or unverified_embodiment_observation
+            or incomplete_resource_lineage or source_integrity_conflict
+            or unverified_current_software_observation)
+        stable_source_digest = fact.source.digest
+        stable_fact_identity = {"source_id": fact.source.source_id, "fact_id": fact.fact_id}
+        artifact_id = "world-state-fact:" + hashlib.sha256(json.dumps(stable_fact_identity,
+            sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:32]
+        if (historical_serving_operation_history and isinstance(fact.payload, Mapping)):
+            # Preserve the event time from the canonical serving receipt or
+            # reservation. World-State retrieval time is not a substitute.
+            source_event_time = fact.payload.get("event_time")
+            observed = (_latest_historical_event_time([source_event_time])
+                if isinstance(source_event_time, str) else None)
+        if (historical_chat_runtime_observation and isinstance(fact.payload, Mapping)):
+            # The runtime row timestamp is a historical observation event, not
+            # retrieval time. Preserve it in the evidence binding while the
+            # freshness posture below remains non-current.
+            runtime_observation = fact.payload.get("chat_process_runtime_observation")
+            source_event_time = (fact.payload.get("event_time")
+                if isinstance(fact.payload.get("event_time"), str)
+                else runtime_observation.get("observed_at")
+                    if isinstance(runtime_observation, Mapping) else None)
+            observed = (_latest_historical_event_time([source_event_time])
+                if isinstance(source_event_time, str) else None)
+        if (historical_chat_recovery_event and isinstance(fact.payload, Mapping)):
+            # Preserve the evidenced phase interval's latest source event.
+            # Reconstruction/retrieval time is never used to complete a
+            # missing transition phase.
+            phase_times = fact.payload.get("phase_event_times")
+            source_event_times = ([phase_times.get(key) for key in (
+                "attempt_started_at", "readiness_observed_at", "snapshot_advanced_at")]
+                if isinstance(phase_times, Mapping) else [])
+            observed = _latest_historical_event_time([
+                value for value in source_event_times if isinstance(value, str)])
+        if (historical_resource_fact and fact.subject.subject_kind == "host_resource_snapshot"
+                and isinstance(fact.payload, Mapping)):
+            # The snapshot's payload timestamp belongs to the owner's
+            # digest-bound telemetry object. The World-State row timestamp is
+            # retrieval metadata and must not be substituted during replay.
+            source_event_time = fact.payload.get("observed_at")
+            observed = (_latest_historical_event_time([source_event_time])
+                if isinstance(source_event_time, str) else None)
+        elif fact.source.kind == "resource_governor" and isinstance(fact.payload, Mapping):
+            if fact.subject.subject_kind == "chat_process_software_generation_invocation":
+                # The receipt's observed_at is custody metadata outside its
+                # semantic receipt digest. Retain it in the source payload, but
+                # do not promote it into an epistemic event time.
+                event_time_posture = fact.payload.get("event_time_posture")
+                source_event_time = fact.payload.get("event_time")
+                historical_times = (
+                    [source_event_time]
+                    if event_time_posture == "invocation_receipt_created_at_semantic_digest_bound"
+                        and isinstance(source_event_time, str)
+                    else [])
+            else:
+                historical_times = [str(item.get("observed_at")) for item in fact.payload.get("consumption_receipts", ())
+                                    if isinstance(item, Mapping) and item.get("observed_at")]
+            if resource_invocation_lineage:
+                historical_times.extend(str(item) for item in fact.payload.get("event_times", ())
+                    if isinstance(item, str))
+            observed = _latest_historical_event_time(historical_times)
+        if historical_consequence_chain and isinstance(fact.payload, Mapping):
+            event_times = fact.payload.get("event_times")
+            event_time_fields = ("expectation_created_at", "commanded_at",
+                "renderer_started_at", "renderer_completed_at", "claimed_observation_at",
+                "comparison_evaluated_at")
+            if isinstance(event_times, Mapping):
+                raw_times = [event_times.get(key) for key in event_time_fields
+                    if event_times.get(key) is not None]
+                normalized_times = [value for value in raw_times if isinstance(value, str)]
+                observed = (_latest_historical_event_time(normalized_times)
+                    if len(normalized_times) == len(raw_times) and raw_times else None)
+            else:
+                observed = None
+        if (fact.source.kind == "embodiment" and historical_embodied_event_fields
+                and isinstance(fact.payload, Mapping)):
+            raw_times = [fact.payload.get(key) for key in historical_embodied_event_fields
+                if fact.payload.get(key) is not None]
+            normalized_times = [value for value in raw_times if isinstance(value, str)]
+            observed = (_latest_historical_event_time(normalized_times)
+                if len(normalized_times) == len(raw_times) and raw_times else None)
+        if fact.source.kind == "runtime_supervisor":
+            if fact.subject.subject_kind == "resident_parent_lifecycle_history" and isinstance(fact.payload, Mapping):
+                event_time = fact.payload.get("event_time")
+                observed = (_latest_historical_event_time([event_time])
+                    if fact.payload.get("event_time_posture") == "verified_historical_receipt_time"
+                    and isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind == "serving_operation_attempt" and isinstance(fact.payload, Mapping):
+                attempt = fact.payload.get("serving_operation_attempt")
+                event_time = attempt.get("reserved_at") if isinstance(attempt, Mapping) else None
+                observed = (_latest_historical_event_time([event_time])
+                    if isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind == "chat_process_runtime_generation_observation" and isinstance(fact.payload, Mapping):
+                runtime_observation = fact.payload.get("chat_process_runtime_observation")
+                event_time = runtime_observation.get("observed_at") if isinstance(
+                    runtime_observation, Mapping) else None
+                observed = (_latest_historical_event_time([event_time])
+                    if isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind == "chat_process_recovery_transition" and isinstance(fact.payload, Mapping):
+                phase_times = fact.payload.get("phase_event_times")
+                values = ([phase_times.get(key) for key in (
+                    "attempt_started_at", "readiness_observed_at", "snapshot_advanced_at")
+                    if phase_times.get(key) is not None] if isinstance(phase_times, Mapping) else [])
+                normalized_values = [value for value in values if isinstance(value, str)]
+                observed = (_latest_historical_event_time(normalized_values)
+                    if values and len(normalized_values) == len(values) else None)
+            elif fact.subject.subject_kind in {"resident_model_transition",
+                    "software_generation_transition"} and isinstance(fact.payload, Mapping):
+                event_time = fact.payload.get("event_time")
+                observed = (_latest_historical_event_time([event_time])
+                    if isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind == "observed_running_software_generation" and isinstance(fact.payload, Mapping):
+                event_time = fact.payload.get("startup_timestamp")
+                observed = (_latest_historical_event_time([event_time])
+                    if isinstance(event_time, str) else None)
+            elif fact.subject.subject_kind == "observed_running_model":
+                # This is the serving owner's point observation time, not the
+                # model-load event time. Reject session records without it.
+                observed = (_latest_historical_event_time([fact.observed_at])
+                    if verified_current_running_model_observation
+                    and isinstance(fact.observed_at, str) else None)
+            elif fact.subject.subject_kind in {"resident_model_transition_recovery",
+                    "software_generation_transition_recovery"}:
+                # Journal reconstruction time is not a transition event.
+                observed = None
+        if (fact.source.kind == "embodiment"
+                and fact.subject.subject_kind == "developmental_model_replacement_experiment"
+                and isinstance(fact.payload, Mapping)):
+            observations = fact.payload.get("observations")
+            if isinstance(observations, (list, tuple)):
+                event_times = [item.get("inference_event_time") for item in observations
+                    if isinstance(item, Mapping) and isinstance(item.get("inference_event_time"), str)]
+                malformed_time = any(isinstance(item, Mapping)
+                    and item.get("inference_event_time") is not None
+                    and not isinstance(item.get("inference_event_time"), str) for item in observations)
+                observed = (None if malformed_time else
+                    _latest_historical_event_time(event_times) if event_times else None)
+        if historical_resource_introspection and isinstance(fact.payload, Mapping):
+            observations = fact.payload.get("observations", ())
+            if not isinstance(observations, (list, tuple)):
+                observations = ()
+            def unique_observation_value(key: str) -> Any:
+                matches = [item.get("value") for item in observations
+                    if isinstance(item, Mapping) and item.get("key") == key]
+                return matches[0] if len(matches) == 1 else None
+
+            latest_event = unique_observation_value("latest_consumption_event_at")
+            if latest_event:
+                observed = (_latest_historical_event_time([latest_event])
+                    if isinstance(latest_event, str) else None)
+            else:
+                observed = None
+            retained = unique_observation_value("ledger_digest")
+            installation = unique_observation_value("installation_identity")
+            provisioning = unique_observation_value("provisioning_id")
+            manifest_digest = unique_observation_value("manifest_digest")
+            if all(isinstance(value, str) and value for value in (
+                    retained, installation, provisioning, manifest_digest)):
+                stable_identity = {"installation_identity": installation,
+                    "provisioning_id": provisioning, "manifest_digest": manifest_digest,
+                    "ledger_digest": retained}
+                stable_source_digest = "sha256:" + hashlib.sha256(json.dumps(stable_identity,
+                    sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+                artifact_id = "resource-introspection:" + hashlib.sha256(json.dumps(stable_identity,
+                    sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:32]
+        if (not isinstance(observed, str)
+                or _latest_historical_event_time([observed]) is None):
+            observed = None
+        if unverified_current_software_observation:
+            # A malformed currentness claim cannot supply a source event time.
+            observed = None
+        if source_integrity_conflict:
+            # Keep malformed producer records visible as context, but do not
+            # let a failed source binding provide an event time or support.
+            observed = None
+        # A snapshot's reconstruction clock is not a source event time. Preserve
+        # missing event time as a stable semantic value for every source kind.
+        missing_source_time = observed is None
+        observed = observed or "undated"
+        provenance_values: dict[str, Any] = {"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
-            "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID}, sort_keys=True, separators=(",", ":"))
+            "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
+            "event_time_posture": "owner_verified_current_software_point_observation"
+                if verified_current_software_observation
+                else "verified_serving_session_observation_time_not_model_load_time"
+                if verified_current_running_model_observation
+                else "unverified_running_model_context_time_unknown"
+                if unverified_current_running_model_observation
+                else "unverified_current_software_context_time_unknown"
+                if unverified_current_software_observation
+                else "software_launch_time_not_current_liveness"
+                if historical_software_launch_observation
+                else "parent_lifecycle_receipt_time_not_reconstruction_time"
+                if historical_parent_lifecycle
+                else "runtime_owner_observation_time_not_current_liveness"
+                if historical_chat_runtime_observation else "chat_recovery_phase_time_not_process_liveness_or_inference_time"
+                if historical_chat_recovery_event else "transition_stage_time_not_cognition_event_time"
+                if historical_transition_observation else "historical_transition_stage_event_time"
+                if historical_transition_event else "historical_or_unknown"
+                if historical_resource_fact or historical_resource_introspection
+                or historical_undated_consequence or historical_unverified_owner_record
+                or historical_introspection_recovery_failure
+                or historical_introspection_diagnostics
+                or historical_strategy_proposal or historical_strategy_review
+                or source_integrity_conflict
+                else "source_time_unverified" if unverified_embodiment_observation
+                else "source_time_missing" if missing_source_time
+                else "source_observed"}
+        if historical_unverified_owner_record and isinstance(fact.payload, Mapping):
+            provenance_values["post_adoption_campaign_time_claim"] = {
+                "declared_completed_at": fact.payload.get("declared_completed_at"),
+                "event_time_posture": fact.payload.get("event_time_posture"),
+                "source_issuer_posture": fact.payload.get("source_issuer_posture"),
+            }
+        if historical_introspection_diagnostics and isinstance(fact.payload, Mapping):
+            def diagnostic_rows(key: str, fields: tuple[str, ...]) -> list[dict[str, Any]]:
+                rows = fact.payload.get(key)
+                if not isinstance(rows, (list, tuple)):
+                    return []
+                retained: list[dict[str, Any]] = []
+                for row in rows[:16]:
+                    if not isinstance(row, Mapping):
+                        continue
+                    selected = {field: row.get(field) for field in fields}
+                    if all(isinstance(value, str) and value and len(value) <= 512
+                            for value in selected.values()):
+                        retained.append(selected)
+                return retained
+
+            conflict_rows: list[dict[str, Any]] = []
+            raw_conflicts = fact.payload.get("conflicts")
+            if isinstance(raw_conflicts, (list, tuple)):
+                for row in raw_conflicts[:16]:
+                    if (isinstance(row, Mapping)
+                            and isinstance(row.get("observation_key"), str)
+                            and isinstance(row.get("projection_ids"), (list, tuple))
+                            and all(isinstance(item, str) and item
+                                for item in row["projection_ids"][:64])):
+                        conflict_rows.append({"observation_key": row["observation_key"][:512],
+                            "projection_ids": list(row["projection_ids"][:64])})
+            provenance_values["causal_introspection_snapshot_diagnostics"] = {
+                "snapshot_completion_posture": fact.payload.get("snapshot_completion_posture"),
+                "conflict_count": fact.payload.get("conflict_count"),
+                "conflict_posture": fact.payload.get("conflict_posture"),
+                "omitted_conflict_count": fact.payload.get("omitted_conflict_count"),
+                "capture_findings": diagnostic_rows("capture_findings",
+                    ("owner_id", "domain", "error_code", "error_class")),
+                "conflicts": conflict_rows,
+                "omitted_capture_finding_count": fact.payload.get("omitted_capture_finding_count"),
+            }
+        introspection_lineage_fields = (
+            "introspection_snapshot_id", "introspection_snapshot_digest",
+            "introspection_snapshot_generation", "introspection_snapshot_predecessor_digest",
+            "introspection_capture_tick", "introspection_snapshot_completion_posture")
+        if (fact.source.kind == "owner_introspection" and isinstance(fact.payload, Mapping)
+                and all(key in fact.payload for key in introspection_lineage_fields)):
+            provenance_values["causal_introspection_snapshot_lineage"] = {
+                key: fact.payload[key] for key in introspection_lineage_fields}
+        provenance = json.dumps(provenance_values, sort_keys=True, separators=(",", ":"))
         proof = make_epistemic_evidence_source_proof(source_artifact_id=artifact_id,
-            source_digest=fact.source.digest, source_schema=fact.source.schema_version,
+            source_digest=stable_source_digest, source_schema=fact.source.schema_version,
             source_class=fact.source.kind, recorded_at=observed, adapter_id=ADAPTER_ID,
             provenance_id=provenance)
+        # Source freshness is evidence metadata, not an adapter default.  A
+        # degraded or undated snapshot must remain unknown; only a fresh,
+        # healthy source may be represented as current.
+        source_staleness = str(fact.source.staleness or "unknown").lower()
+        if (not historical_resource_fact and not historical_resource_introspection
+                and not historical_introspection_diagnostics
+                and not historical_parent_lifecycle
+                and not historical_undated_consequence and not historical_unverified_owner_record
+                and not historical_transition_event and not historical_chat_recovery_event
+                and not historical_chat_runtime_observation
+                and not historical_software_launch_observation
+                and not historical_strategy_proposal and not historical_strategy_review
+                and not unverified_embodiment_observation
+                and not unverified_current_software_observation
+                and not unverified_current_running_model_observation
+                and source_staleness == "fresh" and fact.source.finding == "ok" and not snapshot.degraded):
+            freshness = "current"
+        elif source_staleness in {"aging", "stale", "expired"}:
+            freshness = "stale"
+        else:
+            freshness = "unknown"
         binding = make_evidence_binding(proposition_id=rule.proposition_id,
-            source_artifact_id=artifact_id, source_digest=fact.source.digest,
+            source_artifact_id=artifact_id, source_digest=stable_source_digest,
             source_schema=fact.source.schema_version, source_class=fact.source.kind,
-            observation_time=observed, evidence_relation=rule.evidence_relation,
-            dependency_kind=rule.dependency_kind,
-            dependency_group=rule.independence_basis, upstream_binding_ids=(), freshness="current",
-            reliability_posture=rule.reliability_posture)
+            observation_time=observed,
+            evidence_relation="contextualizes" if (unverified_source_context
+                or historical_transition_event or quarantine_custody_context
+                or quarantine_incident_custody_context
+                or attestation_snapshot_verification_context
+                or integrity_controller_context) else rule.evidence_relation,
+            dependency_kind=("unknown_dependency" if (unverified_source_context
+                or historical_transition_event or quarantine_custody_context
+                or quarantine_incident_custody_context
+                or attestation_snapshot_verification_context
+                or integrity_controller_context)
+                else rule.dependency_kind),
+            dependency_group=(rule.independence_basis if rule.dependency_kind == "independently_sourced_observation"
+                and not unverified_source_context and not historical_transition_event
+                and not quarantine_custody_context
+                and not quarantine_incident_custody_context
+                and not attestation_snapshot_verification_context
+                and not integrity_controller_context else None),
+            upstream_binding_ids=(), freshness=freshness,
+            reliability_posture=("qualified_historical_transition_owner_observation"
+                if qualified_transition_observation
+                else "unqualified_transition_observation_context" if historical_transition_observation
+                else "historical_transition_event_context" if historical_transition_event
+                else "historical_launch_provenance_context" if historical_software_launch_observation
+                else "unverified_running_model_context_only" if unverified_current_running_model_observation
+                else "proposal_source_not_world_truth" if historical_strategy_proposal
+                else "unverified_review_context_only" if historical_strategy_review
+                else "resource_lineage_incomplete_context_only" if incomplete_resource_lineage
+                else "quarantine_custody_status_context_only" if quarantine_custody_context
+                else "quarantine_incident_custody_context_only" if quarantine_incident_custody_context
+                else "attestation_signature_verifier_result_context_only" if attestation_snapshot_verification_context
+                else "integrity_controller_verification_context_only" if integrity_controller_context
+                else "unverified_source_context_only" if unverified_source_context
+                else rule.reliability_posture))
         return proof, binding
 
     def _issue(self, *, admission_id: str, effects: tuple[str, ...], subject_id: str,
                configuration_digest: str, provenance: str) -> Any:
-        sequence = self._next_sequence()
         definition = RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION
-        return self.authority.issue(admission_id=admission_id,
+        return self.authority.issue_next(admission_id_for_sequence=lambda _sequence: admission_id,
             capability_id=RESIDENT_EPISTEMIC_STATE_MUTATION, definition_version=1,
             subsystem_kind="epistemics", principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
             effects=effects, subject_id=subject_id,
             request_configuration_digest=configuration_digest, provenance=provenance,
-            issued_sequence=sequence, valid_through_sequence=sequence,
             affirmative_preconditions=definition.approval_requirements)
+
+    def process_verified_task_family_run(self, *, experiment_store: Any,
+            run_id: str, expected_run_digest: str, rule_id: str, tick: int,
+            recorded_at: str) -> EpistemicDevelopmentFeedback:
+        """Admit a recovered scored run through the ordinary mutation controller.
+
+        The run owner determines the evidence relation from its frozen scores.
+        A configured rule binds the exact family proposition; its generic
+        relation cannot substitute for the run owner's evaluated outcome.
+        """
+        rules = [rule for rule in self.config.rules if rule.rule_id == rule_id]
+        if (not self.config.enabled or len(rules) != 1
+                or rules[0].selector != {"source_kind": "embodiment",
+                    "subject_kind": "developmental_history_intervention_experiment"}):
+            raise EpistemicDevelopmentError("task_family_outcome_rule_invalid")
+        rule = rules[0]
+        run = experiment_store.load_run(run_id)
+        descriptor = run.get("protocol", {}).get("objective_task_descriptor")
+        family = descriptor.get("task_family_id") if isinstance(descriptor, Mapping) else None
+        proposition = self.owner.proposition(rule.proposition_id)
+        if (not isinstance(family, str) or not family
+                or proposition.subject != "task_family:" + family
+                or proposition.predicate != "history_effect"
+                or proposition.context_scope.get("task_family_id") != family
+                or proposition.proposition_class != "causal_hypothesis"):
+            raise EpistemicDevelopmentError("task_family_proposition_binding_invalid")
+        binding = experiment_store.objective_task_family_evidence_binding(
+            run_id=run_id, expected_run_digest=expected_run_digest,
+            proposition_id=rule.proposition_id)
+        proof = make_epistemic_evidence_source_proof(
+            source_artifact_id=binding.source_artifact_id,
+            source_digest=binding.source_digest, source_schema=binding.source_schema,
+            source_class=binding.source_class, recorded_at=binding.observation_time,
+            adapter_id="sentientos.verified_task_family_outcome_adapter:v1",
+            provenance_id=f"developmental-history-run:{run_id}:{expected_run_digest}")
+        recovery = self.controller.verify_receipts()
+        if recovery.get("status") == "incomplete":
+            raise EpistemicDevelopmentError("epistemic_mutation_recovery_incomplete")
+        existing = {item.binding_id: item for item in self.owner.bindings(rule.proposition_id)}
+        evidence_receipts: tuple[str, ...] = ()
+        if binding.binding_id in existing:
+            if existing[binding.binding_id] != binding:
+                raise EpistemicDevelopmentError("task_family_evidence_identity_collision")
+        else:
+            operation = f"{tick}:{rule_id}:{run_id}:evidence"
+            configuration = self.controller.evidence_configuration_digest(
+                binding=binding, proposition_digest=rule.proposition_digest,
+                operation_id=operation)
+            admission = self._issue(
+                admission_id=f"epistemic-E-{tick}-{binding.binding_id}",
+                effects=EVIDENCE_BINDING_EFFECTS, subject_id=binding.binding_id,
+                configuration_digest=configuration, provenance=proof.provenance_id)
+            evidence_receipt = self.controller.append_evidence_binding(
+                binding=binding, source_proof=proof, admission=admission,
+                operation_id=operation, correlation_id=f"tick:{tick}:{rule_id}:{run_id}")
+            evidence_receipts = (evidence_receipt.receipt_id,)
+        bindings = tuple(item for item in self.owner.bindings(rule.proposition_id)
+            if not item.withdrawn)
+        if len(bindings) > MAX_ACTIVE_EVIDENCE:
+            raise EpistemicDevelopmentError("active_evidence_bound_exceeded")
+        active_ids = tuple(sorted(item.binding_id for item in bindings))
+        prior = self.owner.current_state(rule.proposition_id)
+        if prior is not None and set(active_ids) == set(
+                self.owner.active_binding_ids(rule.proposition_id)):
+            return EpistemicDevelopmentFeedback("already_applied", run_id, 1, 1,
+                0, 0, (), (), (), ())
+        if binding.evidence_relation == "contextualizes":
+            # A tied evaluator result remains in the evidence ledger. Even
+            # when directional history already exists, it does not create a
+            # new stance generation or refresh the direction by implication.
+            return EpistemicDevelopmentFeedback(
+                "evidence_appended" if evidence_receipts else "already_applied",
+                run_id, 1, 1, len(evidence_receipts), 0,
+                evidence_receipts, (), (), ())
+        posture = evidence_posture(bindings)
+        stance = {"support_only": "provisionally_supported",
+            "contradiction_only": "provisionally_contradicted", "mixed": "contested",
+            "all_evidence_stale": "suspended"}.get(str(posture["posture"]))
+        if stance is None:
+            # A scored tie is contextual evidence. It does not justify a
+            # directional state update, but its admitted binding remains.
+            return EpistemicDevelopmentFeedback(
+                "evidence_appended" if evidence_receipts else "already_applied",
+                run_id, 1, 1, len(evidence_receipts), 0,
+                evidence_receipts, (), (), ())
+        candidate = make_epistemic_update_candidate(
+            proposition_id=rule.proposition_id,
+            predecessor_state_digest=prior.state_digest if prior else None,
+            proposed_stance=stance, evidence_binding_ids=active_ids,
+            reason="contradiction_arrival" if binding.evidence_relation == "contradicts"
+                else "new_evidence",
+            rationale=f"{QUALITATIVE_RULE}:{posture['posture']}; fixture scope preserved",
+            uncertainty="high" if posture["dependency_unresolved"] else "medium",
+            model_id=None, proposer_kind="deterministic_rule", proposer_id=rule_id)
+        operation = f"{tick}:{rule_id}:{run_id}:state"
+        configuration = self.controller.state_configuration_digest(
+            candidate=candidate, operation_id=operation)
+        admission = self._issue(
+            admission_id=f"epistemic-S-{tick}-{candidate.candidate_id}",
+            effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
+            configuration_digest=configuration, provenance=proof.provenance_id)
+        state_receipt = self.controller.commit_update_candidate(candidate=candidate,
+            admission=admission, operation_id=operation,
+            correlation_id=f"tick:{tick}:{rule_id}:{run_id}", tick=tick,
+            recorded_at=recorded_at)
+        return EpistemicDevelopmentFeedback("state_advanced", run_id, 1, 1,
+            len(evidence_receipts), 1, evidence_receipts, (state_receipt.receipt_id,),
+            (state_receipt.successor_state_id,), (state_receipt.generation,))
 
     def process_snapshot(self, snapshot: WorldStateSnapshot, *, tick: int,
                          recorded_at: str) -> EpistemicDevelopmentFeedback:
@@ -174,6 +1062,15 @@ class ResidentEpistemicDevelopmentRuntime:
             raise EpistemicDevelopmentError("world_state_snapshot_invalid")
         matches = [(rule, fact) for rule in self.config.rules for fact in snapshot.facts if self._matches(rule, fact)]
         matches.sort(key=lambda pair: (pair[0].rule_id, pair[1].fact_id))
+        recovery = self.controller.verify_receipts()
+        if recovery.get("status") == "incomplete":
+            return EpistemicDevelopmentFeedback("degraded", snapshot.snapshot_id,
+                len(self.config.rules), len(matches), 0, 0, (), (), (), (),
+                recovery_status="incomplete",
+                pending_evidence_intent_count=int(recovery.get("pending_evidence_intent_count", 0)),
+                pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
+                pending_transaction_count=int(recovery.get("pending_transaction_count", 0)),
+                recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
         bounded = matches[:self.config.max_new_bindings_per_tick]
         evidence_receipts: list[str] = []; touched: set[str] = set(); new_count = 0
         for rule, fact in bounded:
@@ -226,8 +1123,14 @@ class ResidentEpistemicDevelopmentRuntime:
             state_receipts.append(state_receipt.receipt_id); states.append(state_receipt.successor_state_id); generations.append(state_receipt.generation)
         partial = len(matches) > len(bounded) or len(touched) > self.config.max_updated_propositions_per_tick
         status = "bounded_partial" if partial else "state_advanced" if state_receipts else "evidence_appended" if evidence_receipts else "no_matching_evidence"
+        recovery = self.controller.recovery_status
         return EpistemicDevelopmentFeedback(status, snapshot.snapshot_id, len(self.config.rules), len(matches),
-            new_count, len(state_receipts), tuple(evidence_receipts), tuple(state_receipts), tuple(states), tuple(generations))
+            new_count, len(state_receipts), tuple(evidence_receipts), tuple(state_receipts), tuple(states), tuple(generations),
+            recovery_status=str(recovery.get("status", "unknown")),
+            pending_evidence_intent_count=int(recovery.get("pending_evidence_intent_count", 0)),
+            pending_state_intent_count=int(recovery.get("pending_state_intent_count", 0)),
+            pending_transaction_count=int(recovery.get("pending_transaction_count", 0)),
+            recovered_receipt_count=int(recovery.get("recovered_receipt_count", 0)))
 
 
 __all__ = ["ResidentEpistemicDevelopmentRuntime", "EpistemicDevelopmentConfig",

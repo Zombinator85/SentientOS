@@ -1,0 +1,39 @@
+{
+  "compile": {
+    "command": "python -m py_compile tests/test_developmental_model_replacement_resource_lineage_integration.py",
+    "status": "passed"
+  },
+  "diff_check": {
+    "command": "git diff --check -- tests/test_developmental_model_replacement_resource_lineage_integration.py",
+    "status": "passed"
+  },
+  "focused_execution": {
+    "backend": "Deterministic fixture invoker; no actual local model inference.",
+    "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 with isolated temp roots: /tmp/sentientos-test-venv/bin/python -m pytest -q -rs tests/test_resident_epistemic_development.py tests/test_longitudinal_self_model.py tests/test_developmental_model_replacement_resource_lineage_integration.py --tb=short --junitxml=glow/test_runs/0068-process-restart-cognition-junit.xml",
+    "failed": 0,
+    "junit_path": "glow/test_runs/0068-process-restart-cognition-junit.xml",
+    "junit_sha256": "4e56f0299122064c53428b409e10bcfd0464ea500f168f173a1641443cf31996",
+    "passed": 43,
+    "skipped": 0,
+    "tests_collected": 43
+  },
+  "integration": [
+    "The parent process performs the governed five-condition replacement invocation and actual RuntimeMaintenanceSurfaces World-State/epistemic/self-model composition, then appends developmental history.",
+    "A fresh Python interpreter reconstructs PersistentEpistemicStateOwner plus its mutation-receipt controller, LongitudinalSelfModelOwner, and ResidentDevelopmentalCognitionOwner from disk, and performs the later tick.",
+    "Only JSON-serialized bounded source record and explicit custody roots cross the process boundary. Child asserts recovered epistemic state IDs/digests and self-model reconciliation ID/digest match pre-restart values; later cognition retrieves the prior developmental record and consumes both recovered projections.",
+    "The source record itself is handed to the child in serialized form; the test does not prove a separate durable World-State source-record publisher/reader process handoff. Resource ledger/invocation recovery and production running-process identity remain separate limitations."
+  ],
+  "mypy": "not run",
+  "production_status": "unverified",
+  "schema_version": 1,
+  "source_blobs": {
+    "sentientos/longitudinal_self_model.py": "ceed12d4ce888c237b7dbc392c02cd89f4bbfea5",
+    "sentientos/persistent_epistemic_state.py": "defbaeafae7aaafbfd39a5df5b0600195031bf0c",
+    "sentientos/resident_developmental_cognition.py": "0e44b68fea43936214ec8ca663603d1c7bca1145",
+    "sentientos/resident_epistemic_development.py": "0dbcaf819039eaa9c2f666568b708c7f2fe5fbfc",
+    "tests/test_developmental_model_replacement_resource_lineage_integration.py": "fc3b997609e2c15f75e6a592b5ee8b9987cdc8d1"
+  },
+  "source_commit": "f4370b6b68eacdd734c9542b126b042d53495b09",
+  "source_tree": "1890ce38df73fc5b4d554804851b3831b7ec3db0",
+  "working_test_blob": "efd10f59264c7d91abb07056ac745ddb915de8c1"
+}

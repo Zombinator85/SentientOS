@@ -1,0 +1,26 @@
+{
+  "schema_version": "sentientos.prospective_exact_node_acceptance:v1",
+  "status": "prospective_unexecuted",
+  "source_base_sha": "ae775112cb41cb2be20650a532447dda17d57778",
+  "task_scope": "Bound and canonically validate the existing parent-state snapshot, preserve its atomic rename durably, and avoid extending receipt custody after a failed recovery read.",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_invalid_state_recovery_does_not_append_duplicate_parent_receipt",
+      "rationale": "Corrupt recovery state latches fail-closed posture and leaves the existing event log byte-identical."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_parent_state_symlink_is_untrusted_and_not_republished",
+      "rationale": "No-follow bounded custody rejects a symlinked state record without mutating the receipt log."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_persisted_provenance_or_configuration_mismatch_fails_closed",
+      "rationale": "Existing foreign binding control remains required."
+    },
+    {
+      "node_id": "tests/test_maintenance_resident_parent_supervision.py::test_exact_same_lineage_death_recovery_requires_readiness_and_links_receipts",
+      "rationale": "Existing positive recovery path remains required."
+    }
+  ],
+  "execution_policy": "Author only; do not execute during construction.",
+  "production_status": "unverified"
+}

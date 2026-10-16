@@ -23,7 +23,7 @@ Pass `--task-acceptance-manifest PATH` to both finalizer phases when the task us
 ## Required evidence
 Run the validation required by `AGENTS.md`, the task profile/template, and the changed surfaces. Focused tests alone are insufficient when matrix, governance, landing, audit, supervisor, proof, or capability rails apply.
 
-The mandatory lifecycle is two-sided around an external boundary: bootstrap -> required validation -> pre-commit finalizer `ready_to_commit` -> commit -> post-commit/pr-metadata finalizer `ready_for_pr_metadata` -> PR metadata guard `pr_metadata_guard_ready` -> exact body binding -> `pr_publication_handoff_ready` -> `ready_for_external_pr_publication` -> external `make_pr` -> independent hosted observation -> `hosted_publication_custody_verified_exact` -> `exact_hosted_publication_closed`. External publication and observation remain outside repository library authority.
+For work that enters the landing lifecycle, the sequence is two-sided around an external boundary: bootstrap -> required validation -> pre-commit finalizer `ready_to_commit` -> commit -> post-commit/pr-metadata finalizer `ready_for_pr_metadata` -> PR metadata guard `pr_metadata_guard_ready` -> exact body binding -> `pr_publication_handoff_ready` -> `ready_for_external_pr_publication` -> external `make_pr` -> independent hosted observation -> `hosted_publication_custody_verified_exact` -> `exact_hosted_publication_closed`. The explicitly authorized construction exception in `AGENTS.md` can omit that lifecycle for bounded `[untested]` increments. External publication and observation remain outside repository library authority.
 
 Situational validation selects the relevant lanes without weakening the landing contract:
 
@@ -54,13 +54,14 @@ Run `python scripts/codex_landing_supervisor.py evaluate --title "..." --intende
 - Do not defer post-commit sealing to follow-up turns when implementation changes occurred.
 
 ## Bootstrap and PR metadata guard hard stops
-- Run the bootstrapper before implementation. If bootstrap status is `blocked`, generated prompt/scaffold artifacts are diagnostic only and must include `BLOCKED_DO_NOT_IMPLEMENT`; stop, report the blocker, and do not implement, commit, or `make_pr` from that artifact.
-- Implement only from `ready` or `ready_with_warnings` bootstrap output.
+- When a task requires the Codex task scaffold or the normal landing lifecycle, run the bootstrapper with its supported arguments, including `--subsystem-kind`. If bootstrap status is `blocked`, generated prompt/scaffold artifacts are diagnostic only and must include `BLOCKED_DO_NOT_IMPLEMENT`; do not use that artifact as an implementation contract.
+- The explicit construction-mode exception in `AGENTS.md` may authorize a bounded `[untested]` increment without the full bootstrap, validation, audit, matrix, or landing lifecycle. Do not impose the scaffold as an extra ritual on that task. If the task independently requires bootstrap, a blocked result still blocks use of its generated contract; construction authority comes from the task instruction, not the bootstrap artifact.
+- For tasks that do use bootstrap, implement from `ready` or `ready_with_warnings` output only.
 - After the post-commit/pr-metadata finalizer returns `ready_for_pr_metadata`, run `python scripts/codex_pr_metadata_guard.py verify ...` and require `pr_metadata_guard_ready` before PR metadata or `make_pr`.
 - A finalizer artifact alone is not enough when the PR metadata guard says blocked.
 - Focused tests passing without a ready PR metadata guard is not a complete landing.
 
-Strict local sequence: run bootstrapper; stop if blocked; implement only if ready/ready_with_warnings; run required validation; run pre-commit finalizer and require `ready_to_commit`; commit; run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`; run PR metadata guard and require `pr_metadata_guard_ready`; bind the exact body and seal the exact publication handoff; only then invoke external `make_pr`. This reaches pre-publication readiness, not hosted closure. Exact hosted closure requires a later independent observation and exact custody verification.
+Strict landing sequence when applicable: run bootstrapper; stop use of its generated contract if blocked; implement only if ready/ready_with_warnings; run required validation; run pre-commit finalizer and require `ready_to_commit`; commit; run post-commit/pr-metadata finalizer and require `ready_for_pr_metadata`; run PR metadata guard and require `pr_metadata_guard_ready`; bind the exact body and seal the exact publication handoff; only then invoke external `make_pr`. Construction-mode work explicitly exempted by `AGENTS.md` does not perform this landing sequence. The landing sequence reaches pre-publication readiness, not hosted closure. Exact hosted closure requires a later independent observation and exact custody verification.
 
 ## Metadata-only lifecycle summaries
 
@@ -259,3 +260,29 @@ Ordinary Codex validation uses the canonical minimal bootstrap in
 [`dependency_bootstrap_contract.md`](dependency_bootstrap_contract.md). A selected
 task may install an explicit capability extra only when exact scope requires it;
 minimal bootstrap failure is never authority to install the full graph.
+# Construction versus production acceptance
+
+Construction branches may land implementation increments before the complete
+acceptance ritual is run. A construction commit must identify itself as
+untested and must preserve all authorization, custody, and effect-enforcement
+boundaries. Construction status is not a production-readiness claim; the full
+validation and landing contract applies before production acceptance.
+
+Construction continuation uses the frozen legacy journal and the indexed compact
+segments in `work/construction/index.json`. Add a new segment; never append to
+the frozen journal or modify an earlier segment. Run
+`python -m scripts.verify_construction_continuation_custody --summary` after
+updating navigation metadata.
+
+Before construction publication, bind the tested files to the staged Git tree
+with `scripts.construction_source_preflight.candidate_manifest`. Its manifest
+contains exact byte counts, SHA-256 and Git blob identities for every changed
+path. The candidate-tree guard verifies continuation custody, UTF-8/Python syntax,
+tree membership and the original frozen-journal definition. After uploading,
+supply independently read remote blob identities using `--observed-blobs` to
+`python -m scripts.construction_source_preflight REPOSITORY --candidate-manifest
+MANIFEST --observed-blobs OBSERVATIONS`. Require
+`candidate_integrity_ready_for_ref_update`, exact remote tree equality, and a
+fresh expected-HEAD CAS before moving the branch. A mismatch blocks publication;
+these observations confer no runtime or landing authority.
+

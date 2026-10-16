@@ -1,0 +1,18 @@
+{
+  "task_id": "epistemic-task-family-outcome-binding",
+  "version": 1,
+  "required_pytest_nodes": [
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+      "role": "successful_path",
+      "expected": "A complete recovered three-condition task-family evaluation yields one run-digest-bound epistemic evidence binding; its deterministic evaluator and unknown dependency/freshness remain explicit, correction is committed append-only, and the state and evidence reconstruct in a fresh owner."
+    }
+  ],
+  "non_claims": [
+    "external observation",
+    "independent evidence",
+    "general learning or model improvement",
+    "truth or authority",
+    "production effect authorization"
+  ]
+}

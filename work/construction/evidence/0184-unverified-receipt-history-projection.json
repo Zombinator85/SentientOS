@@ -1,0 +1,25 @@
+{
+  "sequence": 184,
+  "title": "Preserve unverified developmental invocation receipt posture",
+  "status": "[untested] construction",
+  "starting_head": "49b84b08a6c3ce59c5c37864ba384827e0ed3186",
+  "starting_tree": "77eb74c7309f938ac3855ae89e64887cb9fa7188",
+  "source_commit": "9f90356316d50aeef58e4912be1bd93098f686f6",
+  "source_tree": "86ab46ae1abf3cfad74ff0371adf0fa0c863acb3",
+  "source_paths": [
+    {"path":"sentientos/resident_developmental_writeback.py","blob":"4ce566235841efb04b45c860bb049538a10939d3","sha256":"88226988ac2cd9f4eb553f37203f7b978fac1d4eada8e900e7b8a7fab15ade15"},
+    {"path":"sentientos/resident_developmental_cognition.py","blob":"5268accca210ece2bbe9d1099009843ffed1b535","sha256":"c787d5a69e230d9dcb96ebd332d510ec3aef102cbb4defc4db27cbbb86afc745"},
+    {"path":"tests/test_resident_developmental_cognition.py","blob":"866569e83dde7a09585a4ce1adb3db593d0b8b1f","sha256":"9b5c2789a2a4e435587a661f79c1fde50ce65bb864c3bf645017adf5b5ccca6d"}
+  ],
+  "validation": {
+    "staging_progression_restart":"6 passed",
+    "focused_packet_history_writeback_strategy_bundle":"73 passed",
+    "compileall":"passed",
+    "changed_region_mypy":"no diagnostics in both modified source regions",
+    "whole_file_mypy":"43 existing diagnostics elsewhere in the two large source files",
+    "diff_check":"passed"
+  },
+  "remote_readback":{"branch_head":"9f90356316d50aeef58e4912be1bd93098f686f6","tree":"86ab46ae1abf3cfad74ff0371adf0fa0c863acb3","changed_blobs":"all three paths resolved in recursive tree and fetched by blob ID"},
+  "authority_posture":{"unverified_identity_preserved":true,"independent_backend_observation":false,"execution_authority":false,"admission_checks_weakened":false},
+  "limitations":"Fixture-backed source test only. This repairs internal history transfer and makes no real Codex or operational claim."
+}

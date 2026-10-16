@@ -40,6 +40,7 @@ codex = [
     "packaging>=23,<27",
     "Jinja2>=3.1,<4",
     "mypy>=1.5,<2",
+    "cryptography>=42,<43",
 ]
 test = ["pytest>=7,<9; python_version < '3.14'", "pytest>=8.4,<9; python_version >= '3.14'", "pytest-cov>=4,<7"]
 dev = ["mypy>=1.5,<2", "types-requests>=2.32", "types-PyYAML", "pip-tools>=7,<8"]
@@ -128,7 +129,7 @@ cathedral-gui = "gui.cathedral_gui:main"
 sentientos-governance-ui = "gui.cathedral_gui:main"
 sentient-api = "sentient_api:app.run"
 sentientosd = "sentientosd:main"
-sentientos-chat = "sentientos.chat_service:run"
+sentientos-chat = "sentientos.chat_service:main"
 sentientos-updater = "updater:update"
 sosctl = "sosctl:main"
 verify_audits = "sentientos.verify_audits:main"
@@ -138,7 +139,7 @@ sentientos-reviewer-proof-bundle = "scripts.build_reviewer_proof_bundle:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["sentientos", "api", "gui", "apps"]
+include = ["sentientos", "api", "gui", "apps", "scripts", "privilege_lint"]
 
 [tool.setuptools]
 py-modules = ["sentient_api"]

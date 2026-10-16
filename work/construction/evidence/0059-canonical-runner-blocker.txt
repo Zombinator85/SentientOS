@@ -1,0 +1,25 @@
+WARNING: The directory '/home/agent/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.
+Defaulting to user installation because normal site-packages is not writeable
+Obtaining file:///tmp/sentientos-gr4-exact
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'error'
+  error: subprocess-exited-with-error
+  
+  × installing build dependencies did not run successfully.
+  │ exit code: 1
+  ╰─> [8 lines of output]
+      WARNING: The directory '/home/agent/.cache/pip' or its parent directory is not owned or is not writable by the current user. The cache has been disabled. Check the permissions and owner of that directory. If executing pip with sudo, you should use sudo's -H flag.
+      WARNING: Retrying (Retry(total=4, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPSConnection(host='proxy', port=8080): Failed to establish a new connection: [Errno 1] Operation not permitted")': /simple/setuptools/
+      WARNING: Retrying (Retry(total=3, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPSConnection(host='proxy', port=8080): Failed to establish a new connection: [Errno 1] Operation not permitted")': /simple/setuptools/
+      WARNING: Retrying (Retry(total=2, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPSConnection(host='proxy', port=8080): Failed to establish a new connection: [Errno 1] Operation not permitted")': /simple/setuptools/
+      WARNING: Retrying (Retry(total=1, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPSConnection(host='proxy', port=8080): Failed to establish a new connection: [Errno 1] Operation not permitted")': /simple/setuptools/
+      WARNING: Retrying (Retry(total=0, connect=None, read=None, redirect=None, status=None)) after connection broken by 'NewConnectionError("HTTPSConnection(host='proxy', port=8080): Failed to establish a new connection: [Errno 1] Operation not permitted")': /simple/setuptools/
+      ERROR: Could not find a version that satisfies the requirement setuptools>=78.1.1 (from versions: none)
+      ERROR: No matching distribution found for setuptools>=78.1.1
+      [end of output]
+  
+  note: This error originates from a subprocess, and is likely not a problem with pip.
+ERROR: Failed to build 'file:///tmp/sentientos-gr4-exact' when installing build dependencies
+run_tests dependency bootstrap failed: pip install --no-deps -e . exited 1.
+run_tests: python=/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python install_performed=True editable_ok=false install_mode=none canonical_requirements_path=requirements-codex.txt full_capability_dependencies_requested=false repo_root=/tmp/sentientos-gr4-exact pytest_args=tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_experimental_serving.py -q --tb=short install_fallback_reason=minimal-test-airlock-install-failed
+Not running against a test-capable editable install of this repo. Run pip install --no-deps -e . and pip install -r requirements-codex.txt, or use python -m scripts.run_tests.

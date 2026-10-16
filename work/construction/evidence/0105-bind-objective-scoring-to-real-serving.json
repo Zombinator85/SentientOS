@@ -1,0 +1,112 @@
+{
+  "activation_performed": false,
+  "base_commit": "86516b5b7f44bee8821b74390ffc06e070659555",
+  "base_tree": "c3344fa9eb9e52b307705fc4683f7acd97124714",
+  "changed_files": {
+    "docs/local_model_commissioning.md": "4f4e20e56fed951c3e761f1d010ad57539ae3e7ee12d382a048c78c9cede6c2d",
+    "scripts/local_model_commissioning.py": "ccb27d2f226001d4785fbdcd5300ad49c9d59b4435367d5749886dc90ec6fd44",
+    "scripts/run_developmental_model_replacement_rehearsal.py": "0eec8886eacf8b6e5deeb9c0c4804ba49acefe3fbdf2d4ddd8619ad054459853",
+    "sentientos/developmental_model_replacement_campaign.py": "6198c7823e2592822ba0237f4850ff92fa6bafa23d6c457f41beaf57eef2b736",
+    "sentientos/developmental_model_replacement_experiment.py": "39201571b65c6d1497a025f2964591048931f44c4826f8baa16a474d9dcf3cbc",
+    "sentientos/developmental_model_replacement_experimental_serving.py": "1b328ca5fbf75fffb26d4c1fe48fc7c5d38ec92fff69e9001b7d8085da1a0e90",
+    "sentientos/developmental_model_replacement_production_trial.py": "fbb9684a9873ad3d1106f5605fe31313b0edaa2d7750a45a1029437b35805572",
+    "sentientos/developmental_model_replacement_rehearsal.py": "51a9b8d6c0b5610a71806acc7337fc6a9f7f87addb5be2aa94c74bfd1574af43",
+    "sentientos/local_model_production_commissioning.py": "de41ce50ea263db5f64e985367799b0dc8c7310ddd5d150b82603cba99a5253a",
+    "sentientos/local_model_production_commissioning_authority.py": "a8a3759dc71540b42cff5226f8f11f8878bf784c96cacf95de9fe730c63329fb",
+    "tests/test_developmental_model_replacement_campaign.py": "72f50254e13ac630b857a6233e3d470990bad535f4071266b4fcaa8bff563f8b",
+    "tests/test_developmental_model_replacement_production_trial.py": "f213c6fddf7213a9e98488a3f34aa3d21048ce6c0966fc663c6aa3e240d69c5d",
+    "tests/test_developmental_objective_scoring.py": "4f03e8a1716f6d2b51c41aa45c0f843755767ad24d03be13efc9314e46d8c609",
+    "tests/test_local_model_commissioning_intent_cli.py": "bf91e84f38a688ec6a67abaed664e1799611f10ce4f72907d45d9746ef931802",
+    "tests/test_local_model_production_commissioning_authority.py": "ab2037f687c13e1450eb096ef06f01d10c61759b2a8dc4ea655b368d25a3f6d9"
+  },
+  "cloud_model_environment": {
+    "inference_performed": false,
+    "llama_cpp_available": false,
+    "statement_scope": "Codex workspace only",
+    "tracked_gguf_files": "127-byte Git LFS pointer text"
+  },
+  "compilation": {
+    "files": [
+      "sentientos/developmental_model_replacement_campaign.py",
+      "sentientos/developmental_model_replacement_experiment.py",
+      "sentientos/developmental_model_replacement_production_trial.py",
+      "sentientos/developmental_model_replacement_experimental_serving.py",
+      "sentientos/developmental_model_replacement_rehearsal.py",
+      "sentientos/local_model_production_commissioning_authority.py",
+      "sentientos/local_model_production_commissioning.py",
+      "scripts/local_model_commissioning.py",
+      "scripts/run_developmental_model_replacement_rehearsal.py",
+      "tests/test_developmental_model_replacement_campaign.py",
+      "tests/test_developmental_model_replacement_production_trial.py",
+      "tests/test_developmental_objective_scoring.py",
+      "tests/test_local_model_production_commissioning_authority.py",
+      "tests/test_local_model_commissioning_intent_cli.py"
+    ],
+    "status": "passed"
+  },
+  "focused_test_modules": [
+    "tests/test_developmental_model_replacement_campaign.py",
+    "tests/test_developmental_model_replacement_experiment.py",
+    "tests/test_developmental_model_replacement_production_trial.py",
+    "tests/test_developmental_objective_scoring.py",
+    "tests/test_developmental_model_replacement_experimental_serving.py",
+    "tests/test_local_model_production_commissioning_authority.py",
+    "tests/test_local_model_commissioning_intent_cli.py",
+    "tests/test_local_model_production_commissioning.py"
+  ],
+  "focused_tests": {
+    "command": "PYTHONPATH=. SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-v6h-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-v6h-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-v6h-kernel SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-v6-runtime SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-v6h-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-v6h-pulse/epoch.json .venv/bin/python -m pytest -o addopts='' -q tests/test_developmental_model_replacement_campaign.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_production_trial.py tests/test_developmental_objective_scoring.py tests/test_developmental_model_replacement_experimental_serving.py tests/test_local_model_production_commissioning_authority.py tests/test_local_model_commissioning_intent_cli.py tests/test_local_model_production_commissioning.py --tb=short",
+    "failed": 0,
+    "passed": 117,
+    "skipped": 0
+  },
+  "generation_budget": {
+    "authority_map_and_smoke_request_bound": true,
+    "default_max_new_tokens": 8,
+    "experimental_worker_ceiling_checked_before_load": true,
+    "intent_approval_bound": true,
+    "operator_bounded_range": [
+      1,
+      512
+    ]
+  },
+  "legacy_smoke_receipt": {
+    "activation_positive_control_passed": true,
+    "missing_schema_and_event_time_projection_repaired": true
+  },
+  "objective_task_in_real_production_trial": {
+    "legacy_unscored_compatible": true,
+    "missing_or_substituted_task_rejected_before_worker_load": true,
+    "preflight_and_execution_use_same_task": true,
+    "status": "composed",
+    "task_plan_bound_to_campaign_and_context": true
+  },
+  "production_verified": false,
+  "provider_egress": false,
+  "schema_source": "untested construction",
+  "schema_version": 1,
+  "synthetic_rehearsals": {
+    "legacy_unscored": "verified_complete",
+    "objective_scored": "verified_complete",
+    "separate_process_actions": true,
+    "synthetic_only_posture": true,
+    "truncated_output": "verified_complete_unscoreable"
+  },
+  "targeted_mypy": {
+    "files": [
+      "sentientos/developmental_model_replacement_experiment.py",
+      "sentientos/local_model_production_commissioning_authority.py",
+      "sentientos/local_model_production_commissioning.py",
+      "sentientos/developmental_model_replacement_production_trial.py",
+      "sentientos/developmental_model_replacement_experimental_serving.py"
+    ],
+    "follow_imports": "skip",
+    "status": "passed"
+  },
+  "truncation": {
+    "improvement_claimed": false,
+    "scoreable_probe_count": 0,
+    "status": "output_truncated",
+    "suite_correct_count": null
+  }
+}

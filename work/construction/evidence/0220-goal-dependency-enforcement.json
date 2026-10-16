@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "sequence": 220,
+  "title": "Enforce work-plan task dependencies",
+  "source_commit": "6812e0f73a44038e5ea382e0cb89e03ae138f5c0",
+  "source_tree": "1e63b52befd78dbb2f3a1d4627e358a90b7b914f",
+  "source_files": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "git_blob_sha": "6fc21bf0e06df074a0ff96e351b7d9371292d96c"
+    },
+    {
+      "path": "sentientos/work_plan.py",
+      "git_blob_sha": "68526cd7d945ab2be350e89a211ea5fc13c25a20"
+    },
+    {
+      "path": "sentientos/work_plan_execution_journal.py",
+      "git_blob_sha": "12a31ba7ba059e733dcfa473e4cf9741316b60ad"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_plan.py",
+      "git_blob_sha": "ea624a66d3befd1065f949f476cfdb84240956e4"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_run.py",
+      "git_blob_sha": "807b5d3546f19f984d0e250a1e6b5eeabe0f1eb2"
+    },
+    {
+      "path": "sentientos/tests/test_work_plan_load.py",
+      "git_blob_sha": "3391227901d98fb0679c45141c1221b2822102d2"
+    },
+    {
+      "path": "sentientos/tests/test_work_plan_execution_journal.py",
+      "git_blob_sha": "bc5ae3a11b5cf6f4dc32b057ed518644e1a6c26a"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_state_update.py",
+      "sentientos/tests/test_work_plan_load.py",
+      "sentientos/tests/test_work_plan_execution_journal.py"
+    ],
+    "passed_test_count": 30,
+    "compiled": [
+      "sentientos/goal_executor.py",
+      "sentientos/work_plan.py",
+      "sentientos/work_plan_execution_journal.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_work_plan_load.py",
+      "sentientos/tests/test_work_plan_execution_journal.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "generated forge_apply tasks depend on same-goal validate and propose tasks",
+      "failed or unknown prerequisite blocks dependent task with explicit reason",
+      "unrelated tasks remain eligible for execution",
+      "legacy version-one task rows without dependencies remain parseable",
+      "missing, duplicate, and forward dependencies are rejected"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:fa67b807c7fdbb3d666851c4cb8ae49d7555b4fa71c0ca97d6ebe6152a761192"
+}

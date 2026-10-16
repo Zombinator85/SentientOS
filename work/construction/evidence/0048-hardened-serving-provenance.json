@@ -1,0 +1,143 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_chat_service_hardened_serving.py::test_conversation_identity_change_uses_verified_predecessor_lineage": 0,
+    "tests/test_chat_service_hardened_serving.py::test_conversation_service_has_no_raw_execution_escape_hatch": 0,
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[backend_failure]": 0,
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[deferred]": 0,
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[denied]": 0,
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[quarantined]": 0,
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[serving_lifetime_stale_after_generation]": 0,
+    "tests/test_chat_service_hardened_serving.py::test_invalid_installation_identity_fails_before_custody": 0,
+    "tests/test_chat_service_hardened_serving.py::test_production_chat_requires_process_generation_handoff_before_custody": 0,
+    "tests/test_chat_service_hardened_serving.py::test_successful_turn_and_second_turn_have_distinct_inference_correlations": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 10,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "direct-url",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/tmp/sentientos-gr4-exact/glow/test_runs/pytest_junitxml_188e6aba12664e2f81cc5c452c6b4a98.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_production_chat_requires_process_generation_handoff_before_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_invalid_installation_identity_fails_before_custody",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_successful_turn_and_second_turn_have_distinct_inference_correlations",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_conversation_identity_change_uses_verified_predecessor_lineage",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[denied]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[deferred]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[quarantined]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[serving_lifetime_stale_after_generation]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[backend_failure]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_chat_service_hardened_serving.py::test_conversation_service_has_no_raw_execution_escape_hatch",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "9d4d756298c35d135f629135b817f37f0a6c2cd3d251ade1619e5d975d2ccd42",
+  "provenance_hash": "c28af835726558c4449751c67d716158c799261dbf228adaeac27e71b88193a5",
+  "pytest_args": [
+    "tests/test_chat_service_hardened_serving.py",
+    "-q"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/tmp/sentientos-gr4-exact",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "e82144442f5249cdb10a85f51e115ca7",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_chat_service_hardened_serving.py::test_production_chat_requires_process_generation_handoff_before_custody",
+    "tests/test_chat_service_hardened_serving.py::test_invalid_installation_identity_fails_before_custody",
+    "tests/test_chat_service_hardened_serving.py::test_successful_turn_and_second_turn_have_distinct_inference_correlations",
+    "tests/test_chat_service_hardened_serving.py::test_conversation_identity_change_uses_verified_predecessor_lineage",
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[denied]",
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[deferred]",
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[quarantined]",
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[serving_lifetime_stale_after_generation]",
+    "tests/test_chat_service_hardened_serving.py::test_failure_preserves_user_turn_without_assistant_or_fallback[backend_failure]",
+    "tests/test_chat_service_hardened_serving.py::test_conversation_service_has_no_raw_execution_escape_hatch"
+  ],
+  "selection_flags": [
+    "tests/test_chat_service_hardened_serving.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 10,
+  "tests_executed": 10,
+  "tests_failed": 0,
+  "tests_passed": 10,
+  "tests_selected": 10,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-12T18:20:08.824024+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

@@ -1,0 +1,85 @@
+{
+  "dispositions": [
+    {
+      "items": [
+        {
+          "basis": "Current EXPERIMENT_CONTEXT_INSTRUCTION retains bounded source-claim and non-action semantics and adds explicit no-command limits.",
+          "behavior": "prediction-outcome source-bound prompt semantics",
+          "disposition": "A"
+        },
+        {
+          "basis": "Current exact reader enforces canonical encoding; recovery marks in-progress ticks interrupted and blocks replay.",
+          "behavior": "canonical state/observation custody and pre-inference interrupted tick checkpoint",
+          "disposition": "A"
+        },
+        {
+          "basis": "Current checkpoint sequence is digest-verified and tick IDs are opaque; avoids timestamp-text ordering assumptions.",
+          "behavior": "wall-clock ordering for later history",
+          "disposition": "B"
+        },
+        {
+          "basis": "Current selection recognizes model/resource lineage and retains explicit publication restrictions.",
+          "behavior": "resource/model replacement evidence priority and POSIX publication limits",
+          "disposition": "A"
+        }
+      ],
+      "patch_lines": "4265-4425",
+      "path": "sentientos/resident_developmental_cognition.py"
+    },
+    {
+      "items": [
+        {
+          "basis": "Current projection preserves exact lineage fields and source payload/record digest bindings.",
+          "behavior": "bounded resource linkage interpretation with source fact digest",
+          "disposition": "A"
+        },
+        {
+          "basis": "Current implementation adds descriptor-safe immutable publication, canonical bounded reads, path/identity collision rejection, receipt inventory and idempotent interrupted receipt repair.",
+          "behavior": "immutable record/receipt publication and recovery inventory",
+          "disposition": "B"
+        }
+      ],
+      "patch_lines": "4426-4683",
+      "path": "sentientos/resident_developmental_writeback.py"
+    },
+    {
+      "items": [
+        {
+          "basis": "Current exact source writes digest-bound transaction intents and verifies/reconstructs paired state/events without changing admission.",
+          "behavior": "transaction intents pairing state and update event under admission binding",
+          "disposition": "A"
+        },
+        {
+          "basis": "Current exact source holds a mutation lock and filters latest generation by persisted event tick.",
+          "behavior": "cross-process compare-and-swap and tick-cutoff prior projection",
+          "disposition": "A"
+        },
+        {
+          "basis": "Current custody permits bounded read-only reconstruction and rejects publication/recovery needing writes.",
+          "behavior": "Windows mutation",
+          "disposition": "B"
+        }
+      ],
+      "patch_lines": "3559-3853",
+      "path": "sentientos/persistent_epistemic_state.py"
+    }
+  ],
+  "historical_patch": {
+    "bytes": 399831,
+    "path": "/tmp/sentientos-original-candidate-2e320/tracked-changes-excluding-conflicted-journal.patch",
+    "sha256": "6f160cc8c30e15629b7ee4f79e1a94b67897146a229b5337ad9e2f0cb4f74307"
+  },
+  "production_status": "unverified",
+  "remote_source_blobs": {
+    "sentientos/persistent_epistemic_state.py": "defbaeafae7aaafbfd39a5df5b0600195031bf0c",
+    "sentientos/resident_developmental_cognition.py": "0e44b68fea43936214ec8ca663603d1c7bca1145",
+    "sentientos/resident_developmental_writeback.py": "706439f3626d7b53cc1d46873fbca6948ebc04b9"
+  },
+  "schema_version": 1,
+  "source_commit": "f54d04bd69366300fc74ec45d026babe7168a54d",
+  "source_tree": "6a9d3d81801d939c1ed4692f873f98e26197e82e",
+  "test_evidence_reference": {
+    "seq62_junit_sha256": "844e34b14bf8517c5b27c35a520cb5f886a3bd7469c454a6070c740d94e69a0b",
+    "status": "previous focused execution; not rerun in this disposition increment"
+  }
+}

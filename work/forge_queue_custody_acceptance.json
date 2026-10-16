@@ -1,0 +1,45 @@
+{
+  "schema_version": "sentientos.prospective_acceptance_manifest:v1",
+  "task": "bounded Forge queue and receipt custody, append, and prune reconciliation",
+  "source_checkpoint": "f1b71b15ac4df5a474681521d3a9b9a98ad72487",
+  "source_tree": "2d4542f6f16cc965102d49fe18e08dd042b3a18f",
+  "status": "executed_hermetic_unverified_for_production",
+  "pytest_command": "/tmp/sentientos-test-venv/bin/python -m pytest tests/test_forge_queue_daemon.py tests/test_integrity_quarantine_custody.py -m 'legacy or no_legacy_skip' -q",
+  "result": {
+    "passed": 49,
+    "failed": 0,
+    "skipped": 0,
+    "environment": "disposable pytest tmp_path roots; POSIX local-dev-relaxed profile",
+    "scope": "strict queue/receipt pruning, stable cross-process writer lock, interruption ordering, and append byte/row/tail bounds"
+  },
+  "test_nodes": [
+    "tests/test_forge_queue_daemon.py::test_prune_validates_both_ledgers_before_replacing_either",
+    "tests/test_forge_queue_daemon.py::test_prune_rejects_semantically_incomplete_ledgers_without_rewriting",
+    "tests/test_forge_queue_daemon.py::test_prune_preserves_complete_receipt_chain_for_retained_request",
+    "tests/test_forge_queue_daemon.py::test_interrupted_prune_leaves_only_inert_extra_receipts_and_retries_safely",
+    "tests/test_forge_queue_daemon.py::test_append_enforces_reader_row_bound_and_rejects_partial_tail"
+  ],
+  "limitations": [
+    "Windows queue/receipt append fails closed because this repository currently exposes no safe Windows write-custody owner; Windows was not executed.",
+    "The file ledger remains unauthenticated; valid-looking forgery or tail deletion is not detected without an independent signer/anchor.",
+    "No production activation or external effect occurred.",
+    "This improves local bounded file custody and prune/restart behavior only; there is still no independent authentication or external historical anchor for well-formed Forge receipts.",
+    "POSIX behavior received focused hermetic testing. Windows still fails closed and was not executed.",
+    "No hostile event, successful defensive effect, actual model behavior, or production behavior was observed."
+  ],
+  "prune_followup": {
+    "publication_order": [
+      "queue",
+      "receipts"
+    ],
+    "retained_request_receipts": "complete ordered receipt chains are preserved for every retained queued request",
+    "recovery": "interruption after queue replacement leaves only extra receipts; retry converges without restoring requests or replaying effects",
+    "validation": "both bounded ledgers are parsed and semantically validated before either replacement",
+    "append_bounds": [
+      "1 MiB ledger bytes",
+      "4096 nonblank rows",
+      "64 KiB row",
+      "UTF-8 and newline-terminated prior content"
+    ]
+  }
+}

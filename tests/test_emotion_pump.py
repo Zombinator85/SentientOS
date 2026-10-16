@@ -82,8 +82,13 @@ def test_emotion_pump_model_bridge_log_fields(
     log = tmp_path / "log.jsonl"
     monkeypatch.setenv("MODEL_BRIDGE_LOG", str(log))
     monkeypatch.setenv("MODEL_PROVIDER", "llama_cpp")
+    from sentientos import privilege
+    monkeypatch.setattr(privilege, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(privilege, "require_lumos_approval", lambda: None)
     import model_bridge as mb
     reload(mb)
+    monkeypatch.setattr(mb, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(mb, "require_lumos_approval", lambda: None)
     local = types.SimpleNamespace(
         create_chat_completion=lambda *, messages: {
             "choices": [{"message": {"content": "ok"}}]

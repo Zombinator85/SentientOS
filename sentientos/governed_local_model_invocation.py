@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json, os, time, concurrent.futures
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +28,39 @@ INTERVENTION_PURPOSE = "resident_developmental_history_intervention_experiment"
 MODEL_REPLACEMENT_PURPOSE = "resident_developmental_model_replacement_experiment"
 SUPPORTED_PURPOSES = {"local_user_chat", "local_model_commissioning_smoke", "genesis_proposal_advice", "discernment_judgment", "maintenance_implementation", "resident_developmental_interpretation", "resident_developmental_retrieval_cognition", INTERVENTION_PURPOSE, "resident_developmental_model_replacement_experiment"}
 FORBIDDEN_EFFECTS = {"provider_network": False, "tool": False, "memory": False, "action": False, "adoption": False, "repository_mutation": False}
+INVOCATION_RECEIPT_SCHEMA = "sentientos.local_model_invocation_receipt:v2"
+INVOCATION_RECEIPT_SCHEMA_V3 = "sentientos.local_model_invocation_receipt:v3"
+LLAMA_COMPLETION_OBSERVATION_SCHEMA = "sentientos.llama_cpp_completion_observation:v1"
+MAX_INVOCATION_RECEIPT_BYTES = 256 * 1024
+MAX_INVOCATION_RECEIPTS = 256
+RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA = {
+    "type": "object",
+    "required": ["conclusion", "lesson_candidate"],
+    "additionalProperties": False,
+    "properties": {
+        "conclusion": {"type": "string", "minLength": 1, "maxLength": 2500},
+        "lesson_candidate": {
+            "anyOf": [
+                {"type": "null"},
+                {"type": "object", "additionalProperties": False,
+                 "required": ["statement", "scope", "applicability", "uncertainty",
+                              "uncertainty_rationale", "evidence_dependencies",
+                              "possible_contradiction_ids"],
+                 "properties": {
+                    "statement": {"type": "string", "minLength": 1, "maxLength": 1200},
+                    "scope": {"type": "string", "minLength": 1, "maxLength": 400},
+                    "applicability": {"type": "string", "minLength": 1, "maxLength": 500},
+                    "uncertainty": {"type": "string", "enum": ["low", "medium", "high", "unknown"]},
+                    "uncertainty_rationale": {"type": "string", "minLength": 1, "maxLength": 500},
+                    "evidence_dependencies": {"type": "array", "minItems": 1, "maxItems": 8,
+                        "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+                    "possible_contradiction_ids": {"type": "array", "maxItems": 8,
+                        "uniqueItems": True, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+                 }},
+            ],
+        },
+    },
+}
 
 def _digest_text(payload: Any) -> str:
     value: str = digest_payload(payload)
@@ -112,27 +146,112 @@ class LocalModelInvocationReceipt:
     fallback_occurred: bool
     effects: Mapping[str, bool]
     observed_at: str
+    resource_allocation_digest: str | None = None
+    resource_attempt_id: str | None = None
+    resource_consumption_receipt_digests: tuple[str, ...] = ()
+    resource_linkage_digest: str | None = None
+    schema_version: str = INVOCATION_RECEIPT_SCHEMA
+    backend_completion: Mapping[str, Any] | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
-        return {"request": dict(self.request), "status": self.status, "reason_codes": list(self.reason_codes), "output_digest": self.output_digest, "output_size_bytes": self.output_size_bytes, "generation_config": dict(self.generation_config), "admission_decision_ref": self.admission_decision_ref, "purpose": self.purpose, "output_truncated": self.output_truncated, "fallback_occurred": self.fallback_occurred, "effects": dict(self.effects)}
+        payload = {"schema_version": self.schema_version, "request": dict(self.request),
+            "status": self.status, "reason_codes": list(self.reason_codes),
+            "output_digest": self.output_digest, "output_size_bytes": self.output_size_bytes,
+            "generation_config": dict(self.generation_config),
+            "admission_decision_ref": self.admission_decision_ref, "purpose": self.purpose,
+            "output_truncated": self.output_truncated, "fallback_occurred": self.fallback_occurred,
+            "effects": dict(self.effects), "observed_at": self.observed_at}
+        if self.schema_version == INVOCATION_RECEIPT_SCHEMA_V3:
+            payload["backend_completion"] = (dict(self.backend_completion)
+                if self.backend_completion is not None else None)
+        return payload
 
     @property
     def receipt_digest(self) -> str: return _digest_text(self.semantic_payload())
     @property
     def receipt_id(self) -> str: return "lmrec-" + self.receipt_digest[:24]
     def to_dict(self, *, include_output: bool = False) -> dict[str, Any]:
-        p = self.semantic_payload(); p.update({"receipt_id": self.receipt_id, "receipt_digest": self.receipt_digest, "latency_ms": self.latency_ms, "observed_at": self.observed_at})
+        p = self.semantic_payload(); p.update({"receipt_id": self.receipt_id, "receipt_digest": self.receipt_digest, "latency_ms": self.latency_ms,
+            "resource_allocation_digest": self.resource_allocation_digest,
+            "resource_attempt_id": self.resource_attempt_id,
+            "resource_consumption_receipt_digests": list(self.resource_consumption_receipt_digests)})
+        if self.resource_linkage_digest is not None:
+            p["resource_linkage_digest"] = self.resource_linkage_digest
         if include_output and self.output_text is not None: p["output_text"] = self.output_text
         return p
 
 
 def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     reasons: list[str] = []
-    semantic = {k: payload.get(k) for k in ["request", "status", "reason_codes", "output_digest", "output_size_bytes", "generation_config", "admission_decision_ref", "purpose", "output_truncated", "fallback_occurred", "effects"]}
-    if payload.get("receipt_digest") != digest_payload(semantic): reasons.append("receipt_digest_mismatch")
-    if payload.get("receipt_id") != "lmrec-" + digest_payload(semantic)[:24]: reasons.append("receipt_id_mismatch")
+    schema = payload.get("schema_version")
+    legacy_semantic_keys = ["request", "status", "reason_codes", "output_digest",
+        "output_size_bytes", "generation_config", "admission_decision_ref", "purpose",
+        "output_truncated", "fallback_occurred", "effects"]
+    if "schema_version" not in payload:
+        # Historical v1 receipts intentionally omit schema_version and bind
+        # exactly the pre-v2 field set. An explicit null is not legacy.
+        semantic = {key: payload.get(key) for key in legacy_semantic_keys}
+    elif schema in {INVOCATION_RECEIPT_SCHEMA, INVOCATION_RECEIPT_SCHEMA_V3}:
+        semantic = {key: payload.get(key) for key in (
+            "schema_version", *legacy_semantic_keys, "observed_at")}
+        if schema == INVOCATION_RECEIPT_SCHEMA_V3:
+            semantic["backend_completion"] = payload.get("backend_completion")
+            completion = payload.get("backend_completion")
+            if (not isinstance(completion, Mapping)
+                    or set(completion) != {"schema_version", "backend", "finish_reason",
+                        "completion_tokens", "prompt_tokens", "token_limit_reached"}
+                    or completion.get("schema_version") != LLAMA_COMPLETION_OBSERVATION_SCHEMA
+                    or completion.get("backend") != "llama_cpp"
+                    or completion.get("finish_reason") not in {"stop", "length", "unknown"}
+                    or any(completion.get(name) is not None and (type(completion.get(name)) is not int
+                        or not 0 <= completion[name] <= 131072)
+                        for name in ("completion_tokens", "prompt_tokens"))
+                    or completion.get("token_limit_reached") is not (
+                        True if completion.get("finish_reason") == "length" else
+                        False if completion.get("finish_reason") == "stop" else None)):
+                reasons.append("backend_completion_observation_invalid")
+            elif (completion.get("finish_reason") == "length"
+                    and payload.get("output_truncated") is not True):
+                reasons.append("backend_completion_truncation_mismatch")
+        observed_at = payload.get("observed_at")
+        try:
+            timestamp = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            timestamp = None
+        if (not isinstance(observed_at, str) or timestamp is None
+                or timestamp.tzinfo is None or timestamp.utcoffset() is None):
+            reasons.append("receipt_event_time_invalid")
+    else:
+        semantic = {key: payload.get(key) for key in legacy_semantic_keys}
+        reasons.append("receipt_schema_version_invalid")
+    expected_digest = digest_payload(semantic)
+    if payload.get("receipt_digest") != expected_digest:
+        reasons.append("receipt_digest_mismatch")
+    if payload.get("receipt_id") != "lmrec-" + expected_digest[:24]:
+        reasons.append("receipt_id_mismatch")
+    linkage = {"receipt_digest": payload.get("receipt_digest"),
+        "allocation_digest": payload.get("resource_allocation_digest"),
+        "attempt_id": payload.get("resource_attempt_id"),
+        "consumption_receipt_digests": tuple(payload.get("resource_consumption_receipt_digests") or ())}
+    allocation = payload.get("resource_allocation_digest")
+    attempt = payload.get("resource_attempt_id")
+    consumption = payload.get("resource_consumption_receipt_digests")
+    # Empty linkage remains compatible with historical unlinked receipts.
+    has_linkage = allocation is not None or attempt is not None or bool(consumption)
+    if payload.get("resource_linkage_digest") is not None and not has_linkage:
+        reasons.append("resource_linkage_fields_missing")
+    if has_linkage:
+        if (not isinstance(allocation, str) or not allocation or not isinstance(attempt, str)
+                or not attempt or not isinstance(consumption, (list, tuple)) or not consumption
+                or any(not isinstance(item, str) or not item for item in consumption)
+                or payload.get("resource_linkage_digest") is None):
+            reasons.append("resource_linkage_incomplete")
+        expected_linkage = digest_payload(linkage)
+        if payload.get("resource_linkage_digest") != expected_linkage:
+            reasons.append("resource_linkage_digest_mismatch")
     effects = payload.get("effects")
-    if not isinstance(effects, Mapping) or any(bool(effects.get(k)) for k in FORBIDDEN_EFFECTS): reasons.append("forbidden_effect_recorded")
+    if not isinstance(effects, Mapping) or any(bool(effects.get(key)) for key in FORBIDDEN_EFFECTS):
+        reasons.append("forbidden_effect_recorded")
     return not reasons, reasons
 
 
@@ -141,9 +260,29 @@ def _status_for_denial(outcome: str) -> str:
     if outcome == "deny": return "denied"
     return "blocked_invalid"
 
+class LocalModelPostEffectCustodyError(RuntimeError):
+    """Custody failed after backend entry; the invocation must not be replayed implicitly."""
+
+    def __init__(self, *, receipt_id: str, receipt_digest: str,
+                 invocation_status: str, failure_phase: str,
+                 receipt_persistence_confirmed: bool,
+                 resource_linkage_persistence_confirmed: bool | None) -> None:
+        self.receipt_id = receipt_id
+        self.receipt_digest = receipt_digest
+        self.invocation_status = invocation_status
+        self.failure_phase = failure_phase
+        self.receipt_persistence_confirmed = bool(receipt_persistence_confirmed)
+        self.resource_linkage_persistence_confirmed = resource_linkage_persistence_confirmed
+        super().__init__("post_effect_custody_unconfirmed")
+
+
 class GovernedLocalModelInvoker:
     def __init__(self, *, model: Any, authority_map: LocalModelAuthorityMap, kernel: ControlPlaneKernel | None = None, runtime_root: Path | None = None) -> None:
-        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}
+        self.model = model; self.authority_map = authority_map; self.kernel = kernel or get_control_plane_kernel(); self.runtime_root = Path(runtime_root or Path(os.getenv("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos_runtime_state")) / "governed_local_model_invocation"); self.runtime_root.mkdir(parents=True, exist_ok=True); self.invocation_counts: dict[str, int] = {}; self._evidence_sink: Callable[[Mapping[str, Any]], None] | None = None
+
+    def register_evidence_sink(self, sink: Callable[[Mapping[str, Any]], None] | None) -> None:
+        """Install an explicit observational receipt sink owned by the runtime."""
+        self._evidence_sink = sink
 
     def build_request(self, *, purpose: str, prompt: str, caller: str, correlation_id: str, lifecycle_phase: str = "runtime", expected_output_format: str = "text", budget: LocalModelInvocationBudget | None = None, upstream_evidence: Mapping[str, Any] | None = None, linkage: Mapping[str, Any] | None = None, structured_output_schema: Mapping[str, Any] | None = None) -> LocalModelInvocationRequest:
         identity = getattr(self.model, "active_identity", None)
@@ -152,16 +291,27 @@ class GovernedLocalModelInvoker:
         if record is None and self.authority_map.records and not production_identity:
             record = self.authority_map.records[0]
         if record is None: raise ValueError("exact_production_authority_record_required" if production_identity else "authority_map_has_no_records")
-        if structured_output_schema is not None and (purpose not in {"discernment_judgment", "resident_developmental_interpretation"} or expected_output_format != "json"):
-            raise ValueError("structured output is restricted to governed JSON purposes")
-        return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=dict(structured_output_schema) if structured_output_schema is not None else None)
+        if structured_output_schema is not None:
+            allowed_structured_purposes = {
+                "discernment_judgment", "resident_developmental_interpretation",
+                "resident_developmental_retrieval_cognition",
+            }
+            if purpose not in allowed_structured_purposes or expected_output_format != "json":
+                raise ValueError("structured output is restricted to governed JSON purposes")
+            if (purpose == "resident_developmental_retrieval_cognition"
+                    and dict(structured_output_schema) != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA):
+                raise ValueError("structured_output_schema_not_canonical")
+        return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
 
     def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True, include_output_in_receipt: bool = False,
                pre_effect_guard: Callable[[], None] | None = None,
                post_effect_guard: Callable[[], None] | None = None,
                resource_context: GovernedLocalModelResourceInvocationContext | None = None) -> LocalModelInvocationReceipt:
-        started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False
+        started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False; backend_completion: Mapping[str, Any] | None = None
         decision_payload: dict[str, Any] = {}; attempt_id: str | None = None; backend_entered = False
+        receipt_persistence_confirmed = False
+        resource_linkage_persistence_confirmed: bool | None = (
+            False if resource_context is not None else None)
         generated_output: str | None = None
         record = self._record_for(request.model_id)
         ok, map_reasons = validate_authority_map(self.authority_map.to_dict())
@@ -181,6 +331,9 @@ class GovernedLocalModelInvoker:
                 from .discernment_participant import judgment_output_schema
                 canonical_schema = judgment_output_schema(proposition=str(request.linkage.get("proposition") or ""), allowed_observation_namespace=str(request.linkage.get("allowed_observation_namespace") or ""))
                 if dict(schema) != canonical_schema: reasons.append("structured_output_schema_not_canonical")
+            elif request.purpose == "resident_developmental_retrieval_cognition":
+                if schema != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA:
+                    reasons.append("structured_output_schema_not_canonical")
             elif request.purpose != "resident_developmental_interpretation": reasons.append("structured_output_schema_invalid")
         if request.purpose == "genesis_proposal_advice":
             ev = dict(request.upstream_evidence.get("genesis_review") or {}) if isinstance(request.upstream_evidence, Mapping) else {}
@@ -241,16 +394,42 @@ class GovernedLocalModelInvoker:
                         if resource_context is not None and attempt_id is not None:
                             resource_context.allocator.record_backend_entry(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
                             backend_entered = True
-                        def _call_model() -> str:
+                        def _call_model() -> tuple[str, Mapping[str, Any] | None]:
+                            metadata_generator = getattr(self.model, "generate_governed_with_metadata", None)
+                            if callable(metadata_generator):
+                                response = metadata_generator(request.prompt, **gen_kwargs)
+                                if (isinstance(response, tuple) and len(response) == 2
+                                        and isinstance(response[0], str)
+                                        and (response[1] is None or isinstance(response[1], Mapping))):
+                                    return response[0], response[1]
+                                raise ValueError("backend_completion_response_invalid")
                             governed_generate = getattr(self.model, "generate_governed", None)
-                            if governed_generate is not None: return cast(str, governed_generate(request.prompt, **gen_kwargs))
-                            try: return cast(str, self.model.generate(request.prompt, **gen_kwargs))
-                            except TypeError: return cast(str, self.model.generate(request.prompt))
+                            if governed_generate is not None:
+                                return cast(str, governed_generate(request.prompt, **gen_kwargs)), None
+                            try: return cast(str, self.model.generate(request.prompt, **gen_kwargs)), None
+                            except TypeError: return cast(str, self.model.generate(request.prompt)), None
                         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                             future = executor.submit(_call_model)
-                            try: output = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
+                            try: output, backend_completion = future.result(timeout=max(float(request.budget.timeout_seconds), 0.001))
                             except concurrent.futures.TimeoutError as exc:
                                 future.cancel(); raise TimeoutError() from exc
+                        if backend_completion is not None:
+                            if (set(backend_completion) != {"schema_version", "backend", "finish_reason",
+                                    "completion_tokens", "prompt_tokens", "token_limit_reached"}
+                                    or backend_completion.get("schema_version") != LLAMA_COMPLETION_OBSERVATION_SCHEMA
+                                    or backend_completion.get("backend") != "llama_cpp"
+                                    or backend_completion.get("finish_reason") not in {"stop", "length", "unknown"}
+                                    or any(backend_completion.get(name) is not None
+                                        and (type(backend_completion.get(name)) is not int
+                                            or not 0 <= backend_completion[name] <= 131072)
+                                        for name in ("completion_tokens", "prompt_tokens"))
+                                    or backend_completion.get("token_limit_reached") is not (
+                                        True if backend_completion.get("finish_reason") == "length" else
+                                        False if backend_completion.get("finish_reason") == "stop" else None)):
+                                raise ValueError("backend_completion_observation_invalid")
+                            if backend_completion.get("token_limit_reached") is True:
+                                truncated = True
+                                reasons.append("backend_token_limit_reached")
                         generated_output = output
                         if post_effect_guard is not None:
                             try: post_effect_guard()
@@ -269,18 +448,84 @@ class GovernedLocalModelInvoker:
         if status == "blocked_invalid" and not reasons: reasons.append("blocked_invalid")
         effect_occurred = generated_output is not None
         receipt_output = generated_output if effect_occurred else output
-        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat())
-        if persist: self._persist(request, receipt, decision_payload, include_output=include_output_in_receipt)
-        if resource_context is not None and attempt_id is not None and backend_entered:
-            measurement = resource_context.allocator.measurement(resource_context.allocation, generation_attempted=True, call_units_consumed=1, generated_output_size_bytes=len(generated_output.encode("utf-8")) if generated_output is not None else None, returned_output_size_bytes=len(output.encode("utf-8")) if output is not None else None, output_truncated=truncated, latency_ms=receipt.latency_ms, invocation_outcome=status)
-            state = "measured_timeout" if status == "timeout" else "measured_backend_failure" if status == "backend_failure" else "measured_completed"
+        receipt = LocalModelInvocationReceipt(request=request.to_receipt_request_dict(), status=status, reason_codes=tuple(reasons or ["completed"]), output_text=output, output_digest=digest_payload({"output": receipt_output}) if receipt_output is not None else None, output_size_bytes=len((receipt_output or "").encode("utf-8")), generation_config={**request.budget.to_dict(), "actual_generation_parameters": gen_kwargs if "gen_kwargs" in locals() else {}}, admission_decision_ref=admitted_ref, purpose=request.purpose, latency_ms=int((time.monotonic()-started)*1000), output_truncated=truncated, fallback_occurred=fallback, effects={"local_model_inference": effect_occurred, **FORBIDDEN_EFFECTS}, observed_at=datetime.now(timezone.utc).isoformat(), schema_version=INVOCATION_RECEIPT_SCHEMA_V3 if backend_completion is not None else INVOCATION_RECEIPT_SCHEMA, backend_completion=backend_completion)
+        if persist:
             try:
-                resource_context.allocator.append_receipt(resource_context.allocation, attempt_id, state=state, observed_at=resource_context.clock(), measurement=measurement)
-                resource_context.allocator.append_receipt(resource_context.allocation, attempt_id, state="reconciled", observed_at=resource_context.clock(), measurement=measurement, effect_receipt_digest=receipt.receipt_digest)
-            except GovernedLocalModelResourceError:
-                # Backend entry is irreversible.  Never restore it merely because
-                # post-effect resource bookkeeping lost custody.
-                receipt = replace(receipt, status="resource_reconciliation_failure", reason_codes=(*receipt.reason_codes, "resource_reconciliation_failed"))
+                self._persist(request, receipt, decision_payload,
+                    include_output=include_output_in_receipt)
+                receipt_persistence_confirmed = True
+            except Exception as exc:
+                if backend_entered:
+                    raise LocalModelPostEffectCustodyError(
+                        receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                        invocation_status=receipt.status, failure_phase="invocation_receipt_publication",
+                        receipt_persistence_confirmed=False,
+                        resource_linkage_persistence_confirmed=resource_linkage_persistence_confirmed) from exc
+                raise
+        if resource_context is not None and attempt_id is not None and backend_entered:
+            try:
+                measurement = resource_context.allocator.measurement(
+                    resource_context.allocation, generation_attempted=True, call_units_consumed=1,
+                    generated_output_size_bytes=(len(generated_output.encode("utf-8"))
+                        if generated_output is not None else None),
+                    returned_output_size_bytes=(len(output.encode("utf-8"))
+                        if output is not None else None),
+                    output_truncated=truncated, latency_ms=receipt.latency_ms,
+                    invocation_outcome=status)
+                state = ("measured_timeout" if status == "timeout" else
+                    "measured_backend_failure" if status == "backend_failure" else "measured_completed")
+                measured = resource_context.allocator.append_receipt(
+                    resource_context.allocation, attempt_id, state=state,
+                    observed_at=resource_context.clock(), measurement=measurement)
+                reconciled = resource_context.allocator.append_receipt(
+                    resource_context.allocation, attempt_id, state="reconciled",
+                    observed_at=resource_context.clock(), measurement=measurement,
+                    effect_receipt_digest=receipt.receipt_digest)
+            except Exception as exc:
+                raise LocalModelPostEffectCustodyError(
+                    receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                    invocation_status=receipt.status, failure_phase="resource_ledger_reconciliation",
+                    receipt_persistence_confirmed=receipt_persistence_confirmed,
+                    resource_linkage_persistence_confirmed=False) from exc
+            try:
+                receipt = replace(receipt,
+                    resource_allocation_digest=resource_context.allocation.allocation_digest,
+                    resource_attempt_id=attempt_id,
+                    resource_consumption_receipt_digests=(measured.receipt_digest,
+                        reconciled.receipt_digest))
+                receipt = replace(receipt, resource_linkage_digest=digest_payload({
+                    "receipt_digest": receipt.receipt_digest,
+                    "allocation_digest": receipt.resource_allocation_digest,
+                    "attempt_id": receipt.resource_attempt_id,
+                    "consumption_receipt_digests": receipt.resource_consumption_receipt_digests}))
+            except Exception as exc:
+                raise LocalModelPostEffectCustodyError(
+                    receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                    invocation_status=receipt.status, failure_phase="resource_linkage_construction",
+                    receipt_persistence_confirmed=receipt_persistence_confirmed,
+                    resource_linkage_persistence_confirmed=False) from exc
+            if persist:
+                try:
+                    self._persist(request, receipt, decision_payload,
+                        include_output=include_output_in_receipt)
+                    resource_linkage_persistence_confirmed = True
+                except Exception as exc:
+                    raise LocalModelPostEffectCustodyError(
+                        receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                        invocation_status=receipt.status, failure_phase="resource_linkage_publication",
+                        receipt_persistence_confirmed=True,
+                        resource_linkage_persistence_confirmed=False) from exc
+        if self._evidence_sink is not None:
+            try:
+                self._evidence_sink(receipt.to_dict(include_output=False))
+            except Exception as exc:
+                if backend_entered:
+                    raise LocalModelPostEffectCustodyError(
+                        receipt_id=receipt.receipt_id, receipt_digest=receipt.receipt_digest,
+                        invocation_status=receipt.status, failure_phase="observational_evidence_sink",
+                        receipt_persistence_confirmed=receipt_persistence_confirmed,
+                        resource_linkage_persistence_confirmed=resource_linkage_persistence_confirmed) from exc
+                raise
         return receipt
 
     def _record_for(self, model_id: str) -> LocalModelAuthorityRecord | None:
@@ -300,7 +545,7 @@ class GovernedLocalModelInvoker:
         if not required.issubset(data): return False
         blob = json.dumps(data).lower()
         forbidden = ["import ", "subprocess", "shell", "git ", "openai", "huggingface", "http://", "https://", "adoptionrite", "specbinder", "write_file", "memory"]
-        
+
         try:
             from .genesis_model_advice import parse_advice_output
             payload, reasons = parse_advice_output(text)

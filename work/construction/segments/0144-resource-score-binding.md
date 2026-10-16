@@ -1,0 +1,9 @@
+# Sequence 144 — Bind resource observations to their scored experiment condition
+
+Verified source commit `e075177b793a956f339bb9adbca6b8123f5f943c`, tree `2ae475197dbbe11ef9cc3ccfdff483bec643cb06`, published by expected-HEAD CAS from `e6123dc03a9fceeeb8f198cad5338ba422090252`. The current branch, commit, tree, and three changed blobs were independently read back.
+
+For linked developmental-history experiment invocations, the resource-lineage record now carries a compact condition score reference: condition, inference receipt id/digest, output digest, score digest/status, correctness, and probe denominator/count. It excludes the objective oracle answer and labels that no causal effect is established. Legacy/unscored records preserve an explicit unscored posture. Malformed or ambiguous score rows cannot be promoted as a valid score binding.
+
+The existing resident writeback projection validates the score's condition and receipt identities against the resource-linked invocation before retaining the compact fields. An adversarial substitution of the inference receipt identity is rejected. This makes resource measurement and objective score co-attributable to a specific invocation; it does not establish that resource usage caused a correct answer or that any model acquired competence.
+
+Validation: all three changed Python files compiled. The resource-lineage integration and full resident writeback modules passed: **24 passed**. The first test attempt exposed that the existing inference output digest uses an unprefixed digest representation; the consumer now accepts the two already-used digest encodings without weakening receipt identity matching. No typing check, hosted CI, production verification, or real-model performance test was run. Construction remains unverified for production.

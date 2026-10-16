@@ -7,7 +7,7 @@ writes, its private lock, and its digest-chained receipt journal.
 from __future__ import annotations
 
 from dataclasses import fields
-import fcntl
+from sentientos.platform_fcntl import fcntl
 import hashlib
 import json
 import os
@@ -30,6 +30,7 @@ GOVERNED_SIGNAL_SCHEMA = "governed_improvement_signal_plane_evaluation:v1"
 NORMALIZED_WORK_ITEM_SCHEMA = "sentientos.normalized_work_item_packet:v1"
 SOURCE_SCHEMAS = frozenset({GOVERNED_SIGNAL_SCHEMA, NORMALIZED_WORK_ITEM_SCHEMA})
 SOURCE_KINDS = frozenset({"governed_improvement_signal", "normalized_work_item"})
+PROPOSAL_SIGNAL_DISPOSITIONS = frozenset({"genesis_proposal_candidate", "spec_amendment_candidate"})
 ZERO_DIGEST = "sha256:" + "0" * 64
 
 _REQUIRED = {
@@ -237,6 +238,30 @@ def _work_packet(payload: Mapping[str, Any]) -> work_item_intake.NormalizedWorkI
     return packet
 
 
+def _proposal_signal_records(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    """Keep diagnostic and blocked evidence out of the proposal candidate queue."""
+    batch = payload.get("batch")
+    rows = batch.get("signals") if isinstance(batch, Mapping) else None
+    receipts = payload.get("receipts")
+    if not isinstance(rows, list) or not isinstance(receipts, list):
+        raise ValueError("governed_signal_routes_missing")
+    route_by_signal = {str(item.get("signal_id")): item for item in receipts
+        if isinstance(item, Mapping) and item.get("signal_id")}
+    if len(route_by_signal) != len(receipts):
+        raise ValueError("governed_signal_routes_ambiguous")
+    selected: list[Mapping[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise ValueError("governed_signal_row_invalid")
+        receipt = route_by_signal.get(str(row.get("signal_id")))
+        if receipt is None:
+            raise ValueError("governed_signal_route_missing")
+        if (receipt.get("candidate_identified") is True
+                and receipt.get("disposition") in PROPOSAL_SIGNAL_DISPOSITIONS):
+            selected.append(row)
+    return selected
+
+
 def _source_files(cfg: Mapping[str, Any]) -> list[tuple[str, Path]]:
     groups = (("governed_improvement_signal", cfg["governed_improvement_signal_source_roots"]), ("normalized_work_item", cfg["normalized_work_item_source_roots"]))
     found: list[tuple[str, Path]] = []
@@ -275,7 +300,7 @@ def scan(config: Mapping[str, Any], *, evaluation_time: str) -> dict[str, Any]:
                 valid, why = signals.validate_evaluation(payload)
                 if not valid:
                     raise ValueError("governed_signal_invalid:" + ",".join(why))
-                source_values = payload["batch"]["signals"]
+                source_values = _proposal_signal_records(payload)
                 built = [candidates.adapt_governed_signal(signals.ImprovementSignal(**x), base_repository_sha=cfg["base_sha"]) for x in source_values]
             else:
                 if NORMALIZED_WORK_ITEM_SCHEMA not in cfg["allowed_source_schemas"]:

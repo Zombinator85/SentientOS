@@ -1,0 +1,31 @@
+{
+  "claims": [
+    "The multi-probe same-model plan and partial scores reconstruct across a fresh process from original experiment custody without invoking the model again.",
+    "This is fixture recovery evidence; production and real-model behavior are unverified."
+  ],
+  "details": "The same-model probe-suite recovery case now invokes a distinct Python interpreter, reopens the original developmental experiment store from its original custody path, reloads the run through the canonical verifier and compares the suite evaluation and per-condition correct counts. It performs no inference during child recovery.",
+  "failed": 0,
+  "git_diff_check": "passed",
+  "junit": {
+    "bytes": 401,
+    "path": "work/construction/evidence/0089-same-model-probe-suite-fresh-process-junit.xml",
+    "sha256": "a793e9058d58060bfed7f868533b569fcb867ac4935b55d6f01c8726fce42b57",
+    "testsuite": {
+      "errors": null,
+      "failures": null,
+      "hostname": null,
+      "name": "pytest tests",
+      "skipped": null,
+      "tests": null,
+      "time": null,
+      "timestamp": null
+    }
+  },
+  "passed": 1,
+  "python_compilation": "passed",
+  "sequence": 89,
+  "skipped": 0,
+  "source_baseline_commit": "4c7288f818b3588888df3bd2e9487276e104a896",
+  "source_baseline_tree": "0471d1fe98600698aeb08b97cbc2097578e6de0b",
+  "status": "construction_tested_unverified_for_production"
+}

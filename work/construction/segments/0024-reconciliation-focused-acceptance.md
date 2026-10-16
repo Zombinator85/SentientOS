@@ -1,0 +1,6 @@
+## 2026-10-12 — focused reconciliation acceptance
+
+- `python -m scripts.verify_construction_continuation_custody --repo-root . --summary` returned `construction_continuation_custody_ready` with 23 indexed segments, the restored frozen legacy blob, complete SHA-256/byte validation, predecessor continuity, and checkpoint binding.
+- `python -m scripts.run_tests -q tests/test_construction_continuation_custody.py tests/test_contract_manifest_emission.py tests/test_github_hosted_acceptance_workflows.py` passed 26 tests. This includes intact custody and tampered/missing journal, segment, predecessor, and checkpoint controls; module-based emitter invocation; valid canonical manifest generation; and fail-closed missing/malformed required inputs.
+- Corrected the nine previously reported `sentientos/runtime/local_model_chat_recovery.py` mypy diagnostics without broad suppressions. Targeted mypy now passes for that module and the new verifier/manifest modules. The full recovery module passed 21 tests using `python -m scripts.run_tests -q tests/test_local_model_chat_recovery.py`.
+- Changed Python compiled. No PR, merge, production activation, protected audit, full matrix, or production operation was performed.

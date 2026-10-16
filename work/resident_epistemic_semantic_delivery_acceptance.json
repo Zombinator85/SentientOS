@@ -1,0 +1,17 @@
+{
+  "execution": "not_run_by_construction_policy",
+  "production_verification": "not_performed",
+  "schema_version": "sentientos.prospective_acceptance_manifest:v1",
+  "source_checkpoint": "f05de5ec13286460cffd34b65689be35ff93f1d0",
+  "status": "authored_unexecuted",
+  "task": "meaning-bearing resident epistemic cognition delivery",
+  "test_nodes": [
+    "tests/test_persistent_epistemic_state.py::test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage",
+    "tests/test_persistent_epistemic_state.py::test_semantic_projection_rejects_substituted_meaning_and_bad_join",
+    "tests/test_persistent_epistemic_state.py::test_stale_position_keeps_stale_freshness_in_prior_packet",
+    "tests/test_resident_developmental_cognition.py::test_meaning_bearing_epistemic_packets_reach_actual_inference_request",
+    "tests/test_resident_developmental_cognition.py::test_legacy_identifier_projection_is_valid_but_not_delivered_as_meaning",
+    "tests/test_resident_developmental_cognition.py::test_semantic_packets_are_whole_and_omissions_are_bound_under_input_budget",
+    "tests/test_developmental_model_replacement_experiment.py::test_semantic_epistemic_projection_v2_and_legacy_v1_identity_are_accepted"
+  ]
+}

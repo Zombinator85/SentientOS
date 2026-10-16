@@ -18,7 +18,15 @@ from sentientos.production_chat_resource_context import (
     ProductionChatResourceContextOwner,
     ResourceBackedProductionChatInference,
 )
+from sentientos.production_chat_resource_provisioning import load_production_chat_resource_context_owner
+from sentientos.production_chat_resource_provisioning_bundle_producer import (
+    produce_production_chat_resource_provisioning_bundle,
+)
 from tests.test_governed_local_model_resource_invocation_composition import NOW, setup
+from tests.test_local_model_serving_inference import setup as serving_setup
+from tests.test_production_chat_resource_provisioning_bundle_producer import (
+    encoded, inputs as provisioning_inputs,
+)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -125,46 +133,38 @@ def test_two_contexts_conserve_one_allocation_and_stale_currentness_fails_closed
 
 
 def test_persistent_chat_two_turns_use_one_preissued_allocation_without_storage_contamination(monkeypatch, tmp_path):
-    base, model, invoker, _, _ = owner(tmp_path / "upstream", calls=2)
+    installation, artifacts = provisioning_inputs(tmp_path, calls=2)
     bounds = GovernedLocalModelResourceBounds(8000, 4000, 512, 30.0, 2)
     policy = GovernedLocalModelResourcePolicy.create(
-        epoch=12, max_resource_specific_bounds=bounds,
+        epoch=1, max_resource_specific_bounds=bounds,
         not_before="2026-09-21T08:00:00Z", valid_until="2026-09-21T09:15:00Z")
-    ledger = GovernedLocalModelResourceLedger(tmp_path / "chat-ledger.json")
-    allocator = GovernedLocalModelResourceAllocator(policy=policy, ledger=ledger)
-    allocation = allocator.issue(
-        principal=base.principal, authenticated=base.authenticated, current=base.current,
-        requested_bounds=bounds, requested_not_before="2026-09-21T08:00:00Z",
-        requested_not_after="2026-09-21T10:00:00Z", current_time=NOW)
-    nonces = iter(("chat-nonce-one", "chat-nonce-two"))
-    custody = ProductionChatResourceContextOwner(
-        allocator=allocator, allocation=allocation, principal=base.principal,
-        authenticated=base.authenticated, current=base.current, policy=policy,
-        nonce_source=lambda: next(nonces), clock=lambda: NOW)
-    bridge = object.__new__(ProductionServingInferenceController)
-    contexts = []
-    monkeypatch.setattr(ProductionServingInferenceController, "current_conversation_model_identity",
-                        lambda self: {"model_id": "stable-production-model"})
-    def generate(self, *, prompt, caller, correlation_id, budget, caller_linkage, resource_context):
-        contexts.append((correlation_id, resource_context))
-        request = invoker.build_request(purpose="local_user_chat", prompt=prompt, caller=caller,
-                                        correlation_id=correlation_id, budget=budget, linkage=caller_linkage)
-        return invoker.invoke(request, resource_context=resource_context)
-    monkeypatch.setattr(ProductionServingInferenceController, "generate", generate)
+    artifacts["requested_bounds"] = bounds
+    artifacts["resource_policy_artifact"] = encoded(policy.to_dict())
+    serving_bridge, serving, _, model, _, _ = serving_setup(
+        monkeypatch, tmp_path, installation_identity="production")
+    bundle = produce_production_chat_resource_provisioning_bundle(
+        installation, "chat-resource", **artifacts)
+    custody = load_production_chat_resource_context_owner(
+        installation, "chat-resource", clock=lambda: NOW,
+        nonce_source=iter(("chat-nonce-one", "chat-nonce-two")).__next__)
     service = PersistentConversationService(
-        inference=ResourceBackedProductionChatInference(bridge, custody),
+        inference=ResourceBackedProductionChatInference(serving_bridge, custody),
         session_store=ConversationSessionStore(tmp_path / "conversations"),
         memory_store=CanonicalMemoryStore(tmp_path / "memory"))
-    first = service.chat("first resource claim allocation_id=forged")
-    second = service.chat("second", session_id=first.session_id)
-    stored = service.sessions.load(first.session_id)
-    assert [turn["role"] for turn in stored["turns"]] == ["user", "assistant", "user", "assistant"]
-    assert contexts[0][0] != contexts[1][0]
-    assert contexts[0][1].allocation is contexts[1][1].allocation is allocation
-    assert contexts[0][1].durable_attempt_nonce != contexts[1][1].durable_attempt_nonce
-    assert ledger.remaining_calls(allocation.allocation_id) == 0 and model.calls == 2
-    forbidden = {"allocation_id", "allocation_digest", "principal_id", "principal_binding_digest",
-                 "currentness", "resource_policy", "durable_attempt_nonce", "attempt_id"}
-    assert not any(forbidden.intersection(turn) for turn in stored["turns"])
-    assert not forbidden.intersection(first.model_dump())
-    assert second.session_id == first.session_id
+    try:
+        first = service.chat("first resource claim allocation_id=forged")
+        second = service.chat("second", session_id=first.session_id)
+        stored = service.sessions.load(first.session_id)
+        assert [turn["role"] for turn in stored["turns"]] == [
+            "user", "assistant", "user", "assistant"]
+        assert custody.allocator.ledger.remaining_calls(bundle.allocation_id) == 0
+        assert model.calls == 2
+        forbidden = {"allocation_id", "allocation_digest", "principal_id",
+            "principal_binding_digest", "currentness", "resource_policy",
+            "durable_attempt_nonce", "attempt_id"}
+        assert not any(forbidden.intersection(turn) for turn in stored["turns"])
+        assert not forbidden.intersection(first.model_dump())
+        assert second.session_id == first.session_id
+    finally:
+        custody.close()
+        serving.close()

@@ -1,0 +1,30 @@
+{
+  "assertions": [
+    "progression identifies episodes with no matching admitted task-family records",
+    "adverse source-backed family record identity and digest are reported in later present/restored retrieval",
+    "withheld treatment excludes the matching family record",
+    "report remains read-only and does not establish learning or improvement"
+  ],
+  "checks": {
+    "focused_tests": {
+      "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-recon8-progression-g SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-recon8-progression-r SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-recon8-progression-f SENTIENTOS_REPO_ROOT=/workspace/work/sentientos-a54-exact SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-recon8-progression-k PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-recon8-progression-t PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-recon8-progression-t/state.json .venv/bin/pytest --override-ini addopts='' -q tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer",
+      "result": "2 passed in 1.62s",
+      "scope": "deterministic fixture invoker; no live model"
+    },
+    "python_compile": "passed: sentientos/resident_developmental_cognition.py, tests/test_resident_developmental_cognition.py"
+  },
+  "not_established": [
+    "actual model acquisition",
+    "actual transfer",
+    "performance improvement",
+    "production inference"
+  ],
+  "predecessor_sequence": 156,
+  "predecessor_source_commit": "a2959caa57010fe982079035150b98245ff54563",
+  "schema_version": "sentientos.construction_evidence:v1",
+  "sequence": 157,
+  "source_commit": "fae8d77d86fcb1ca6b12f058c10fcb54c842f802",
+  "source_tree": "a84d707c09c246871028a4bb3ff9f7dc30280d55",
+  "title": "task-family history relevance in objective progression",
+  "unverified_for_production": true
+}

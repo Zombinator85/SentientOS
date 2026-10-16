@@ -7,7 +7,6 @@ require_lumos_approval()
 """Law Sentinel & Automated Doctrine Watchdog
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse

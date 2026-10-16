@@ -1,0 +1,62 @@
+{
+  "acceptance": {
+    "cognition_and_experiment_tests": {
+      "failed": 0,
+      "passed": 90
+    },
+    "commands": [
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_sentientosd_runtime_closure.py",
+      "python -m py_compile sentientos/resident_developmental_cognition.py sentientosd.py tests/test_resident_developmental_cognition.py"
+    ],
+    "daemon_runtime_closure_tests": {
+      "failed": 0,
+      "passed": 28
+    },
+    "fixture_scope": "model responses and inference receipt verification use test fixtures; no genuine model behavior established",
+    "new_regression": "test_final_score_checkpoints_recover_run_after_precommit_interruption asserts ordinary recovered comparison has no staged-run projection",
+    "python": "CPython 3.12 local isolated source workspace"
+  },
+  "changed_files": {
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 222567,
+      "git_blob": "57140141de94eeb0fa078fa18e0e5cbb5ee37099",
+      "sha256": "1587a606d5896610547f4bbf3262a91898d27bdd2df3c2517fc563a60bf7135d"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 179547,
+      "git_blob": "1d2e7d36781d47d4eb208392d6a5bcad7c759a98",
+      "sha256": "6b00705e3ab19302faa6c62fd8dbf2dcb565603c791eb82e8c6ca3aa89e72d3a"
+    }
+  },
+  "external_boundaries": {
+    "actual_model_execution": false,
+    "operator_authority_changed": false,
+    "production_inference": false,
+    "windows_or_wsl_execution": false
+  },
+  "implementation": {
+    "comparison_recovery_path_preserved": true,
+    "effect_or_authority_change": false,
+    "partial_request_identity_fails_closed": true,
+    "unrequested_recovery_rows_excluded": true
+  },
+  "previous_segment_sha256": "228785c626cb91759f4a2ad1de030b5e3020471dafe4fe128d49815a174488a9",
+  "publication_limits": {
+    "git_diff_check": "unavailable_no_git_directory_in_isolated_workspace",
+    "model_invoked": false,
+    "production_verified": false,
+    "windows_verified": false
+  },
+  "schema_version": 1,
+  "sequence": 124,
+  "source_commit": "38032b1f6dea0b68b7f47e0906e1552a429f1100",
+  "source_finding": "recovered fully-scored comparison runs without staged one-shot identity were rejected by the staged-one-shot World-State projection",
+  "source_tree": "23b7384c142137e9da19d17dd77605f289951d34",
+  "typing": {
+    "command": ".venv/bin/mypy sentientos/resident_developmental_cognition.py sentientosd.py --follow-imports=silent",
+    "new_source_ranges_diagnostics": 0,
+    "reported_existing_errors": 229,
+    "result": "existing_owner_diagnostics"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "schema": "sentientos.reconciliation_queue:v1",
+  "last_checkpoint_sequence": 240,
+  "completed_nodes": [
+    "A2/A4-A6: explicitly selected owner-recovered campaign outcomes retain provenance, classify routes, detect cross-campaign adverse/positive contradictions, and fail closed on selection-config tampering; recovery was verified in a fresh process.",
+    "B1/B2: only eligible proposal-routed signals become later maintenance candidates; campaign source uncertainty and exact lineage survive adaptation.",
+    "C2: resource reread after fresh ledger reconstruction preserves receipt identity and does not debit again.",
+    "A7 partial: seq237 fresh-process runtime signal reconstruction preserves the declared campaign completion event time and source digest with adoption/mutation false; owner ordering and prior-tick exclusion are still open.",
+    "A7: maintenance-loop owner order and shared tick identity are pinned from admitted campaign signal evaluation through same-tick World-State, cognition, transition, epistemic development, self-model reconciliation, and causal introspection; zero-effect posture is asserted.",
+    "B3 partial: actual adverse/corrective/later-distinct campaign outcomes compose through the signal plane; original contradiction is blocked and a separate later finding creates a constrained proposal candidate.",
+    "B3 partial: a later distinct campaign finding routes to a low-confidence candidate with source uncertainty; the actual selector rejects it as candidate_scope_unknown because no subject path is evidenced."
+  ],
+  "current_source_commit": "53cee2d02152517cf203cb48abe949f689fcfe36",
+  "current_source_tree": "1b5b24ab97b3df6713c3e28e096fa2d90820aec0",
+  "next_executable_nodes": [
+    {
+      "program": "A",
+      "node": "A8",
+      "work": "Integrate actual resident cognition with same-tick resource/campaign source closure; prove only prior-tick retained developmental history is retrieved, including restart and zero effects."
+    },
+    {
+      "program": "B",
+      "node": "B4-B8",
+      "work": "Assess an explicit evidence-bound applicability mapping for collector scan/selection; preserve correction and uncertainty, and never invent a subject path."
+    },
+    {
+      "program": "C",
+      "node": "C3-C8",
+      "work": "Malformed/incomplete outcome admission, then a distinct later task where measured resource history changes a bounded computational recommendation."
+    },
+    {
+      "program": "D",
+      "node": "D1-D8",
+      "work": "Independent conflicting evidence, admissible persistent revision, temporal boundaries, and causal introspection."
+    },
+    {
+      "program": "E",
+      "node": "E1-E8",
+      "work": "Multi-task partial progress, interruption recovery, budget omissions, and outcome-informed selection."
+    },
+    {
+      "program": "F",
+      "node": "F1-F8",
+      "work": "Longitudinal strategy correction, negative transfer, causal authorship, and model-identity continuity fixtures."
+    },
+    {
+      "program": "Integration",
+      "node": "X1-X4",
+      "work": "Connect maintenance, resource, epistemic, or goal histories across owners and process recovery."
+    }
+  ],
+  "known_test_failures": [
+    "Two stale tests observed in the campaign/signal/collector run: observational association expected production_ready=true; epistemic adapter test omits newly required owner argument.",
+    "Five earlier seq232 broad-suite failures: stale production-readiness and adapter-signature assertions, read-only /glow setup, runtime admission fixture mismatch, and production campaign readiness expectation.",
+    "Mypy on earlier broad runtime files reports repository baseline errors; candidate modules pass targeted mypy."
+  ],
+  "external_blockers": [
+    "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
+  ]
+}

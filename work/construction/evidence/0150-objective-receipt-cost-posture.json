@@ -1,0 +1,53 @@
+{
+  "schema": "sentientos.construction_evidence:v1",
+  "sequence": 150,
+  "title": "receipt-accurate objective resource and output reporting",
+  "status": "constructed_and_focused_tests_passed_unverified_for_production",
+  "tested_source": {
+    "commit": "9e20c2fa2a906b7b18f97f791f2fadaae1c3e4f6",
+    "tree": "009ca1147ae0cb8a684f99a3c53c241f33f71100"
+  },
+  "base": {
+    "commit": "3cc0a671087cb16b51e1a6ae08a849875a70bf8d",
+    "tree": "e2a6fb2fa099209c9fe7c3a7793fe2fb1ee081e4"
+  },
+  "implementation": "Separate the requested output character ceiling from invocation-receipt output bytes; preserve matching resource-linkage identities in condition and progression reports while leaving ledger reconciliation and physical measurements unknown.",
+  "positive_control": "Verified invocation receipts expose bounded output byte counts and exact resource linkage when both the persisted observation and receipt agree; unchanged unlinked historical receipts retain an explicit unlinked posture.",
+  "negative_control": "Conflicting receipt/observation resource linkage raises objective_outcome_resource_linkage_mismatch; no resource quantity is inferred from output size, invocation count, or requested generation budget.",
+  "checks": {
+    "python_compile": {
+      "status": "passed",
+      "files": [
+        "sentientos/resident_developmental_cognition.py",
+        "tests/test_resident_developmental_cognition.py"
+      ]
+    },
+    "focused_pytest": {
+      "status": "passed",
+      "passed": 3,
+      "duration_seconds": 1.22,
+      "nodes": [
+        "tests/test_resident_developmental_cognition.py::test_explicit_objective_request_runs_once_without_developmental_writeback",
+        "tests/test_resident_developmental_cognition.py::test_task_family_progression_is_receipt_bound_bounded_and_restart_read_only",
+        "tests/test_resident_developmental_cognition.py::test_resource_linkage_cannot_bypass_serving_receipt_verification"
+      ]
+    },
+    "whitespace_check": "git diff --check unavailable because exact-source workspace has no .git metadata; files were source-reviewed and compiled",
+    "typing": "not_run",
+    "hosted_ci": "not_observed",
+    "real_model_behavior": "not_observed",
+    "production_verification": "not_performed"
+  },
+  "limitations": [
+    "invocation receipt linkage is not an independent reconciliation against the resource ledger",
+    "CPU, GPU, energy, and generated-token measurements remain unknown in this result inspector",
+    "fixture inference does not demonstrate model acquisition, transfer, or performance improvement"
+  ],
+  "next_dependency": "trace task-family examples and evaluator/source identities through the task descriptor, scored run, and next-tick World-State feedback without exposing the private oracle",
+  "publication": {
+    "expected_head": "3cc0a671087cb16b51e1a6ae08a849875a70bf8d",
+    "commit": "9e20c2fa2a906b7b18f97f791f2fadaae1c3e4f6",
+    "tree": "009ca1147ae0cb8a684f99a3c53c241f33f71100",
+    "remote_readback": "branch, tree, and all changed blobs verified by exact GitHub reads"
+  }
+}

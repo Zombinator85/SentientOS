@@ -59,6 +59,7 @@ class LintConfig:
     go_enabled: bool = False
     baseline_file: str | None = None
     policy: str | None = None
+    file_globs: list[str] | None = None
 
 
 _DEFAULT = LintConfig(
@@ -127,5 +128,6 @@ def load_config(start: Path | None = None) -> LintConfig:
                     go_enabled=bool(go.get("enabled", _DEFAULT.go_enabled)),
                     baseline_file=data.get("baseline", _DEFAULT.baseline_file),
                     policy=data.get("policy", _DEFAULT.policy),
+                    file_globs=(list(data["file_globs"]) if "file_globs" in data else _DEFAULT.file_globs),
                 )
     return _DEFAULT

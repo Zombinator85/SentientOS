@@ -2,11 +2,16 @@
 from __future__ import annotations
 import collections
 import datetime
+import errno
 import hashlib
 import json
 import logging
 import math
 import os
+import stat
+import secrets
+import time
+from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import timezone
 from functools import wraps
@@ -24,6 +29,14 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 LOGGER = logging.getLogger(__name__)
 
+
+class MemorySidecarIncompleteError(ValueError):
+    """An append-only memory sidecar contains malformed evidence."""
+    def __init__(self, sidecar: str, line_number: int) -> None:
+        self.sidecar = sidecar
+        self.line_number = line_number
+        super().__init__(f"memory_sidecar_incomplete:{sidecar}:line:{line_number}")
+
 # Vector type can be either an embedding vector or bag-of-words mapping
 Vector = Union[List[float], Dict[str, int]]
 from emotions import empty_emotion_vector
@@ -35,9 +48,10 @@ USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "0") == "1"
 
 # Root folder for persistent memory fragments. The ``MEMORY_DIR`` environment
 # variable is described in ``docs/ENVIRONMENT.md``.
-_MEMORY_DIR_OVERRIDE = os.getenv("MEMORY_DIR")
-_DATA_ROOT = Path(os.getenv("SENTIENTOS_DATA_DIR") or (Path.cwd() / "sentientos_data"))
-MEMORY_DIR = Path(_MEMORY_DIR_OVERRIDE) if _MEMORY_DIR_OVERRIDE else _DATA_ROOT / "memory"
+from sentientos.canonical_memory import sentientos_data_dir, sentientos_memory_dir
+
+_DATA_ROOT = sentientos_data_dir()
+MEMORY_DIR = sentientos_memory_dir(_DATA_ROOT)
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
 TOPIC_PATH = MEMORY_DIR / "topics"
@@ -96,10 +110,251 @@ def _authorize_legacy_mutation() -> None:
         _LEGACY_OPERATION_STATE.set((depth, True))
 
 
-def _prepare_write(path: Path) -> None:
-    """Authorize and create only the parent custody needed by this write."""
+def _open_legacy_memory_root(*, prepare_for_write: bool = False) -> int:
+    """Use the canonical owner for the shared user-memory root."""
+    if os.name != "posix":
+        raise PermissionError("legacy_memory_root_custody_unsupported_platform")
+    from sentientos.canonical_memory import CanonicalMemoryStore
+    return CanonicalMemoryStore(MEMORY_DIR).open_memory_root(
+        prepare_for_write=prepare_for_write)
+
+
+def _read_legacy_memory_file(path: Path, *, max_bytes: int = 8 * 1024 * 1024) -> bytes | None:
+    """Read one top-level memory sidecar through the held private root."""
+    try:
+        relative = path.relative_to(MEMORY_DIR)
+    except ValueError as exc:
+        raise PermissionError("legacy_memory_read_outside_configured_root") from exc
+    if len(relative.parts) != 1 or relative.name in {"", ".", ".."}:
+        raise PermissionError("legacy_memory_sidecar_path_invalid")
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import (
+            WindowsHandleCustodyError, read_explicit_file, verify_explicit_directory,
+        )
+        try:
+            verify_explicit_directory(MEMORY_DIR, require_private_acl=True)
+            return read_explicit_file(path, max_bytes=max_bytes, require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if exc.args == ("explicit_file_missing",):
+                return None
+            raise PermissionError("legacy_memory_sidecar_custody_unavailable") from exc
+    root_fd = _open_legacy_memory_root()
+    descriptor: int | None = None
+    try:
+        try:
+            descriptor = os.open(relative.name, os.O_RDONLY | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0), dir_fd=root_fd)
+        except FileNotFoundError:
+            return None
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_uid != os.geteuid()
+                or before.st_size > max_bytes):
+            raise PermissionError("legacy_memory_sidecar_custody_invalid")
+        chunks: list[bytes] = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(65536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if (len(payload) > max_bytes or len(payload) != before.st_size
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns
+                or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+            raise PermissionError("legacy_memory_sidecar_changed")
+        return payload
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(root_fd)
+
+
+@contextmanager
+def _open_legacy_memory_text(path: Path, mode: str):
+    """Open a shared sidecar through held custody; replace-mode writes publish atomically."""
+    if mode not in {"a", "w"}:
+        raise ValueError("legacy_memory_write_mode_invalid")
     _authorize_legacy_mutation()
-    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        relative = path.relative_to(MEMORY_DIR)
+    except ValueError as exc:
+        raise PermissionError("legacy_memory_write_outside_configured_root") from exc
+    if not relative.parts or any(part in {"", ".", ".."} for part in relative.parts):
+        raise PermissionError("legacy_memory_write_path_invalid")
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    current_fd = root_fd
+    descriptor: int | None = None
+    temporary_name: str | None = None
+    temporary_exists = False
+    try:
+        for component in relative.parts[:-1]:
+            created = False
+            try:
+                os.mkdir(component, mode=0o700, dir_fd=current_fd)
+                created = True
+            except FileExistsError:
+                pass
+            child_fd = os.open(component, directory_flags, dir_fd=current_fd)
+            metadata = os.fstat(child_fd)
+            if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.geteuid():
+                os.close(child_fd)
+                raise PermissionError("legacy_memory_parent_custody_invalid")
+            if stat.S_IMODE(metadata.st_mode) & 0o077:
+                os.fchmod(child_fd, 0o700)
+                metadata = os.fstat(child_fd)
+                if stat.S_IMODE(metadata.st_mode) & 0o077:
+                    os.close(child_fd)
+                    raise PermissionError("legacy_memory_parent_permissions_invalid")
+            if created:
+                os.fsync(current_fd)
+            if current_fd != root_fd:
+                os.close(current_fd)
+            current_fd = child_fd
+        target_name = relative.parts[-1]
+        if mode == "a":
+            flags = (os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+            descriptor = os.open(target_name, flags, 0o600, dir_fd=current_fd)
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                    or metadata.st_uid != os.geteuid()):
+                raise PermissionError("legacy_memory_target_custody_invalid")
+            os.fchmod(descriptor, 0o600)
+            result = os.fdopen(descriptor, "a", encoding="utf-8")
+            descriptor = None
+            try:
+                yield result
+            finally:
+                result.flush()
+                os.fsync(result.fileno())
+                result.close()
+                os.fsync(current_fd)
+        else:
+            temporary_name = f".legacy-sidecar-{secrets.token_hex(16)}.tmp"
+            flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+            descriptor = os.open(temporary_name, flags, 0o600, dir_fd=current_fd)
+            temporary_exists = True
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                    or metadata.st_uid != os.geteuid()):
+                raise PermissionError("legacy_memory_temporary_custody_invalid")
+            os.fchmod(descriptor, 0o600)
+            result = os.fdopen(descriptor, "w", encoding="utf-8")
+            descriptor = None
+            try:
+                yield result
+                result.flush()
+                if os.fstat(result.fileno()).st_size > 8 * 1024 * 1024:
+                    raise ValueError("legacy_memory_sidecar_size_limit")
+                os.fsync(result.fileno())
+            finally:
+                result.close()
+            try:
+                current = os.stat(target_name, dir_fd=current_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                try:
+                    os.link(temporary_name, target_name, src_dir_fd=current_fd,
+                        dst_dir_fd=current_fd, follow_symlinks=False)
+                except FileExistsError:
+                    current = os.stat(target_name, dir_fd=current_fd, follow_symlinks=False)
+                    if (not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+                            or current.st_uid != os.geteuid()):
+                        raise PermissionError("legacy_memory_target_custody_invalid")
+                    os.replace(temporary_name, target_name,
+                        src_dir_fd=current_fd, dst_dir_fd=current_fd)
+                    temporary_exists = False
+                else:
+                    os.fsync(current_fd)
+            else:
+                if (not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+                        or current.st_uid != os.geteuid()):
+                    raise PermissionError("legacy_memory_target_custody_invalid")
+                os.replace(temporary_name, target_name,
+                    src_dir_fd=current_fd, dst_dir_fd=current_fd)
+                temporary_exists = False
+            os.fsync(current_fd)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary_exists and temporary_name is not None and current_fd >= 0:
+            try:
+                os.unlink(temporary_name, dir_fd=current_fd)
+                os.fsync(current_fd)
+            except FileNotFoundError:
+                pass
+        if current_fd != root_fd:
+            os.close(current_fd)
+        os.close(root_fd)
+
+
+def _open_legacy_raw_directory(*, prepare_for_write: bool = False) -> int:
+    """Open the shared raw user-memory root through canonical held custody."""
+    if os.name != "posix":
+        raise PermissionError("legacy_raw_memory_private_custody_unsupported_platform")
+    from sentientos.canonical_memory import CanonicalMemoryStore
+    return CanonicalMemoryStore(MEMORY_DIR).open_raw_directory(
+        prepare_for_write=prepare_for_write)
+
+
+def _read_legacy_raw_fragment(name: str) -> bytes | None:
+    """Read one owner-private legacy fragment from the held shared raw root."""
+    if (not isinstance(name, str) or not name.endswith(".json")
+            or name in {".", ".."} or "/" in name or "\\" in name
+            or _is_canonical_retention_path(Path(name))):
+        raise PermissionError("legacy_raw_memory_fragment_name_invalid")
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import (
+            WindowsHandleCustodyError, read_explicit_file, verify_explicit_directory,
+        )
+        try:
+            verify_explicit_directory(RAW_PATH, require_private_acl=True)
+            return read_explicit_file(RAW_PATH / name, max_bytes=262144,
+                require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if exc.args == ("explicit_file_missing",):
+                return None
+            raise PermissionError("legacy_raw_memory_fragment_custody_unavailable") from exc
+    directory_fd = _open_legacy_raw_directory()
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(name, os.O_RDONLY | os.O_NOFOLLOW
+            | getattr(os, "O_NONBLOCK", 0), dir_fd=directory_fd)
+        before = os.fstat(descriptor)
+        if (not stat.S_ISREG(before.st_mode) or before.st_nlink != 1
+                or before.st_uid != os.geteuid()
+                or stat.S_IMODE(before.st_mode) & 0o022
+                or before.st_size > 262144):
+            raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+        chunks: list[bytes] = []
+        remaining = 262145
+        while remaining:
+            chunk = os.read(descriptor, min(65536, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        after = os.fstat(descriptor)
+        if (len(payload) > 262144 or len(payload) != before.st_size
+                or after.st_size != before.st_size
+                or after.st_mtime_ns != before.st_mtime_ns
+                or after.st_ctime_ns != before.st_ctime_ns
+                or after.st_dev != before.st_dev or after.st_ino != before.st_ino):
+            raise PermissionError("legacy_raw_memory_fragment_changed")
+        return payload
+    except FileNotFoundError:
+        return None
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(directory_fd)
 
 # Registered callbacks invoked whenever a new reflection is stored.
 ReflectionListener = Callable[[dict], None]
@@ -118,6 +373,8 @@ def _notify_reflection_listeners(summary: dict) -> None:
     for listener in list(_REFLECTION_LISTENERS):
         try:
             listener(dict(summary))
+        except PermissionError:
+            raise
         except Exception:  # pragma: no cover - defensive
             LOGGER.debug("Reflection listener %r failed", listener, exc_info=True)
 
@@ -142,21 +399,153 @@ def _hash(text: str) -> str:
 def _fragment_path(fragment_id: str) -> Path:
     return RAW_PATH / f"{fragment_id}.json"
 
+def _is_canonical_retention_path(path: Path) -> bool:
+    """Keep explicitly retained chat artifacts outside legacy mutation/forgetting."""
+    return path.name.startswith("memory-") and path.name.endswith(".json")
+
+
+def _legacy_fragment_paths() -> list[Path]:
+    """Enumerate bounded owner-private legacy fragments through a held directory."""
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import (
+            WindowsHandleCustodyError, read_regular_files, verify_explicit_directory,
+        )
+        try:
+            verify_explicit_directory(MEMORY_DIR, require_private_acl=True)
+            entries = read_regular_files(RAW_PATH, max_entries=4096,
+                max_file_bytes=262144, max_total_bytes=16777216,
+                suffix=".json", require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if exc.args == ("explicit_file_missing",):
+                return []
+            raise PermissionError("legacy_raw_memory_scan_custody_unavailable") from exc
+        return [RAW_PATH / name for name, _data in entries
+            if not _is_canonical_retention_path(Path(name))]
+    try:
+        directory_fd = _open_legacy_raw_directory()
+    except FileNotFoundError:
+        return []
+    try:
+        names: list[str] = []
+        total = 0
+        with os.scandir(directory_fd) as entries:
+            for index, entry in enumerate(entries):
+                if index >= 4096:
+                    raise PermissionError("legacy_raw_memory_scan_bound_exceeded")
+                if not entry.name.endswith(".json"):
+                    continue
+                if _is_canonical_retention_path(Path(entry.name)):
+                    continue
+                metadata = entry.stat(follow_symlinks=False)
+                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                        or metadata.st_uid != os.geteuid()
+                        or stat.S_IMODE(metadata.st_mode) & 0o022):
+                    raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+                total += metadata.st_size
+                if metadata.st_size > 262144 or total > 16777216:
+                    raise PermissionError("legacy_raw_memory_scan_byte_bound_exceeded")
+                names.append(entry.name)
+        return [RAW_PATH / name for name in sorted(names)]
+    finally:
+        os.close(directory_fd)
+
+
+
 
 def _load_fragment(fragment_id: str) -> dict | None:
     path = _fragment_path(fragment_id)
-    if not path.exists():
+    if _is_canonical_retention_path(path) or path.parent != RAW_PATH:
+        return None
+    payload = _read_legacy_raw_fragment(path.name)
+    if payload is None:
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+        data = json.loads(payload.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise MemorySidecarIncompleteError("legacy_raw_fragment", 0) from exc
+    if not isinstance(data, dict) or data.get("id") != fragment_id:
+        raise MemorySidecarIncompleteError("legacy_raw_fragment_identity", 0)
+    return data
+
+
+def _unlink_legacy_raw_fragment(fragment_id: str) -> bool:
+    """Remove one owner-private legacy fragment without following path aliases."""
+    path = _fragment_path(fragment_id)
+    if (_is_canonical_retention_path(path) or path.parent != RAW_PATH
+            or not path.name or "/" in path.name or "\\\\" in path.name):
+        raise PermissionError("legacy_raw_memory_fragment_path_invalid")
+    _authorize_legacy_mutation()
+    directory_fd = _open_legacy_raw_directory(prepare_for_write=True)
+    try:
+        try:
+            metadata = os.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            return False
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+        os.unlink(path.name, dir_fd=directory_fd)
+        os.fsync(directory_fd)
+        return True
+    finally:
+        os.close(directory_fd)
 
 
 def _write_fragment(fragment_id: str, data: dict) -> None:
     path = _fragment_path(fragment_id)
-    _prepare_write(path)
-    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    if _is_canonical_retention_path(path):
+        raise PermissionError("canonical_retention_artifact_is_not_a_legacy_fragment")
+    if (path.parent != RAW_PATH or not path.name or path.name in {".", ".."}
+            or "/" in path.name or "\\" in path.name):
+        raise PermissionError("legacy_raw_memory_fragment_path_invalid")
+    _authorize_legacy_mutation()
+    payload = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    if len(payload) > 262144:
+        raise ValueError("legacy_raw_memory_fragment_size_limit")
+    directory_fd = _open_legacy_raw_directory(prepare_for_write=True)
+    temporary_name = f".legacy-fragment-{secrets.token_hex(16)}.tmp"
+    descriptor: int | None = None
+    temporary_exists = False
+    try:
+        flags = (os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+            | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0))
+        descriptor = os.open(temporary_name, flags, 0o600, dir_fd=directory_fd)
+        temporary_exists = True
+        view = memoryview(payload)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError("short_legacy_raw_memory_write")
+            view = view[written:]
+        os.fsync(descriptor)
+        os.close(descriptor)
+        descriptor = None
+        try:
+            # Create-only publication preserves a concurrently created record.
+            os.link(temporary_name, path.name, src_dir_fd=directory_fd,
+                dst_dir_fd=directory_fd, follow_symlinks=False)
+        except FileExistsError:
+            # Updates replace only a regular, singly-linked owner file.  Rename
+            # is atomic within this held directory and never follows the target.
+            current = os.stat(path.name, dir_fd=directory_fd, follow_symlinks=False)
+            if (not stat.S_ISREG(current.st_mode) or current.st_nlink != 1
+                    or current.st_uid != os.geteuid()):
+                raise PermissionError("legacy_raw_memory_fragment_custody_invalid")
+            os.replace(temporary_name, path.name,
+                src_dir_fd=directory_fd, dst_dir_fd=directory_fd)
+            temporary_exists = False
+        os.fsync(directory_fd)
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        if temporary_exists:
+            try:
+                os.unlink(temporary_name, dir_fd=directory_fd)
+                os.fsync(directory_fd)
+            except FileNotFoundError:
+                pass
+        os.close(directory_fd)
 
 
 def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterable[dict]:
@@ -170,12 +559,11 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
         When ``True`` (default) iterate from newest to oldest.
     """
 
-    files = sorted(RAW_PATH.glob("*.json"), reverse=reverse)
+    files = sorted(_legacy_fragment_paths(), reverse=reverse)
     count = 0
     for fp in files:
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         yield data
         count += 1
@@ -184,62 +572,240 @@ def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterabl
 
 
 def _load_index_records() -> list[dict]:
-    if not VECTOR_INDEX_PATH.exists():
+    payload = _read_legacy_memory_file(VECTOR_INDEX_PATH)
+    if payload is None:
         return []
-    lines = VECTOR_INDEX_PATH.read_text(encoding="utf-8").splitlines()
+    lines = payload.decode("utf-8").splitlines()
     records: list[dict] = []
     for i, line in enumerate(lines):
         if not line.strip():
             continue
+        if i >= 4096:
+            raise MemorySidecarIncompleteError("vector_index_entry_bound_exceeded", i + 1)
         try:
-            records.append(json.loads(line))
+            value = json.loads(line)
         except json.JSONDecodeError as exc:
-            print(f"[VECTOR INDEX WARNING] Skipped malformed line at #{i}: {exc}")
+            raise MemorySidecarIncompleteError("vector_index", i + 1) from exc
+        if not isinstance(value, dict):
+            raise MemorySidecarIncompleteError("vector_index", i + 1)
+        records.append(value)
     return records
 
 
 def _save_index_records(records: Sequence[dict]) -> None:
-    _prepare_write(VECTOR_INDEX_PATH)
+    if len(records) > 4096:
+        raise MemorySidecarIncompleteError("vector_index_entry_bound_exceeded", 0)
     with _INDEX_LOCK:
-        with open(VECTOR_INDEX_PATH, "w", encoding="utf-8") as f:
+        with _open_legacy_memory_text(VECTOR_INDEX_PATH, "w") as f:
             for record in records:
                 f.write(json.dumps(record) + "\n")
 
 
+@contextmanager
+def _vector_index_transaction():
+    from sentientos.platform_fcntl import fcntl, require_flock
+    require_flock()
+    if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        raise PermissionError("vector_index_lock_custody_unsupported")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    descriptor: int | None = None
+    acquired = False
+    try:
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(".vector-index.lock", flags, 0o600, dir_fd=root_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("vector_index_lock_custody_invalid")
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("vector_index_lock_timeout")
+                time.sleep(0.01)
+        yield
+    finally:
+        if descriptor is not None:
+            if acquired:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        os.close(root_fd)
+
+
 def _remove_from_index(fragment_id: str) -> None:
-    records = [rec for rec in _load_index_records() if rec.get("id") != fragment_id]
-    _save_index_records(records)
+    with _INDEX_LOCK, _vector_index_transaction():
+        records = [rec for rec in _load_index_records() if rec.get("id") != fragment_id]
+        _save_index_records(records)
+
+
+@contextmanager
+def _memory_tomb_lock():
+    from sentientos.platform_fcntl import fcntl, require_flock
+    require_flock()
+    if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        raise PermissionError("memory_tomb_lock_custody_unsupported")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    descriptor: int | None = None
+    acquired = False
+    try:
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(".memory-tomb.lock", flags, 0o600, dir_fd=root_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("memory_tomb_lock_custody_invalid")
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("memory_tomb_lock_timeout")
+                time.sleep(0.01)
+        yield
+    finally:
+        if descriptor is not None:
+            if acquired:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        os.close(root_fd)
 
 
 def _append_tomb(entry: Dict) -> None:
-    """Append a purge record to the immutable memory tomb."""
-    payload = entry.copy()
-    payload.pop("hash", None)
-    if os.getenv("TOMB_HASH", "1") != "0":
-        digest = hashlib.sha256(
-            json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
-        ).hexdigest()
-        entry["hash"] = digest
-    _prepare_write(TOMB_PATH)
-    with open(TOMB_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    """Append a digest- and predecessor-bound purge event under single-writer lock."""
+    _authorize_legacy_mutation()
+    with _memory_tomb_lock():
+        current = _read_legacy_memory_file(TOMB_PATH)
+        previous_digest = None
+        if current is not None:
+            # A valid JSON object without its record delimiter is still an
+            # interrupted append; do not concatenate a new event onto it.
+            if current and not current.endswith(b"\n"):
+                raise MemorySidecarIncompleteError("memory_tomb_unterminated", 0)
+            # Refuse to extend a sidecar that cannot be recovered truthfully.
+            list_tomb()
+            prior_lines = [line for line in current.splitlines() if line]
+            if prior_lines:
+                previous_digest = hashlib.sha256(prior_lines[-1]).hexdigest()
+        payload = entry.copy()
+        payload.pop("hash", None)
+        payload["previous_tomb_entry_digest"] = previous_digest
+        if os.getenv("TOMB_HASH", "1") != "0":
+            payload["hash"] = hashlib.sha256(
+                json.dumps({key: value for key, value in payload.items() if key != "hash"},
+                    sort_keys=True, ensure_ascii=False).encode("utf-8")
+            ).hexdigest()
+        with _open_legacy_memory_text(TOMB_PATH, "a") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
+def _collapse_tomb_operations(records: Sequence[Dict]) -> List[Dict]:
+    intents: dict[str, Dict] = {}
+    results: dict[str, str] = {}
+    ordinary: list[Dict] = []
+    for entry in records:
+        event_type = entry.get("event_type")
+        if event_type not in {"purge_intent", "purge_result"}:
+            ordinary.append(entry)
+            continue
+        operation_id = entry.get("operation_id")
+        if not isinstance(operation_id, str) or not operation_id:
+            raise MemorySidecarIncompleteError("memory_tomb_operation_identity", 0)
+        if event_type == "purge_intent":
+            prior = intents.get(operation_id)
+            if prior is not None and prior != entry:
+                raise MemorySidecarIncompleteError("memory_tomb_operation_conflict", 0)
+            intents[operation_id] = entry
+            continue
+        state = entry.get("operation_state")
+        if state not in {"deleted", "not_deleted"}:
+            raise MemorySidecarIncompleteError("memory_tomb_operation_result", 0)
+        prior_state = results.get(operation_id)
+        if prior_state is not None and prior_state != state:
+            raise MemorySidecarIncompleteError("memory_tomb_operation_conflict", 0)
+        results[operation_id] = state
+    if set(results) - set(intents):
+        raise MemorySidecarIncompleteError("memory_tomb_orphan_result", 0)
+    projected: list[Dict] = list(ordinary)
+    for operation_id, intent in intents.items():
+        value = dict(intent)
+        state = results.get(operation_id)
+        if state is not None:
+            value["operation_state"] = state
+            value["recovery_status"] = "result_recorded"
+        else:
+            value["operation_state"] = "incomplete"
+            fragment = intent.get("fragment")
+            fragment_id = fragment.get("id") if isinstance(fragment, dict) else None
+            try:
+                raw = (_read_legacy_raw_fragment(str(fragment_id) + ".json")
+                    if isinstance(fragment_id, str) and fragment_id else None)
+            except (OSError, ValueError):
+                raw = None
+                value["recovery_status"] = "custody_unavailable"
+            if "recovery_status" not in value:
+                if raw is None:
+                    value["recovery_status"] = "delete_outcome_unconfirmed"
+                else:
+                    try:
+                        stored = json.loads(raw.decode("utf-8"))
+                    except (UnicodeError, json.JSONDecodeError):
+                        stored = None
+                    if stored == fragment:
+                        value["recovery_status"] = "interrupted_before_delete"
+                    else:
+                        value["recovery_status"] = "pending_fragment_conflict"
+        projected.append(value)
+    return projected
 
 
 def list_tomb(
     *, tag: str | None = None, reason: str | None = None, date: str | None = None
 ) -> List[Dict]:
     """Return tomb entries filtered by tag, reason, or date."""
-    if not TOMB_PATH.exists():
+    payload = _read_legacy_memory_file(TOMB_PATH)
+    if payload is None:
         return []
     out: List[Dict] = []
-    lines = TOMB_PATH.read_text(encoding="utf-8").splitlines()
-    for line in lines:
+    lines = payload.decode("utf-8").splitlines()
+    raw_lines = payload.splitlines()
+    parsed_records: list[Dict] = []
+    previous_line_digest: str | None = None
+    for line_number, (line, raw_line) in enumerate(zip(lines, raw_lines), 1):
         if not line.strip():
             continue
         try:
             entry = json.loads(line)
-        except Exception:
-            continue
+        except json.JSONDecodeError as exc:
+            raise MemorySidecarIncompleteError("memory_tomb", line_number) from exc
+        if not isinstance(entry, dict):
+            raise MemorySidecarIncompleteError("memory_tomb", line_number)
+        stored_hash = entry.get("hash")
+        if stored_hash is not None:
+            if (not isinstance(stored_hash, str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", stored_hash)):
+                raise MemorySidecarIncompleteError("memory_tomb_digest_invalid", line_number)
+            unhashed = dict(entry)
+            unhashed.pop("hash", None)
+            expected_hash = hashlib.sha256(json.dumps(unhashed, sort_keys=True,
+                ensure_ascii=False).encode("utf-8")).hexdigest()
+            if stored_hash != expected_hash:
+                raise MemorySidecarIncompleteError("memory_tomb_digest_mismatch", line_number)
+        if "previous_tomb_entry_digest" in entry:
+            if entry.get("previous_tomb_entry_digest") != previous_line_digest:
+                raise MemorySidecarIncompleteError("memory_tomb_predecessor_mismatch", line_number)
+        parsed_records.append(entry)
+        if raw_line:
+            previous_line_digest = hashlib.sha256(raw_line).hexdigest()
+    for entry in _collapse_tomb_operations(parsed_records):
         frag = entry.get("fragment", {})
         if tag and tag not in frag.get("tags", []):
             continue
@@ -342,19 +908,24 @@ def append_memory(
         entry["importance"] = _estimate_importance(entry)
     entry["access_count"] = 0
     entry["last_accessed"] = entry["timestamp"]
+    vector = _vectorize(entry["text"])
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        if _load_fragment(fragment_id) is not None:
+            raise MemorySidecarIncompleteError("legacy_raw_fragment_id_collision", 0)
+        _write_fragment(fragment_id, entry)
+        _update_vector_index_locked(entry, vector)
     em.add_emotion(entry["emotions"])
-    _write_fragment(fragment_id, entry)
-    _update_vector_index(entry)
     print(f"[MEMORY] Appended fragment → {fragment_id} | tags={tags} | source={source}")
     return fragment_id
 
 
-def _update_vector_index(entry: Dict):
-    vec = _vectorize(entry["text"])
+def _update_vector_index_locked(entry: Dict, vector: Vector) -> None:
+    """Update derived metadata while the caller holds the cross-process lock."""
     records = [rec for rec in _load_index_records() if rec.get("id") != entry["id"]]
     record = {
         "id": entry["id"],
-        "vector": vec,
+        "vector": vector,
         "snippet": entry["text"][:400],
         "importance": entry.get("importance", 0.3),
         "tags": entry.get("tags", []),
@@ -366,6 +937,12 @@ def _update_vector_index(entry: Dict):
     records.append(record)
     _save_index_records(records)
     print(f"[VECTOR] Index updated for {entry['id']}")
+
+
+def _update_vector_index(entry: Dict) -> None:
+    vector = _vectorize(entry["text"])
+    with _INDEX_LOCK, _vector_index_transaction():
+        _update_vector_index_locked(entry, vector)
 
 
 def _bag_of_words(text: str) -> Dict[str, int]:
@@ -411,38 +988,173 @@ def _load_index() -> List[Dict]:
     return list(_load_index_records())
 
 
+@contextmanager
+def _observation_log_lock():
+    """Serialize one observation fragment/log publication across processes."""
+    from sentientos.platform_fcntl import fcntl, require_flock
+    require_flock()
+    if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        raise PermissionError("observation_lock_custody_unsupported")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    descriptor: int | None = None
+    acquired = False
+    try:
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(".observation-summary.lock", flags, 0o600, dir_fd=root_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("observation_lock_custody_invalid")
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("observation_lock_timeout")
+                time.sleep(0.01)
+        yield
+    finally:
+        if descriptor is not None:
+            if acquired:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        os.close(root_fd)
+
+
+def _observation_digest(value: Mapping[str, Any]) -> str:
+    raw = json.dumps(dict(value), sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 def _load_observation_records() -> List[Dict[str, Any]]:
-    if not OBSERVATION_LOG_PATH.exists():
+    payload = _read_legacy_memory_file(OBSERVATION_LOG_PATH)
+    if payload is None:
         return []
     records: List[Dict[str, Any]] = []
-    with open(OBSERVATION_LOG_PATH, "r", encoding="utf-8") as handle:
-        for line in handle:
-            if not line.strip():
+    identities: dict[str, Dict[str, Any]] = {}
+    for line_number, line in enumerate(payload.decode("utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise MemorySidecarIncompleteError("perception_observations", line_number) from exc
+        if not isinstance(value, dict):
+            raise MemorySidecarIncompleteError("perception_observations", line_number)
+        stored_digest = value.get("observation_record_digest")
+        if stored_digest is not None:
+            unhashed = dict(value)
+            unhashed.pop("observation_record_digest", None)
+            if (not isinstance(stored_digest, str)
+                    or stored_digest != _observation_digest(unhashed)):
+                raise MemorySidecarIncompleteError("perception_observation_digest_mismatch", line_number)
+        identity = value.get("observation_id")
+        if isinstance(identity, str) and identity:
+            prior = identities.get(identity)
+            if prior is not None:
+                if prior != value:
+                    raise MemorySidecarIncompleteError("perception_observation_identity_conflict", line_number)
                 continue
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+            identities[identity] = value
+        records.append(value)
     return records
 
 
+def _observation_fragment_link_status(record: Mapping[str, Any]) -> str:
+    fragment_id = record.get("fragment_id")
+    if not isinstance(fragment_id, str) or not fragment_id:
+        return "missing_identity"
+    try:
+        raw = _read_legacy_raw_fragment(fragment_id + ".json")
+    except (OSError, ValueError):
+        return "custody_unavailable"
+    if raw is None:
+        return "missing_fragment"
+    try:
+        fragment = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError):
+        return "malformed_fragment"
+    if not isinstance(fragment, dict) or fragment.get("id") != fragment_id:
+        return "identity_conflict"
+    if fragment.get("text") != record.get("summary"):
+        return "payload_conflict"
+    meta = fragment.get("meta")
+    if not isinstance(meta, dict):
+        return "lineage_missing"
+    stored_record = meta.get("observation_record")
+    if stored_record is not None:
+        return "verified" if stored_record == dict(record) else "lineage_conflict"
+    historical = meta.get("observation")
+    if (isinstance(historical, dict)
+            and historical.get("observation_id") == record.get("observation_id")
+            and historical.get("timestamp") == record.get("timestamp")):
+        return "historical_identity_verified"
+    return "lineage_missing"
+
+
+def _observation_index_link_status(record: Mapping[str, Any],
+                                   index_records: Sequence[Mapping[str, Any]]) -> str:
+    fragment_id = record.get("fragment_id")
+    if not isinstance(fragment_id, str) or not fragment_id:
+        return "missing_identity"
+    matches = [entry for entry in index_records if entry.get("id") == fragment_id]
+    if not matches:
+        return "missing_index_entry"
+    if len(matches) != 1:
+        return "duplicate_index_identity"
+    entry = matches[0]
+    if (entry.get("snippet") != str(record.get("summary", ""))[:400]
+            or entry.get("tags") != record.get("tags", ["observation", "perception"])):
+        return "index_payload_conflict"
+    return "identity_and_excerpt_match"
+
+
+def _validate_jsonl_append_target(path: Path, sidecar: str) -> None:
+    """Refuse to append after malformed or unterminated owner history."""
+    payload = _read_legacy_memory_file(path)
+    if payload is None or not payload:
+        return
+    if not payload.endswith(b"\n"):
+        raise MemorySidecarIncompleteError(f"{sidecar}_unterminated", 0)
+    try:
+        lines = payload.decode("utf-8").splitlines()
+    except UnicodeError as exc:
+        raise MemorySidecarIncompleteError(f"{sidecar}_encoding", 0) from exc
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise MemorySidecarIncompleteError(sidecar, line_number) from exc
+        if not isinstance(value, dict):
+            raise MemorySidecarIncompleteError(sidecar, line_number)
+
+
 def _write_observation_record(record: Mapping[str, Any]) -> None:
-    _prepare_write(OBSERVATION_LOG_PATH)
-    with open(OBSERVATION_LOG_PATH, "a", encoding="utf-8") as handle:
+    _validate_jsonl_append_target(OBSERVATION_LOG_PATH, "perception_observations")
+    with _open_legacy_memory_text(OBSERVATION_LOG_PATH, "a") as handle:
         handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def _rewrite_observation_records(records: Sequence[Mapping[str, Any]]) -> None:
-    _prepare_write(OBSERVATION_LOG_PATH)
-    with open(OBSERVATION_LOG_PATH, "w", encoding="utf-8") as handle:
+    with _open_legacy_memory_text(OBSERVATION_LOG_PATH, "w") as handle:
         for record in records:
             handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def _append_jsonl(path: Path, record: Mapping[str, Any]) -> None:
-    _prepare_write(path)
-    with open(path, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
+    """Append one bounded owner record under shared cross-process sidecar custody."""
+    _authorize_legacy_mutation()
+    with _observation_log_lock():
+        _validate_jsonl_append_target(path, path.name)
+        with _open_legacy_memory_text(path, "a") as handle:
+            handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
 def _parse_observation_timestamp(value: str | None) -> datetime.datetime:
@@ -457,46 +1169,139 @@ def _parse_observation_timestamp(value: str | None) -> datetime.datetime:
         return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
 
 
-@_legacy_mutation_operation
-def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
-    """Persist a perception observation summary with novelty scoring."""
-
+def _store_observation_summary_unlocked(summary: Mapping[str, Any]) -> Dict[str, Any]:
+    """Persist one source-timestamped observation idempotently across interruption."""
     summary_text = str(summary.get("summary") or summary.get("text") or "").strip()
     if not summary_text:
         raise ValueError("Observation summary text is required")
-    timestamp = str(summary.get("timestamp") or datetime.datetime.utcnow().isoformat())
-    embedding = _embedding(summary_text)
+    supplied_timestamp = summary.get("timestamp")
+    timestamp = str(supplied_timestamp or datetime.datetime.utcnow().isoformat())
+    source_payload = dict(summary)
+    source_payload["timestamp"] = timestamp
+    source_payload["summary"] = summary_text
+    source_digest = _observation_digest(source_payload)
+    observation_id = _hash(summary_text + timestamp)
+    fragment_id = "observation-" + observation_id
+    if os.getenv("INCOGNITO") == "1":
+        return {"summary": summary_text, "timestamp": timestamp,
+            "observation_id": observation_id, "fragment_id": None,
+            "event_time_status": ("source_timestamp_supplied" if supplied_timestamp
+                else "timestamp_generated_at_ingestion"),
+            "persistence_status": "incognito_not_persisted"}
+
     previous = _load_observation_records()
-    similarities = [
-        _cosine(embedding, rec.get("embedding", []))
-        for rec in previous
-        if isinstance(rec.get("embedding"), list)
-    ]
-    novelty = max(0.0, min(1.0, 1.0 - (max(similarities) if similarities else 0.0)))
-    record: Dict[str, Any] = dict(summary)
-    record["timestamp"] = timestamp
-    record["summary"] = summary_text
-    record.setdefault("objects", [])
-    record.setdefault("novel_objects", [])
-    record.setdefault("transcripts", [])
-    record.setdefault("screen", [])
-    record.setdefault("emotions", {})
-    record.setdefault("source_events", 0)
-    record["novelty"] = novelty
-    record["embedding"] = embedding
-    record["observation_id"] = _hash(summary_text + timestamp)
-    meta_payload = {k: v for k, v in record.items() if k not in {"embedding"}}
-    fragment_id = append_memory(
-        summary_text,
-        tags=list(summary.get("tags", ["observation", "perception"])),
-        source=str(summary.get("source", "perception_reasoner")),
-        emotions=record.get("emotions"),
-        meta={"observation": meta_payload},
-    )
-    record["fragment_id"] = fragment_id
+    prior_records = [record for record in previous
+        if record.get("observation_id") == observation_id]
+    if len(prior_records) > 1:
+        raise MemorySidecarIncompleteError("perception_observation_identity_conflict", 0)
+    if prior_records:
+        prior = prior_records[0]
+        prior_source_digest = prior.get("observation_source_digest")
+        if (prior.get("summary") != summary_text or prior.get("timestamp") != timestamp
+                or (prior_source_digest is not None and prior_source_digest != source_digest)):
+            raise MemorySidecarIncompleteError("perception_observation_identity_conflict", 0)
+        prior_fragment_id = prior.get("fragment_id")
+        if not isinstance(prior_fragment_id, str) or not prior_fragment_id:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_link_missing", 0)
+        raw_fragment = _read_legacy_raw_fragment(prior_fragment_id + ".json")
+        if raw_fragment is None:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_missing", 0)
+        try:
+            stored_fragment = json.loads(raw_fragment.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_malformed", 0) from exc
+        meta = stored_fragment.get("meta") if isinstance(stored_fragment, dict) else None
+        stored_observation = meta.get("observation_record") if isinstance(meta, dict) else None
+        legacy_observation = meta.get("observation") if isinstance(meta, dict) else None
+        if stored_observation is not None and stored_observation != prior:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_conflict", 0)
+        if stored_observation is None and (
+                not isinstance(legacy_observation, dict)
+                or legacy_observation.get("observation_id") != observation_id
+                or legacy_observation.get("timestamp") != timestamp):
+            raise MemorySidecarIncompleteError("perception_observation_fragment_conflict", 0)
+        if (not isinstance(stored_fragment, dict)
+                or stored_fragment.get("id") != prior_fragment_id
+                or stored_fragment.get("text") != summary_text):
+            raise MemorySidecarIncompleteError("perception_observation_fragment_conflict", 0)
+        return prior
+
+    raw_existing = _read_legacy_raw_fragment(fragment_id + ".json")
+    if raw_existing is not None:
+        try:
+            existing_fragment = json.loads(raw_existing.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise MemorySidecarIncompleteError("perception_observation_fragment_malformed", 0) from exc
+        existing_meta = existing_fragment.get("meta") if isinstance(existing_fragment, dict) else None
+        existing_record = (existing_meta.get("observation_record")
+            if isinstance(existing_meta, dict) else None)
+        if (not isinstance(existing_record, dict)
+                or existing_record.get("observation_source_digest") != source_digest
+                or existing_record.get("observation_id") != observation_id
+                or existing_record.get("fragment_id") != fragment_id):
+            raise MemorySidecarIncompleteError("perception_observation_fragment_conflict", 0)
+        stored_digest = existing_record.get("observation_record_digest")
+        unhashed = dict(existing_record)
+        unhashed.pop("observation_record_digest", None)
+        if stored_digest != _observation_digest(unhashed):
+            raise MemorySidecarIncompleteError("perception_observation_fragment_digest_mismatch", 0)
+        record = existing_record
+        fragment = existing_fragment
+    else:
+        embedding = _embedding(summary_text)
+        similarities = [
+            _cosine(embedding, rec.get("embedding", []))
+            for rec in previous if isinstance(rec.get("embedding"), list)
+        ]
+        novelty = max(0.0, min(1.0, 1.0 - (max(similarities) if similarities else 0.0)))
+        record: Dict[str, Any] = dict(source_payload)
+        record.setdefault("objects", [])
+        record.setdefault("novel_objects", [])
+        record.setdefault("transcripts", [])
+        record.setdefault("screen", [])
+        record.setdefault("emotions", {})
+        record.setdefault("source_events", 0)
+        record["novelty"] = novelty
+        record["embedding"] = embedding
+        record["observation_id"] = observation_id
+        record["fragment_id"] = fragment_id
+        record["observation_source_digest"] = source_digest
+        record["event_time_status"] = ("source_timestamp_supplied" if supplied_timestamp
+            else "timestamp_generated_at_ingestion")
+        record["observation_record_digest"] = _observation_digest(record)
+        tags = list(record.get("tags", ["observation", "perception"]))
+        emotions = record.get("emotions") or empty_emotion_vector()
+        meta_payload = {key: value for key, value in record.items() if key != "embedding"}
+        fragment = {
+            "id": fragment_id, "timestamp": timestamp, "tags": tags,
+            "source": str(record.get("source", "perception_reasoner")),
+            "text": summary_text, "emotions": emotions,
+            "emotion_features": dict(record.get("emotion_features") or {}),
+            "emotion_breakdown": dict(record.get("emotion_breakdown") or {}),
+            "meta": {"observation": meta_payload, "observation_record": record},
+        }
+        fragment["importance"] = _estimate_importance(fragment)
+        fragment["access_count"] = 0
+        fragment["last_accessed"] = timestamp
+        
+    vector = _vectorize(fragment["text"])
+    _write_fragment(fragment_id, fragment)
+    _update_vector_index_locked(fragment, vector)
     _write_observation_record(record)
+    emotions_to_add = record.get("emotions")
+    if isinstance(emotions_to_add, dict):
+        em.add_emotion(emotions_to_add)
     return record
 
+
+@_legacy_mutation_operation
+def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
+    if os.getenv("INCOGNITO") == "1":
+        return _store_observation_summary_unlocked(summary)
+    _authorize_legacy_mutation()
+    with _observation_log_lock():
+        with _INDEX_LOCK, _vector_index_transaction():
+            return _store_observation_summary_unlocked(summary)
 
 @_legacy_mutation_operation
 def store_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
@@ -567,44 +1372,58 @@ def recent_observations(
     if limit > 0:
         records = records[-int(limit) :]
     records = list(reversed(records))
-    if include_embeddings:
-        return records
+    try:
+        index_records = _load_index_records()
+        index_status = "available"
+    except (MemorySidecarIncompleteError, PermissionError):
+        index_records = []
+        index_status = "incomplete_or_unavailable"
     sanitized: List[Dict[str, Any]] = []
     for rec in records:
-        clean = {k: v for k, v in rec.items() if k != "embedding"}
+        clean = dict(rec) if include_embeddings else {
+            k: v for k, v in rec.items() if k != "embedding"}
+        fragment_status = _observation_fragment_link_status(rec)
+        clean["fragment_link_status"] = fragment_status
+        clean["vector_index_link_status"] = (
+            _observation_index_link_status(rec, index_records)
+            if index_status == "available" else index_status)
+        clean["evidence_custody_status"] = (
+            "verified" if fragment_status in {"verified", "historical_identity_verified"}
+            else "incomplete")
         sanitized.append(clean)
     return sanitized
 
 
 @_legacy_mutation_operation
 def update_novelty_score(observation_id: str, delta: float) -> bool:
-    """Adjust the novelty score for an observation by ``delta``."""
+    """Adjust a novelty annotation with digest-bound sidecar publication."""
 
-    records = _load_observation_records()
-    updated = False
-    for record in records:
-        if record.get("observation_id") != observation_id:
-            continue
-        novelty = float(record.get("novelty", 0.0)) + float(delta)
-        record["novelty"] = max(0.0, min(1.0, novelty))
-        history = record.setdefault("novelty_history", [])
-        history.append(
-            {
+    _authorize_legacy_mutation()
+    with _observation_log_lock():
+        records = _load_observation_records()
+        updated = False
+        for record in records:
+            if record.get("observation_id") != observation_id:
+                continue
+            novelty = float(record.get("novelty", 0.0)) + float(delta)
+            record["novelty"] = max(0.0, min(1.0, novelty))
+            history = record.setdefault("novelty_history", [])
+            history.append({
                 "delta": float(delta),
                 "timestamp": datetime.datetime.utcnow().isoformat(),
-            }
-        )
-        updated = True
-        break
-    if updated:
-        _rewrite_observation_records(records)
-    return updated
+            })
+            record.pop("observation_record_digest", None)
+            record["observation_record_digest"] = _observation_digest(record)
+            updated = True
+            break
+        if updated:
+            _rewrite_observation_records(records)
+        return updated
 
 
 @_legacy_mutation_operation
 def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
-    """Persist a curiosity/reflexion insight and link it to observations."""
-
+    """Persist one idempotent reflection and bind it to its raw fragment."""
     summary = str(reflection.get("insight_summary") or "").strip()
     if not summary:
         raise ValueError("Reflection insight summary required")
@@ -613,55 +1432,151 @@ def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
     record["timestamp"] = timestamp
     record.setdefault("goal_id", None)
     record.setdefault("observation_id", None)
-    reflection_id = record.get("reflection_id") or _hash(summary + timestamp)
+    supplied_identity = record.get("reflection_id")
+    reflection_id = str(supplied_identity) if supplied_identity else _hash(summary + timestamp)
+    if not reflection_id or len(reflection_id) > 256:
+        raise ValueError("Reflection identity is invalid")
     record["reflection_id"] = reflection_id
-    _prepare_write(CURIOSITY_REFLECTIONS_PATH)
-    with open(CURIOSITY_REFLECTIONS_PATH, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
-    fragment_id = append_memory(
-        summary,
-        tags=["reflection", "curiosity"],
-        source="curiosity_executor",
-        meta={"curiosity_reflection": record},
-    )
+    fragment_id = "reflection-" + _hash(reflection_id)
     record["fragment_id"] = fragment_id
-    observation_id = record.get("observation_id")
+    record.pop("reflection_record_digest", None)
+    record["reflection_record_digest"] = _observation_digest(record)
+
+    if os.getenv("INCOGNITO") == "1":
+        result = dict(record)
+        result["fragment_id"] = None
+        result.pop("reflection_record_digest", None)
+        result["persistence_status"] = "incognito_not_persisted"
+        return result
+
+    fragment = {
+        "id": fragment_id,
+        "timestamp": timestamp,
+        "tags": ["reflection", "curiosity"],
+        "source": "curiosity_executor",
+        "text": summary,
+        "emotions": empty_emotion_vector(),
+        "emotion_features": {},
+        "emotion_breakdown": {},
+        "meta": {"curiosity_reflection": record},
+    }
+    fragment["importance"] = _estimate_importance(fragment)
+    fragment["access_count"] = 0
+    fragment["last_accessed"] = timestamp
+    vector = _vectorize(summary)
+
+    _authorize_legacy_mutation()
+    created = False
+    with _INDEX_LOCK, _vector_index_transaction():
+        prior_records = [
+            item for item in iter_curiosity_reflections()
+            if item.get("reflection_id") == reflection_id
+        ]
+        if len(prior_records) > 1:
+            raise MemorySidecarIncompleteError("curiosity_reflection_identity_conflict", 0)
+        if prior_records:
+            prior = prior_records[0]
+            if prior.get("reflection_record_digest") is not None:
+                unhashed = dict(prior)
+                stored_digest = unhashed.pop("reflection_record_digest")
+                if stored_digest != _observation_digest(unhashed):
+                    raise MemorySidecarIncompleteError(
+                        "curiosity_reflection_digest_mismatch", 0)
+            if prior != record:
+                raise MemorySidecarIncompleteError(
+                    "curiosity_reflection_replay_conflict", 0)
+            stored_fragment = _load_fragment(fragment_id)
+            if stored_fragment is None:
+                raise MemorySidecarIncompleteError(
+                    "curiosity_reflection_fragment_missing", 0)
+            meta = stored_fragment.get("meta")
+            if (stored_fragment.get("text") != summary
+                    or not isinstance(meta, dict)
+                    or meta.get("curiosity_reflection") != prior):
+                raise MemorySidecarIncompleteError(
+                    "curiosity_reflection_fragment_conflict", 0)
+            _update_vector_index_locked(stored_fragment, vector)
+            persisted = prior
+        else:
+            stored_fragment = _load_fragment(fragment_id)
+            if stored_fragment is not None:
+                meta = stored_fragment.get("meta")
+                if (stored_fragment != fragment or stored_fragment.get("text") != summary
+                        or not isinstance(meta, dict)
+                        or meta.get("curiosity_reflection") != record):
+                    raise MemorySidecarIncompleteError(
+                        "curiosity_reflection_orphan_conflict", 0)
+            else:
+                _write_fragment(fragment_id, fragment)
+            _update_vector_index_locked(fragment, vector)
+            _validate_jsonl_append_target(
+                CURIOSITY_REFLECTIONS_PATH, "curiosity_reflections")
+            with _open_legacy_memory_text(CURIOSITY_REFLECTIONS_PATH, "a") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+            persisted = record
+            created = True
+
+    if created:
+        em.add_emotion(fragment["emotions"])
+    observation_id = persisted.get("observation_id")
     if observation_id:
-        obs_records = _load_observation_records()
-        changed = False
-        for obs in obs_records:
-            if obs.get("observation_id") == observation_id:
+        _authorize_legacy_mutation()
+        with _observation_log_lock():
+            obs_records = _load_observation_records()
+            changed = False
+            for obs in obs_records:
+                if obs.get("observation_id") != observation_id:
+                    continue
                 reflections = obs.setdefault("reflections", [])
-                reflections.append(
-                    {
-                        "reflection_id": reflection_id,
-                        "summary": summary,
-                        "timestamp": timestamp,
-                    }
-                )
-                changed = True
+                link = {
+                    "reflection_id": reflection_id,
+                    "summary": summary,
+                    "timestamp": timestamp,
+                }
+                existing = [item for item in reflections
+                    if isinstance(item, dict)
+                    and item.get("reflection_id") == reflection_id]
+                if existing and any(item != link for item in existing):
+                    raise MemorySidecarIncompleteError(
+                        "perception_reflection_link_conflict", 0)
+                if not existing:
+                    reflections.append(link)
+                    obs.pop("observation_record_digest", None)
+                    obs["observation_record_digest"] = _observation_digest(obs)
+                    changed = True
                 break
-        if changed:
-            _rewrite_observation_records(obs_records)
-    return record
+            if changed:
+                _rewrite_observation_records(obs_records)
+    return dict(persisted)
 
 
 def iter_curiosity_reflections(limit: int | None = None) -> List[Dict[str, Any]]:
-    if not CURIOSITY_REFLECTIONS_PATH.exists():
+    payload = _read_legacy_memory_file(CURIOSITY_REFLECTIONS_PATH)
+    if payload is None:
         return []
-    with open(CURIOSITY_REFLECTIONS_PATH, "r", encoding="utf-8") as handle:
-        lines = handle.readlines()
+    lines = payload.decode("utf-8").splitlines()
     entries: List[Dict[str, Any]] = []
-    for line in reversed(lines):
+    parsed: list[dict[str, Any]] = []
+    for line_number, line in enumerate(lines, 1):
         if not line.strip():
             continue
         try:
-            entries.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-        if limit is not None and len(entries) >= limit:
-            break
-    return list(reversed(entries))
+            value = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise MemorySidecarIncompleteError("curiosity_reflections", line_number) from exc
+        if not isinstance(value, dict):
+            raise MemorySidecarIncompleteError("curiosity_reflections", line_number)
+        stored_digest = value.get("reflection_record_digest")
+        if stored_digest is not None:
+            unhashed = dict(value)
+            unhashed.pop("reflection_record_digest", None)
+            if stored_digest != _observation_digest(unhashed):
+                raise MemorySidecarIncompleteError(
+                    "curiosity_reflection_digest_mismatch", line_number)
+        parsed.append(value)
+    if limit is not None:
+        parsed = parsed[-max(0, limit):] if limit else []
+    return parsed
 
 
 def summarise_daily_insights(date: str | None = None) -> Dict[str, Any]:
@@ -720,8 +1635,122 @@ def is_reflection_loop(snippet: str) -> bool:
     return any(p in lowered for p in REFLECTION_PHRASES)
 
 
-def get_context(query: str, k: int = 6) -> List[str]:
+def _reconcile_vector_index_unlocked(
+) -> tuple[list[dict], dict[str, dict], int, int, int]:
+    """Reconcile derived retrieval rows from bounded owner raw fragments."""
     index = _load_index_records()
+    index_by_id: dict[str, dict] = {}
+    for row in index:
+        fragment_id = row.get("id")
+        if not isinstance(fragment_id, str) or not fragment_id:
+            raise MemorySidecarIncompleteError("vector_index_identity_missing", 0)
+        if fragment_id in index_by_id:
+            raise MemorySidecarIncompleteError("vector_index_identity_conflict", 0)
+        index_by_id[fragment_id] = row
+
+    purged_ids: set[str] = set()
+    pending_ids: set[str] = set()
+    for entry in list_tomb():
+        fragment = entry.get("fragment")
+        fragment_id = fragment.get("id") if isinstance(fragment, dict) else None
+        if not isinstance(fragment_id, str) or not fragment_id:
+            continue
+        state = entry.get("operation_state")
+        if state == "incomplete":
+            pending_ids.add(fragment_id)
+        elif state == "deleted" or not entry.get("event_type"):
+            purged_ids.add(fragment_id)
+
+    raw_fragments: dict[str, dict] = {}
+    for path in _legacy_fragment_paths():
+        fragment = _load_fragment(path.stem)
+        if fragment is None:
+            raise MemorySidecarIncompleteError("legacy_raw_fragment_disappeared", 0)
+        fragment_id = fragment["id"]
+        if fragment_id in raw_fragments:
+            raise MemorySidecarIncompleteError("legacy_raw_fragment_identity_conflict", 0)
+        if fragment_id in purged_ids:
+            raise MemorySidecarIncompleteError("purged_fragment_reappeared", 0)
+        raw_fragments[fragment_id] = fragment
+
+    reconciled: list[dict] = []
+    sources: dict[str, dict] = {}
+    added = 0
+    removed = 0
+    changed = False
+    for fragment_id, source in raw_fragments.items():
+        if fragment_id in pending_ids:
+            if fragment_id in index_by_id:
+                removed += 1
+                changed = True
+            continue
+        source_text = source.get("text")
+        if not isinstance(source_text, str):
+            raise MemorySidecarIncompleteError("legacy_raw_fragment_text_invalid", 0)
+        row = index_by_id.pop(fragment_id, None)
+        if row is None:
+            row = {
+                "id": fragment_id,
+                "vector": _vectorize(source_text),
+                "snippet": source_text[:400],
+                "importance": source.get("importance", 0.3),
+                "tags": source.get("tags", []),
+                "last_accessed": source.get("last_accessed"),
+                "access_count": source.get("access_count", 0),
+                "category": source.get("category"),
+                "summary": source.get("summary"),
+            }
+            added += 1
+            changed = True
+        else:
+            if row.get("snippet") != source_text[:400]:
+                raise MemorySidecarIncompleteError("vector_index_fragment_payload_conflict", 0)
+            if "tags" in row and row.get("tags") != source.get("tags", []):
+                raise MemorySidecarIncompleteError("vector_index_fragment_tags_conflict", 0)
+            for key, default in (
+                ("importance", 0.3), ("access_count", 0),
+                ("last_accessed", None), ("tags", []),
+                ("category", None), ("summary", None),
+            ):
+                value = source.get(key, default)
+                if row.get(key, default) != value:
+                    row[key] = value
+                    changed = True
+        reconciled.append(row)
+        sources[fragment_id] = source
+
+    for fragment_id in index_by_id:
+        if fragment_id in purged_ids or fragment_id in pending_ids:
+            removed += 1
+            changed = True
+            continue
+        raise MemorySidecarIncompleteError("vector_index_fragment_missing", 0)
+
+    if len(reconciled) > 4096:
+        raise MemorySidecarIncompleteError("vector_index_entry_bound_exceeded", 0)
+    if changed:
+        _save_index_records(reconciled)
+    return reconciled, sources, added, removed, len(pending_ids)
+
+
+def reconcile_vector_index() -> dict[str, int | str]:
+    """Reconstruct derived vector metadata from authorized raw memory custody."""
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        _index, _sources, added, removed, pending = _reconcile_vector_index_unlocked()
+    status = "reconciled" if pending == 0 else "reconciled_with_pending_purge"
+    return {
+        "status": status,
+        "entries_added": added,
+        "entries_removed": removed,
+        "pending_purge_identities": pending,
+    }
+
+
+def _get_context_unlocked(query: str, k: int = 6) -> List[str]:
+    index, source_fragments, _added, _removed, _pending = (
+        _reconcile_vector_index_unlocked()
+    )
     q_vec = _vectorize(query)
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     scored: List[tuple[float, dict]] = []
@@ -744,39 +1773,48 @@ def get_context(query: str, k: int = 6) -> List[str]:
     if not top_rows:
         return []
 
-    updated_records = index.copy()
     snippets: List[str] = []
     seen: set[str] = set()
     for row in top_rows:
         frag_id = row.get("id")
-        if not frag_id or frag_id in seen:
+        if not isinstance(frag_id, str) or not frag_id or frag_id in seen:
             continue
         seen.add(frag_id)
-        snippets.append(row.get("snippet", ""))
-        row["access_count"] = int(row.get("access_count", 0)) + 1
-        row["last_accessed"] = now.isoformat()
-        _touch_fragment(frag_id, accessed_at=now)
+        source = source_fragments[frag_id]
+        accessed_count = int(source.get("access_count", 0)) + 1
+        accessed_at = now.isoformat()
+        source["access_count"] = accessed_count
+        source["last_accessed"] = accessed_at
+        row["access_count"] = accessed_count
+        row["last_accessed"] = accessed_at
+        _write_fragment(frag_id, source)
+        snippets.append(str(source.get("text", ""))[:400])
 
-    if updated_records:
-        _save_index_records(updated_records)
+    if index:
+        _save_index_records(index)
 
-    return [s for s in snippets if s][:k]
+    return [snippet for snippet in snippets if snippet][:k]
 
+
+
+def get_context(query: str, k: int = 6) -> List[str]:
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        return _get_context_unlocked(query, k)
 
 def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
     """Return recent memory fragments matching all ``tags``.
 
     Results are ordered from newest to oldest and truncated to ``limit``.
     """
-    files = list(RAW_PATH.glob("*.json"))
+    files = list(_legacy_fragment_paths())
     entries = []
     for fp in files:
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-            ts = data.get("timestamp")
-            entries.append((ts, data))
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
+        ts = data.get("timestamp")
+        entries.append((ts, data))
     entries.sort(key=lambda x: x[0] or "", reverse=True)
     results: list[dict] = []
     wanted = set(tags)
@@ -794,8 +1832,7 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
 write_mem = append_memory
 
 
-@_legacy_mutation_operation
-def purge_memory(
+def _purge_memory_unlocked(
     max_age_days: Optional[int] = None,
     max_files: Optional[int] = None,
     *,
@@ -806,49 +1843,179 @@ def purge_memory(
 
     Purged fragments are archived in the memory tomb.
     """
-    files = list(RAW_PATH.glob("*.json"))
+    # Validate the derived index before any deletion.  The caller holds the
+    # shared index transaction across this complete raw/index mutation.
+    index_records = _load_index_records()
+    removed_ids: set[str] = set()
+    tomb_records = list_tomb()
+    pending_purge_ids = {
+        str(fragment.get("id"))
+        for record in tomb_records
+        if record.get("operation_state") == "incomplete"
+        and isinstance((fragment := record.get("fragment")), dict)
+        and fragment.get("id")
+    }
+    files = list(_legacy_fragment_paths())
     entries: List[tuple[datetime.datetime, Path, dict]] = []
     for f in files:
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            ts = _parse_ts(data.get("timestamp")).astimezone(timezone.utc)
-            entries.append((ts, f, data))
-        except Exception:
+        data = _load_fragment(f.stem)
+        if data is None:
             continue
+        ts = _parse_ts(data.get("timestamp")).astimezone(timezone.utc)
+        entries.append((ts, f, data))
     entries.sort(key=lambda x: x[0])
 
     now = datetime.datetime.utcnow()
     removed = 0
+    removed_names: set[str] = set()
     if max_age_days is not None:
         cutoff = now - datetime.timedelta(days=max_age_days)
         for ts, fp, data in entries:
-            if ts < cutoff:
-                _append_tomb({
-                    "fragment": data,
-                    "requestor": requestor,
-                    "time": datetime.datetime.utcnow().isoformat(),
-                    "reason": reason,
-                })
-                _authorize_legacy_mutation()
-                fp.unlink(missing_ok=True)
-                _remove_from_index(data.get("id", ""))
-                removed += 1
+            if ts < cutoff and str(data.get("id", "")) not in pending_purge_ids:
+                operation_id = "purge-" + secrets.token_hex(16)
+                _append_tomb({"event_type": "purge_intent", "operation_id": operation_id,
+                    "fragment": data, "requestor": requestor,
+                    "time": datetime.datetime.utcnow().isoformat(), "reason": reason})
+                deleted = _unlink_legacy_raw_fragment(fp.stem)
+                _append_tomb({"event_type": "purge_result", "operation_id": operation_id,
+                    "operation_state": "deleted" if deleted else "not_deleted",
+                    "time": datetime.datetime.utcnow().isoformat()})
+                if deleted:
+                    removed_names.add(fp.name)
+                    removed_ids.add(str(data.get("id", "")))
+                    removed += 1
     if max_files is not None and len(entries) - removed > max_files:
-        remaining = [e for e in entries if e[1].exists()]
+        remaining = [e for e in entries if e[1].name not in removed_names]
         excess = len(remaining) - max_files
-        for ts, fp, data in remaining[:excess]:
-            _append_tomb({
-                "fragment": data,
-                "requestor": requestor,
-                "time": datetime.datetime.utcnow().isoformat(),
-                "reason": reason,
-            })
-            _authorize_legacy_mutation()
-            fp.unlink(missing_ok=True)
-            _remove_from_index(data.get("id", ""))
-            removed += 1
+        candidates = [e for e in remaining
+            if str(e[2].get("id", "")) not in pending_purge_ids]
+        for ts, fp, data in candidates[:excess]:
+            operation_id = "purge-" + secrets.token_hex(16)
+            _append_tomb({"event_type": "purge_intent", "operation_id": operation_id,
+                "fragment": data, "requestor": requestor,
+                "time": datetime.datetime.utcnow().isoformat(), "reason": reason})
+            deleted = _unlink_legacy_raw_fragment(fp.stem)
+            _append_tomb({"event_type": "purge_result", "operation_id": operation_id,
+                "operation_state": "deleted" if deleted else "not_deleted",
+                "time": datetime.datetime.utcnow().isoformat()})
+            if deleted:
+                removed_names.add(fp.name)
+                removed_ids.add(str(data.get("id", "")))
+                removed += 1
+    if removed_ids:
+        _save_index_records([
+            record for record in index_records
+            if str(record.get("id", "")) not in removed_ids
+        ])
     if removed:
         print(f"[PURGE] Removed {removed} old memory fragments")
+
+@_legacy_mutation_operation
+def purge_memory(
+    max_age_days: Optional[int] = None,
+    max_files: Optional[int] = None,
+    *,
+    requestor: str = "system",
+    reason: str = "",
+) -> None:
+    """Purge memory under the same cross-process lock as index consumers."""
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        _purge_memory_unlocked(
+            max_age_days=max_age_days, max_files=max_files,
+            requestor=requestor, reason=reason,
+        )
+        _summarize_memory_unlocked()
+
+
+
+def _derived_summary_filename(kind: str, label: str, suffix: str) -> str:
+    """Map untrusted summary labels to bounded, flat, deterministic filenames."""
+    if (kind not in {"day", "topic", "session", "turn"}
+            or suffix not in {".txt", ".md", ".json"}
+            or not isinstance(label, str) or not label):
+        raise ValueError("derived_memory_summary_identity_invalid")
+    try:
+        encoded = label.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("derived_memory_summary_identity_invalid") from exc
+    if len(encoded) > 4096:
+        raise ValueError("derived_memory_summary_identity_exceeds_bound")
+    identity = kind.encode("ascii") + b":" + encoded
+    return hashlib.sha256(identity).hexdigest() + suffix
+
+def _prune_legacy_summary_files(
+    directory: Path, *, suffix: str, keep_names: set[str]
+) -> None:
+    """Remove stale generated projections beneath one dedicated summary directory."""
+    if os.name != "posix":
+        raise PermissionError("legacy_memory_summary_pruning_unsupported_platform")
+    if (suffix not in {".txt", ".md", ".json"}
+            or directory.parent != MEMORY_DIR
+            or directory.name not in {"distilled", "topics", "turns", "sessions"}
+            or len(keep_names) > 4096
+            or any(not isinstance(name, str) or "/" in name or "\\" in name
+                   for name in keep_names)):
+        raise PermissionError("legacy_memory_summary_pruning_scope_invalid")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    directory_fd: int | None = None
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    try:
+        try:
+            directory_fd = os.open(directory.name, directory_flags, dir_fd=root_fd)
+        except FileNotFoundError:
+            return
+        metadata = os.fstat(directory_fd)
+        if (not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("legacy_memory_summary_directory_custody_invalid")
+        count = [0]
+
+        def prune(current_fd: int, prefix: str, depth: int) -> None:
+            if depth > 16:
+                raise PermissionError("legacy_memory_summary_depth_bound_exceeded")
+            with os.scandir(current_fd) as iterator:
+                names = [entry.name for entry in iterator]
+            for name in names:
+                count[0] += 1
+                if count[0] > 4096:
+                    raise PermissionError("legacy_memory_summary_entry_bound_exceeded")
+                item = os.stat(name, dir_fd=current_fd, follow_symlinks=False)
+                if stat.S_ISDIR(item.st_mode):
+                    child_fd = os.open(name, directory_flags, dir_fd=current_fd)
+                    try:
+                        child = os.fstat(child_fd)
+                        if (not stat.S_ISDIR(child.st_mode)
+                                or child.st_uid != os.geteuid()
+                                or stat.S_IMODE(child.st_mode) & 0o077):
+                            raise PermissionError("legacy_memory_summary_child_custody_invalid")
+                        prune(child_fd, f"{prefix}{name}/", depth + 1)
+                    finally:
+                        os.close(child_fd)
+                    try:
+                        os.rmdir(name, dir_fd=current_fd)
+                    except OSError as exc:
+                        if exc.errno not in {errno.ENOTEMPTY, errno.EEXIST}:
+                            raise
+                    else:
+                        os.fsync(current_fd)
+                    continue
+                relative_name = prefix + name
+                if not name.endswith(suffix) or relative_name in keep_names:
+                    continue
+                if (not stat.S_ISREG(item.st_mode) or item.st_nlink != 1
+                        or item.st_uid != os.geteuid()
+                        or stat.S_IMODE(item.st_mode) & 0o077):
+                    raise PermissionError("legacy_memory_summary_file_custody_invalid")
+                os.unlink(name, dir_fd=current_fd)
+            os.fsync(current_fd)
+
+        prune(directory_fd, "", 0)
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+        os.close(root_fd)
+
 
 
 def _write_topic_summaries(entries: Sequence[dict]) -> None:
@@ -862,16 +2029,19 @@ def _write_topic_summaries(entries: Sequence[dict]) -> None:
         for tag in tags:
             topics.setdefault(tag, []).append(f"[{ts}] {snippet}")
 
+    keep_names: set[str] = set()
     for tag, lines in topics.items():
         if not tag:
             continue
-        out = TOPIC_PATH / f"{tag}.md"
-        _prepare_write(out)
-        with open(out, "w", encoding="utf-8") as f:
+        name = _derived_summary_filename("topic", tag, ".md")
+        out = TOPIC_PATH / name
+        with _open_legacy_memory_text(out, "w") as f:
             f.write(f"# {tag} memory capsule\n\n")
             for line in lines[-200:]:  # keep recent history manageable
                 f.write(f"- {line}\n")
+        keep_names.add(name)
         print(f"[SUMMARY] Topic capsule updated → {out}")
+    _prune_legacy_summary_files(TOPIC_PATH, suffix=".md", keep_names=keep_names)
 
 
 def _extract_session_id(entry: dict) -> str | None:
@@ -907,9 +2077,8 @@ def _write_session_digest(session_id: str, entries: Sequence[dict]) -> None:
             highlights.append(text[:240])
 
     common_tags = ", ".join(tag for tag, _ in tags.most_common(6)) or "(none)"
-    out = SESSION_PATH / f"{session_id}.md"
-    _prepare_write(out)
-    with open(out, "w", encoding="utf-8") as handle:
+    out = SESSION_PATH / _derived_summary_filename("session", session_id, ".md")
+    with _open_legacy_memory_text(out, "w") as handle:
         handle.write(f"# Session {session_id}\n\n")
         handle.write(f"* timeframe: {start} → {end}\n")
         handle.write(f"* entries: {len(entries)}\n")
@@ -928,6 +2097,8 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
             continue
         sessions.setdefault(session_id, []).append(entry)
 
+    keep_turn_names: set[str] = set()
+    keep_session_names: set[str] = set()
     for session_id, session_entries in sessions.items():
         session_entries.sort(key=lambda item: item.get("timestamp", ""))
         turns: list[dict] = []
@@ -941,23 +2112,27 @@ def _write_turn_summaries(entries: Sequence[dict]) -> None:
                     "tags": item.get("tags", []),
                 }
             )
-        out = TURN_PATH / f"{session_id}.json"
-        _prepare_write(out)
-        out.write_text(json.dumps(turns, ensure_ascii=False, indent=2))
+        turn_name = _derived_summary_filename("turn", session_id, ".json")
+        out = TURN_PATH / turn_name
+        with _open_legacy_memory_text(out, "w") as handle:
+            handle.write(json.dumps(turns, ensure_ascii=False, indent=2))
+        session_name = _derived_summary_filename("session", session_id, ".md")
+        keep_turn_names.add(turn_name)
+        keep_session_names.add(session_name)
         _write_session_digest(session_id, session_entries)
         print(f"[SUMMARY] Turn capsule updated → {out}")
+    _prune_legacy_summary_files(TURN_PATH, suffix=".json", keep_names=keep_turn_names)
+    _prune_legacy_summary_files(SESSION_PATH, suffix=".md", keep_names=keep_session_names)
 
 
 @_legacy_mutation_operation
-def summarize_memory() -> None:
-    """Concatenate daily fragments into summary files and topic capsules."""
-
+def _summarize_memory_unlocked() -> None:
+    """Rebuild daily and topic summaries from one locked raw-memory snapshot."""
     summaries: Dict[str, List[str]] = {}
     entries: List[dict] = []
-    for fp in RAW_PATH.glob("*.json"):
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
+    for fp in _legacy_fragment_paths():
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         ts = data.get("timestamp")
         if not ts:
@@ -967,34 +2142,52 @@ def summarize_memory() -> None:
         snippet = data.get("text", "").strip().replace("\n", " ")
         summaries.setdefault(day, []).append(f"[{ts}] {snippet}")
 
+    keep_days: set[str] = set()
     for day, lines in summaries.items():
-        out = DAY_PATH / f"{day}.txt"
-        _prepare_write(out)
-        with open(out, "a", encoding="utf-8") as f:
+        name = _derived_summary_filename("day", day, ".txt")
+        out = DAY_PATH / name
+        with _open_legacy_memory_text(out, "w") as f:
             for line in lines:
                 f.write(line + "\n")
+        keep_days.add(name)
         print(f"[SUMMARY] Updated {out}")
+    _prune_legacy_summary_files(DAY_PATH, suffix=".txt", keep_names=keep_days)
 
     _write_topic_summaries(entries)
     _write_turn_summaries(entries)
 
 
 @_legacy_mutation_operation
-def apply_forgetting_curve(
+def summarize_memory() -> None:
+    """Rebuild derived summaries under the shared raw/index transaction."""
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        _summarize_memory_unlocked()
+
+
+def _apply_forgetting_curve_unlocked(
     *, requestor: str = "curator", reason: str = "forgetting_curve"
 ) -> int:
-    """Apply an Ebbinghaus-inspired decay to prune low-importance fragments.
-
-    Returns the number of fragments removed.
-    """
-
+    """Apply decay with recoverable, non-replayed deletion custody."""
     now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
     removed = 0
     kept_records: list[dict] = []
+    pending_purge_ids = {
+        str(fragment.get("id"))
+        for entry in list_tomb()
+        if entry.get("operation_state") == "incomplete"
+        and isinstance((fragment := entry.get("fragment")), dict)
+        and fragment.get("id")
+    }
 
     for record in _load_index_records():
         fragment_id = record.get("id")
         if not fragment_id:
+            continue
+        if str(fragment_id) in pending_purge_ids:
+            # An interrupted deletion remains visible as incomplete custody.
+            # Do not issue a second deletion under a new operation identity.
+            kept_records.append(record)
             continue
         data = _load_fragment(fragment_id)
         if not data:
@@ -1010,17 +2203,20 @@ def apply_forgetting_curve(
         retention = _decay_factor(last_access, importance, now)
 
         if retention < IMPORTANCE_FLOOR:
-            _append_tomb(
-                {
-                    "fragment": data,
-                    "requestor": requestor,
-                    "time": now.isoformat(),
-                    "reason": reason,
-                }
-            )
-            _authorize_legacy_mutation()
-            _fragment_path(fragment_id).unlink(missing_ok=True)
-            removed += 1
+            operation_id = "purge-" + secrets.token_hex(16)
+            _append_tomb({
+                "event_type": "purge_intent", "operation_id": operation_id,
+                "fragment": data, "requestor": requestor,
+                "time": now.isoformat(), "reason": reason,
+            })
+            deleted = _unlink_legacy_raw_fragment(fragment_id)
+            _append_tomb({
+                "event_type": "purge_result", "operation_id": operation_id,
+                "operation_state": "deleted" if deleted else "not_deleted",
+                "time": datetime.datetime.utcnow().isoformat(),
+            })
+            if deleted:
+                removed += 1
         else:
             data["importance"] = min(1.0, retention + 0.05 * importance)
             _write_fragment(fragment_id, data)
@@ -1029,23 +2225,30 @@ def apply_forgetting_curve(
             record["access_count"] = data.get("access_count", 0)
             kept_records.append(record)
 
-    if kept_records:
-        _save_index_records(kept_records)
-    elif VECTOR_INDEX_PATH.exists():
-        _authorize_legacy_mutation()
-        VECTOR_INDEX_PATH.unlink()
+    # Publish through the held-root owner even when empty; avoid ambient exists
+    # checks and Path.unlink against the replaceable index path.
+    _save_index_records(kept_records)
 
     if removed:
         print(f"[FORGET] Archived {removed} stale fragments")
     return removed
 
 
+
+@_legacy_mutation_operation
+def apply_forgetting_curve(*, requestor: str = "curator",
+                           reason: str = "forgetting_curve") -> int:
+    _authorize_legacy_mutation()
+    with _INDEX_LOCK, _vector_index_transaction():
+        removed = _apply_forgetting_curve_unlocked(requestor=requestor, reason=reason)
+        _summarize_memory_unlocked()
+        return removed
+
 @_legacy_mutation_operation
 def curate_memory() -> dict[str, Any]:
     """Run summarisation and forgetting maintenance cycle."""
 
     removed = apply_forgetting_curve()
-    summarize_memory()
     return {"removed": removed}
 
 
@@ -1174,12 +2377,11 @@ def recent_reflections(
 ) -> list[dict]:
     """Return recent reflection entries with optional filters."""
 
-    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[dict] = []
     for fp in files:
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         if "reflection" not in data.get("tags", []):
             continue
@@ -1202,12 +2404,11 @@ def recent_reflections(
 
 def recent_patches(limit: int = 5) -> list[str]:
     """Return recent self-improvement patch notes."""
-    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[str] = []
     for fp in files:
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         if "self_patch" not in data.get("tags", []):
             continue
@@ -1219,12 +2420,11 @@ def recent_patches(limit: int = 5) -> list[str]:
 
 def recent_escalations(limit: int = 5) -> list[str]:
     """Return recent escalation log snippets."""
-    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    files = sorted(_legacy_fragment_paths(), reverse=True)
     out: list[str] = []
     for fp in files:
-        try:
-            data = json.loads(fp.read_text(encoding="utf-8"))
-        except Exception:
+        data = _load_fragment(fp.stem)
+        if data is None:
             continue
         if "escalation" not in data.get("tags", []):
             continue
@@ -1236,18 +2436,65 @@ def recent_escalations(limit: int = 5) -> list[str]:
 
 # --- Goal management -------------------------------------------------------
 
+
+@contextmanager
+def _goal_store_lock():
+    from sentientos.platform_fcntl import fcntl, require_flock
+    require_flock()
+    if not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        raise PermissionError("goal_store_lock_custody_unsupported")
+    root_fd = _open_legacy_memory_root(prepare_for_write=True)
+    descriptor: int | None = None
+    acquired = False
+    try:
+        flags = os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+        descriptor = os.open(".goals.lock", flags, 0o600, dir_fd=root_fd)
+        metadata = os.fstat(descriptor)
+        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1
+                or metadata.st_uid != os.geteuid()
+                or stat.S_IMODE(metadata.st_mode) & 0o077):
+            raise PermissionError("goal_store_lock_custody_invalid")
+        deadline = time.monotonic() + 5.0
+        while True:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                acquired = True
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("goal_store_lock_timeout")
+                time.sleep(0.01)
+        yield
+    finally:
+        if descriptor is not None:
+            if acquired:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+        os.close(root_fd)
+
+
 def _load_goals() -> list[dict]:
-    if GOALS_PATH.exists():
-        try:
-            return json.loads(GOALS_PATH.read_text(encoding="utf-8"))
-        except Exception:
-            return []
-    return []
+    payload = _read_legacy_memory_file(GOALS_PATH)
+    if payload is None:
+        return []
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise MemorySidecarIncompleteError("goals", 0) from exc
+    if not isinstance(value, list) or any(not isinstance(goal, dict) for goal in value):
+        raise MemorySidecarIncompleteError("goals_shape", 0)
+    seen: set[str] = set()
+    for goal in value:
+        goal_id = goal.get("id")
+        if not isinstance(goal_id, str) or not goal_id or goal_id in seen:
+            raise MemorySidecarIncompleteError("goals_identity", 0)
+        seen.add(goal_id)
+    return value
 
 
 def _save_goals(goals: list[dict]) -> None:
-    _prepare_write(GOALS_PATH)
-    GOALS_PATH.write_text(json.dumps(goals, ensure_ascii=False, indent=2), encoding="utf-8")
+    with _open_legacy_memory_text(GOALS_PATH, "w") as handle:
+        handle.write(json.dumps(goals, ensure_ascii=False, indent=2))
 
 
 @_legacy_mutation_operation
@@ -1262,9 +2509,8 @@ def add_goal(
 ) -> dict:
     """Create and persist a new goal entry."""
 
-    goal_id = _hash(text + datetime.datetime.utcnow().isoformat())
     goal = {
-        "id": goal_id,
+        "id": _hash(text + datetime.datetime.utcnow().isoformat()),
         "text": text,
         "intent": intent or {},
         "created": datetime.datetime.utcnow().isoformat(),
@@ -1274,31 +2520,44 @@ def add_goal(
         "deadline": deadline,
         "schedule_at": schedule_at,
     }
-    goals = _load_goals()
-    goals.append(goal)
-    _save_goals(goals)
+    _authorize_legacy_mutation()
+    with _goal_store_lock():
+        goals = _load_goals()
+        if any(existing.get("id") == goal["id"] for existing in goals):
+            raise MemorySidecarIncompleteError("goal_identity_conflict", 0)
+        goals.append(goal)
+        _save_goals(goals)
     from notification import send as notify  # local import to avoid cycle
-    notify("goal_created", {"id": goal_id, "text": text})
+    notify("goal_created", {"id": goal["id"], "text": text})
     return goal
 
 
 @_legacy_mutation_operation
 def save_goal(goal: dict) -> None:
-    goals = _load_goals()
-    for i, g in enumerate(goals):
-        if g.get("id") == goal.get("id"):
-            goals[i] = goal
-            break
-    else:
-        goals.append(goal)
-    _save_goals(goals)
+    goal_id = goal.get("id") if isinstance(goal, dict) else None
+    if not isinstance(goal_id, str) or not goal_id:
+        raise ValueError("Goal identity is required")
+    _authorize_legacy_mutation()
+    with _goal_store_lock():
+        goals = _load_goals()
+        matches = [index for index, item in enumerate(goals)
+            if item.get("id") == goal_id]
+        if len(matches) > 1:
+            raise MemorySidecarIncompleteError("goal_identity_conflict", 0)
+        if matches:
+            goals[matches[0]] = goal
+        else:
+            goals.append(goal)
+        _save_goals(goals)
 
 
 @_legacy_mutation_operation
 def delete_goal(goal_id: str) -> None:
-    """Remove a goal by id."""
-    goals = [g for g in _load_goals() if g.get("id") != goal_id]
-    _save_goals(goals)
+    """Remove a goal by id under bounded shared custody."""
+    _authorize_legacy_mutation()
+    with _goal_store_lock():
+        goals = [goal for goal in _load_goals() if goal.get("id") != goal_id]
+        _save_goals(goals)
 
 
 def get_goal(goal_id: str) -> dict | None:
@@ -1344,3 +2603,5 @@ def get_goals(*, open_only: bool = False) -> list[dict]:
         )
     )
     return goals
+
+

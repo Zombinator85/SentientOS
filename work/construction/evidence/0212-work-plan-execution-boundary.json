@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "sequence": 212,
+  "title": "Work-plan execution boundary",
+  "source_commit": "f65f14a2d1dc2bace7a480c5aa44ef376f2fcfd2",
+  "source_tree": "dee214f7aafd7d2c48eb0d874e69a20796e7a5b5",
+  "source_files": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "git_blob_sha": "49eb166b1f46f9c22228be94af409c6f096e0ab2"
+    },
+    {
+      "path": "sentientos/tests/test_goal_executor_run.py",
+      "git_blob_sha": "6814d32ec1f4dfaa5fdaed13345707364b1669"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_executor_plan.py"
+    ],
+    "passed_test_count": 7,
+    "compiled": [
+      "sentientos/goal_executor.py",
+      "sentientos/tests/test_goal_executor_run.py"
+    ],
+    "adversarial": [
+      "Unallowlisted shell payload rejected before subprocess launch",
+      "Allowlisted command launched as argv with shell=false",
+      "forge_apply remains destructive when serialized destructive flag is false in recovery mode"
+    ],
+    "adjacent_failure": {
+      "suite": "sentientos/tests/test_goal_state_update.py",
+      "failed_tests": 2,
+      "reason": "Existing calls omit required keyword-only arguments to update_goal_state_from_run; unchanged source API mismatch."
+    }
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:f4675931246a94df57d15a021734fbfde2fca83f1d2825004810a39c0188bb1a"
+}

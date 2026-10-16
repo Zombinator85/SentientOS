@@ -1,0 +1,22 @@
+{
+  "finding": {
+    "baseline": "A completed remediation pack/run linked only to an unrelated trace in mutable governance_traces.jsonl caused quarantine_clear.main([]) to return 0 and write active=false.",
+    "repair": "Trace fallback is available only from the canonical validated immutable artifact whose incident_id and activated_at match active quarantine state. Missing or invalid artifact means no trace fallback; exact incident_id lookup remains available.",
+    "trust_limit": "The local incident artifact's trace reference is not independently authenticated; this change prevents cross-incident borrowing but does not create an issuer or prove the trace itself."
+  },
+  "focused_results": {
+    "adversarial_entrypoint": "real quarantine_clear.main with real receipt-chain, anchor, doctrine, federation, remediation, and state owners; no decisive verifier stubs",
+    "baseline_adversarial_reproduction": "failed as expected: unrelated trace remediation cleared quarantine (main returned 0)",
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed",
+    "post_change_quarantine_remediation_integrity_pressure_and_quarantine": "48 passed"
+  },
+  "limits": [
+    "Tests use disposable local fixtures and the actual clear entrypoint; no decisive verifier is stubbed.",
+    "No independent incident or governance-trace publisher authentication is established.",
+    "No production runtime behavior or defense performance is established.",
+    "Construction remains unverified for production."
+  ],
+  "scope": "bind quarantine-clear trace fallback to the validated artifact for the exact active incident",
+  "status": "focused_hermetic_owner_path_verified_not_production_acceptance"
+}

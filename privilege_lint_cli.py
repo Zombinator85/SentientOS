@@ -1,9 +1,18 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
 from __future__ import annotations
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 import ast
 import argparse
 import datetime
+import fnmatch
 import hashlib
 import json
 import os
@@ -41,12 +50,6 @@ from privilege_lint.reporting import LintExecution
 from sentientos.audit_sink import resolve_audit_paths, safe_write_event
 # ── privilege_lint_cli.py ─────────────────────────────────────────
 
-
-# auto-approve when `CI` or `GIT_HOOKS` is set (see docs/ENVIRONMENT.md)
-if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
-    os.getenv("CI") or os.getenv("GIT_HOOKS")
-):
-    os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
 DEFAULT_BANNER_ASCII = [
     "#  _____  _             _",
@@ -117,38 +120,18 @@ def validate_banner_order(
 
     idx += 1
 
-    # Determine end of module docstring, if any
+    # Only a module-level string expression is documentation for import order.
+    # Scanning arbitrary triple-quoted strings also catches function bodies and
+    # fixtures, producing false positives for valid CLI modules.
     doc_end = None
     try:
         mod = ast.parse("\n".join(lines))
-        doc = ast.get_docstring(mod)
-        if doc is None:
-            raise IndexError
         for node in mod.body:
             if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
-                end_lineno = node.end_lineno or 0
-                doc_end = end_lineno - 1
+                doc_end = (node.end_lineno or node.lineno) - 1
                 break
-    except IndexError:
-        doc_end = None
     except Exception:
         doc_end = None
-
-    if doc_end is None:
-        for i in range(idx, len(lines)):
-            s = lines[i].lstrip()
-            if s.startswith(('"""', "'''")):
-                quote = s[:3]
-                if s.count(quote) >= 2 and s.rstrip().endswith(quote):
-                    doc_end = i
-                else:
-                    for j in range(i + 1, len(lines)):
-                        if lines[j].rstrip().endswith(quote):
-                            doc_end = j
-                            break
-                if doc_end is None:
-                    doc_end = len(lines) - 1
-                break
 
     if doc_end is None:
         doc_end = idx - 1
@@ -303,42 +286,43 @@ class PrivilegeLinter:
             banner_end = insert_at + len(self.banner) - 1
 
         if FUTURE_IMPORT in lines:
+            first = lines.index(FUTURE_IMPORT)
+            lines = [
+                line
+                for index, line in enumerate(lines)
+                if line != FUTURE_IMPORT or index == first
+            ]
             idx = lines.index(FUTURE_IMPORT)
             if idx != banner_end + 1:
                 line = lines.pop(idx)
                 if idx < banner_end + 1:
                     banner_end -= 1
                 lines.insert(banner_end + 1, line)
+        else:
+            lines.insert(banner_end + 1, FUTURE_IMPORT)
 
-        # recalc docstring after banner/future adjustments
+        # Put any module-level documentation block after the banner/future import
+        # and before ordinary imports. The historical autofixer only recognized
+        # ast.get_docstring(), which misses a docstring preceded by imports and
+        # could leave the linter's declared ordering violation in place.
         try:
             mod = ast.parse("\n".join(lines))
-            doc = ast.get_docstring(mod)
             doc_start = doc_end = None
-            if doc is not None:
-                for node in mod.body:
-                    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
-                        doc_start = node.lineno - 1
-                        end_lineno = node.end_lineno or 0
-                        doc_end = end_lineno - 1
-                        break
+            for node in mod.body:
+                if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+                    doc_start = node.lineno - 1
+                    doc_end = (node.end_lineno or node.lineno) - 1
+                    break
         except Exception:
             doc_start = doc_end = None
 
-        if doc_start is not None:
-            move_lines: list[str] = []
-            remove_idx: list[int] = []
-            for i in range(doc_start):
-                if _IMPORT_RE.match(lines[i]) and lines[i].strip() != FUTURE_IMPORT:
-                    move_lines.append(lines[i])
-                    remove_idx.append(i)
-            for i in reversed(remove_idx):
-                lines.pop(i)
-            if move_lines and doc_end is not None:
-                doc_end = doc_end - len([i for i in remove_idx if i <= doc_end])
-                insert_pos = doc_end + 1
-                for off, line in enumerate(move_lines):
-                    lines.insert(insert_pos + off, line)
+        if doc_start is not None and doc_end is not None:
+            future_end = lines.index(FUTURE_IMPORT) + 1
+            if doc_start > future_end:
+                doc_block = lines[doc_start : doc_end + 1]
+                del lines[doc_start : doc_end + 1]
+                future_end = lines.index(FUTURE_IMPORT) + 1
+                lines[future_end:future_end] = doc_block
 
         if self.config.enforce_import_sort:
             apply_fix_imports(lines, self.project_root)
@@ -369,12 +353,29 @@ def _contains_cli_hint(fp: Path) -> bool:
     if fp.name.endswith("_cli.py"):
         return True
     try:
-        text = fp.read_text(encoding="utf-8")
+        module = ast.parse(fp.read_text(encoding="utf-8"), filename=str(fp))
     except Exception:
         return False
-    if '__name__ == "__main__"' in text:
-        return True
-    return "argparse" in text
+    for node in module.body:
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
+            left = node.test.left
+            if (
+                isinstance(left, ast.Name)
+                and left.id == "__name__"
+                and any(
+                    isinstance(comparator, ast.Constant)
+                    and comparator.value == "__main__"
+                    for comparator in node.test.comparators
+                )
+            ):
+                return True
+        if isinstance(node, ast.Import) and any(
+            alias.name == "argparse" for alias in node.names
+        ):
+            return True
+        if isinstance(node, ast.ImportFrom) and node.module == "argparse":
+            return True
+    return False
 
 
 def validate_admin_call(lines: list[str], path: Path) -> list[str]:
@@ -384,7 +385,9 @@ def validate_admin_call(lines: list[str], path: Path) -> list[str]:
     return []
 
 
-def iter_py_files(paths: list[str]) -> list[Path]:
+def iter_py_files(
+    paths: list[str], file_globs: list[str] | None = None
+) -> list[Path]:
     result: list[Path] = []
     for p in paths:
         path = Path(p)
@@ -395,7 +398,12 @@ def iter_py_files(paths: list[str]) -> list[Path]:
                     if not f.endswith(".py"):
                         continue
                     fp = Path(root) / f
-                    if "tests" in fp.parts and not _contains_cli_hint(fp):
+                    if "tests" in fp.parts:
+                        if not _contains_cli_hint(fp):
+                            continue
+                    elif file_globs is not None and not any(
+                        fnmatch.fnmatchcase(f, pattern) for pattern in file_globs
+                    ):
                         continue
                     result.append(fp)
         elif path.is_file() and path.suffix == ".py":
@@ -438,7 +446,7 @@ def run_lint(
     if no_cache:
         linter.cache.enabled = False
 
-    files = iter_py_files(targets)
+    files = iter_py_files(targets, file_globs=linter.config.file_globs)
     js_files = (
         iter_ext_files(targets, {".js", ".ts"}) if linter.config.js_enabled else []
     )
@@ -530,9 +538,12 @@ def run_lint(
 
 
 def main(argv: list[str] | None = None) -> int:
-    require_admin_banner()
-    require_lumos_approval()
     ap = argparse.ArgumentParser(description="Privilege banner linter")
+    ap.add_argument(
+        "--read-only",
+        action="store_true",
+        help="Run static checks without cache, report, or source writes",
+    )
     ap.add_argument("paths", nargs="*", default=[str(Path(__file__).resolve().parent)])
     ap.add_argument("--fix", action="store_true", help="Rewrite files in place")
     ap.add_argument("--quiet", action="store_true", help="Suppress output")
@@ -552,15 +563,27 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sarif", type=str, default=None, help="Write SARIF report")
     args = ap.parse_args(argv)
 
+    if args.read_only:
+        if args.fix or args.report_json or args.sarif:
+            ap.error("--read-only cannot be combined with --fix, --report-json, or --sarif")
+    else:
+        require_admin_banner()
+        require_lumos_approval()
+
     result = run_lint(
         args.paths,
         fix=args.fix,
         quiet=args.quiet,
         max_workers=args.max_workers,
         show_hints=args.show_hints,
-        no_cache=args.no_cache,
+        no_cache=args.no_cache or args.read_only,
         mypy=args.mypy,
     )
+
+    if args.read_only:
+        if result.issues and (not args.quiet or args.show_hints):
+            print("\n".join(result.issues))
+        return 1 if result.issues else 0
 
     if args.fix:
         if not args.quiet:

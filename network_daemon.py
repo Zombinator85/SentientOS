@@ -54,7 +54,7 @@ class NetworkDaemon:
         self.log_dir = Path(config.get("log_dir", "."))
         self.uptime_threshold = float(config.get("uptime_threshold", 300))
         self.enforcement_enabled = bool(config.get("enforcement_enabled", False))
-        self.ledger_path = Path("/daemon/logs/codex.jsonl")
+        self.ledger_path = Path(config.get("ledger_path", "/daemon/logs/codex.jsonl"))
         self._resync_rule = self._build_rule(
             "federation", "peer_unreachable", "resync", source="builtin"
         )

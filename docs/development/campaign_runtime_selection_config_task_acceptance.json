@@ -1,0 +1,23 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_classification": "behavior_adding",
+  "repository_sha": "dae78c8e48f4370cd1d536e538cafdf9d790a1dd",
+  "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+  "required_nodes": [
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_plane_uses_only_selected_recovered_campaign_results",
+      "rationale": "The runtime uses the validated explicit campaign selection config and read-only owner before admitted signal evaluation."
+    },
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_campaign_selection_config_tampering_fails_closed",
+      "rationale": "A tampered campaign selection digest does not recover an owner or silently fall back to ambient campaign discovery."
+    },
+    {
+      "node_id": "tests/test_maintenance_post_adoption_attribution_campaign.py::test_repeated_campaigns_deduplicate_and_contradictory_correction_stays_bounded",
+      "rationale": "Cross-campaign outcome classification and cold process recovery remain deterministic."
+    }
+  ],
+  "successful_path_nodes": [
+    "tests/test_maintenance_post_adoption_attribution_campaign.py::test_runtime_signal_plane_uses_only_selected_recovered_campaign_results"
+  ]
+}

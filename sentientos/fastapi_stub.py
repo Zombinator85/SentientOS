@@ -11,7 +11,7 @@ Handler = TypeVar("Handler", bound=Callable[..., Any])
 
 if TYPE_CHECKING:
     class HTTPException(Exception):
-        def __init__(self, status_code: int, detail: str) -> None: ...
+        def __init__(self, status_code: int, detail: Any) -> None: ...
 
     class Request:
         url: object
@@ -68,7 +68,7 @@ else:
         from fastapi.templating import Jinja2Templates
     except Exception:  # pragma: no cover
         class HTTPException(Exception):
-            def __init__(self, status_code: int, detail: str) -> None:
+            def __init__(self, status_code: int, detail: Any) -> None:
                 super().__init__(detail)
                 self.status_code = status_code
                 self.detail = detail
@@ -161,6 +161,13 @@ else:
                 return decorator
 
             def post(self, _path: str, **_kwargs: object) -> Callable[[Handler], Handler]:
+                def decorator(fn: Handler) -> Handler:
+                    return fn
+
+                return decorator
+
+            def on_event(self, _event_type: str) -> Callable[[Handler], Handler]:
+                """Accept lifecycle declarations when the optional web runtime is absent."""
                 def decorator(fn: Handler) -> Handler:
                     return fn
 

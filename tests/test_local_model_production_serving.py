@@ -36,9 +36,14 @@ def evidence(generation=1):
         "authority_map_digest": "authority-1", "commissioning_receipt_id": "commissioning-receipt-1",
         "commissioning_receipt_semantic_digest": "commissioning-digest"}
     state["state_semantic_digest"] = semantic_digest(state)
+    prior = "ABSENT" if generation == 1 else semantic_digest({"prior_generation": generation - 1})
     activation = {"receipt_id": "activation-receipt-1", "receipt_semantic_digest": "activation-digest",
-                  "resulting_state_digest": state["state_semantic_digest"]}
-    return {"active_state": state, "activation_receipt": activation, "catalog_proof": proof}
+                  "resulting_state_digest": state["state_semantic_digest"],
+                  "observed_prior_activation_state": prior, "expected_prior_activation_state": prior}
+    history = [{"activation_receipt_id": activation["receipt_id"],
+                "resulting_state_digest": state["state_semantic_digest"]}]
+    return {"active_state": state, "activation_receipt": activation,
+            "catalog_proof": proof, "activation_history": history}
 
 
 @pytest.fixture
@@ -149,10 +154,12 @@ def test_invalid_serving_operation_identity_is_rejected_before_activation(monkey
 
 def test_current_session_is_reused_without_second_load_and_operation_is_audited(monkeypatch, handle):
     current, made, kernel = evidence(), [], Kernel()
-    ctl = controller(monkeypatch, handle, [current] * 4, kernel=kernel,
+    ctl = controller(monkeypatch, handle, [current] * 6, kernel=kernel,
                      factory=lambda c, l: made.append(Model(identity())) or made[-1])
     first = ctl.establish(operation_id="serve-operation-1")
-    assert ctl.establish(operation_id="serve-operation-2") == first
+    with pytest.raises(ProductionServingError, match="current_serving_operation_mismatch"):
+        ctl.establish(operation_id="serve-operation-2")
+    assert ctl.current_session() == first
     assert len(made) == 1 and len(kernel.requests) == 1
     metadata = kernel.requests[0].metadata
     assert metadata["serving_operation_id"] == "serve-operation-1"
@@ -166,7 +173,7 @@ def test_correlations_bind_operation_and_activation(monkeypatch, handle):
     ctl.close()
     second = ctl.establish(operation_id="serve-operation-2")
     ctl.close()
-    third = ctl.establish(operation_id="serve-operation-2")
+    third = ctl.establish(operation_id="serve-operation-3")
     correlations = [request.metadata["correlation_id"] for request in kernel.requests]
     assert len(set(correlations)) == 3
     assert len({first.session_id, second.session_id, third.session_id}) == 3
@@ -179,7 +186,7 @@ def test_real_kernel_dedupes_replay_but_admits_new_operation_for_same_activation
                      factory=lambda c, l: made.append(Model(identity())) or made[-1])
     first = ctl.establish(operation_id="serve-operation-1")
     ctl.close()
-    with pytest.raises(ProductionServingError, match="serving_operation_activation_replay"):
+    with pytest.raises(ProductionServingError, match="serving_operation_reused"):
         ctl.establish(operation_id="serve-operation-1")
     assert len(made) == 1
     second = ctl.establish(operation_id="serve-operation-2")
@@ -202,7 +209,7 @@ def test_same_activation_operation_replay_blocked_across_fresh_controllers(monke
     monkeypatch.setattr(first, "_commissioning_identity", lambda s: identity().to_dict())
     monkeypatch.setattr(second, "_commissioning_identity", lambda s: identity().to_dict())
     first.establish(operation_id="serve-operation-X"); first.close()
-    with pytest.raises(ProductionServingError, match="serving_operation_activation_replay"):
+    with pytest.raises(ProductionServingError, match="serving_operation_reused"):
         second.establish(operation_id="serve-operation-X")
     assert len(made) == 1
     second.establish(operation_id="serve-operation-Y")

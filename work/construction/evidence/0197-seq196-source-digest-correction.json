@@ -1,0 +1,20 @@
+{
+  "sequence": 197,
+  "title": "Correct sequence 196 source digest after remote readback",
+  "status": "evidence correction",
+  "starting_head": "c15f9a3d50b47214dc534d080e1ec8909ad7c22d",
+  "starting_tree": "df01d1a74577bc80999a05a0cfbefdaa5470b285",
+  "source_commit": "438d63932a17de702f14d277650050410cd38bc4",
+  "source_tree": "2886409c12cadb16212ce6821446ff6c52aad503",
+  "corrected_record": {
+    "path": "tests/test_resident_developmental_cognition.py",
+    "blob": "88bf9765bbc9574a64f62c81e63957fd1b75f57a",
+    "sha256": "d3cb41d0284d05869859734561f97de59a664e4ba13723b413edc91dd7068630"
+  },
+  "validation": {
+    "exact_published_blob_test": "1 passed",
+    "compileall": "passed",
+    "diff_check": "passed"
+  },
+  "acceptance_status": "PARTIAL; sequence 196 limitations remain as recorded"
+}

@@ -1,0 +1,39 @@
+{
+  "compile": {
+    "command": "/tmp/sentientos-test-venv/bin/python -m py_compile sentientos/embodied_consequence.py tests/test_embodied_consequence.py tests/test_developmental_model_replacement_resource_lineage_integration.py",
+    "status": "passed"
+  },
+  "diff_check": {
+    "command": "git diff --check -- sentientos/embodied_consequence.py tests/test_embodied_consequence.py",
+    "status": "passed"
+  },
+  "focused_execution": {
+    "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 with isolated SENTIENTOS_* roots: /tmp/sentientos-test-venv/bin/python -m pytest -q -rs tests/test_embodied_consequence.py tests/test_developmental_model_replacement_resource_lineage_integration.py --tb=short --junitxml=glow/test_runs/0066-embodied-source-repair-junit.xml",
+    "failed": 0,
+    "junit_path": "glow/test_runs/0066-embodied-source-repair-junit.xml",
+    "junit_sha256": "83738739ae4982434aa6d9289a67d9e568a46d3595c292f67034beae884061a1",
+    "passed": 25,
+    "scope": "Hermetic fixtures; no production consequences or real model execution.",
+    "skipped": 0,
+    "tests_collected": 25
+  },
+  "hosted_source_validation": "pending remote publication; query exact repair SHA after CAS.",
+  "mypy": "not run",
+  "production_status": "unverified",
+  "repair": {
+    "bytes": 178042,
+    "compile": "passed",
+    "corrupted_parent_blob": "333d08582eb91ba3725c8a77abb8882ba2dd19ce",
+    "nul_bytes": 0,
+    "path": "sentientos/embodied_consequence.py",
+    "readable_base_blob": "66d36d259965695391a6f8871a98c899c117e042",
+    "readable_base_commit": "2e3b358317bc8e5d62f8970da28257896f2e4135",
+    "reconciled_intended_change": "Reapplied only the two seq61 model-identity changes: expose cognitive_model_id and invocation_model_id separately in history bindings; compare resource linkage model_id against invocation_model_id (legacy fallback to model_id). Local diff from the readable base contains exactly those changes.",
+    "repaired_working_blob": "af63db9a01b8b68c31bc362b36b827cb4950241a",
+    "sha256": "caf9fff1b7da9e62fbf118fd53b7bd9ca6ccb3254f51ebdee6727d6c02d17fbe",
+    "utf8": "valid"
+  },
+  "schema_version": 1,
+  "source_commit": "2eeeeb21c66cc2fb96daef4ccc340197ff21fc30",
+  "source_tree": "f13d1fc9e426d640a882acc61ffcc22a51eee57f"
+}

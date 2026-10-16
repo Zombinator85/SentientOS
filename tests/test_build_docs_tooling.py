@@ -55,6 +55,8 @@ def test_missing_docs_dependency_fails_actionably(monkeypatch, tmp_path, capsys)
 
 
 def test_bootstrap_docs_flag_installs_and_exits_without_building(monkeypatch, tmp_path, capsys) -> None:
+    monkeypatch.setattr(build_docs, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(build_docs, "require_lumos_approval", lambda: None)
     commands: list[list[str]] = []
     monkeypatch.chdir(tmp_path)
     (tmp_path / "mkdocs.yml").write_text("site_name: Test\n", encoding="utf-8")
@@ -105,6 +107,27 @@ def test_build_docs_uses_current_python_mkdocs_module(monkeypatch, tmp_path, cap
     assert "Generated 1 pages:" in captured.out
 
 
+def test_read_only_build_does_not_require_privilege_but_deploy_does(monkeypatch, tmp_path) -> None:
+    calls: list[str] = []
+    commands: list[list[str]] = []
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "mkdocs.yml").write_text("site_name: Test\n", encoding="utf-8")
+    monkeypatch.setattr(build_docs, "missing_docs_dependencies", lambda: [])
+    monkeypatch.setattr(build_docs, "require_admin_banner", lambda: calls.append("admin"))
+    monkeypatch.setattr(build_docs, "require_lumos_approval", lambda: calls.append("approval"))
+    monkeypatch.setattr(
+        build_docs.subprocess,
+        "run",
+        lambda cmd, **kwargs: (commands.append(cmd) or _Completed(0)),
+    )
+
+    assert build_docs.main(["--check-deps"]) == 0
+    assert calls == []
+    assert build_docs.main(["--deploy"]) == 0
+    assert calls == ["admin", "approval"]
+    assert commands[-1] == [sys.executable, "-m", "mkdocs", "gh-deploy", "--force"]
+
+
 def test_bootstrap_docs_installs_minimal_docs_requirements(monkeypatch) -> None:
     commands: list[list[str]] = []
 
@@ -121,6 +144,8 @@ def test_bootstrap_docs_installs_minimal_docs_requirements(monkeypatch) -> None:
 
 
 def test_build_can_bootstrap_missing_dependencies(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(build_docs, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(build_docs, "require_lumos_approval", lambda: None)
     monkeypatch.chdir(tmp_path)
     (tmp_path / "mkdocs.yml").write_text("site_name: Test\n", encoding="utf-8")
     (tmp_path / "site").mkdir()

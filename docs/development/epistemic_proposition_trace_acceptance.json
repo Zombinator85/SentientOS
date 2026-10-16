@@ -1,0 +1,16 @@
+{
+  "task_id": "bounded-epistemic-proposition-consequence-trace",
+  "version": 1,
+  "required_pytest_nodes": [
+    {
+      "node_id": "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+      "role": "successful_path",
+      "expected": "A selected recovered task-family proposition yields bounded evidence, state, event and verified receipt lineage plus the exact prior projection digest passed to later cognition."
+    }
+  ],
+  "non_claims": [
+    "a mutation receipt proves a hypothesis is true",
+    "external causal attribution or independent model improvement",
+    "authority to change policy, goals, or effects"
+  ]
+}

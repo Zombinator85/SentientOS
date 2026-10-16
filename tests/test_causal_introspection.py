@@ -20,6 +20,10 @@ from sentientos.causal_introspection import (
     SemanticTraceDimension,
     build_projection,
     validate_projection,
+    MAX_PROJECTIONS,
+    MAX_SNAPSHOT_GENERATIONS,
+    MAX_SNAPSHOT_CUSTODY_BYTES,
+    _snapshot_capacity_error,
 )
 from sentientos.world_state_board import WorldStateBoardBuilder
 
@@ -80,6 +84,13 @@ def test_three_domain_live_capture_and_next_tick_world_state(tmp_path):
     records = runtime.world_state_records(before_generation=2)
     assert {item["source_id"] for item in records} == set(captured.projection_ids)
     assert all(item["source_kind"] == "owner_introspection" for item in records)
+    assert all(item["payload"]["introspection_snapshot_id"] == captured.snapshot_id
+        and item["payload"]["introspection_snapshot_digest"] == captured.snapshot_digest
+        and item["payload"]["introspection_snapshot_generation"] == captured.generation
+        and item["payload"]["introspection_snapshot_predecessor_digest"]
+            == captured.predecessor_snapshot_digest
+        and item["payload"]["introspection_capture_tick"] == captured.capture_tick
+        for item in records)
     board = WorldStateBoardBuilder().build(records)
     assert {fact.subject.subject_id for fact in board.facts} == {
         "serving-owner", "epistemic-owner", "supervisor-owner"}
@@ -119,10 +130,21 @@ def test_conflict_is_preserved_without_winner(tmp_path):
         ProviderRegistration("a", "model_serving", _provider("a", "model_serving", True, key="shared.test.key")),
         ProviderRegistration("b", "runtime_supervision", _provider("b", "runtime_supervision", False, key="shared.test.key")),
     )
-    snapshot = _runtime(tmp_path, regs).capture(CaptureContext("tick", capture_posture="synthetic_test"))
+    runtime = _runtime(tmp_path, regs)
+    snapshot = runtime.capture(CaptureContext("tick", capture_posture="synthetic_test"))
     assert snapshot.conflicts[0].observation_key == "shared.test.key"
     assert len(snapshot.conflicts[0].projection_ids) == 2
     assert [item.bounded_value for projection in snapshot.projections for item in projection.observations] == [True, False]
+    diagnostic, = [row for row in runtime.world_state_records(before_generation=2)
+        if row["subject_kind"] == "snapshot_diagnostics"]
+    assert diagnostic["observed_at"] == "tick"
+    assert diagnostic["payload"]["conflicts"] == [{
+        "observation_key": "shared.test.key",
+        "projection_ids": list(snapshot.conflicts[0].projection_ids),
+    }]
+    assert diagnostic["payload"]["conflict_posture"] == "unresolved_no_winner_selected"
+    assert diagnostic["payload"]["authority"] is False
+    assert diagnostic["effect_claimed"] is False and diagnostic["effect_proven"] is False
 
 
 def test_partial_capture_preserves_successful_projection(tmp_path):
@@ -132,12 +154,22 @@ def test_partial_capture_preserves_successful_projection(tmp_path):
             raise RuntimeError("sensitive traceback detail")
     regs = (ProviderRegistration("good", "model_serving", _provider("good", "model_serving")),
             ProviderRegistration("bad", "runtime_supervision", Broken()))
-    snapshot = _runtime(tmp_path, regs, required=("model_serving", "runtime_supervision")).capture(
-        CaptureContext("tick", capture_posture="synthetic_test"))
+    runtime = _runtime(tmp_path, regs, required=("model_serving", "runtime_supervision"))
+    snapshot = runtime.capture(CaptureContext("tick", capture_posture="synthetic_test"))
     assert snapshot.completion_posture == "partial"
     assert [item.owner_id for item in snapshot.projections] == ["good"]
     serialized = json.dumps(snapshot, default=lambda value: value.__dict__)
     assert "sensitive traceback detail" not in serialized
+    diagnostic, = [row for row in runtime.world_state_records(before_generation=2)
+        if row["subject_kind"] == "snapshot_diagnostics"]
+    assert diagnostic["disposition"] == "incomplete"
+    assert diagnostic["payload"]["snapshot_completion_posture"] == "partial"
+    assert diagnostic["payload"]["capture_findings"][:1] == [{
+        "owner_id": "bad", "domain": "runtime_supervision",
+        "error_code": "provider_projection_failed", "error_class": "RuntimeError",
+    }]
+    assert diagnostic["payload"]["capture_findings"][1]["error_code"] == "required_provider_missing"
+    assert "sensitive traceback detail" not in json.dumps(diagnostic)
 
 
 def test_memory_privacy_and_resource_unknown_are_preserved(tmp_path):
@@ -215,3 +247,74 @@ def test_model_transition_preserves_introspection_chain(tmp_path):
     assert second.predecessor_snapshot_digest == first.snapshot_digest
     assert first.projections[0].observations[0].bounded_value == "model-A"
     assert second.projections[0].observations[0].bounded_value == "model-B"
+
+
+def test_orphaned_stage_blocks_new_capture_without_hiding_committed_history(tmp_path):
+    registration = ProviderRegistration("serving", "model_serving", _provider("serving", "model_serving"))
+    runtime = _runtime(tmp_path, (registration,))
+    committed = runtime.capture(CaptureContext("tick-1", capture_posture="synthetic_test"))
+    staging = runtime.config.custody_root / ".causal-introspection-interrupted.tmp"
+    staging.write_bytes(b"partial unpublished capture")
+
+    assert runtime.reconstruct() == (committed,)
+    with pytest.raises(IntrospectionError, match="snapshot_staging_recovery_required"):
+        runtime.capture(CaptureContext("tick-2", capture_posture="synthetic_test"))
+
+
+def test_append_capacity_preflight_matches_reconstruction_limits():
+    assert _snapshot_capacity_error(MAX_SNAPSHOT_GENERATIONS - 1,
+        MAX_SNAPSHOT_CUSTODY_BYTES - 8, 8) is None
+    assert _snapshot_capacity_error(MAX_SNAPSHOT_GENERATIONS,
+        MAX_SNAPSHOT_CUSTODY_BYTES - 8, 1) == "snapshot_generation_limit_exceeded"
+    assert _snapshot_capacity_error(MAX_SNAPSHOT_GENERATIONS - 1,
+        MAX_SNAPSHOT_CUSTODY_BYTES - 8, 9) == "snapshot_custody_limit_exceeded"
+    assert _snapshot_capacity_error(0, 0, 0) is None
+
+
+def test_observation_source_refs_must_resolve_to_inventory():
+    ref = _reference("serving")
+    with pytest.raises(IntrospectionError, match="observation_source_reference_unresolved"):
+        build_projection(owner_id="serving", owner_kind="serving_owner", domain="model_serving",
+            context=CaptureContext("tick", capture_posture="synthetic_test"),
+            source_references=(ref,), causal_references=(),
+            observations=(OwnerObservation("session_id", "session-1", "identity",
+                source_refs=("unlisted-reference",), production_posture="synthetic_test"),))
+
+
+def test_runtime_constructor_enforces_loaded_configuration_bounds(tmp_path):
+    provider = _provider("owner", "model_serving")
+    oversized = IntrospectionConfig(True, tmp_path / "custody", True,
+        MAX_PROJECTIONS + 1, ("model_serving",), ())
+    with pytest.raises(IntrospectionError, match="invalid_max_projections"):
+        CausalIntrospectionRuntime(oversized, ())
+
+    unselected_required = IntrospectionConfig(True, tmp_path / "custody", True,
+        1, ("model_serving",), ("effects",))
+    with pytest.raises(IntrospectionError, match="invalid_config_domains"):
+        CausalIntrospectionRuntime(unselected_required, (
+            ProviderRegistration("owner", "model_serving", provider),))
+
+
+def test_group_or_world_writable_custody_root_is_rejected_on_posix(tmp_path):
+    import os
+    if os.name != "posix":
+        pytest.skip("POSIX directory mode contract")
+    registration = ProviderRegistration("owner", "model_serving", _provider("owner", "model_serving"))
+    runtime = _runtime(tmp_path, (registration,))
+    runtime.config.custody_root.mkdir(mode=0o700)
+    runtime.config.custody_root.chmod(0o770)
+    with pytest.raises(IntrospectionError, match="custody_root_writable_by_other_users"):
+        runtime.reconstruct()
+
+
+def test_reconstruction_rejects_canonical_unknown_snapshot_fields(tmp_path):
+    registration = ProviderRegistration("serving", "model_serving", _provider("serving", "model_serving"))
+    runtime = _runtime(tmp_path, (registration,))
+    runtime.capture(CaptureContext("tick-1", capture_posture="synthetic_test"))
+    path = tmp_path / "custody" / "generation-00000000000000000001.json"
+    payload = json.loads(path.read_text())
+    payload["unrecognized_custody_field"] = "must not be silently discarded"
+    path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+
+    with pytest.raises(IntrospectionError, match="snapshot_noncanonical"):
+        runtime.reconstruct()

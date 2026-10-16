@@ -6,12 +6,15 @@ import json
 import logging
 import os
 import signal
+import stat
+import tempfile
+import threading
 import time
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, Iterator, Mapping, Sequence, cast
 
 from sentientos.boot_ceremony import (
     BootAnnouncer,
@@ -32,24 +35,30 @@ from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map
-from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker
-from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
+from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, validate_receipt
+from sentientos.installation_state import InstallationIdentity, InstallationStateError, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import (CONFIG_ENV as RESIDENT_SERVING_CONFIG_ENV, ResidentCognitiveModelServingController, ResidentCognitiveServingInvoker, ResidentCognitiveServingSlot, load_config as load_resident_serving_config)
 from sentientos.resident_cognitive_model_transition_experiment import (QuiescedDevelopmentalCognitionOwner, ResidentCognitionQuiescenceGate, ResidentCognitiveModelTransitionController, TransitionError, TransitionJournal, developmental_history_boundary)
 from sentientos.resident_cognitive_transition_operator import (JOURNAL_CUSTODY as RESIDENT_TRANSITION_JOURNAL_CUSTODY, LiveTransitionConfig, LiveTransitionOperatorRuntime, journal_identity as resident_transition_journal_identity, load_verified_protocol)
 from sentientos.resident_cognitive_transition_runtime import ResidentCognitiveTransitionStageOperations
 from sentientos.local_model_production_activation import verify_current_activation
+from sentientos.local_runtime_provisioning import semantic_digest
 from sentientos.codex_task_authority_admission import (RESIDENT_DEVELOPMENTAL_WRITEBACK,
     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION, RESIDENT_EPISTEMIC_STATE_MUTATION,
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION)
-from sentientos.resident_developmental_cognition import CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV, ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config
+from sentientos.resident_developmental_cognition import (CONFIG_ENV as RESIDENT_DEVELOPMENTAL_CONFIG_ENV,
+    ResidentDevelopmentalCognitionOwner, load_config as load_resident_developmental_config,
+    load_objective_request, objective_task_for_request)
 from sentientos.resident_developmental_writeback import ResidentDevelopmentalWritebackController
 from sentientos.persistent_epistemic_state import PersistentEpistemicStateOwner
 from sentientos.resident_epistemic_development import (CONFIG_ENV as EPISTEMIC_DEVELOPMENT_CONFIG_ENV,
     ResidentEpistemicDevelopmentRuntime, load_epistemic_development_config)
 from sentientos.resident_epistemic_state_mutation import ResidentEpistemicStateMutationController
+from sentientos.maintenance_resident_parent_supervision import (
+    PARENT_CONFIG_PATH_ENV, ResidentParentLifecycleEvidenceReader,
+)
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
-from sentientos.world_state_board import WorldStateSnapshot
+from sentientos.world_state_board import WorldStateSnapshot, WorldStateSourceKind, record_digest
 from sentientos.causal_introspection import (CausalIntrospectionRuntime, CaptureContext,
     IntrospectionConfig, LiveOwnerMetadataProvider, ProviderRegistration,
     load_config as load_causal_introspection_config)
@@ -57,8 +66,43 @@ from sentientos.longitudinal_self_model import (LongitudinalSelfModelOwner,
     LongitudinalSelfModelRuntimeConfig, load_runtime_config as load_longitudinal_self_model_config)
 from sentientos.genesis_model_advice import GenesisModelAdviceCoordinator
 from sentientos.world_state_board import WorldStateBoardBuilder, to_dict
+from sentientos.integrity_quarantine import (
+    QuarantineCustodyStatus,
+    QuarantineStateError,
+    load_state_with_status as load_quarantine_state_with_status,
+)
+from sentientos.integrity_incident import inspect_quarantine_incident_custody
+from sentientos.attestation_snapshot import (
+    MAX_SNAPSHOT_VERIFY_ITEMS,
+    verify_recent_snapshots,
+)
+from sentientos.platform_fcntl import fcntl, require_flock
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError,
+    open_private_directory,
+    read_private_file_at,
+    replace_private_bytes_with_status,
+)
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner
-from sentientos.host_resource_runtime import HostResourceRuntimeCoordinator, HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records
+from sentientos.embodiment_proposal_review import load_selected_review_world_state_records
+from sentientos.embodiment_fulfillment import (load_selected_fulfillment_world_state_records,
+    verify_embodied_fulfillment_receipt)
+from sentientos.embodied_consequence import (ConsequenceStore,
+    validate_world_state_projection_config)
+from sentientos.developmental_model_replacement_experiment import ModelReplacementArtifactStore
+from sentientos.maintenance_post_adoption_attribution_campaign import (
+    MaintenancePostAdoptionAttributionCampaignOwner,
+    campaign_improvement_signal_record,
+    validate_world_state_projection_config as validate_post_adoption_projection_config,
+)
+from sentientos.host_resource_runtime import (HostResourceRuntimeCoordinator,
+    HostResourceRuntimeEvaluation, summary_for_evaluation, world_state_records,
+    resource_consumption_world_state_records, resource_invocation_proposal_lineage_records)
+from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
+from sentientos.production_chat_resource_observation import (
+    ProductionChatResourceObservationError,
+    ProductionChatResourceObservationOwner,
+)
 from sentientos.host_privilege_review_runtime import HostPrivilegeReviewRuntimeCoordinator, HostPrivilegeReviewEvaluation, summary_for_evaluation as privilege_review_summary, world_state_records as privilege_review_world_state_records
 from sentientos.host_execution_readiness_runtime import HostExecutionReadinessRuntimeCoordinator, HostExecutionReadinessEvaluation, summary_for_evaluation as execution_readiness_summary, world_state_records as execution_readiness_world_state_records
 from sentientos.host_controlled_authorization_runtime import HostControlledAuthorizationRuntimeCoordinator, HostControlledAuthorizationEvaluation, summary_for_evaluation as controlled_authorization_summary, world_state_records as controlled_authorization_world_state_records
@@ -87,18 +131,585 @@ from sentientos.maintenance_resident_runtime_adoption import MaintenanceResident
 from sentientos.maintenance_resident_runtime_adoption import TRANSITION_ENV as RESIDENT_TRANSITION_ENV
 from sentientos.maintenance_resident_runtime_adoption import inspect_transition_custody as inspect_resident_transition_custody
 from sentientos.maintenance_initial_posix_resident_commissioning import STARTUP_GATE_ENV, await_initial_commissioning_gate
+from sentientos.windows_handle_custody import WindowsHandleCustodyError, read_explicit_file, read_regular_files
 
 LOGGER = logging.getLogger(__name__)
 RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV = "SENTIENTOS_RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG"
+RESOURCE_OBSERVATION_INSTALLATION_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_INSTALLATION_IDENTITY"
+RESOURCE_OBSERVATION_PROVISIONING_ENV = "SENTIENTOS_RESOURCE_OBSERVATION_PROVISIONING_ID"
+INTEGRITY_CONTROLLER_OBSERVATION_ENV = "SENTIENTOS_INTEGRITY_CONTROLLER_OBSERVATION"
+
+
+def _quarantine_custody_world_state_record(repo_root: Path, *, observed_at: str) -> dict[str, Any]:
+    """Project the actual protective-state owner read, without parsing incident narratives."""
+    try:
+        loaded = load_quarantine_state_with_status(repo_root)
+    except QuarantineStateError as exc:
+        code = exc.code if (isinstance(exc.code, str) and 0 < len(exc.code) <= 128
+                            and all(ch.islower() or ch.isdigit() or ch == "_" for ch in exc.code)) else "unclassified_custody_failure"
+        payload: dict[str, Any] = {
+            "observation_schema": "sentientos.integrity_quarantine_custody_observation:v1",
+            "source_owner": "sentientos.integrity_quarantine.load_state_with_status",
+            "custody_result": "invalid",
+            "custody_error_code": code,
+            "stored_state_present": None,
+            "activated_at": None,
+            "last_incident_id": None,
+            "quarantine_active": None,
+            "allow_publish": None,
+            "allow_automerge": None,
+            "freeze_forge": None,
+            "allow_federation_sync": None,
+            "event_meaning": "The configured protective quarantine record could not be verified at this observation.",
+            "cause_unknown": True,
+            "hostile_activity_established": False,
+            "attack_established": False,
+            "independent_signature": False,
+            "event_time_posture": "daemon_tick_point_observation_of_owner_read",
+            "effect_proven": False,
+            "effect_authority": False,
+            "authority": False,
+            "current_truth": False,
+            "read_only": True,
+        }
+        disposition = "custody_invalid"
+        evidence_strength = "owner_validated_custody_failure"
+    except Exception as exc:
+        payload = {
+            "observation_schema": "sentientos.integrity_quarantine_custody_observation:v1",
+            "source_owner": "sentientos.integrity_quarantine.load_state_with_status",
+            "custody_result": "observer_unavailable",
+            "custody_error_code": "observer_failure:" + type(exc).__name__[:64],
+            "stored_state_present": None,
+            "activated_at": None,
+            "last_incident_id": None,
+            "quarantine_active": None,
+            "event_meaning": "The protective-state observation owner did not return a custody result.",
+            "cause_unknown": True,
+            "hostile_activity_established": False,
+            "attack_established": False,
+            "independent_signature": False,
+            "event_time_posture": "daemon_tick_point_observation_of_owner_read",
+            "effect_proven": False,
+            "effect_authority": False,
+            "authority": False,
+            "current_truth": False,
+            "read_only": True,
+        }
+        disposition = "observer_unavailable"
+        evidence_strength = "owner_observation_unavailable"
+    else:
+        state = loaded.state
+        first_use = loaded.custody_status is QuarantineCustodyStatus.FIRST_USE_ABSENT
+        payload = {
+            "observation_schema": "sentientos.integrity_quarantine_custody_observation:v1",
+            "source_owner": "sentientos.integrity_quarantine.load_state_with_status",
+            "custody_result": "first_use_absent" if first_use else "valid_v1",
+            "custody_error_code": None,
+            "stored_state_present": not first_use,
+            "activated_at": None if first_use else state.activated_at,
+            "last_incident_id": None if first_use else state.last_incident_id,
+            # Absence means no stored policy was observed; do not promote the
+            # loader's default object to an explicit inactive record.
+            "quarantine_active": None if first_use else state.active,
+            "freeze_forge": None if first_use else state.freeze_forge,
+            "allow_publish": None if first_use else state.allow_publish,
+            "allow_automerge": None if first_use else state.allow_automerge,
+            "allow_federation_sync": None if first_use else state.allow_federation_sync,
+            "event_meaning": (
+                "No stored protective quarantine record was present at this first-use observation."
+                if first_use else
+                "The protective quarantine record passed owner validation and its stored posture is represented below."
+            ),
+            "cause_unknown": first_use,
+            "hostile_activity_established": False,
+            "attack_established": False,
+            "independent_signature": False,
+            "event_time_posture": "daemon_tick_point_observation_of_owner_read",
+            "effect_proven": False,
+            "effect_authority": False,
+            "authority": False,
+            "current_truth": False,
+            "read_only": True,
+        }
+        disposition = "recorded"
+        evidence_strength = "owner_validated_custody_observation"
+    return {
+        "source_kind": WorldStateSourceKind.QUARANTINE.value,
+        "source_id": "integrity-quarantine-custody:resident-daemon",
+        "schema_version": "sentientos.integrity_quarantine_custody_observation:v1",
+        "subject_id": "configured-protective-quarantine-state",
+        "subject_kind": "quarantine_custody_observation",
+        "stage": "observation",
+        "disposition": disposition,
+        "evidence_strength": evidence_strength,
+        "observed_at": observed_at,
+        "staleness": "unknown" if payload["custody_result"] in {"invalid", "observer_unavailable"} else None,
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": payload,
+    }
+
+
+def _quarantine_incident_custody_world_state_record(
+    repo_root: Path, *, observed_at: str, expected_incident_id: str | None,
+    expected_activated_at: str | None,
+) -> dict[str, Any] | None:
+    """Expose only bounded local restart reconciliation for an active quarantine reference."""
+    try:
+        loaded = load_quarantine_state_with_status(repo_root)
+    except Exception:
+        inspection = {}
+        status = "observer_unavailable"
+    else:
+        state = loaded.state
+        identity_changed = (not state.active or state.last_incident_id != expected_incident_id
+            or state.activated_at != expected_activated_at)
+        if identity_changed:
+            inspection = {}
+            status = "conflict"
+        else:
+            try:
+                inspection = inspect_quarantine_incident_custody(
+                    repo_root, incident_id=expected_incident_id,
+                    activated_at=expected_activated_at,
+                )
+                status = inspection.get("status")
+                if status not in {"complete_local_custody", "incomplete", "conflict", "incomplete_identity"}:
+                    status = "observer_unavailable"
+            except Exception:
+                inspection = {}
+                status = "observer_unavailable"
+    incident_id = expected_incident_id
+    if not isinstance(incident_id, str) or len(incident_id) > 128:
+        incident_id = None
+    activated_at = expected_activated_at
+    if not isinstance(activated_at, str) or len(activated_at) > 64:
+        activated_at = None
+    artifact_digest = inspection.get("artifact_sha256")
+    feed_digest = inspection.get("feed_row_sha256")
+    valid_digest = lambda value: (isinstance(value, str) and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value))
+    if not valid_digest(artifact_digest):
+        artifact_digest = None
+    if not valid_digest(feed_digest):
+        feed_digest = None
+    payload = {
+        "observation_schema": "sentientos.integrity_quarantine_incident_custody_observation:v1",
+        "source_owner": "sentientos.integrity_incident.inspect_quarantine_incident_custody",
+        "reconciliation_status": status,
+        "incident_id": incident_id,
+        # This is the historical activation time, not the current reconciliation time.
+        "incident_activated_at": activated_at,
+        "artifact_status": inspection.get("artifact_status") if inspection.get("artifact_status") in {
+            "valid", "missing", "invalid", "conflict", "not_checked"} else "not_checked",
+        "artifact_sha256": artifact_digest,
+        "feed_status": inspection.get("feed_status") if inspection.get("feed_status") in {
+            "present_unverified", "missing", "invalid", "conflict", "not_checked"} else "not_checked",
+        "feed_row_sha256": feed_digest,
+        "catalog_status": inspection.get("catalog_status") if inspection.get("catalog_status") in {
+            "present_unverified", "missing", "incomplete", "invalid", "conflict", "unsupported"} else "unavailable",
+        "catalog_entry_sha256": inspection.get("catalog_entry_sha256")
+            if valid_digest(inspection.get("catalog_entry_sha256")) else None,
+        "catalog_duplicate_count": inspection.get("catalog_duplicate_count")
+            if type(inspection.get("catalog_duplicate_count")) is int
+                and 0 <= inspection["catalog_duplicate_count"] <= 8_192 else 0,
+        "catalog_row_is_authenticated": False,
+        "feed_is_authenticated": False,
+        "event_meaning": (
+            "A read-only restart check compared the active quarantine's historical incident reference with its local artifact and feed custody."
+            if status != "observer_unavailable" else
+            "The local incident-reference reconciliation did not return a usable custody result."
+        ),
+        "event_time_posture": "historical_activation_reference_reconciled_at_observation",
+        "cause_unknown": True,
+        "attack_established": False,
+        "hostile_activity_established": False,
+        "defensive_consequence_established": False,
+        "authority": False,
+        "current_truth": False,
+        "effect_proven": False,
+        "effect_authority": False,
+        "read_only": True,
+    }
+    return {
+        "source_kind": WorldStateSourceKind.QUARANTINE.value,
+        "source_id": "integrity-quarantine-incident-custody:resident-daemon",
+        "schema_version": "sentientos.integrity_quarantine_incident_custody_observation:v1",
+        "subject_id": incident_id or "active-quarantine-incident-reference",
+        "subject_kind": "quarantine_incident_custody_observation",
+        "stage": "observation",
+        "disposition": "recorded" if status == "complete_local_custody" else "degraded",
+        "evidence_strength": "owner_observed_local_incident_custody_reconciliation",
+        "observed_at": observed_at,
+        "staleness": None,
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": payload,
+    }
+
+
+def _attestation_snapshot_verification_world_state_record(
+    repo_root: Path, *, observed_at: str,
+) -> dict[str, Any] | None:
+    """Project only the configured bounded signature-verifier result as context."""
+    if os.getenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0") != "1":
+        return None
+    try:
+        result = verify_recent_snapshots(repo_root, last=MAX_SNAPSHOT_VERIFY_ITEMS)
+        status = result.status if result.status in {"ok", "warn", "fail", "skipped"} else "invalid"
+        okay = result.ok if type(result.ok) is bool else None
+        checked = result.checked_n if type(result.checked_n) is int and 0 <= result.checked_n <= MAX_SNAPSHOT_VERIFY_ITEMS else None
+        reason = result.reason if isinstance(result.reason, str) and len(result.reason) <= 128 else None
+        last_hash = result.last_ok_hash
+        failed_record_sha256 = result.failed_record_sha256
+        if (checked is None or status == "invalid"
+                or (last_hash is not None and (not isinstance(last_hash, str)
+                    or len(last_hash) != 64 or any(ch not in "0123456789abcdef" for ch in last_hash)))
+                or (failed_record_sha256 is not None and (
+                    not isinstance(failed_record_sha256, str)
+                    or len(failed_record_sha256) != 64
+                    or any(ch not in "0123456789abcdef" for ch in failed_record_sha256)))):
+            raise ValueError("verifier_result_contract_invalid")
+        if status == "ok" and okay is not True:
+            raise ValueError("verifier_result_contract_invalid")
+        if status in {"warn", "fail"} and okay is not False:
+            raise ValueError("verifier_result_contract_invalid")
+        event_meaning = (
+            f"The configured bounded attestation snapshot verifier returned {status}"
+            + (f" ({reason})" if reason else "")
+            + "; this is a verifier result, not an attribution of cause or hostile activity."
+        )
+        evidence_strength = (
+            "owner_observed_signature_chain_validation" if status == "ok"
+            else "owner_observed_signature_chain_verification_failure"
+            if status in {"warn", "fail"} else "owner_verification_coverage_unavailable")
+        disposition = "recorded" if status == "ok" else (
+            "degraded" if status in {"warn", "fail"} else "unavailable")
+        reason_code = reason
+    except Exception as exc:
+        status, okay, checked, last_hash = "unavailable", None, None, None
+        failed_record_sha256 = None
+        reason_code = "verifier_observation_unavailable:" + type(exc).__name__[:64]
+        event_meaning = "The configured attestation snapshot verifier did not return a usable result; cause is unknown."
+        evidence_strength = "owner_verification_observation_unavailable"
+        disposition = "unavailable"
+    payload = {
+        "observation_schema": "sentientos.attestation_snapshot_verification_observation:v2",
+        "source_owner": "sentientos.attestation_snapshot.verify_recent_snapshots",
+        "event_time_posture": "daemon_tick_point_observation_of_bounded_verifier",
+        "verification_result": status,
+        "verification_ok": okay,
+        "verification_reason": reason_code,
+        "checked_signature_count": checked,
+        "last_verified_signature_hash": last_hash,
+        "failed_signature_record_sha256": failed_record_sha256,
+        "event_meaning": event_meaning,
+        "cause_unknown": True,
+        "attack_established": False,
+        "hostile_activity_established": False,
+        "compromise_established": False,
+        "independent_signature": False,
+        "effect_proven": False,
+        "effect_authority": False,
+        "authority": False,
+        "current_truth": False,
+        "read_only": True,
+    }
+    return {
+        "source_kind": WorldStateSourceKind.AUDIT_TRUST.value,
+        "source_id": "attestation-snapshot-verification:resident-daemon",
+        "schema_version": "sentientos.attestation_snapshot_verification_observation:v2",
+        "subject_id": "configured-attestation-snapshot-signature-chain",
+        "subject_kind": "attestation_snapshot_verification_observation",
+        "stage": "observation",
+        "disposition": disposition,
+        "evidence_strength": evidence_strength,
+        "observed_at": observed_at,
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": payload,
+    }
+
+
+def _integrity_controller_world_state_record(
+    repo_root: Path, *, observed_at: str,
+) -> dict[str, Any] | None:
+    """Expose a bounded read-only controller result only under explicit opt-in."""
+    if os.getenv(INTEGRITY_CONTROLLER_OBSERVATION_ENV, "0") != "1":
+        return None
+    status = None
+    try:
+        from sentientos.integrity_controller import evaluate_integrity
+        from sentientos.policy_fingerprint import build_policy_dict, compute_policy_hash
+
+        status = evaluate_integrity(
+            repo_root, policy_hash=compute_policy_hash(build_policy_dict()))
+        posture = status.status
+        if (type(status.schema_version) is not int or status.schema_version != 3
+                or posture not in {"ok", "warn", "fail"}
+                or not isinstance(status.ts, str) or len(status.ts) > 64
+                or not isinstance(status.policy_hash, str)
+                or len(status.policy_hash) != 64
+                or any(char not in "0123456789abcdef" for char in status.policy_hash)):
+            raise ValueError("integrity_status_contract_invalid")
+        checked = datetime.fromisoformat(status.ts.replace("Z", "+00:00"))
+        if checked.tzinfo is None:
+            raise ValueError("integrity_status_time_invalid")
+        if not isinstance(status.gate_results, list) or len(status.gate_results) > 32:
+            raise ValueError("integrity_status_gate_bound_invalid")
+        gates: list[dict[str, Any]] = []
+        for gate in status.gate_results:
+            if (not isinstance(gate.name, str) or not 0 < len(gate.name) <= 64
+                    or gate.status not in {"ok", "warn", "fail", "skipped"}
+                    or not isinstance(gate.reason, str) or len(gate.reason) > 160
+                    or not isinstance(gate.checked_at, str) or len(gate.checked_at) > 64
+                    or not isinstance(gate.evidence_paths, list)
+                    or len(gate.evidence_paths) > 8
+                    or (gate.failed_record_sha256 is not None
+                        and (not isinstance(gate.failed_record_sha256, str)
+                            or len(gate.failed_record_sha256) != 64
+                            or any(char not in "0123456789abcdef"
+                                for char in gate.failed_record_sha256)))
+                    or any(not isinstance(path, str) or len(path) > 256
+                           for path in gate.evidence_paths)):
+                raise ValueError("integrity_status_gate_contract_invalid")
+            gates.append({
+                "name": gate.name, "status": gate.status, "reason": gate.reason,
+                "checked_at": gate.checked_at,
+                "evidence_paths": list(gate.evidence_paths),
+                "failed_record_sha256": gate.failed_record_sha256,
+            })
+        if len({gate["name"] for gate in gates}) != len(gates):
+            raise ValueError("integrity_status_gate_identity_conflict")
+        digest_value = status.canonical_hash()
+        if (not isinstance(digest_value, str) or len(digest_value) != 64
+                or any(char not in "0123456789abcdef" for char in digest_value)):
+            raise ValueError("integrity_status_digest_invalid")
+        failed = sum(gate["status"] == "fail" for gate in gates)
+        warned = sum(gate["status"] == "warn" for gate in gates)
+        event_meaning = (
+            "The existing integrity controller returned bounded verifier gate results. "
+            "These results do not identify an attacker, cause, compromise, or successful defense."
+        )
+        disposition = "degraded" if posture in {"warn", "fail"} else "recorded"
+        evidence_strength = "source_integrity_status"
+        source_observed_at = status.ts
+        result_posture = posture
+        policy_hash = status.policy_hash
+        integrity_digest = digest_value
+        unavailable_reason = None
+    except Exception as exc:
+        gates = []
+        failed = 0
+        warned = 0
+        event_meaning = (
+            "The configured integrity controller did not return a usable bounded result; "
+            "the verification outcome and cause are unknown."
+        )
+        disposition = "unavailable"
+        evidence_strength = "integrity_controller_observation_unavailable"
+        source_observed_at = observed_at
+        result_posture = "unknown"
+        policy_hash = None
+        integrity_digest = None
+        unavailable_reason = "controller_observation_unavailable:" + type(exc).__name__[:64]
+    payload = {
+        "observation_schema": "sentientos.integrity_controller_observation:v2",
+        "source_owner": "sentientos.integrity_controller.evaluate_integrity",
+        "event_time_posture": "daemon_tick_point_observation_of_integrity_controller",
+        "controller_posture": result_posture,
+        "integrity_status_digest": integrity_digest,
+        "policy_hash": policy_hash,
+        "gate_results": gates,
+        "gate_count": len(gates),
+        "failed_gate_count": failed,
+        "warning_gate_count": warned,
+        "observation_error_code": unavailable_reason,
+        "event_meaning": event_meaning,
+        "cause_unknown": True,
+        "attack_established": False,
+        "hostile_activity_established": False,
+        "compromise_established": False,
+        "effect_proven": False,
+        "effect_authority": False,
+        "authority": False,
+        "current_truth": False,
+        "independent_signature": False,
+        "read_only": True,
+    }
+    return {
+        "source_kind": WorldStateSourceKind.AUDIT_TRUST.value,
+        "source_id": "integrity-controller:resident-daemon",
+        "schema_version": "sentientos.integrity_controller_observation:v2",
+        "subject_id": "configured-integrity-controller-verification",
+        "subject_kind": "integrity_controller_observation",
+        "stage": "observation",
+        "disposition": disposition,
+        "evidence_strength": evidence_strength,
+        "observed_at": source_observed_at,
+        "effect_claimed": False,
+        "effect_proven": False,
+        "payload": payload,
+    }
 LONGITUDINAL_SELF_MODEL_CONFIG_ENV = "SENTIENTOS_LONGITUDINAL_SELF_MODEL_CONFIG"
 EPISTEMIC_STATE_CONFIG_ENV = "SENTIENTOS_EPISTEMIC_STATE_CONFIG"
+EMBODIED_CONSEQUENCE_PROJECTION_CONFIG_ENV = "SENTIENTOS_EMBODIED_CONSEQUENCE_PROJECTION_CONFIG"
+POST_ADOPTION_ATTRIBUTION_PROJECTION_CONFIG_ENV = "SENTIENTOS_POST_ADOPTION_ATTRIBUTION_PROJECTION_CONFIG"
+
+
+def _load_embodied_consequence_projection(path: str | None) -> tuple[Any | None, tuple[str, ...], tuple[str, ...], Any | None, tuple[tuple[str, str], ...], tuple[Mapping[str, Any], ...], Path | None, tuple[str, ...], tuple[Mapping[str, Any], ...], Path | None, tuple[str, ...], tuple[tuple[str, str], ...], dict[str, Any]]:
+    """Load an explicit, bounded read-only view of selected durable experiments."""
+    if path is None:
+        return None, (), (), None, (), (), None, (), (), None, (), (), {"status": "disabled", "read_only": True, "effect_authority": False}
+    if os.name not in {"posix", "nt"} or (os.name == "posix" and not hasattr(os, "O_NOFOLLOW")):
+        return None, (), (), None, (), (), None, (), (), None, (), (), {"status": "unsupported", "reason_code": "secure_descriptor_reads_unavailable",
+                          "read_only": True, "effect_authority": False}
+    descriptor: int | None = None
+    try:
+        config_path = Path(path)
+        if os.name == "nt":
+            entries = read_regular_files(config_path.parent,
+                max_entries=1, max_file_bytes=65_536, max_total_bytes=65_536,
+                selected_names=(config_path.name,))
+            if len(entries) != 1 or entries[0][0] != config_path.name:
+                raise ValueError("projection_config_missing_or_ambiguous")
+            raw = entries[0][1]
+        else:
+            descriptor = os.open(config_path, os.O_RDONLY | os.O_NOFOLLOW)
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 65_536:
+                raise ValueError("projection_config_not_bounded_regular_file")
+            chunks: list[bytes] = []
+            remaining = 65_537
+            while remaining:
+                chunk = os.read(descriptor, min(16_384, remaining))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                remaining -= len(chunk)
+            raw = b"".join(chunks)
+            if len(raw) > 65_536 or len(raw) != metadata.st_size:
+                raise ValueError("projection_config_size_mismatch")
+        config = validate_world_state_projection_config(json.loads(raw.decode("utf-8")))
+        if not config["enabled"]:
+            return None, (), (), None, (), (), None, (), (), None, (), (), {"status": "disabled", "read_only": True, "effect_authority": False}
+        identities = tuple(config["experiment_result_ids"])
+        chain_ids = tuple(config["consequence_chain_ids"])
+        review_ids = tuple(config.get("proposal_review_receipt_ids", ()))
+        review_path = Path(config["proposal_review_log_path"]) if review_ids else None
+        review_records = tuple(load_selected_review_world_state_records(
+            path=review_path, review_receipt_ids=review_ids)) if review_ids else ()
+        fulfillment_ids = tuple(config.get("fulfillment_receipt_ids", ()))
+        fulfillment_path = Path(config["fulfillment_receipt_log_path"]) if fulfillment_ids else None
+        fulfillment_records = tuple(load_selected_fulfillment_world_state_records(
+            path=fulfillment_path, fulfillment_receipt_ids=fulfillment_ids)) if fulfillment_ids else ()
+        store = (ConsequenceStore(Path(config["store_root"]), create_root=False)
+            if identities or chain_ids else None)
+        # Verify selected artifacts at startup; the tick path re-verifies before
+        # projection so replacement or corruption is reported at observation.
+        if store is not None:
+            store.world_state_records(experiment_result_ids=identities,
+                consequence_chain_ids=chain_ids)
+        model_runs = tuple((item["run_id"], item["run_digest"])
+            for item in config["model_replacement_runs"])
+        developmental_runs = tuple((item["run_id"], item["run_digest"])
+            for item in config.get("developmental_history_intervention_runs", ()))
+        model_store = (ModelReplacementArtifactStore(Path(config["model_replacement_state_root"]),
+            read_only=True) if model_runs else None)
+        if model_store is not None:
+            model_store.world_state_records(run_refs=model_runs)
+        return store, identities, chain_ids, model_store, model_runs, review_records, review_path, review_ids, fulfillment_records, fulfillment_path, fulfillment_ids, developmental_runs, {"status": "verified",
+            "selected_strategy_result_count": len(identities),
+            "selected_consequence_chain_count": len(chain_ids),
+            "selected_model_replacement_run_count": len(model_runs),
+            "selected_developmental_history_intervention_run_count": len(developmental_runs),
+            "selected_proposal_review_receipt_count": len(review_records),
+            "selected_fulfillment_receipt_count": len(fulfillment_records),
+            "config_digest": config["config_digest"], "read_only": True, "effect_authority": False}
+    except FileNotFoundError:
+        return None, (), (), None, (), (), None, (), (), None, (), (), {"status": "missing", "reason_code": "projection_config_or_store_missing",
+                          "read_only": True, "effect_authority": False}
+    except Exception as exc:
+        reason = str(exc)
+        status = ("unsupported" if reason.startswith("consequence_store_unsupported_platform") else
+                  "missing" if any(token in reason for token in ("missing", "unavailable")) else "invalid")
+        return None, (), (), None, (), (), None, (), (), None, (), (), {"status": status, "reason_code": reason[:128] or type(exc).__name__,
+                          "read_only": True, "effect_authority": False}
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _valid_embodied_fulfillment_world_state_record(item: Mapping[str, Any]) -> bool:
+    payload = item.get("payload")
+    if not isinstance(payload, Mapping):
+        return False
+    receipt = {key: value for key, value in payload.items()
+        if key not in {"event_time_posture", "observer_issuer_posture", "actual_effect_observed",
+            "authority", "effect_proven"}}
+    receipt_id = receipt.get("fulfillment_receipt_id")
+    return (verify_embodied_fulfillment_receipt(receipt)
+        and item.get("digest") == record_digest(item)
+        and item.get("source_kind") == "embodiment"
+        and item.get("schema_version") == "embodiment.fulfillment_receipt.v2"
+        and item.get("source_id") == f"fulfillment-receipt:{receipt_id}"
+        and item.get("subject_kind") == "embodied_proposal_fulfillment_receipt"
+        and item.get("effect_claimed") is False and item.get("effect_proven") is False)
+
+
+def _load_post_adoption_attribution_projection(path: str | None) -> tuple[Any | None, tuple[str, ...], dict[str, Any]]:
+    """Load one explicit read-only campaign selection; ambient discovery is forbidden."""
+    if path is None:
+        return None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
+    if os.name != "posix" or not hasattr(os, "O_NOFOLLOW"):
+        return None, (), {"status": "unsupported", "reason_code": "secure_descriptor_reads_unavailable",
+            "read_only": True, "effect_authority": False}
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(Path(path), os.O_RDONLY | os.O_NOFOLLOW)
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 65_536:
+            raise ValueError("campaign_projection_config_not_bounded_regular_file")
+        chunks: list[bytes] = []
+        remaining = metadata.st_size
+        while remaining:
+            chunk = os.read(descriptor, min(16_384, remaining))
+            if not chunk:
+                raise ValueError("campaign_projection_config_truncated")
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if len(raw) != metadata.st_size:
+            raise ValueError("campaign_projection_config_size_mismatch")
+        config = validate_post_adoption_projection_config(json.loads(raw.decode("utf-8")))
+        if not config["enabled"]:
+            return None, (), {"status": "disabled", "read_only": True, "effect_authority": False}
+        owner = MaintenancePostAdoptionAttributionCampaignOwner(Path(config["store_root"]), read_only=True)
+        identities = tuple(config["campaign_ids"])
+        records = owner.world_state_records(campaign_ids=identities)
+        if len(records) != len(identities):
+            raise ValueError("campaign_projection_record_count_mismatch")
+        return owner, identities, {"status": "verified", "selected_campaign_count": len(identities),
+            "config_digest": config["config_digest"], "read_only": True, "effect_authority": False}
+    except FileNotFoundError:
+        return None, (), {"status": "missing", "reason_code": "campaign_projection_config_or_store_missing",
+            "read_only": True, "effect_authority": False}
+    except Exception as exc:
+        reason = str(exc)
+        status = "unsupported" if "unsupported_platform" in reason else "missing" if "missing" in reason.lower() else "invalid"
+        return None, (), {"status": status, "reason_code": reason[:128] or type(exc).__name__,
+            "read_only": True, "effect_authority": False}
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
 
 
 def _load_epistemic_state_owner(config_path: str | None) -> tuple[PersistentEpistemicStateOwner | None, dict[str, Any]]:
     """Compose custody only from explicit configuration; never scan ambient logs."""
     if not config_path:
         return None, {"status": "disabled", "cognitive_consumption_enabled": False}
-    payload = json.loads(Path(config_path).read_text(encoding="utf-8"))
+    payload = json.loads(read_explicit_file(Path(config_path), max_bytes=65_536).decode("utf-8"))
     expected = {"schema", "custody_root", "allowed_proposition_namespaces", "max_cognitive_projection_count", "cognitive_consumption_enabled"}
     if set(payload) != expected or payload["schema"] != "sentientos.epistemic_runtime_config:v1":
         raise ValueError("epistemic_runtime_configuration_invalid")
@@ -251,20 +862,221 @@ def resolve_improvement_evidence_sources(
     return sorted(out, key=lambda item: (str(item.get("source_kind")), str(item.get("path"))))
 
 
+RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT = 48
+
+
+def _bounded_resource_allocation_identity_projection(
+        allocations: Sequence[Mapping[str, Any]], *, limit: int = 64) -> dict[str, Any]:
+    """Expose a bounded allocation-identity tail and exact omitted boundary."""
+    if type(limit) is not int or limit < 1:
+        raise ValueError("resource_allocation_projection_limit_invalid")
+    identities = tuple(str(item.get("allocation_digest", ""))
+        for item in allocations if isinstance(item, Mapping))
+    omitted_count = max(0, len(identities) - limit)
+    retained = identities[omitted_count:]
+    return {
+        "allocation_digests": retained,
+        "allocation_count": len(identities),
+        "omitted_allocation_count": omitted_count,
+        "last_omitted_allocation_digest": identities[omitted_count - 1] if omitted_count else None,
+        "first_retained_allocation_digest": retained[0] if omitted_count and retained else None,
+        "allocation_retention_posture": "bounded_tail_incomplete" if omitted_count else "complete",
+    }
+
+
+def _bounded_resident_transition_entries(
+        entries: Sequence[Mapping[str, Any]]) -> tuple[tuple[Mapping[str, Any], ...], dict[str, Any] | None]:
+    """Retain a bounded journal tail while reporting the exact omitted prefix."""
+    omitted_count = max(0, len(entries) - RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT)
+    retained = tuple(entries[omitted_count:])
+    if not omitted_count:
+        return retained, None
+    last_omitted = entries[omitted_count - 1]
+    head = entries[-1]
+    return retained, {
+        "journal_head_digest": head.get("entry_digest"),
+        "omitted_entry_count": omitted_count,
+        "last_omitted_entry_digest": last_omitted.get("entry_digest"),
+        "first_retained_prior_digest": retained[0].get("prior_digest") if retained else None,
+        "retained_entry_count": len(retained),
+        "retained_tail_limit": RESIDENT_TRANSITION_WORLD_STATE_ENTRY_LIMIT,
+    }
+
+
+def _causal_introspection_world_state_records(runtime: CausalIntrospectionRuntime | None,
+        *, tick_id: str) -> list[dict[str, Any]]:
+    """Keep optional introspection recovery failure visible without aborting the board."""
+    if runtime is None:
+        return []
+    try:
+        next_generation = len(runtime.reconstruct()) + 1
+        return list(runtime.world_state_records(before_generation=next_generation))
+    except Exception as exc:
+        error_class = type(exc).__name__[:80]
+        return [{
+            "source_kind": "owner_introspection",
+            "source_id": f"causal-introspection:recovery-unavailable:{error_class}",
+            "subject_id": "causal-introspection-runtime",
+            "subject_kind": "causal_introspection_recovery",
+            "stage": "observation",
+            "disposition": "incomplete",
+            "evidence_strength": "recovery_error_class_only",
+            "payload": {
+                "recovery_posture": "committed_snapshot_history_unavailable",
+                "error_class": error_class,
+                "event_time_posture": "reconstruction_failure_is_not_a_source_event",
+                "read_only": True, "current_truth": False, "authority": False,
+            },
+            "observed_at": None,
+            "retrieved_at": tick_id,
+            "staleness": "unknown",
+            "effect_claimed": False, "effect_proven": False,
+        }]
+
+
 class RuntimeMaintenanceSurfaces:
     """Runtime facade that closes sentientosd loop calls onto real subsystem methods."""
 
-    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, causal_introspection_runtime: CausalIntrospectionRuntime | None = None) -> None:
+    def __init__(self, repo_root: Path, *, repository_mutation_handoff_root: Path | None = None, improvement_evidence_sources: list[dict[str, Any]] | None = None, runtime_state_root: Path | None = None, governed_local_invoker: GovernedLocalModelInvoker | None = None, governed_resource_ledger: GovernedLocalModelResourceLedger | None = None, governed_invocation_receipts: tuple[Mapping[str, Any], ...] = (), resource_observation_owner: ProductionChatResourceObservationOwner | None = None, resource_observation_configuration_status: Mapping[str, Any] | None = None, genesis_advice_source: GenesisModelAdviceCoordinator | None = None, longitudinal_self_model_owner: LongitudinalSelfModelOwner | None = None, epistemic_state_owner: PersistentEpistemicStateOwner | None = None, epistemic_state_config: dict[str, Any] | None = None, epistemic_state_configuration_error: str | None = None, epistemic_development_runtime: ResidentEpistemicDevelopmentRuntime | None = None, resident_developmental_owner: ResidentDevelopmentalCognitionOwner | None = None, resident_cognitive_invoker: Any | None = None, resident_cognition_gate: ResidentCognitionQuiescenceGate | None = None, resident_transition_runtime: Any | None = None, embodiment_evidence_owner: EmbodimentEvidenceOwner | None = None, embodied_consequence_store: Any | None = None, embodied_consequence_result_ids: tuple[str, ...] = (), embodied_consequence_chain_ids: tuple[str, ...] = (), model_replacement_artifact_store: Any | None = None, model_replacement_run_refs: tuple[tuple[str, str], ...] = (), developmental_history_intervention_run_refs: tuple[tuple[str, str], ...] = (), embodied_proposal_review_records: tuple[Mapping[str, Any], ...] = (), embodied_proposal_review_log_path: Path | None = None, embodied_proposal_review_receipt_ids: tuple[str, ...] = (), embodied_fulfillment_records: tuple[Mapping[str, Any], ...] = (), embodied_fulfillment_log_path: Path | None = None, embodied_fulfillment_receipt_ids: tuple[str, ...] = (), embodied_consequence_projection_status: Mapping[str, Any] | None = None, post_adoption_attribution_owner: MaintenancePostAdoptionAttributionCampaignOwner | None = None, post_adoption_attribution_campaign_ids: tuple[str, ...] = (), post_adoption_attribution_projection_status: Mapping[str, Any] | None = None, causal_introspection_runtime: Any | None = None, parent_supervision_observer: ResidentParentLifecycleEvidenceReader | None = None, parent_supervision_observation_status: Mapping[str, Any] | None = None, host_resource_runtime: HostResourceRuntimeCoordinator | None = None) -> None:
+        if governed_resource_ledger is not None and resource_observation_owner is not None:
+            raise ValueError("resource_ledger_and_observation_owner_mutually_exclusive")
+        if (host_resource_runtime is not None
+                and type(host_resource_runtime) is not HostResourceRuntimeCoordinator):
+            raise TypeError("trusted_host_resource_runtime_required")
         self._repo_root = Path(repo_root)
         self._repository_mutation_handoff_root = repository_mutation_handoff_root
         self._improvement_evidence_sources = list(improvement_evidence_sources or [])
         self._runtime_state_root = runtime_state_root or Path(os.environ.get("SENTIENTOS_RUNTIME_STATE_ROOT", "/tmp/sentientos-runtime-state"))
         self._identify_admitted = False
         self._governed_local_invoker = governed_local_invoker
+        self._governed_resource_ledger = governed_resource_ledger
+        self._resource_observation_owner = resource_observation_owner
+        self._resource_observation_health: dict[str, Any] = dict(resource_observation_configuration_status or {
+            "status": "verified" if resource_observation_owner is not None else "disabled",
+            "read_only": True, "effect_authority": False,
+        })
+        self._governed_invocation_receipts_path = self._runtime_state_root / "governed_local_model_invocation" / "registered_receipts.json"
+        self._governed_invocation_receipt_lock = threading.RLock()
+        self._governed_invocation_receipts = self._recover_governed_invocation_receipts(governed_invocation_receipts)
         self._genesis_advice_source = genesis_advice_source
         self._world_state_snapshot_built_for_tick: str | None = None
         self._world_state_snapshot: WorldStateSnapshot | None = None
+        self._parent_supervision_observer = parent_supervision_observer
+        self._parent_supervision_observation_status: dict[str, Any] = dict(
+            parent_supervision_observation_status or {
+                "status": "verified" if parent_supervision_observer is not None else "disabled",
+                "read_only": True, "effect_authority": False,
+            })
         self._embodiment_evidence_owner = embodiment_evidence_owner
+        if (not isinstance(embodied_consequence_result_ids, tuple)
+                or len(embodied_consequence_result_ids) > 32
+                or any(not isinstance(identity, str) for identity in embodied_consequence_result_ids)
+                or len(embodied_consequence_result_ids) != len(set(embodied_consequence_result_ids))
+                or not isinstance(embodied_consequence_chain_ids, tuple)
+                or len(embodied_consequence_chain_ids) > 32
+                or any(not isinstance(identity, str) for identity in embodied_consequence_chain_ids)
+                or len(embodied_consequence_chain_ids) != len(set(embodied_consequence_chain_ids))
+                or ((embodied_consequence_result_ids or embodied_consequence_chain_ids)
+                    and embodied_consequence_store is None)
+                or not isinstance(model_replacement_run_refs, tuple)
+                or len(model_replacement_run_refs) > 32
+                or any(not isinstance(item, tuple) or len(item) != 2
+                       or any(not isinstance(value, str) for value in item)
+                       for item in model_replacement_run_refs)
+                or len({item[0] for item in model_replacement_run_refs}) != len(model_replacement_run_refs)
+                or (model_replacement_run_refs and model_replacement_artifact_store is None)
+                or not isinstance(developmental_history_intervention_run_refs, tuple)
+                or len(developmental_history_intervention_run_refs) > 32
+                or any(not isinstance(item, tuple) or len(item) != 2
+                       or any(not isinstance(value, str) or not value for value in item)
+                       for item in developmental_history_intervention_run_refs)
+                or len({item[0] for item in developmental_history_intervention_run_refs})
+                    != len(developmental_history_intervention_run_refs)
+                or not isinstance(embodied_proposal_review_records, tuple)
+                or len(embodied_proposal_review_records) > 32
+                or any(not isinstance(item, Mapping) or item.get("digest") != record_digest(item)
+                       or item.get("source_kind") != "embodiment"
+                       or item.get("schema_version") != "embodiment.proposal.review_receipt.v2"
+                       or item.get("subject_kind") != "embodied_strategy_proposal_review"
+                       or item.get("stage") != "review"
+                       or not isinstance(item.get("payload"), Mapping)
+                       or item.get("source_id") != "proposal-review:" + str(item.get("payload", {}).get("review_receipt_id", ""))
+                       or item.get("subject_id") != str(item.get("payload", {}).get("proposal_id", ""))
+                       or item.get("payload", {}).get("review_binding_posture") not in {
+                           "material_digest_bound", "legacy_id_reconstructed"}
+                       for item in embodied_proposal_review_records)
+                or len({str(item.get("source_id")) for item in embodied_proposal_review_records})
+                    != len(embodied_proposal_review_records)
+                or not isinstance(embodied_proposal_review_receipt_ids, tuple)
+                or len(embodied_proposal_review_receipt_ids) > 32
+                or any(not isinstance(item, str) or len(item) != 29 or not item.startswith("eprr_")
+                       or any(character not in "0123456789abcdef" for character in item[5:])
+                       for item in embodied_proposal_review_receipt_ids)
+                or len(set(embodied_proposal_review_receipt_ids)) != len(embodied_proposal_review_receipt_ids)
+                or ((embodied_proposal_review_log_path is None) != (not embodied_proposal_review_receipt_ids))
+                or (embodied_proposal_review_log_path is not None
+                    and (not isinstance(embodied_proposal_review_log_path, Path)
+                         or not embodied_proposal_review_log_path.is_absolute()))
+                or not isinstance(embodied_fulfillment_records, tuple)
+                or len(embodied_fulfillment_records) > 32
+                or any(not isinstance(item, Mapping)
+                       or not _valid_embodied_fulfillment_world_state_record(item)
+                       for item in embodied_fulfillment_records)
+                or len({str(item.get("source_id")) for item in embodied_fulfillment_records})
+                    != len(embodied_fulfillment_records)
+                or not isinstance(embodied_fulfillment_receipt_ids, tuple)
+                or len(embodied_fulfillment_receipt_ids) > 32
+                or any(not isinstance(item, str) or len(item) != 28 or not item.startswith("efr_")
+                       or any(character not in "0123456789abcdef" for character in item[4:])
+                       for item in embodied_fulfillment_receipt_ids)
+                or len(set(embodied_fulfillment_receipt_ids)) != len(embodied_fulfillment_receipt_ids)
+                or ((embodied_fulfillment_log_path is None) != (not embodied_fulfillment_receipt_ids))
+                or (embodied_fulfillment_log_path is not None
+                    and (not isinstance(embodied_fulfillment_log_path, Path)
+                         or not embodied_fulfillment_log_path.is_absolute()))
+                or not isinstance(post_adoption_attribution_campaign_ids, tuple)
+                or len(post_adoption_attribution_campaign_ids) > 32
+                or any(not isinstance(identity, str) for identity in post_adoption_attribution_campaign_ids)
+                or len(post_adoption_attribution_campaign_ids) != len(set(post_adoption_attribution_campaign_ids))
+                or (post_adoption_attribution_campaign_ids and post_adoption_attribution_owner is None)
+                or (post_adoption_attribution_campaign_ids
+                    and getattr(post_adoption_attribution_owner, "read_only", False) is not True)):
+            raise ValueError("embodied_consequence_projection_injection_invalid")
+        self._embodied_consequence_store = embodied_consequence_store
+        self._embodied_consequence_result_ids = embodied_consequence_result_ids
+        self._embodied_consequence_chain_ids = embodied_consequence_chain_ids
+        self._model_replacement_artifact_store = model_replacement_artifact_store
+        self._model_replacement_run_refs = model_replacement_run_refs
+        self._developmental_history_intervention_run_refs = developmental_history_intervention_run_refs
+        self._embodied_proposal_review_records = embodied_proposal_review_records
+        self._embodied_proposal_review_log_path = embodied_proposal_review_log_path
+        self._embodied_proposal_review_receipt_ids = embodied_proposal_review_receipt_ids
+        self._embodied_proposal_review_projection_status = {
+            "status": "verified" if embodied_proposal_review_records else "disabled",
+            "selected_receipt_count": len(embodied_proposal_review_receipt_ids),
+            "read_only": True, "effect_authority": False,
+        }
+        self._embodied_fulfillment_records = embodied_fulfillment_records
+        self._embodied_fulfillment_log_path = embodied_fulfillment_log_path
+        self._embodied_fulfillment_receipt_ids = embodied_fulfillment_receipt_ids
+        self._embodied_fulfillment_projection_status = {
+            "status": "verified" if embodied_fulfillment_records else "disabled",
+            "selected_receipt_count": len(embodied_fulfillment_receipt_ids),
+            "read_only": True, "effect_authority": False,
+        }
+        self._embodied_consequence_projection_status = dict(embodied_consequence_projection_status or {
+            "status": "verified" if embodied_consequence_store is not None else "disabled",
+            "read_only": True, "effect_authority": False})
+        self._developmental_history_intervention_projection_status = {
+            "status": "configured" if developmental_history_intervention_run_refs else "disabled",
+            "selected_run_count": len(developmental_history_intervention_run_refs),
+            "read_only": True, "effect_authority": False,
+        }
+        self._post_adoption_attribution_owner = post_adoption_attribution_owner
+        self._post_adoption_attribution_campaign_ids = post_adoption_attribution_campaign_ids
+        self._post_adoption_attribution_projection_status = dict(post_adoption_attribution_projection_status or {
+            "status": "verified" if post_adoption_attribution_owner is not None else "disabled",
+            "read_only": True, "effect_authority": False})
         self._causal_introspection_runtime = causal_introspection_runtime
         self._longitudinal_self_model_owner = longitudinal_self_model_owner
         self._longitudinal_self_model_config: LongitudinalSelfModelRuntimeConfig | None = None
@@ -299,9 +1111,7 @@ class RuntimeMaintenanceSurfaces:
                 ledger = AdmissionLedger(self._runtime_state_root / "epistemic_development" / "runtime_admissions.json")
                 definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION: RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
                 def current_epistemic_admission_sequence() -> int:
-                    admissions, revocations = ledger.load()
-                    return max([item.issued_sequence for item in admissions]
-                               + [item.sequence for item in revocations], default=1)
+                    return ledger.current_sequence()
                 controller = ResidentEpistemicStateMutationController(
                     owner=self._epistemic_state_owner,
                     admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
@@ -317,21 +1127,25 @@ class RuntimeMaintenanceSurfaces:
         self._resident_developmental_owner: Any | None = resident_developmental_owner
         self._resident_cognition_gate = resident_cognition_gate
         self._resident_transition_runtime = resident_transition_runtime
+        self._resident_transition_custody: tuple[Any, TransitionJournal] | None = None
+        self._resident_transition_custody_error: str | None = None
+        self._resident_software_transition_controller: MaintenanceResidentRuntimeAdoptionController | None = None
+        self._resident_software_transition_config: Mapping[str, Any] | None = None
         self._resident_transition_configuration_error: str | None = None
         self._resident_developmental_configuration_error: str | None = None
+        self._resident_developmental_configuration_status = (
+            "explicitly_injected" if self._resident_developmental_owner is not None else "not_configured")
         resident_invoker: Any = resident_cognitive_invoker if resident_cognitive_invoker is not None else governed_local_invoker
+        self._resident_cognitive_invoker = resident_invoker
         if self._resident_developmental_owner is None and os.environ.get(RESIDENT_DEVELOPMENTAL_CONFIG_ENV):
             try:
                 config = load_resident_developmental_config(os.environ[RESIDENT_DEVELOPMENTAL_CONFIG_ENV])
                 if config.enabled:
+                    self._resident_developmental_configuration_status = "enabled"
                     ledger = AdmissionLedger(config.state_root / "runtime_admissions.json")
                     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
                     def current_admission_sequence() -> int:
-                        admissions, _ = ledger.load()
-                        return max((item.issued_sequence for item in admissions), default=1)
-                    def next_admission_sequence() -> int:
-                        admissions, revocations = ledger.load()
-                        return max([item.issued_sequence for item in admissions] + [item.sequence for item in revocations], default=0) + 1
+                        return ledger.current_sequence()
                     writeback = ResidentDevelopmentalWritebackController(
                         history_root=config.history_root,
                         admission_verifier=RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger),
@@ -340,16 +1154,21 @@ class RuntimeMaintenanceSurfaces:
                     self._resident_developmental_owner = ResidentDevelopmentalCognitionOwner(
                         config=config, writeback=writeback,
                         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-                        invoker=resident_invoker, current_sequence=next_admission_sequence,
+                        invoker=resident_invoker, current_sequence=current_admission_sequence,
                     ) if resident_invoker is not None else None
                     if resident_invoker is None:
                         self._resident_developmental_configuration_error = "governed_local_invoker_unavailable"
+                        self._resident_developmental_configuration_status = "blocked_invoker_unavailable"
+                else:
+                    self._resident_developmental_configuration_status = "disabled"
             except Exception as exc:
                 self._resident_developmental_configuration_error = f"{type(exc).__name__}:{exc}"
+                self._resident_developmental_configuration_status = "invalid"
         if self._resident_developmental_owner is not None and self._resident_cognition_gate is not None:
             self._resident_developmental_owner = QuiescedDevelopmentalCognitionOwner(
                 self._resident_developmental_owner, self._resident_cognition_gate)
-        self._host_resource_runtime = HostResourceRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
+        self._host_resource_runtime = (host_resource_runtime if host_resource_runtime is not None
+            else HostResourceRuntimeCoordinator(runtime_state_root=self._runtime_state_root))
         self._host_privilege_review_runtime = HostPrivilegeReviewRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_execution_readiness_runtime = HostExecutionReadinessRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
         self._host_controlled_authorization_runtime = HostControlledAuthorizationRuntimeCoordinator(runtime_state_root=self._runtime_state_root)
@@ -364,9 +1183,189 @@ class RuntimeMaintenanceSurfaces:
             "degraded": False,
             "surfaces": {},
         }
+        self._feedback["surfaces"]["embodied_consequence_projection"] = dict(
+            self._embodied_consequence_projection_status)
+        self._feedback["surfaces"]["developmental_history_intervention_projection"] = dict(
+            self._developmental_history_intervention_projection_status)
+        self._feedback["surfaces"]["post_adoption_attribution_projection"] = dict(
+            self._post_adoption_attribution_projection_status)
+        if self._governed_local_invoker is not None:
+            self._governed_local_invoker.register_evidence_sink(self.register_governed_invocation_receipt)
+
+    @contextmanager
+    def _registered_invocation_receipt_process_lock(self) -> Iterator[None]:
+        """Serialize receipt-registry read/merge/replace across daemon processes."""
+        if os.name != "posix":
+            raise ValueError("registered_invocation_receipt_lock_unsupported_platform")
+        directory_fd: int | None = None
+        descriptor: int | None = None
+        try:
+            require_flock()
+            directory_fd = open_private_directory(
+                self._governed_invocation_receipts_path.parent, create=True)
+            descriptor = os.open(
+                ".registered-invocation-receipts.lock",
+                os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0),
+                0o600, dir_fd=directory_fd)
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_uid != os.geteuid()
+                    or opened.st_nlink != 1 or opened.st_mode & 0o077):
+                raise ValueError("registered_invocation_receipt_lock_invalid")
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+        except ValueError:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise
+        except (OSError, PrivateFileCustodyError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            if directory_fd is not None:
+                os.close(directory_fd)
+            raise ValueError("registered_invocation_receipt_lock_unavailable") from exc
+        assert directory_fd is not None and descriptor is not None
+        try:
+            yield
+        finally:
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
+                os.close(directory_fd)
+
+    def register_governed_invocation_receipt(self, receipt: Mapping[str, Any]) -> None:
+        """Admit an already-produced invocation receipt as bounded evidence.
+
+        Registration is observational only: it validates the receipt identity,
+        deduplicates by receipt ID, and never invokes a model or grants effect
+        authority. The next World-State build carries the exact receipt fields.
+        """
+        if os.name != "posix":
+            raise ValueError("registered_invocation_receipt_publication_unsupported_platform")
+        valid, findings = validate_receipt(receipt)
+        if not valid:
+            raise ValueError("invalid_governed_local_model_invocation_receipt:" + ",".join(findings))
+        receipt_id = str(receipt.get("receipt_id") or "")
+        if not receipt_id:
+            raise ValueError("missing_governed_invocation_receipt_id")
+        with self._governed_invocation_receipt_lock:
+            with self._registered_invocation_receipt_process_lock():
+                durable = self._recover_governed_invocation_receipts(())
+                recovered: list[dict[str, Any]] = []
+                identities: dict[str, dict[str, Any]] = {}
+                for item in (*durable, *self._governed_invocation_receipts):
+                    prior = identities.get(str(item.get("receipt_id") or ""))
+                    if prior is not None:
+                        if prior != item:
+                            raise ValueError("conflicting_governed_invocation_receipt")
+                        continue
+                    identities[str(item.get("receipt_id") or "")] = item
+                    recovered.append(item)
+                prior = identities.get(receipt_id)
+                if prior is not None:
+                    if prior != dict(receipt):
+                        raise ValueError("conflicting_governed_invocation_receipt")
+                    self._governed_invocation_receipts = tuple(recovered[-256:])
+                    return
+                if len(recovered) >= 256:
+                    recovered = recovered[-255:]
+                candidate = (*recovered, dict(receipt))
+                durability_confirmed = self._persist_governed_invocation_receipts(candidate)
+                # Atomic replacement is already visible when the helper returns
+                # False. Retain that exact candidate in memory before surfacing
+                # uncertain directory durability; do not roll back visible evidence.
+                self._governed_invocation_receipts = candidate
+                if not durability_confirmed:
+                    raise ValueError("registered_invocation_receipt_durability_uncertain")
+
+    def _recover_governed_invocation_receipts(self, supplied: tuple[Mapping[str, Any], ...]) -> tuple[dict[str, Any], ...]:
+        """Recover evidence only; no model call, ledger mutation, or replay."""
+        recovered: list[dict[str, Any]] = []
+        path = self._governed_invocation_receipts_path
+        raw_bytes: bytes | None = None
+        if os.name == "posix":
+            directory_fd: int | None = None
+            try:
+                directory_fd = open_private_directory(path.parent, create=False)
+                raw_bytes = read_private_file_at(
+                    directory_fd, path.name, max_bytes=16_777_216)
+            except PrivateFileCustodyError as exc:
+                if exc.code not in {"directory_root_missing", "file_missing"}:
+                    raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
+            finally:
+                if directory_fd is not None:
+                    os.close(directory_fd)
+        else:
+            try:
+                raw_bytes = read_explicit_file(path, max_bytes=16_777_216)
+            except WindowsHandleCustodyError as exc:
+                if str(exc) != "explicit_file_missing":
+                    raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
+        identities: dict[str, dict[str, Any]] = {}
+
+        def retain(candidate_value: Mapping[str, Any]) -> None:
+            candidate = dict(candidate_value)
+            receipt_id_value = candidate.get("receipt_id")
+            if not isinstance(receipt_id_value, str) or not receipt_id_value:
+                recovered.append(candidate)
+                return
+            prior = identities.get(receipt_id_value)
+            if prior is not None:
+                if prior != candidate:
+                    raise ValueError("conflicting_recovered_invocation_receipt")
+                return
+            identities[receipt_id_value] = candidate
+            recovered.append(candidate)
+
+        if raw_bytes is not None:
+            try:
+                raw = json.loads(raw_bytes.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise ValueError("registered_invocation_receipts_artifact_invalid") from exc
+            if (not isinstance(raw, list) or len(raw) > 256
+                    or any(not isinstance(item, Mapping) for item in raw)
+                    or json.dumps(raw, sort_keys=True, separators=(",", ":")).encode("utf-8") != raw_bytes):
+                raise ValueError("registered_invocation_receipts_artifact_invalid")
+            for item in raw:
+                retain(item)
+        if len(supplied) > 256:
+            raise ValueError("registered_invocation_receipts_retention_limit_exceeded")
+        for item in supplied:
+            retain(item)
+        for item in recovered:
+            valid, findings = validate_receipt(item)
+            if not valid:
+                raise ValueError("invalid_recovered_invocation_receipt:" + ",".join(findings))
+        return tuple(recovered[-256:])
+
+    def _persist_governed_invocation_receipts(
+            self, receipts: tuple[dict[str, Any], ...] | None = None) -> bool:
+        if os.name != "posix":
+            raise ValueError("registered_invocation_receipt_publication_unsupported_platform")
+        path = self._governed_invocation_receipts_path
+        selected = self._governed_invocation_receipts if receipts is None else receipts
+        payload = json.dumps(list(selected), sort_keys=True,
+            separators=(",", ":")).encode("utf-8")
+        if len(payload) > 16_777_216:
+            raise ValueError("registered_invocation_receipts_size_limit_exceeded")
+        try:
+            return replace_private_bytes_with_status(path, payload, max_bytes=16_777_216)
+        except PrivateFileCustodyError as exc:
+            raise ValueError("registered_invocation_receipts_publication_failed") from exc
 
     def identify_improvement_signals(self) -> SignalPlaneEvaluation:
-        records = collect_repository_evidence(repo_root=self._repo_root, artifacts=self._improvement_evidence_sources)
+        campaign_records: list[Mapping[str, Any]] = []
+        if self._post_adoption_attribution_owner is not None:
+            for campaign_id in self._post_adoption_attribution_campaign_ids:
+                result = self._post_adoption_attribution_owner.result(campaign_id)
+                protocol = self._post_adoption_attribution_owner.protocol(campaign_id)
+                signal = campaign_improvement_signal_record(result, protocol=protocol,
+                    selection_config_digest=self._post_adoption_attribution_projection_status.get("config_digest"))
+                if signal is not None:
+                    campaign_records.append(signal)
+        records = collect_repository_evidence(repo_root=self._repo_root,
+            artifacts=self._improvement_evidence_sources, direct_records=campaign_records)
         evaluation = evaluate_signal_plane(records, repo_root=self._repo_root)
         artifacts = persist_runtime_artifacts(self._runtime_state_root, evaluation, tick_id=datetime.now(timezone.utc).isoformat())
         self._identify_admitted = True
@@ -459,20 +1458,436 @@ class RuntimeMaintenanceSurfaces:
         if self._world_state_snapshot_built_for_tick == tick_key:
             return dict(self._feedback.get("surfaces", {}).get("world_state_evidence_board", {}))
         records: list[dict[str, Any]] = []
-        if self._causal_introspection_runtime is not None:
-            # Generation, not a parsed tick string, enforces the temporal firewall.
-            next_capture_generation = len(self._causal_introspection_runtime.reconstruct()) + 1
-            records.extend(self._causal_introspection_runtime.world_state_records(
-                before_generation=next_capture_generation))
+        quarantine_record = _quarantine_custody_world_state_record(
+            self._repo_root, observed_at=tick_key)
+        records.append(quarantine_record)
+        incident_custody_record = None
+        if quarantine_record["payload"].get("quarantine_active") is True:
+            incident_custody_record = _quarantine_incident_custody_world_state_record(
+                self._repo_root, observed_at=tick_key,
+                expected_incident_id=quarantine_record["payload"].get("last_incident_id"),
+                expected_activated_at=quarantine_record["payload"].get("activated_at"),
+            )
+        if incident_custody_record is not None:
+            records.append(incident_custody_record)
+        integrity_record = _integrity_controller_world_state_record(
+            self._repo_root, observed_at=tick_key)
+        if integrity_record is not None:
+            records.append(integrity_record)
+            self._feedback.setdefault("surfaces", {})["integrity_controller_observation"] = {
+                "status": integrity_record["payload"]["controller_posture"],
+                "gate_count": integrity_record["payload"]["gate_count"],
+                "source_id": integrity_record["source_id"],
+                "read_only": True,
+                "attack_established": False,
+                "effect_authority": False,
+            }
+        else:
+            self._feedback.setdefault("surfaces", {})["integrity_controller_observation"] = {
+                "status": "disabled", "read_only": True, "effect_authority": False,
+            }
+        # The full controller evaluates configured snapshot signatures once
+        # when enabled; reuse that gate instead of running the same verifier a
+        # second time. Otherwise preserve the narrow existing verifier owner.
+        attestation_record = (
+            None if integrity_record is not None else
+            _attestation_snapshot_verification_world_state_record(
+                self._repo_root, observed_at=tick_key)
+        )
+        if integrity_record is not None:
+            attestation_gate = next((gate for gate in integrity_record["payload"]["gate_results"]
+                if gate["name"] == "attestation_snapshot_signatures"), None)
+            if attestation_gate is not None:
+                self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
+                    "status": attestation_gate["status"],
+                    "reason_code": attestation_gate["reason"],
+                    "source_id": integrity_record["source_id"],
+                    "read_only": True, "attack_established": False,
+                    "effect_authority": False,
+                }
+            else:
+                self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
+                    "status": "not_in_controller_result", "read_only": True,
+                    "effect_authority": False,
+                }
+        if attestation_record is not None:
+            records.append(attestation_record)
+            self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
+                "status": attestation_record["payload"]["verification_result"],
+                "reason_code": attestation_record["payload"].get("verification_reason"),
+                "source_id": attestation_record["source_id"],
+                "read_only": True,
+                "attack_established": False,
+                "effect_authority": False,
+            }
+        elif integrity_record is None:
+            self._feedback.setdefault("surfaces", {})["attestation_snapshot_verification"] = {
+                "status": "disabled", "read_only": True, "effect_authority": False,
+            }
+        self._feedback.setdefault("surfaces", {})["integrity_quarantine_custody"] = {
+            "status": quarantine_record["payload"]["custody_result"],
+            "reason_code": quarantine_record["payload"].get("custody_error_code"),
+            "source_id": quarantine_record["source_id"],
+            "read_only": True,
+            "attack_established": False,
+            "effect_authority": False,
+        }
+        selected_resource_lineage_source_ids: set[str] = set()
+        selected_embodied_source_ids: set[str] = set()
+        selected_embodiment_observation_source_ids: set[str] = set()
+        selected_embodiment_observation_identities: set[tuple[str, str]] = set()
+        embodiment_observation_input_error: str | None = None
+        selected_parent_observation_source_ids: set[str] = set()
+        parent_observation_input_error: str | None = None
+        selected_proposal_review_source_ids: set[str] = set()
+        selected_fulfillment_source_ids: set[str] = set()
+        selected_post_adoption_source_ids: set[str] = set()
+        if self._parent_supervision_observer is not None:
+            try:
+                parent_records = self._parent_supervision_observer.world_state_records(
+                    observed_at=tick_key)
+                if (not isinstance(parent_records, list) or len(parent_records) > 1
+                        or any(not isinstance(item, dict)
+                            or item.get("source_kind") != WorldStateSourceKind.RUNTIME_SUPERVISOR.value
+                            or item.get("subject_kind") != "resident_parent_lifecycle_history"
+                            or item.get("disposition") != "recorded"
+                            for item in parent_records)):
+                    raise ValueError("parent_observation_record_contract_invalid")
+                records.extend(parent_records)
+                selected_parent_observation_source_ids.update(
+                    str(item["source_id"]) for item in parent_records)
+            except Exception as exc:
+                parent_observation_input_error = type(exc).__name__
+                records.append({
+                    "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+                    "source_id": "resident-parent-supervision:unavailable",
+                    "subject_id": "resident_parent_supervision",
+                    "subject_kind": "resident_parent_lifecycle_observation_unavailable",
+                    "stage": "observation", "disposition": "degraded",
+                    "observed_at": tick_key,
+                    "payload": {"status": "unavailable", "reason_code": "parent_source_rejected",
+                        "failure_class": parent_observation_input_error,
+                        "read_only": True, "effect_authority": False,
+                        "current_truth": False},
+                })
+        records.extend(self._resident_succession_world_state_records(tick_key))
+        records.extend(_causal_introspection_world_state_records(
+            self._causal_introspection_runtime, tick_id=tick_key))
         if self._embodiment_evidence_owner is not None:
             # Explicit injection only: no ambient discovery and no avatar daemon startup.
-            records.extend(self._embodiment_evidence_owner.world_state_records())
+            # This source remains a caller-assertion context, never a verified
+            # fulfillment or independent physical observation.
+            try:
+                embodiment_records = self._embodiment_evidence_owner.world_state_records()
+                records.extend(embodiment_records)
+                selected_embodiment_observation_source_ids.update(
+                    str(item["source_id"]) for item in embodiment_records)
+                selected_embodiment_observation_identities.update(
+                    (str(item["source_id"]), record_digest(item)) for item in embodiment_records)
+            except Exception as exc:
+                embodiment_observation_input_error = type(exc).__name__
+        if self._embodied_proposal_review_log_path is not None:
+            try:
+                review_records = load_selected_review_world_state_records(
+                    path=self._embodied_proposal_review_log_path,
+                    review_receipt_ids=self._embodied_proposal_review_receipt_ids)
+                records.extend(review_records)
+                selected_proposal_review_source_ids.update(str(item["source_id"]) for item in review_records)
+                self._embodied_proposal_review_projection_status = {
+                    "status": "verified",
+                    "selected_receipt_count": len(self._embodied_proposal_review_receipt_ids),
+                    "read_only": True, "effect_authority": False,
+                }
+            except Exception as exc:
+                self._embodied_proposal_review_projection_status = {
+                    "status": "degraded", "reason_code": type(exc).__name__,
+                    "selected_receipt_count": len(self._embodied_proposal_review_receipt_ids),
+                    "read_only": True, "effect_authority": False,
+                }
+            records.append({
+                "source_kind": "embodiment", "source_id": "proposal-review-projection:health",
+                "subject_id": "configured_proposal_review_selection",
+                "subject_kind": "proposal_review_projection_status", "stage": "observation",
+                "disposition": self._embodied_proposal_review_projection_status["status"],
+                "evidence_strength": "source_integrity_status", "effect_claimed": False,
+                "effect_proven": False, "observed_at": tick_key,
+                "payload": dict(self._embodied_proposal_review_projection_status),
+            })
+            self._feedback.setdefault("surfaces", {})["embodied_proposal_review_projection"] = dict(
+                self._embodied_proposal_review_projection_status)
+        elif self._embodied_proposal_review_records:
+            records.extend(dict(item) for item in self._embodied_proposal_review_records)
+        if self._embodied_fulfillment_log_path is not None:
+            try:
+                fulfillment_records = load_selected_fulfillment_world_state_records(
+                    path=self._embodied_fulfillment_log_path,
+                    fulfillment_receipt_ids=self._embodied_fulfillment_receipt_ids)
+                records.extend(fulfillment_records)
+                selected_fulfillment_source_ids.update(str(item["source_id"]) for item in fulfillment_records)
+                self._embodied_fulfillment_projection_status = {
+                    "status": "verified",
+                    "selected_receipt_count": len(self._embodied_fulfillment_receipt_ids),
+                    "read_only": True, "effect_authority": False,
+                }
+            except Exception as exc:
+                self._embodied_fulfillment_projection_status = {
+                    "status": "degraded", "reason_code": type(exc).__name__,
+                    "selected_receipt_count": len(self._embodied_fulfillment_receipt_ids),
+                    "read_only": True, "effect_authority": False,
+                }
+            records.append({
+                "source_kind": "embodiment", "source_id": "fulfillment-receipt-projection:health",
+                "subject_id": "configured_fulfillment_receipt_selection",
+                "subject_kind": "fulfillment_receipt_projection_status", "stage": "observation",
+                "disposition": self._embodied_fulfillment_projection_status["status"],
+                "evidence_strength": "source_integrity_status", "effect_claimed": False,
+                "effect_proven": False, "observed_at": tick_key,
+                "payload": dict(self._embodied_fulfillment_projection_status),
+            })
+            self._feedback.setdefault("surfaces", {})["embodied_fulfillment_projection"] = dict(
+                self._embodied_fulfillment_projection_status)
+        elif self._embodied_fulfillment_records:
+            records.extend(dict(item) for item in self._embodied_fulfillment_records)
+        if self._embodied_consequence_store is not None and (self._embodied_consequence_result_ids
+                or self._embodied_consequence_chain_ids):
+            try:
+                projected = self._embodied_consequence_store.world_state_records(
+                    experiment_result_ids=self._embodied_consequence_result_ids,
+                    consequence_chain_ids=self._embodied_consequence_chain_ids)
+                records.extend(projected)
+                selected_embodied_source_ids.update(str(item["source_id"]) for item in projected)
+                self._embodied_consequence_projection_status = {
+                    **self._embodied_consequence_projection_status, "status": "verified",
+                    "read_only": True, "effect_authority": False}
+            except Exception as exc:
+                self._embodied_consequence_projection_status = {
+                    **self._embodied_consequence_projection_status, "status": "degraded",
+                    "reason_code": type(exc).__name__, "read_only": True, "effect_authority": False}
+            self._feedback.setdefault("surfaces", {})["embodied_consequence_projection"] = dict(
+                self._embodied_consequence_projection_status)
+        if self._model_replacement_artifact_store is not None and self._model_replacement_run_refs:
+            try:
+                projected = self._model_replacement_artifact_store.world_state_records(
+                    run_refs=self._model_replacement_run_refs)
+                records.extend(projected)
+                selected_embodied_source_ids.update(str(item["source_id"]) for item in projected)
+            except Exception as exc:
+                self._embodied_consequence_projection_status = {
+                    **self._embodied_consequence_projection_status, "status": "degraded",
+                    "reason_code": type(exc).__name__, "read_only": True, "effect_authority": False}
+                self._feedback.setdefault("surfaces", {})["embodied_consequence_projection"] = dict(
+                    self._embodied_consequence_projection_status)
+        owner = self._resident_developmental_owner
+        if isinstance(owner, QuiescedDevelopmentalCognitionOwner):
+            owner = owner._owner
+        experiment_store = getattr(owner, "experiments", None) if owner is not None else None
+        projector = getattr(experiment_store, "world_state_records", None)
+        inspect_completed_runs = getattr(owner,
+            "inspect_completed_objective_experiment_run_refs", None) if owner is not None else None
+        run_refs = list(self._developmental_history_intervention_run_refs)
+        automatic_run_count = 0
+        projection_error: str | None = None
+        if callable(inspect_completed_runs):
+            try:
+                automatic_refs = inspect_completed_runs(limit=32)
+                automatic_run_count = len(automatic_refs)
+                by_run = {run_id: run_digest for run_id, run_digest in run_refs}
+                for run_id, run_digest in automatic_refs:
+                    prior_digest = by_run.get(run_id)
+                    if prior_digest is not None and prior_digest != run_digest:
+                        raise ValueError("developmental_history_run_reference_conflict")
+                    if prior_digest is None:
+                        by_run[run_id] = run_digest
+                        run_refs.append((run_id, run_digest))
+                if len(run_refs) > 32:
+                    raise ValueError("developmental_history_projection_selection_over_bound")
+            except Exception as exc:
+                projection_error = type(exc).__name__
+        if run_refs:
+            if not callable(projector):
+                projection_error = projection_error or "developmental_experiment_owner_unavailable"
+            else:
+                try:
+                    projected = projector(run_refs=tuple(run_refs))
+                    if len(projected) != len(run_refs):
+                        raise ValueError("developmental_history_projection_count_mismatch")
+                    records.extend(projected)
+                    selected_embodied_source_ids.update(str(item["source_id"]) for item in projected)
+                except Exception as exc:
+                    projection_error = projection_error or type(exc).__name__
+        self._developmental_history_intervention_projection_status = {
+            "status": ("degraded" if projection_error else
+                "verified" if run_refs else
+                "verified_empty" if callable(inspect_completed_runs) else
+                "disabled" if not self._developmental_history_intervention_run_refs else "degraded"),
+            **({"reason_code": projection_error} if projection_error else {}),
+            "selected_run_count": len(run_refs),
+            "automatic_completed_run_count": automatic_run_count,
+            "read_only": True, "effect_authority": False,
+        }
+        self._feedback.setdefault("surfaces", {})[
+            "developmental_history_intervention_projection"] = dict(
+                self._developmental_history_intervention_projection_status)
+        if self._post_adoption_attribution_owner is not None and self._post_adoption_attribution_campaign_ids:
+            try:
+                projected = self._post_adoption_attribution_owner.world_state_records(
+                    campaign_ids=self._post_adoption_attribution_campaign_ids)
+                records.extend(projected)
+                selected_post_adoption_source_ids.update(str(item["source_id"]) for item in projected)
+                self._post_adoption_attribution_projection_status = {
+                    **self._post_adoption_attribution_projection_status, "status": "verified",
+                    "read_only": True, "effect_authority": False}
+            except Exception as exc:
+                self._post_adoption_attribution_projection_status = {
+                    **self._post_adoption_attribution_projection_status, "status": "degraded",
+                    "reason_code": type(exc).__name__, "read_only": True, "effect_authority": False}
+            self._feedback.setdefault("surfaces", {})["post_adoption_attribution_projection"] = dict(
+                self._post_adoption_attribution_projection_status)
         signal = self._feedback.get("surfaces", {}).get("governed_improvement_signal_plane", {})
         if isinstance(signal, dict) and signal:
             records.append({"source_kind":"governed_improvement_signal_plane","source_id":"runtime:signal-plane","subject_id":"governed_improvement_signal_plane","subject_kind":"runtime_surface","stage":"proposal","disposition":"degraded" if signal.get("status") == "degraded" else "recorded","payload": {k:v for k,v in signal.items() if k != "runtime_artifacts"}, "observed_at": tick_key})
         host_eval = self._host_resource_evaluation
         if host_eval is not None:
             records.extend(world_state_records(host_eval))
+        if self._governed_resource_ledger is not None:
+            records.extend(resource_consumption_world_state_records(
+                ledger=self._governed_resource_ledger,
+                invocation_receipts=self._governed_invocation_receipts,
+                observed_at=tick_key))
+        if self._resource_observation_owner is not None:
+            try:
+                observation = self._resource_observation_owner.observe()
+                resource_records = resource_consumption_world_state_records(
+                    ledger=observation.ledger,
+                    invocation_receipts=observation.invocation_receipts,
+                    verified_predecessor_invocation_receipts=(
+                        observation.predecessor_invocation_receipts),
+                    observed_at=tick_key,
+                    source_identity={
+                        "installation_identity": observation.installation_identity,
+                        "provisioning_id": observation.provisioning_id,
+                        "manifest_digest": observation.manifest_digest,
+                    },
+                    verified_chat_process_generation_attributions=(
+                        observation.chat_process_generation_attributions),
+                    verified_chat_process_recovery_transitions=(
+                        observation.chat_process_recovery_transitions),
+                    verified_chat_process_runtime_observation=(
+                        observation.chat_process_runtime_observation),
+                    verified_serving_operation_attempts=(
+                        observation.serving_operation_attempts),
+                    verified_serving_operation_history=(
+                        observation.serving_operation_history))
+                records.extend(resource_records)
+                degraded = (observation.invocation_receipt_posture != "verified"
+                            or any(item.get("disposition") != "recorded" for item in resource_records)
+                            or observation.predecessor_invocation_receipt_posture
+                                == "degraded_missing_direct_parent_receipt"
+                            or observation.chat_process_recovery_posture.startswith("unknown_windows")
+                            or observation.chat_process_runtime_observation_posture in {
+                                "unknown_missing", "historically_not_verified"}
+                            or observation.serving_operation_attempt_posture not in {
+                                "verified_attempts_present", "verified_no_attempts"}
+                            or any(item.get("status") != "serving_receipt_verified"
+                                for item in observation.serving_operation_history)
+                            or any(item.get("terminal_receipt_digest") is None
+                                for item in observation.chat_process_recovery_transitions))
+                self._resource_observation_health = {
+                    "status": "degraded" if degraded else "verified",
+                    "installation_identity": observation.installation_identity,
+                    "provisioning_id": observation.provisioning_id,
+                    "ledger_digest": observation.ledger.observation_snapshot()["ledger_digest"],
+                    "invocation_receipt_posture": observation.invocation_receipt_posture,
+                    "predecessor_invocation_receipt_posture":
+                        observation.predecessor_invocation_receipt_posture,
+                    "predecessor_invocation_receipt_count": len(
+                        observation.predecessor_invocation_receipts),
+                    "chat_process_generation_posture": observation.chat_process_generation_posture,
+                    "verified_chat_process_generation_attribution_count": len(
+                        observation.chat_process_generation_attributions),
+                    "chat_process_recovery_posture": observation.chat_process_recovery_posture,
+                    "chat_process_recovery_transition_count": len(
+                        observation.chat_process_recovery_transitions),
+                    "chat_process_runtime_observation_posture":
+                        observation.chat_process_runtime_observation_posture,
+                    "serving_operation_attempt_posture": observation.serving_operation_attempt_posture,
+                    "serving_operation_attempt_count": len(observation.serving_operation_attempts),
+                    "serving_operation_history_count": len(observation.serving_operation_history),
+                    "serving_operation_history_posture": (
+                        "complete_receipts_present" if observation.serving_operation_history
+                        and all(item.get("status") == "serving_receipt_verified"
+                            for item in observation.serving_operation_history)
+                        else "unknown_or_legacy" if observation.serving_operation_history
+                        else "verified_empty"),
+                    "read_only": True, "effect_authority": False,
+                }
+                records.append({
+                    "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+                    "source_id": "production_chat_resource_observation:health",
+                    "subject_kind": "read_only_resource_custody_source",
+                    "subject_id": observation.provisioning_id,
+                    "stage": "observation",
+                    "disposition": self._resource_observation_health["status"],
+                    "evidence_strength": "source_integrity_status",
+                    "effect_claimed": False, "effect_proven": False,
+                    "observed_at": tick_key,
+                    "payload": dict(self._resource_observation_health),
+                })
+            except ProductionChatResourceObservationError as exc:
+                status = exc.status
+                self._resource_observation_health = {
+                    "status": status, "reason_code": exc.code,
+                    "read_only": True, "effect_authority": False,
+                }
+                records.append({
+                    "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+                    "source_id": "production_chat_resource_observation:health",
+                    "subject_kind": "read_only_resource_custody_source",
+                    "subject_id": "configured_resource_provisioning",
+                    "stage": "observation", "disposition": status,
+                    "evidence_strength": "source_integrity_status",
+                    "effect_claimed": False, "effect_proven": False,
+                    "observed_at": tick_key,
+                    "payload": dict(self._resource_observation_health),
+                })
+            except Exception as exc:
+                self._resource_observation_health = {
+                    "status": "invalid", "reason_code": type(exc).__name__,
+                    "read_only": True, "effect_authority": False,
+                }
+                records.append({
+                    "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+                    "source_id": "production_chat_resource_observation:health",
+                    "subject_kind": "read_only_resource_custody_source",
+                    "subject_id": "configured_resource_provisioning",
+                    "stage": "observation", "disposition": "invalid",
+                    "evidence_strength": "source_integrity_status",
+                    "effect_claimed": False, "effect_proven": False,
+                    "observed_at": tick_key,
+                    "payload": dict(self._resource_observation_health),
+                })
+        elif self._resource_observation_health.get("status") != "disabled":
+            records.append({
+                "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+                "source_id": "production_chat_resource_observation:health",
+                "subject_kind": "read_only_resource_custody_source",
+                "subject_id": str(self._resource_observation_health.get("provisioning_id")
+                                   or "configured_resource_provisioning"),
+                "stage": "observation",
+                "disposition": str(self._resource_observation_health.get("status", "invalid")),
+                "evidence_strength": "source_integrity_status",
+                "effect_claimed": False, "effect_proven": False,
+                "observed_at": tick_key,
+                "payload": dict(self._resource_observation_health),
+            })
+        # Reconcile while the proposal and resource sources are adjacent in
+        # the bounded input. The World-State source-count cap keeps earlier
+        # records; deferring this join until the end allowed unrelated later
+        # surfaces to silently evict resource lineage before epistemic select.
+        resource_lineage_records = resource_invocation_proposal_lineage_records(records)
+        records.extend(resource_lineage_records)
+        selected_resource_lineage_source_ids.update(str(item.get("source_id", ""))
+            for item in resource_lineage_records)
         privilege_eval = self._host_privilege_review_evaluation
         if privilege_eval is not None:
             records.extend(privilege_review_world_state_records(privilege_eval))
@@ -493,18 +1908,664 @@ class RuntimeMaintenanceSurfaces:
         genesis = self._feedback.get("surfaces", {}).get("genesis_forge", {})
         if isinstance(genesis, dict) and genesis:
             records.append({"source_kind":"genesis_advice","source_id":"runtime:genesis","subject_id":"genesis_forge","subject_kind":"self_amendment","stage":"proposal","disposition":"degraded" if genesis.get("status") == "degraded" else "recorded","payload": genesis, "observed_at": tick_key})
+        # The board cap is intentionally bounded. Order the most direct
+        # resource evidence and its attributed joins first so unrelated
+        # surfaces cannot silently evict the causal inputs to cognition.
+        def board_source_priority(item: Mapping[str, Any]) -> int:
+            source_kind = item.get("source_kind")
+            subject_kind = item.get("subject_kind")
+            if source_kind == WorldStateSourceKind.RESOURCE_GOVERNOR.value:
+                if subject_kind == "causal_resource_consumption": return 0
+                if subject_kind in {"strategy_invocation_resource_lineage",
+                        "model_replacement_invocation_resource_lineage",
+                        "developmental_history_invocation_resource_lineage",
+                        "resource_invocation_lineage_retention"}: return 1
+            if (source_kind == WorldStateSourceKind.RUNTIME_SUPERVISOR.value
+                    and subject_kind == "resident_parent_lifecycle_history"):
+                return 2
+            if (source_kind == WorldStateSourceKind.EMBODIMENT.value
+                    and subject_kind in {"embodied_strategy_proposal",
+                        "developmental_model_replacement_experiment",
+                        "developmental_history_intervention_experiment"}):
+                return 2
+            return 3
+
+        records.sort(key=board_source_priority)
         snapshot = WorldStateBoardBuilder(allowed_roots=(self._runtime_state_root,), max_source_count=128, clock=lambda: datetime.fromisoformat(tick_key.replace("Z", "+00:00"))).build(records)
+        retained_source_ids = {source.source_id for source in snapshot.sources}
+        retained_source_identities = {(source.source_id, source.digest) for source in snapshot.sources}
+        omitted_embodiment_observation_identities = (
+            selected_embodiment_observation_identities - retained_source_identities)
+        conflicting_embodiment_observation_sources = {
+            conflict.subject_id for conflict in snapshot.conflicts
+            if conflict.conflict_type in {"source_digest_mismatch", "source_observation_time_mismatch"}
+        } & selected_embodiment_observation_source_ids
+        if embodiment_observation_input_error:
+            embodiment_observation_status = {
+                "status": "degraded", "reason_code": "source_owner_rejected_input",
+                "failure_class": embodiment_observation_input_error,
+            }
+        elif omitted_embodiment_observation_identities:
+            embodiment_observation_status = {
+                "status": "degraded", "reason_code": "world_state_source_limit_omitted_selected_input",
+            }
+        elif conflicting_embodiment_observation_sources:
+            embodiment_observation_status = {
+                "status": "degraded", "reason_code": "world_state_source_identity_conflict",
+            }
+        else:
+            embodiment_observation_status = {
+                "status": "projected_context" if selected_embodiment_observation_source_ids else
+                    "empty" if self._embodiment_evidence_owner is not None else "not_configured",
+            }
+        embodiment_observation_status.update({
+            "input_posture": "unverified_caller_assertions",
+            "selected_record_count": len(selected_embodiment_observation_identities),
+            "omitted_record_count": len(omitted_embodiment_observation_identities),
+            "conflicting_source_count": len(conflicting_embodiment_observation_sources),
+            "read_only": True, "effect_authority": False,
+        })
+        self._feedback.setdefault("surfaces", {})["embodiment_observation_projection"] = (
+            embodiment_observation_status)
+        omitted_parent_sources = selected_parent_observation_source_ids - retained_source_ids
+        conflicting_parent_sources = {
+            conflict.subject_id for conflict in snapshot.conflicts
+            if conflict.conflict_type == "source_digest_mismatch"
+        } & selected_parent_observation_source_ids
+        if parent_observation_input_error:
+            parent_observation_status = {
+                "status": "degraded", "reason_code": "source_owner_rejected_input",
+                "failure_class": parent_observation_input_error,
+            }
+        elif omitted_parent_sources or conflicting_parent_sources:
+            parent_observation_status = {
+                "status": "degraded",
+                "reason_code": "world_state_parent_source_omitted_or_conflicted",
+            }
+        elif selected_parent_observation_source_ids:
+            parent_observation_status = {
+                "status": "historical_context", "source_count": len(selected_parent_observation_source_ids),
+            }
+        else:
+            parent_observation_status = dict(self._parent_supervision_observation_status)
+        parent_observation_status.update({
+            "read_only": True, "effect_authority": False,
+            "omitted_source_count": len(omitted_parent_sources),
+            "conflicting_source_count": len(conflicting_parent_sources),
+        })
+        self._feedback.setdefault("surfaces", {})["resident_parent_supervision_observation"] = (
+            parent_observation_status)
+        omitted_resource_lineage_sources = (selected_resource_lineage_source_ids
+            - retained_source_ids)
+        conflicting_resource_lineage_sources = {
+            conflict.subject_id for conflict in snapshot.conflicts
+            if conflict.conflict_type == "source_digest_mismatch"
+        } & selected_resource_lineage_source_ids
+        degraded_resource_lineage_sources = any(item.get("disposition") != "verified"
+            for item in resource_lineage_records) or bool(conflicting_resource_lineage_sources)
+        self._feedback.setdefault("surfaces", {})["resource_invocation_lineage_projection"] = {
+            "status": "degraded" if omitted_resource_lineage_sources
+                or degraded_resource_lineage_sources else
+                "verified" if selected_resource_lineage_source_ids else "not_selected",
+            "selected_record_count": len(selected_resource_lineage_source_ids),
+            "omitted_source_count": len(omitted_resource_lineage_sources),
+            "read_only": True, "effect_authority": False,
+        }
+        omitted_fulfillment_sources = selected_fulfillment_source_ids - retained_source_ids
+        if omitted_fulfillment_sources:
+            self._embodied_fulfillment_projection_status = {
+                **self._embodied_fulfillment_projection_status,
+                "status": "degraded", "reason_code": "world_state_source_limit_omitted_selected_fulfillment",
+                "omitted_source_count": len(omitted_fulfillment_sources),
+                "read_only": True, "effect_authority": False,
+            }
+            self._feedback.setdefault("surfaces", {})["embodied_fulfillment_projection"] = dict(
+                self._embodied_fulfillment_projection_status)
+        omitted_review_sources = selected_proposal_review_source_ids - retained_source_ids
+        if omitted_review_sources:
+            self._embodied_proposal_review_projection_status = {
+                **self._embodied_proposal_review_projection_status,
+                "status": "degraded", "reason_code": "world_state_source_limit_omitted_selected_review",
+                "omitted_source_count": len(omitted_review_sources),
+                "read_only": True, "effect_authority": False,
+            }
+            self._feedback.setdefault("surfaces", {})["embodied_proposal_review_projection"] = dict(
+                self._embodied_proposal_review_projection_status)
+        omitted_embodied_sources = selected_embodied_source_ids - retained_source_ids
+        if omitted_embodied_sources:
+            self._embodied_consequence_projection_status = {
+                **self._embodied_consequence_projection_status,
+                "status": "degraded",
+                "reason_code": "world_state_source_limit_omitted_selected_projection",
+                "omitted_source_count": len(omitted_embodied_sources),
+                "read_only": True, "effect_authority": False,
+            }
+            self._feedback["surfaces"]["embodied_consequence_projection"] = dict(
+                self._embodied_consequence_projection_status)
+        omitted_post_adoption_sources = selected_post_adoption_source_ids - retained_source_ids
+        if omitted_post_adoption_sources:
+            self._post_adoption_attribution_projection_status = {
+                **self._post_adoption_attribution_projection_status,
+                "status": "degraded",
+                "reason_code": "world_state_source_limit_omitted_selected_projection",
+                "omitted_source_count": len(omitted_post_adoption_sources),
+                "read_only": True, "effect_authority": False,
+            }
+            self._feedback["surfaces"]["post_adoption_attribution_projection"] = dict(
+                self._post_adoption_attribution_projection_status)
+        target = self._runtime_state_root / "world_state_board" / "latest.json"
+        encoded = json.dumps(to_dict(snapshot), sort_keys=True,
+            indent=2).encode("utf-8") + bytes((10,))
+        if len(encoded) > 64 * 1024 * 1024:
+            raise ValueError("world_state_snapshot_size_limit_exceeded")
+        # Snapshot contents are source-bounded by the board builder and
+        # publication is capped independently at 64 MiB. The shared owner
+        # traverses a private no-follow directory descriptor and atomically
+        # replaces this mutable terminal view.
+        if os.name == "posix":
+            durability_confirmed = replace_private_bytes_with_status(
+                target, encoded, max_bytes=64 * 1024 * 1024)
+            publication_status = ("durable" if durability_confirmed
+                else "durability_uncertain")
+        else:
+            # Windows' existing daemon publisher uses bounded atomic replacement
+            # but has no corresponding safe descriptor-relative write contract.
+            # Preserve that supported lifecycle while declining to claim directory
+            # durability that the platform path does not verify.
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary: str | None = None
+            try:
+                descriptor, temporary = tempfile.mkstemp(
+                    prefix=".world-state-", suffix=".tmp", dir=target.parent)
+                with os.fdopen(descriptor, "wb") as stream:
+                    stream.write(encoded)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, target)
+                temporary = None
+            finally:
+                if temporary is not None:
+                    with suppress(OSError):
+                        os.unlink(temporary)
+            durability_confirmed = False
+            publication_status = "directory_durability_unverified"
+        # Atomic replacement has made the artifact visible. Keep the same
+        # snapshot available in memory, while reporting whether directory
+        # durability was confirmed for this platform.
         self._world_state_snapshot = snapshot
-        out_dir = self._runtime_state_root / "world_state_board"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        target = out_dir / "latest.json"
-        tmp = target.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(to_dict(snapshot), sort_keys=True, indent=2), encoding="utf-8")
-        tmp.replace(target)
-        feedback = {"status":"degraded" if snapshot.degraded or snapshot.contradicted else "ok", "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
+        feedback_status = "degraded" if snapshot.degraded or snapshot.contradicted else "ok"
+        if not durability_confirmed:
+            feedback_status = "degraded"
+        feedback = {"status":feedback_status, "snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest, "entity_count": len(snapshot.entities), "conflict_count": len(snapshot.conflicts), "stale": snapshot.stale, "contradicted": snapshot.contradicted, "artifact": target.as_posix(), "publication_status": publication_status, "decision_authority": False, "admission_authority": False, "execution_authority": False, "adoption_authority": False, "repository_mutation_authority": False}
         self._feedback["surfaces"]["world_state_evidence_board"] = feedback
+        self._feedback["surfaces"]["production_chat_resource_observation"] = dict(self._resource_observation_health)
         self._world_state_snapshot_built_for_tick = tick_key
         return feedback
+
+    def _resident_model_provenance_bindings(self, protocol_value: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+        references = protocol_value.get("model_replacement_protocol_references")
+        if not isinstance(references, Mapping) or not references:
+            legacy: dict[str, dict[str, Any]] = {}
+            for role in ("predecessor_a", "successor_b"):
+                identity = protocol_value.get(role)
+                reference = identity.get("model_development_provenance") if isinstance(identity, Mapping) else None
+                reference_digest = identity.get("model_development_provenance_digest") if isinstance(identity, Mapping) else None
+                if reference is not None or reference_digest is not None:
+                    legacy[role] = {"posture": "referenced_unverified_legacy_binding",
+                        "reference": {"manifest_digest": (reference_digest or
+                            (reference.get("manifest_digest") if isinstance(reference, Mapping) else None)),
+                            "reference_present": True}}
+                else:
+                    legacy[role] = {"posture": "unavailable_not_protocol_bound"}
+            return legacy
+        owner = self._resident_developmental_owner
+        if isinstance(owner, QuiescedDevelopmentalCognitionOwner):
+            owner = owner._owner
+        if owner is None:
+            posture = {
+                "disabled": "unavailable_developmental_configuration_disabled",
+                "invalid": "unavailable_invalid_developmental_configuration",
+                "blocked_invoker_unavailable": "unavailable_developmental_invoker",
+            }.get(self._resident_developmental_configuration_status,
+                "unavailable_developmental_owner_not_composed")
+            return {role: {"posture": posture} for role in references}
+        config = getattr(owner, "config", None)
+        artifact_root = getattr(config, "model_replacement_artifact_root", None)
+        if artifact_root is None:
+            return {role: {"posture": "unavailable_artifact_store_not_configured",
+                "protocol_id": reference.get("protocol_id") if isinstance(reference, Mapping) else None,
+                "protocol_digest": reference.get("protocol_digest") if isinstance(reference, Mapping) else None}
+                for role, reference in references.items()}
+        from sentientos.developmental_model_replacement_experiment import (
+            DevelopmentalModelReplacementError, ModelReplacementArtifactStore)
+        try:
+            store = ModelReplacementArtifactStore(Path(artifact_root))
+        except (TypeError, ValueError, OSError):
+            return {role: {"posture": "contradictory_artifact_store_configuration"}
+                    for role in references}
+        bindings: dict[str, dict[str, Any]] = {}
+        model_roles = {"predecessor_a": "predecessor_a", "successor_b": "successor_b"}
+        for transition_role, reference in references.items():
+            expected_identity = protocol_value.get(model_roles[transition_role])
+            if not isinstance(reference, Mapping):
+                bindings[transition_role] = {"posture": "contradictory_protocol_reference"}
+                continue
+            try:
+                replacement, identity, manifest = store.load_verified_protocol_provenance(
+                    str(reference.get("protocol_id", "")),
+                    str(reference.get("protocol_digest", "")),
+                    model_role=str(reference.get("model_role", "")))
+                if dict(identity.active_model_identity) != dict(expected_identity or {}):
+                    raise DevelopmentalModelReplacementError("provenance_subject_active_identity_mismatch")
+            except Exception as exc:
+                code = str(exc)
+                posture = ("unavailable_protocol" if code == "preregistered_protocol_unavailable"
+                           else "unavailable_manifest" if code == "provenance_manifest_unavailable"
+                           else "contradictory_provenance_evidence")
+                bindings[transition_role] = {"posture": posture, "finding": code,
+                    "protocol_id": reference.get("protocol_id"),
+                    "protocol_digest": reference.get("protocol_digest")}
+                continue
+            bindings[transition_role] = {
+                "posture": ("verified_source_bound_claim_manifest" if manifest.claims
+                    else "verified_manifest_with_unknown_claims"),
+                "identity_binding_verified": True,
+                "protocol_id": replacement.protocol_id,
+                "protocol_digest": replacement.protocol_digest,
+                "model_role": reference["model_role"],
+                "model_identity_digest": identity.identity_digest,
+                "active_model_identity_digest": identity.active_model_identity_digest,
+                "provenance_manifest_digest": manifest.manifest_digest,
+                "provenance_subject_identity_digest": manifest.subject_identity_digest,
+                "provenance_availability": manifest.availability,
+                "provenance_claim_count": len(manifest.claims),
+            }
+        return bindings
+
+    def _resident_succession_world_state_records(self, observed_at: str) -> list[dict[str, Any]]:
+        """Expose durable transition events without promoting proposals to observations."""
+        records: list[dict[str, Any]] = []
+        runtime = self._resident_transition_runtime
+        controller = getattr(runtime, "controller", None) if runtime is not None else None
+        protocol = getattr(controller, "protocol", None) if controller is not None else None
+        journal = getattr(controller, "journal", None) if controller is not None else None
+        if protocol is None or journal is None:
+            custody = self._resident_transition_custody
+            if custody is not None:
+                protocol, journal = custody
+        if protocol is not None and journal is not None:
+                protocol_value = dict(getattr(protocol, "value", {}))
+                transition_id = str(protocol_value.get("transition_id") or "unknown")
+                predecessor, successor = protocol_value.get("predecessor_a"), protocol_value.get("successor_b")
+                provenance_bindings = self._resident_model_provenance_bindings(protocol_value)
+                health: dict[str, Any] = {}
+                status: dict[str, Any] = {}
+                transition_retention: dict[str, Any] | None = None
+                try:
+                    entries = journal.entries()
+                    if controller is not None:
+                        health = dict(controller.health())
+                    else:
+                        unresolved = next((entry for entry in reversed(entries)
+                            if entry.get("status") in {"attempted", "effected", "failed", "interrupted"}), None)
+                        evidence = unresolved.get("evidence", {}) if isinstance(unresolved, Mapping) else {}
+                        health = {"status": "runtime_composition_blocked",
+                            "phase": "unknown", "outstanding_stage": (evidence.get("attempted_stage")
+                                or evidence.get("failed_stage") or evidence.get("interrupted_stage")),
+                            "replay_forbidden": unresolved is not None,
+                            "journal_head": entries[-1].get("entry_digest") if entries else "GENESIS"}
+                    if runtime is not None:
+                        status = runtime.status()
+                    else:
+                        serving = getattr(self._resident_cognitive_invoker, "current_controller", None)
+                        session = serving.observed_current_session() if serving is not None else None
+                        identity = session.binding.get("observed_loaded_model_identity") if session is not None else None
+                        status = {"resident_model_identity": dict(identity) if isinstance(identity, Mapping) else identity,
+                            "resident_serving_session_id": session.session_id if session is not None else None,
+                            "activation_history_digest": session.binding.get("activation_history_digest") if session is not None else None,
+                            "activation_state_digest": session.binding.get("activation_state_semantic_digest") if session is not None else None,
+                            "activation_receipt_id": session.binding.get("activation_receipt_id") if session is not None else None,
+                            "activation_receipt_digest": session.binding.get("activation_receipt_semantic_digest") if session is not None else None,
+                            "activation_predecessor_state_digest": session.binding.get("activation_predecessor_state_digest") if session is not None else None,
+                            "activation_predecessor_posture": session.binding.get("activation_predecessor_posture") if session is not None else None}
+                except Exception as exc:
+                    records.append({"source_kind": "runtime_supervisor", "source_id": f"resident_transition:{transition_id}:recovery",
+                        "subject_id": transition_id, "subject_kind": "model_transition", "stage": "observation",
+                        "disposition": "incomplete", "evidence_strength": "unavailable",
+                        "payload": {"recovery_posture": "journal_reconstruction_failed", "error_class": type(exc).__name__},
+                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                else:
+                    retained_transition_entries, transition_retention = _bounded_resident_transition_entries(entries)
+                    for entry in retained_transition_entries:
+                        evidence = entry.get("evidence") if isinstance(entry.get("evidence"), Mapping) else {}
+                        phase = str(entry.get("phase") or "")
+                        disposition = {"completed": "completed", "attempted": "attempted", "effected": "effected",
+                                       "failed": "failed", "interrupted": "interrupted"}.get(str(entry.get("status")), "unknown")
+                        payload: dict[str, Any] = {"transition_id": transition_id, "transition_phase": phase,
+                            "journal_sequence": entry.get("sequence"), "journal_entry_digest": entry.get("entry_digest"),
+                            "journal_prior_digest": entry.get("prior_digest"), "journal_status": entry.get("status"),
+                            "event_time": entry.get("event_time"),
+                            "predecessor_model_identity": predecessor, "proposed_successor_model_identity": successor,
+                            "transition_protocol_digest": protocol_value.get("protocol_digest"),
+                            "developmental_history_boundary": (protocol_value.get("initial_history_boundary", {}).get("boundary_digest")
+                                if isinstance(protocol_value.get("initial_history_boundary"), Mapping) else None),
+                            "replay_forbidden": True,
+                            "stage_semantic_recovery_posture": health.get("status", "unknown")}
+                        qualified_digests = health.get("semantically_verified_stage_entry_digests", ())
+                        stage_semantically_verified = (entry.get("entry_digest") in qualified_digests
+                            if isinstance(qualified_digests, (list, tuple, set, frozenset)) else False)
+                        payload["stage_semantically_verified"] = stage_semantically_verified
+                        if phase in {"b_epoch_observed", "post_restoration_observed"}:
+                            payload["transition_observation_posture"] = (
+                                "owner_verified_durable_cognition_history_handoff"
+                                if stage_semantically_verified and disposition == "completed"
+                                else "unqualified_or_incomplete")
+                            if stage_semantically_verified and disposition == "completed":
+                                if phase == "b_epoch_observed":
+                                    payload.update({
+                                        "b_epoch_tick_id": evidence.get("b_tick_id"),
+                                        "b_epoch_observation_id": evidence.get("b_observation_id"),
+                                        "b_epoch_observation_digest": evidence.get("b_observation_digest"),
+                                        "b_epoch_developmental_record_id": evidence.get("b_record_id"),
+                                        "b_epoch_developmental_record_digest": evidence.get("b_record_digest"),
+                                        "b_epoch_writeback_receipt_id": evidence.get("b_writeback_receipt_id"),
+                                        "b_epoch_writeback_receipt_digest": evidence.get("b_writeback_receipt_digest")})
+                                else:
+                                    payload.update({
+                                        "restored_a_tick_id": evidence.get("restored_a_tick_id"),
+                                        "restored_a_observation_id": evidence.get("restored_a_observation_id"),
+                                        "restored_a_observation_digest": evidence.get("restored_a_observation_digest"),
+                                        "restored_a_inference_receipt_id": evidence.get("restored_a_inference_receipt_id"),
+                                        "restored_a_inference_receipt_digest": evidence.get("restored_a_inference_receipt_digest"),
+                                        "retrieved_record_ids": list(evidence.get("retrieved_record_ids", ())),
+                                        "retrieved_record_digests": list(evidence.get("retrieved_record_digests", ()))})
+
+                        successor_provenance = provenance_bindings.get("successor_b",
+                            {"posture": "unavailable_not_protocol_bound"})
+                        payload["proposed_successor_model_development_provenance"] = successor_provenance
+                        payload["model_development_provenance_posture"] = successor_provenance["posture"]
+                        predecessor_provenance = provenance_bindings.get("predecessor_a")
+                        if predecessor_provenance is not None:
+                            payload["predecessor_model_development_provenance"] = predecessor_provenance
+                        activation = evidence.get("activation") if isinstance(evidence.get("activation"), Mapping) else None
+                        if (activation is not None and entry.get("status") == "completed"
+                                and phase in {"b_activation_committed", "a_restoration_activation_committed"}):
+                            identity_key = "proposed_successor_model_identity" if phase == "b_activation_committed" else "predecessor_model_identity"
+                            payload["selected_active_model_identity"] = successor if identity_key == "proposed_successor_model_identity" else protocol_value.get("restored_a")
+                            payload["model_load_posture"] = "not_loaded_by_activation"
+                            payload["activation_history_digest"] = activation.get("activation_history_digest")
+                            payload["activation_receipt_id"] = activation.get("receipt_id")
+                            payload["activation_receipt_digest"] = activation.get("receipt_semantic_digest")
+                            payload["activation_state_digest"] = activation.get("state_semantic_digest")
+                            payload["activation_predecessor_state_digest"] = activation.get(
+                                "activation_predecessor_state_digest")
+                            payload["activation_predecessor_posture"] = activation.get(
+                                "activation_predecessor_posture")
+                        binding = evidence.get("stage_binding") if isinstance(evidence.get("stage_binding"), Mapping) else None
+                        if (binding is not None and entry.get("status") == "completed"
+                                and phase in {"b_serving_bound", "restored_a_serving_bound"}):
+                            payload["serving_binding_digest"] = binding.get("binding_digest")
+                            payload["serving_receipt_id"] = evidence.get("serving_receipt_id")
+                            payload["serving_receipt_semantic_digest"] = evidence.get("serving_receipt_semantic_digest")
+                            payload["serving_activation_receipt_id"] = binding.get("activation_receipt_id")
+                            payload["serving_activation_receipt_digest"] = binding.get("activation_receipt_digest")
+                            payload["serving_activation_history_digest"] = binding.get("activation_history_digest")
+                            payload["serving_expected_model_identity"] = binding.get("expected_model_identity")
+                        provenance_identity = (successor_provenance.get("provenance_manifest_digest")
+                            or successor_provenance.get("posture", "unknown"))
+                        records.append({"source_kind": "runtime_supervisor",
+                            "source_id": f"resident_transition:{transition_id}:{entry.get('entry_digest')}:{provenance_identity}",
+                            "subject_id": transition_id, "subject_kind": "resident_model_transition",
+                            "stage": "observation", "disposition": disposition,
+                            "evidence_strength": ("owner_verified_transition_cognition_history_handoff"
+                                if phase in {"b_epoch_observed", "post_restoration_observed"}
+                                and stage_semantically_verified and disposition == "completed"
+                                else "digest_valid_transition_journal_entry"), "payload": payload,
+                            "observed_at": entry.get("event_time"), "effect_claimed": False, "effect_proven": False})
+                if transition_retention is not None:
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": (f"resident_transition_retention:{transition_id}:"
+                            f"{transition_retention.get('journal_head_digest')}:"
+                            f"{transition_retention['omitted_entry_count']}"),
+                        "subject_id": transition_id,
+                        "subject_kind": "resident_model_transition_history_retention",
+                        "stage": "observation", "disposition": "bounded_tail",
+                        "evidence_strength": "verified_journal_tail_with_omitted_prefix",
+                        "payload": {**transition_retention,
+                            "event_time_posture": "journal_retention_is_not_a_transition_event",
+                            "authority": False, "effect_proven": False},
+                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                session_identity = status.get("resident_model_identity")
+                if session_identity is not None:
+                    running_provenance = next((value for role, value in provenance_bindings.items()
+                        if value.get("identity_binding_verified") is True
+                        and isinstance(protocol_value.get(role), Mapping)
+                        and dict(protocol_value[role]) == dict(session_identity)), None)
+                    running_provenance_identity = ((running_provenance or {}).get("provenance_manifest_digest")
+                        or (running_provenance or {}).get("posture", "unknown"))
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_serving_session:{status.get('resident_serving_session_id')}:{status.get('activation_history_digest') or 'activation_lineage_unavailable'}:{running_provenance_identity}:{observed_at}",
+                        "subject_id": str(status.get("resident_serving_session_id") or "resident-serving-session"),
+                        "subject_kind": "observed_running_model", "stage": "observation",
+                        "disposition": "observed", "evidence_strength": "serving_session_observation",
+                        "payload": {"running_model_identity_observed": session_identity,
+                            "serving_session_id": status.get("resident_serving_session_id"),
+                            "activation_state_digest": status.get("activation_state_digest"),
+                            "activation_receipt_id": status.get("activation_receipt_id"),
+                            "activation_receipt_semantic_digest": status.get("activation_receipt_digest"),
+                            "activation_predecessor_state_digest": status.get("activation_predecessor_state_digest"),
+                            "activation_predecessor_posture": status.get("activation_predecessor_posture"),
+                            "activation_history_digest": status.get("activation_history_digest"),
+                            "activation_history_posture": ("verified_selection_history_digest"
+                                if isinstance(status.get("activation_history_digest"), str) else "unavailable"),
+                            "transition_id": transition_id,
+                            "event_time_posture": "serving_session_observation_time_not_model_load_time",
+                            "model_development_provenance": (running_provenance or
+                                {"posture": "unavailable_no_exact_running_identity_binding"}),
+                            "authority": False, "effect_proven": False},
+                        "observed_at": observed_at, "effect_claimed": False, "effect_proven": False})
+                head = health.get("journal_head")
+                if head:
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_transition_recovery:{transition_id}:{head}:{health.get('status', 'unknown')}",
+                        "subject_id": transition_id, "subject_kind": "resident_model_transition_recovery",
+                        "stage": "observation", "disposition": str(health.get("status", "unknown")),
+                        "evidence_strength": "reconstructed_transition_journal_posture",
+                        "payload": {"transition_id": transition_id, "journal_head": head,
+                            "recovery_posture": health.get("status"), "outstanding_stage": health.get("outstanding_stage"),
+                            "event_time_posture": "reconstruction_time_is_not_a_transition_event",
+                            "replay_forbidden": health.get("replay_forbidden", True)},
+                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
+        elif self._resident_transition_custody_error is not None:
+            records.append({"source_kind": "runtime_supervisor", "source_id": "resident_transition:recovery-unavailable",
+                "subject_id": "resident-model-transition", "subject_kind": "resident_model_transition_recovery",
+                "stage": "observation", "disposition": "incomplete", "evidence_strength": "unavailable",
+                "payload": {"recovery_posture": "transition_custody_unavailable",
+                    "error_class": self._resident_transition_custody_error, "replay_forbidden": True},
+                "observed_at": None, "effect_claimed": False, "effect_proven": False})
+
+        # A running-model observation is useful even when the optional transition
+        # experiment is not composed. It remains a read-only session observation;
+        # absence of an authenticated development-provenance owner stays explicit.
+        if protocol is None or journal is None:
+            serving = getattr(self._resident_cognitive_invoker, "current_controller", None)
+            session = serving.observed_current_session() if serving is not None else None
+            if session is not None:
+                binding = session.binding
+                loaded_identity = binding.get("observed_loaded_model_identity")
+                activation_history_digest = binding.get("activation_history_digest")
+                activation_digest = binding.get("activation_state_semantic_digest")
+                session_source = (f"resident_serving_session:{session.session_id}:"
+                    f"{activation_history_digest or 'activation_lineage_unavailable'}:{tick_id}")
+                records.append({"source_kind": "runtime_supervisor", "source_id": session_source,
+                    "subject_id": session.session_id, "subject_kind": "observed_running_model",
+                    "stage": "observation", "disposition": "observed",
+                    "evidence_strength": "current_serving_owner_session",
+                    "payload": {"running_model_identity_observed": loaded_identity,
+                        "serving_session_id": session.session_id,
+                        "activation_state_digest": activation_digest,
+                        "activation_generation": binding.get("activation_generation"),
+                        "activation_receipt_id": binding.get("activation_receipt_id"),
+                        "activation_receipt_semantic_digest": binding.get("activation_receipt_semantic_digest"),
+                        "activation_predecessor_state_digest": binding.get("activation_predecessor_state_digest"),
+                        "activation_predecessor_posture": binding.get("activation_predecessor_posture"),
+                        "activation_history_digest": activation_history_digest,
+                        "activation_history_posture": ("verified_selection_history_digest"
+                            if isinstance(activation_history_digest, str)
+                            else "unavailable"),
+                        "model_development_provenance": {"posture": "unavailable_no_transition_protocol"},
+                        "event_time_posture": "serving_session_observation_time_not_model_load_time",
+                        "authority": False, "effect_proven": False},
+                    "observed_at": tick_id, "effect_claimed": False, "effect_proven": False})
+
+        software_controller = self._resident_software_transition_controller
+        software_config = (software_controller.config if software_controller is not None
+                           else self._resident_software_transition_config)
+        if software_config is not None:
+            try:
+                from sentientos.maintenance_resident_runtime_adoption import (
+                    inspect_transition_custody, read_transition_event_projection)
+                rows, transition_retention = read_transition_event_projection(
+                    software_config, limit=48)
+                custody = inspect_transition_custody(software_config)
+                software_health = (software_controller.health() if software_controller is not None else
+                    self._feedback.get("surfaces", {}).get("maintenance_resident_runtime_adoption", {}))
+                baseline = getattr(software_controller, "_baseline", None) if software_controller is not None else None
+            except Exception as exc:
+                records.append({"source_kind": "runtime_supervisor", "source_id": "resident_software_transition:recovery",
+                    "subject_id": "resident_software_transition", "subject_kind": "software_transition",
+                    "stage": "observation", "disposition": "incomplete", "evidence_strength": "unavailable",
+                    "payload": {"recovery_posture": "journal_reconstruction_failed", "error_class": type(exc).__name__},
+                    "observed_at": None, "effect_claimed": False, "effect_proven": False})
+            else:
+                for row in rows:
+                    phase = str(row.get("phase", ""))
+                    disposition = "completed" if phase == "resident_adoption_completed" else "attempted"
+                    payload = {"transition_id": row.get("transition_id"), "transition_phase": phase,
+                        "journal_entry_digest": row.get("event_digest"), "journal_prior_digest": row.get("prior_event_digest"),
+                        "event_time": row.get("event_time"),
+                        "lineage_id": row.get("lineage_id"), "predecessor_generation_digest": row.get("predecessor_generation_digest"),
+                        "successor_generation_digest": row.get("successor_generation_digest"),
+                        "predecessor_ordinal": row.get("predecessor_ordinal"), "successor_ordinal": row.get("successor_ordinal"),
+                        "continuity_receipt_digest": row.get("continuity_receipt_digest"),
+                        "pending_handoff_event_digest": row.get("pending_handoff_event_digest"),
+                        "successor_repository_commit": row.get("successor_repository_commit"),
+                        "successor_repository_tree": row.get("successor_repository_tree"),
+                        "successor_launch_provenance_digest": row.get("successor_launch_provenance_digest"),
+                        "replay_forbidden": True}
+                    if row.get("readiness_receipt_digest"):
+                        payload["readiness_receipt_digest"] = row["readiness_receipt_digest"]
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_software_transition:{row.get('event_digest')}",
+                        "subject_id": str(row.get("transition_id") or "resident-software-transition"),
+                        "subject_kind": "software_generation_transition", "stage": "observation",
+                        "disposition": disposition, "evidence_strength": "validated_software_transition_journal_entry",
+                        "payload": payload, "observed_at": row.get("event_time"), "effect_claimed": False, "effect_proven": False})
+                if transition_retention is not None:
+                    transition_id_for_retention = str(rows[-1].get("transition_id") or
+                        "resident-software-transition")
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": (f"resident_software_transition_retention:"
+                            f"{transition_retention['journal_head_digest']}:"
+                            f"{transition_retention['omitted_event_count']}:"
+                            f"{transition_retention['last_omitted_event_digest']}"),
+                        "subject_id": transition_id_for_retention,
+                        "subject_kind": "software_generation_transition_history_retention",
+                        "stage": "observation", "disposition": "bounded_tail",
+                        "evidence_strength": "verified_journal_tail_with_omitted_prefix",
+                        "payload": {**dict(transition_retention),
+                            "event_time_posture": "journal_retention_is_not_a_transition_event",
+                            "authority": False, "effect_proven": False},
+                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                if rows:
+                    last = rows[-1]
+                    transaction_rows = [item for item in rows if item.get("transition_id") == last.get("transition_id")]
+                    complete = bool(transaction_rows and transaction_rows[-1].get("phase") == "resident_adoption_completed")
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_software_recovery:{last.get('event_digest')}:{custody.get('status', 'unknown')}",
+                        "subject_id": str(last.get("transition_id") or "resident-software-transition"),
+                        "subject_kind": "software_generation_transition_recovery", "stage": "observation",
+                        "disposition": "complete" if complete else "incomplete",
+                        "evidence_strength": "reconstructed_software_transition_journal_posture",
+                        "payload": {"journal_head": last.get("event_digest"), "recovery_posture": custody.get("status"),
+                            "process_recovery_status": software_health.get("status"),
+                            "transition_phase": last.get("phase"), "completed": complete,
+                            "event_time_posture": "reconstruction_time_is_not_a_transition_event",
+                            "replay_forbidden": True},
+                        "observed_at": None, "effect_claimed": False, "effect_proven": False})
+                if isinstance(baseline, Mapping) and baseline.get("provenance_digest"):
+                    records.append({"source_kind": "runtime_supervisor",
+                        "source_id": f"resident_running_software:{baseline['provenance_digest']}",
+                        "subject_id": str(baseline.get("process_instance_id") or "resident-process"),
+                        "subject_kind": "observed_running_software_generation", "stage": "observation",
+                        "disposition": "observed", "evidence_strength": "resident_launch_provenance",
+                        "payload": {"running_software_generation_observed": baseline.get("represented_generation_digest"),
+                            "software_generation": baseline.get("represented_generation_digest"),
+                            "process_role": "maintenance_daemon",
+                            "process_identity_scope":
+                                "launch_provenance_bound_maintenance_process_instance",
+                            "software_generation_scope":
+                                "configured_manifest_and_repository_source_at_launch",
+                            "loaded_code_identity_posture": "not_independently_attested",
+                            "repository_commit": baseline.get("observed_commit_sha"),
+                            "repository_tree": baseline.get("observed_tree_sha"),
+                            "process_instance_id": baseline.get("process_instance_id"),
+                            "provenance_digest": baseline.get("provenance_digest"),
+                            "startup_timestamp": baseline.get("startup_timestamp")},
+                        "observed_at": baseline.get("startup_timestamp"), "effect_claimed": False, "effect_proven": False})
+                if software_controller is not None:
+                    current_provenance = None
+                    try:
+                        current_provenance = software_controller.current_execution_provenance()
+                    except Exception:
+                        # A failed point check cannot be replaced with the
+                        # controller's startup baseline or repository metadata.
+                        current_provenance = None
+                    if isinstance(current_provenance, Mapping):
+                        required_current_fields = (
+                            "process_instance_id", "provenance_digest",
+                            "represented_generation_digest", "observed_commit_sha",
+                            "observed_tree_sha", "startup_timestamp")
+                        if all(isinstance(current_provenance.get(key), str)
+                                and current_provenance.get(key)
+                                for key in required_current_fields):
+                            verification_time = datetime.now(timezone.utc).isoformat().replace(
+                                "+00:00", "Z")
+                            current_payload = {
+                                "running_software_generation_observed":
+                                    current_provenance["represented_generation_digest"],
+                                "software_generation":
+                                    current_provenance["represented_generation_digest"],
+                                "process_instance_id": current_provenance["process_instance_id"],
+                                "provenance_digest": current_provenance["provenance_digest"],
+                                "repository_commit": current_provenance["observed_commit_sha"],
+                                "repository_tree": current_provenance["observed_tree_sha"],
+                                "startup_timestamp": current_provenance["startup_timestamp"],
+                                "process_role": "maintenance_daemon",
+                                "process_identity_scope":
+                                    current_provenance["process_identity_scope"],
+                                "software_generation_scope":
+                                    current_provenance["software_generation_scope"],
+                                "loaded_code_identity_posture":
+                                    current_provenance["loaded_code_identity_posture"],
+                                "currentness_posture":
+                                    "owner_verified_process_and_source_at_observation",
+                                "event_time_posture": "owner_point_observation_time",
+                                "authority": False, "effect_proven": False,
+                            }
+                            records.append({
+                                "source_kind": "runtime_supervisor",
+                                "source_id": ("resident_current_running_software:"
+                                    + current_provenance["provenance_digest"] + ":" + verification_time),
+                                "subject_id": current_provenance["process_instance_id"],
+                                "subject_kind": "verified_current_running_software_generation",
+                                "stage": "observation", "disposition": "observed",
+                                "evidence_strength":
+                                    "owner_verified_current_process_and_clean_source",
+                                "payload": current_payload, "observed_at": verification_time,
+                                "effect_claimed": False, "effect_proven": False,
+                            })
+        return records
 
     def capture_causal_introspection(self, *, tick_id: str) -> dict[str, Any]:
         """Capture after all same-tick owner closures; never invoke a model or owner mutation."""
@@ -587,13 +2648,81 @@ class RuntimeMaintenanceSurfaces:
                     raise ValueError(self._epistemic_state_configuration_error)
                 if (self._epistemic_state_owner is not None
                         and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
+                    cognition_instant = datetime.fromisoformat(tick_id.replace("Z", "+00:00"))
+                    if cognition_instant.tzinfo is None or cognition_instant.utcoffset() is None:
+                        raise ValueError("resident_cognition_tick_timezone_required")
                     prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
-                        max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]))
-                result = self._resident_developmental_owner.run_tick(
-                    snapshot=self._world_state_snapshot, tick_id=tick_id,
-                    prior_self_model=prior_self_model,
-                    prior_epistemic_state=prior_epistemic_state)
+                        max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
+                        current_tick=int(cognition_instant.timestamp()))
+                objective_request_status = None
+                objective_measurement_summary = None
+                existing_objective_request = False
+                developmental_owner = self._resident_developmental_owner
+                unwrapped_owner = (developmental_owner._owner
+                    if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner)
+                    else developmental_owner)
+                owner_config = getattr(unwrapped_owner, "config", None)
+                staged_request = (load_objective_request(owner_config.state_root)
+                    if owner_config is not None else None)
+                if staged_request is not None:
+                    request_id = str(staged_request["request_id"])
+                    request_digest = str(staged_request["request_digest"])
+                    objective_request_status = unwrapped_owner.objective_request_disposition(
+                        request_id=request_id, request_digest=request_digest)
+                    existing_objective_request = objective_request_status != "new"
+                    if objective_request_status == "new":
+                        result = developmental_owner.run_objective_intervention_once(
+                            snapshot=self._world_state_snapshot, tick_id=tick_id,
+                            objective_task=objective_task_for_request(staged_request),
+                            request_id=request_id, request_digest=request_digest)
+                        objective_request_status = result.status
+                        if (result.status == "objective_intervention_completed"
+                                and result.changed_cognition_measurement_id is not None):
+                            try:
+                                objective_measurement_summary = dict(
+                                    unwrapped_owner.verified_objective_measurement_summary(
+                                        measurement_id=result.changed_cognition_measurement_id,
+                                        request=staged_request))
+                            except Exception as exc:
+                                # The experiment remains completed; optional
+                                # presentation cannot change its service outcome.
+                                objective_measurement_summary = {
+                                    "status": "outcome_verification_unavailable",
+                                    "reason_code": f"{type(exc).__name__}:{exc}"[:192],
+                                    "authority": False,
+                                }
+                    else:
+                        # Never replay a terminal or interrupted task request.
+                        # The regular, independently gated cognition cycle may
+                        # still proceed on a fresh maintenance tick.
+                        result = developmental_owner.run_tick(
+                            snapshot=self._world_state_snapshot, tick_id=tick_id,
+                            prior_self_model=prior_self_model,
+                            prior_epistemic_state=prior_epistemic_state)
+                else:
+                    result = developmental_owner.run_tick(
+                        snapshot=self._world_state_snapshot, tick_id=tick_id,
+                        prior_self_model=prior_self_model,
+                        prior_epistemic_state=prior_epistemic_state)
+                if (staged_request is not None and existing_objective_request
+                        and objective_measurement_summary is None):
+                    try:
+                        objective_measurement_summary = dict(
+                            unwrapped_owner.verified_objective_measurement_for_request(
+                                request_id=str(staged_request["request_id"]),
+                                request_digest=str(staged_request["request_digest"])))
+                    except Exception as exc:
+                        # Recovery reporting is observational and cannot change
+                        # the tick or trigger a retry of the staged experiment.
+                        objective_measurement_summary = {
+                            "status": "outcome_verification_unavailable",
+                            "reason_code": f"{type(exc).__name__}:{exc}"[:192],
+                            "authority": False,
+                        }
                 feedback = {**asdict(result), "snapshot_object_preserved": True,
+                            "objective_request_status": objective_request_status,
+                            **({"objective_measurement_summary": objective_measurement_summary}
+                                if objective_measurement_summary is not None else {}),
                             "memory_posture": "historical_interpretation_not_current_truth",
                             "epistemic_composition": {
                                 "status": ("composed" if prior_epistemic_state is not None else
@@ -627,6 +2756,9 @@ class RuntimeMaintenanceSurfaces:
                       "effect_performed": False, "interrupted": True}
         elif self._resident_transition_runtime is None:
             result = {"status": "disabled", "effect_performed": False}
+        elif os.name != "posix":
+            result = {"status": "blocked", "reason": "live_transition_processing_unsupported_platform",
+                      "effect_performed": False, "interrupted": True}
         else:
             result = self._resident_transition_runtime.process_one()
             result["live_status"] = self._resident_transition_runtime.status()
@@ -821,6 +2953,25 @@ def _resident_developmental_owner(surfaces: RuntimeMaintenanceSurfaces) -> Resid
     return owner
 
 
+def _load_resident_transition_custody(config_path: str, installation_handle: Any | None = None) -> tuple[Any, TransitionJournal]:
+    """Resolve exact configured transition protocol and journal without composing an effector."""
+    config = LiveTransitionConfig.load(Path(config_path))
+    handle = installation_handle
+    if handle is None:
+        identity = InstallationIdentity.parse(config.installation_identity)
+        registry = InstallationStateRegistry.system()
+        handle = (registry.open_read_only(identity) if os.name == "nt"
+                  else registry.open(identity))
+    if handle.identity.value != config.installation_identity:
+        raise TransitionError("transition_recovery_installation_binding_mismatch")
+    protocol = load_verified_protocol(handle.root, protocol_id=config.protocol_id,
+        protocol_digest=config.protocol_digest)
+    if (protocol.value.get("installation_identity") != handle.identity.value
+            or config.journal_identity != resident_transition_journal_identity(protocol)):
+        raise TransitionError("transition_recovery_configuration_binding_mismatch")
+    return protocol, TransitionJournal(handle.root / RESIDENT_TRANSITION_JOURNAL_CUSTODY)
+
+
 def _compose_live_resident_transition(*, config_path: str, installation_handle: Any,
         kernel: Any, slot: ResidentCognitiveServingSlot, gate: ResidentCognitionQuiescenceGate,
         developmental_owner: ResidentDevelopmentalCognitionOwner | None = None,
@@ -862,9 +3013,14 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
         verified = verify_current_activation(installation_handle,
             allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
         current_session = slot.current_controller.current_session()
+        activation_history = verified.get("activation_history")
+        if not isinstance(activation_history, (tuple, list)) or not activation_history:
+            raise TransitionError("transition_activation_history_unavailable")
         activation = {**dict(verified["active_state"]),
             "receipt_id": verified["activation_receipt"]["receipt_id"],
-            "receipt_semantic_digest": verified["activation_receipt"]["receipt_semantic_digest"]}
+            "receipt_semantic_digest": verified["activation_receipt"]["receipt_semantic_digest"],
+            "activation_history_digest": semantic_digest({"activation_history": list(activation_history)}),
+            "commissioning_active_model_identity": dict(verified["commissioning_active_model_identity"])}
         return cast(Mapping[str, Any], developmental_history_boundary(store=developmental_owner.writeback.store,
             composition_state_path=developmental_owner.state_path,
             activation=activation, session=current_session.to_dict() if current_session is not None else None))
@@ -876,7 +3032,8 @@ def _compose_live_resident_transition(*, config_path: str, installation_handle: 
         installation_handle=installation_handle, control_plane_kernel=kernel,
         protocol=protocol, journal=journal, gate=gate, slot=slot,
         serving_controller_factory=serving_controller_factory, clock=clock,
-        allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests)
+        allow_synthetic_evidence_for_tests=allow_synthetic_evidence_for_tests,
+        developmental_owner=developmental_owner)
     controller = ResidentCognitiveModelTransitionController(protocol=protocol, journal=journal,
         gate=gate, slot=slot, history_snapshot=boundary, operations=operations,
         allow_synthetic_approval_for_tests=allow_synthetic_evidence_for_tests, clock=clock)
@@ -1128,6 +3285,48 @@ def _run_resident_cognition_and_transition(runtime_surfaces: RuntimeMaintenanceS
     return cognition, transition
 
 
+def _software_generation_current_observation(
+        provenance: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Project only a revalidated maintenance-process generation observation.
+
+    A launch baseline or successor artifact is not a current process observation.
+    The owner rechecks process identity and clean repository source; it does not
+    attest the code bytes already loaded in memory.
+    """
+    unavailable = {
+        "running_software_generation_observed": None,
+        "running_software_observation_posture": "current_process_revalidation_unavailable",
+        "running_software_process_instance_id": None,
+        "running_software_provenance_digest": None,
+        "running_software_process_identity_scope": None,
+        "running_software_generation_scope": None,
+        "running_software_loaded_code_identity_posture": "unknown",
+        "running_software_process_role": "maintenance_daemon",
+    }
+    required = (
+        "represented_generation_digest", "process_instance_id", "provenance_digest",
+        "process_identity_scope", "software_generation_scope",
+        "loaded_code_identity_posture",
+    )
+    if (not isinstance(provenance, Mapping)
+            or any(not isinstance(provenance.get(key), str) or not provenance.get(key)
+                for key in required)
+            or provenance.get("loaded_code_identity_posture") != "not_independently_attested"):
+        return unavailable
+    return {
+        "running_software_generation_observed": provenance["represented_generation_digest"],
+        "running_software_observation_posture":
+            "process_identity_and_repository_revalidated_loaded_code_unattested",
+        "running_software_process_instance_id": provenance["process_instance_id"],
+        "running_software_provenance_digest": provenance["provenance_digest"],
+        "running_software_process_identity_scope": provenance["process_identity_scope"],
+        "running_software_generation_scope": provenance["software_generation_scope"],
+        "running_software_loaded_code_identity_posture":
+            provenance["loaded_code_identity_posture"],
+        "running_software_process_role": "maintenance_daemon",
+    }
+
+
 def _compose_causal_introspection(
         runtime_surfaces: RuntimeMaintenanceSurfaces,
         *, resident_serving_controller: ResidentCognitiveModelServingController | None,
@@ -1151,15 +3350,115 @@ def _compose_causal_introspection(
     if "persistent_epistemics" in enabled and epistemic_owner is not None:
         def inspect_epistemics() -> dict[str, Any]:
             counts = epistemic_owner.verify()
+            development_runtime = runtime_surfaces._epistemic_development_runtime
+            recovery = (development_runtime.controller.recovery_status
+                if development_runtime is not None else {})
             return {"proposition_count": int(counts.get("propositions", 0)),
                 "state_count": int(counts.get("states", 0)),
-                "evidence_binding_count": int(counts.get("bindings", 0))}
+                "evidence_binding_count": int(counts.get("bindings", 0)),
+                "incomplete_admission_bound_transaction_count": int(
+                    counts.get("incomplete_admission_bound_transactions", 0)),
+                "mutation_recovery_status": str(recovery.get("status", "not_composed")),
+                "pending_evidence_intent_count": int(recovery.get("pending_evidence_intent_count", 0)),
+                "pending_state_intent_count": int(recovery.get("pending_state_intent_count", 0)),
+                "pending_mutation_transaction_count": int(recovery.get("pending_transaction_count", 0))}
         registrations.append(ProviderRegistration("persistent-epistemic-state", "persistent_epistemics",
             LiveOwnerMetadataProvider(provider_id="persistent-epistemic-state-v1",
                 owner_id="persistent-epistemic-state", owner_kind="persistent_epistemic_state_owner",
                 domain="persistent_epistemics", inspect=inspect_epistemics,
                 observation_classes={"proposition_count": "count", "state_count": "count",
-                    "evidence_binding_count": "count"})))
+                    "evidence_binding_count": "count",
+                    "incomplete_admission_bound_transaction_count": "count",
+                    "mutation_recovery_status": "health",
+                    "pending_evidence_intent_count": "count",
+                    "pending_state_intent_count": "count",
+                    "pending_mutation_transaction_count": "count"})))
+    resource_observer = runtime_surfaces._resource_observation_owner
+    if "causal_resources" in enabled and resource_observer is not None:
+        def inspect_causal_resources() -> dict[str, Any]:
+            observation = resource_observer.observe()
+            ledger_snapshot = observation.ledger.observation_snapshot()
+            records = resource_consumption_world_state_records(
+                ledger=observation.ledger,
+                invocation_receipts=observation.invocation_receipts,
+                verified_predecessor_invocation_receipts=(
+                    observation.predecessor_invocation_receipts),
+                source_identity={"installation_identity": observation.installation_identity,
+                    "provisioning_id": observation.provisioning_id,
+                    "manifest_digest": observation.manifest_digest},
+                verified_chat_process_generation_attributions=(
+                    observation.chat_process_generation_attributions),
+                verified_chat_process_recovery_transitions=(
+                    observation.chat_process_recovery_transitions),
+                verified_chat_process_runtime_observation=(
+                    observation.chat_process_runtime_observation),
+                verified_serving_operation_attempts=(
+                    observation.serving_operation_attempts),
+                verified_serving_operation_history=(
+                    observation.serving_operation_history))
+            resource_record = next((item for item in records
+                if item.get("subject_kind") == "causal_resource_consumption"), None)
+            if not isinstance(resource_record, Mapping) or not isinstance(resource_record.get("payload"), Mapping):
+                raise ValueError("causal_resource_projection_shape_invalid")
+            payload = resource_record["payload"]
+            receipt_values = payload.get("consumption_receipts", ())
+            latest_consumption_event_at = next((item.get("observed_at")
+                for item in reversed(tuple(receipt_values))
+                if isinstance(item, Mapping) and isinstance(item.get("observed_at"), str)), None)
+            allocation_projection = _bounded_resource_allocation_identity_projection(
+                ledger_snapshot["allocations"], limit=64)
+            return {"installation_identity": observation.installation_identity,
+                "provisioning_id": observation.provisioning_id,
+                "manifest_digest": observation.manifest_digest,
+                "ledger_digest": str(payload.get("ledger_digest", "")),
+                **allocation_projection,
+                "attempt_ids": tuple(str(item.get("attempt_id", ""))
+                    for item in ledger_snapshot["attempts"][-64:] if isinstance(item, Mapping)),
+                "retained_historical_consumption_receipt_digests": tuple(str(item.get("receipt_digest", ""))
+                    for item in receipt_values[-64:] if isinstance(item, Mapping)),
+                "retained_invocation_receipt_digests": tuple(str(item.get("receipt_digest", ""))
+                    for item in observation.invocation_receipts[-64:]),
+                "attempt_count": len(ledger_snapshot["attempts"]),
+                "retained_historical_consumption_receipt_count": len(receipt_values),
+                "latest_consumption_event_at": latest_consumption_event_at,
+                "retained_invocation_receipt_count": len(observation.invocation_receipts),
+                "incomplete_attempt_count": int(payload.get("incomplete_attempt_count",
+                    len(payload.get("incomplete_attempt_ids", ())))),
+                "lineage_finding_count": int(payload.get("lineage_finding_count",
+                    len(payload.get("lineage_findings", ())))),
+                "lineage_posture": str(payload.get("lineage_posture", "unknown")),
+                "recovery_posture": str(payload.get("recovery_posture", "unknown")),
+                "invocation_receipt_posture": observation.invocation_receipt_posture,
+                "chat_process_generation_posture": observation.chat_process_generation_posture,
+                "verified_chat_process_generation_attribution_count": len(
+                    observation.chat_process_generation_attributions),
+                "identity_retention_posture": ("complete"
+                    if allocation_projection["allocation_retention_posture"] == "complete"
+                    and len(ledger_snapshot["attempts"]) <= 64
+                    and len(receipt_values) <= 64 and len(observation.invocation_receipts) <= 64
+                    else "bounded_tail_incomplete"),
+                "read_only": True, "effect_authority": False}
+        registrations.append(ProviderRegistration("governed-resource-observer", "causal_resources",
+            LiveOwnerMetadataProvider(provider_id="governed-resource-observer-v1",
+                owner_id="governed-resource-observer", owner_kind="production_chat_resource_observation_owner",
+                domain="causal_resources", inspect=inspect_causal_resources,
+                observation_classes={"installation_identity": "identity", "provisioning_id": "identity",
+                    "manifest_digest": "lineage", "ledger_digest": "lineage",
+                    "allocation_digests": "resource_attribution", "allocation_count": "count",
+                    "omitted_allocation_count": "count",
+                    "last_omitted_allocation_digest": "lineage",
+                    "first_retained_allocation_digest": "lineage",
+                    "allocation_retention_posture": "lifecycle",
+                    "attempt_ids": "resource_attribution",
+                    "retained_historical_consumption_receipt_digests": "resource_attribution",
+                    "retained_invocation_receipt_digests": "resource_attribution",
+                    "attempt_count": "count", "retained_historical_consumption_receipt_count": "count",
+                    "latest_consumption_event_at": "lifecycle",
+                    "retained_invocation_receipt_count": "count", "incomplete_attempt_count": "count",
+                    "lineage_finding_count": "count", "lineage_posture": "lineage",
+                    "recovery_posture": "lifecycle", "invocation_receipt_posture": "health",
+                    "identity_retention_posture": "lifecycle",
+                    "read_only": "currentness", "effect_authority": "authority_evidence"})))
     longitudinal_owner = runtime_surfaces._longitudinal_self_model_owner
     if "longitudinal_self_model" in enabled and longitudinal_owner is not None:
         def inspect_longitudinal() -> dict[str, Any]:
@@ -1174,10 +3473,64 @@ def _compose_causal_introspection(
                 domain="longitudinal_self_model", inspect=inspect_longitudinal,
                 observation_classes={"reconciliation_count": "count", "latest_generation": "lifecycle",
                     "latest_reconciliation_id": "identity"})))
+    developmental_owner = runtime_surfaces._resident_developmental_owner
+    if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner):
+        developmental_owner = developmental_owner._owner
+    if "developmental_history" in enabled and developmental_owner is not None:
+        def inspect_developmental_history() -> dict[str, Any]:
+            records = developmental_owner.writeback.store.records()
+            if not records:
+                return {"record_count": 0, "latest_record_id": None,
+                    "latest_record_digest": None, "latest_candidate_id": None,
+                    "latest_model_id": None, "latest_model_artifact_digest": None,
+                    "latest_snapshot_digest": None, "selected_fact_count": 0,
+                    "verified_provenance_manifest_digests": []}
+            def record_order(record: Any) -> tuple[float, str]:
+                try:
+                    created = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
+                    if created.tzinfo is None:
+                        raise ValueError("naive")
+                except (AttributeError, TypeError, ValueError) as exc:
+                    raise ValueError("developmental_history_timestamp_invalid") from exc
+                return created.astimezone(timezone.utc).timestamp(), record.record_id
+            latest = max(records, key=record_order)
+            candidate = latest.candidate
+            selected_facts = candidate.get("selected_facts", ())
+            provenance_digests: set[str] = set()
+            for fact in selected_facts if isinstance(selected_facts, (list, tuple)) else ():
+                if not isinstance(fact, Mapping) or not isinstance(fact.get("payload"), Mapping):
+                    continue
+                payload = fact["payload"]
+                for key in ("proposed_successor_model_development_provenance",
+                            "predecessor_model_development_provenance", "model_development_provenance"):
+                    binding = payload.get(key)
+                    if (isinstance(binding, Mapping)
+                            and binding.get("posture") == "verified_source_bound_claim_manifest"
+                            and isinstance(binding.get("provenance_manifest_digest"), str)):
+                        provenance_digests.add(str(binding["provenance_manifest_digest"]))
+            return {"record_count": len(records), "latest_record_id": latest.record_id,
+                "latest_record_digest": latest.record_digest,
+                "latest_candidate_id": candidate.get("candidate_id"),
+                "latest_model_id": candidate.get("model_id"),
+                "latest_model_artifact_digest": candidate.get("model_artifact_digest"),
+                "latest_snapshot_digest": candidate.get("snapshot_digest"),
+                "selected_fact_count": len(candidate.get("selected_fact_ids", ())),
+                "verified_provenance_manifest_digests": sorted(provenance_digests)[:16]}
+        registrations.append(ProviderRegistration("resident-developmental-history", "developmental_history",
+            LiveOwnerMetadataProvider(provider_id="resident-developmental-history-v1",
+                owner_id="resident-developmental-history", owner_kind="resident_developmental_history_store",
+                domain="developmental_history", inspect=inspect_developmental_history,
+                observation_classes={"record_count": "count", "latest_record_id": "identity",
+                    "latest_record_digest": "lineage", "latest_candidate_id": "identity",
+                    "latest_model_id": "identity", "latest_model_artifact_digest": "lineage",
+                    "latest_snapshot_digest": "identity", "selected_fact_count": "count",
+                    "verified_provenance_manifest_digests": "lineage"})))
     if "model_serving" in enabled and resident_serving_controller is not None:
         def inspect_serving() -> dict[str, Any]:
             health = resident_serving_controller.health()
-            session = resident_serving_controller.current_session()
+            # Introspection is observational: current_session() may invalidate,
+            # unload, and publish a receipt when the session has gone stale.
+            session = resident_serving_controller.observed_current_session()
             return {"serving_status": str(health.get("status", "unknown")),
                 "session_present": session is not None,
                 "session_id": session.session_id if session is not None else None}
@@ -1187,6 +3540,113 @@ def _compose_causal_introspection(
                 domain="model_serving", inspect=inspect_serving,
                 observation_classes={"serving_status": "health", "session_present": "currentness",
                     "session_id": "identity"})))
+    transition_runtime = runtime_surfaces._resident_transition_runtime
+    transition_controller = getattr(transition_runtime, "controller", None) if transition_runtime is not None else None
+    transition_custody = runtime_surfaces._resident_transition_custody
+    transition_protocol = (getattr(transition_controller, "protocol", None) if transition_controller is not None
+                           else transition_custody[0] if transition_custody is not None else None)
+    transition_journal = (getattr(transition_controller, "journal", None) if transition_controller is not None
+                          else transition_custody[1] if transition_custody is not None else None)
+    if "model_succession" in enabled and transition_protocol is not None and transition_journal is not None:
+        def inspect_model_succession() -> dict[str, Any]:
+            protocol = transition_protocol
+            entries = transition_journal.entries()
+            protocol_value = protocol.value
+            if transition_controller is not None and transition_runtime is not None:
+                health = transition_controller.health()
+                status = transition_runtime.status()
+            else:
+                unresolved = next((entry for entry in reversed(entries)
+                    if entry.get("status") in {"attempted", "effected", "failed", "interrupted"}), None)
+                evidence = unresolved.get("evidence", {}) if isinstance(unresolved, Mapping) else {}
+                health = {"status": "runtime_composition_blocked", "phase": "unknown",
+                    "outstanding_stage": (evidence.get("attempted_stage") or evidence.get("failed_stage")
+                        or evidence.get("interrupted_stage")), "replay_forbidden": unresolved is not None}
+                serving = getattr(runtime_surfaces._resident_cognitive_invoker, "current_controller", None)
+                session = serving.observed_current_session() if serving is not None else None
+                identity = session.binding.get("observed_loaded_model_identity") if session is not None else None
+                status = {"resident_model_identity": dict(identity) if isinstance(identity, Mapping) else identity,
+                    "resident_serving_session_id": session.session_id if session is not None else None}
+            provenance = runtime_surfaces._resident_model_provenance_bindings(protocol_value)
+            predecessor_provenance = provenance.get("predecessor_a", {})
+            successor_provenance = provenance.get("successor_b", {})
+            running_identity = status.get("resident_model_identity")
+            running_provenance = next((value for role, value in provenance.items()
+                if value.get("identity_binding_verified") is True
+                and isinstance(protocol_value.get(role), Mapping)
+                and isinstance(running_identity, Mapping)
+                and dict(protocol_value[role]) == dict(running_identity)), {})
+            return {"transition_id": protocol_value.get("transition_id"),
+                "protocol_digest": protocol_value.get("protocol_digest"),
+                "journal_head_digest": entries[-1].get("entry_digest") if entries else "GENESIS",
+                "recovery_status": health.get("status"), "current_phase": health.get("phase"),
+                "replay_forbidden": health.get("replay_forbidden", True),
+                "predecessor_model_identity": protocol_value.get("predecessor_a"),
+                "proposed_successor_model_identity": protocol_value.get("successor_b"),
+                "predecessor_model_provenance_posture": predecessor_provenance.get("posture", "unknown"),
+                "predecessor_model_provenance_manifest_digest": predecessor_provenance.get("provenance_manifest_digest"),
+                "successor_model_provenance_posture": successor_provenance.get("posture", "unknown"),
+                "successor_model_provenance_manifest_digest": successor_provenance.get("provenance_manifest_digest"),
+                "running_model_provenance_posture": running_provenance.get("posture",
+                    "unavailable_no_exact_running_identity_binding"),
+                "running_model_provenance_manifest_digest": running_provenance.get("provenance_manifest_digest"),
+                "running_model_identity_observed": status.get("resident_model_identity")}
+        registrations.append(ProviderRegistration("resident-model-succession", "model_succession",
+            LiveOwnerMetadataProvider(provider_id="resident-model-succession-v1",
+                owner_id="resident-model-succession", owner_kind="resident_model_transition_controller",
+                domain="model_succession", inspect=inspect_model_succession,
+                observation_classes={"transition_id": "identity", "protocol_digest": "identity",
+                    "journal_head_digest": "identity", "recovery_status": "health", "current_phase": "lifecycle",
+                    "replay_forbidden": "currentness", "predecessor_model_identity": "identity",
+                    "proposed_successor_model_identity": "identity",
+                    "predecessor_model_provenance_posture": "lineage",
+                    "predecessor_model_provenance_manifest_digest": "lineage",
+                    "successor_model_provenance_posture": "lineage",
+                    "successor_model_provenance_manifest_digest": "lineage",
+                    "running_model_provenance_posture": "lineage",
+                    "running_model_provenance_manifest_digest": "lineage",
+                    "running_model_identity_observed": "identity"})))
+    software_controller = runtime_surfaces._resident_software_transition_controller
+    software_config = (software_controller.config if software_controller is not None
+                       else runtime_surfaces._resident_software_transition_config)
+    if "software_succession" in enabled and software_config is not None:
+        def inspect_software_succession() -> dict[str, Any]:
+            from sentientos.maintenance_resident_runtime_adoption import read_transition_events
+            rows = read_transition_events(software_config, limit=1)
+            health = (software_controller.health() if software_controller is not None else
+                runtime_surfaces.governance_feedback().get("surfaces", {}).get("maintenance_resident_runtime_adoption", {}))
+            current_provenance = None
+            if software_controller is not None:
+                try:
+                    current_provenance = software_controller.current_execution_provenance()
+                except Exception:
+                    # The startup baseline is historical if this point check fails.
+                    current_provenance = None
+            running = _software_generation_current_observation(current_provenance)
+            last = rows[-1] if rows else {}
+            return {"transition_id": last.get("transition_id"),
+                "journal_head_digest": last.get("event_digest", "GENESIS"),
+                "transition_phase": last.get("phase", "none"),
+                "recovery_status": health.get("status"),
+                "predecessor_generation_digest": last.get("predecessor_generation_digest"),
+                "successor_generation_digest": last.get("successor_generation_digest"),
+                **running}
+        registrations.append(ProviderRegistration("resident-software-succession", "software_succession",
+            LiveOwnerMetadataProvider(provider_id="resident-software-succession-v1",
+                owner_id="resident-software-succession", owner_kind="resident_software_generation_adoption_controller",
+                domain="software_succession", inspect=inspect_software_succession,
+                observation_classes={"transition_id": "identity", "journal_head_digest": "identity",
+                    "transition_phase": "lifecycle", "recovery_status": "health",
+                    "predecessor_generation_digest": "lineage",
+                    "successor_generation_digest": "lineage",
+                    "running_software_generation_observed": "lineage",
+                    "running_software_observation_posture": "currentness",
+                    "running_software_process_instance_id": "identity",
+                    "running_software_provenance_digest": "identity",
+                    "running_software_process_identity_scope": "lineage",
+                    "running_software_generation_scope": "lineage",
+                    "running_software_loaded_code_identity_posture": "boundary",
+                    "running_software_process_role": "boundary"})))
     runtime = CausalIntrospectionRuntime(config, registrations)
     runtime.reconstruct()  # fail closed on malformed or tampered predecessor custody
     return runtime
@@ -1202,6 +3662,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     successor_adoption_path = os.environ.get("SENTIENTOS_MAINTENANCE_SUCCESSOR_GENERATION_ADOPTION_CONFIG")
     auto_derivation_path = os.environ.get("SENTIENTOS_MAINTENANCE_AUTHORITY_CONTINUITY_AUTO_DERIVATION_CONFIG")
     resident_path = os.environ.get("SENTIENTOS_MAINTENANCE_RESIDENT_RUNTIME_ADOPTION_CONFIG")
+    resident_config: dict[str, Any] | None = None
     resident_controller = None
     resident_health: dict[str, Any] = {"status": "disabled", "read_only": True}
     if resident_path:
@@ -1228,7 +3689,6 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 resident_health = resident_controller.health()
         except Exception as exc:
             resident_health = {"status": "blocked", "reason": str(exc), "read_only": True}
-            resident_controller = None
     resident_blocked = bool(resident_path and resident_health["status"] == "blocked")
     if resident_blocked and os.environ.get(STARTUP_GATE_ENV):
         return
@@ -1254,22 +3714,110 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     authority_map = build_local_model_authority_map()
     governed_invoker = GovernedLocalModelInvoker(model=model, authority_map=authority_map, runtime_root=repo_root / "sentientos_data" / "runtime")
     genesis_advice = GenesisModelAdviceCoordinator(invoker=governed_invoker, runtime_root=repo_root / "sentientos_data" / "runtime")
+    resource_observation_owner = None
+    resource_observation_configuration_status: dict[str, Any] = {
+        "status": "disabled", "read_only": True, "effect_authority": False,
+    }
+    observation_installation = os.environ.get(RESOURCE_OBSERVATION_INSTALLATION_ENV)
+    observation_provisioning = os.environ.get(RESOURCE_OBSERVATION_PROVISIONING_ENV)
+    if observation_installation is not None or observation_provisioning is not None:
+        if not observation_installation or not observation_provisioning:
+            resource_observation_configuration_status = {
+                "status": "invalid", "reason_code": "resource_observation_configuration_incomplete",
+                "read_only": True, "effect_authority": False,
+            }
+        else:
+            try:
+                handle = InstallationStateRegistry.system().open_read_only(
+                    InstallationIdentity.parse(observation_installation))
+                resource_observation_owner = ProductionChatResourceObservationOwner(
+                    handle, observation_provisioning)
+                resource_observation_configuration_status = {
+                    "status": "degraded", "reason_code": "source_not_yet_observed",
+                    "installation_identity": handle.identity.value,
+                    "provisioning_id": observation_provisioning,
+                    "read_only": True, "effect_authority": False,
+                }
+            except InstallationStateError as exc:
+                resource_observation_configuration_status = {
+                    "status": "missing" if exc.code == "installation_state_root_missing" else "invalid",
+                    "reason_code": exc.code,
+                    "read_only": True, "effect_authority": False,
+                }
+            except Exception as exc:
+                resource_observation_configuration_status = {
+                    "status": "invalid", "reason_code": type(exc).__name__,
+                    "read_only": True, "effect_authority": False,
+                }
     resident_serving_controller = None
     resident_serving_slot = None
     resident_serving_config = None
     resident_serving_error = None
     resident_serving_path = os.environ.get(RESIDENT_SERVING_CONFIG_ENV)
     resident_transition_live_path = os.environ.get(RESIDENT_COGNITIVE_TRANSITION_LIVE_CONFIG_ENV)
+    consequence_store, consequence_result_ids, consequence_chain_ids, model_replacement_store, model_replacement_run_refs, proposal_review_records, proposal_review_log_path, proposal_review_receipt_ids, fulfillment_records, fulfillment_log_path, fulfillment_receipt_ids, developmental_history_run_refs, consequence_projection_status = (
+        _load_embodied_consequence_projection(os.environ.get(EMBODIED_CONSEQUENCE_PROJECTION_CONFIG_ENV)))
+    consequence_projection_kwargs = {
+        "embodied_consequence_store": consequence_store,
+        "embodied_consequence_result_ids": consequence_result_ids,
+        "embodied_consequence_chain_ids": consequence_chain_ids,
+        "model_replacement_artifact_store": model_replacement_store,
+        "model_replacement_run_refs": model_replacement_run_refs,
+        "developmental_history_intervention_run_refs": developmental_history_run_refs,
+        "embodied_proposal_review_records": proposal_review_records,
+        "embodied_proposal_review_log_path": proposal_review_log_path,
+        "embodied_proposal_review_receipt_ids": proposal_review_receipt_ids,
+        "embodied_fulfillment_records": fulfillment_records,
+        "embodied_fulfillment_log_path": fulfillment_log_path,
+        "embodied_fulfillment_receipt_ids": fulfillment_receipt_ids,
+        "embodied_consequence_projection_status": consequence_projection_status,
+    }
+    post_adoption_owner, post_adoption_campaign_ids, post_adoption_projection_status = (
+        _load_post_adoption_attribution_projection(
+            os.environ.get(POST_ADOPTION_ATTRIBUTION_PROJECTION_CONFIG_ENV)))
+    post_adoption_projection_kwargs = {
+        "post_adoption_attribution_owner": post_adoption_owner,
+        "post_adoption_attribution_campaign_ids": post_adoption_campaign_ids,
+        "post_adoption_attribution_projection_status": post_adoption_projection_status,
+    }
     if resident_serving_path:
         try:
             resident_serving_config = load_resident_serving_config(resident_serving_path)
         except Exception as exc:
             resident_serving_error = f"{type(exc).__name__}:{exc}"
+    parent_supervision_observer: ResidentParentLifecycleEvidenceReader | None = None
+    parent_supervision_observation_status: dict[str, Any] = {
+        "status": "disabled", "read_only": True, "effect_authority": False}
+    parent_config_path = os.environ.get(PARENT_CONFIG_PATH_ENV)
+    if parent_config_path:
+        try:
+            parent_supervision_observer = ResidentParentLifecycleEvidenceReader(
+                Path(parent_config_path))
+            parent_supervision_observation_status = {
+                "status": "configured_pending_verification",
+                "read_only": True, "effect_authority": False,
+            }
+        except Exception as exc:
+            parent_supervision_observation_status = {
+                "status": "invalid_configuration",
+                "reason_code": "parent_observer_configuration_invalid",
+                "failure_class": type(exc).__name__,
+                "read_only": True, "effect_authority": False,
+            }
+    parent_observation_kwargs = {
+        "parent_supervision_observer": parent_supervision_observer,
+        "parent_supervision_observation_status": parent_supervision_observation_status,
+    }
     runtime_surfaces = RuntimeMaintenanceSurfaces(
         repo_root,
         improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
         governed_local_invoker=governed_invoker,
         genesis_advice_source=genesis_advice,
+        resource_observation_owner=resource_observation_owner,
+        resource_observation_configuration_status=resource_observation_configuration_status,
+        **consequence_projection_kwargs,
+        **post_adoption_projection_kwargs,
+        **parent_observation_kwargs,
     )
     scheduler_owner, wake_owner, successor_owner, overlapping = _start_maintenance_daemon_owners_after_resident_decision(
         adoption_path, wake_adoption_path, successor_adoption_path,
@@ -1292,7 +3840,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     runtime_surfaces._feedback["surfaces"]["maintenance_authority_continuity_auto_derivation"] = auto_derivation_health
     runtime_surfaces._feedback["surfaces"]["maintenance_resident_runtime_adoption"] = resident_health
     kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
-    if resident_serving_config is not None and resident_serving_config.enabled:
+    if not resident_blocked and resident_serving_config is not None and resident_serving_config.enabled:
         try:
             assert resident_serving_config.installation_identity is not None
             handle = InstallationStateRegistry.system().open(
@@ -1303,9 +3851,15 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                 expected_activation_state_digest=resident_serving_config.expected_activation_state_digest)
             resident_serving_slot = ResidentCognitiveServingSlot(resident_serving_controller)
             resident_cognition_gate = ResidentCognitionQuiescenceGate()
+            candidate_surfaces: RuntimeMaintenanceSurfaces | None = None
             candidate_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                 governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
+                resource_observation_owner=resource_observation_owner,
+                resource_observation_configuration_status=resource_observation_configuration_status,
+                **consequence_projection_kwargs,
+                **post_adoption_projection_kwargs,
+                **parent_observation_kwargs,
                 epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
                 epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
@@ -1322,10 +3876,28 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                         runtime_surfaces=candidate_surfaces)
                 except Exception as exc:
                     resident_transition_error = f"{type(exc).__name__}:{exc}"
+                    try:
+                        candidate_surfaces._resident_transition_custody = _load_resident_transition_custody(
+                            resident_transition_live_path, handle)
+                    except Exception as recovery_exc:
+                        candidate_surfaces._resident_transition_custody_error = type(recovery_exc).__name__
+                if (resident_transition_runtime is None
+                        and candidate_surfaces._resident_transition_custody is None
+                        and candidate_surfaces._resident_transition_custody_error is None):
+                    try:
+                        candidate_surfaces._resident_transition_custody = _load_resident_transition_custody(
+                            resident_transition_live_path, handle)
+                    except Exception as recovery_exc:
+                        candidate_surfaces._resident_transition_custody_error = type(recovery_exc).__name__
             if resident_transition_runtime is not None:
                 runtime_surfaces = RuntimeMaintenanceSurfaces(
                     repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                     governed_local_invoker=governed_invoker, genesis_advice_source=genesis_advice,
+                    resource_observation_owner=resource_observation_owner,
+                    resource_observation_configuration_status=resource_observation_configuration_status,
+                    **consequence_projection_kwargs,
+                    **post_adoption_projection_kwargs,
+                    **parent_observation_kwargs,
                     epistemic_state_owner=candidate_surfaces._epistemic_state_owner,
                     epistemic_state_config=candidate_surfaces._epistemic_state_config,
                     epistemic_state_configuration_error=candidate_surfaces._epistemic_state_configuration_error,
@@ -1336,6 +3908,10 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
                     resident_transition_runtime=resident_transition_runtime)
             else:
                 runtime_surfaces = candidate_surfaces
+            if resident_transition_runtime is not None:
+                transition_controller = resident_transition_runtime.controller
+                runtime_surfaces._resident_transition_custody = (
+                    transition_controller.protocol, transition_controller.journal)
             runtime_surfaces._resident_transition_configuration_error = resident_transition_error
         except Exception as exc:
             resident_serving_error = f"{type(exc).__name__}:{exc}"
@@ -1346,16 +3922,37 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             runtime_surfaces = RuntimeMaintenanceSurfaces(
                 repo_root, improvement_evidence_sources=resolve_improvement_evidence_sources(repo_root),
                 governed_local_invoker=None, genesis_advice_source=genesis_advice,
+                resource_observation_owner=resource_observation_owner,
+                resource_observation_configuration_status=resource_observation_configuration_status,
+                **consequence_projection_kwargs,
+                **post_adoption_projection_kwargs,
+                **parent_observation_kwargs,
                 epistemic_state_owner=runtime_surfaces._epistemic_state_owner,
                 epistemic_state_config=runtime_surfaces._epistemic_state_config,
                 epistemic_state_configuration_error=runtime_surfaces._epistemic_state_configuration_error,
                 epistemic_development_runtime=runtime_surfaces._epistemic_development_runtime)
+            if candidate_surfaces is not None:
+                runtime_surfaces._resident_transition_custody = candidate_surfaces._resident_transition_custody
+                runtime_surfaces._resident_transition_custody_error = candidate_surfaces._resident_transition_custody_error
+    if (resident_transition_live_path
+            and runtime_surfaces._resident_transition_custody is None
+            and runtime_surfaces._resident_transition_custody_error is None):
+        try:
+            runtime_surfaces._resident_transition_custody = _load_resident_transition_custody(
+                resident_transition_live_path)
+        except Exception as recovery_exc:
+            runtime_surfaces._resident_transition_custody_error = type(recovery_exc).__name__
     if resident_serving_error is not None:
         runtime_surfaces._resident_developmental_configuration_error = resident_serving_error
     if resident_transition_live_path and resident_serving_controller is None:
         runtime_surfaces._resident_transition_configuration_error = (
             runtime_surfaces._resident_transition_configuration_error
             or "hardened_resident_serving_required")
+    # Explicit owner injection: World-State reads the already configured
+    # software-transition journal and the startup provenance captured by this
+    # controller. It does not discover generation custody from the filesystem.
+    runtime_surfaces._resident_software_transition_controller = resident_controller
+    runtime_surfaces._resident_software_transition_config = resident_config
     try:
         introspection_config = load_causal_introspection_config()
         if introspection_config is not None and introspection_config.enabled:
@@ -1375,8 +3972,11 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     try:
         while not shutdown_event.is_set():
             if resident_blocked:
-                # Blocked resident posture is terminal for this image.
-                # Health has already been projected; no maintenance effector may run.
+                # Preserve a verified read-only recovery snapshot before this
+                # image stops. No cognition, transition retry, or effector runs.
+                with suppress(Exception):
+                    runtime_surfaces.build_world_state_board(
+                        tick_id=datetime.now(timezone.utc).isoformat())
                 shutdown_event.set()
                 continue
             if scheduler_owner is not None:

@@ -1,0 +1,13 @@
+# 0069 — Reopen installation observation across cognition restart
+
+Status: local focused tests passed; construction remains unverified for production.
+
+Remote source basis: `codex/construct-sentientos` at `067fbbf5b199caff3f9dca65aed76f3c8d92b756`, tree `5af5cc6bdcc566687ff0e33ea4c1cbfad2e2972b`.
+
+The previous cross-process fixture transferred a serialized World-State record to the child interpreter. That proved history reconstruction but did not prove that the child could reopen the authoritative installation source. The fixture now passes only explicit custody roots and identities to a child process. The child opens the test installation through `InstallationStateRegistry.open_read_only`, constructs `ProductionChatResourceObservationOwner`, and invokes the actual `RuntimeMaintenanceSurfaces.build_world_state_board()` path. It observes five model-replacement invocation/resource lineage facts from custody. It then selects one bounded source record from the same observer and model-replacement run owner, rebuilds a canonical one-fact World-State snapshot, and asserts its fact identity and source digest equal the corresponding fact in the daemon snapshot. Later cognition runs after restart from reconstructed persistent epistemic state, longitudinal self-model, and developmental history; it retrieves the earlier admitted record and preserves projection identities/digests.
+
+The first grouped test run used unset singleton roots and failed ten cases when defaults attempted `/glow/governor` on a read-only filesystem. Re-running the same four suites with singleton roots isolated under `/tmp/sentientos-gr4-suite` passed: 96 passed, 0 failed, 0 skipped. Changed Python compiled. JUnit is `work/construction/evidence/0069-observer-reopen-later-cognition-junit.xml`; evidence and digest details are in `work/construction/evidence/0069-observer-reopen-later-cognition.json`.
+
+The high-priority source integrity repair was already published at `db45c915209dcfc0af23acf8787fcd268786dc3b`; the live branch currently contains the reconciled file at blob `af63db9a01b8b68c31bc362b36b827cb4950241a`. The exact repair commit and current branch head both have a successful hosted `Source validation (unprivileged)` check. The repair commit's docs, invariants, and self-check jobs failed; `helm-k8s-test` succeeded. These failures are recorded without weakening gates.
+
+This fixture exercises owner composition and deterministic test cognition, not an actual model's learning or measurable acquisition/transfer. It does not prove production behavior or physical resource measurements. No production source, authority, or activation path changed in this increment.

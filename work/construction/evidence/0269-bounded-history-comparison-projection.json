@@ -1,0 +1,46 @@
+{
+  "behavioral_invariants": [
+    "bounded deterministic projection retained",
+    "positive and adverse outcomes retained",
+    "measurement identities and source digests retained",
+    "same-model identity and drift gates retained",
+    "no byte limit increase",
+    "no inference or authority expansion"
+  ],
+  "sequence": 269,
+  "source_blobs": [
+    {
+      "bytes": 174918,
+      "git_blob_sha1": "d5d12f2ec4054b913b1bad6d655e5f0654448ab5",
+      "path": "sentientos/resident_developmental_writeback.py",
+      "sha256": "e6fad0cc6484c644fce360066fc5e46ff44cac15e6f163f055ea6718d30b92cd"
+    },
+    {
+      "bytes": 432636,
+      "git_blob_sha1": "bd163446d72cdca2efd73744e0043b734752e67b",
+      "path": "tests/test_resident_developmental_cognition.py",
+      "sha256": "a1864fceedcb590b23a2f810d88ccf2392190a575e9767d86faad11823b49062"
+    }
+  ],
+  "source_publication": {
+    "commit": "2f838f17b2472b54ff68990851c9da5918eda19e",
+    "expected_parent": "e691b7c4fd1a860599a070e20f876da25648dde8",
+    "force": false,
+    "remote_blob_readback_verified": true,
+    "tree": "ecae3a284ca8cda474210a675755fc903332e456"
+  },
+  "title": "Bounded history comparison projection",
+  "verification": {
+    "collected": 120,
+    "compileall": true,
+    "diff_check": true,
+    "failed": 0,
+    "full_repository_integration": "blocked by existing unprivileged admin-banner tests in tests/test_audit_immutability.py; production guard unchanged",
+    "junit_sha256": "15a995dfc8c35f6f408e190c61549378d55b6426958d08cccfe9b51e3860d9f9",
+    "metrics_status": "ok",
+    "native_reporter_run_id": "8c3d8683c65241fa8125146c36e7a7a3",
+    "passed": 118,
+    "reporter": true,
+    "skipped": 2
+  }
+}

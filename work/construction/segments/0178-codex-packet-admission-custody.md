@@ -1,0 +1,8 @@
+## 2026-10-14 checkpoint — verify packet source admission through the existing owner
+
+- Built on sequence-177 evidence HEAD `15027d7cc984dbe2baf76e79db30ea52bb6d427c` (tree `1770fa24468f371c3f99b37263c5112a18344785`). Published source commit `06c8da3b1bfd52776f74b06e50b095747b646607` (tree `d0f38e5d00f1c184f700e25ab66f79405f3b4811`).
+- Hardened the operator packet builder after identifying that self-consistent record hashes and stored writeback receipts alone did not independently validate the runtime admission ledger. The builder now accepts the existing `ResidentDevelopmentalWritebackController` and obtains inputs only from its read-only `inspect_completed_records()` inventory, which verifies recorded admission, candidate/source lineage, record identity, and receipts without repairing state. The CLI now takes the configured cognition file and builds that existing verifier from the configured history/state roots.
+- Updated the operator protocol and the test fixture interface. The feature makes no new authority contract and calls no inference or provider API.
+- Validation passed: 56 tests across packet/scorer, writeback admission recovery, strategy, and positive/adverse/longitudinal progression suites; changed Python files compile; builder/scorer `--help` and diff checks pass. The tests exercise the new inventory interface with a bounded fixture; source writeback admission validation is also covered by the existing writeback test suite.
+
+Next: make available three qualifying records in configured developmental history and run the packet in fresh isolated Codex sessions. The latest packet path now preserves existing runtime admission verification. No real-model results are available yet.

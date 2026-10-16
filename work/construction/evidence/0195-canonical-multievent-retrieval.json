@@ -1,0 +1,34 @@
+{
+  "sequence": 195,
+  "title": "Retrieve admitted multi-event history for later strategy",
+  "status": "[untested] construction",
+  "starting_head": "2fe8bd02b96dd914fe40392e6655bfa9d26ea6c4",
+  "starting_tree": "100aad33d43d90da218b5bb9cf3573d693ed21e9",
+  "source_commit": "3a1c620b08fc0ef7777e7924354b3cc9a288360b",
+  "source_tree": "65ec24a91466e8f163c6998374c409503528a016",
+  "source_paths": [
+    {"path":"tests/test_resident_developmental_cognition.py","blob":"7163cd80af41b33eff513703284dd53fdb51e34b","sha256":"1f0f617b322ce20dd32ec5680d9eb440cb7325b94df92c14cf492042e224d43f"}
+  ],
+  "validation": {
+    "canonical_multi_event_developmental_strategy_test":"1 passed",
+    "actual_admitted_inventory":"three distinct records verified through reopened owner",
+    "bounded_selection":"two relevant events selected; newer changed-interface event omitted with exact source identities",
+    "three_conditions":"same situation and settings; present equals restored; withheld has no selected history",
+    "condition_label_leakage":"fixture receives packet only; no condition parameter",
+    "negative_transfer":"latest satisfied event overgeneralized; conflict and observation criteria failed",
+    "conflict_aware_vector":"two source events cited; conflict uncertainty criterion passed",
+    "same_proposal_relabeling":"identical rubric result",
+    "compileall":"passed",
+    "diff_check":"passed"
+  },
+  "authority_posture": {
+    "actual_scoped_test_admission":"used",
+    "applicability":"operator-declared and unverified",
+    "synthetic_environment_and_cognition":"explicit",
+    "aggregate_utility_score":null,
+    "physical_effect_claimed":false,
+    "real_model_improvement_established":false
+  },
+  "acceptance_status":"PARTIAL: A passed; B/C fixture composition advanced; multi-event feedback admission and fresh-process lineage reconstruction remain",
+  "limitations":"The bounded selection depends on unverified operator relations. Multi-event evaluator output is not yet projected and admitted as subsequent experience in this canonical trajectory."
+}

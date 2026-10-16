@@ -135,6 +135,7 @@ def test_restart_reloads_same_allocation_without_replenishing(tmp_path: Path) ->
         authenticated=first.authenticated, current=first.current, policy=first.policy,
         current_time=NOW, durable_attempt_nonce="first")
     assert first.allocator.ledger.remaining_calls(result.allocation_id) == 1
+    first.close()  # Release the single-process owner as process death would.
     restarted = load_production_chat_resource_context_owner(
         handle, "restart", clock=lambda: NOW, nonce_source=lambda: "second")
     assert (restarted.allocation.allocation_id, restarted.allocation.allocation_digest) == (

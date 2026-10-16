@@ -1,0 +1,40 @@
+{
+  "sequence": 253,
+  "title": "Partial forge outcomes remain partial and block dependent work",
+  "source_commit": "d2a02deee68ab8e6e17d2a660bda9a83591af20b",
+  "source_tree": "7f3632975dfc4bb2b0f5aa904e6faefbd098683b",
+  "source_parent_commit": "4bc41c4de3a5a093db0404851b963e4b5ae6e285",
+  "source_parent_tree": "68e2354413ee8597c324b484d7e8e8558eeec6d9",
+  "source_remote_publication": {
+    "branch": "codex/construct-sentientos",
+    "expected_head": "4bc41c4de3a5a093db0404851b963e4b5ae6e285",
+    "compare_and_swap": "succeeded",
+    "force": false,
+    "commit_parent_verified": true
+  },
+  "changed_blobs": [
+    {"mode": "100644", "path": "sentientos/goal_executor.py", "sha": "e468bbf963af49622a176d2c5bd274e77030adb1"},
+    {"mode": "100644", "path": "sentientos/work_plan.py", "sha": "e301152563d8c50035b1676df47982e71da0dc44"},
+    {"mode": "100644", "path": "sentientos/work_plan_execution_journal.py", "sha": "15da011705c621e986d4d09464fcbf6f1e80c2c8"},
+    {"mode": "100644", "path": "sentientos/tests/test_goal_executor_run.py", "sha": "b662cf645463fa8e703653a1c8871ff28a3a4d11"},
+    {"mode": "100644", "path": "docs/development/partial_goal_outcome_progression_acceptance.json", "sha": "1be659f2d3f6b40638068ce31345cf4be2ca0071"}
+  ],
+  "validation": {
+    "goal_executor_run_plan_and_work_plan_tests": "36 passed",
+    "python_compile": "passed",
+    "git_diff_check": "passed"
+  },
+  "observations": {
+    "forge_report_partial_success": "distinct partial task state and preserved report artifact",
+    "dependent_task_requirement": "success only",
+    "partial_outcome_dependency": "blocked",
+    "independent_task_progress": "continued",
+    "work_run_and_journal_recovery": "partial status and result preserved",
+    "authority": false
+  },
+  "limitations": [
+    "Partial forge application is not automatically continued.",
+    "No goal completion, mutation authority, or production activation is claimed.",
+    "Later planning from evaluated task outcomes remains open."
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "acceptance": {
+    "actual_model_behavior_demonstrated": false,
+    "adversarial_controls": [
+      "different declared task family cannot stage against unrelated admitted history",
+      "score probe outcome substitution remains rejected even after recomputing outer score digest"
+    ],
+    "commands": [
+      "python -m py_compile sentientos/developmental_model_replacement_experiment.py sentientos/developmental_history_intervention_experiment.py sentientos/resident_developmental_cognition.py sentientos/resident_developmental_writeback.py scripts/stage_resident_objective_intervention.py tests/test_resident_developmental_cognition.py",
+      "env SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-test-governor SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-test-federation SENTIENTOS_CONTROL_KERNEL_ROOT=/tmp/sentientos-test-kernel PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-test-pulse PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-test-pulse/state.json .venv/bin/python -m pytest -q tests/test_resident_developmental_cognition.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_writeback.py"
+    ],
+    "fixtures_only": true,
+    "focused_tests_failed": 0,
+    "focused_tests_passed": 163,
+    "positive_controls": [
+      "verified task-family experiment outcome projects to World-State without affine multiplier or offset",
+      "ordinary configured writeback admits the source-backed task-family fact",
+      "later family-required staging succeeds with exact admitted history",
+      "retrieval preserves family experience after five newer unrelated records",
+      "history-present and restored conditions retrieve the admitted record; withheld does not",
+      "source family fact is absent from all three current-evidence projections",
+      "history-present/restored task transfer is scored against a held-out probe suite"
+    ],
+    "production_acceptance": "deferred"
+  },
+  "changed_files": {
+    "scripts/stage_resident_objective_intervention.py": {
+      "bytes": 4353,
+      "git_blob": "f5ef400ba513dcde03c8be9622f8e720b8d78875",
+      "sha256": "bc29c9361f8c899b55e24e53721c973ebf1c0db6895c4aacc94204d76e83781d"
+    },
+    "sentientos/developmental_history_intervention_experiment.py": {
+      "bytes": 55458,
+      "git_blob": "90815b21374534ed8c3e37f5491c1ccd65aefb52",
+      "sha256": "ed4a94d534ec5227ebf6a606688e0218759b04170a7c868be6e4d97e71753af0"
+    },
+    "sentientos/developmental_model_replacement_experiment.py": {
+      "bytes": 145854,
+      "git_blob": "a458b6f47fe59925b99428154d3de791ba8772cb",
+      "sha256": "d320bb3e541b73782e10c4a77eb98df6f556b4fe32875144c71d9fb6c69f1322"
+    },
+    "sentientos/resident_developmental_cognition.py": {
+      "bytes": 236037,
+      "git_blob": "a6926b770bfaa8987cd75618d6d7d1c9db321ffa",
+      "sha256": "4c701df77ae13645fdad59d8b1fc13d4ce2e9ae3957d8d0cc8916b9fea03015a"
+    },
+    "sentientos/resident_developmental_writeback.py": {
+      "bytes": 142557,
+      "git_blob": "dece196888aa3f9290518f93b41b1ff4fe4543ed",
+      "sha256": "3ab2265bdf64d63059a3bda7260c528b1d3c938456f97bbc679d48585b5e06dd"
+    },
+    "tests/test_resident_developmental_cognition.py": {
+      "bytes": 191986,
+      "git_blob": "2668c74d1e85ecb63f269f368718bbca88626061",
+      "sha256": "1067768aba0caef664ee214d19467ce1dc10e90d5e0126ef56977f61c3e73b40"
+    }
+  },
+  "implementation": {
+    "authority_changed": false,
+    "contamination_control": "The experiment excludes every current evidence fact in the selected objective task family, preserving only the intervention history channel for that family.",
+    "new_task_contract": "Versioned v3 affine probe-suite task family; family is explicitly operator-declared and protocol-bound.",
+    "production_verified": false,
+    "real_model_invoked": false,
+    "retrieval": "Bounded 64-record scan prefers admitted records with exact selected source facts in the declared family, then fills remaining slots by recency.",
+    "source_outcome": "Receipt-bound history-present observed answers are paired with probe identities and independently scored per-probe correctness; affine oracle parameters are omitted.",
+    "staging": "Optional task-family-history requirement checks exact checkpointed records and independent admission before publishing a one-shot request.",
+    "writeback": "Existing developmental-history source projection retains compact task-family and acquisition-example lineage under source-payload digest binding."
+  },
+  "objective": "Task-family source examples flow through canonical World-State and normal admitted writeback into later relevant cognition.",
+  "schema_version": 1,
+  "sequence": 127,
+  "source_commit": "523e6a22cc2e478f18a79f323ce4381b5918ebc3",
+  "source_tree": "52b3dfec76d665c6085c4e746a912c386b6e54ae"
+}

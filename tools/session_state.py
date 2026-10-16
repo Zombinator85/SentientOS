@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -29,7 +30,7 @@ def clear_state() -> int:
     manager = ContinuityStateManager(STATE_PATH)
     manager.clear()
     MOOD_PATH.unlink(missing_ok=True)
-    heartbeat = Path("pulse/heartbeat.snap")
+    heartbeat = Path(os.getenv("SENTIENTOS_HEARTBEAT_PATH", "pulse/heartbeat.snap"))
     heartbeat.unlink(missing_ok=True)
     (Path("pulse") / "last_readiness.txt").unlink(missing_ok=True)
     print("continuity state cleared")

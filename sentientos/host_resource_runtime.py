@@ -19,9 +19,12 @@ from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest
 from sentientos.host_collectors import HostCollectorResult, collect_cpu_observation, collect_disk_observation, collect_fan_pwm_observation, collect_memory_observation, collect_network_interface_observation, collect_platform_observation, collect_process_observation, collect_service_manager_observation, collect_thermal_sensor_observation, validate_host_collector_result
 from sentientos.host_resource_governor import HostResourcePressureReport, HostResourceTelemetrySnapshot, build_host_resource_telemetry_from_collector_results, evaluate_host_resource_pressure, host_resource_report_digest, summarize_host_resource_pressure, validate_host_resource_pressure_report
 from sentientos.host_resource_policy import HostResourcePolicyDecision, HostResourceProposalReceipt, build_host_resource_proposal_receipts, evaluate_host_resource_policy, summarize_host_resource_policy_decision, summarize_host_resource_proposal_receipt, validate_host_resource_policy_decision, validate_host_resource_proposal_receipt
-from sentientos.world_state_board import WorldStateSourceKind, digest
+from sentientos.governed_local_model_resource_allocation import GovernedLocalModelResourceLedger
+from sentientos.world_state_board import WorldStateSourceKind, digest, record_digest
+from sentientos.local_runtime_provisioning import semantic_digest
 
 SCHEMA_VERSION = "host_resource_observation_runtime.v1"
+RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA = "sentientos.resource_consumption_world_state_record:v2"
 CollectorCallable = Callable[..., HostCollectorResult]
 STATUSES = {"available", "partial", "unavailable", "error", "timeout", "invalid", "unsupported", "skipped"}
 FORBIDDEN_TEXT = re.compile(r"([A-Za-z]:\\\\|/home/|/tmp/|/workspace/|SENTIENTOS_|TOKEN|PASSWORD|SECRET|Traceback|cmdline|environ|[0-9a-f]{2}(:[0-9a-f]{2}){5})", re.I)
@@ -203,13 +206,19 @@ class HostResourceRuntimeCoordinator:
         if correlation_id in self._epochs_by_correlation: return self._epochs_by_correlation[correlation_id]
         decision = decision or self.request_admission(correlation_id)
         if not decision.allowed: return None
-        observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; start=time.monotonic(); platform_label=os.name if os.name != "posix" else ("linux" if Path('/proc').exists() else "unknown")
-        with cf.ThreadPoolExecutor(max_workers=min(self.plan.budget.max_workers, max(1, len(self.plan.collectors)))) as ex:
+        observed_at=self.clock(); results=[]; timeouts=[]; findings=[]; cycle_collectors_called=0; start=time.monotonic(); platform_label=os.name if os.name != "posix" else ("linux" if Path('/proc').exists() else "unknown")
+        # Do not use the executor as a context manager here: its implicit
+        # ``shutdown(wait=True)`` would make a timed-out collector hold the
+        # maintenance tick open until the worker returns.  The observation
+        # budget is a real upper bound for the coordinator, so timed-out work
+        # is cancelled where possible and late worker results are discarded.
+        ex = cf.ThreadPoolExecutor(max_workers=min(self.plan.budget.max_workers, max(1, len(self.plan.collectors))))
+        try:
             futs={}
             for spec in self.plan.collectors:
                 if platform_label not in spec.supported_platforms and "unknown" not in spec.supported_platforms:
                     results.append(_unsupported_result(spec, observed_at)); continue
-                futs[ex.submit(spec.function, observed_at=observed_at)] = spec; self.collector_call_count += 1
+                futs[ex.submit(spec.function, observed_at=observed_at)] = spec; self.collector_call_count += 1; cycle_collectors_called += 1
             for fut, spec in list(futs.items()):
                 remaining = self.plan.budget.total_deadline_seconds - (time.monotonic()-start)
                 if remaining <= 0: fut.cancel(); results.append(_timeout_result(spec, observed_at)); timeouts.append(spec.collector_id); continue
@@ -217,6 +226,8 @@ class HostResourceRuntimeCoordinator:
                 except cf.TimeoutError: fut.cancel(); results.append(_timeout_result(spec, observed_at)); timeouts.append(spec.collector_id); continue
                 except BaseException as exc: results.append(_exception_result(spec, observed_at, exc)); continue
                 results.append(sanitize_result(raw))
+        finally:
+            ex.shutdown(wait=False, cancel_futures=True)
         ordered_results=tuple(sorted(results, key=lambda r: [s.order for s in self.plan.collectors if s.collector_id==r.collector_id][0] if any(s.collector_id==r.collector_id for s in self.plan.collectors) else 999))
         counts={s:0 for s in STATUSES}
         required_failed=[]; optional_failed=[]
@@ -229,7 +240,23 @@ class HostResourceRuntimeCoordinator:
         snapshot=build_host_resource_telemetry_from_collector_results(ordered_results, snapshot_id=_id("hrs_", {"plan": self.plan.semantic_digest, "results": [redact_value(r.to_dict()) for r in ordered_results]}))
         pressure=evaluate_host_resource_pressure(snapshot); decision2=evaluate_host_resource_policy(pressure); receipts=build_host_resource_proposal_receipts(decision2, created_at=observed_at)
         epoch_sem={"correlation_id": correlation_id, "plan": self.plan.semantic_digest, "admission": decision.admission_decision_ref, "results": [{k:v for k,v in redact_value(r.to_dict()).items() if k not in {"observed_at"}} for r in ordered_results]}
-        epoch=HostObservationEpoch(_id("hoe_", epoch_sem), correlation_id, self.plan.plan_id, decision.admission_decision_ref, decision.outcome.value, ordered_results, counts, tuple(sorted(required_failed)), tuple(sorted(optional_failed)), tuple(sorted(timeouts)), tuple(findings), observed_at, self.collector_call_count, False, _id("hoes_", epoch_sem))
+        epoch = HostObservationEpoch(
+            epoch_id=_id("hoe_", epoch_sem),
+            correlation_id=correlation_id,
+            plan_id=self.plan.plan_id,
+            admission_decision_ref=decision.admission_decision_ref,
+            admission_outcome=decision.outcome.value,
+            results=ordered_results,
+            status_counts=counts,
+            required_failed=tuple(sorted(required_failed)),
+            optional_failed=tuple(sorted(optional_failed)),
+            timed_out_collectors=tuple(sorted(timeouts)),
+            validation_findings=tuple(findings),
+            semantic_digest=_id("hoes_", epoch_sem),
+            observed_at=observed_at,
+            collectors_called=cycle_collectors_called,
+            effect_authority=False,
+        )
         ev_sem={"epoch": epoch.semantic_digest, "snapshot": snapshot.snapshot_id, "pressure": pressure.report_id, "policy": decision2.decision_id, "receipts": [r.receipt_id for r in receipts]}
         evaluation=HostResourceRuntimeEvaluation(_id("hre_", ev_sem), self.plan, epoch, snapshot, pressure, decision2, receipts, validate_epoch(epoch).findings, _id("hres_", ev_sem), True)
         self._epochs_by_correlation[correlation_id]=evaluation
@@ -242,7 +269,7 @@ def summary_for_evaluation(e: HostResourceRuntimeEvaluation) -> dict[str, Any]:
 
 def world_state_records(e: HostResourceRuntimeEvaluation) -> list[dict[str, Any]]:
     base={"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value, "subject_kind": "host_resource_observation_runtime", "effect_claimed": False, "effect_proven": False, "observed_at": e.epoch.observed_at}
-    return [
+    records = [
         {**base,"source_id":"host_resource_runtime:plan","subject_id":"host_resource_observation_plan","stage":"observation","disposition":"recorded","payload":e.plan.to_dict(),"digest":digest(e.plan.to_dict())},
         {**base,"source_id":"host_resource_runtime:epoch","subject_id":"host_resource_observation_epoch","stage":"observation","disposition":"degraded" if e.epoch.required_failed else "recorded","payload":{"epoch_id":e.epoch.epoch_id,"status_counts":dict(e.epoch.status_counts),"collectors_called":e.epoch.collectors_called,"timed_out_collectors":e.epoch.timed_out_collectors,"admission":e.epoch.admission_decision_ref},"digest":digest({"epoch":e.epoch.semantic_digest})},
         {**base,"source_id":"host_resource_runtime:snapshot","subject_id":"host_resource_snapshot","stage":"observation","disposition":"recorded","payload":e.snapshot.to_dict(),"digest":digest(e.snapshot.to_dict())},
@@ -250,6 +277,1703 @@ def world_state_records(e: HostResourceRuntimeEvaluation) -> list[dict[str, Any]
         {**base,"source_id":"host_resource_runtime:policy","subject_id":"host_resource_policy","stage":"proposal","disposition":e.policy_decision.status,"payload":summarize_host_resource_policy_decision(e.policy_decision),"digest":digest(e.policy_decision.to_dict())},
         {**base,"source_id":"host_resource_runtime:receipts","subject_id":"host_resource_proposal_receipts","stage":"proposal","disposition":"recorded","payload":{"receipt_count": len(e.proposal_receipts), "receipt_ids": [r.receipt_id for r in e.proposal_receipts], "receipts": [summarize_host_resource_proposal_receipt(r) for r in e.proposal_receipts]},"digest":digest([r.to_dict() for r in e.proposal_receipts])},
     ]
+    return [{**item, "digest": record_digest(item)} for item in records]
+
+def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResourceLedger,
+                                              invocation_receipts: Sequence[Mapping[str, Any]] = (),
+                                              verified_predecessor_invocation_receipts: Sequence[Mapping[str, Any]] = (),
+                                              observed_at: str | None = None,
+                                              max_receipts: int = 256,
+                                              max_invocation_receipts: int = 256,
+                                              max_attempts: int = 64,
+                                              source_identity: Mapping[str, str] | None = None,
+                                              verified_chat_process_generation_attributions: Sequence[Mapping[str, Any]] = (),
+                                              verified_chat_process_recovery_transitions: Sequence[Mapping[str, Any]] = (),
+                                              verified_chat_process_runtime_observation: Mapping[str, Any] | None = None,
+                                              verified_serving_operation_attempts: Sequence[Mapping[str, Any]] = (),
+                                              verified_serving_operation_history: Sequence[Mapping[str, Any]] = ()) -> list[dict[str, Any]]:
+    """Project existing allocation/consumption custody as later evidence.
+
+    The projection carries exact ledger identities and invocation linkage. It
+    deliberately reports measured receipt fields only; host-wide telemetry is
+    not attributed to an invocation without an independent receipt.
+    """
+    snapshot = ledger.observation_snapshot()
+    if (max_receipts < 1 or max_receipts > 256 or max_invocation_receipts < 1
+            or max_invocation_receipts > 256 or max_attempts < 1 or max_attempts > 128):
+        raise ValueError("resource_observation_bounds_invalid")
+    selected_source_identity = dict(source_identity or {})
+    if (set(selected_source_identity) - {"installation_identity", "provisioning_id", "manifest_digest"}
+            or any(not isinstance(key, str) or not isinstance(value, str) or not value or len(value) > 512
+                   for key, value in selected_source_identity.items())):
+        raise ValueError("resource_source_identity_invalid")
+    raw_receipt_rows = snapshot["receipts"]
+    allocation_rows = snapshot["allocations"]
+    attempt_rows = snapshot["attempts"]
+    if (not isinstance(raw_receipt_rows, (list, tuple))
+            or not isinstance(allocation_rows, (list, tuple))
+            or not isinstance(attempt_rows, (list, tuple))):
+        raise ValueError("resource_ledger_snapshot_shape_invalid")
+    raw_receipts = tuple(raw_receipt_rows)
+    if len(invocation_receipts) > 256:
+        raise ValueError("resource_invocation_receipt_bound_exceeded")
+    if len(verified_predecessor_invocation_receipts) > 256:
+        raise ValueError("resource_predecessor_invocation_receipt_bound_exceeded")
+    if len(verified_chat_process_generation_attributions) > 256:
+        raise ValueError("chat_process_generation_attribution_bound_exceeded")
+    if len(verified_chat_process_recovery_transitions) > 256:
+        raise ValueError("chat_process_recovery_transition_bound_exceeded")
+    if len(verified_serving_operation_attempts) > 256:
+        raise ValueError("serving_operation_attempt_bound_exceeded")
+    invocation_by_id: dict[str, Mapping[str, Any]] = {}
+    for invocation in invocation_receipts:
+        if not isinstance(invocation, Mapping):
+            raise ValueError("resource_invocation_receipt_invalid")
+        receipt_id = invocation.get("receipt_id")
+        receipt_digest = invocation.get("receipt_digest")
+        if not isinstance(receipt_id, str) or not receipt_id or not isinstance(receipt_digest, str) or not receipt_digest:
+            raise ValueError("resource_invocation_receipt_identity_invalid")
+        if receipt_id in invocation_by_id:
+            if dict(invocation_by_id[receipt_id]) != dict(invocation):
+                raise ValueError("resource_invocation_receipt_identity_conflict")
+            raise ValueError("resource_invocation_receipt_duplicate")
+        invocation_by_id[receipt_id] = invocation
+    predecessor_invocation_by_id: dict[str, Mapping[str, Any]] = {}
+    for predecessor in verified_predecessor_invocation_receipts:
+        if not isinstance(predecessor, Mapping):
+            raise ValueError("resource_predecessor_invocation_receipt_invalid")
+        receipt_id = predecessor.get("receipt_id")
+        receipt_digest = predecessor.get("receipt_digest")
+        if (not isinstance(receipt_id, str) or not receipt_id
+                or not isinstance(receipt_digest, str) or not receipt_digest):
+            raise ValueError("resource_predecessor_invocation_receipt_identity_invalid")
+        if receipt_id in predecessor_invocation_by_id:
+            if dict(predecessor_invocation_by_id[receipt_id]) != dict(predecessor):
+                raise ValueError("resource_predecessor_invocation_receipt_identity_conflict")
+            raise ValueError("resource_predecessor_invocation_receipt_duplicate")
+        target_receipt = invocation_by_id.get(receipt_id)
+        if target_receipt is not None and dict(target_receipt) != dict(predecessor):
+            raise ValueError("resource_invocation_receipt_identity_conflict")
+        predecessor_invocation_by_id[receipt_id] = predecessor
+    generation_attribution_by_receipt: dict[str, Mapping[str, Any]] = {}
+    attribution_fields = {"invocation_receipt_id", "invocation_receipt_digest",
+        "invocation_request_id", "invocation_request_digest", "chat_process_handoff",
+        "attribution_posture", "currentness_posture"}
+    for attribution in verified_chat_process_generation_attributions:
+        if not isinstance(attribution, Mapping) or set(attribution) != attribution_fields:
+            raise ValueError("chat_process_generation_attribution_invalid")
+        receipt_id, receipt_digest = (attribution.get("invocation_receipt_id"),
+                                      attribution.get("invocation_receipt_digest"))
+        invocation_record = invocation_by_id.get(str(receipt_id))
+        request = invocation_record.get("request") if isinstance(invocation_record, Mapping) else None
+        handoff = attribution.get("chat_process_handoff")
+        if (not isinstance(receipt_id, str) or not isinstance(receipt_digest, str)
+                or not isinstance(attribution.get("invocation_request_id"), str)
+                or not isinstance(attribution.get("invocation_request_digest"), str)
+                or not isinstance(handoff, Mapping)
+                or handoff.get("status") != "runtime_launcher_process_and_source_bound"
+                or not isinstance(handoff.get("process_instance_id"), str)
+                or not isinstance(handoff.get("software_generation_digest"), str)
+                or attribution.get("attribution_posture")
+                    != "invocation_receipt_and_historical_chat_handoff_verified"
+                or attribution.get("currentness_posture")
+                    != "historical_process_identity_not_reobserved_during_recovery"
+                or not isinstance(request, Mapping)
+                or invocation.get("receipt_digest") != receipt_digest
+                or invocation.get("status") != "admitted_completed"
+                or not isinstance(invocation.get("effects"), Mapping)
+                or invocation["effects"].get("local_model_inference") is not True
+                or not isinstance(invocation.get("output_digest"), str)
+                or request.get("request_id") != attribution.get("invocation_request_id")
+                or request.get("request_digest") != attribution.get("invocation_request_digest")):
+            raise ValueError("chat_process_generation_attribution_binding_invalid")
+        request_linkage = request.get("linkage")
+        request_software = (request_linkage.get("software_generation_attribution")
+            if isinstance(request_linkage, Mapping) else None)
+        if not isinstance(request_software, Mapping):
+            raise ValueError("chat_process_generation_request_linkage_missing")
+        for key in ("handoff_id", "handoff_digest", "process_instance_id",
+                "software_generation_digest", "startup_timestamp",
+                "source_generation_scope", "configured_serving_operation_id"):
+            if key in handoff and request_software.get(key) != handoff.get(key):
+                raise ValueError("chat_process_generation_request_handoff_substitution")
+        prior = generation_attribution_by_receipt.get(receipt_id)
+        if prior is not None:
+            if dict(prior) != dict(attribution):
+                raise ValueError("chat_process_generation_attribution_identity_conflict")
+            raise ValueError("chat_process_generation_attribution_duplicate")
+        generation_attribution_by_receipt[receipt_id] = attribution
+    allocation_by_digest = {str(item.get("allocation_digest")): item for item in allocation_rows if isinstance(item, Mapping)}
+    ledger_receipts = {str(item.get("receipt_digest")): item for item in raw_receipts if isinstance(item, Mapping)}
+    attempt_by_id = {str(item.get("attempt_id")): item for item in attempt_rows if isinstance(item, Mapping)}
+    lineage_findings: list[str] = []
+    linked_effect_receipts: dict[str, str] = {}
+    for invocation in invocation_receipts[-max_invocation_receipts:]:
+        allocation_digest = invocation.get("resource_allocation_digest")
+        attempt_id = invocation.get("resource_attempt_id")
+        receipt_digests = tuple(invocation.get("resource_consumption_receipt_digests") or ())
+        # Historical receipts predating resource custody have no linkage and
+        # remain valid invocation evidence; they cannot be verified as resource
+        # linked, but must not be reported as a lineage failure.
+        if allocation_digest is None and attempt_id is None and not receipt_digests:
+            # Legacy unlinked invocation receipts remain compatible, but a new
+            # schema-v2 receipt paired with a ledger effect receipt must retain
+            # its linkage fields. A crash between ledger reconciliation and
+            # final receipt publication is incomplete custody, not legacy data.
+            if (invocation.get("schema_version") in {
+                    "sentientos.local_model_invocation_receipt:v2",
+                    "sentientos.local_model_invocation_receipt:v3"}
+                    and any(isinstance(item, Mapping)
+                        and item.get("state") == "reconciled"
+                        and item.get("effect_receipt_digest") == invocation.get("receipt_digest")
+                        for item in raw_receipts)):
+                lineage_findings.append(
+                    f"invocation_resource_linkage_missing:{invocation.get('receipt_id')}")
+            continue
+        allocation = allocation_by_digest.get(str(allocation_digest))
+        if allocation is None:
+            lineage_findings.append(f"allocation_missing:{allocation_digest}")
+        attempt = attempt_by_id.get(str(attempt_id))
+        if attempt is None:
+            lineage_findings.append(f"attempt_missing:{attempt_id}")
+        elif allocation is not None and attempt.get("allocation_id") != allocation.get("allocation_id"):
+            lineage_findings.append(f"attempt_allocation_substitution:{attempt_id}")
+        linked = [item for item in raw_receipts if isinstance(item, Mapping) and item.get("attempt_id") == attempt_id]
+        valid_receipt_digests = all(
+            isinstance(receipt_digest_value, str) and bool(receipt_digest_value)
+            for receipt_digest_value in receipt_digests)
+        reported_receipt_digests = set(receipt_digests) if valid_receipt_digests else set()
+        if (not receipt_digests or not valid_receipt_digests
+                or any(receipt_digest_value not in ledger_receipts
+                    for receipt_digest_value in reported_receipt_digests)):
+            lineage_findings.append(f"consumption_receipt_missing:{attempt_id}")
+        if linked:
+            # The attempt-begun receipt proves the pre-inference debit gate and
+            # intentionally is not part of the invocation's post-inference
+            # linkage. Every receipt appended after that gate must be bound by
+            # the invocation, however; a subset would conceal omitted measured
+            # or reconciled consumption evidence.
+            attempt_consumption_receipts = [
+                item for item in linked if item.get("state") != "attempt_begun"]
+            actual_receipt_digests = {
+                str(item.get("receipt_digest")) for item in attempt_consumption_receipts}
+            if (not valid_receipt_digests
+                    or len(reported_receipt_digests) != len(receipt_digests)
+                    or reported_receipt_digests != actual_receipt_digests):
+                lineage_findings.append(f"consumption_receipt_set_mismatch:{attempt_id}")
+        for receipt_digest_value in receipt_digests:
+            linked_receipt = ledger_receipts.get(str(receipt_digest_value))
+            if linked_receipt is None:
+                continue
+            if linked_receipt.get("attempt_id") != attempt_id:
+                lineage_findings.append(f"consumption_attempt_substitution:{attempt_id}")
+            if allocation is not None and linked_receipt.get("allocation_digest") != allocation.get("allocation_digest"):
+                lineage_findings.append(f"consumption_allocation_substitution:{attempt_id}")
+            if allocation is not None and linked_receipt.get("principal_binding_digest") != allocation.get("principal_binding_digest"):
+                lineage_findings.append(f"consumption_principal_substitution:{attempt_id}")
+        reconciled = [item for item in linked if item.get("state") == "reconciled"]
+        matching_reconciled = [item for item in reconciled if item.get("effect_receipt_digest") == invocation.get("receipt_digest")]
+        if len(matching_reconciled) != 1:
+            lineage_findings.append(f"effect_receipt_mismatch:{attempt_id}")
+        effect_digest = str(invocation.get("receipt_digest"))
+        prior_attempt = linked_effect_receipts.get(effect_digest)
+        if prior_attempt is not None and prior_attempt != str(attempt_id):
+            lineage_findings.append(f"effect_receipt_reused:{effect_digest}")
+        linked_effect_receipts[effect_digest] = str(attempt_id)
+    invocation_by_effect = {str(item.get("receipt_digest")): item for item in invocation_receipts[-max_invocation_receipts:]}
+    for item in raw_receipts:
+        if not isinstance(item, Mapping) or item.get("state") != "reconciled":
+            continue
+        observed_effect_digest = item.get("effect_receipt_digest")
+        if observed_effect_digest is not None and observed_effect_digest not in invocation_by_effect:
+            lineage_findings.append(f"invocation_receipt_missing:{observed_effect_digest}")
+    receipt_states_by_attempt: dict[str, set[str]] = {}
+    for item in raw_receipts:
+        if isinstance(item, Mapping):
+            receipt_states_by_attempt.setdefault(str(item.get("attempt_id")), set()).add(str(item.get("state")))
+    incomplete_attempt_ids: list[str] = []
+    for attempt in attempt_rows:
+        if not isinstance(attempt, Mapping):
+            continue
+        attempt_id = str(attempt.get("attempt_id"))
+        states = receipt_states_by_attempt.get(attempt_id, set())
+        status = attempt.get("status")
+        if (status == "provisional" or
+                status == "begun" and "reconciled" not in states or
+                status == "restored" and "attempted_not_begun" not in states):
+            incomplete_attempt_ids.append(attempt_id)
+    receipts = []
+    for receipt in raw_receipts[-min(max_receipts, 16):]:
+        item = dict(receipt)
+        measurement = dict(item.get("resource_specific_measurement", {}))
+        measurement_posture = {
+            "call_units": "measured" if measurement.get("call_units_consumed") in (0, 1) else "unknown",
+            "generated_output_size": "measured" if isinstance(measurement.get("generated_output_size_bytes"), int) else "unknown",
+            "returned_output_size": "measured" if isinstance(measurement.get("returned_output_size_bytes"), int) else "unknown",
+            "latency": "measured" if isinstance(measurement.get("latency_ms"), int) else "unknown",
+            "token_count": "unknown",
+            "shared_host_cpu_gpu": "unknown_without_independent_observation",
+        }
+        receipts.append({key: item.get(key) for key in (
+            "receipt_id", "receipt_digest", "allocation_digest", "principal_binding_digest", "attempt_id",
+            "state", "observed_at", "previous_receipt_digest", "effect_receipt_digest",
+            "resource_specific_measurement")})
+        receipts[-1]["measurement_posture"] = measurement_posture
+    all_allocations = tuple(snapshot["allocations"])
+    all_attempts = tuple(snapshot["attempts"])
+    selected_allocations = all_allocations[-16:]
+    selected_attempts = all_attempts[-max_attempts:]
+    selected_invocations = tuple(invocation_receipts[-min(max_invocation_receipts, 16):])
+    compact_invocations = tuple({
+        "receipt_id": invocation.get("receipt_id"),
+        "receipt_digest": invocation.get("receipt_digest"),
+        "request_id": (invocation.get("request", {}).get("request_id")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "request_digest": (invocation.get("request", {}).get("request_digest")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "status": invocation.get("status"), "purpose": invocation.get("purpose"),
+        "local_model_inference": (
+            invocation.get("effects", {}).get("local_model_inference")
+            if isinstance(invocation.get("effects"), Mapping) else None),
+        "authority_map_digest": (invocation.get("request", {}).get("authority_map_digest")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "model_id": (invocation.get("request", {}).get("model_id")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "model_artifact_digest": (invocation.get("request", {}).get("model_artifact_digest")
+            if isinstance(invocation.get("request"), Mapping) else None),
+        "observed_at": invocation.get("observed_at"),
+        "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+        "resource_attempt_id": invocation.get("resource_attempt_id"),
+        "resource_consumption_receipt_digests": invocation.get("resource_consumption_receipt_digests"),
+        "resource_linkage_digest": invocation.get("resource_linkage_digest"),
+        "chat_process_handoff_digest": (
+            generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {})
+                .get("chat_process_handoff", {}).get("handoff_digest")
+            if isinstance(generation_attribution_by_receipt.get(str(invocation.get("receipt_id")), {}).get(
+                "chat_process_handoff"), Mapping) else None),
+    } for invocation in selected_invocations)
+    selected_generation_attributions = tuple(
+        dict(generation_attribution_by_receipt[str(invocation.get("receipt_id"))])
+        for invocation in selected_invocations
+        if str(invocation.get("receipt_id")) in generation_attribution_by_receipt)
+    retention_incomplete = (len(all_allocations) > 16 or len(all_attempts) > max_attempts
+        or len(raw_receipts) > min(max_receipts, 16)
+        or len(invocation_receipts) > min(max_invocation_receipts, 16)
+        or len(incomplete_attempt_ids) > 64 or len(set(lineage_findings)) > 64)
+    bounded_lineage_findings = tuple(sorted(set(lineage_findings)))
+    bounded_incomplete_attempt_ids = tuple(sorted(incomplete_attempt_ids))
+    payload = {"ledger_schema": snapshot["schema"], "ledger_digest": snapshot["ledger_digest"],
+               "source_identity": selected_source_identity,
+               "allocations": tuple(dict(item) for item in selected_allocations),
+               "allocation_count": len(all_allocations),
+               "attempts": tuple(dict(item) for item in selected_attempts),
+               "attempt_count": len(all_attempts),
+               "consumption_receipts": tuple(receipts),
+               "consumption_receipt_count": len(raw_receipts),
+               "invocation_receipts": compact_invocations,
+               "invocation_receipt_count": len(invocation_receipts),
+               "verified_chat_process_generation_attributions": selected_generation_attributions,
+               "chat_process_generation_posture": (
+                   "unknown_no_completed_invocations" if not any(
+                       item.get("status") == "admitted_completed"
+                       and isinstance(item.get("effects"), Mapping)
+                       and item["effects"].get("local_model_inference") is True
+                       for item in invocation_receipts)
+                   else "verified" if len(generation_attribution_by_receipt) == sum(
+                       1 for item in invocation_receipts
+                       if item.get("status") == "admitted_completed"
+                       and isinstance(item.get("effects"), Mapping)
+                       and item["effects"].get("local_model_inference") is True)
+                   else "partial_legacy_or_unavailable" if generation_attribution_by_receipt
+                   else "unknown_legacy_or_unavailable"),
+               "attribution_posture": "receipt_bound_only",
+               "shared_host_usage_attribution": "unknown_without_independent_observation",
+               "retention_posture": "bounded_tail_incomplete" if retention_incomplete else "complete",
+               "recovery_posture": "incomplete_attempts_present" if incomplete_attempt_ids else "reconciled_or_restored",
+               "incomplete_attempt_ids": bounded_incomplete_attempt_ids[:64],
+               "incomplete_attempt_count": len(bounded_incomplete_attempt_ids),
+               "lineage_posture": "verified" if not lineage_findings else "degraded",
+               "lineage_findings": bounded_lineage_findings[:64],
+               "lineage_finding_count": len(bounded_lineage_findings)}
+    record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+             "source_id": "governed_local_model_resource_consumption",
+             "schema_version": RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA,
+             "subject_kind": "causal_resource_consumption",
+             "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
+             "disposition": "recorded" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "degraded", "evidence_strength": "receipt_bound" if not lineage_findings and payload["recovery_posture"] == "reconciled_or_restored" else "incomplete",
+             "effect_claimed": False, "effect_proven": False,
+             # The ledger receipt's event time is historical custody. Do not
+             # let a restart/reprojection timestamp make old consumption
+             # appear to be a fresh observation to epistemic consumers.
+             "observed_at": None, "retrieved_at": observed_at, "payload": payload}
+    output = [{**record, "digest": record_digest(record)}]
+    for attribution in selected_generation_attributions:
+        handoff = attribution["chat_process_handoff"]
+        invocation = invocation_by_id[str(attribution["invocation_receipt_id"])]
+        request = invocation.get("request") if isinstance(invocation, Mapping) else {}
+        payload = {
+            "invocation_receipt_id": attribution["invocation_receipt_id"],
+            "invocation_receipt_digest": attribution["invocation_receipt_digest"],
+            "invocation_request_id": attribution["invocation_request_id"],
+            "invocation_request_digest": attribution["invocation_request_digest"],
+            "chat_process_handoff": dict(handoff),
+            "verified_chat_process_generation_attributions": [dict(attribution)],
+            "software_generation_digest": handoff.get("software_generation_digest"),
+            "software_generation_scope": handoff.get("source_generation_scope"),
+            "loaded_code_identity_posture": "not_independently_attested",
+            "process_identity_scope": "installation_bound_launcher_handoff_process_identity",
+            "process_instance_id": handoff.get("process_instance_id"),
+            "process_startup_timestamp": handoff.get("startup_timestamp"),
+            "invocation_observed_at": invocation.get("observed_at"),
+            "invocation_time_posture": "receipt_custody_metadata_not_in_semantic_digest",
+            "attribution_posture": attribution["attribution_posture"],
+            "process_currentness": attribution["currentness_posture"],
+            "invocation_status": invocation.get("status"),
+            "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+            "resource_attempt_id": invocation.get("resource_attempt_id"),
+            "resource_consumption_receipt_digests": list(
+                invocation.get("resource_consumption_receipt_digests") or ()),
+            "resource_effect_receipt_digest": invocation.get("receipt_digest"),
+            "resource_lineage_posture": "invocation_bound_ledger_reconciliation_is_sibling_evidence",
+            "model_id": request.get("model_id") if isinstance(request, Mapping) else None,
+            "model_artifact_digest": request.get("model_artifact_digest") if isinstance(request, Mapping) else None,
+            "active_model_identity": request.get("active_model_identity") if isinstance(request, Mapping) else None,
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "manifest_digest": selected_source_identity.get("manifest_digest"),
+            "historical_only": True,
+            "effect_authority": False,
+        }
+        source_id = ("chat_process_invocation:" + str(attribution["invocation_receipt_id"])
+            + ":" + str(attribution["invocation_receipt_digest"])
+            + ":" + str(handoff.get("handoff_digest", "")))
+        request_linkage = request.get("linkage") if isinstance(request, Mapping) else None
+        request_linkage = request_linkage if isinstance(request_linkage, Mapping) else {}
+        caller_context = request_linkage.get("caller_context")
+        caller_context = caller_context if isinstance(caller_context, Mapping) else None
+        predecessor_reference = (caller_context.get("verified_predecessor_invocation")
+            if isinstance(caller_context, Mapping) else None)
+        predecessor_reference_posture = "no_verified_predecessor_reference"
+        if predecessor_reference is not None:
+            expected_predecessor_fields = {
+                "receipt_id", "receipt_digest", "request_id", "source_user_turn_id"}
+            if (not isinstance(predecessor_reference, Mapping)
+                    or set(predecessor_reference) != expected_predecessor_fields
+                    or not isinstance(predecessor_reference.get("receipt_id"), str)
+                    or re.fullmatch(r"lmrec-[0-9a-f]{24}",
+                        predecessor_reference["receipt_id"]) is None
+                    or not isinstance(predecessor_reference.get("receipt_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}",
+                        predecessor_reference["receipt_digest"]) is None
+                    or not isinstance(predecessor_reference.get("request_id"), str)
+                    or re.fullmatch(r"lmreq-[0-9a-f]{24}",
+                        predecessor_reference["request_id"]) is None
+                    or not isinstance(predecessor_reference.get("source_user_turn_id"), str)
+                    or re.fullmatch(r"turn-[0-9a-f]{24}",
+                        predecessor_reference["source_user_turn_id"]) is None
+                    or predecessor_reference.get("receipt_id") == invocation.get("receipt_id")):
+                raise ValueError("chat_process_invocation_predecessor_reference_invalid")
+            predecessor_receipt = (invocation_by_id.get(predecessor_reference["receipt_id"])
+                or predecessor_invocation_by_id.get(predecessor_reference["receipt_id"]))
+            if predecessor_receipt is None:
+                predecessor_reference_posture = (
+                    "receipt_bound_predecessor_not_in_bounded_projection")
+            else:
+                predecessor_request = predecessor_receipt.get("request")
+                predecessor_linkage = (predecessor_request.get("linkage")
+                    if isinstance(predecessor_request, Mapping) else None)
+                predecessor_caller = (predecessor_linkage.get("caller_context")
+                    if isinstance(predecessor_linkage, Mapping) else None)
+                if not isinstance(caller_context, Mapping):
+                    raise ValueError("resource_predecessor_caller_context_invalid")
+                predecessor_session_id = caller_context.get("session_id")
+                if (predecessor_receipt.get("receipt_digest")
+                        != predecessor_reference["receipt_digest"]
+                        or predecessor_receipt.get("status") != "admitted_completed"
+                        or not isinstance(predecessor_receipt.get("effects"), Mapping)
+                        or predecessor_receipt["effects"].get("local_model_inference") is not True
+                        or not isinstance(predecessor_request, Mapping)
+                        or predecessor_request.get("request_id")
+                            != predecessor_reference["request_id"]
+                        or not isinstance(predecessor_caller, Mapping)
+                        or predecessor_caller.get("session_id") != predecessor_session_id
+                        or predecessor_caller.get("user_turn_id")
+                            != predecessor_reference["source_user_turn_id"]):
+                    raise ValueError("chat_process_invocation_predecessor_receipt_mismatch")
+                predecessor_reference_posture = (
+                    "exact_predecessor_receipt_and_source_turn_reconciled")
+        payload["predecessor_invocation_reference"] = (
+            dict(predecessor_reference)
+            if isinstance(predecessor_reference, Mapping) else None)
+        payload["predecessor_invocation_reference_posture"] = predecessor_reference_posture
+        serving_reference_fields = ("serving_receipt_id", "serving_receipt_semantic_digest",
+            "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest")
+        serving_reference_values = [request_linkage.get(key) for key in serving_reference_fields]
+        serving_lineage_posture = "historically_unbound"
+        if any(value is not None for value in serving_reference_values):
+            if any(not isinstance(value, str) or not value for value in serving_reference_values):
+                raise ValueError("chat_process_invocation_serving_lineage_incomplete")
+            receipt_id, receipt_digest, attempt_id, attempt_digest = serving_reference_values
+            history_matches = []
+            for history in verified_serving_operation_history:
+                if (not isinstance(history, Mapping)
+                        or history.get("history_semantic_digest") != semantic_digest({
+                            key: value for key, value in history.items()
+                            if key != "history_semantic_digest"})):
+                    raise ValueError("chat_process_invocation_serving_history_invalid")
+                receipt = history.get("receipt")
+                if (isinstance(receipt, Mapping)
+                        and receipt.get("receipt_id") == receipt_id
+                        and receipt.get("receipt_semantic_digest") == receipt_digest):
+                    history_matches.append(history)
+            if len(history_matches) != 1:
+                raise ValueError("chat_process_invocation_serving_history_missing_or_ambiguous")
+            history = history_matches[0]
+            receipt = history.get("receipt")
+            if not isinstance(receipt, Mapping):
+                raise ValueError("chat_process_invocation_serving_receipt_missing")
+            attempt = history.get("attempt")
+            binding = receipt.get("binding")
+            serving_binding_fields = (
+                "installation_identity", "serving_operation_id", "activation_state_semantic_digest",
+                "activation_generation", "activation_predecessor_state_digest",
+                "activation_receipt_id", "activation_receipt_semantic_digest",
+                "model_serving_admission_ref", "authority_map_digest", "model_id",
+                "artifact_id", "artifact_sha256", "runtime_id", "observed_loaded_model_identity",
+            )
+            if (history.get("status") != "serving_receipt_verified"
+                    or history.get("attempt_semantic_digest") != attempt_digest
+                    or not isinstance(attempt, Mapping) or attempt.get("attempt_id") != attempt_id
+                    or not isinstance(binding, Mapping)
+                    or any(request_linkage.get(key) != binding.get(key)
+                        for key in serving_binding_fields)
+                    or receipt.get("session_id") != request_linkage.get("serving_session_id")):
+                raise ValueError("chat_process_invocation_serving_lineage_mismatch")
+            serving_lineage_posture = "verified_receipt_and_reservation"
+        upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
+        serving = (upstream.get("current_serving_lifetime")
+            if isinstance(upstream, Mapping) else None)
+        if (serving_lineage_posture == "verified_receipt_and_reservation"
+                and (not isinstance(serving, Mapping) or dict(serving) != dict(request_linkage))):
+            raise ValueError("chat_process_invocation_serving_lifetime_binding_mismatch")
+        serving_fields = ("serving_session_id", "serving_operation_id", "installation_identity",
+            "activation_state_semantic_digest", "activation_generation",
+            "activation_predecessor_state_digest", "activation_receipt_id",
+            "activation_receipt_semantic_digest", "serving_receipt_id",
+            "serving_receipt_semantic_digest", "serving_operation_attempt_id",
+            "serving_operation_attempt_semantic_digest", "model_serving_admission_ref",
+            "authority_map_digest", "artifact_id", "artifact_sha256", "runtime_id")
+        serving_binding = ({key: serving[key] for key in serving_fields if key in serving}
+            if isinstance(serving, Mapping) else {})
+        software_serving_operation_binding_posture = "serving_receipt_lineage_unavailable"
+        if serving_lineage_posture == "verified_receipt_and_reservation":
+            handoff_operation_id = handoff.get("configured_serving_operation_id")
+            receipt_operation_id = (
+                binding.get("serving_operation_id") if isinstance(binding, Mapping) else None)
+            if isinstance(handoff_operation_id, str) and handoff_operation_id:
+                if handoff_operation_id != receipt_operation_id:
+                    raise ValueError("chat_process_handoff_serving_operation_substitution")
+                software_serving_operation_binding_posture = "exact_handoff_serving_receipt_operation_match"
+            else:
+                # Historical handoff schemas can lack an operation reference;
+                # retain the invocation, but do not claim the process served it.
+                software_serving_operation_binding_posture = "legacy_handoff_serving_operation_unknown"
+        invocation_event_time = invocation.get("observed_at")
+        invocation_event_time = invocation_event_time if isinstance(invocation_event_time, str) else None
+        payload["event_time"] = invocation_event_time
+        payload["event_time_posture"] = (
+            "invocation_receipt_created_at_semantic_digest_bound"
+            if invocation_event_time is not None
+                and invocation.get("schema_version") in {
+                    "sentientos.local_model_invocation_receipt:v2",
+                    "sentientos.local_model_invocation_receipt:v3"}
+            else "invocation_receipt_observed_at_unbound_metadata"
+                if invocation_event_time is not None
+                else "historical_invocation_time_unknown")
+        payload["chat_model_serving_lineage"] = {
+            "event_time": invocation_event_time,
+            "event_time_posture": payload["event_time_posture"],
+            "invocation_receipt_id": attribution["invocation_receipt_id"],
+            "invocation_receipt_digest": attribution["invocation_receipt_digest"],
+            "invocation_request_id": attribution["invocation_request_id"],
+            "invocation_request_digest": attribution["invocation_request_digest"],
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+            "resource_attempt_id": invocation.get("resource_attempt_id"),
+            "resource_consumption_receipt_digests": list(
+                invocation.get("resource_consumption_receipt_digests") or ()),
+            "resource_linkage_digest": invocation.get("resource_linkage_digest"),
+            "software_handoff_id": handoff.get("handoff_id"),
+            "software_handoff_digest": handoff.get("handoff_digest"),
+            "software_process_instance_id": handoff.get("process_instance_id"),
+            "software_generation_digest": handoff.get("software_generation_digest"),
+            "software_generation_startup_timestamp": handoff.get("startup_timestamp"),
+            "serving_identity": serving_binding,
+            "serving_receipt_lineage_posture": serving_lineage_posture,
+            "software_serving_operation_binding_posture":
+                software_serving_operation_binding_posture,
+            "active_model_identity": (request.get("active_model_identity")
+                if isinstance(request, Mapping) else None),
+            "model_id": request.get("model_id") if isinstance(request, Mapping) else None,
+            "model_artifact_digest": request.get("model_artifact_digest")
+                if isinstance(request, Mapping) else None,
+            "predecessor_invocation_reference": (
+                dict(predecessor_reference)
+                if isinstance(predecessor_reference, Mapping) else None),
+            "predecessor_invocation_reference_posture": predecessor_reference_posture,
+            "relation_posture": "co_bound_by_completed_invocation_request_and_receipt",
+            "currentness": "historical_only",
+            "effect_authority": False,
+        }
+        item = {
+            "source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            "source_id": source_id,
+            "subject_kind": "chat_process_software_generation_invocation",
+            "subject_id": str(handoff.get("process_instance_id")),
+            "stage": "observation", "disposition": "recorded",
+            "evidence_strength": "child_handoff_bound_completed_invocation_receipt",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": observed_at,
+            "payload": payload,
+        }
+        output.append({**item, "digest": record_digest(item)})
+    recovery_required_fields = {
+        "request_id", "request_semantic_digest", "intent_id", "intent_semantic_digest",
+        "approval_id", "approval_semantic_digest", "installation_identity",
+        "runtime_supervisor_generation", "prior_serving_operation_id",
+        "replacement_serving_operation_id", "prior_serving_receipt_id",
+        "prior_serving_receipt_semantic_digest", "attempt_phase_digest", "readiness_phase_digest",
+        "completion_phase_digest", "attempt_started_at", "readiness_observed_at",
+        "snapshot_advanced_at", "advanced_snapshot_digest", "decision_outcome_claimed",
+        "decision_reference_claimed", "decision_posture", "predecessor_chat_process_handoff",
+        "successor_chat_process_handoff", "handoff_lineage_posture", "terminal_receipt_digest",
+        "terminal_status", "successor_serving_receipt_id",
+        "successor_serving_receipt_semantic_digest", "successor_serving_session_id",
+        "successor_serving_receipt_posture", "predecessor_serving_operation_binding_posture",
+        "successor_serving_operation_binding_posture", "successor_configured_serving_operation_id",
+        "phase_posture", "phase_evidence_posture", "runtime_currentness", "effect_authority",
+        "inference_performed",
+    }
+    seen_recovery: dict[str, Mapping[str, Any]] = {}
+    for transition in verified_chat_process_recovery_transitions:
+        if not isinstance(transition, Mapping) or set(transition) != recovery_required_fields:
+            raise ValueError("chat_process_recovery_transition_shape_invalid")
+        request_id = transition.get("request_id")
+        attempt_digest = transition.get("attempt_phase_digest")
+        if (not isinstance(request_id, str) or not request_id
+                or not isinstance(attempt_digest, str) or re.fullmatch(r"[0-9a-f]{64}", attempt_digest) is None
+                or transition.get("installation_identity") != selected_source_identity.get("installation_identity")
+                or transition.get("decision_posture") != "phase_claim_not_reauthorized"
+                or transition.get("phase_evidence_posture")
+                    != "canonical_installation_custody_and_digest_chain_checked_not_independently_signed"
+                or transition.get("runtime_currentness")
+                    != "historical_process_identity_not_reobserved_during_recovery"
+                or transition.get("successor_serving_receipt_posture") not in {
+                    "verified_historical_custody", "verified_historical_custody_and_operation_binding",
+                    "verified_receipt_legacy_handoff_operation_unknown", "legacy_or_missing"}
+                or transition.get("predecessor_serving_operation_binding_posture") not in {
+                    "exact_handoff_launch_operation_binding", "legacy_handoff_operation_unknown",
+                    "handoff_unavailable"}
+                or transition.get("successor_serving_operation_binding_posture") not in {
+                    "exact_handoff_launch_operation_binding", "legacy_handoff_operation_unknown",
+                    "handoff_unavailable"}
+                or any(transition.get(key) is not None and (
+                    not isinstance(transition.get(key), str) or not transition.get(key)
+                    or len(transition[key]) > 128) for key in (
+                        "prior_serving_operation_id", "replacement_serving_operation_id",
+                        "successor_configured_serving_operation_id"))
+                or (transition.get("predecessor_serving_operation_binding_posture")
+                    == "exact_handoff_launch_operation_binding"
+                    and (not isinstance(transition.get("predecessor_chat_process_handoff"), Mapping)
+                        or transition["predecessor_chat_process_handoff"].get(
+                            "configured_serving_operation_id")
+                            != transition.get("prior_serving_operation_id")))
+                or (transition.get("successor_serving_operation_binding_posture")
+                    == "exact_handoff_launch_operation_binding"
+                    and (not isinstance(transition.get("successor_chat_process_handoff"), Mapping)
+                        or transition["successor_chat_process_handoff"].get(
+                            "configured_serving_operation_id")
+                            != transition.get("replacement_serving_operation_id")
+                        or transition.get("successor_configured_serving_operation_id")
+                            != transition.get("replacement_serving_operation_id")))
+                or transition.get("effect_authority") is not False
+                or transition.get("inference_performed") is not False):
+            raise ValueError("chat_process_recovery_transition_binding_invalid")
+        prior_transition = seen_recovery.get(request_id)
+        if prior_transition is not None:
+            if dict(prior_transition) != dict(transition):
+                raise ValueError("chat_process_recovery_transition_identity_conflict")
+            raise ValueError("chat_process_recovery_transition_duplicate")
+        seen_recovery[request_id] = transition
+    for transition in verified_chat_process_recovery_transitions:
+        request_id = str(transition["request_id"])
+        payload = {
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "manifest_digest": selected_source_identity.get("manifest_digest"),
+            "chat_process_recovery_transition": dict(transition),
+            "loaded_code_identity_posture": "not_independently_attested",
+            "process_identity_scope":
+                "installation_bound_handoff_and_digest_chained_recovery_receipts",
+            "source_generation_evidence_scope":
+                "source_bundle_handoff_identity_not_loaded_code_attestation",
+            "phase_event_times": {
+                "attempt_started_at": transition.get("attempt_started_at"),
+                "readiness_observed_at": transition.get("readiness_observed_at"),
+                "snapshot_advanced_at": transition.get("snapshot_advanced_at"),
+            },
+            "observation_time": None,
+            "retrieval_time": observed_at,
+            "historical_only": True,
+            "phase_claim_is_not_reauthorization": True,
+            "runtime_currentness": transition.get("runtime_currentness"),
+            "effect_authority": False,
+            "inference_performed": False,
+        }
+        terminal_present = isinstance(transition.get("terminal_receipt_digest"), str)
+        transition_evidence_digest = (
+            transition.get("terminal_receipt_digest")
+            or transition.get("completion_phase_digest")
+            or transition.get("readiness_phase_digest")
+            or attempt_digest)
+        if (not isinstance(transition_evidence_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", transition_evidence_digest) is None):
+            raise ValueError("chat_process_recovery_transition_evidence_identity_invalid")
+        item = {
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": ("chat_process_recovery:" + str(selected_source_identity.get("installation_identity", ""))
+                + ":" + request_id + ":" + transition_evidence_digest),
+            "subject_kind": "chat_process_recovery_transition",
+            "subject_id": request_id,
+            "stage": "observation",
+            "disposition": "recorded" if terminal_present else "incomplete",
+            "evidence_strength": "phase_chain_with_terminal_receipt" if terminal_present
+                else "phase_chain_terminal_receipt_missing",
+            "effect_claimed": False,
+            "effect_proven": False,
+            "observed_at": None,
+            "retrieved_at": observed_at,
+            "payload": payload,
+        }
+        output.append({**item, "digest": record_digest(item)})
+    if verified_chat_process_runtime_observation is not None:
+        runtime = verified_chat_process_runtime_observation
+        base_runtime_fields = {
+            "schema_version", "installation_identity", "runtime_supervisor_generation", "observed_at",
+            "runtime_status", "reason_code", "handoff_id", "handoff_digest", "process_instance_id",
+            "process_id", "parent_process_id", "software_generation_digest", "source_generation_scope",
+            "currentness_posture", "independent_signature", "effect_authority",
+            "observation_semantic_digest",
+        }
+        runtime_schema = runtime.get("schema_version") if isinstance(runtime, Mapping) else None
+        if runtime_schema == "sentientos.chat_process_runtime_observation:v1":
+            runtime_fields = base_runtime_fields
+        elif runtime_schema in {"sentientos.chat_process_runtime_observation:v2",
+                "sentientos.chat_process_runtime_observation:v3",
+                "sentientos.chat_process_runtime_observation:v4"}:
+            runtime_fields = base_runtime_fields | {"configured_serving_receipt_posture", "serving_receipt"}
+            if runtime_schema in {"sentientos.chat_process_runtime_observation:v3",
+                    "sentientos.chat_process_runtime_observation:v4"}:
+                runtime_fields = runtime_fields | {"configured_serving_operation_id"}
+            if runtime_schema == "sentientos.chat_process_runtime_observation:v4":
+                runtime_fields = runtime_fields | {"process_executable_observation"}
+        else:
+            runtime_fields = set()
+        serving = runtime.get("serving_receipt") if isinstance(runtime, Mapping) else None
+        serving_posture = runtime.get("configured_serving_receipt_posture") if isinstance(runtime, Mapping) else None
+        serving_valid = (
+            (runtime_schema == "sentientos.chat_process_runtime_observation:v1"
+                and serving is None and serving_posture is None)
+            or (runtime_schema in {"sentientos.chat_process_runtime_observation:v2",
+                    "sentientos.chat_process_runtime_observation:v3",
+                    "sentientos.chat_process_runtime_observation:v4"}
+                and (
+                    (serving_posture == "selected_receipt_for_configured_operation"
+                        and isinstance(serving, Mapping)
+                        and serving.get("selection_posture") == serving_posture
+                        and serving.get("model_loaded_in_receipt") is True
+                        and isinstance(serving.get("receipt_id"), str)
+                        and isinstance(serving.get("receipt_semantic_digest"), str)
+                        and isinstance(serving.get("serving_operation_id"), str)
+                        and isinstance(serving.get("model_identity_in_receipt"), Mapping))
+                    or (serving is None and serving_posture in {
+                        "not_observed", "configured_operation_not_verified",
+                        "configured_operation_receipt_unavailable",
+                        "configured_operation_receipt_invalid", "runtime_not_verified"})
+                ))
+        )
+        operation_binding_valid = (
+            runtime_schema not in {"sentientos.chat_process_runtime_observation:v3",
+                "sentientos.chat_process_runtime_observation:v4"}
+            or (runtime.get("configured_serving_operation_id") is None
+                or isinstance(runtime.get("configured_serving_operation_id"), str)
+                and bool(runtime.get("configured_serving_operation_id"))
+                and len(runtime["configured_serving_operation_id"]) <= 128)
+            and (serving is None
+                or runtime.get("configured_serving_operation_id")
+                    == serving.get("serving_operation_id"))
+        )
+        executable_valid = runtime_schema != "sentientos.chat_process_runtime_observation:v4"
+        if runtime_schema == "sentientos.chat_process_runtime_observation:v4":
+            executable = runtime.get("process_executable_observation") if isinstance(runtime, Mapping) else None
+            if (isinstance(executable, Mapping)
+                    and set(executable) == {"schema_version", "observer", "observation_status",
+                        "process_id", "expected_parent_process_id", "observed_parent_process_id",
+                        "parent_process_matches", "process_start_time_ticks",
+                        "expected_executable_path_sha256", "observed_executable_path_sha256",
+                        "executable_path_matches_expected", "executable_image_sha256",
+                        "executable_image_size_bytes", "observed_at", "reason_code",
+                        "loaded_python_module_identity_posture", "effect_authority", "observation_digest"}):
+                executable_semantic = {key: value for key, value in executable.items()
+                    if key != "observation_digest"}
+                observation_status = executable.get("observation_status")
+                expected_path_digest = executable.get("expected_executable_path_sha256")
+                executable_valid = (
+                    executable.get("schema_version") == "sentientos.supervised_process_executable_observation:v1"
+                    and executable.get("observer") == "supervising_parent_procfs_read"
+                    and isinstance(expected_path_digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", expected_path_digest) is not None
+                    and executable.get("process_id") == runtime.get("process_id")
+                    and executable.get("expected_parent_process_id") == runtime.get("parent_process_id")
+                    and type(executable.get("process_id")) is int
+                    and type(executable.get("expected_parent_process_id")) is int
+                    and executable.get("loaded_python_module_identity_posture") == "not_independently_attested"
+                    and executable.get("effect_authority") is False
+                    and isinstance(executable.get("observed_at"), str)
+                    and executable.get("observation_digest") == hashlib.sha256(json.dumps(
+                        executable_semantic, sort_keys=True, separators=(",", ":"),
+                        ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest())
+                if observation_status == "observed":
+                    executable_valid = executable_valid and (
+                        type(executable.get("observed_parent_process_id")) is int
+                        and executable.get("parent_process_matches") is (
+                            executable.get("observed_parent_process_id")
+                            == executable.get("expected_parent_process_id"))
+                        and type(executable.get("process_start_time_ticks")) is int
+                        and executable.get("process_start_time_ticks", 0) > 0
+                        and type(executable.get("executable_path_matches_expected")) is bool
+                        and type(executable.get("executable_image_size_bytes")) is int
+                        and executable.get("executable_image_size_bytes", 0) > 0
+                        and executable.get("executable_image_size_bytes", 0) <= 536_870_912
+                        and all(isinstance(executable.get(key), str)
+                            and re.fullmatch(r"[0-9a-f]{64}", executable[key])
+                                for key in ("expected_executable_path_sha256",
+                                    "observed_executable_path_sha256", "executable_image_sha256"))
+                        and executable.get("reason_code") is None)
+                elif observation_status == "unavailable":
+                    executable_valid = executable_valid and (
+                        all(executable.get(key) is None for key in (
+                            "observed_parent_process_id", "parent_process_matches",
+                            "process_start_time_ticks", "observed_executable_path_sha256",
+                            "executable_path_matches_expected", "executable_image_sha256",
+                            "executable_image_size_bytes"))
+                        and isinstance(executable.get("reason_code"), str)
+                        and re.fullmatch(r"[a-z0-9_]{1,80}", executable["reason_code"]) is not None)
+                else:
+                    executable_valid = False
+                try:
+                    executable_time = datetime.fromisoformat(
+                        str(executable.get("observed_at", "")).replace("Z", "+00:00"))
+                except (TypeError, ValueError):
+                    executable_valid = False
+                else:
+                    executable_valid = executable_valid and executable_time.tzinfo is not None
+            if runtime.get("runtime_status") == "running_observed":
+                executable_valid = executable_valid and isinstance(executable, Mapping)
+            else:
+                executable_valid = executable_valid and executable is None
+        if (not isinstance(runtime, Mapping) or set(runtime) != runtime_fields
+                or not serving_valid or not operation_binding_valid
+                or not executable_valid
+                or runtime.get("installation_identity") != selected_source_identity.get("installation_identity")
+                or runtime.get("runtime_status") not in {"running_observed", "not_verified"}
+                or runtime.get("currentness_posture") != "runtime_owner_observed_at_recorded_event_time"
+                or runtime.get("independent_signature") is not False
+                or runtime.get("effect_authority") is not False
+                or not isinstance(runtime.get("observation_semantic_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", runtime["observation_semantic_digest"]) is None
+                or not isinstance(runtime.get("handoff_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", runtime["handoff_digest"]) is None
+                or not isinstance(runtime.get("observed_at"), str)
+                or runtime.get("observation_semantic_digest")
+                    != semantic_digest({key: value for key, value in runtime.items()
+                        if key != "observation_semantic_digest"})):
+            raise ValueError("chat_process_runtime_observation_binding_invalid")
+        linked_invocations: list[dict[str, Any]] = []
+        for attribution in selected_generation_attributions:
+            handoff = attribution.get("chat_process_handoff")
+            if (not isinstance(handoff, Mapping)
+                    or handoff.get("handoff_id") != runtime.get("handoff_id")
+                    or handoff.get("handoff_digest") != runtime.get("handoff_digest")
+                    or handoff.get("process_instance_id") != runtime.get("process_instance_id")):
+                continue
+            joined_invocation = invocation_by_id.get(str(attribution.get("invocation_receipt_id")))
+            request = joined_invocation.get("request") if isinstance(joined_invocation, Mapping) else None
+            if not isinstance(joined_invocation, Mapping) or not isinstance(request, Mapping):
+                raise ValueError("chat_process_runtime_invocation_join_missing")
+            request_linkage = request.get("linkage")
+            request_linkage = request_linkage if isinstance(request_linkage, Mapping) else {}
+            serving_reference_fields = (
+                "serving_receipt_id", "serving_receipt_semantic_digest",
+                "serving_operation_attempt_id", "serving_operation_attempt_semantic_digest")
+            serving_references_complete = all(
+                isinstance(request_linkage.get(key), str) and request_linkage.get(key)
+                for key in serving_reference_fields)
+            serving_references_absent = all(request_linkage.get(key) is None
+                for key in serving_reference_fields)
+            if not serving_references_complete and not serving_references_absent:
+                raise ValueError("chat_process_runtime_invocation_serving_lineage_incomplete")
+            handoff_operation_id = handoff.get("configured_serving_operation_id")
+            invocation_serving_operation_id = request_linkage.get("serving_operation_id")
+            if (isinstance(handoff_operation_id, str) and handoff_operation_id
+                    and isinstance(invocation_serving_operation_id, str)
+                    and invocation_serving_operation_id
+                    and handoff_operation_id != invocation_serving_operation_id):
+                raise ValueError("chat_process_runtime_invocation_serving_operation_substitution")
+            if (isinstance(handoff_operation_id, str) and handoff_operation_id
+                    and isinstance(invocation_serving_operation_id, str)
+                    and invocation_serving_operation_id):
+                operation_binding_posture = "exact_handoff_serving_operation_match"
+            else:
+                operation_binding_posture = "legacy_handoff_or_invocation_operation_unknown"
+            linked_invocations.append({
+                "invocation_receipt_id": invocation.get("receipt_id"),
+                "invocation_receipt_digest": invocation.get("receipt_digest"),
+                "invocation_request_id": request.get("request_id"),
+                "invocation_request_digest": request.get("request_digest"),
+                "serving_receipt_id": request_linkage.get("serving_receipt_id"),
+                "serving_receipt_semantic_digest": request_linkage.get(
+                    "serving_receipt_semantic_digest"),
+                "serving_operation_attempt_id": request_linkage.get(
+                    "serving_operation_attempt_id"),
+                "serving_operation_attempt_semantic_digest": request_linkage.get(
+                    "serving_operation_attempt_semantic_digest"),
+                "serving_operation_id": request_linkage.get("serving_operation_id"),
+                "serving_session_id": request_linkage.get("serving_session_id"),
+                "serving_receipt_lineage_posture": (
+                    "history_join_verified_by_projector" if serving_references_complete
+                    else "historically_unbound"),
+                "software_serving_operation_binding_posture": operation_binding_posture,
+                "resource_allocation_digest": invocation.get("resource_allocation_digest"),
+                "resource_attempt_id": invocation.get("resource_attempt_id"),
+                "resource_consumption_receipt_digests": list(
+                    invocation.get("resource_consumption_receipt_digests") or ()),
+                "resource_effect_receipt_digest": invocation.get("receipt_digest"),
+                "model_id": request.get("model_id"),
+                "model_artifact_digest": request.get("model_artifact_digest"),
+                "active_model_identity_at_invocation": request.get("active_model_identity"),
+                "linkage_posture": "exact_shared_verified_chat_process_handoff",
+                "current_model_claimed": False,
+            })
+        if len(linked_invocations) > 16:
+            raise ValueError("chat_process_runtime_invocation_join_bound_exceeded")
+        runtime_projection_digest = digest({
+            "runtime_observation_semantic_digest": runtime["observation_semantic_digest"],
+            "linked_invocation_receipts": linked_invocations,
+        })
+        item = {
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": ("chat_process_runtime_observation:"
+                + runtime["installation_identity"] + ":" + runtime_projection_digest),
+            "subject_kind": "chat_process_runtime_generation_observation",
+            "subject_id": str(runtime.get("process_instance_id", "")),
+            "stage": "observation",
+            "disposition": "recorded",
+            "evidence_strength": "runtime_owner_child_handoff_checked_at_event_time"
+                if runtime["runtime_status"] == "running_observed"
+                else "runtime_owner_child_identity_not_verified_at_event_time",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None,
+            "retrieved_at": observed_at,
+            "payload": {
+                "installation_identity": runtime["installation_identity"],
+                "provisioning_id": selected_source_identity.get("provisioning_id"),
+                "manifest_digest": selected_source_identity.get("manifest_digest"),
+                "chat_process_runtime_observation": dict(runtime),
+                "process_executable_observation": (
+                    dict(runtime["process_executable_observation"])
+                    if runtime_schema == "sentientos.chat_process_runtime_observation:v4"
+                    and isinstance(runtime.get("process_executable_observation"), Mapping) else None),
+                "software_generation_scope": runtime["source_generation_scope"],
+                "loaded_code_identity_posture": "not_independently_attested",
+                "process_identity_scope":
+                    "installation_bound_launcher_handoff_checked_at_recorded_observation",
+                "linked_invocation_receipts": linked_invocations,
+                "invocation_linkage_posture": "exact_shared_chat_process_handoff"
+                    if linked_invocations else "no_matching_retained_invocation_receipts",
+                "event_time": runtime["observed_at"],
+                "event_time_posture": "runtime_owner_observation_not_current_liveness",
+                "currentness": "unknown_after_observation_time",
+                "historical_only": True,
+                "effect_authority": False,
+            },
+        }
+        output.append({**item, "digest": record_digest(item)})
+    seen_serving_attempts: dict[str, Mapping[str, Any]] = {}
+    expected_attempt_fields = {
+        "schema_version", "attempt_id", "installation_identity", "serving_operation_id",
+        "activation_state_semantic_digest", "activation_generation", "model_id",
+        "operation_intent_digest", "admission_decision_ref", "reserved_at", "attempt_posture",
+        "current_model_claimed", "inference_performed", "effect_authority",
+        "independent_signature", "attempt_semantic_digest",
+    }
+    for attempt in verified_serving_operation_attempts:
+        if not isinstance(attempt, Mapping) or set(attempt) != expected_attempt_fields:
+            raise ValueError("serving_operation_attempt_shape_invalid")
+        attempt_id = attempt.get("attempt_id")
+        attempt_digest = attempt.get("attempt_semantic_digest")
+        if (attempt.get("schema_version") != "sentientos.local_model_serving_operation_attempt:v1"
+                or not isinstance(attempt_id, str) or not attempt_id
+                or not isinstance(attempt_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", attempt_digest) is None
+                or attempt.get("installation_identity")
+                    != selected_source_identity.get("installation_identity")
+                or not isinstance(attempt.get("serving_operation_id"), str)
+                or not attempt.get("serving_operation_id")
+                or attempt.get("attempt_posture") != "durably_reserved_before_model_load"
+                or attempt.get("current_model_claimed") is not False
+                or attempt.get("inference_performed") is not False
+                or attempt.get("effect_authority") is not False
+                or attempt.get("independent_signature") is not False
+                or attempt_digest != semantic_digest({
+                    key: value for key, value in attempt.items()
+                    if key != "attempt_semantic_digest"})):
+            raise ValueError("serving_operation_attempt_binding_invalid")
+        identity = {
+            "installation_identity": attempt["installation_identity"],
+            "serving_operation_id": attempt["serving_operation_id"],
+            "activation_state_semantic_digest": attempt["activation_state_semantic_digest"],
+        }
+        if attempt_id != "serving-attempt-" + semantic_digest(identity)[:24]:
+            raise ValueError("serving_operation_attempt_identity_mismatch")
+        previous_attempt = seen_serving_attempts.get(attempt_id)
+        if previous_attempt is not None:
+            if dict(previous_attempt) != dict(attempt):
+                raise ValueError("serving_operation_attempt_identity_conflict")
+            raise ValueError("serving_operation_attempt_duplicate")
+        seen_serving_attempts[attempt_id] = attempt
+        item = {
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": "serving_operation_attempt:" + attempt_id + ":" + attempt_digest,
+            "subject_kind": "serving_operation_attempt",
+            "subject_id": attempt_id,
+            "stage": "attempt",
+            "disposition": "recorded",
+            "evidence_strength": "durable_reservation_model_load_outcome_unknown",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": observed_at,
+            "payload": {
+                "installation_identity": attempt["installation_identity"],
+                "provisioning_id": selected_source_identity.get("provisioning_id"),
+                "manifest_digest": selected_source_identity.get("manifest_digest"),
+                "serving_operation_attempt": dict(attempt),
+                "event_time": attempt["reserved_at"],
+                "event_time_posture": "reservation_time_not_model_load_time",
+                "model_load_outcome": "unknown",
+                "resource_consumption_measurements": "unknown",
+                "current_model_claimed": False,
+                "inference_performed": False,
+                "effect_authority": False,
+                "independent_signature": False,
+                "historical_only": True,
+            },
+        }
+        output.append({**item, "digest": record_digest(item)})
+    for history in verified_serving_operation_history:
+        if (not isinstance(history, Mapping)
+                or set(history) != {"status", "attempt", "attempt_semantic_digest", "receipt",
+                    "receipt_semantic_digest", "history_semantic_digest"}
+                or history.get("history_semantic_digest") != semantic_digest({
+                    key: value for key, value in history.items()
+                    if key != "history_semantic_digest"})):
+            raise ValueError("serving_operation_history_binding_invalid")
+        attempt = history.get("attempt")
+        receipt = history.get("receipt")
+        status = history.get("status")
+        if attempt is not None:
+            if (not isinstance(attempt, Mapping)
+                    or attempt.get("installation_identity")
+                        != selected_source_identity.get("installation_identity")
+                    or attempt.get("attempt_semantic_digest")
+                        != history.get("attempt_semantic_digest")):
+                raise ValueError("serving_operation_history_attempt_invalid")
+            subject_id = str(attempt.get("attempt_id"))
+            operation_id = str(attempt.get("serving_operation_id"))
+        else:
+            if not isinstance(receipt, Mapping) or status != "legacy_receipt_without_reservation":
+                raise ValueError("serving_operation_history_legacy_invalid")
+            binding = receipt.get("binding")
+            if (not isinstance(binding, Mapping)
+                    or binding.get("installation_identity")
+                        != selected_source_identity.get("installation_identity")):
+                raise ValueError("serving_operation_history_receipt_invalid")
+            subject_id = str(receipt.get("receipt_id"))
+            operation_id = str(binding.get("serving_operation_id"))
+        if status not in {"serving_receipt_verified", "reservation_outcome_unknown",
+                          "legacy_receipt_without_reservation"}:
+            raise ValueError("serving_operation_history_status_invalid")
+        if receipt is not None:
+            if (not isinstance(receipt, Mapping)
+                    or receipt.get("receipt_semantic_digest")
+                        != history.get("receipt_semantic_digest")):
+                raise ValueError("serving_operation_history_receipt_invalid")
+            binding = receipt.get("binding")
+            if not isinstance(binding, Mapping) or binding.get("serving_operation_id") != operation_id:
+                raise ValueError("serving_operation_history_operation_mismatch")
+            loaded_at = receipt.get("model_loaded_at")
+            event_time_posture = "owner_observed_model_load_time"
+            evidence_strength = "owner_receipt_model_loaded_historical"
+            receipt_id = receipt.get("receipt_id")
+            receipt_digest = receipt.get("receipt_semantic_digest")
+            model_identity = receipt.get("binding", {}).get("observed_loaded_model_identity")
+            serving_session_id = receipt.get("session_id")
+        else:
+            if status != "reservation_outcome_unknown" or attempt is None:
+                raise ValueError("serving_operation_history_missing_receipt_invalid")
+            loaded_at = attempt.get("reserved_at")
+            event_time_posture = "reservation_time_model_load_outcome_unknown"
+            evidence_strength = "durable_serving_operation_reservation_outcome_unknown"
+            receipt_id = receipt_digest = serving_session_id = model_identity = None
+            binding = {}
+        payload = {
+            "installation_identity": selected_source_identity.get("installation_identity"),
+            "provisioning_id": selected_source_identity.get("provisioning_id"),
+            "manifest_digest": selected_source_identity.get("manifest_digest"),
+            "serving_operation_id": operation_id,
+            "attempt_id": attempt.get("attempt_id") if isinstance(attempt, Mapping) else None,
+            "attempt_semantic_digest": history.get("attempt_semantic_digest"),
+            "receipt_id": receipt_id,
+            "receipt_semantic_digest": receipt_digest,
+            "serving_session_id": serving_session_id,
+            "activation_state_semantic_digest": binding.get("activation_state_semantic_digest",
+                attempt.get("activation_state_semantic_digest") if isinstance(attempt, Mapping) else None),
+            "activation_generation": binding.get("activation_generation",
+                attempt.get("activation_generation") if isinstance(attempt, Mapping) else None),
+            "model_id": binding.get("model_id",
+                attempt.get("model_id") if isinstance(attempt, Mapping) else None),
+            "artifact_id": binding.get("artifact_id"),
+            "runtime_id": binding.get("runtime_id"),
+            "observed_loaded_model_identity": model_identity,
+            "event_time": loaded_at,
+            "event_time_posture": event_time_posture,
+            "serving_history_status": status,
+            "current_model_claimed": False,
+            "inference_performed": False,
+            "effect_authority": False,
+            "resource_consumption_measurements": "unknown",
+            "historical_only": True,
+        }
+        item = {
+            "source_kind": WorldStateSourceKind.RUNTIME_SUPERVISOR.value,
+            "source_id": "serving_operation_history:" + history["history_semantic_digest"],
+            "subject_kind": "serving_operation_history",
+            "subject_id": subject_id,
+            "stage": "history",
+            "disposition": "recorded",
+            "evidence_strength": evidence_strength,
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": observed_at,
+            "payload": payload,
+        }
+        output.append({**item, "digest": record_digest(item)})
+    return output
+
+
+def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, Any]],
+        *, max_records: int = 16, include_model_replacement: bool = True) -> list[dict[str, Any]]:
+    """Join selected strategy/model inference records to projected resource custody.
+
+    This is a read-only cross-source reconciliation. It emits historical
+    attribution only; the invocation receipt is not an external consequence,
+    and missing or tail-truncated ledger evidence stays degraded.
+    """
+    if not 1 <= max_records <= 32:
+        raise ValueError("resource_proposal_join_bound_invalid")
+    from sentientos.local_model_authority import digest_payload
+
+    def score_projection_is_consistent(score: Mapping[str, Any], *,
+            expected_probe_count: int | None = None) -> bool:
+        """Check the retained score summary's status/result semantics."""
+        status = score.get("status")
+        correct = score.get("correct")
+        if status not in {"correct", "incorrect", "invalid_answer",
+                "output_unavailable", "output_truncated"}:
+            return False
+        if ((status in {"correct"} and correct is not True)
+                or (status in {"incorrect", "invalid_answer"} and correct is not False)
+                or (status in {"output_unavailable", "output_truncated"}
+                    and correct is not None)):
+            return False
+        correct_count, probe_count = score.get("correct_count"), score.get("probe_count")
+        if correct_count is None and probe_count is None:
+            requires_suite_counts = score.get("schema_version") == (
+                "sentientos.objective_task_score:v3")
+            return expected_probe_count is None and not requires_suite_counts
+        if (type(correct_count) is not int or type(probe_count) is not int
+                or not 0 <= correct_count <= probe_count <= 16):
+            return False
+        if expected_probe_count is not None and probe_count != expected_probe_count:
+            return False
+        if status == "correct" and correct_count != probe_count:
+            return False
+        if status in {"incorrect", "invalid_answer"} and correct_count >= probe_count:
+            return False
+        if status in {"output_unavailable", "output_truncated"} and correct_count != 0:
+            return False
+        return True
+
+    resource_rows = [dict(item) for item in records
+        if item.get("source_kind") == WorldStateSourceKind.RESOURCE_GOVERNOR.value
+        and item.get("subject_kind") == "causal_resource_consumption"]
+    proposal_rows = [dict(item) for item in records
+        if item.get("source_kind") == "embodiment"
+        and item.get("subject_kind") == "embodied_strategy_proposal"]
+    model_replacement_candidates: dict[str, dict[str, Any]] = {}
+    developmental_history_candidates: dict[str, dict[str, Any]] = {}
+    for run in records:
+        if (run.get("source_kind") != "embodiment"
+                or run.get("subject_kind") != "developmental_history_intervention_experiment"
+                or not isinstance(run.get("payload"), Mapping)):
+            continue
+        run_payload = run["payload"]
+        conditions = run_payload.get("conditions", ())
+        if not isinstance(conditions, (list, tuple)) or len(conditions) > 3:
+            continue
+        task_descriptor = run_payload.get("objective_task_descriptor")
+        task_family_id = (task_descriptor.get("task_family_id")
+            if isinstance(task_descriptor, Mapping) else None)
+        family_probe_count = (task_descriptor.get("probe_count")
+            if isinstance(task_descriptor, Mapping)
+            and isinstance(task_descriptor.get("task_family_id"), str) else None)
+        if (family_probe_count is not None
+                and (type(family_probe_count) is not int or not 2 <= family_probe_count <= 16)):
+            family_probe_count = -1
+        raw_scores = run_payload.get("objective_scores")
+        score_rows = (tuple(item for item in raw_scores if isinstance(item, Mapping))
+            if isinstance(raw_scores, (list, tuple)) else ())
+        for condition in conditions:
+            if not isinstance(condition, Mapping):
+                continue
+            resource_linkage_digest = condition.get("resource_linkage_digest")
+            if not any(condition.get(key) for key in (
+                    "resource_allocation_digest", "resource_attempt_id",
+                    "resource_consumption_receipt_digests", "resource_linkage_digest")):
+                continue
+            candidate_findings: list[str] = []
+            if run.get("digest") != record_digest(run):
+                candidate_findings.append("developmental_experiment_source_binding_invalid")
+            consumption = condition.get("resource_consumption_receipt_digests")
+            if not isinstance(consumption, (list, tuple)):
+                candidate_findings.append("developmental_experiment_resource_linkage_shape_invalid")
+                consumption = ()
+            observation_id = str(condition.get("observation_id") or "")
+            request_context = {"experiment_condition": condition.get("condition_id"),
+                "experiment_protocol_id": run_payload.get("protocol_id"),
+                "history_record_ids": list(run_payload.get("history_record_ids") or ()),
+                "history_record_digests": list(run_payload.get("history_record_digests") or ()),
+                "history_withheld": condition.get("condition_id") == "history_withheld",
+                "task_family_id": task_family_id,
+                **({"task_family_probe_count": family_probe_count}
+                    if family_probe_count is not None else {})}
+            condition_scores = [item for item in score_rows
+                if item.get("condition_id") == condition.get("condition_id")]
+            task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
+            if raw_scores is not None:
+                if len(condition_scores) != 1:
+                    candidate_findings.append(
+                        "developmental_experiment_condition_score_missing_or_ambiguous")
+                    task_outcome = {"posture": "score_binding_invalid"}
+                else:
+                    score = condition_scores[0]
+                    correct_count = score.get("correct_count")
+                    probe_count = score.get("probe_count")
+                    valid_counts = (correct_count is None and probe_count is None
+                        and family_probe_count is None) or (
+                        type(correct_count) is int and type(probe_count) is int
+                        and 0 <= correct_count <= probe_count <= 16
+                        and (family_probe_count is None
+                            or probe_count == family_probe_count))
+                    if (not isinstance(score.get("score_digest"), str)
+                            or not score["score_digest"].startswith("sha256:")
+                            or len(score["score_digest"]) != 71
+                            or not score_projection_is_consistent(
+                                score, expected_probe_count=family_probe_count)
+                            or not valid_counts):
+                        candidate_findings.append(
+                            "developmental_experiment_condition_score_invalid")
+                        task_outcome = {"posture": "score_binding_invalid"}
+                    else:
+                        task_outcome = {"posture": "run_owner_score_bound_to_condition",
+                            "condition_id": condition.get("condition_id"),
+                            "inference_receipt_id": condition.get("inference_receipt_id"),
+                            "inference_receipt_digest": condition.get("inference_receipt_digest"),
+                            "output_digest": condition.get("output_digest"),
+                            "score_digest": score["score_digest"],
+                            "score_status": score["status"],
+                            "correct": score.get("correct"),
+                            "correct_count": correct_count, "probe_count": probe_count,
+                            "oracle_answer_retained": False,
+                            "causal_effect_established": False}
+            history_linkage: dict[str, Any] = {
+                "posture": "invocation_receipt_bound_ledger_corroboration_not_performed",
+                "request_id": condition.get("request_id"),
+                "request_digest": condition.get("request_digest"),
+                "purpose": "resident_developmental_history_intervention_experiment",
+                "model_id": condition.get("model_id") or run_payload.get("model_id"),
+                "cognitive_model_id": run_payload.get("model_id"),
+                "invocation_authority_map_digest": condition.get("authority_map_digest"),
+                "model_artifact_digest": condition.get("model_artifact_digest")
+                    or run_payload.get("model_artifact_digest"),
+                "allocation_digest": condition.get("resource_allocation_digest"),
+                "attempt_id": condition.get("resource_attempt_id"),
+                "consumption_receipt_digests": list(consumption),
+                "linkage_digest": resource_linkage_digest,
+                "effect_receipt_id": condition.get("inference_receipt_id"),
+                "effect_receipt_digest": condition.get("inference_receipt_digest"),
+                "_lineage_findings": candidate_findings}
+            history_candidate_payload: dict[str, Any] = {
+                "resource_linkage": history_linkage,
+                "invocation_request_context_linkage": request_context,
+                "invocation_receipt_id": history_linkage["effect_receipt_id"],
+                "invocation_receipt_digest": history_linkage["effect_receipt_digest"],
+                "_developmental_history_task_outcome": task_outcome,
+                "active_model_identity_digest": (digest(condition["active_model_identity"])
+                    if isinstance(condition.get("active_model_identity"), Mapping) else None),
+                "_lineage_findings": candidate_findings,
+                "_developmental_history_run_id": run_payload.get("run_id"),
+                "_developmental_history_run_digest": run_payload.get("run_digest"),
+                "_developmental_history_source_record_id": run.get("source_id"),
+                "_developmental_history_source_record_digest": run.get("digest"),
+                "_developmental_history_condition": condition.get("condition_id"),
+                "_developmental_history_observation_id": observation_id,
+                "_developmental_history_observation_digest": condition.get("observation_digest"),
+                "_developmental_history_protocol_id": run_payload.get("protocol_id"),
+                "_developmental_history_protocol_digest": run_payload.get("protocol_digest"),
+                "_developmental_history_task_family_id": task_family_id,
+                "_developmental_history_model_identity": condition.get("active_model_identity")}
+            synthetic: dict[str, Any] = {"source_kind": "embodiment",
+                "source_id": "developmental-history-invocation-candidate:" + observation_id,
+                "subject_id": observation_id,
+                "subject_kind": "developmental_history_intervention_experiment",
+                "payload": history_candidate_payload}
+            synthetic["digest"] = record_digest(synthetic)
+            developmental_history_candidates[str(synthetic["source_id"])] = synthetic["payload"]
+            proposal_rows.append(synthetic)
+    if include_model_replacement:
+        for run in records:
+            if (run.get("source_kind") != "embodiment"
+                    or run.get("subject_kind") != "developmental_model_replacement_experiment"
+                    or not isinstance(run.get("payload"), Mapping)):
+                continue
+            run_payload = run["payload"]
+            observations = run_payload.get("observations", ())
+            if not isinstance(observations, (list, tuple)):
+                continue
+            for observation in observations[:5]:
+                if not isinstance(observation, Mapping) or observation.get(
+                        "resource_attribution_posture") != "linkage_digest_bound_ledger_reconciliation_pending":
+                    continue
+                candidate_findings = []
+                if run.get("digest") != record_digest(run):
+                    candidate_findings.append("model_replacement_run_source_binding_invalid")
+                observation_digest = observation.get("observation_digest")
+                model_replacement_observation_id = observation.get("observation_id")
+                if (not isinstance(observation_digest, str)
+                        or len(observation_digest) != 71
+                        or not observation_digest.startswith("sha256:")
+                        or any(character not in "0123456789abcdef"
+                            for character in observation_digest[7:])
+                        or model_replacement_observation_id != "model-replacement-observation-"
+                            + observation_digest[7:31]):
+                    candidate_findings.append("model_replacement_observation_binding_invalid")
+                consumption = observation.get("resource_consumption_receipt_digests")
+                if not isinstance(consumption, (list, tuple)):
+                    candidate_findings.append("model_replacement_resource_linkage_shape_invalid")
+                    consumption = ()
+                request_context = {"experiment_condition": observation.get("condition_id"),
+                    "experiment_protocol_id": run_payload.get("protocol_id"),
+                    "history_record_ids": list(observation.get("history_record_ids") or ()),
+                    "history_record_digests": list(observation.get("history_record_digests") or ()),
+                    "history_withheld": observation.get("history_withheld")}
+                raw_score = observation.get("objective_task_score")
+                if (isinstance(raw_score, Mapping)
+                        and raw_score.get("schema_version") ==
+                            "sentientos.objective_task_score:v3"):
+                    request_context["task_family_probe_count"] = raw_score.get("probe_count")
+                model_task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
+                if raw_score is not None:
+                    correct_count = raw_score.get("correct_count") if isinstance(raw_score, Mapping) else None
+                    probe_count = raw_score.get("probe_count") if isinstance(raw_score, Mapping) else None
+                    valid_counts = (correct_count is None and probe_count is None) or (
+                        type(correct_count) is int and type(probe_count) is int
+                        and 0 <= correct_count <= probe_count <= 16)
+                    if (not isinstance(raw_score, Mapping)
+                            or not isinstance(raw_score.get("score_digest"), str)
+                            or len(raw_score["score_digest"]) != 71
+                            or not raw_score["score_digest"].startswith("sha256:")
+                            or not score_projection_is_consistent(raw_score)
+                            or not valid_counts):
+                        candidate_findings.append(
+                            "model_replacement_condition_score_invalid")
+                        model_task_outcome = {"posture": "score_binding_invalid"}
+                    else:
+                        model_task_outcome = {"posture": "run_owner_score_bound_to_condition",
+                            "condition_id": observation.get("condition_id"),
+                            "inference_receipt_id": observation.get("inference_receipt_id"),
+                            "inference_receipt_digest": observation.get("inference_receipt_digest"),
+                            "output_digest": observation.get("output_digest"),
+                            "score_digest": raw_score["score_digest"],
+                            "score_status": raw_score["status"],
+                            "correct": raw_score.get("correct"),
+                            "correct_count": correct_count, "probe_count": probe_count,
+                            "oracle_answer_retained": False,
+                            "causal_effect_established": False}
+                linkage = {"posture": "invocation_receipt_bound_ledger_corroboration_not_performed",
+                    "request_id": observation.get("request_id"),
+                    "request_digest": observation.get("request_digest"),
+                    "purpose": "resident_developmental_model_replacement_experiment",
+                    # Invocation receipts use the authority-map model record id;
+                    # retain the separately governed cognitive/catalog model id
+                    # as context rather than substituting it into the receipt join.
+                    "model_id": observation.get("invocation_model_id") or observation.get("model_id"),
+                    "cognitive_model_id": observation.get("model_id"),
+                    "invocation_authority_map_digest": observation.get("invocation_authority_map_digest"),
+                    "model_artifact_digest": observation.get("model_artifact_digest"),
+                    "allocation_digest": observation.get("resource_allocation_digest"),
+                    "attempt_id": observation.get("resource_attempt_id"),
+                    "consumption_receipt_digests": list(consumption),
+                    "linkage_digest": observation.get("resource_linkage_digest"),
+                    "effect_receipt_id": observation.get("inference_receipt_id"),
+                    "effect_receipt_digest": observation.get("inference_receipt_digest"),
+                    "_lineage_findings": candidate_findings}
+                candidate_id = str(observation.get("observation_id") or "")
+                synthetic = {"source_kind": "embodiment",
+                    "source_id": "model-replacement-invocation-candidate:" + candidate_id,
+                    "subject_id": candidate_id, "subject_kind": "embodied_strategy_proposal",
+                    "payload": {"resource_linkage": linkage,
+                        "invocation_request_context_linkage": request_context,
+                        "invocation_receipt_id": linkage["effect_receipt_id"],
+                        "invocation_receipt_digest": linkage["effect_receipt_digest"],
+                        "_model_replacement_task_outcome": model_task_outcome,
+                        "active_model_identity_digest": observation.get("model_identity_digest"),
+                        "declared_software_generation": run_payload.get("software_generation_identity"),
+                        "software_generation_posture": run_payload.get("software_generation_posture"),
+                        "software_execution_provenance_digest": None,
+                        "_lineage_findings": candidate_findings,
+                        "_model_replacement_run_id": run_payload.get("run_id"),
+                        "_model_replacement_run_digest": run_payload.get("run_digest"),
+                        "_model_replacement_source_record_id": run.get("source_id"),
+                        "_model_replacement_source_record_digest": run.get("digest"),
+                        "_model_replacement_condition": observation.get("condition_id"),
+                        "_model_identity_digest": observation.get("model_identity_digest"),
+                        "_model_provenance_digest": observation.get("model_provenance_manifest_digest"),
+                        "_causal_context_id": observation.get("causal_context_id"),
+                        "_causal_context_digest": observation.get("causal_context_digest")}}
+                synthetic["digest"] = record_digest(synthetic)
+                model_replacement_candidates[str(synthetic["source_id"])] = synthetic["payload"]
+                proposal_rows.append(synthetic)
+    linked_candidates = [item for item in proposal_rows
+        if isinstance(item.get("payload"), Mapping)
+        and isinstance(item["payload"].get("resource_linkage"), Mapping)
+        and (item["payload"]["resource_linkage"].get("posture") != "legacy_or_unlinked_invocation"
+            or any(item["payload"]["resource_linkage"].get(key) for key in (
+                "allocation_digest", "attempt_id", "consumption_receipt_digests", "linkage_digest")))]
+    receipt_event_times: dict[str, set[str]] = {}
+    for resource in resource_rows:
+        resource_payload = resource.get("payload")
+        if (resource.get("digest") != record_digest(resource)
+                or not isinstance(resource_payload, Mapping)
+                or resource_payload.get("lineage_posture") != "verified"
+                or resource_payload.get("recovery_posture") != "reconciled_or_restored"
+                or resource_payload.get("retention_posture") != "complete"):
+            continue
+        for receipt in resource_payload.get("consumption_receipts", ()):
+            if (isinstance(receipt, Mapping) and isinstance(receipt.get("receipt_digest"), str)
+                    and isinstance(receipt.get("observed_at"), str)):
+                receipt_event_times.setdefault(str(receipt["receipt_digest"]), set()).add(
+                    str(receipt["observed_at"]))
+
+    def candidate_event_order(item: Mapping[str, Any]) -> tuple[int, datetime, str]:
+        unknown_time = datetime.min.replace(tzinfo=timezone.utc)
+        payload = item.get("payload")
+        linkage = payload.get("resource_linkage") if isinstance(payload, Mapping) else None
+        receipt_digests = linkage.get("consumption_receipt_digests") if isinstance(linkage, Mapping) else None
+        if not isinstance(receipt_digests, (tuple, list)) or not receipt_digests:
+            return (0, unknown_time, str(item.get("source_id", "")))
+        instants: list[datetime] = []
+        for receipt_digest in receipt_digests:
+            candidates = receipt_event_times.get(str(receipt_digest), set())
+            if len(candidates) != 1:
+                return (0, unknown_time, str(item.get("source_id", "")))
+            try:
+                event_time = datetime.fromisoformat(next(iter(candidates)).replace("Z", "+00:00"))
+                if event_time.tzinfo is None or event_time.utcoffset() is None:
+                    return (0, unknown_time, str(item.get("source_id", "")))
+                instants.append(event_time.astimezone(timezone.utc))
+            except (OverflowError, OSError, ValueError):
+                return (0, unknown_time, str(item.get("source_id", "")))
+        return (1, max(instants), str(item.get("source_id", "")))
+
+    # Keep the newest receipt-bound events inside the projection bound. Unknown
+    # or conflicting timestamps sort before actual parsed event times; they do
+    # not receive a synthetic current timestamp. Omission remains digest-bound.
+    linked_candidates.sort(key=candidate_event_order)
+    omitted_candidates = linked_candidates[:-max_records]
+    proposal_rows = linked_candidates[-max_records:]
+    output: list[dict[str, Any]] = []
+    for proposal in proposal_rows[-max_records:]:
+        payload = proposal.get("payload")
+        if not isinstance(payload, Mapping):
+            continue
+        linkage_value = payload.get("resource_linkage")
+        if not isinstance(linkage_value, Mapping):
+            continue
+        proposal_resource_linkage = linkage_value
+        findings: list[str] = []
+        raw_lineage_findings = proposal_resource_linkage.get("_lineage_findings", ())
+        if not isinstance(raw_lineage_findings, (list, tuple)):
+            raw_lineage_findings = ()
+        findings.extend(str(item) for item in raw_lineage_findings
+            if isinstance(item, str))
+        if proposal_resource_linkage.get("posture") != "invocation_receipt_bound_ledger_corroboration_not_performed":
+            findings.append("invocation_resource_linkage_posture_unrecognized")
+        allocations: list[Mapping[str, Any]] = []
+        ledger_receipts: list[Mapping[str, Any]] = []
+        if proposal.get("digest") != record_digest(proposal):
+            findings.append("strategy_proposal_record_digest_invalid")
+        matches: list[tuple[Mapping[str, Any], Mapping[str, Any]]] = []
+        for resource in resource_rows:
+            resource_payload = resource.get("payload")
+            if resource.get("digest") != record_digest(resource) or not isinstance(resource_payload, Mapping):
+                continue
+            for invocation in resource_payload.get("invocation_receipts", ()):
+                if (isinstance(invocation, Mapping)
+                        and invocation.get("receipt_id") == proposal_resource_linkage.get("effect_receipt_id")
+                        and invocation.get("receipt_digest") == proposal_resource_linkage.get("effect_receipt_digest")):
+                    matches.append((resource, invocation))
+        resource_record: Mapping[str, Any] | None = None
+        invocation_row: Mapping[str, Any] | None = None
+        if len(matches) != 1:
+            findings.append("resource_invocation_projection_missing_or_ambiguous")
+        else:
+            resource_record, invocation_row = matches[0]
+            resource_payload = resource_record["payload"]
+            raw_expected_receipts = proposal_resource_linkage.get("consumption_receipt_digests", ())
+            expected_receipts = tuple(str(item) for item in raw_expected_receipts) if isinstance(
+                raw_expected_receipts, (list, tuple)) else ()
+            if (invocation_row.get("request_id") != proposal_resource_linkage.get("request_id")
+                    or invocation_row.get("request_digest") != proposal_resource_linkage.get("request_digest")
+                    or invocation_row.get("purpose") != proposal_resource_linkage.get("purpose")
+                    or invocation_row.get("model_id") != proposal_resource_linkage.get("model_id")
+                    or invocation_row.get("model_artifact_digest") != proposal_resource_linkage.get("model_artifact_digest")
+                    or (proposal_resource_linkage.get("invocation_authority_map_digest") is not None
+                        and invocation_row.get("authority_map_digest")
+                            != proposal_resource_linkage.get("invocation_authority_map_digest"))
+                    or invocation_row.get("resource_allocation_digest") != proposal_resource_linkage.get("allocation_digest")
+                    or invocation_row.get("resource_attempt_id") != proposal_resource_linkage.get("attempt_id")
+                    or tuple(invocation_row.get("resource_consumption_receipt_digests") or ()) != expected_receipts
+                    or invocation_row.get("resource_linkage_digest") != proposal_resource_linkage.get("linkage_digest")):
+                findings.append("resource_invocation_linkage_substitution")
+            if (resource_payload.get("lineage_posture") != "verified"
+                    or resource_payload.get("recovery_posture") != "reconciled_or_restored"
+                    or resource_payload.get("retention_posture") != "complete"
+                    or resource_payload.get("incomplete_attempt_count") != 0):
+                findings.append("resource_ledger_projection_incomplete")
+            allocations = [item for item in resource_payload.get("allocations", ())
+                if isinstance(item, Mapping) and item.get("allocation_digest") == proposal_resource_linkage.get("allocation_digest")]
+            if len(allocations) != 1:
+                findings.append("resource_allocation_missing_or_ambiguous")
+            attempts = [item for item in resource_payload.get("attempts", ())
+                if isinstance(item, Mapping) and item.get("attempt_id") == proposal_resource_linkage.get("attempt_id")]
+            if len(attempts) != 1 or (allocations and attempts
+                    and attempts[0].get("allocation_id") != allocations[0].get("allocation_id")):
+                findings.append("resource_attempt_missing_or_substituted")
+            ledger_receipts = [item for item in resource_payload.get("consumption_receipts", ())
+                if isinstance(item, Mapping) and item.get("receipt_digest") in expected_receipts]
+            if (len(ledger_receipts) != len(expected_receipts)
+                    or len({item.get("receipt_digest") for item in ledger_receipts}) != len(expected_receipts)
+                    or any(item.get("attempt_id") != proposal_resource_linkage.get("attempt_id")
+                        or item.get("allocation_digest") != proposal_resource_linkage.get("allocation_digest")
+                        or (allocations and item.get("principal_binding_digest") != allocations[0].get("principal_binding_digest"))
+                        for item in ledger_receipts)):
+                findings.append("resource_consumption_receipt_missing_or_substituted")
+            reconciled = [item for item in ledger_receipts if item.get("state") == "reconciled"
+                and item.get("effect_receipt_digest") == proposal_resource_linkage.get("effect_receipt_digest")]
+            if len(reconciled) != 1:
+                findings.append("resource_effect_receipt_not_reconciled")
+            if resource_record.get("digest") != record_digest(resource_record):
+                findings.append("resource_world_state_record_digest_invalid")
+
+        semantic_linkage = {key: proposal_resource_linkage.get(key) for key in (
+            "request_id", "request_digest", "purpose", "model_id", "model_artifact_digest",
+            "invocation_authority_map_digest",
+            "allocation_digest", "attempt_id", "consumption_receipt_digests", "linkage_digest",
+            "effect_receipt_id", "effect_receipt_digest")}
+        if not isinstance(semantic_linkage["consumption_receipt_digests"], (list, tuple)):
+            findings.append("invocation_consumption_linkage_shape_invalid")
+            expected_receipt_digests: tuple[str, ...] = ()
+        else:
+            expected_receipt_digests = tuple(str(item)
+                for item in semantic_linkage["consumption_receipt_digests"])
+        authenticated_linkage = {"receipt_digest": semantic_linkage["effect_receipt_digest"],
+            "allocation_digest": semantic_linkage["allocation_digest"],
+            "attempt_id": semantic_linkage["attempt_id"],
+            "consumption_receipt_digests": expected_receipt_digests}
+        if (not semantic_linkage["effect_receipt_id"]
+                or not semantic_linkage["effect_receipt_digest"]
+                or not semantic_linkage["allocation_digest"]
+                or not semantic_linkage["attempt_id"]
+                or not expected_receipt_digests
+                or semantic_linkage["linkage_digest"] != digest_payload(authenticated_linkage)):
+            findings.append("invocation_resource_linkage_digest_invalid")
+        measurement_fields = ("generation_attempted", "call_units_consumed",
+            "generated_output_size_bytes", "returned_output_size_bytes",
+            "output_truncated", "latency_ms")
+        measurement_evidence = ([{
+            "receipt_id": item.get("receipt_id"),
+            "receipt_digest": item.get("receipt_digest"),
+            "state": item.get("state"), "observed_at": item.get("observed_at"),
+            "previous_receipt_digest": item.get("previous_receipt_digest"),
+            "effect_receipt_digest": item.get("effect_receipt_digest"),
+            "measured_values": ({key: item["resource_specific_measurement"].get(key)
+                for key in measurement_fields}
+                if isinstance(item.get("resource_specific_measurement"), Mapping) else {}),
+            "measurement_posture": item.get("measurement_posture")}
+            for item in ledger_receipts]
+            if resource_record is not None and not findings else [])
+        resource_ref = ({"source_id": resource_record.get("source_id"),
+            "record_digest": resource_record.get("digest"),
+            "ledger_digest": resource_record.get("payload", {}).get("ledger_digest")}
+            if resource_record is not None else None)
+        allocation_identity = None
+        if resource_record is not None and len(allocations) == 1:
+            allocation = allocations[0]
+            allocation_identity = {key: allocation.get(key) for key in (
+                "allocation_id", "allocation_digest", "principal_id", "principal_binding_digest",
+                "principal_epoch", "resource_kind", "epoch", "policy_digest")}
+        request_context_value = payload.get("invocation_request_context_linkage")
+        task_context = ({key: request_context_value.get(key) for key in (
+            "experiment_condition", "experiment_protocol_id", "history_record_ids",
+            "history_record_digests")}
+            if isinstance(request_context_value, Mapping) else None)
+        join: dict[str, Any] = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            "source_id": "strategy-resource-lineage:" + digest({
+                "proposal_id": proposal.get("subject_id"),
+                "invocation_receipt_digest": proposal_resource_linkage.get("effect_receipt_digest")})[:24],
+            "schema_version": "sentientos.strategy_invocation_resource_lineage:v1",
+            "subject_id": str(proposal.get("subject_id", "")),
+            "subject_kind": "strategy_invocation_resource_lineage",
+            "stage": "observation", "disposition": "verified" if not findings else "degraded",
+            "evidence_strength": "reconciled_resource_lineage" if not findings else "incomplete_resource_lineage",
+            "effect_claimed": False, "effect_proven": False,
+            "observed_at": None, "retrieved_at": resource_record.get("retrieved_at") if resource_record else None,
+            "payload": {"strategy_proposal_id": proposal.get("subject_id"),
+                "strategy_proposal_record_digest": proposal.get("digest"),
+                "invocation_receipt_id": payload.get("invocation_receipt_id"),
+                "invocation_receipt_digest": proposal_resource_linkage.get("effect_receipt_digest"),
+                "resource_linkage": semantic_linkage, "resource_record": resource_ref,
+                "allocation_identity": allocation_identity,
+                "principal_id": (allocation_identity.get("principal_id")
+                    if allocation_identity is not None else None),
+                "principal_binding_digest": (allocation_identity.get("principal_binding_digest")
+                    if allocation_identity is not None else None),
+                "model_attribution": {"model_id": proposal_resource_linkage.get("cognitive_model_id") or proposal_resource_linkage.get("model_id"),
+                    "invocation_model_id": proposal_resource_linkage.get("model_id"),
+                    "invocation_authority_map_digest": proposal_resource_linkage.get("invocation_authority_map_digest"),
+                    "model_artifact_digest": proposal_resource_linkage.get("model_artifact_digest"),
+                    "active_model_identity_digest": payload.get("active_model_identity_digest")},
+                "software_attribution": {"declared_generation": payload.get("declared_software_generation"),
+                    "generation_posture": payload.get("software_generation_posture"),
+                    "execution_provenance_digest": payload.get("software_execution_provenance_digest")},
+                "task_context": task_context,
+                "event_times": sorted(str(item.get("observed_at")) for item in ledger_receipts
+                    if isinstance(item.get("observed_at"), str)) if resource_record is not None else [],
+                "resource_measurement_posture": ("verified_ledger_receipt_values"
+                    if measurement_evidence else "unknown_unverified_or_missing_lineage"),
+                "resource_consumption_evidence": measurement_evidence,
+                "lineage_findings": sorted(set(findings)),
+                "shared_host_cpu_gpu_attribution": "unknown_without_independent_observation",
+                "interpretation": "resource_use_for_strategy_inference_not_external_consequence",
+                "current_truth": False, "authority": False},
+        }
+        model_candidate = model_replacement_candidates.get(str(proposal.get("source_id", "")))
+        if model_candidate is not None:
+            join["source_id"] = "model-replacement-resource-lineage:" + digest({
+                "observation_id": model_candidate.get("invocation_receipt_id"),
+                "invocation_receipt_digest": proposal_resource_linkage.get("effect_receipt_digest")})[:24]
+            join["schema_version"] = "sentientos.model_replacement_invocation_resource_lineage:v1"
+            join["subject_kind"] = "model_replacement_invocation_resource_lineage"
+            join["payload"].pop("strategy_proposal_id", None)
+            join["payload"].pop("strategy_proposal_record_digest", None)
+            join["payload"].update({
+                "model_replacement_run_id": model_candidate.get("_model_replacement_run_id"),
+                "model_replacement_run_digest": model_candidate.get("_model_replacement_run_digest"),
+                "model_replacement_source_record_id": model_candidate.get("_model_replacement_source_record_id"),
+                "model_replacement_source_record_digest": model_candidate.get(
+                    "_model_replacement_source_record_digest"),
+                "model_replacement_condition": model_candidate.get("_model_replacement_condition"),
+                "model_identity_digest": model_candidate.get("_model_identity_digest"),
+                "model_provenance_manifest_digest": model_candidate.get("_model_provenance_digest"),
+                "causal_context_id": model_candidate.get("_causal_context_id"),
+                "causal_context_digest": model_candidate.get("_causal_context_digest"),
+                "task_outcome": model_candidate.get("_model_replacement_task_outcome")})
+        history_candidate = developmental_history_candidates.get(str(proposal.get("source_id", "")))
+        if history_candidate is not None:
+            join["source_id"] = "developmental-history-resource-lineage:" + digest({
+                "observation_id": history_candidate.get("_developmental_history_observation_id"),
+                "invocation_receipt_digest": proposal_resource_linkage.get("effect_receipt_digest")})[:24]
+            join["schema_version"] = "sentientos.developmental_history_invocation_resource_lineage:v1"
+            join["subject_id"] = str(history_candidate.get("_developmental_history_observation_id") or "")
+            join["subject_kind"] = "developmental_history_invocation_resource_lineage"
+            join["payload"].pop("strategy_proposal_id", None)
+            join["payload"].pop("strategy_proposal_record_digest", None)
+            join["payload"]["interpretation"] = (
+                "resource use for developmental experiment inference; not external consequence or capability proof")
+            join["payload"].update({
+                "developmental_history_run_id": history_candidate.get("_developmental_history_run_id"),
+                "developmental_history_run_digest": history_candidate.get("_developmental_history_run_digest"),
+                "developmental_history_source_record_id": history_candidate.get(
+                    "_developmental_history_source_record_id"),
+                "developmental_history_source_record_digest": history_candidate.get(
+                    "_developmental_history_source_record_digest"),
+                "developmental_history_condition": history_candidate.get("_developmental_history_condition"),
+                "developmental_history_observation_id": history_candidate.get(
+                    "_developmental_history_observation_id"),
+                "developmental_history_observation_digest": history_candidate.get(
+                    "_developmental_history_observation_digest"),
+                "developmental_history_protocol_id": history_candidate.get(
+                    "_developmental_history_protocol_id"),
+                "developmental_history_protocol_digest": history_candidate.get(
+                    "_developmental_history_protocol_digest"),
+                "task_family_id": history_candidate.get("_developmental_history_task_family_id"),
+                "active_model_identity": history_candidate.get("_developmental_history_model_identity"),
+                "task_outcome": history_candidate.get("_developmental_history_task_outcome")})
+        join["digest"] = record_digest(join)
+        if len(json.dumps(join, sort_keys=True, separators=(",", ":")).encode("utf-8")) > 32_768:
+            raise ValueError("resource_proposal_join_record_oversized")
+        output.append(join)
+    if omitted_candidates:
+        retained_identity_digest = digest([(str(item.get("source_id", "")),
+            str(item.get("digest", ""))) for item in linked_candidates])
+        overflow = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            "source_id": "resource-lineage-retention:" + retained_identity_digest[:24],
+            "schema_version": "sentientos.resource_invocation_lineage_retention:v1",
+            "subject_id": retained_identity_digest,
+            "subject_kind": "resource_invocation_lineage_retention",
+            "stage": "observation", "disposition": "degraded",
+            "evidence_strength": "bounded_projection_omission",
+            "effect_claimed": False, "effect_proven": False, "observed_at": None,
+            "payload": {"selected_candidate_count": len(linked_candidates),
+                "projected_candidate_count": len(proposal_rows),
+                "omitted_candidate_count": len(omitted_candidates),
+                "candidate_set_digest": retained_identity_digest,
+                "omitted_candidate_identities": [{"source_id": str(item.get("source_id", "")),
+                    "record_digest": str(item.get("digest", ""))} for item in omitted_candidates],
+                "current_truth": False, "authority": False}}
+        overflow["digest"] = record_digest(overflow)
+        output.append(overflow)
+    return output
 
 def render_markdown(e: HostResourceRuntimeEvaluation) -> str:
     s=summary_for_evaluation(e)

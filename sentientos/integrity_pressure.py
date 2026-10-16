@@ -8,9 +8,28 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.strategic_posture import derived_thresholds, env_int, resolve_posture
+from sentientos.private_file_custody import (
+    PrivateFileCustodyError, open_private_directory, read_private_file_at,
+)
+from sentientos.windows_handle_custody import (
+    WindowsHandleCustodyError, read_explicit_file,
+)
 
 PRESSURE_STATE_PATH = Path("glow/forge/integrity_pressure_state.json")
 INCIDENT_FEED_PATH = Path("pulse/integrity_incidents.jsonl")
+MAX_INCIDENT_FEED_BYTES = 1_048_576
+MAX_INCIDENT_ROWS = 4096
+MAX_INCIDENT_ROW_BYTES = 65_536
+MAX_TRIGGERS_PER_INCIDENT = 512
+MAX_TRIGGER_CHARS = 512
+
+
+class IntegrityPressureInputError(ValueError):
+    """The incident feed cannot safely support a bounded pressure calculation."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
 
 
 @dataclass(slots=True)
@@ -164,21 +183,110 @@ def update_pressure_state(repo_root: Path, snapshot: IntegrityPressureSnapshot) 
 
 
 def _read_incidents(path: Path) -> list[dict[str, object]]:
-    if not path.exists():
-        return []
-    rows: list[dict[str, object]] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            stripped = line.strip()
-            if not stripped:
-                continue
+    if os.name == "posix":
+        try:
+            directory_fd = open_private_directory(path.parent, create=False)
+        except PrivateFileCustodyError as exc:
+            if str(exc) == "directory_root_missing":
+                return []
+            raise IntegrityPressureInputError("incident_feed_custody_unavailable") from exc
+        try:
             try:
-                payload = json.loads(stripped)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(payload, dict):
-                rows.append(payload)
+                data = read_private_file_at(directory_fd, path.name,
+                    max_bytes=MAX_INCIDENT_FEED_BYTES, require_private_mode=False,
+                    require_owner_read=True)
+            except PrivateFileCustodyError as exc:
+                if str(exc) == "file_missing":
+                    return []
+                if str(exc) == "file_unbounded_or_not_private":
+                    raise IntegrityPressureInputError(
+                        "incident_feed_size_or_custody_invalid") from exc
+                raise IntegrityPressureInputError("incident_feed_custody_unavailable") from exc
+        finally:
+            os.close(directory_fd)
+    elif os.name == "nt":
+        try:
+            data = read_explicit_file(path, max_bytes=MAX_INCIDENT_FEED_BYTES,
+                require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            if str(exc) == "explicit_file_missing":
+                return []
+            if str(exc) in {"explicit_file_changed_during_open", "explicit_file_changed_during_read"}:
+                raise IntegrityPressureInputError("incident_feed_size_or_stability_invalid") from exc
+            if str(exc) == "explicit_file_path_invalid":
+                raise IntegrityPressureInputError("incident_feed_path_invalid") from exc
+            raise IntegrityPressureInputError("incident_feed_custody_unavailable") from exc
+    else:
+        raise IntegrityPressureInputError("incident_feed_custody_unsupported")
+    return parse_bounded_incident_feed(data)
+
+
+def parse_bounded_incident_feed(data: bytes) -> list[dict[str, object]]:
+    """Apply the pressure reader's exact byte, row, and semantic bounds to bytes."""
+    if not isinstance(data, bytes):
+        raise IntegrityPressureInputError("incident_feed_bytes_invalid")
+    if len(data) > MAX_INCIDENT_FEED_BYTES:
+        raise IntegrityPressureInputError("incident_feed_size_limit_exceeded")
+    try:
+        text = data.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise IntegrityPressureInputError("incident_feed_utf8_invalid") from exc
+    rows: list[dict[str, object]] = []
+    lines = text.splitlines()
+    if len(lines) > MAX_INCIDENT_ROWS:
+        raise IntegrityPressureInputError("incident_feed_row_limit_exceeded")
+    for line in lines:
+        if len(line.encode("utf-8")) > MAX_INCIDENT_ROW_BYTES:
+            raise IntegrityPressureInputError("incident_feed_row_size_limit_exceeded")
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            payload = json.loads(stripped,
+                object_pairs_hook=_reject_duplicate_object_keys,
+                parse_constant=_reject_json_constant)
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise IntegrityPressureInputError("incident_feed_row_invalid") from exc
+        if not isinstance(payload, dict):
+            raise IntegrityPressureInputError("incident_feed_row_not_object")
+        if _parse_iso(payload.get("created_at")) is None:
+            raise IntegrityPressureInputError("incident_feed_event_time_invalid")
+        if ("enforcement_mode" in payload
+                and not isinstance(payload["enforcement_mode"], str)):
+            raise IntegrityPressureInputError("incident_feed_enforcement_mode_invalid")
+        if ("quarantine_activated" in payload
+                and type(payload["quarantine_activated"]) is not bool):
+            raise IntegrityPressureInputError("incident_feed_quarantine_flag_invalid")
+        triggers = payload.get("triggers")
+        if triggers is not None:
+            if not isinstance(triggers, list):
+                raise IntegrityPressureInputError("incident_feed_triggers_invalid")
+            if len(triggers) > MAX_TRIGGERS_PER_INCIDENT:
+                raise IntegrityPressureInputError("incident_feed_trigger_limit_exceeded")
+            if any(not isinstance(item, str) for item in triggers):
+                raise IntegrityPressureInputError("incident_feed_triggers_invalid")
+            if any(len(item) > MAX_TRIGGER_CHARS for item in triggers):
+                raise IntegrityPressureInputError("incident_feed_trigger_limit_exceeded")
+        rows.append(payload)
     return rows
+
+
+def read_bounded_incident_feed(path: Path) -> list[dict[str, object]]:
+    """Read the explicit incident feed through the pressure owner's custody rules."""
+    return _read_incidents(path)
+
+
+def _reject_duplicate_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_object_key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError("non_finite_json_number:" + value)
 
 
 def _load_json(path: Path) -> dict[str, object]:

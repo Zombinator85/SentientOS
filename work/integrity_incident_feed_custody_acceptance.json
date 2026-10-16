@@ -1,0 +1,32 @@
+{
+  "changes": {
+    "publication_order": "bounded existing feed preflight under lock, immutable artifact publication, then atomic feed replacement; crash between artifact and feed remains a recoverable orphan",
+    "posix_feed_publication": "descriptor-relative no-follow read and private atomic replacement",
+    "publisher_coordination": "owner-checked persistent lock inode with flock; lock pathname identity rechecked before publication",
+    "feed_limits": {
+      "bytes": 1048576,
+      "existing_reader_semantics": "shared parse_bounded_incident_feed parser validates byte, line, row, event-time, and trigger constraints",
+      "rows": 4096,
+      "retention": "append history is never pruned; capacity exhaustion blocks publication"
+    },
+    "duplicate_policy": "same incident identity and identical row is idempotent; conflicting or multiply duplicated existing identity rejects",
+    "windows": "existing append compatibility retained; no equivalent cross-process lock and atomic held-directory publication is claimed"
+  },
+  "focused_results": {
+    "sentientos/tests/test_integrity_pressure.py": "23 passed",
+    "sentientos/tests/test_integrity_quarantine.py_selected": "6 passed; clear_requires_then_passes excluded because its previously observed runtime_governor_error is unrelated to this feed change",
+    "combined_command": "29 passed",
+    "changed_python_compilation": "passed",
+    "git_diff_check": "passed"
+  },
+  "security_limits": [
+    "The incident feed remains mutable and unsigned narrative, not authenticated incident evidence.",
+    "Artifact and feed publication are not one transaction; interruption after artifact publication leaves an immutable orphan that an identical retry can reconcile.",
+    "The catalog write follows feed publication and retains its existing separate recovery semantics.",
+    "Windows feed writing retains compatibility but does not have the POSIX concurrent-writer, no-follow replacement, or bounded append guarantees added here.",
+    "No incident publisher authenticity, attack attribution, defensive consequence, or production operation is established."
+  ],
+  "source_parent_commit": "6756521c8c3d49d4d35d57cf6e9b2d12a491aafc",
+  "source_parent_tree": "ac735bcc1a362a92d6e06c327d75a7ce068e96c7",
+  "status": "construction_fixture_verified_not_production_acceptance"
+}

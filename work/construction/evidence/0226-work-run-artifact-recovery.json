@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "sequence": 226,
+  "title": "Validate existing work-run artifacts before replay",
+  "source_commit": "2c51cff889f2489eda60429fe71f14101b6900a2",
+  "source_tree": "2397ac4798155bb17f3d1ba7305316591a3b26d7",
+  "source_files": [
+    {
+      "path": "sentientos/goal_executor.py",
+      "git_blob_sha": "a8a66a62e218e3058024ff1ca8c4026a0906ec3b"
+    },
+    {
+      "path": "sentientos/work_plan.py",
+      "git_blob_sha": "5e9189b4bf6a4da5fddc29fedd40344b07cd9ab9"
+    },
+    {
+      "path": "sentientos/tests/test_work_plan_load.py",
+      "git_blob_sha": "257a28f395dec4994d07eff41db527feeb2f6eca"
+    }
+  ],
+  "validation": {
+    "passed": [
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_goal_executor_plan.py",
+      "sentientos/tests/test_goal_state_update.py",
+      "sentientos/tests/test_work_plan_load.py",
+      "sentientos/tests/test_work_plan_execution_journal.py",
+      "sentientos/tests/test_orchestrator_goal_execution.py"
+    ],
+    "passed_test_count": 36,
+    "compiled": [
+      "sentientos/goal_executor.py",
+      "sentientos/work_plan.py",
+      "sentientos/work_plan_execution_journal.py",
+      "sentientos/tests/test_goal_executor_run.py",
+      "sentientos/tests/test_work_plan_load.py",
+      "sentientos/tests/test_work_plan_execution_journal.py"
+    ],
+    "diff_check": "passed",
+    "behavior": [
+      "existing work-run artifact is validated before task execution",
+      "run artifact binds to exact plan, ordered task IDs/kinds, outcomes, and destructive classification",
+      "run/journal status mismatch fails closed",
+      "v2 journal task result must equal persisted run task result",
+      "legacy journal rows remain readable"
+    ]
+  },
+  "authority": {
+    "production_activation": false,
+    "provider_access": false,
+    "host_actuation": false
+  },
+  "predecessor": "segment-sha256:6e76ca9ac5fa857457e72b91ff8e5fac170e2f7b1b7fe2df739ac217fa0dccd2"
+}

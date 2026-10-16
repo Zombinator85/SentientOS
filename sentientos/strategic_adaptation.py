@@ -437,11 +437,16 @@ def _compute_inputs_summary(*, root: Path, window: AnalysisWindow, goal_state: d
     blocked = sum(1 for item in goal_state.values() if item.status == "blocked")
     active = sum(1 for item in goal_state.values() if item.status == "active")
 
-    block_reasons: dict[str, int] = {}
-    for item in goal_state.values():
+    block_reasons: dict[str, dict[str, Any]] = {}
+    for goal_id, item in sorted(goal_state.items()):
         if item.status == "blocked" and item.blocked_reason:
-            reason = str(item.blocked_reason)
-            block_reasons[reason] = block_reasons.get(reason, 0) + 1
+            # blocked_reason also carries evidence paths after the first '|'.
+            # Group by the stable reason while keeping those paths as evidence.
+            reason = str(item.blocked_reason).split("|", 1)[0]
+            entry = block_reasons.setdefault(reason, {"count": 0, "goal_ids": [], "evidence_paths": []})
+            entry["count"] = int(entry["count"]) + 1
+            entry["goal_ids"].append(goal_id)
+            entry["evidence_paths"].extend(item.last_evidence_paths)
 
     evidence_paths = _collect_evidence_paths(root, incidents_rows, ticks_rows)
     remediation_success_rate = 1.0 if remediation_total == 0 else round(remediation_success / remediation_total, 4)
@@ -451,7 +456,16 @@ def _compute_inputs_summary(*, root: Path, window: AnalysisWindow, goal_state: d
         "quarantine_activations": quarantine_activations,
         "remediation_success_rate": remediation_success_rate,
         "goal_outcomes": {"completed": completed, "blocked": blocked, "active": active},
-        "top_block_reasons": [{"reason": reason, "count": count} for reason, count in sorted(block_reasons.items(), key=lambda item: (-item[1], item[0]))[:5]],
+        "top_block_reasons": [
+            {
+                "reason": reason,
+                "count": int(entry["count"]),
+                "goal_ids": sorted(set(entry["goal_ids"])),
+                "evidence_paths": sorted(set(entry["evidence_paths"])),
+                "outcome_posture": "executor_recorded_not_independently_verified",
+            }
+            for reason, entry in sorted(block_reasons.items(), key=lambda item: (-int(item[1]["count"]), item[0]))[:5]
+        ],
         "evidence_paths": evidence_paths,
         "sources": {"incidents": incidents_source, "orchestrator_ticks": ticks_source, "remediation_attempts_count": len(attempts_rows)},
     }
@@ -493,6 +507,8 @@ def _compute_adjustments(
             if new_weight != goal.weight:
                 adjustments.append(Adjustment(goal.goal_id, "weight", goal.weight, new_weight, "reduce_feature_churn_under_pressure", evidence_paths))
 
+    if not isinstance(top_block_reasons, list):
+        top_block_reasons = []
     for entry in top_block_reasons:
         if len(adjustments) >= max_goals_changed:
             break
@@ -502,12 +518,19 @@ def _compute_adjustments(
         count = int(entry.get("count", 0))
         if count < 2:
             continue
+        raw_blocked_goal_ids = entry.get("goal_ids")
+        blocked_goal_ids: list[Any] = raw_blocked_goal_ids if isinstance(raw_blocked_goal_ids, list) else []
+        supporting_paths = tuple(str(path) for path in entry.get("evidence_paths", []) if isinstance(path, str))
         for goal in sorted_goals:
+            if goal.goal_id not in blocked_goal_ids:
+                continue
             if any(tag in forbidden_tags for tag in goal.tags):
                 continue
             if goal.enabled:
-                adjustments.append(Adjustment(goal.goal_id, "priority", goal.priority, max(0, goal.priority - 1), f"repeated_block:{reason}", evidence_paths))
-                break
+                adjustments.append(Adjustment(goal.goal_id, "priority", goal.priority,
+                    max(0, goal.priority - 1), f"repeated_block:{reason}", supporting_paths))
+                if len(adjustments) >= max_goals_changed:
+                    break
 
     if remediation_success_rate >= 0.8 and not frequent_high_pressure and quarantine_activations == 0:
         effects.append("restore_baseline_weights")
@@ -628,21 +651,26 @@ def _allocator_inputs_snapshot(root: Path) -> dict[str, object]:
 
 def _compute_allocation_for_snapshot(*, graph: GoalGraph, snapshot: dict[str, object]) -> AllocationDecision:
     budget_summary_raw = snapshot.get("risk_budget_summary") if isinstance(snapshot.get("risk_budget_summary"), dict) else {}
+    pressure_level = snapshot.get("pressure_level", 0)
+    if type(pressure_level) is not int:
+        raise ValueError("invalid_snapshot_pressure_level")
     budget = derive_risk_budget(
         posture=str(snapshot.get("posture", "balanced")),
-        pressure_level=int(snapshot.get("pressure_level", 0)),
+        pressure_level=pressure_level,
         operating_mode=str(snapshot.get("operating_mode", "normal")),
         quarantine_active=bool(snapshot.get("quarantine_active", False)),
     )
-    if isinstance(budget_summary_raw.get("router_k_max"), int):
-        budget.router_k_max = int(budget_summary_raw["router_k_max"])
-    if isinstance(budget_summary_raw.get("router_m_max"), int):
-        budget.router_m_max = int(budget_summary_raw["router_m_max"])
+    router_k_max = budget_summary_raw.get("router_k_max")
+    router_m_max = budget_summary_raw.get("router_m_max")
+    if type(router_k_max) is int:
+        budget.router_k_max = router_k_max
+    if type(router_m_max) is int:
+        budget.router_m_max = router_m_max
     return allocate_goals(
         graph=graph,
         budget=budget,
         operating_mode=str(snapshot.get("operating_mode", "normal")),
-        integrity_pressure_level=int(snapshot.get("pressure_level", 0)),
+        integrity_pressure_level=pressure_level,
         quarantine_active=bool(snapshot.get("quarantine_active", False)),
         posture=str(snapshot.get("posture", "balanced")),
     )
@@ -825,8 +853,11 @@ def _load_proposal(path: Path) -> GoalGraphAdjustmentProposal:
         for row in adjustments_raw
         if isinstance(row, dict)
     )
+    schema_version = payload.get("schema_version", 1)
+    if type(schema_version) is not int:
+        raise ValueError("invalid_adjustment_proposal_schema_version")
     return GoalGraphAdjustmentProposal(
-        schema_version=int(payload.get("schema_version", 1)),
+        schema_version=schema_version,
         proposal_id=str(payload.get("proposal_id", "proposal")),
         created_at=str(payload.get("created_at", _iso_now())),
         base_goal_graph_hash=str(payload.get("base_goal_graph_hash", "")),

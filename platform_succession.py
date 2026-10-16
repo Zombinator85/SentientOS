@@ -10,7 +10,6 @@ from logging_config import get_log_path
 This module logs NeosVR → Resonite renamings and asset migrations.
 It can export a succession ritual scroll capturing the changes.
 """
-from __future__ import annotations
 
 import argparse
 import json

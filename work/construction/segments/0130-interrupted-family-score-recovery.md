@@ -1,0 +1,8 @@
+# 0130 — recover interrupted task-family score before World-State feedback
+
+- Continues from freshly reverified source commit `d66b54ac96fd6fab3f786f2ca59bcb4771570b14`, tree `7f3018bfb90167d73dc20a5a466d2f352d81608c`.
+- Added a crash-boundary regression that interrupts after all three history-condition scores are durably checkpointed but before the aggregate experiment run is published. A fresh cognition owner first observes no projectable run through the intentionally read-only path, then invokes the existing recovery accessor; it reconstructs the exact scored run from score checkpoints without repeating any inference.
+- The recovered run is selected by the resident daemon’s existing completed-run path, projected as a historical task-family World-State fact without oracle parameters, and admitted through normal developmental writeback. This closes the scored-run interruption to later-history leg of the fixture chain.
+- Focused owner suites: **164 passed, 0 failed** across cognition, history intervention, model replacement, objective scoring, and writeback. Changed Python/test files compiled. The fixture verifier supplies durable test receipts only; no actual model or production behavior was observed. Untested for production.
+- Evidence: `work/construction/evidence/0130-interrupted-family-score-recovery.json` (SHA-256 `3fdaf80ee3e268cb7349d4a930c909efdbca850a699f7ea9a70c79028a13ed23`).
+- Next: cover remaining source → World-State → interpretation → admission interruption boundaries with focused existing-owner tests, then attempt a second distinct task after feedback and verify no answer leakage. Continue toward real-host readiness only where a model artifact and serving runtime actually exist.

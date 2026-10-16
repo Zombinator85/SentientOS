@@ -11,3 +11,5 @@ ngrokPorts:
   - 4041
 image: python:3.11-slim
 ngrokImage: ngrok/ngrok:alpine
+serviceMonitor:
+  enabled: false

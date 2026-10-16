@@ -1,0 +1,49 @@
+{
+  "compilation": {
+    "command": "python -m py_compile tests/test_developmental_model_replacement_resource_lineage_integration.py",
+    "status": "passed"
+  },
+  "diff_check": {
+    "command": "git diff --check",
+    "status": "passed"
+  },
+  "focused_execution": {
+    "airlock_bypass": true,
+    "canonical_runner_attempt": {
+      "command": "python -m scripts.run_tests -q [same nine suite paths] --tb=short",
+      "reason": "Editable isolated build could not retrieve setuptools>=78.1.1; restricted proxy returned Operation not permitted.",
+      "status": "blocked_before_collection"
+    },
+    "command": "SENTIENTOS_ALLOW_NAKED_PYTEST=1 SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-seq62/governor2 SENTIENTOS_RUNTIME_STATE_ROOT=/tmp/sentientos-seq62/runtime2 PULSE_TRUST_EPOCH_ROOT=/tmp/sentientos-seq62/trust2 PULSE_TRUST_EPOCH_STATE=/tmp/sentientos-seq62/trust2/state.json SENTIENTOS_FEDERATION_ROOT=/tmp/sentientos-seq62/federation2 SENTIENTOS_REPO_ROOT=/tmp/sentientos-seq62/repo2 /tmp/sentientos-test-venv/bin/python -m pytest -q -rs tests/test_developmental_model_replacement_resource_lineage_integration.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_model_replacement_experimental_serving.py tests/test_strategy_resource_lineage_integration.py tests/test_embodied_consequence.py tests/test_resident_developmental_cognition.py tests/test_resident_epistemic_development.py tests/test_resident_developmental_writeback.py tests/test_persistent_epistemic_state.py --tb=short --junitxml=glow/test_runs/0062-model-resource-cognition-junit.xml",
+    "failed": 0,
+    "junit_path": "glow/test_runs/0062-model-resource-cognition-junit.xml",
+    "junit_sha256": "844e34b14bf8517c5b27c35a520cb5f886a3bd7469c454a6070c740d94e69a0b",
+    "passed": 164,
+    "scope": "Synthetic local fixtures and existing owner interfaces; no production model, hardware measurement, or improvement claim.",
+    "setup_diagnostics": [
+      "Initial grouped run without explicit temp roots: seven environment setup failures at read-only /glow; rerun with explicit roots passed.",
+      "Initial restart-harness attempt omitted mutation receipt/controller reconstruction and failed closed; corrected harness reconstructs the existing mutation controller before projection."
+    ],
+    "skipped": 0,
+    "tests_collected": 164
+  },
+  "implementation": [
+    "The existing model-replacement resource integration now composes the exact governed ledger and inference receipts with ModelReplacementArtifactStore through RuntimeMaintenanceSurfaces.build_world_state_board.",
+    "Five verified resource-linked model-replacement observations reach the configured epistemic-development runtime, with source event times and non-current freshness preserved.",
+    "The existing mutation-receipt controller reconstructs epistemic state after restart; state identities/digests are stable and N-to-N+1 eligibility is verified.",
+    "The same owner-produced World-State lineage is admitted to developmental history, then retrieved by a restarted later-tick cognition owner together with the recovered eligible epistemic projection."
+  ],
+  "mypy": "not run",
+  "production_status": "unverified",
+  "runner_workspace_commit": "c440c10187467b128f4b04ee6ee7a9e5bd1a5afc",
+  "runner_workspace_note": "Synthetic local runner checkout; exact tested integration source matched the remote parent blob before extension.",
+  "schema_version": 1,
+  "source_blobs": {
+    "tests/test_developmental_model_replacement_resource_lineage_integration.py": {
+      "base_remote_blob": "8591bc3d8bbf9fccc7fa035fe78c54ff9e7b2e38",
+      "tested_working_blob": "4d21763125352590008a3e0ed873f02234abcb4d"
+    }
+  },
+  "source_commit": "57f737904003db2581378689278e50df9256d341",
+  "source_tree": "9fc54e3372b666b73cf5c96388c341881df2c8a3"
+}

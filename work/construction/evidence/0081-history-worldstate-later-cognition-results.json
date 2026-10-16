@@ -1,0 +1,64 @@
+{
+  "checks": [
+    {
+      "command": "/tmp/sentientos-gr5-venv/bin/python -m scripts.run_tests tests/test_embodied_consequence.py tests/test_developmental_history_intervention_experiment.py tests/test_developmental_model_replacement_experiment.py tests/test_developmental_objective_scoring.py tests/test_resident_developmental_cognition.py -q --tb=short",
+      "failed": 0,
+      "kind": "focused_behavioral_tests",
+      "passed": 135,
+      "skipped": 0,
+      "tests": 135
+    },
+    {
+      "command": "scripts.run_tests tests/test_resident_developmental_cognition.py::test_history_intervention_run_reaches_world_state_and_later_cognition tests/test_resident_developmental_cognition.py::test_session_bound_observation_recovery_reconciles_exact_invocation_receipt tests/test_resident_developmental_cognition.py::test_same_model_history_intervention_uses_preregistered_objective_oracle -q --tb=short",
+      "failed": 0,
+      "kind": "targeted_recovery_and_projection_tests",
+      "passed": 8,
+      "skipped": 0,
+      "tests": 8
+    },
+    {
+      "kind": "python_compilation",
+      "paths": [
+        "sentientos/developmental_history_intervention_experiment.py",
+        "sentientos/resident_developmental_cognition.py",
+        "sentientos/resident_developmental_writeback.py",
+        "sentientos/embodied_consequence.py",
+        "sentientosd.py",
+        "tests/test_embodied_consequence.py",
+        "tests/test_resident_developmental_cognition.py"
+      ],
+      "status": "passed"
+    },
+    {
+      "kind": "git_diff_check",
+      "status": "passed"
+    },
+    {
+      "kind": "mypy",
+      "reason": "mypy executable not installed in isolated construction environment",
+      "status": "unavailable"
+    }
+  ],
+  "junit": {
+    "bytes": 21797,
+    "path": "work/construction/evidence/0081-history-worldstate-later-cognition-junit.xml",
+    "sha256": "d8233a8ebee363b8ed6f13fb4d422db49fc84bff53e0005d0174b71a8f467aaf",
+    "testsuite": {
+      "errors": "0",
+      "failures": "0",
+      "hostname": "26f42f715b9f",
+      "name": "pytest",
+      "skipped": "0",
+      "tests": "135",
+      "time": "4.666",
+      "timestamp": "2026-10-12T23:48:48.259315+00:00"
+    }
+  },
+  "previous_published_revision_hosted_checks": "work/construction/evidence/0081-hosted-checks-seq80.json",
+  "real_model_readiness": "not_assessed_in_this_increment",
+  "scope": "deterministic fixture invoker; verifies source custody to World-State to authorized history writeback and fresh-owner later-tick cognition, not real-model performance or production behavior",
+  "sequence": 81,
+  "source_baseline_commit": "8ba5aa649e8ddf5c76dc3a328f7616fb6677a865",
+  "source_baseline_tree": "fef578c042bb181fbc4c0982fe457fe1793fd7d4",
+  "status": "construction_tested_unverified_for_production"
+}

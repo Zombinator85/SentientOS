@@ -1,0 +1,23 @@
+{
+  "behavior": {
+    "authority_and_effect": "false; observation remains context only",
+    "controller_posture": "fail",
+    "separate_gate_failures": [
+      "quarantine_custody",
+      "integrity_pressure_input"
+    ],
+    "unknown_pressure": "no pressure_summary or numeric pressure level is projected as observed evidence"
+  },
+  "focused_results": {
+    "changed_python_compilation": "passed",
+    "compounded_failure_world_state_adapter": "1 passed with -m legacy",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "The adapter is opt-in and uses the real integrity controller owner.",
+    "The evidence does not establish attack, compromise, hostile intent, or defense.",
+    "No production cognition or system behavior is verified."
+  ],
+  "scope": "preserve simultaneous quarantine-custody and pressure-input failures through the opt-in resident controller observation adapter",
+  "status": "focused_hermetic_controller_to_world_state_projection_verified_not_production_acceptance"
+}

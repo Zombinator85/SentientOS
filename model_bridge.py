@@ -2,9 +2,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()  # Sanctuary Privilege Ritual
-require_lumos_approval()
 """Dynamic model bridge for routing prompts to LLM backends."""
 
 import json
@@ -177,6 +174,9 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
     """
 
     global _PROVIDER, _MODEL_SLUG, _WRAPPER, _LLAMA
+
+    require_admin_banner()  # Sanctuary Privilege Ritual
+    require_lumos_approval()
 
     if _WRAPPER is not None:
         return _WRAPPER

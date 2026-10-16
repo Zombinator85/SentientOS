@@ -1,0 +1,29 @@
+{
+  "authority": false,
+  "effects_performed": [],
+  "interruption": {
+    "custody_result": "started_without_terminal_no_replay",
+    "inference_replay": false,
+    "injection_point": "a fixture endpoint raises KeyboardInterrupt immediately after the canonical condition-start artifact is durably written",
+    "owner": "DevelopmentalModelReplacementExperiment.run / ModelReplacementArtifactStore.begin_condition",
+    "recovery": "new experiment owner, same protocol/context identity and artifact root, reads the started condition and persists execution_incomplete without calling either endpoint",
+    "source_context": "the same FrozenCausalContext built from exact resource-derived recovered history records and World-State current projection"
+  },
+  "limits": [
+    "A test KeyboardInterrupt models interruption after the durable start boundary; it is not external process-kill or filesystem fault-injection evidence.",
+    "All A/B endpoints remain deterministic fixture endpoints; no production model transition or improvement claim."
+  ],
+  "production_verified": false,
+  "source": {
+    "parent_commit": "93cf858847a2c65bec351c54e1262044b23101e6",
+    "parent_tree": "af506dcc892d139e0b6ec71ae630f3f5534f1286",
+    "tested_source_tree": "bdebe4a287c9663a733f6047d424bd84b1eb66e3"
+  },
+  "tests": {
+    "command": "SENTIENTOS_GOVERNOR_ROOT=/tmp/sentientos-gr4-governor SENTIENTOS_REPO_ROOT=$PWD /tmp/sentientos-exact-venv/bin/python -m pytest -q -m legacy --tb=short tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
+    "diff_check": "passed",
+    "failed": 0,
+    "passed": 1,
+    "python_compilation": "passed"
+  }
+}

@@ -1,6 +1,7 @@
 """Bounded, preregistered developmental-model-replacement serving lifetimes."""
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,7 @@ from .installation_state import InstallationStateError, InstallationStateHandle
 from .local_model_authority import LocalModelAuthorityMap, build_local_model_authority_map, digest_payload
 from .local_model_runtime_worker import ExactRuntimeLocalModel
 from .local_runtime_provisioning import semantic_digest
+from .production_chat_resource_context import ProductionChatResourceContextOwner
 
 CAPABILITY = "developmental_model_replacement_experimental_serving"
 PRINCIPAL = "deterministic_developmental_model_replacement_experimental_serving_controller"
@@ -94,6 +96,10 @@ def _create(handle: InstallationStateHandle, relative: str, value: Mapping[str, 
         if exc.args != ("state_object_already_exists",) or handle.read_regular(handle.fixed_object(relative)) != data: raise
 
 
+def _canonical(value: Mapping[str, Any]) -> bytes:
+    return (json.dumps(dict(value), sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+
 def _loaded_identity(evidence: VerifiedCommissionedModel, observed: Mapping[str, Any]) -> CognitiveModelIdentity:
     prior = evidence.cognitive_identity
     payload = dict(observed)
@@ -108,19 +114,203 @@ def _loaded_identity(evidence: VerifiedCommissionedModel, observed: Mapping[str,
         active_model_identity=payload, active_model_identity_digest=_digest(payload))
 
 
+def _commissioned_generation(evidence: VerifiedCommissionedModel) -> GenerationConfig:
+    """Rebuild the exact commissioning-time inference ceiling, never widen it."""
+    authority = evidence.receipt.get("authority_map")
+    ceilings: Mapping[str, Any] | None = None
+    if (isinstance(authority, Mapping)
+            and authority.get("map_digest") == evidence.receipt.get("authority_map_digest")
+            and isinstance(authority.get("records"), list)):
+        identity = evidence.cognitive_identity
+        records = [row for row in authority["records"] if isinstance(row, Mapping)
+            and row.get("semantic_artifact_identity") == identity.semantic_artifact_identity
+            and row.get("model_content_sha256") == identity.model_content_sha256
+            and row.get("artifact_size_bytes") == identity.artifact_size_bytes
+            and row.get("configuration_digest") == identity.configuration_digest]
+        if len(records) == 1 and isinstance(records[0].get("generation_ceilings"), Mapping):
+            ceilings = records[0]["generation_ceilings"]
+    if ceilings is None:
+        # Hardened commissioning receipts bind the exact smoke request and its
+        # actual generated parameters. This also supports historical v3
+        # receipts, whose fixed ceiling was eight tokens and whose schema did
+        # not copy the full authority map into the receipt.
+        smoke = evidence.receipt.get("smoke_evidence")
+        request = smoke.get("request") if isinstance(smoke, Mapping) else None
+        budget = request.get("budget") if isinstance(request, Mapping) else None
+        generation = smoke.get("generation_config") if isinstance(smoke, Mapping) else None
+        actual = generation.get("actual_generation_parameters") if isinstance(generation, Mapping) else None
+        requested = budget.get("max_new_tokens") if isinstance(budget, Mapping) else None
+        if (not isinstance(smoke, Mapping) or smoke.get("status") != "admitted_completed"
+                or smoke.get("fallback_occurred") is not False or type(requested) is not int
+                or not isinstance(actual, Mapping) or actual.get("max_new_tokens") != requested):
+            raise ExperimentalModelServingError("commissioned_generation_authority_missing")
+        ceilings = {"max_new_tokens": requested, "temperature": 0, "top_p": 1,
+            "top_k": None, "repetition_penalty": None}
+    try:
+        config = GenerationConfig(**dict(ceilings))
+    except (TypeError, ValueError) as exc:
+        raise ExperimentalModelServingError("commissioned_generation_authority_invalid") from exc
+    if (type(config.max_new_tokens) is not int or not 1 <= config.max_new_tokens <= 512
+            or config.temperature != 0 or config.top_p != 1):
+        raise ExperimentalModelServingError("commissioned_generation_authority_invalid")
+    return config
+
+
 class ExperimentalModelServingController:
     """Own exact workers outside canonical activation and production-serving custody."""
     def __init__(self, installation_handle: InstallationStateHandle, control_plane_kernel: ControlPlaneKernel,
                  *, artifact_root: Path, model_factory: Callable[[Mapping[str, Any], Mapping[str, Any]], Any] = ExactRuntimeLocalModel,
-                 allow_synthetic_evidence_for_tests: bool = False) -> None:
+                 allow_synthetic_evidence_for_tests: bool = False,
+                 resource_context_owner: ProductionChatResourceContextOwner | None = None) -> None:
         if not isinstance(installation_handle, InstallationStateHandle):
             raise ExperimentalModelServingError("authenticated_installation_handle_required")
+        if (resource_context_owner is not None
+                and type(resource_context_owner) is not ProductionChatResourceContextOwner):
+            raise ExperimentalModelServingError("exact_resource_context_owner_required")
         self._handle, self._kernel, self._store = installation_handle, control_plane_kernel, ModelReplacementArtifactStore(artifact_root)
         self._factory, self._allow_synthetic = model_factory, allow_synthetic_evidence_for_tests
+        # The caller keeps the single-process ledger lease and allocation owner.
+        # This controller borrows it only to obtain one context per inference.
+        self._resource_context_owner = resource_context_owner
         for item in ("local-model", "local-model/developmental-model-replacement",
                      "local-model/developmental-model-replacement/experimental-serving",
                      "local-model/developmental-model-replacement/experimental-serving/receipts"):
             installation_handle.ensure_directory(installation_handle.fixed_object(item))
+
+    def verify_persisted_observation_receipts(self, observation: Mapping[str, Any], *,
+            protocol: ModelReplacementProtocol, model_role: str,
+            expected: CognitiveModelIdentity) -> None:
+        """Reconcile historical experiment inference and serving custody without loading a worker."""
+        if model_role not in {"model_a", "model_b"}:
+            raise ExperimentalModelServingError("historical_experiment_model_role_invalid")
+        expected_role_identity = protocol.model_a_identity if model_role == "model_a" else protocol.model_b_identity
+        if expected != expected_role_identity:
+            raise ExperimentalModelServingError("historical_experiment_protocol_model_mismatch")
+        serving_id = observation.get("model_serving_receipt_id")
+        serving_digest = observation.get("model_serving_receipt_digest")
+        lifetime_id = observation.get("model_serving_lifetime_id")
+        inference_id = observation.get("inference_receipt_id")
+        inference_digest = observation.get("inference_receipt_digest")
+        if (not isinstance(serving_id, str) or not serving_id.startswith("experimental-serving-receipt-")
+                or len(serving_id) != len("experimental-serving-receipt-") + 24
+                or not isinstance(serving_digest, str) or len(serving_digest) != 64
+                or any(character not in "0123456789abcdef" for character in serving_digest)
+                or not isinstance(lifetime_id, str) or not lifetime_id.startswith("experimental-serving-lifetime-")
+                or not isinstance(inference_id, str) or len(inference_id) != len("lmrec-") + 24
+                or not inference_id.startswith("lmrec-")
+                or not isinstance(inference_digest, str) or len(inference_digest) != 64
+                or any(character not in "0123456789abcdef" for character in inference_digest)):
+            raise ExperimentalModelServingError("historical_experiment_receipt_identity_invalid")
+        receipt_path = self._handle.fixed_object(
+            f"local-model/developmental-model-replacement/experimental-serving/receipts/{serving_id}.json")
+        try:
+            serving_raw = self._handle.read_regular(receipt_path)
+            if len(serving_raw) > 1_048_576:
+                raise ExperimentalModelServingError("historical_experiment_serving_receipt_over_bound")
+            serving = json.loads(serving_raw.decode("utf-8"))
+        except ExperimentalModelServingError:
+            raise
+        except Exception as exc:
+            raise ExperimentalModelServingError("historical_experiment_serving_receipt_unavailable") from exc
+        if not isinstance(serving, dict) or serving_raw != _canonical(serving):
+            raise ExperimentalModelServingError("historical_experiment_serving_receipt_noncanonical")
+        serving_body = {key: value for key, value in serving.items()
+            if key not in {"receipt_id", "receipt_digest"}}
+        if (serving.get("receipt_id") != serving_id
+                or serving.get("receipt_digest") != serving_digest
+                or semantic_digest(serving_body)[:24] != serving_id[-24:]
+                or semantic_digest({key: value for key, value in serving.items()
+                    if key != "receipt_digest"}) != serving_digest
+                or serving.get("status") != "experimental_serving_bound"
+                or serving.get("protocol_id") != protocol.protocol_id
+                or serving.get("protocol_digest") != protocol.protocol_digest
+                or serving.get("model_role") != model_role
+                or serving.get("expected_cognitive_identity") != asdict(expected)
+                or serving.get("observed_cognitive_identity") != asdict(expected)
+                or serving.get("serving_lifetime_id") != lifetime_id
+                or serving.get("canonical_activation_mutated") is not False
+                or serving.get("canonical_production_serving_mutated") is not False
+                or serving.get("inference_authority_granted") is not False
+                or serving.get("inference_performed_by_serving_transition") is not False):
+            raise ExperimentalModelServingError("historical_experiment_serving_receipt_mismatch")
+        try:
+            commissioned = verify_commissioned_model(self._handle,
+                str(serving.get("commissioning_receipt_id", "")),
+                allow_synthetic_for_tests=self._allow_synthetic)
+        except Exception as exc:
+            raise ExperimentalModelServingError("historical_experiment_commissioning_receipt_invalid") from exc
+        if (commissioned.cognitive_identity != expected
+                or commissioned.receipt.get("receipt_semantic_digest") != serving.get("commissioning_receipt_digest")):
+            raise ExperimentalModelServingError("historical_experiment_commissioning_identity_mismatch")
+        load_configuration = serving.get("load_configuration")
+        if not isinstance(load_configuration, Mapping):
+            raise ExperimentalModelServingError("historical_experiment_load_configuration_invalid")
+        try:
+            invocation_config = ModelConfig(
+                [ModelCandidate(Path(commissioned.artifact_path), "llama_cpp", expected.model_id,
+                    {"gpu_layers": int(load_configuration["n_gpu_layers"])})],
+                default_engine="llama_cpp",
+                max_context_tokens=int(load_configuration["n_ctx"]),
+                generation=_commissioned_generation(commissioned),
+            )
+            invocation_authority = build_local_model_authority_map(
+                invocation_config,
+                allowed_roots=[Path(commissioned.artifact_path).parent],
+                observed_at="1970-01-01T00:00:00+00:00",
+            )
+            invocation_model_id = invocation_authority.records[0].model_id
+        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            raise ExperimentalModelServingError("historical_experiment_invocation_authority_invalid") from exc
+        if invocation_authority.map_digest != commissioned.receipt.get("authority_map_digest"):
+            raise ExperimentalModelServingError("historical_experiment_invocation_authority_mismatch")
+        inference_path = self._handle.fixed_object(
+            f"local-model/developmental-model-replacement/experimental-serving/inference/receipts/{inference_id}.json")
+        try:
+            inference_raw = self._handle.read_regular(inference_path)
+            if len(inference_raw) > 1_048_576:
+                raise ExperimentalModelServingError("historical_experiment_inference_receipt_over_bound")
+            inference = json.loads(inference_raw.decode("utf-8"))
+        except ExperimentalModelServingError:
+            raise
+        except Exception as exc:
+            raise ExperimentalModelServingError("historical_experiment_inference_receipt_unavailable") from exc
+        from .governed_local_model_invocation import validate_receipt
+        inference_canonical = (json.dumps(inference, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        if (not isinstance(inference, dict) or inference_raw != inference_canonical
+                or inference.get("receipt_id") != inference_id
+                or inference.get("receipt_digest") != inference_digest
+                or validate_receipt(inference)[0] is not True):
+            raise ExperimentalModelServingError("historical_experiment_inference_receipt_invalid")
+        request = inference.get("request")
+        linkage = request.get("linkage") if isinstance(request, Mapping) else None
+        if (not isinstance(request, Mapping)
+                or request.get("request_id") != observation.get("request_id")
+                or request.get("request_digest") != observation.get("request_digest")
+                # The invocation owner uses the deterministic authority-map
+                # record id; the commissioned catalog model id is a separate
+                # identity and must not be compared directly to it.
+                or request.get("model_id") != invocation_model_id
+                or request.get("authority_map_digest") != invocation_authority.map_digest
+                or observation.get("invocation_model_id") != invocation_model_id
+                or observation.get("invocation_authority_map_digest") != invocation_authority.map_digest
+                or request.get("model_artifact_digest") != expected.model_content_sha256
+                or request.get("active_model_identity") != dict(expected.active_model_identity)
+                or request.get("purpose") != PURPOSE
+                or request.get("correlation_id") != observation.get("correlation_id")
+                or not isinstance(linkage, Mapping)
+                or linkage.get("experimental_serving_lifetime_id") != lifetime_id
+                or linkage.get("experimental_serving_receipt_id") != serving_id
+                or linkage.get("experimental_serving_receipt_digest") != serving_digest
+                or linkage.get("model_serving_admission_ref") != serving.get("model_serving_admission_ref")
+                or inference.get("output_digest") != observation.get("output_digest")
+                or inference.get("output_truncated") is not observation.get("output_truncated")
+                or not isinstance(inference.get("generation_config"), Mapping)
+                or inference["generation_config"].get("actual_generation_parameters")
+                    != observation.get("actual_generation_parameters")
+                or inference.get("status") != "admitted_completed"
+                or inference.get("fallback_occurred") is not False
+                or inference.get("admission_decision_ref") == serving.get("model_serving_admission_ref")):
+            raise ExperimentalModelServingError("historical_experiment_invocation_serving_mismatch")
 
     def prepare_intent(self, *, protocol_id: str, protocol_digest: str, model_role: str,
                        commissioning_receipt_id: str, correlation_id: str) -> Mapping[str, Any]:
@@ -230,6 +420,12 @@ class ExperimentalCognitiveEndpoint:
     def current_identity(self) -> CognitiveModelIdentity:
         self._current(); return self._expected
 
+    def verify_persisted_observation_receipts(self, observation: Mapping[str, Any], *,
+            protocol: ModelReplacementProtocol, model_role: str,
+            expected: CognitiveModelIdentity) -> None:
+        self._controller.verify_persisted_observation_receipts(observation,
+            protocol=protocol, model_role=model_role, expected=expected)
+
     def _current(self) -> None:
         if self._closed: raise ExperimentalModelServingError("experimental_endpoint_closed")
         process = getattr(self._worker, "_process", None)
@@ -254,7 +450,7 @@ class ExperimentalCognitiveEndpoint:
         config = ModelConfig([ModelCandidate(Path(self._evidence.artifact_path), "llama_cpp", str(receipt["model_id"]),
                     {"gpu_layers": int(receipt["load_configuration"]["n_gpu_layers"])})], default_engine="llama_cpp",
                     max_context_tokens=int(receipt["load_configuration"]["n_ctx"]),
-                    generation=GenerationConfig(max_new_tokens=8, temperature=0, top_p=1))
+                    generation=_commissioned_generation(self._evidence))
         authority: LocalModelAuthorityMap = build_local_model_authority_map(config, allowed_roots=[Path(self._evidence.artifact_path).parent],
                                                                             observed_at="1970-01-01T00:00:00+00:00")
         if authority.map_digest != receipt["authority_map_digest"]:
@@ -265,15 +461,46 @@ class ExperimentalCognitiveEndpoint:
         request = invoker.build_request(purpose=PURPOSE, prompt=prompt, caller=PRINCIPAL, correlation_id=correlation_id,
             budget=LocalModelInvocationBudget(**kwargs), upstream_evidence=upstream_evidence,
             linkage={"experimental_serving_lifetime_id": self._receipt["serving_lifetime_id"],
+                     "experimental_serving_receipt_id": self._receipt["receipt_id"],
+                     "experimental_serving_receipt_digest": self._receipt["receipt_digest"],
                      "model_serving_admission_ref": self._receipt["model_serving_admission_ref"]})
-        result = invoker.invoke(request, pre_effect_guard=self._current, post_effect_guard=self._current)
+        resource_context = (self._controller._resource_context_owner.next_context()
+            if self._controller._resource_context_owner is not None else None)
+        result = invoker.invoke(request, pre_effect_guard=self._current, post_effect_guard=self._current,
+            resource_context=resource_context)
         if result.admission_decision_ref == self._receipt["model_serving_admission_ref"]:
             self._invalidate("inference_admission_not_independent"); raise ExperimentalModelServingError("inference_admission_not_independent")
-        return {"status": result.status, "fallback_occurred": result.fallback_occurred,
+        request_linkage = request.linkage if isinstance(request.linkage, Mapping) else None
+        if (dict(result.request) != request.to_receipt_request_dict()
+                or not isinstance(request_linkage, Mapping)
+                or any(request_linkage.get(key) != value for key, value in {
+                    "experimental_serving_lifetime_id": self._receipt["serving_lifetime_id"],
+                    "experimental_serving_receipt_id": self._receipt["receipt_id"],
+                    "experimental_serving_receipt_digest": self._receipt["receipt_digest"]}.items())):
+            self._invalidate("inference_serving_receipt_linkage_mismatch")
+            raise ExperimentalModelServingError("inference_serving_receipt_linkage_mismatch")
+        # Only an explicitly preregistered task requests transient answer delivery.
+        # Invocation receipt custody still follows its existing privacy policy.
+        answer = ({"output_text": result.output_text}
+            if upstream_evidence.get("objective_task_plan_digest") else {})
+        return {**answer, "status": result.status, "fallback_occurred": result.fallback_occurred,
                 "request_id": request.request_id, "request_digest": request.request_digest,
                 "inference_receipt_id": result.receipt_id, "inference_receipt_digest": result.receipt_digest,
+                "model_serving_receipt_id": self._receipt["receipt_id"],
+                "model_serving_receipt_digest": self._receipt["receipt_digest"],
+                "model_serving_lifetime_id": self._receipt["serving_lifetime_id"],
+                # Preserve owner-supplied time; its invocation digest excludes
+                # this custody metadata, so it remains unverified downstream.
+                "observed_at": result.observed_at,
+                "invocation_model_id": request.model_id,
+                "invocation_authority_map_digest": request.authority_map_digest,
                 "output_digest": result.output_digest,
-                "actual_generation_parameters": result.generation_config.get("actual_generation_parameters", {})}
+                "output_truncated": result.output_truncated,
+                "actual_generation_parameters": result.generation_config.get("actual_generation_parameters", {}),
+                "resource_allocation_digest": result.resource_allocation_digest,
+                "resource_attempt_id": result.resource_attempt_id,
+                "resource_consumption_receipt_digests": list(result.resource_consumption_receipt_digests),
+                "resource_linkage_digest": result.resource_linkage_digest}
 
     def _invalidate(self, reason: str) -> None:
         if not self._closed: self.close(reason=reason, status="invalidated")

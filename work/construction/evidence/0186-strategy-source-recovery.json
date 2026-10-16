@@ -1,0 +1,32 @@
+{
+  "sequence": 186,
+  "title": "Restore consequence strategy source contracts and bind multitrial identities",
+  "status": "[untested] construction",
+  "starting_head": "db8977eb478d21384b83f8a11ac52b4d51aa326e",
+  "starting_tree": "81fff0ef79cd03d7c62ee90c46195acc25c23891",
+  "source_commit": "8241caa3d5922651b95a58530f760d43fb398344",
+  "source_tree": "d918f76476e433f346135918026b382339939b25",
+  "source_paths": [
+    {"path":"sentientos/embodied_consequence.py","blob":"df192c7dee96b5de17c0d7de5ab57f0ad328865b","sha256":"39d6de9ae0df55af89a3f01d17f5ab17bd6ded5f9c4f1b057668ef7c365b92cc"},
+    {"path":"sentientos/codex_strategy_multitrial.py","blob":"701a4a750eceab138f657620373d66907eee0e0b","sha256":"82b002518378467c24e6f42b952cf6f5bce7938ea5e483ede1b3b58738030ad2"}
+  ],
+  "validation": {
+    "focused_embodied_and_transfer_packet":"34 passed",
+    "resident_developmental_cognition":"92 passed with SENTIENTOS_GOVERNOR_ROOT directed to writable workspace",
+    "initial_environment_attempt":"9 failed because default /glow governor path was read-only; all 9 passed with workspace override",
+    "compileall":"passed for changed source",
+    "diff_check":"passed"
+  },
+  "remote_readback": {
+    "branch_head":"8241caa3d5922651b95a58530f760d43fb398344",
+    "tree":"d918f76476e433f346135918026b382339939b25",
+    "changed_source_blobs":"both exact blobs independently found in current recursive tree"
+  },
+  "authority_posture": {
+    "production_activation":false,
+    "execution_authority_added":false,
+    "external_model_sessions":false,
+    "fixture_behavior_only":true
+  },
+  "limitations":"Construction tests do not establish real model learning, external Codex behavior, or production operation."
+}
