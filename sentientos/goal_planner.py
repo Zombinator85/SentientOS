@@ -42,6 +42,7 @@ class ExecutorState:
     prior_epistemic_projection: EpistemicCognitiveProjection | None = None
     target_active_model_identity_digest: str | None = None
     target_identity_observed_at: str | None = None
+    prior_run_outcome_unknown: bool = False
 
 
 class GoalPlanner:
@@ -77,6 +78,9 @@ class GoalPlanner:
                                 "prior_terminal_") and (task_run.reason or "").endswith(
                                     "_not_replayed")))):
                     prior_goal_outcomes.setdefault(task_run.goal_id, set()).add(task_run.status)
+        elif state.prior_run_outcome_unknown:
+            for goal_id in allocation.selected:
+                prior_goal_outcomes[goal_id] = {"unknown"}
         epistemic_review_goal_ids: set[str] = set()
         epistemic_projection_digest: str | None = None
         epistemic_review_scopes: dict[str, dict[str, object]] = {}
@@ -166,6 +170,7 @@ class GoalPlanner:
             "selected_reasons": list(allocation.selected_reasons),
             "prior_run_digest": next((part.split("=", 1)[1] for part in context_parts
                 if part.startswith("prior_work_run_digest=")), None),
+            "prior_run_outcome_unknown": state.prior_run_outcome_unknown,
             "no_replay_goal_outcomes": {goal_id: sorted(statuses)
                 for goal_id, statuses in sorted(prior_goal_outcomes.items())},
         }
