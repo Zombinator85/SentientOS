@@ -91,7 +91,7 @@ jobs:
           name: router_telemetry_report_${{ github.run_id }}_${{ github.job }}
           path: glow/test_runs/router_telemetry_report.json
       - name: Log in to GHCR
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
