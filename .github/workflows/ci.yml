@@ -149,6 +149,8 @@ jobs:
     services:
       docker:
         image: docker:dind
+        env:
+          DOCKER_TLS_CERTDIR: ""
         options: --privileged
         ports:
           - 2375:2375
