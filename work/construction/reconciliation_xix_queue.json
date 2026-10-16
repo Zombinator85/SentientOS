@@ -36,10 +36,11 @@
     "E1-E8 partial: seq266 proves in a fresh process that same-model task-family examples reach a later episode while a different-model target receives no task examples and retains source, positive-score, and omission evidence.",
     "E1-E8 partial: seq267 requires proposition-scoped family applicability, exact protocol model identity, and an identity observation fresh at plan creation; both allocation and executor fail closed on missing, stale, or changed identity, and plan identity binds scopes, omissions, prior-run digest, and no-replay outcomes.",
     "E1-E8 partial: seq268 wires a read-only current-serving-identity observation into orchestrator allocation and canonical plan creation; digest and timestamp are retained without session acquisition or model invocation.",
-    "E1-E8 partial: seq269 preserves bounded comparison outcomes and measurement identities in downstream cognition, with source digest binding and same-model/drift gates intact; next connect daemon prior-projection owner to canonical planning."
+    "E1-E8 partial: seq269 preserves bounded comparison outcomes and measurement identities in downstream cognition, with source digest binding and same-model/drift gates intact; next connect daemon prior-projection owner to canonical planning.",
+    "E1-E8: sequences 270-273 connect the daemon verified prior-projection owner to canonical allocation/planning; source identity, applicability and drift remain enforced, planning feedback stays non-authorizing and execution-free, and the integrated resource-to-cognition lifecycle passes hosted acceptance."
   ],
-  "current_source_commit": "2f838f17b2472b54ff68990851c9da5918eda19e",
-  "current_source_tree": "ecae3a284ca8cda474210a675755fc903332e456",
+  "current_source_commit": "ff635c7160ad65c73c28cebec4f72101c6a3c6c5",
+  "current_source_tree": "db7d80bf4faf31b3426f5e4d2716cca12f7ee2da",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -47,13 +48,8 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 269,
+  "last_checkpoint_sequence": 274,
   "next_executable_nodes": [
-    {
-      "node": "E1-E8",
-      "program": "E",
-      "work": "Wire the daemon\u2019s verified prior-projection owner into canonical planning, preserving bounded selection, source identity, applicability, and drift gates; then verify the integrated developmental history trajectory."
-    },
     {
       "node": "F1-F8",
       "program": "F",

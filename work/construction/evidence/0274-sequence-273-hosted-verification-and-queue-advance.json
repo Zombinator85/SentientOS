@@ -1,0 +1,94 @@
+{
+  "completion_assessment": {
+    "completed": true,
+    "evidence": [
+      "sequence 270 planning/execution separation and hosted root audit path",
+      "sequence 271-272 isolated canonical planning tests and exact linter repair",
+      "sequence 273 migration of stale GoalExecutor.build_plan test to GoalPlanner",
+      "hosted source validation full integrated resource-to-cognition lifecycle passed",
+      "hosted Required Quality Gate exact task acceptance passed"
+    ],
+    "node": "E1-E8"
+  },
+  "hosted_verification": {
+    "all_runs": {
+      "CI": {
+        "conclusion": "success",
+        "run_id": 38943175266
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "run_id": 38943175499
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "run_id": 38943175148
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "run_id": 38943175265
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "run_id": 38943175221
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "run_id": 38943175325
+      },
+      "Release": {
+        "conclusion": "success",
+        "run_id": 38943175555
+      }
+    },
+    "artifact_archive_sha256": "23f7486f0c9cbaa1656dfcbd76f247bf8d8596db75dd952a84a119b6c855c528",
+    "artifact_id": 12063513973,
+    "effective_uid": 0,
+    "required_quality_gate": "success",
+    "required_quality_gate_run": 38943175209,
+    "source_commit": "06a4b8f52ff23094f3a9cb42913fec111acf38ca",
+    "source_tree": "db7d80bf4faf31b3426f5e4d2716cca12f7ee2da",
+    "strict_audits": "passed"
+  },
+  "local_tests": {
+    "compileall": true,
+    "git_diff_check": true,
+    "resident_developmental_cognition": "93 passed, 0 failed",
+    "targeted_privilege_lint": true,
+    "task_acceptance_passed": 17,
+    "task_acceptance_required_nodes": 17
+  },
+  "next_dependency": "F1-F8: longitudinal strategy correction, negative transfer, applicability, historical relevance and model-identity continuity. Continue with source-backed fixtures; external operator-mediated sessions and physical-world outcomes are not inferred.",
+  "previous_publication": {
+    "changed_remote_blobs": "all eight independently read and SHA-256 verified",
+    "expected_parent": "bbf0474bd62a29aef36da61429a7a218c6a04ec5",
+    "force": false,
+    "remote_compare_and_swap": "passed",
+    "tree": "db7d80bf4faf31b3426f5e4d2716cca12f7ee2da"
+  },
+  "sequence": 274,
+  "source_blobs": [
+    {
+      "bytes": 1581,
+      "git_blob_sha1": "e9fc7ad8848aa095c936d1fdc1d63ce76bdd382d",
+      "path": "work/construction/segments/0274-sequence-273-hosted-verification-and-queue-advance.md",
+      "sha256": "ef5342b33cea7129f455ab931484b62aa8154b05ff0fb95202c6f477ea46947e"
+    },
+    {
+      "bytes": 11058,
+      "git_blob_sha1": "3cd3c924e8248c3258dcba6a7d942cbc3c2335c9",
+      "path": "work/construction/reconciliation_xix_queue.json",
+      "sha256": "b042eb85925d5d02cbb01e50c578f7e6b036ba454da2e6e8ec825576eaab13ba"
+    },
+    {
+      "bytes": 45862,
+      "git_blob_sha1": "12ab59bdf614d3685b6aa2348d86c9daa49329f1",
+      "path": "glow/test_runs/provenance/20261016T174928Z_d8d7a219221c_3f9cd9443eec495ab788b9fd2b6fe2e9.json",
+      "sha256": "a3745ffc1e75495ba225ddc8ab029c07f36fbe36b8afd438bc6469195c67a0ac"
+    }
+  ],
+  "source_commit": "ff635c7160ad65c73c28cebec4f72101c6a3c6c5",
+  "source_tree": "db7d80bf4faf31b3426f5e4d2716cca12f7ee2da",
+  "test_provenance_path": "glow/test_runs/provenance/20261016T174928Z_d8d7a219221c_3f9cd9443eec495ab788b9fd2b6fe2e9.json",
+  "title": "Hosted verification and developmental queue advance"
+}

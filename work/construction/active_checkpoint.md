@@ -1,17 +1,15 @@
 # Active construction checkpoint
 
-Sequence 273 repairs the source-caused planner API failure from the sequence 272 hosted CI run and isolates default governance test state. Canonical plan construction remains in `GoalPlanner`; `GoalExecutor` remains execution-only. The entire resident developmental cognition module passes locally (93/93). The prior sandbox-only `/glow` failures and their run provenance remain preserved.
+Sequence 273 is fully verified. Hosted Required Quality Gate passed strict audits and immutability at UID 0 on source tree `db7d80bf4faf31b3426f5e4d2716cca12f7ee2da`. All hosted CI, lint matrix, Docker, invariant, release, gradient, and Codex checks passed. The full resource-to-cognition lifecycle and exact acceptance passed. Its evidence artifact is 12063513973 (SHA-256 `23f7486f0c9cbaa1656dfcbd76f247bf8d8596db75dd952a84a119b6c855c528`).
 
-Sequence 272's Required Quality Gate passed at UID 0 and measured tree `c0793416a0a2e71d6336ff9c7bb6c7587baa6bbc`; its strict audits passed and their report/artifacts are retained as GitHub workflow artifact 12063407307. All other hosted checks except source validation passed; source validation's sole failure is repaired here.
+E1-E8 is complete: the daemon's verified prior projection now reaches canonical planning with identity/applicability/drift bindings, and the planning surface cannot execute goals. F1-F8 is next; external subject sessions and physical outcomes remain explicitly unverified.
 
-Latest verified source commit: `bbf0474bd62a29aef36da61429a7a218c6a04ec5`
-Latest verified source tree: `c0793416a0a2e71d6336ff9c7bb6c7587baa6bbc`
-Latest segment: work/construction/segments/0273-planner-api-migration-and-test-isolation.md
-Latest segment SHA-256: `01d76bd84287fd7bf772651300935b730dbd46231f174175f4dbfb174074a674`
-Evidence: work/construction/evidence/0273-planner-api-migration-and-test-isolation.json
+Latest verified source commit: `ff635c7160ad65c73c28cebec4f72101c6a3c6c5`
+Latest verified source tree: `db7d80bf4faf31b3426f5e4d2716cca12f7ee2da`
+Latest segment: work/construction/segments/0274-sequence-273-hosted-verification-and-queue-advance.md
+Latest segment SHA-256: `ef5342b33cea7129f455ab931484b62aa8154b05ff0fb95202c6f477ea46947e`
+Evidence: work/construction/evidence/0274-sequence-273-hosted-verification-and-queue-advance.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 273
+Sequence: 274
 
-Validation: the exact failing test passed, resident developmental cognition passed 93/93, task acceptance passed 17/17, and targeted lint, compileall, diff, and continuation custody checks passed.
-
-Next: publish sequence 273 with fresh expected-head CAS and rerun hosted CI, especially the integrated resource-to-cognition lifecycle, while retaining the strict actual-root audit gate.
+Next: continue F1-F8 through source-backed multi-episode strategy correction and transfer; preserve external-session limitations.
