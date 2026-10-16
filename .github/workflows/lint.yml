@@ -5,6 +5,9 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_HEADLESS: "1"
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/lint-governor
     strategy:
       matrix:
         include:
@@ -40,6 +43,7 @@ jobs:
       - if: matrix.mode == 'src-lock-full'
         run: |
           pip install -r requirements-src-lock.txt
+          pip install --only-binary=:all: -r requirements-codex.txt
           pip install -r requirements-dev.txt
           pip install -e .[dev]
       - name: privilege_lint

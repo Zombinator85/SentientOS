@@ -141,6 +141,9 @@ jobs:
 
   self-check:
     runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_HEADLESS: "1"
+      SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/self-check-governor
     services:
       docker:
         image: docker:dind

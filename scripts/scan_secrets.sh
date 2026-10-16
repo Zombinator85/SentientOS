@@ -20,7 +20,13 @@ for pattern in "${PATTERNS[@]}"; do
   if [[ -n $ALLOW && $pattern =~ $ALLOW ]]; then
     continue
   fi
-  if rg --files-with-matches --no-messages --text "$pattern" "${FILES[@]}"; then
+  if command -v rg >/dev/null 2>&1; then
+    matches=$(rg --files-with-matches --no-messages --text "$pattern" "${FILES[@]}" || true)
+  else
+    matches=$(grep -E -I -l -- "$pattern" "${FILES[@]}" 2>/dev/null || true)
+  fi
+  if [[ -n $matches ]]; then
+    printf '%s\n' "$matches"
     echo "Potential secret detected for pattern: $pattern" >&2
     exit 1
   fi

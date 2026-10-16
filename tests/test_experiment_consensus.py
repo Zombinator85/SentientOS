@@ -16,6 +16,9 @@ import experiment_tracker as et
 def _setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("EXPERIMENTS_FILE", str(tmp_path / "exp.json"))
     monkeypatch.setenv("EXPERIMENT_AUDIT_FILE", str(tmp_path / "audit.jsonl"))
+    from sentientos import privilege
+    monkeypatch.setattr(privilege, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(privilege, "require_lumos_approval", lambda: None)
     importlib.reload(et)
 
 

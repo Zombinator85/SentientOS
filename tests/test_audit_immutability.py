@@ -48,6 +48,10 @@ def test_emotion_pump_manifest_update_requires_confirm(tmp_path: Path, monkeypat
     file_path = tmp_path / "file.txt"
     file_path.write_text("data", encoding="utf-8")
     manifest = tmp_path / "manifest.json"
+    with pytest.raises(SystemExit, match="Access denied"):
+        aiv.update_manifest([file_path], manifest)
+    monkeypatch.setattr(aiv, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(aiv, "require_lumos_approval", lambda: None)
     with pytest.raises(PermissionError):
         aiv.update_manifest([file_path], manifest)
     monkeypatch.setenv("LUMOS_VEIL_CONFIRM", "1")
@@ -59,12 +63,14 @@ def test_emotion_pump_manifest_update_requires_confirm(tmp_path: Path, monkeypat
     assert immutability.verify_manifest_signature(data)
 
 
-def test_emotion_pump_run_loop(tmp_path: Path) -> None:
+def test_emotion_pump_run_loop(tmp_path: Path, monkeypatch) -> None:
     target = tmp_path / "file.txt"
     target.write_text("hello", encoding="utf-8")
     manifest = tmp_path / "manifest.json"
     _make_manifest(manifest, target)
     events: list[dict] = []
+    monkeypatch.setattr(aiv, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(aiv, "require_lumos_approval", lambda: None)
     stop = threading.Event()
     t = threading.Thread(
         target=aiv.run_loop,
@@ -87,6 +93,8 @@ def test_emotion_pump_cli_invocation(tmp_path: Path, monkeypatch) -> None:
     _make_manifest(manifest, target)
     events: list[dict] = []
     import scripts.run_audit as run_audit
+    monkeypatch.setattr(run_audit, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(run_audit, "require_lumos_approval", lambda: None)
 
     monkeypatch.setattr(
         run_audit,
