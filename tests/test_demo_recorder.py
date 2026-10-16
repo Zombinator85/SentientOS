@@ -64,7 +64,8 @@ def test_demo_recorder_headless_uses_synthetic_frame(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     rec = dr_mod.DemoRecorder()
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **k: None)
+    commands = []
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: commands.append(args[0]))
 
     rec.start()
     rec.stop()
@@ -76,4 +77,5 @@ def test_demo_recorder_headless_uses_synthetic_frame(tmp_path, monkeypatch):
     assert rec.frames[0].read_bytes().startswith(b"P6\n640 360\n255\n")
     out = rec.export()
     assert out.name.endswith(".mp4")
+    assert "-vf" not in commands[0]
     assert list((tmp_path / f".demo_{out.stem}").glob("frame_*.ppm"))

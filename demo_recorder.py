@@ -171,11 +171,14 @@ class DemoRecorder:
                 start = (idx - 1) * 2
                 end = start + 2
                 f.write(f"{idx}\n00:00:{start:02d},000 --> 00:00:{end:02d},000\n{t.text}\n\n")
-        subprocess.run([
+        command = [
             "ffmpeg", "-y", "-r", "1", "-i", frame_pattern,
-            "-i", str(audio_file), "-vf", f"subtitles={srt.as_posix()}",
-            "-pix_fmt", "yuv420p", str(out_path),
-        ], check=False)
+            "-i", str(audio_file),
+        ]
+        if self.turns:
+            command.extend(["-vf", f"subtitles={srt.as_posix()}"])
+        command.extend(["-pix_fmt", "yuv420p", str(out_path)])
+        subprocess.run(command, check=False)
         return out_path
 
 
