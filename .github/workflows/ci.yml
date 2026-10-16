@@ -146,6 +146,9 @@ jobs:
 
   self-check:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
     services:
       docker:
         image: docker:dind
