@@ -128,11 +128,15 @@ class ProductionChatResourceObservationOwner:
             _mapping(read("provenance"), "provenance_json_invalid"))
         if provenance.provenance_digest != manifest["provenance_digest"]:
             raise ProductionChatResourceObservationError("manifest_provenance_mismatch")
+        catalog_version = manifest.get("trusted_issuer_catalog_version")
+        registry_version = manifest.get("revocation_registry_version")
+        if (type(catalog_version) is not int or type(registry_version) is not int):
+            raise ProductionChatResourceObservationError("resource_manifest_version_invalid")
         catalog = ReadOnlyTrustedIssuerCatalog.from_bytes(
-            read("catalog"), expected_catalog_version=int(manifest["trusted_issuer_catalog_version"]),
+            read("catalog"), expected_catalog_version=catalog_version,
             expected_catalog_digest=str(manifest["trusted_issuer_catalog_digest"]))
         registry = ReadOnlyPrincipalRevocationRegistry.from_bytes(
-            read("registry"), expected_registry_version=int(manifest["revocation_registry_version"]),
+            read("registry"), expected_registry_version=registry_version,
             expected_registry_digest=str(manifest["revocation_registry_digest"]))
         # Reuse these immutable validated views for historical provenance and
         # currentness checks below. Keeping them local grants no mutation or
@@ -152,11 +156,14 @@ class ProductionChatResourceObservationOwner:
         except ValueError as exc:
             raise ProductionChatResourceObservationError("resource_ledger_invalid") from exc
         snapshot = ledger.observation_snapshot()
-        if len(snapshot["allocations"]) != 1:
+        allocation_rows = snapshot.get("allocations")
+        if not isinstance(allocation_rows, (list, tuple)) or len(allocation_rows) != 1:
             raise ProductionChatResourceObservationError("resource_bundle_allocation_count_mismatch")
-        allocation = next((GovernedLocalModelResourceAllocation.from_mapping(item)
-                          for item in snapshot["allocations"]
-                          if isinstance(item, Mapping) and item.get("allocation_id") == manifest["allocation_id"]), None)
+        allocation_row = allocation_rows[0]
+        if not isinstance(allocation_row, Mapping):
+            raise ProductionChatResourceObservationError("resource_bundle_allocation_count_mismatch")
+        allocation = (GovernedLocalModelResourceAllocation.from_mapping(allocation_row)
+            if allocation_row.get("allocation_id") == manifest["allocation_id"] else None)
         if allocation is None:
             raise ProductionChatResourceObservationError("manifest_allocation_missing")
         bindings = (
@@ -315,11 +322,12 @@ class ProductionChatResourceObservationOwner:
             if value.get("resource_allocation_digest") == allocation_digest:
                 receipts.append(dict(value))
                 request = value.get("request")
+                effects = value.get("effects")
                 if (verified_software is not None
                         and isinstance(request, Mapping)
                         and value.get("status") == "admitted_completed"
-                        and isinstance(value.get("effects"), Mapping)
-                        and value["effects"].get("local_model_inference") is True
+                        and isinstance(effects, Mapping)
+                        and effects.get("local_model_inference") is True
                         and isinstance(value.get("output_digest"), str)):
                     compact_handoff = compact_runtime_generation_attribution(verified_software)
                     generation_attributions.append({

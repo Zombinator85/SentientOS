@@ -131,9 +131,9 @@ def _run_canonical_runtime_owned(
             if exc.code != "runtime_startup_snapshot_unavailable":
                 raise
     if config.enabled and previous_snapshot is not None:
-        adapter = registry.adapter(SERVICE_ID)
-        assert isinstance(adapter, LocalModelChatServiceAdapter)
-        adapter.bind_prior_startup_snapshot(previous_snapshot)
+        startup_adapter = registry.adapter(SERVICE_ID)
+        assert isinstance(startup_adapter, LocalModelChatServiceAdapter)
+        startup_adapter.bind_prior_startup_snapshot(previous_snapshot)
     stopping = stop_event or threading.Event()
     previous: dict[signal.Signals, Any] = {}
 
@@ -148,11 +148,12 @@ def _run_canonical_runtime_owned(
     try:
         supervisor.start_all()
         recovery = None
-        adapter = None
+        chat_adapter: LocalModelChatServiceAdapter | None = None
         if config.enabled:
-            adapter = registry.adapter(SERVICE_ID)
-            assert isinstance(adapter, LocalModelChatServiceAdapter)
-            handoff = adapter.current_runtime_handoff()
+            candidate_adapter = registry.adapter(SERVICE_ID)
+            assert isinstance(candidate_adapter, LocalModelChatServiceAdapter)
+            chat_adapter = candidate_adapter
+            handoff = chat_adapter.current_runtime_handoff()
             if not isinstance(handoff, Mapping):
                 raise RuntimeError("chat_process_runtime_handoff_unavailable")
             last_handoff = dict(handoff)
@@ -160,7 +161,7 @@ def _run_canonical_runtime_owned(
                 config, supervisor.generation, runtime_handoff=handoff), supervisor.root)
             assert handle is not None
             serving_posture, serving_receipt, serving_operation_id = (
-                _configured_serving_receipt_observation(adapter, handle, handoff))
+                _configured_serving_receipt_observation(chat_adapter, handle, handoff))
             try:
                 publish_chat_process_runtime_observation(handle=handle,
                     supervisor_generation=supervisor.generation, handoff=handoff,
@@ -174,12 +175,12 @@ def _run_canonical_runtime_owned(
                 # into a fabricated successful record.
                 pass
             recovery = ProductionLocalModelChatRecoveryController(
-                supervisor, adapter, ControlPlaneKernel(), handle)
+                supervisor, chat_adapter, ControlPlaneKernel(), handle)
         while not stopping.wait(cadence_seconds):
             supervisor.observe()
-            if recovery is not None and adapter is not None and handle is not None:
+            if recovery is not None and chat_adapter is not None and handle is not None:
                 try:
-                    observed_handoff = adapter.current_runtime_handoff()
+                    observed_handoff = chat_adapter.current_runtime_handoff()
                 except Exception:
                     if last_handoff is not None:
                         try:
@@ -194,7 +195,7 @@ def _run_canonical_runtime_owned(
                     if isinstance(observed_handoff, Mapping):
                         last_handoff = dict(observed_handoff)
                         serving_posture, serving_receipt, serving_operation_id = (
-                            _configured_serving_receipt_observation(adapter, handle, observed_handoff))
+                            _configured_serving_receipt_observation(chat_adapter, handle, observed_handoff))
                         try:
                             publish_chat_process_runtime_observation(
                                 handle=handle, supervisor_generation=supervisor.generation,

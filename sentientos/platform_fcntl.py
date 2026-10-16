@@ -7,6 +7,9 @@ not emulate flock with weaker or differently scoped Windows locking.
 from __future__ import annotations
 
 import errno
+from typing import Any
+
+fcntl: Any
 
 try:  # pragma: no cover - the native branch is exercised on POSIX hosts.
     import fcntl as fcntl

@@ -684,7 +684,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     if isinstance(predecessor_request, Mapping) else None)
                 predecessor_caller = (predecessor_linkage.get("caller_context")
                     if isinstance(predecessor_linkage, Mapping) else None)
-                current_session_id = caller_context.get("session_id")
+                if not isinstance(caller_context, Mapping):
+                    raise ValueError("resource_predecessor_caller_context_invalid")
+                predecessor_session_id = caller_context.get("session_id")
                 if (predecessor_receipt.get("receipt_digest")
                         != predecessor_reference["receipt_digest"]
                         or predecessor_receipt.get("status") != "admitted_completed"
@@ -694,7 +696,7 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                         or predecessor_request.get("request_id")
                             != predecessor_reference["request_id"]
                         or not isinstance(predecessor_caller, Mapping)
-                        or predecessor_caller.get("session_id") != current_session_id
+                        or predecessor_caller.get("session_id") != predecessor_session_id
                         or predecessor_caller.get("user_turn_id")
                             != predecessor_reference["source_user_turn_id"]):
                     raise ValueError("chat_process_invocation_predecessor_receipt_mismatch")
@@ -728,8 +730,10 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                 raise ValueError("chat_process_invocation_serving_history_missing_or_ambiguous")
             history = history_matches[0]
             receipt = history.get("receipt")
+            if not isinstance(receipt, Mapping):
+                raise ValueError("chat_process_invocation_serving_receipt_missing")
             attempt = history.get("attempt")
-            binding = receipt.get("binding") if isinstance(receipt, Mapping) else None
+            binding = receipt.get("binding")
             serving_binding_fields = (
                 "installation_identity", "serving_operation_id", "activation_state_semantic_digest",
                 "activation_generation", "activation_predecessor_state_digest",
@@ -1104,9 +1108,9 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
                     or handoff.get("handoff_digest") != runtime.get("handoff_digest")
                     or handoff.get("process_instance_id") != runtime.get("process_instance_id")):
                 continue
-            invocation = invocation_by_id.get(str(attribution.get("invocation_receipt_id")))
-            request = invocation.get("request") if isinstance(invocation, Mapping) else None
-            if not isinstance(invocation, Mapping) or not isinstance(request, Mapping):
+            joined_invocation = invocation_by_id.get(str(attribution.get("invocation_receipt_id")))
+            request = joined_invocation.get("request") if isinstance(joined_invocation, Mapping) else None
+            if not isinstance(joined_invocation, Mapping) or not isinstance(request, Mapping):
                 raise ValueError("chat_process_runtime_invocation_join_missing")
             request_linkage = request.get("linkage")
             request_linkage = request_linkage if isinstance(request_linkage, Mapping) else {}
@@ -1574,13 +1578,13 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 if run.get("digest") != record_digest(run):
                     candidate_findings.append("model_replacement_run_source_binding_invalid")
                 observation_digest = observation.get("observation_digest")
-                observation_id = observation.get("observation_id")
+                model_replacement_observation_id = observation.get("observation_id")
                 if (not isinstance(observation_digest, str)
                         or len(observation_digest) != 71
                         or not observation_digest.startswith("sha256:")
                         or any(character not in "0123456789abcdef"
                             for character in observation_digest[7:])
-                        or observation_id != "model-replacement-observation-"
+                        or model_replacement_observation_id != "model-replacement-observation-"
                             + observation_digest[7:31]):
                     candidate_findings.append("model_replacement_observation_binding_invalid")
                 consumption = observation.get("resource_consumption_receipt_digests")
@@ -1597,7 +1601,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                         and raw_score.get("schema_version") ==
                             "sentientos.objective_task_score:v3"):
                     request_context["task_family_probe_count"] = raw_score.get("probe_count")
-                task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
+                model_task_outcome: dict[str, Any] = {"posture": "not_scored_or_legacy"}
                 if raw_score is not None:
                     correct_count = raw_score.get("correct_count") if isinstance(raw_score, Mapping) else None
                     probe_count = raw_score.get("probe_count") if isinstance(raw_score, Mapping) else None
@@ -1612,9 +1616,9 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                             or not valid_counts):
                         candidate_findings.append(
                             "model_replacement_condition_score_invalid")
-                        task_outcome = {"posture": "score_binding_invalid"}
+                        model_task_outcome = {"posture": "score_binding_invalid"}
                     else:
-                        task_outcome = {"posture": "run_owner_score_bound_to_condition",
+                        model_task_outcome = {"posture": "run_owner_score_bound_to_condition",
                             "condition_id": observation.get("condition_id"),
                             "inference_receipt_id": observation.get("inference_receipt_id"),
                             "inference_receipt_digest": observation.get("inference_receipt_digest"),
@@ -1651,7 +1655,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                         "invocation_request_context_linkage": request_context,
                         "invocation_receipt_id": linkage["effect_receipt_id"],
                         "invocation_receipt_digest": linkage["effect_receipt_digest"],
-                        "_model_replacement_task_outcome": task_outcome,
+                        "_model_replacement_task_outcome": model_task_outcome,
                         "active_model_identity_digest": observation.get("model_identity_digest"),
                         "declared_software_generation": run_payload.get("software_generation_identity"),
                         "software_generation_posture": run_payload.get("software_generation_posture"),
@@ -1722,13 +1726,17 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         payload = proposal.get("payload")
         if not isinstance(payload, Mapping):
             continue
-        linkage = payload.get("resource_linkage")
-        if not isinstance(linkage, Mapping):
+        linkage_value = payload.get("resource_linkage")
+        if not isinstance(linkage_value, Mapping):
             continue
+        proposal_resource_linkage = linkage_value
         findings: list[str] = []
-        findings.extend(str(item) for item in linkage.get("_lineage_findings", ())
+        raw_lineage_findings = proposal_resource_linkage.get("_lineage_findings", ())
+        if not isinstance(raw_lineage_findings, (list, tuple)):
+            raw_lineage_findings = ()
+        findings.extend(str(item) for item in raw_lineage_findings
             if isinstance(item, str))
-        if linkage.get("posture") != "invocation_receipt_bound_ledger_corroboration_not_performed":
+        if proposal_resource_linkage.get("posture") != "invocation_receipt_bound_ledger_corroboration_not_performed":
             findings.append("invocation_resource_linkage_posture_unrecognized")
         allocations: list[Mapping[str, Any]] = []
         ledger_receipts: list[Mapping[str, Any]] = []
@@ -1741,8 +1749,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 continue
             for invocation in resource_payload.get("invocation_receipts", ()):
                 if (isinstance(invocation, Mapping)
-                        and invocation.get("receipt_id") == linkage.get("effect_receipt_id")
-                        and invocation.get("receipt_digest") == linkage.get("effect_receipt_digest")):
+                        and invocation.get("receipt_id") == proposal_resource_linkage.get("effect_receipt_id")
+                        and invocation.get("receipt_digest") == proposal_resource_linkage.get("effect_receipt_digest")):
                     matches.append((resource, invocation))
         resource_record: Mapping[str, Any] | None = None
         invocation_row: Mapping[str, Any] | None = None
@@ -1751,21 +1759,21 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         else:
             resource_record, invocation_row = matches[0]
             resource_payload = resource_record["payload"]
-            raw_expected_receipts = linkage.get("consumption_receipt_digests", ())
+            raw_expected_receipts = proposal_resource_linkage.get("consumption_receipt_digests", ())
             expected_receipts = tuple(str(item) for item in raw_expected_receipts) if isinstance(
                 raw_expected_receipts, (list, tuple)) else ()
-            if (invocation_row.get("request_id") != linkage.get("request_id")
-                    or invocation_row.get("request_digest") != linkage.get("request_digest")
-                    or invocation_row.get("purpose") != linkage.get("purpose")
-                    or invocation_row.get("model_id") != linkage.get("model_id")
-                    or invocation_row.get("model_artifact_digest") != linkage.get("model_artifact_digest")
-                    or (linkage.get("invocation_authority_map_digest") is not None
+            if (invocation_row.get("request_id") != proposal_resource_linkage.get("request_id")
+                    or invocation_row.get("request_digest") != proposal_resource_linkage.get("request_digest")
+                    or invocation_row.get("purpose") != proposal_resource_linkage.get("purpose")
+                    or invocation_row.get("model_id") != proposal_resource_linkage.get("model_id")
+                    or invocation_row.get("model_artifact_digest") != proposal_resource_linkage.get("model_artifact_digest")
+                    or (proposal_resource_linkage.get("invocation_authority_map_digest") is not None
                         and invocation_row.get("authority_map_digest")
-                            != linkage.get("invocation_authority_map_digest"))
-                    or invocation_row.get("resource_allocation_digest") != linkage.get("allocation_digest")
-                    or invocation_row.get("resource_attempt_id") != linkage.get("attempt_id")
+                            != proposal_resource_linkage.get("invocation_authority_map_digest"))
+                    or invocation_row.get("resource_allocation_digest") != proposal_resource_linkage.get("allocation_digest")
+                    or invocation_row.get("resource_attempt_id") != proposal_resource_linkage.get("attempt_id")
                     or tuple(invocation_row.get("resource_consumption_receipt_digests") or ()) != expected_receipts
-                    or invocation_row.get("resource_linkage_digest") != linkage.get("linkage_digest")):
+                    or invocation_row.get("resource_linkage_digest") != proposal_resource_linkage.get("linkage_digest")):
                 findings.append("resource_invocation_linkage_substitution")
             if (resource_payload.get("lineage_posture") != "verified"
                     or resource_payload.get("recovery_posture") != "reconciled_or_restored"
@@ -1773,11 +1781,11 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     or resource_payload.get("incomplete_attempt_count") != 0):
                 findings.append("resource_ledger_projection_incomplete")
             allocations = [item for item in resource_payload.get("allocations", ())
-                if isinstance(item, Mapping) and item.get("allocation_digest") == linkage.get("allocation_digest")]
+                if isinstance(item, Mapping) and item.get("allocation_digest") == proposal_resource_linkage.get("allocation_digest")]
             if len(allocations) != 1:
                 findings.append("resource_allocation_missing_or_ambiguous")
             attempts = [item for item in resource_payload.get("attempts", ())
-                if isinstance(item, Mapping) and item.get("attempt_id") == linkage.get("attempt_id")]
+                if isinstance(item, Mapping) and item.get("attempt_id") == proposal_resource_linkage.get("attempt_id")]
             if len(attempts) != 1 or (allocations and attempts
                     and attempts[0].get("allocation_id") != allocations[0].get("allocation_id")):
                 findings.append("resource_attempt_missing_or_substituted")
@@ -1785,19 +1793,19 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 if isinstance(item, Mapping) and item.get("receipt_digest") in expected_receipts]
             if (len(ledger_receipts) != len(expected_receipts)
                     or len({item.get("receipt_digest") for item in ledger_receipts}) != len(expected_receipts)
-                    or any(item.get("attempt_id") != linkage.get("attempt_id")
-                        or item.get("allocation_digest") != linkage.get("allocation_digest")
+                    or any(item.get("attempt_id") != proposal_resource_linkage.get("attempt_id")
+                        or item.get("allocation_digest") != proposal_resource_linkage.get("allocation_digest")
                         or (allocations and item.get("principal_binding_digest") != allocations[0].get("principal_binding_digest"))
                         for item in ledger_receipts)):
                 findings.append("resource_consumption_receipt_missing_or_substituted")
             reconciled = [item for item in ledger_receipts if item.get("state") == "reconciled"
-                and item.get("effect_receipt_digest") == linkage.get("effect_receipt_digest")]
+                and item.get("effect_receipt_digest") == proposal_resource_linkage.get("effect_receipt_digest")]
             if len(reconciled) != 1:
                 findings.append("resource_effect_receipt_not_reconciled")
             if resource_record.get("digest") != record_digest(resource_record):
                 findings.append("resource_world_state_record_digest_invalid")
 
-        semantic_linkage = {key: linkage.get(key) for key in (
+        semantic_linkage = {key: proposal_resource_linkage.get(key) for key in (
             "request_id", "request_digest", "purpose", "model_id", "model_artifact_digest",
             "invocation_authority_map_digest",
             "allocation_digest", "attempt_id", "consumption_receipt_digests", "linkage_digest",
@@ -1844,15 +1852,15 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             allocation_identity = {key: allocation.get(key) for key in (
                 "allocation_id", "allocation_digest", "principal_id", "principal_binding_digest",
                 "principal_epoch", "resource_kind", "epoch", "policy_digest")}
-        request_context = payload.get("invocation_request_context_linkage")
-        task_context = ({key: request_context.get(key) for key in (
+        request_context_value = payload.get("invocation_request_context_linkage")
+        task_context = ({key: request_context_value.get(key) for key in (
             "experiment_condition", "experiment_protocol_id", "history_record_ids",
             "history_record_digests")}
-            if isinstance(request_context, Mapping) else None)
-            join: dict[str, Any] = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+            if isinstance(request_context_value, Mapping) else None)
+        join: dict[str, Any] = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
             "source_id": "strategy-resource-lineage:" + digest({
                 "proposal_id": proposal.get("subject_id"),
-                "invocation_receipt_digest": linkage.get("effect_receipt_digest")})[:24],
+                "invocation_receipt_digest": proposal_resource_linkage.get("effect_receipt_digest")})[:24],
             "schema_version": "sentientos.strategy_invocation_resource_lineage:v1",
             "subject_id": str(proposal.get("subject_id", "")),
             "subject_kind": "strategy_invocation_resource_lineage",
@@ -1863,17 +1871,17 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             "payload": {"strategy_proposal_id": proposal.get("subject_id"),
                 "strategy_proposal_record_digest": proposal.get("digest"),
                 "invocation_receipt_id": payload.get("invocation_receipt_id"),
-                "invocation_receipt_digest": linkage.get("effect_receipt_digest"),
+                "invocation_receipt_digest": proposal_resource_linkage.get("effect_receipt_digest"),
                 "resource_linkage": semantic_linkage, "resource_record": resource_ref,
                 "allocation_identity": allocation_identity,
                 "principal_id": (allocation_identity.get("principal_id")
                     if allocation_identity is not None else None),
                 "principal_binding_digest": (allocation_identity.get("principal_binding_digest")
                     if allocation_identity is not None else None),
-                "model_attribution": {"model_id": linkage.get("cognitive_model_id") or linkage.get("model_id"),
-                    "invocation_model_id": linkage.get("model_id"),
-                    "invocation_authority_map_digest": linkage.get("invocation_authority_map_digest"),
-                    "model_artifact_digest": linkage.get("model_artifact_digest"),
+                "model_attribution": {"model_id": proposal_resource_linkage.get("cognitive_model_id") or proposal_resource_linkage.get("model_id"),
+                    "invocation_model_id": proposal_resource_linkage.get("model_id"),
+                    "invocation_authority_map_digest": proposal_resource_linkage.get("invocation_authority_map_digest"),
+                    "model_artifact_digest": proposal_resource_linkage.get("model_artifact_digest"),
                     "active_model_identity_digest": payload.get("active_model_identity_digest")},
                 "software_attribution": {"declared_generation": payload.get("declared_software_generation"),
                     "generation_posture": payload.get("software_generation_posture"),
@@ -1893,7 +1901,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         if model_candidate is not None:
             join["source_id"] = "model-replacement-resource-lineage:" + digest({
                 "observation_id": model_candidate.get("invocation_receipt_id"),
-                "invocation_receipt_digest": linkage.get("effect_receipt_digest")})[:24]
+                "invocation_receipt_digest": proposal_resource_linkage.get("effect_receipt_digest")})[:24]
             join["schema_version"] = "sentientos.model_replacement_invocation_resource_lineage:v1"
             join["subject_kind"] = "model_replacement_invocation_resource_lineage"
             join["payload"].pop("strategy_proposal_id", None)
@@ -1914,7 +1922,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
         if history_candidate is not None:
             join["source_id"] = "developmental-history-resource-lineage:" + digest({
                 "observation_id": history_candidate.get("_developmental_history_observation_id"),
-                "invocation_receipt_digest": linkage.get("effect_receipt_digest")})[:24]
+                "invocation_receipt_digest": proposal_resource_linkage.get("effect_receipt_digest")})[:24]
             join["schema_version"] = "sentientos.developmental_history_invocation_resource_lineage:v1"
             join["subject_id"] = str(history_candidate.get("_developmental_history_observation_id") or "")
             join["subject_kind"] = "developmental_history_invocation_resource_lineage"

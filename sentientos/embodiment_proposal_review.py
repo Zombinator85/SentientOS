@@ -187,15 +187,18 @@ def _verified_review_material(record: Mapping[str, Any]) -> tuple[dict[str, Any]
             or not _bounded_review_refs(material.get("source_event_refs"))):
         return None, "invalid"
     proposal_digest = material.get("proposal_digest")
+    optional_text_invalid = False
+    for key, maximum in (("reviewer_ref", 512), ("reviewer_label", 512),
+            ("review_rationale", 2000), ("correlation_id", 512)):
+        value = material.get(key)
+        if value is not None and (not isinstance(value, str) or len(value) > maximum):
+            optional_text_invalid = True
     if (not isinstance(material.get("proposal_id"), str) or not material["proposal_id"]
             or len(material["proposal_id"]) > 256
             or not isinstance(material.get("proposal_ref"), str) or not material["proposal_ref"]
             or len(material["proposal_ref"]) > 512
             or material.get("reviewer_kind") not in ALLOWED_REVIEWER_KINDS
-            or any(material.get(key) is not None and (not isinstance(material[key], str)
-                or len(material[key]) > maximum) for key, maximum in (
-                    ("reviewer_ref", 512), ("reviewer_label", 512),
-                    ("review_rationale", 2000), ("correlation_id", 512)))
+            or optional_text_invalid
             or (proposal_digest is not None and (not isinstance(proposal_digest, str)
                 or len(proposal_digest) != 71 or not proposal_digest.startswith("sha256:")
                 or any(character not in "0123456789abcdef" for character in proposal_digest[7:])))):

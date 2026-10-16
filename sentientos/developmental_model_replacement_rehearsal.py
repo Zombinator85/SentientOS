@@ -165,7 +165,7 @@ class _Worker:
 
 
 def _context(objective_task: ObjectivePredictionTask | None = None) -> FrozenCausalContext:
-    current = {"facts": [{"id": "rehearsal-current", "value": "frozen"}]}
+    current: dict[str, Any] = {"facts": [{"id": "rehearsal-current", "value": "frozen"}]}
     if objective_task is not None:
         current["objective_task"] = objective_task.public_descriptor()
         if objective_task.additional_probe_inputs:
@@ -305,11 +305,18 @@ def _task(scenario: Mapping[str, Any]) -> ObjectivePredictionTask | None:
         return None
     probes = raw.get("probe_inputs")
     nonce = scenario.get("objective_task_commitment_nonce")
-    options = {"commitment_nonce": nonce} if isinstance(nonce, str) else {}
-    return (ObjectivePredictionTask(raw["multiplier"], raw["offset"], probes[0], tuple(probes[1:]),
-            raw.get("task_family_id"), raw.get("requires_task_family_history", False), **options)
-        if isinstance(probes, list) else
-        ObjectivePredictionTask(raw["multiplier"], raw["offset"], raw["probe_input"], **options))
+    if isinstance(probes, list):
+        if isinstance(nonce, str):
+            return ObjectivePredictionTask(raw["multiplier"], raw["offset"], probes[0],
+                tuple(probes[1:]), raw.get("task_family_id"),
+                raw.get("requires_task_family_history", False), commitment_nonce=nonce)
+        return ObjectivePredictionTask(raw["multiplier"], raw["offset"], probes[0],
+            tuple(probes[1:]), raw.get("task_family_id"),
+            raw.get("requires_task_family_history", False))
+    if isinstance(nonce, str):
+        return ObjectivePredictionTask(raw["multiplier"], raw["offset"], raw["probe_input"],
+            commitment_nonce=nonce)
+    return ObjectivePredictionTask(raw["multiplier"], raw["offset"], raw["probe_input"])
 
 
 def run_next(root: Path, *, resource_context_owner: ProductionChatResourceContextOwner | None = None) -> Mapping[str, Any]:

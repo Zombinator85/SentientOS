@@ -7,7 +7,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, NoReturn
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -17,6 +17,7 @@ from sentientos.resident_cognitive_model_serving import (
     CONFIG_ENV as SERVING_CONFIG_ENV, ResidentCognitiveInvocationReceiptReader,
     load_config as load_serving_config,
 )
+from sentientos.governed_local_model_invocation import LocalModelInvoker
 from sentientos.resident_developmental_cognition import (
     CONFIG_ENV as COGNITION_CONFIG_ENV, ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner,
@@ -49,6 +50,23 @@ def _verify_observation(reader: ResidentCognitiveInvocationReceiptReader,
         **({"expected_session_receipt_id": observation["serving_session_receipt_id"],
             "expected_session_receipt_digest": observation["serving_session_receipt_digest"]}
             if observation.get("serving_session_receipt_id") is not None else {}))
+
+
+class _ReceiptOnlyInvoker(LocalModelInvoker):
+    """Owner adapter for read-only inspection; inference methods fail closed."""
+    def __init__(self, reader: ResidentCognitiveInvocationReceiptReader) -> None:
+        self.reader = reader
+
+    def build_request(self, **kwargs: Any) -> NoReturn:
+        raise RuntimeError("objective_result_inspection_cannot_invoke_model")
+
+    def invoke(self, request: Any, **kwargs: Any) -> NoReturn:
+        raise RuntimeError("objective_result_inspection_cannot_invoke_model")
+
+    def verify_persisted_invocation_receipt(self, receipt_id: str, receipt_digest: str,
+            **kwargs: Any) -> Mapping[str, Any]:
+        return self.reader.verify_persisted_invocation_receipt(
+            receipt_id, receipt_digest, **kwargs)
 
 
 def inspect_result(*, cognition_config_path: Path, serving_config_path: Path,
@@ -120,7 +138,7 @@ def inspect_progression(*, cognition_config_path: Path, serving_config_path: Pat
         current_sequence=ledger.current_sequence)
     owner = ResidentDevelopmentalCognitionOwner(config=config, writeback=writeback,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-        invoker=reader, current_sequence=ledger.current_sequence)
+        invoker=_ReceiptOnlyInvoker(reader), current_sequence=ledger.current_sequence)
     result = dict(owner.verified_objective_task_family_progression(
         request_refs=request_refs))
     result.update({"model_invoked": False, "write_performed": False})

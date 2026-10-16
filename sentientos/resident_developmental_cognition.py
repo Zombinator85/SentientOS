@@ -235,9 +235,12 @@ def _objective_task_from_specification(specification: Any,
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
         if specification.get("oracle_scope") != "deterministic_fixture_not_physical_measurement":
             raise ResidentDevelopmentalCognitionError("objective_request_task_invalid")
-        task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
-            specification["probe_input"],
-            **({"commitment_nonce": commitment_nonce} if commitment_nonce is not None else {}))
+        if commitment_nonce is not None:
+            task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                specification["probe_input"], commitment_nonce=commitment_nonce)
+        else:
+            task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                specification["probe_input"])
     elif schema in {"sentientos.affine_prediction_task_suite:v2",
             "sentientos.affine_prediction_task_family_suite:v3"}:
         fields = common | {"probe_inputs", "oracle_scope"}
@@ -1081,7 +1084,8 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
             count, probes = item.get("correct_count"), item.get("probe_count")
             resource = item.get("resource_context")
             receipts = resource.get("resource_receipts") if isinstance(resource, Mapping) else None
-            if (type(count) is not int or type(probes) is not int or probes != probe_count
+            if (not isinstance(resource, Mapping) or type(count) is not int
+                    or type(probes) is not int or probes != probe_count
                     or not 0 <= count <= probes
                     or not isinstance(receipts, list) or not receipts
                     or resource.get("posture") != "verified_ledger_receipt_values"
@@ -1175,9 +1179,10 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
         "execution_evidence_posture", "historical_only", "current_truth", "authority")}
     resource_context = example.get("resource_context")
     if isinstance(resource_context, Mapping):
-        retained["resource_context"] = {key: resource_context.get(key) for key in (
+        retained_resource_context: dict[str, Any] = {key: resource_context.get(key) for key in (
             "posture", "source_fact_id", "source_binding", "shared_host_cpu_gpu",
             "historical_only", "current_truth", "authority") if key in resource_context}
+        retained["resource_context"] = retained_resource_context
         # The per-condition projection below carries every measured receipt.
         # Keep a compact digest/count in this older aggregate slot to avoid
         # repeating the history_present measurement row.
@@ -1187,8 +1192,8 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
                 "receipt_digest": item.get("receipt_digest"),
                 "measured_values": item.get("measured_values")}
                 for item in measurements if isinstance(item, Mapping)]
-            retained["resource_context"]["measurement_receipt_refs"] = refs
-            retained["resource_context"]["omitted_measurement_count"] = (
+            retained_resource_context["measurement_receipt_refs"] = refs
+            retained_resource_context["omitted_measurement_count"] = (
                 resource_context.get("omitted_measurement_count", 0))
     outcomes = example.get("condition_outcomes")
     if isinstance(outcomes, (list, tuple)):
@@ -1253,7 +1258,8 @@ def _task_family_model_applicability(example: Mapping[str, Any], *,
     if not source_bound or target_digest is None:
         relation = "model_identity_unbound"
         posture = "model_identity_unbound_transfer_not_established"
-    elif dict(source) == dict(target_model_identity):
+    elif (isinstance(source, Mapping) and isinstance(target_model_identity, Mapping)
+            and dict(source) == dict(target_model_identity)):
         relation = "same_active_model_identity"
         posture = "same_family_same_model_task_scope_unverified"
     else:
@@ -1607,12 +1613,11 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         **({"unqualified_lineage": unqualified[:4]} if unqualified else {})}),
                     "historical_only": True, "current_truth": False, "authority": False,
                 })
+        observed_probe_count = score.get("probe_count")
         resource_strategy_recommendation = _resource_condition_recommendation(
             condition_outcomes,
-            minimum_correct_count=(score.get("probe_count")
-                if type(score.get("probe_count")) is int else 0),
-            probe_count=(score.get("probe_count")
-                if type(score.get("probe_count")) is int else 0),
+            minimum_correct_count=(observed_probe_count if type(observed_probe_count) is int else 0),
+            probe_count=(observed_probe_count if type(observed_probe_count) is int else 0),
             task_digest=str(descriptor.get("task_digest", "")))
         # Keep the execution posture attached to the acquired examples when
         # they are retrieved later.  A deterministic task score establishes
@@ -1727,7 +1732,7 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
             "source_task_digest": descriptor["task_digest"],
             "source_score_digest": score["score_digest"],
             "source_active_model_identity": (dict(active_model_identity)
-                if model_identity_bound else None),
+                if isinstance(active_model_identity, Mapping) else None),
             "source_active_model_identity_digest": (active_model_identity_digest
                 if model_identity_bound else None),
             "model_identity_binding_posture": ("protocol_bound_source_identity"
@@ -2409,7 +2414,7 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             and isinstance(verified_generation, Mapping)
             and dict(observed_generation) == dict(verified_generation))
         actual_parameters = (verified_generation.get("actual_generation_parameters")
-            if generation_binding_verified else None)
+            if isinstance(verified_generation, Mapping) and generation_binding_verified else None)
         active_model_identity = observation.get("active_model_identity")
         model_profile = None
         if (generation_binding_verified and isinstance(active_model_identity, Mapping)
@@ -2419,7 +2424,8 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             exact_profile = {"model_id": observation.get("model_id"),
                 "model_artifact_digest": observation.get("model_artifact_digest"),
                 "active_model_identity": dict(active_model_identity),
-                "generation_config": dict(verified_generation)}
+                "generation_config": dict(verified_generation)
+                    if isinstance(verified_generation, Mapping) else {}}
             model_profile = {"model_id": exact_profile["model_id"],
                 "model_artifact_digest": exact_profile["model_artifact_digest"],
                 "active_model_identity": exact_profile["active_model_identity"],
@@ -2488,7 +2494,8 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
             for key, value in resource_fields.items():
                 observed_value = observation.get(key)
                 if key == "resource_consumption_receipt_digests":
-                    if (not isinstance(observed_value, (list, tuple))
+                    if (not isinstance(value, (list, tuple))
+                            or not isinstance(observed_value, (list, tuple))
                             or tuple(observed_value) != tuple(value)):
                         linkage_mismatch = True
                         break
@@ -2802,6 +2809,7 @@ class ResidentDevelopmentalCognitionOwner:
                             raise ResidentDevelopmentalCognitionError("composition_state_corrupt") from exc
                 finally:
                     os.close(root_fd)
+        state: dict[str, Any]
         if state_bytes is None:
             semantic = {"schema": STATE_SCHEMA, "processed_selection_ids": [], "completed_ticks": [],
                 "incomplete_ticks": []}
@@ -2842,27 +2850,30 @@ class ResidentDevelopmentalCognitionOwner:
             recovered = self.writeback.recover_completed_records()
         except Exception as exc:
             raise ResidentDevelopmentalCognitionError("developmental_history_recovery_failed") from exc
-        processed = set(state["processed_selection_ids"])
+        processed_ids: list[str] = list(state["processed_selection_ids"])
+        completed_tick_rows: list[dict[str, Any]] = list(state["completed_ticks"])
+        incomplete_tick_rows: list[dict[str, Any]] = list(state["incomplete_ticks"])
+        processed = set(processed_ids)
         ticks: dict[str, dict[str, Any]] = {}
-        for row in state["completed_ticks"]:
-            saved_tick = row.get("tick_id")
+        for completed_row in completed_tick_rows:
+            saved_tick = completed_row.get("tick_id")
             if not isinstance(saved_tick, str) or not saved_tick or saved_tick in ticks:
                 raise ResidentDevelopmentalCognitionError("composition_tick_identity_ambiguous")
-            ticks[saved_tick] = row
+            ticks[saved_tick] = completed_row
         incomplete: dict[str, dict[str, Any]] = {}
         recovery_intent_order: dict[str, int] = {}
-        for index, row in enumerate(state["incomplete_ticks"]):
-            saved_tick = row.get("tick_id")
+        for index, incomplete_row in enumerate(incomplete_tick_rows):
+            saved_tick = incomplete_row.get("tick_id")
             if not isinstance(saved_tick, str) or not saved_tick or saved_tick in incomplete or saved_tick in ticks:
                 raise ResidentDevelopmentalCognitionError("composition_tick_identity_ambiguous")
-            if row.get("status") == "in_progress":
+            if incomplete_row.get("status") == "in_progress":
                 recovery_intent_order[saved_tick] = index
                 # The durable marker is written before any cognition call. If
                 # it is still present on the next owner entry, completion was
                 # interrupted; preserve that fact and never retry this tick.
-                row["status"] = "interrupted_recovered"
+                incomplete_row["status"] = "interrupted_recovered"
                 changed = True
-            incomplete[saved_tick] = row
+            incomplete[saved_tick] = incomplete_row
         completed_order = {tick: index for index, tick in enumerate(ticks)}
 
         recovered = tuple(sorted(recovered, key=lambda item:
@@ -2879,7 +2890,7 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError("recovered_fact_identity_invalid")
             for fact_id in fact_ids:
                 if fact_id not in processed:
-                    state["processed_selection_ids"].append(fact_id)
+                    processed_ids.append(fact_id)
                     processed.add(fact_id)
                     changed = True
             suffix = ":resident-developmental-writeback"
@@ -2897,15 +2908,15 @@ class ResidentDevelopmentalCognitionOwner:
                 "snapshot_digest": candidate.get("snapshot_digest"), "record_id": record.record_id,
                 "receipt_id": receipt.receipt_id}
             if existing is None:
-                state["completed_ticks"].append(checkpoint)
+                completed_tick_rows.append(checkpoint)
                 ticks[recovered_tick] = checkpoint
                 changed = True
             elif existing.get("record_id") != record.record_id or existing.get("receipt_id") != receipt.receipt_id:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_record_conflict")
             if recovered_tick in incomplete:
                 del incomplete[recovered_tick]
-                state["incomplete_ticks"] = [row for row in state["incomplete_ticks"]
-                    if row.get("tick_id") != recovered_tick]
+                incomplete_tick_rows = [saved_row for saved_row in incomplete_tick_rows
+                    if saved_row.get("tick_id") != recovered_tick]
                 changed = True
         # A durable cognition observation without its enclosing tick checkpoint
         # is an interrupted tick. Preserve it and reject same-tick replay.
@@ -2916,11 +2927,14 @@ class ResidentDevelopmentalCognitionOwner:
                 continue
             item = {"tick_id": recovered_tick, "observation_ids": list(observation_ids),
                 "status": "incomplete_recovered"}
-            state["incomplete_ticks"].append(item)
+            incomplete_tick_rows.append(item)
             incomplete[recovered_tick] = item
             changed = True
-        if (len(state["processed_selection_ids"]) > MAX_RECOVERED_FACT_IDS
-                or len(state["completed_ticks"]) + len(state["incomplete_ticks"]) > MAX_RECOVERED_TICKS):
+        state["processed_selection_ids"] = processed_ids
+        state["completed_ticks"] = completed_tick_rows
+        state["incomplete_ticks"] = incomplete_tick_rows
+        if (len(processed_ids) > MAX_RECOVERED_FACT_IDS
+                or len(completed_tick_rows) + len(incomplete_tick_rows) > MAX_RECOVERED_TICKS):
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
         if changed:
             self._save_state(state)
@@ -3690,7 +3704,7 @@ class ResidentDevelopmentalCognitionOwner:
                 os.close(root_fd)
         by_tick: dict[str, list[str]] = {}
         verified_records: dict[str, dict[str, Any]] = {}
-        contexts_by_tick: dict[str, tuple[set[str], tuple[str, str]]] = {}
+        contexts_by_tick: dict[str, tuple[set[str], tuple[Any | None, Any | None]]] = {}
         for name, raw in entries:
             try:
                 value = json.loads(raw.decode("utf-8"))
@@ -5158,7 +5172,7 @@ class ResidentDevelopmentalCognitionOwner:
                         if isinstance(family_for_preflight, str)
                         else "completed_tick_recency_suffix:v1"),
                 }
-                if objective_task is not None:
+                if objective_task is not None and isinstance(task_descriptor_for_preflight, Mapping):
                     preflight_context["objective_task"] = dict(task_descriptor_for_preflight)
                 _, preflight_metadata, _, protocol_record_ids, record_digests = (
                     _bind_history_and_epistemic_context(context=preflight_context,
@@ -5240,7 +5254,7 @@ class ResidentDevelopmentalCognitionOwner:
                     prior_epistemic_state=prior_epistemic_state, objective_plan=objective_plan)
                 observations.extend((present, withheld, restored))
                 summary = summarize(protocol, observations)
-                run_payload = {"protocol":asdict(protocol),
+                run_payload: dict[str, Any] = {"protocol":asdict(protocol),
                     "conditions":[asdict(x) for x in observations], "summary":summary,
                     "validity":"valid_controlled_observation", "contamination_reasons":[]}
                 if objective_plan is not None:

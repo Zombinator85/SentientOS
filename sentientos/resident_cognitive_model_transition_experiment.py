@@ -189,6 +189,8 @@ class TransitionProtocol:
                 or transition_id != "transition-" + str(claimed)[:24]):
             raise TransitionError("protocol_tamper")
         if schema == SCHEMA_V2:
+            if not isinstance(references, Mapping):
+                raise TransitionError("protocol_tamper")
             for reference in references.values():
                 if (not isinstance(reference, Mapping)
                         or set(reference) != {"protocol_id", "protocol_digest", "model_role"}

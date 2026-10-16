@@ -9,13 +9,16 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping
+from types import ModuleType
 
 try:
-    import fcntl as _fcntl
+    import fcntl as _fcntl_import
+    _fcntl: ModuleType | None = _fcntl_import
 except ImportError:  # Windows commissioning uses its native byte-range lock.
     _fcntl = None
 try:
-    import msvcrt as _msvcrt
+    import msvcrt as _msvcrt_import
+    _msvcrt: ModuleType | None = _msvcrt_import
 except ImportError:  # POSIX deployments do not need msvcrt.
     _msvcrt = None
 
@@ -116,10 +119,10 @@ def _lock(root: Path) -> Iterator[None]:
     finally:
         try:
             if lock_kind == "fcntl" and _fcntl is not None:
-                _fcntl.flock(handle, _fcntl.LOCK_UN)
+                getattr(_fcntl, "flock")(handle, getattr(_fcntl, "LOCK_UN"))
             elif lock_kind == "msvcrt" and _msvcrt is not None:
                 handle.seek(0)
-                _msvcrt.locking(handle.fileno(), _msvcrt.LK_UNLCK, 1)
+                getattr(_msvcrt, "locking")(handle.fileno(), getattr(_msvcrt, "LK_UNLCK"), 1)
         finally:
             handle.close()
 

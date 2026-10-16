@@ -734,7 +734,8 @@ class MaintenanceResidentParentSupervisor:
         row = {"schema_version": RECEIPT_SCHEMA, "sequence": self._sequence + 1,
             "timestamp": datetime.fromtimestamp(self._clock(), timezone.utc).isoformat(),
             "event": event, "child_spec_digest": self._spec_digest, "detail": receipt_detail}
-        row["receipt_digest"] = _digest(row)
+        receipt_digest = _digest(row)
+        row["receipt_digest"] = receipt_digest
         encoded = _canonical(row) + b"\n"
         if (len(encoded) > MAX_PARENT_RECEIPT_LINE_BYTES
                 or self._receipt_bytes + len(encoded) > MAX_PARENT_RECEIPT_BYTES):
@@ -773,7 +774,7 @@ class MaintenanceResidentParentSupervisor:
         self._sequence += 1
         self._receipt_count += 1
         self._receipt_bytes += len(encoded)
-        self._receipt_head_digest = row["receipt_digest"]
+        self._receipt_head_digest = receipt_digest
         self._persist()
 
     @staticmethod
@@ -1185,7 +1186,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     stopping = Event()
-    previous_handlers: dict[int, Any] = {}
+    previous_handlers: dict[signal.Signals, Any] = {}
 
     def request_stop(_signum: int, _frame: Any) -> None:
         stopping.set()
@@ -1211,8 +1212,8 @@ def main(argv: list[str] | None = None) -> int:
             supervisor.shutdown(panic=result != 0)
         except Exception:
             result = 2
-        for signum, handler in previous_handlers.items():
-            signal.signal(signum, handler)
+        for signal_number, handler in previous_handlers.items():
+            signal.signal(signal_number, handler)
     return result
 
 

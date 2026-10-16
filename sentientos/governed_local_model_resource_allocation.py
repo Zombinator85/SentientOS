@@ -314,12 +314,20 @@ class GovernedLocalModelResourceLedgerObservation:
     _snapshot: Mapping[str, object]
 
     def observation_snapshot(self) -> Mapping[str, object]:
+        allocations = self._snapshot["allocations"]
+        attempts = self._snapshot["attempts"]
+        receipts = self._snapshot["receipts"]
+        if (not isinstance(allocations, (list, tuple))
+                or not isinstance(attempts, (list, tuple))
+                or not isinstance(receipts, (list, tuple))
+                or any(not isinstance(item, Mapping) for item in (*allocations, *attempts, *receipts))):
+            raise GovernedLocalModelResourceError("invalid_read_only_ledger_snapshot")
         return {
             "schema": self._snapshot["schema"],
             "ledger_digest": self._snapshot["ledger_digest"],
-            "allocations": tuple(dict(item) for item in self._snapshot["allocations"]),
-            "attempts": tuple(dict(item) for item in self._snapshot["attempts"]),
-            "receipts": tuple(dict(item) for item in self._snapshot["receipts"]),
+            "allocations": tuple(dict(item) for item in allocations),
+            "attempts": tuple(dict(item) for item in attempts),
+            "receipts": tuple(dict(item) for item in receipts),
         }
 
 
@@ -423,11 +431,11 @@ class GovernedLocalModelResourceLedger:
             expected = seen.get(receipt.attempt_id)
             if receipt.previous_receipt_digest != expected:
                 raise GovernedLocalModelResourceError("broken_receipt_predecessor")
-            allocation = attempt_allocations.get(receipt.attempt_id)
-            if allocation is None:
+            attempt_allocation = attempt_allocations.get(receipt.attempt_id)
+            if attempt_allocation is None:
                 raise GovernedLocalModelResourceError("receipt_attempt_missing")
-            if (receipt.allocation_digest != allocation.allocation_digest
-                    or receipt.principal_binding_digest != allocation.principal_binding_digest):
+            if (receipt.allocation_digest != attempt_allocation.allocation_digest
+                    or receipt.principal_binding_digest != attempt_allocation.principal_binding_digest):
                 raise GovernedLocalModelResourceError("receipt_allocation_or_principal_substitution")
             seen[receipt.attempt_id] = receipt.receipt_digest
             histories.setdefault(receipt.attempt_id, []).append(receipt)
@@ -607,10 +615,19 @@ class GovernedLocalModelResourceLedger:
         with self._lock:
             self._verify_invariants(self._state)
             body = self._body()
+            allocations = body["allocations"]
+            attempts = body["attempts"]
+            receipts = body["receipts"]
+            if (not isinstance(allocations, Mapping) or not isinstance(attempts, Mapping)
+                    or not isinstance(receipts, (list, tuple))
+                    or any(not isinstance(value, Mapping) for value in allocations.values())
+                    or any(not isinstance(value, Mapping) for value in attempts.values())
+                    or any(not isinstance(value, Mapping) for value in receipts)):
+                raise GovernedLocalModelResourceError("invalid_read_only_ledger_snapshot")
             return {"schema": LEDGER_SCHEMA, "ledger_digest": _digest(body),
-                    "allocations": tuple(body["allocations"].values()),
-                    "attempts": tuple({"attempt_id": key, **value} for key, value in body["attempts"].items()),
-                    "receipts": tuple(body["receipts"])}
+                    "allocations": tuple(allocations.values()),
+                    "attempts": tuple({"attempt_id": key, **value} for key, value in attempts.items()),
+                    "receipts": tuple(receipts)}
 
 
 class GovernedLocalModelResourceAllocator:

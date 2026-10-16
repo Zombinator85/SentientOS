@@ -60,10 +60,15 @@ def finish(tmp_path, outcomes, *, matches=None, evidence_class="synthetic", task
 def test_repeated_satisfied_under_independent_matched_controls_is_noncausal(tmp_path):
     owner,p,result=finish(tmp_path,["target_expectation_satisfied"]*2,evidence_class="production")
     assert result.classification == "repeated_association_under_matched_controls"
-    assert result.attribution_posture == ATTRIBUTION_POSTURE and result.production_ready
-    assert campaign_improvement_signal_record(result) is None
+    assert result.attribution_posture == ATTRIBUTION_POSTURE
+    # Caller supplied control observations lack authenticated issuers, so the
+    # association can be classified without becoming production ready.
+    assert not result.production_ready
+    signal = campaign_improvement_signal_record(result)
+    assert signal is not None and signal["signal_handoff_only"] is True
+    assert signal["repository_mutation_performed"] is False
     assert MaintenancePostAdoptionAttributionCampaignOwner(tmp_path).result(p.campaign_id) == result
-    assert owner.verify() == {"protocols":1,"controls":2,"trials":2,"results":1,"signals":0}
+    assert owner.verify() == {"protocols":1,"controls":2,"trials":2,"results":1,"signals":1}
 
 
 def test_environment_change_is_confound_not_association(tmp_path):
@@ -521,11 +526,13 @@ def test_tamper_fails_reconstruction_and_identity_is_stable(tmp_path):
 
 
 def test_epistemic_and_developmental_adapters_preserve_lineage_without_state_mutation(tmp_path):
-    _,_,result=finish(tmp_path,["target_expectation_contradicted"]*2)
-    binding=campaign_epistemic_binding(proposition_id="proposition:exact",result=result)
-    assert binding.source_artifact_id == result.result_id and binding.dependency_group == result.campaign_digest
-    assert binding.evidence_relation == "contradicts" and not hasattr(binding,"state_digest")
-    evidence=developmental_evidence_record(result)
+    owner,_,result=finish(tmp_path,["target_expectation_contradicted"]*2)
+    binding=campaign_epistemic_binding(proposition_id="proposition:exact",result=result,owner=owner)
+    assert binding.source_artifact_id == result.result_id and binding.dependency_group is None
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert not hasattr(binding,"state_digest")
+    evidence=developmental_evidence_record(result,owner)
     assert evidence["evaluation_ids"] == result.evaluation_ids and evidence["control_ids"] == result.control_ids
     assert evidence["interpretation_performed"] is False
 

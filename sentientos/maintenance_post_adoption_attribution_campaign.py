@@ -598,11 +598,11 @@ class MaintenancePostAdoptionAttributionCampaignOwner:
                 protocol = protocols[row["campaign_id"]]
                 fields = {k:v for k,v in row.items() if k not in {"control_id","control_digest","campaign_id","campaign_digest","authority","schema_version"}}
                 fields["dependency_ids"] = tuple(fields["dependency_ids"])
-                rebuilt = make_control_observation(protocol, **fields)
+                rebuilt_control = make_control_observation(protocol, **fields)
             except (KeyError, TypeError, ValueError) as exc:
                 raise AttributionCampaignError("campaign_history_corrupt") from exc
-            if (rebuilt.control_id != row.get("control_id") or rebuilt.control_digest != row.get("control_digest")
-                    or canonical_bytes(asdict(rebuilt)) != canonical_bytes(row) or row["control_id"] in controls):
+            if (rebuilt_control.control_id != row.get("control_id") or rebuilt_control.control_digest != row.get("control_digest")
+                    or canonical_bytes(asdict(rebuilt_control)) != canonical_bytes(row) or row["control_id"] in controls):
                 raise AttributionCampaignError("campaign_history_corrupt")
             slot = (row["campaign_id"], row["trial_id"], row["observable_id"])
             if slot in control_slots:

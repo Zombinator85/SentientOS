@@ -251,7 +251,8 @@ def load_selected_fulfillment_world_state_records(*, path: Path,
     raw = read_explicit_file(path, max_bytes=MAX_FULFILLMENT_LOG_BYTES)
     if len(raw.splitlines()) > 65_536:
         raise ValueError("fulfillment_receipt_log_line_limit_exceeded")
-    selected, found = set(identities), {}
+    selected = set(identities)
+    found: dict[str, dict[str, Any]] = {}
     for line in raw.splitlines(keepends=True):
         if not line.endswith(b"\n") or len(line) > MAX_FULFILLMENT_RECEIPT_BYTES:
             raise ValueError("fulfillment_receipt_log_row_invalid")

@@ -343,7 +343,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         and fact.source.finding == "ok")
     for predicate, keys in PAYLOAD_PREDICATES.items():
         if predicate == "running_model_identity_observed" and verified_running_model_observation:
-            lineage = dict(model_identity)
+            lineage = dict(model_identity) if isinstance(model_identity, Mapping) else {}
             lineage.update({key: payload.get(key) for key in (
                 "serving_session_id", "activation_state_digest",
                 "activation_receipt_id", "activation_receipt_semantic_digest",
@@ -484,33 +484,33 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             "cognition_observation_event_time": None,
             "event_time_posture": "journal_stage_time_not_inference_receipt_time"}
         if phase == "b_epoch_observed":
-            pairs = (
+            b_epoch_pairs = (
                 (payload.get("b_epoch_observation_id"), payload.get("b_epoch_observation_digest")),
                 (payload.get("b_epoch_developmental_record_id"), payload.get("b_epoch_developmental_record_digest")),
                 (payload.get("b_epoch_writeback_receipt_id"), payload.get("b_epoch_writeback_receipt_digest")),
             )
             tick = payload.get("b_epoch_tick_id")
             if (isinstance(tick, str) and tick
-                    and all(isinstance(identity, str) and identity for pair in pairs for identity in pair)):
+                    and all(isinstance(identity, str) and identity for pair in b_epoch_pairs for identity in pair)):
                 lineage = {**common, "tick_id": tick,
-                    "cognition_observation_id": pairs[0][0],
-                    "cognition_observation_digest": pairs[0][1],
-                    "developmental_record_id": pairs[1][0],
-                    "developmental_record_digest": pairs[1][1],
-                    "writeback_receipt_id": pairs[2][0],
-                    "writeback_receipt_digest": pairs[2][1]}
+                    "cognition_observation_id": b_epoch_pairs[0][0],
+                    "cognition_observation_digest": b_epoch_pairs[0][1],
+                    "developmental_record_id": b_epoch_pairs[1][0],
+                    "developmental_record_digest": b_epoch_pairs[1][1],
+                    "writeback_receipt_id": b_epoch_pairs[2][0],
+                    "writeback_receipt_digest": b_epoch_pairs[2][1]}
             else:
                 lineage = {}
         elif phase == "post_restoration_observed":
             retrieved_ids = payload.get("retrieved_record_ids")
             retrieved_digests = payload.get("retrieved_record_digests")
-            pairs = ((payload.get("restored_a_observation_id"),
+            restored_pairs = ((payload.get("restored_a_observation_id"),
                       payload.get("restored_a_observation_digest")),
                      (payload.get("restored_a_inference_receipt_id"),
                       payload.get("restored_a_inference_receipt_digest")))
             if (isinstance(payload.get("restored_a_tick_id"), str)
                     and payload.get("restored_a_tick_id")
-                    and all(isinstance(identity, str) and identity for pair in pairs for identity in pair)
+                    and all(isinstance(identity, str) and identity for pair in restored_pairs for identity in pair)
                     and isinstance(retrieved_ids, (list, tuple))
                     and isinstance(retrieved_digests, (list, tuple))
                     and len(retrieved_ids) == len(retrieved_digests) <= 16
@@ -518,10 +518,10 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                     and len(set(retrieved_ids)) == len(retrieved_ids)
                     and all(isinstance(identity, str) and identity for identity in retrieved_digests)):
                 lineage = {**common, "tick_id": payload["restored_a_tick_id"],
-                    "cognition_observation_id": pairs[0][0],
-                    "cognition_observation_digest": pairs[0][1],
-                    "inference_receipt_id": pairs[1][0],
-                    "inference_receipt_digest": pairs[1][1],
+                    "cognition_observation_id": restored_pairs[0][0],
+                    "cognition_observation_digest": restored_pairs[0][1],
+                    "inference_receipt_id": restored_pairs[1][0],
+                    "inference_receipt_digest": restored_pairs[1][1],
                     "retrieved_record_ids": list(retrieved_ids),
                     "retrieved_record_digests": list(retrieved_digests)}
             else:
@@ -540,6 +540,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         observation = fact.payload.get("chat_process_runtime_observation")
         linked_invocations = fact.payload.get("linked_invocation_receipts", ())
         if isinstance(observation, Mapping) and isinstance(linked_invocations, (list, tuple)):
+            selected_linked_invocations: list[dict[str, Any]]
             source_links = list(linked_invocations)
             linked_invocation_source_digest = digest_payload(source_links)
             link_posture = "complete"
@@ -861,10 +862,10 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
             metrics: dict[str, int | float] = {}
             unknown_metrics: list[str] = []
             for name in HOST_RESOURCE_METRICS:
-                value = payload.get(name)
-                if (type(value) in (int, float)
-                        and (type(value) is int or math.isfinite(value))):
-                    metrics[name] = value
+                metric_value = payload.get(name)
+                if (isinstance(metric_value, (int, float)) and not isinstance(metric_value, bool)
+                        and (type(metric_value) is int or math.isfinite(metric_value))):
+                    metrics[name] = metric_value
                 else:
                     unknown_metrics.append(name)
             event_time = payload.get("observed_at")
@@ -892,7 +893,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
         conditions: list[dict[str, Any]] = []
         valid_shape = (isinstance(raw_observations, (list, tuple))
             and 0 < len(raw_observations) <= 5)
-        if valid_shape:
+        if isinstance(raw_observations, (list, tuple)) and 0 < len(raw_observations) <= 5:
             for item in raw_observations:
                 if not isinstance(item, Mapping):
                     valid_shape = False
@@ -911,7 +912,7 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                     "inference_event_time", "inference_event_time_posture",
                     "resource_allocation_digest", "resource_attempt_id",
                     "resource_linkage_digest", "resource_attribution_posture")})
-        value: dict[str, Any] = {
+        replacement_value: dict[str, Any] = {
             "run_id": fact.payload.get("run_id"),
             "run_digest": fact.payload.get("run_digest"),
             "protocol_id": fact.payload.get("protocol_id"),
@@ -931,10 +932,10 @@ def _fact_predicates(fact: WorldStateFact) -> list[tuple[str, Any, str]]:
                 else "source_fact_digest_only",
             "current_truth": False, "effect_proven": False, "authority": False,
         }
-        if len(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")) > MAX_VALUE_BYTES:
-            value["conditions"] = []
-            value["condition_lineage_posture"] = "source_fact_digest_only"
-        out.append(("developmental.model_replacement_interpretation", _bounded(value),
+        if len(json.dumps(replacement_value, sort_keys=True, separators=(",", ":")).encode("utf-8")) > MAX_VALUE_BYTES:
+            replacement_value["conditions"] = []
+            replacement_value["condition_lineage_posture"] = "source_fact_digest_only"
+        out.append(("developmental.model_replacement_interpretation", _bounded(replacement_value),
                     "historical_interpretation"))
     if (fact.source.kind == "embodiment"
             and fact.subject.subject_kind in HISTORICAL_REVIEW_SUBJECTS):
@@ -1096,7 +1097,12 @@ class LongitudinalSelfModelOwner:
         total_bytes = 0
         for name, windows_data, path in entry_rows:
             try:
-                entry_bytes = windows_data if windows_data is not None else self._read_entry(path)
+                if windows_data is not None:
+                    entry_bytes = windows_data
+                elif isinstance(path, Path):
+                    entry_bytes = self._read_entry(path)
+                else:
+                    raise LongitudinalSelfModelError("reconciliation_file_unavailable")
                 total_bytes += len(entry_bytes)
                 if total_bytes > MAX_RECONCILIATION_CUSTODY_BYTES:
                     raise LongitudinalSelfModelError("reconciliation_custody_limit_exceeded")

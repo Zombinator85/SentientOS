@@ -132,11 +132,18 @@ class WorkPlanExecutionJournal:
         if not isinstance(artifacts, list) or any(not isinstance(item, str) or len(item) > 1024
                 for item in artifacts):
             raise WorkPlanJournalError("work_plan_journal_task_result_invalid")
-        result = TaskRun(task_id=value.get("task_id"), goal_id=value.get("goal_id"),
-            kind=value.get("kind"), status=value.get("status"), reason=value.get("reason"),
-            started_at=value.get("started_at"), finished_at=value.get("finished_at"),
-            duration_ms=value.get("duration_ms"), artifacts=tuple(artifacts),
-            destructive=value.get("destructive"))
+        task_result_fields = ("task_id", "goal_id", "kind", "status", "started_at", "finished_at")
+        if any(not isinstance(value.get(key), str) for key in task_result_fields):
+            raise WorkPlanJournalError("work_plan_journal_task_result_invalid")
+        if (value.get("reason") is not None and not isinstance(value.get("reason"), str)
+                or type(value.get("duration_ms")) is not int
+                or type(value.get("destructive")) is not bool):
+            raise WorkPlanJournalError("work_plan_journal_task_result_invalid")
+        result = TaskRun(task_id=str(value["task_id"]), goal_id=str(value["goal_id"]),
+            kind=str(value["kind"]), status=str(value["status"]), reason=value.get("reason"),
+            started_at=str(value["started_at"]), finished_at=str(value["finished_at"]),
+            duration_ms=int(value["duration_ms"]), artifacts=tuple(artifacts),
+            destructive=bool(value["destructive"]))
         if not self._valid_task_result(task_id, result):
             raise WorkPlanJournalError("work_plan_journal_task_result_invalid")
         return result

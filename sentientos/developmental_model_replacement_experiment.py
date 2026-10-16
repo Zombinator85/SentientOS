@@ -1172,9 +1172,10 @@ class ModelReplacementArtifactStore:
                     specification.get("requires_task_family_history", False),
                     **({"commitment_nonce": nonce} if nonce is not None else {}))
             else:
-                task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
-                    specification["probe_input"],
-                    **({"commitment_nonce": nonce} if nonce is not None else {}))
+                task = (ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                    specification["probe_input"], commitment_nonce=nonce) if isinstance(nonce, str)
+                    else ObjectivePredictionTask(specification["multiplier"], specification["offset"],
+                        specification["probe_input"]))
             canonical = (_legacy_objective_plan(task, protocol)
                 if value.get("schema_version") == "sentientos.objective_task_plan:v1"
                 else _objective_plan(task, protocol))
@@ -2030,19 +2031,24 @@ class DevelopmentalModelReplacementExperiment:
                 raise DevelopmentalModelReplacementError("objective_task_context_binding_invalid")
             nonce = recovered_plan.get("task_commitment_nonce")
             probes = specification.get("probe_inputs")
-            commitment_options = ({"commitment_nonce": nonce}
-                if recovered_plan.get("schema_version") == "sentientos.objective_task_plan:v2"
-                else {})
+            commitment_nonce = (nonce if recovered_plan.get("schema_version")
+                == "sentientos.objective_task_plan:v2" else None)
             if isinstance(probes, list):
-                objective_task = ObjectivePredictionTask(specification["multiplier"],
+                objective_task = (ObjectivePredictionTask(specification["multiplier"],
                     specification["offset"], probes[0], tuple(probes[1:]),
                     specification.get("task_family_id"),
                     specification.get("requires_task_family_history", False),
-                    **commitment_options)
+                    commitment_nonce=commitment_nonce) if isinstance(commitment_nonce, str) else
+                    ObjectivePredictionTask(specification["multiplier"],
+                        specification["offset"], probes[0], tuple(probes[1:]),
+                        specification.get("task_family_id"),
+                        specification.get("requires_task_family_history", False)))
             else:
-                objective_task = ObjectivePredictionTask(specification["multiplier"],
+                objective_task = (ObjectivePredictionTask(specification["multiplier"],
                     specification["offset"], specification["probe_input"],
-                    **commitment_options)
+                    commitment_nonce=commitment_nonce) if isinstance(commitment_nonce, str) else
+                    ObjectivePredictionTask(specification["multiplier"],
+                        specification["offset"], specification["probe_input"]))
         descriptor_matches = (objective_task is not None and isinstance(descriptor, Mapping)
             and (dict(descriptor) == objective_task.public_descriptor()
                 or dict(descriptor) == objective_task.legacy_public_descriptor()))
@@ -2454,7 +2460,7 @@ class DevelopmentalModelReplacementExperiment:
                     and all(character.isascii() and
                         (character.isalnum() or character in "_.:-") for character in str(exc))
                     else "untyped_inference_failure")
-                failure_evidence = {"failure_code": failure_code}
+                failure_evidence: dict[str, Any] = {"failure_code": failure_code}
                 detail = getattr(exc, "evidence", None)
                 if isinstance(detail, Mapping):
                     failure_evidence["details"] = dict(detail)

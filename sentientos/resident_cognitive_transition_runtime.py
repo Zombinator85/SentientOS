@@ -92,15 +92,18 @@ class ResidentCognitiveTransitionStageOperations:
         history = verified.get("activation_history")
         if not isinstance(history, (tuple, list)) or not history:
             raise TransitionError("activation_history_unavailable")
+        if any(not isinstance(item, Mapping) for item in history):
+            raise TransitionError("activation_history_unavailable")
         history_digest = semantic_digest({"activation_history": list(history)})
-        commissioned_identity = verified.get("commissioning_active_model_identity")
-        if not isinstance(commissioned_identity, Mapping) or dict(commissioned_identity) != dict(expected_model):
+        verified_commissioned_model_identity = verified.get("commissioning_active_model_identity")
+        if (not isinstance(verified_commissioned_model_identity, Mapping)
+                or dict(verified_commissioned_model_identity) != dict(expected_model)):
             raise TransitionError("transition_commissioning_identity_mismatch")
         predecessor_digest = (history[-2].get("activation_state_digest") if len(history) > 1 else None)
         return {"activation": _activation(cast(Mapping[str, Any], result),
                                           activation_history_digest=history_digest,
                                           activation_predecessor_state_digest=predecessor_digest,
-                                          commissioning_model_identity=commissioned_identity),
+                                          commissioning_model_identity=verified_commissioned_model_identity),
                 "activation_admission": result["activation_receipt"]["model_activation_admission_ref"],
                 "external_activation_approval_evidence_id": approval["approval_evidence_id"],
                 "external_activation_approval_semantic_digest": approval["approval_semantic_digest"],

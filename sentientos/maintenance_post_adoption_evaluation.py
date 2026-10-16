@@ -325,7 +325,7 @@ class MaintenancePostAdoptionEvaluationOwner:
     def _read(self, kind: str) -> list[dict[str,Any]]:
         directory_fd=self._open_kind_directory(kind,create=False)
         try:
-            names=[]
+            names: list[str] = []
             with os.scandir(directory_fd) as entries:
                 for entry in entries:
                     if entry.name.endswith(".json"):
@@ -507,19 +507,19 @@ class MaintenancePostAdoptionEvaluationOwner:
         baselines: dict[str, Baseline] = {}
         for raw in baseline_rows:
             try:
-                protocol = protocols[raw["protocol_id"]]
+                baseline_protocol = protocols[raw["protocol_id"]]
                 value = dict(raw)
-                rebuilt = make_baseline(protocol, **{k:v for k,v in value.items()
+                rebuilt_baseline = make_baseline(baseline_protocol, **{k:v for k,v in value.items()
                     if k not in {"baseline_id","baseline_digest","schema_version","authority",
                                  "protocol_id","protocol_digest","predecessor_generation"}})
-                if (rebuilt.baseline_id != value.get("baseline_id")
-                        or rebuilt.baseline_digest != value.get("baseline_digest")
-                        or rebuilt.schema_version != value.get("schema_version")
-                        or canonical_bytes(asdict(rebuilt)) != canonical_bytes(raw)
+                if (rebuilt_baseline.baseline_id != value.get("baseline_id")
+                        or rebuilt_baseline.baseline_digest != value.get("baseline_digest")
+                        or rebuilt_baseline.schema_version != value.get("schema_version")
+                        or canonical_bytes(asdict(rebuilt_baseline)) != canonical_bytes(raw)
                         or value["baseline_digest"] in baselines):
                     raise PostAdoptionEvaluationError("baseline_digest_mismatch")
                 _false(value["authority"])
-                baselines[value["baseline_digest"]] = rebuilt
+                baselines[value["baseline_digest"]] = rebuilt_baseline
             except (KeyError, TypeError, ValueError) as exc:
                 raise PostAdoptionEvaluationError("baseline_digest_mismatch") from exc
 

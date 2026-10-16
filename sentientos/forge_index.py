@@ -216,6 +216,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         links = last_run_entry.get("links") if isinstance(last_run_entry.get("links"), dict) else {}
         pack_id = _optional_str(links.get("pack_id"))
         verified_run = latest_run_for_pack(root, pack_id=pack_id) if pack_id else None
+        run_summary: dict[str, object]
         if verified_run is None or str(verified_run.get("custody_status", "")).startswith("invalid:"):
             run_summary = {"pack_id": pack_id, "status": "invalid",
                 "custody_status": str((verified_run or {}).get("custody_status")
@@ -660,7 +661,7 @@ def _latest_incident(root: Path) -> dict[str, object]:
     elif os.name == "nt":
         try:
             verify_explicit_directory(directory)
-            names: list[str] = []
+            windows_names: list[str] = []
             entry_count = 0
             with os.scandir(directory) as entries:
                 for entry in entries:
@@ -668,10 +669,10 @@ def _latest_incident(root: Path) -> dict[str, object]:
                     if entry_count > max_entries + 1024:
                         return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "directory_entry_limit_exceeded"}
                     if entry.name.endswith(".json"):
-                        names.append(entry.name)
-                        if len(names) > max_entries:
+                        windows_names.append(entry.name)
+                        if len(windows_names) > max_entries:
                             return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "directory_file_count_limit_exceeded"}
-            candidates = sorted(name for name in names if name.startswith("incident_"))
+            candidates = sorted(name for name in windows_names if name.startswith("incident_"))
             if not candidates:
                 return {"_forge_incident_custody": "absent"}
             data = read_explicit_file(directory / candidates[-1], max_bytes=max_bytes,
@@ -700,7 +701,8 @@ def _latest_incident(root: Path) -> dict[str, object]:
         return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "schema_unsupported"}
     if not isinstance(payload.get("incident_id"), str) or not payload["incident_id"]:
         return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "incident_id_invalid"}
-    if _parse_iso(payload.get("created_at") if isinstance(payload.get("created_at"), str) else "") is None:
+    created_at = payload.get("created_at")
+    if _parse_iso(created_at if isinstance(created_at, str) else "") is None:
         return {"_forge_incident_custody": "invalid", "_forge_incident_reason": "event_time_invalid"}
     if "triggers" in payload and (
         not isinstance(payload["triggers"], list)

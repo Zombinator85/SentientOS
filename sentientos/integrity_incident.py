@@ -422,7 +422,8 @@ def _inspect_incident_catalog_reference(
     relative_path = str(artifact_path.relative_to(root))
     candidates: list[tuple[dict[str, Any], bytes]] = []
     for row, raw in parsed_rows:
-        links = row.get("links") if isinstance(row.get("links"), dict) else {}
+        raw_links = row.get("links")
+        links: dict[str, Any] = raw_links if isinstance(raw_links, dict) else {}
         if (row.get("id") == incident_id or links.get("incident_id") == incident_id
                 or row.get("path") == relative_path):
             candidates.append((row, raw))
@@ -436,8 +437,10 @@ def _inspect_incident_catalog_reference(
     }
     exact = []
     for row, raw in candidates:
-        links = row.get("links") if isinstance(row.get("links"), dict) else {}
-        summary = row.get("summary") if isinstance(row.get("summary"), dict) else {}
+        raw_links = row.get("links")
+        links_again: dict[str, Any] = raw_links if isinstance(raw_links, dict) else {}
+        raw_summary = row.get("summary")
+        summary: dict[str, Any] = raw_summary if isinstance(raw_summary, dict) else {}
         if (type(row.get("schema_version")) is int and row.get("schema_version") == 1
                 and row.get("ts") == activated_at
                 and row.get("kind") == "incident"
@@ -446,8 +449,8 @@ def _inspect_incident_catalog_reference(
                 and row.get("schema_name") == "incident"
                 and type(row.get("schema_version_artifact")) is int
                 and row.get("schema_version_artifact") == 1
-                and links.get("incident_id") == incident_id
-                and links.get("quarantine_activated") is True
+                and links_again.get("incident_id") == incident_id
+                and links_again.get("quarantine_activated") is True
                 and summary == expected_summary):
             exact.append(raw)
     if len(exact) != len(candidates):

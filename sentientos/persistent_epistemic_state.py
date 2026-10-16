@@ -197,16 +197,19 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
         "evidence_set_digests":tuple(x.evidence_set_digest for x in ordered),"states":tuple(asdict(x) for x in ordered),
         "evidence_only":False,"prior_position_only":True,"current_truth":False,"authority":False,"policy":False,"goal":False}
     pid,pdg=_identity("epistemic-projection",payload)
-    common = dict(projection_id=pid, projection_digest=pdg, source_tick=source_tick,
-        proposition_ids=tuple(x.proposition_id for x in ordered),
-        state_ids=tuple(x.state_id for x in ordered),
-        state_digests=tuple(x.state_digest for x in ordered),
-        generations=tuple(x.generation for x in ordered),
-        evidence_set_digests=tuple(x.evidence_set_digest for x in ordered),
-        states=tuple(asdict(x) for x in ordered))
+    proposition_ids = tuple(x.proposition_id for x in ordered)
+    state_ids = tuple(x.state_id for x in ordered)
+    state_digests = tuple(x.state_digest for x in ordered)
+    generations = tuple(x.generation for x in ordered)
+    evidence_set_digests = tuple(x.evidence_set_digest for x in ordered)
+    state_rows: tuple[Mapping[str, Any], ...] = tuple(asdict(x) for x in ordered)
     if all(value is None for value in (propositions, active_evidence_bindings,
             removed_evidence_bindings, update_events)):
-        return EpistemicCognitiveProjection(**common)
+        return EpistemicCognitiveProjection(projection_id=pid, projection_digest=pdg,
+            source_tick=source_tick, proposition_ids=proposition_ids,
+            state_ids=state_ids, state_digests=state_digests,
+            generations=generations, evidence_set_digests=evidence_set_digests,
+            states=state_rows)
     if any(value is None for value in (propositions, active_evidence_bindings,
             removed_evidence_bindings, update_events)):
         raise EpistemicStateError("epistemic_semantic_projection_incomplete")
@@ -227,7 +230,10 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
         raise EpistemicStateError("epistemic_projection_size_limit_exceeded")
     semantic_id, semantic_digest = _identity("epistemic-projection", semantic_payload)
     projection = MeaningBearingEpistemicCognitiveProjection(
-        **{**common, "projection_id": semantic_id, "projection_digest": semantic_digest},
+        projection_id=semantic_id, projection_digest=semantic_digest, source_tick=source_tick,
+        proposition_ids=proposition_ids, state_ids=state_ids,
+        state_digests=state_digests, generations=generations,
+        evidence_set_digests=evidence_set_digests, states=state_rows,
         current_tick=current_tick, propositions=semantic_rows,
         active_evidence_bindings=active_rows, removed_evidence_bindings=removed_rows,
         update_events=event_rows)
@@ -308,10 +314,16 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
     active_raw = raw.get("active_evidence_bindings")
     removed_raw = raw.get("removed_evidence_bindings")
     events_raw = raw.get("update_events")
+    if (not all(isinstance(value, (list, tuple)) for value in
+                (states_raw, props_raw, active_raw, removed_raw, events_raw))):
+        raise EpistemicStateError("epistemic_semantic_projection_shape_invalid")
+    assert isinstance(states_raw, (list, tuple))
+    assert isinstance(props_raw, (list, tuple))
+    assert isinstance(active_raw, (list, tuple))
+    assert isinstance(removed_raw, (list, tuple))
+    assert isinstance(events_raw, (list, tuple))
     if (type(raw.get("current_tick")) is not int or type(raw.get("source_tick")) is not int
             or raw["source_tick"] >= raw["current_tick"]
-            or not all(isinstance(value, (list, tuple)) for value in
-                (states_raw, props_raw, active_raw, removed_raw, events_raw))
             or len(states_raw) > MAX_COGNITIVE_PROJECTION_STATES or not states_raw
             or any(len(value) != len(states_raw) for value in
                 (props_raw, active_raw, removed_raw, events_raw))):
@@ -736,7 +748,7 @@ class PersistentEpistemicStateOwner:
             state_raw, event_raw = raw.get("state"), raw.get("event")
             if not isinstance(state_raw, dict) or not isinstance(event_raw, dict):
                 raise EpistemicStateError("epistemic_transaction_shape_invalid")
-            semantic = {"state": state_raw, "event": event_raw}
+            semantic: dict[str, Any] = {"state": state_raw, "event": event_raw}
             if "mutation_binding" in raw:
                 semantic["mutation_binding"] = raw.get("mutation_binding")
             transaction_id, transaction_digest = _identity("epistemic-transaction", semantic)
@@ -1240,10 +1252,10 @@ class PersistentEpistemicStateOwner:
                     or added & removed or not removed <= active or added & active):
                 raise EpistemicStateError("epistemic_evidence_delta_invalid")
             for binding_id in added | removed:
-                binding = bindings.get(binding_id)
-                if binding is None:
+                validated_binding = bindings.get(binding_id)
+                if validated_binding is None:
                     raise EpistemicStateError("epistemic_update_binding_missing")
-                if binding.proposition_id != event.proposition_id:
+                if validated_binding.proposition_id != event.proposition_id:
                     raise EpistemicStateError("epistemic_update_binding_foreign")
             active.difference_update(removed)
             active.update(added)
@@ -1262,8 +1274,8 @@ class PersistentEpistemicStateOwner:
             if (state.generation != expected_generation
                     or state.predecessor_state_digest != expected_predecessor):
                 raise EpistemicStateError("epistemic_predecessor_missing_or_mismatch")
-            event=event_by_generation.get((state.proposition_id,state.generation))
-            if event is None or event.prior_state_digest != state.predecessor_state_digest or event.successor_state_digest != state.state_digest or event.event_id != state.last_update_event_id: raise EpistemicStateError("epistemic_update_event_missing_or_mismatch")
+            validated_event=event_by_generation.get((state.proposition_id,state.generation))
+            if validated_event is None or validated_event.prior_state_digest != state.predecessor_state_digest or validated_event.successor_state_digest != state.state_digest or validated_event.event_id != state.last_update_event_id: raise EpistemicStateError("epistemic_update_event_missing_or_mismatch")
             previous[state.proposition_id]=(state.generation,state.state_digest)
         for event in events:
             eid,edg=_identity("epistemic-update",event.identity_payload())

@@ -24,6 +24,7 @@ from sentientos.maintenance_post_adoption_attribution_campaign import (
 )
 from sentientos.maintenance_post_adoption_evaluation import (
     Baseline, EvaluationProtocol, MaintenancePostAdoptionEvaluationOwner, SuccessorQualification,
+    canonical_bytes,
 )
 from sentientos.maintenance_resident_runtime_adoption import (
     EVENT_SCHEMA, PHASES, PROVENANCE_SCHEMA, RECEIPT_SCHEMA as ADOPTION_SCHEMA,
@@ -379,25 +380,26 @@ class MaintenanceProductionPostAdoptionCampaign:
                 if trial.get("evaluation_digest") is not None:
                     raise ProductionCampaignError("campaign_evaluation_lineage_incomplete")
                 continue
-            evaluation = evaluation_by_id.get(str(trial["evaluation_id"]))
-            if (evaluation is None or evaluation.evaluation_digest != trial.get("evaluation_digest")
-                    or evaluation.protocol_id != expected_protocol_id
-                    or evaluation.protocol_digest != expected_protocol_digest
-                    or evaluation.predecessor_generation != protocol.predecessor_generation
-                    or evaluation.successor_generation != protocol.successor_generation
-                    or evaluation.predecessor_revision != protocol.predecessor_revision
-                    or evaluation.successor_revision != protocol.successor_revision
-                    or trial.get("evaluation_result") != evaluation.result
-                    or tuple(trial.get("evaluation_lineage", ())) != evaluation.reconstruction_lineage):
+            linked_evaluation = evaluation_by_id.get(str(trial["evaluation_id"]))
+            if (linked_evaluation is None or linked_evaluation.evaluation_digest != trial.get("evaluation_digest")
+                    or linked_evaluation.protocol_id != expected_protocol_id
+                    or linked_evaluation.protocol_digest != expected_protocol_digest
+                    or linked_evaluation.predecessor_generation != protocol.predecessor_generation
+                    or linked_evaluation.successor_generation != protocol.successor_generation
+                    or linked_evaluation.predecessor_revision != protocol.predecessor_revision
+                    or linked_evaluation.successor_revision != protocol.successor_revision
+                    or trial.get("evaluation_result") != linked_evaluation.result
+                    or tuple(trial.get("evaluation_lineage", ())) != linked_evaluation.reconstruction_lineage):
                 raise ProductionCampaignError("campaign_evaluation_lineage_substitution")
-            if evaluation.evaluation_id in linked_evaluations:
+            if linked_evaluation.evaluation_id in linked_evaluations:
                 raise ProductionCampaignError("campaign_evaluation_reused")
-            linked_evaluations.add(evaluation.evaluation_id)
+            linked_evaluations.add(linked_evaluation.evaluation_id)
         # Unlinked durable evaluations are allowed only as a recoverable crash point.
-        return {"evaluation_records":evaluation_counts["evaluations"],
+        verification_summary: dict[str, Any] = {"evaluation_records":evaluation_counts["evaluations"],
             "campaign_trials":len(trial_rows), "linked_evaluations":len(linked_evaluations),
             "campaign_records":campaign_counts["results"],
             "evaluation_inventory":evaluation_counts, "campaign_inventory":campaign_counts}
+        return verification_summary
 
     def readiness(self, campaign_id: str, evidence: Mapping[str, Mapping[str, Any]], *,
                   artifact_path: str | Path | None = None) -> Mapping[str, Any]:
@@ -558,7 +560,7 @@ class MaintenanceProductionPostAdoptionCampaign:
             "evaluated_at":evaluated_at, "completed_at":completed_at})
         qualification_path = self.root / "qualification.json"
         try:
-            qualification = self._qualification(campaign_id)
+            qualification_record = self._qualification(campaign_id)
         except ProductionCampaignError as exc:
             if str(exc) != "campaign_qualification_unavailable":
                 raise
@@ -567,10 +569,10 @@ class MaintenanceProductionPostAdoptionCampaign:
                 "request_digest":request_digest}
             qualification_body["qualification_digest"] = _digest(qualification_body)
             _write_once(qualification_path, qualification_body, read_only=self.read_only)
-            qualification = qualification_body
-        if canonical_bytes(qualification.get("evidence")) != canonical_bytes(evidence):
+            qualification_record = qualification_body
+        if canonical_bytes(qualification_record.get("evidence")) != canonical_bytes(evidence):
             raise ProductionCampaignError("campaign_qualification_conflict")
-        if qualification.get("request_digest") != request_digest:
+        if qualification_record.get("request_digest") != request_digest:
             raise ProductionCampaignError("campaign_qualification_conflict")
         manifests = {x["observable_id"]: x for x in evidence["target_sources"]["records"]}
         for observable_id, record in target_source_records.items():
@@ -581,11 +583,11 @@ class MaintenanceProductionPostAdoptionCampaign:
         generation, continuity, adoption, provenance = (evidence[x] for x in ("generation", "continuity", "adoption", "launch_provenance"))
         journal_path = Path(str(evidence["resident_journal"]["path"]))
         adoption_time = str(evidence["adoption_completion_event"]["event_time"])
-        qualification = SuccessorQualification(protocol.successor_generation, protocol.successor_revision,
+        successor_qualification = SuccessorQualification(protocol.successor_generation, protocol.successor_revision,
             protocol.successor_tree, str(generation["generation_digest"]), str(continuity["receipt_digest"]),
             str(adoption["receipt_digest"]), str(provenance["provenance_digest"]),
             str(adoption["receipt_digest"]), adoption_time, "resident_adoption_completed")
-        observation = recovered_observation or self.evaluations.observe(evaluation_protocol, baseline, qualification,
+        observation = recovered_observation or self.evaluations.observe(evaluation_protocol, baseline, successor_qualification,
             observations=target_observations, source_records=target_source_records,
             measurement_laws=target_measurement_laws, observed_at=observed_at,
             collector_id="maintenance-production-post-adoption-campaign")

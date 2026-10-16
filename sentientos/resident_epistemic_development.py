@@ -235,7 +235,8 @@ class ResidentEpistemicDevelopmentRuntime:
             "resulting_prior_projection": ({"projection_id": projection.projection_id,
                 "projection_digest": projection.projection_digest,
                 "state_digests": list(projection.state_digests),
-                "delivered_tick": projection.current_tick} if projection is not None else None),
+                "delivered_tick": getattr(projection, "current_tick", None)}
+                    if projection is not None else None),
             "original_observation_times_preserved": True,
             "reconstructed_at": reconstructed_at,
             "receipt_recovery_status": recovery.get("status"),
@@ -383,6 +384,7 @@ class ResidentEpistemicDevelopmentRuntime:
             and bool(current_model_payload.get("serving_session_id"))
             and current_model_payload.get("event_time_posture")
                 == "serving_session_observation_time_not_model_load_time"
+            and isinstance(fact.observed_at, str)
             and _latest_historical_event_time([fact.observed_at]) is not None
             and current_model_payload.get("authority") is False
             and current_model_payload.get("effect_proven") is False
@@ -420,6 +422,7 @@ class ResidentEpistemicDevelopmentRuntime:
             and bool(current_software_payload.get("repository_commit"))
             and isinstance(current_software_payload.get("repository_tree"), str)
             and bool(current_software_payload.get("repository_tree"))
+            and isinstance(fact.observed_at, str)
             and _latest_historical_event_time([fact.observed_at]) is not None
             and current_software_payload.get("authority") is False
             and current_software_payload.get("effect_proven") is False
@@ -677,16 +680,18 @@ class ResidentEpistemicDevelopmentRuntime:
             if isinstance(event_times, Mapping):
                 raw_times = [event_times.get(key) for key in event_time_fields
                     if event_times.get(key) is not None]
-                observed = (_latest_historical_event_time(raw_times)
-                    if all(isinstance(value, str) for value in raw_times) and raw_times else None)
+                normalized_times = [value for value in raw_times if isinstance(value, str)]
+                observed = (_latest_historical_event_time(normalized_times)
+                    if len(normalized_times) == len(raw_times) and raw_times else None)
             else:
                 observed = None
         if (fact.source.kind == "embodiment" and historical_embodied_event_fields
                 and isinstance(fact.payload, Mapping)):
             raw_times = [fact.payload.get(key) for key in historical_embodied_event_fields
                 if fact.payload.get(key) is not None]
-            observed = (_latest_historical_event_time(raw_times)
-                if all(isinstance(value, str) for value in raw_times) and raw_times else None)
+            normalized_times = [value for value in raw_times if isinstance(value, str)]
+            observed = (_latest_historical_event_time(normalized_times)
+                if len(normalized_times) == len(raw_times) and raw_times else None)
         if fact.source.kind == "runtime_supervisor":
             if fact.subject.subject_kind == "resident_parent_lifecycle_history" and isinstance(fact.payload, Mapping):
                 event_time = fact.payload.get("event_time")
@@ -709,8 +714,9 @@ class ResidentEpistemicDevelopmentRuntime:
                 values = ([phase_times.get(key) for key in (
                     "attempt_started_at", "readiness_observed_at", "snapshot_advanced_at")
                     if phase_times.get(key) is not None] if isinstance(phase_times, Mapping) else [])
-                observed = (_latest_historical_event_time(values)
-                    if values and all(isinstance(value, str) for value in values) else None)
+                normalized_values = [value for value in values if isinstance(value, str)]
+                observed = (_latest_historical_event_time(normalized_values)
+                    if values and len(normalized_values) == len(values) else None)
             elif fact.subject.subject_kind in {"resident_model_transition",
                     "software_generation_transition"} and isinstance(fact.payload, Mapping):
                 event_time = fact.payload.get("event_time")
@@ -724,7 +730,8 @@ class ResidentEpistemicDevelopmentRuntime:
                 # This is the serving owner's point observation time, not the
                 # model-load event time. Reject session records without it.
                 observed = (_latest_historical_event_time([fact.observed_at])
-                    if verified_current_running_model_observation else None)
+                    if verified_current_running_model_observation
+                    and isinstance(fact.observed_at, str) else None)
             elif fact.subject.subject_kind in {"resident_model_transition_recovery",
                     "software_generation_transition_recovery"}:
                 # Journal reconstruction time is not a transition event.
@@ -783,7 +790,7 @@ class ResidentEpistemicDevelopmentRuntime:
         # missing event time as a stable semantic value for every source kind.
         missing_source_time = observed is None
         observed = observed or "undated"
-        provenance_values = {"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
+        provenance_values: dict[str, Any] = {"snapshot_id": snapshot.snapshot_id, "snapshot_digest": snapshot.digest,
             "fact_id": fact.fact_id, "source_id": fact.source.source_id, "source_kind": fact.source.kind,
             "rule_id": rule.rule_id, "proposition_id": rule.proposition_id,
             "proposition_digest": rule.proposition_digest, "adapter_id": ADAPTER_ID,
@@ -989,10 +996,10 @@ class ResidentEpistemicDevelopmentRuntime:
                 admission_id=f"epistemic-E-{tick}-{binding.binding_id}",
                 effects=EVIDENCE_BINDING_EFFECTS, subject_id=binding.binding_id,
                 configuration_digest=configuration, provenance=proof.provenance_id)
-            receipt = self.controller.append_evidence_binding(
+            evidence_receipt = self.controller.append_evidence_binding(
                 binding=binding, source_proof=proof, admission=admission,
                 operation_id=operation, correlation_id=f"tick:{tick}:{rule_id}:{run_id}")
-            evidence_receipts = (receipt.receipt_id,)
+            evidence_receipts = (evidence_receipt.receipt_id,)
         bindings = tuple(item for item in self.owner.bindings(rule.proposition_id)
             if not item.withdrawn)
         if len(bindings) > MAX_ACTIVE_EVIDENCE:
@@ -1038,13 +1045,13 @@ class ResidentEpistemicDevelopmentRuntime:
             admission_id=f"epistemic-S-{tick}-{candidate.candidate_id}",
             effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
             configuration_digest=configuration, provenance=proof.provenance_id)
-        receipt = self.controller.commit_update_candidate(candidate=candidate,
+        state_receipt = self.controller.commit_update_candidate(candidate=candidate,
             admission=admission, operation_id=operation,
             correlation_id=f"tick:{tick}:{rule_id}:{run_id}", tick=tick,
             recorded_at=recorded_at)
         return EpistemicDevelopmentFeedback("state_advanced", run_id, 1, 1,
-            len(evidence_receipts), 1, evidence_receipts, (receipt.receipt_id,),
-            (receipt.successor_state_id,), (receipt.generation,))
+            len(evidence_receipts), 1, evidence_receipts, (state_receipt.receipt_id,),
+            (state_receipt.successor_state_id,), (state_receipt.generation,))
 
     def process_snapshot(self, snapshot: WorldStateSnapshot, *, tick: int,
                          recorded_at: str) -> EpistemicDevelopmentFeedback:

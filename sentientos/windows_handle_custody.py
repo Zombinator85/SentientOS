@@ -9,10 +9,15 @@ import os
 import stat
 import struct
 from pathlib import Path
+from typing import NoReturn
 
 
 class WindowsHandleCustodyError(ValueError):
     """The requested Windows custody read could not be proven safe."""
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
 
 
 def verify_private_handle_acl(handle: int) -> None:
@@ -27,8 +32,8 @@ def verify_private_handle_acl(handle: int) -> None:
     import ctypes
     from ctypes import wintypes
 
-    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi = getattr(ctypes, "WinDLL")("advapi32", use_last_error=True)
+    kernel32 = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
     get_security = advapi.GetSecurityInfo
     get_security.argtypes = [wintypes.HANDLE, ctypes.c_int, wintypes.DWORD,
         ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(ctypes.c_void_p),
@@ -156,7 +161,7 @@ def read_explicit_file(path: Path, *, max_bytes: int,
     if os.name == "nt":
         entries = read_regular_files(source.parent, max_entries=1,
             max_file_bytes=max_bytes, max_total_bytes=max_bytes,
-            selected_names=(source.name), require_private_acl=require_private_acl)
+            selected_names=(source.name,), require_private_acl=require_private_acl)
         if not entries:
             raise WindowsHandleCustodyError("explicit_file_missing")
         if len(entries) != 1 or entries[0][0] != source.name:
@@ -286,8 +291,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     class FILE_ATTRIBUTE_TAG_INFO(ctypes.Structure):
         _fields_ = [("FileAttributes", wintypes.ULONG), ("ReparseTag", wintypes.ULONG)]
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    ntdll = ctypes.WinDLL("ntdll")
+    kernel32 = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+    ntdll = getattr(ctypes, "WinDLL")("ntdll")
     create_file = kernel32.CreateFileW
     create_file.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
                             wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
@@ -329,7 +334,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     STATUS_OBJECT_PATH_NOT_FOUND = 0xC000003A
     FILE_ATTRIBUTE_REPARSE_POINT = 0x400
 
-    def fail(code: str, cause: BaseException | None = None) -> None:
+    def fail(code: str, cause: BaseException | None = None) -> NoReturn:
         error = WindowsHandleCustodyError(code)
         if cause is None:
             raise error
@@ -351,9 +356,10 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             0, FILE_SHARE_READ, FILE_OPEN, options, None, 0)
         if (status & 0xFFFFFFFF) in {STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND}:
             fail("explicit_file_missing")
-        if status < 0 or not handle.value:
+        raw_handle_value = handle.value
+        if status < 0 or not raw_handle_value:
             fail("cognition_observation_windows_open_failed")
-        return int(handle.value)
+        return int(raw_handle_value)
 
     def file_id(handle: int) -> tuple[int, bytes]:
         value = FILE_ID_INFO()

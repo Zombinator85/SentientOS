@@ -370,7 +370,7 @@ class ProductionServingInferenceController:
                 "transcript_text_digest": transcript_text_digest,
                 "output_truncated": value.get("output_truncated"),
             }
-        identity_keys = ("installation_identity", "activation_state_semantic_digest", "activation_generation",
+        identity_keys: tuple[str, ...] = ("installation_identity", "activation_state_semantic_digest", "activation_generation",
             "activation_predecessor_state_digest", "activation_receipt_id", "activation_receipt_semantic_digest",
             "model_id", "observed_loaded_model_identity", "artifact_id", "artifact_sha256", "runtime_id",
             "authority_map_digest")
@@ -402,7 +402,7 @@ class ProductionServingInferenceController:
         handle = self._serving._handle
         try:
             names = handle.list_regular_names(
-                "local-model/inference/receipts", max_entries=MAX_INVOCATION_RECEIPTS)
+                handle.fixed_object("local-model/inference/receipts"), max_entries=MAX_INVOCATION_RECEIPTS)
         except InstallationStateError as exc:
             if exc.code in {"state_directory_missing", "state_parent_missing"}:
                 names = ()
@@ -419,7 +419,7 @@ class ProductionServingInferenceController:
             receipt_id = name[:-5]
             try:
                 raw = handle.read_regular_bounded(
-                    f"local-model/inference/receipts/{name}",
+                    handle.fixed_object(f"local-model/inference/receipts/{name}"),
                     max_bytes=MAX_INVOCATION_RECEIPT_BYTES)
                 total_bytes += len(raw)
                 if total_bytes > 16 * 1024 * 1024:

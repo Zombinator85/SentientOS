@@ -8,7 +8,7 @@ import stat
 from datetime import datetime
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Mapping, TypeVar
+from typing import Any, Callable, Mapping, Sequence, TypeVar
 
 from .codex_task_authority_admission import RESIDENT_EPISTEMIC_STATE_MUTATION
 from .persistent_epistemic_state import (
@@ -304,6 +304,7 @@ class ResidentEpistemicStateMutationController:
             raise EpistemicMutationError("mutation_intent_root_invalid")
         owner_counts = self.owner.verify()
         try:
+            entries: Sequence[tuple[str, bytes | None]]
             if os.name == "nt":
                 entries = read_regular_files(self.intent_root,
                     max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
@@ -343,7 +344,10 @@ class ResidentEpistemicStateMutationController:
                     or canonical_bytes(value) + b"\n" != raw
                     or not (legacy or current) or payload_field is None):
                 raise EpistemicMutationError("mutation_intent_shape_invalid")
-            semantic = {key: value[key] for key in expected_fields - {"intent_id", "intent_digest"}}
+            if payload_field is None:
+                raise EpistemicMutationError("mutation_intent_shape_invalid")
+            semantic: dict[str, Any] = {key: value[key] for key in expected_fields
+                if key not in {"intent_id", "intent_digest"} and isinstance(key, str)}
             intent_id, intent_digest = _identity("epistemic-intent", semantic)
             if (value.get("intent_id"), value.get("intent_digest"), name) != (
                     intent_id, intent_digest, intent_id.split(":", 1)[1] + ".json"):
@@ -406,12 +410,12 @@ class ResidentEpistemicStateMutationController:
                     continue  # Interrupted before append; never replay the mutation.
                 if stored != [binding]:
                     raise EpistemicMutationError("mutation_intent_binding_conflict")
-                raw_receipt = EvidenceBindingMutationReceipt("", "", "evidence_binding_append",
+                evidence_raw_receipt = EvidenceBindingMutationReceipt("", "", "evidence_binding_append",
                     binding.binding_id, binding.binding_digest, binding.proposition_id,
                     binding.source_artifact_id, binding.source_digest, admission.admission_id,
                     admission.binding_digest, PRINCIPAL, operation_id, correlation_id)
-                receipt_id, receipt_digest = _identity("epistemic-mutation-receipt", raw_receipt.payload())
-                recovered_receipts.append(replace(raw_receipt, receipt_id=receipt_id,
+                receipt_id, receipt_digest = _identity("epistemic-mutation-receipt", evidence_raw_receipt.payload())
+                recovered_receipts.append(replace(evidence_raw_receipt, receipt_id=receipt_id,
                                                   receipt_digest=receipt_digest))
                 continue
             try:
@@ -471,39 +475,40 @@ class ResidentEpistemicStateMutationController:
                     or matching_transactions[0].get("mutation_binding") != expected_mutation_binding):
                 raise EpistemicMutationError("mutation_intent_transaction_binding_mismatch")
             validated_mutation_state_digests.add(str(state["state_digest"]))
-            raw_receipt = EpistemicStateMutationReceipt("", "", "epistemic_state_update",
+            state_raw_receipt = EpistemicStateMutationReceipt("", "", "epistemic_state_update",
                 candidate.candidate_id, candidate.proposition_id, candidate.predecessor_state_digest,
                 str(state["state_id"]), str(state["state_digest"]), str(event["event_id"]),
                 str(event["event_digest"]), str(state["evidence_set_digest"]), int(state["generation"]),
                 admission.admission_id, admission.binding_digest, PRINCIPAL, operation_id, correlation_id)
-            receipt_id, receipt_digest = _identity("epistemic-mutation-receipt", raw_receipt.payload())
-            recovered_receipts.append(replace(raw_receipt, receipt_id=receipt_id,
+            receipt_id, receipt_digest = _identity("epistemic-mutation-receipt", state_raw_receipt.payload())
+            recovered_receipts.append(replace(state_raw_receipt, receipt_id=receipt_id,
                                                receipt_digest=receipt_digest))
         expected_receipts: dict[str, dict[str, bytes]] = {"evidence": {}, "state": {}}
         for receipt in recovered_receipts:
-            if type(receipt) is EvidenceBindingMutationReceipt:
+            if isinstance(receipt, EvidenceBindingMutationReceipt):
                 receipt_stage = "evidence"
-            elif type(receipt) is EpistemicStateMutationReceipt:
+            elif isinstance(receipt, EpistemicStateMutationReceipt):
                 receipt_stage = "state"
             else:
                 raise EpistemicMutationError("mutation_receipt_recovery_type_invalid")
             name = f"{receipt.receipt_id}.json"
-            raw = canonical_bytes(asdict(receipt)) + b"\n"
+            receipt_bytes = canonical_bytes(asdict(receipt)) + b"\n"
             previous = expected_receipts[receipt_stage].get(name)
-            if previous is not None and previous != raw:
+            if previous is not None and previous != receipt_bytes:
                 raise EpistemicMutationError("mutation_receipt_recovery_identity_conflict")
-            expected_receipts[receipt_stage][name] = raw
+            expected_receipts[receipt_stage][name] = receipt_bytes
 
         # A receipt is recoverable custody only when a verified durable intent
         # independently derives its exact bytes. Reject orphaned or substituted
         # receipt files before repairing any missing receipt.
         for receipt_stage in ("evidence", "state"):
             directory = self.receipt_root / "receipts" / receipt_stage
+            receipt_entries: Sequence[tuple[str, bytes | None]]
             if os.name == "nt":
                 try:
                     directory_stat = directory.lstat()
                 except FileNotFoundError:
-                    entries = ()
+                    receipt_entries = ()
                 except OSError as exc:
                     raise EpistemicMutationError("receipt_path_unavailable") from exc
                 else:
@@ -511,7 +516,7 @@ class ResidentEpistemicStateMutationController:
                             or not stat.S_ISDIR(directory_stat.st_mode)):
                         raise EpistemicMutationError("receipt_path_invalid")
                     try:
-                        entries = read_regular_files(directory,
+                        receipt_entries = read_regular_files(directory,
                             max_entries=MAX_MUTATION_CUSTODY_ENTRIES,
                             max_file_bytes=MAX_MUTATION_CUSTODY_FILE_BYTES,
                             max_total_bytes=MAX_MUTATION_CUSTODY_TOTAL_BYTES)
@@ -523,10 +528,10 @@ class ResidentEpistemicStateMutationController:
                 paths = sorted(directory.glob("*.json"))
                 if len(paths) > MAX_MUTATION_CUSTODY_ENTRIES:
                     raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
-                entries = tuple((path.name, self._read_bounded(path)) for path in paths)
-                if sum(len(raw or b"") for _, raw in entries) > MAX_MUTATION_CUSTODY_TOTAL_BYTES:
+                receipt_entries = tuple((path.name, self._read_bounded(path)) for path in paths)
+                if sum(len(raw or b"") for _, raw in receipt_entries) > MAX_MUTATION_CUSTODY_TOTAL_BYTES:
                     raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
-            for name, raw in entries:
+            for name, raw in receipt_entries:
                 if raw is None or expected_receipts[receipt_stage].get(name) != raw:
                     raise EpistemicMutationError("mutation_receipt_without_verified_intent")
 
@@ -576,6 +581,7 @@ class ResidentEpistemicStateMutationController:
         self._recover_state_receipts()
         for stage, cls in (("evidence", EvidenceBindingMutationReceipt), ("state", EpistemicStateMutationReceipt)):
             directory = self.receipt_root / "receipts" / stage
+            entries: Sequence[tuple[str, bytes | None]]
             if os.name == "nt":
                 try:
                     directory_stat = directory.lstat()
@@ -602,11 +608,11 @@ class ResidentEpistemicStateMutationController:
                 entries = tuple((path.name, self._read_bounded(path)) for path in paths)
                 if sum(len(raw or b"") for _, raw in entries) > MAX_MUTATION_CUSTODY_TOTAL_BYTES:
                     raise EpistemicMutationError("mutation_receipt_retention_limit_exceeded")
-            for name, raw in entries:
-                if raw is None: raise EpistemicMutationError("mutation_receipt_missing")
+            for receipt_name, receipt_bytes in entries:
+                if receipt_bytes is None: raise EpistemicMutationError("mutation_receipt_missing")
                 try:
-                    value = json.loads(raw.decode("utf-8"))
-                    if canonical_bytes(value) + b"\n" != raw:
+                    value = json.loads(receipt_bytes.decode("utf-8"))
+                    if canonical_bytes(value) + b"\n" != receipt_bytes:
                         raise EpistemicMutationError("mutation_receipt_noncanonical")
                     receipt = cls(**value)
                 except (UnicodeError, TypeError, ValueError, json.JSONDecodeError) as exc:
@@ -617,7 +623,7 @@ class ResidentEpistemicStateMutationController:
                         or receipt.principal != PRINCIPAL
                         or receipt.stage != ("evidence_binding_append" if stage == "evidence"
                                              else "epistemic_state_update")
-                        or name != rid + ".json"):
+                        or receipt_name != rid + ".json"):
                     raise EpistemicMutationError("mutation_receipt_identity_mismatch")
         return self.recovery_status
 

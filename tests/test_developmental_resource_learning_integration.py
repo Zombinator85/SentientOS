@@ -58,6 +58,10 @@ class SessionBoundGovernedFixture:
         self.requests.append(request)
         return request
 
+    def observed_current_model_identity(self):
+        identity = getattr(self.invoker.model, "active_identity", None)
+        return identity.to_dict() if identity is not None else None
+
     def invoke(self, request, **kwargs):
         return self.invoker.invoke(request, **kwargs)
 
@@ -277,6 +281,7 @@ def test_governed_three_condition_resource_learning_survives_admission(
     present_prompt = recovered["prompts"]["history_present"]
     [historical] = [item for packet in present_prompt["developmental_history"]
         for item in packet.get("task_relevant_experience", ())]
+    assert historical["model_identity_relation"] == "same_active_model_identity"
     assert historical["source_run_id"] == run["run_id"]
     assert historical["source_run_digest"] == run["run_digest"]
     assert historical["resource_strategy_recommendation"]["recommendation_digest"] == (
@@ -289,8 +294,8 @@ def test_governed_three_condition_resource_learning_survives_admission(
     assert later_scores["history_present"]["correct_count"] == 3
     assert later_scores["history_withheld"]["correct_count"] == 0
     assert later_scores["history_restored"]["correct_count"] == 3
-    # Independently fixed criterion: the recommended treatment must clear the
-    # held-out full-suite quality requirement; costs remain historical evidence.
+    # Historical recommendations remain observational. They do not alter the
+    # held-out objective's independently scored result.
     assert later_scores[recommendation["recommendation"]["condition_id"]][
         "correct_count"] >= 3
     assert recovered["new_calls"] == 3

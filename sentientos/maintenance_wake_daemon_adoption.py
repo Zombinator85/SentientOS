@@ -246,11 +246,13 @@ def _next(cfg: Mapping[str, Any], rows: list[dict[str, Any]]) -> tuple[int, date
 def inspect(config: Mapping[str, Any]) -> dict[str, Any]:
     cfg = validate_adoption(config); rows = _events(cfg); owner_rows = _owner_events(cfg); ordinal, due = _next(cfg, rows)
     last_owner_type = owner_rows[-1]["event_type"] if owner_rows else None
-    owner_posture = ({
+    owner_postures = {
         "wake_lifetime_started": "last_record_says_started_liveness_unknown",
         "wake_lifetime_stopped": "last_record_says_stopped",
         "daemon_shutdown_requested": "shutdown_requested_liveness_unknown",
-    }.get(last_owner_type, "owner_liveness_unknown"))
+    }
+    owner_posture = (owner_postures.get(last_owner_type, "owner_liveness_unknown")
+        if isinstance(last_owner_type, str) else "owner_liveness_unknown")
     return {"status": "wake_daemon_state_ready", "event_count": len(rows),
             "next_invocation_ordinal": ordinal, "next_due_utc": _utc_text(due),
             "last_event_digest": rows[-1]["event_digest"] if rows else ZERO_DIGEST,

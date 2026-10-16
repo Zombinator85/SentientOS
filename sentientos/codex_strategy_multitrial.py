@@ -44,9 +44,15 @@ def build_operator_codex_strategy_multitrial(*, writeback: Any,
                     and (not isinstance(decision_basis_by_trial, Mapping)
                         or set(decision_basis_by_trial) != set(trials)))):
             raise EmbodiedConsequenceError("operator_strategy_multievent_trial_inputs_invalid")
+        assert isinstance(applicability_by_trial, Mapping)
+        assert isinstance(history_record_ids_by_trial, Mapping)
     elif (not isinstance(history_record_id, str) or not history_record_id
             or applicability_by_trial is not None or decision_basis_by_trial is not None):
         raise EmbodiedConsequenceError("operator_strategy_multievent_trial_inputs_invalid")
+    if history_record_ids_by_trial is None:
+        assert isinstance(history_record_id, str)
+    if history_record_ids_by_trial is None:
+        assert isinstance(history_record_id, str)
     situation_digests = {key: digest(value) for key, value in trials.items()}
     bindings = [value.get("situation_binding") for value in trials.values()]
     if len(set(bindings)) != len(bindings) or len(set(situation_digests.values())) != len(trials):
@@ -58,10 +64,14 @@ def build_operator_codex_strategy_multitrial(*, writeback: Any,
     all_digests: dict[str, str] = {}
     for trial_id in trial_order:
         if history_record_ids_by_trial is None:
+            if not isinstance(history_record_id, str):
+                raise EmbodiedConsequenceError("operator_strategy_multievent_trial_inputs_invalid")
             result = build_operator_codex_strategy_packets(writeback=writeback,
                 history_record_id=history_record_id, situation=trials[trial_id],
                 model_settings=model_settings)
         else:
+            if not isinstance(history_record_ids_by_trial, Mapping) or not isinstance(applicability_by_trial, Mapping):
+                raise EmbodiedConsequenceError("operator_strategy_multievent_trial_inputs_invalid")
             result = build_operator_codex_strategy_multi_event_packets(writeback=writeback,
                 history_record_ids=history_record_ids_by_trial[trial_id],
                 situation=trials[trial_id], model_settings=model_settings,

@@ -262,14 +262,15 @@ def build_runtime_service_registry(
     """Build the canonical registry without touching serving when chat is disabled."""
     config.validate()
     registry = ServiceRegistry()
+    service_adapter: LocalModelChatServiceAdapter | DisabledLocalModelChatAdapter
     if config.enabled:
-        adapter = (adapter_factory(config, installation_handle=installation_handle)
+        service_adapter = (adapter_factory(config, installation_handle=installation_handle)
                    if installation_handle is not None else adapter_factory(config))
     else:
-        adapter = DisabledLocalModelChatAdapter()
+        service_adapter = DisabledLocalModelChatAdapter()
     registry.register(RuntimeServiceDescriptor(
         service_id=SERVICE_ID, display_name="Hardened local-model chat",
         service_kind="hardened_local_model_chat", enabled=config.enabled,
         health_posture="semantic", restart_policy="never", restart_budget=0,
-    ), adapter)
+    ), service_adapter)
     return registry

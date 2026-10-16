@@ -437,7 +437,7 @@ def _compute_inputs_summary(*, root: Path, window: AnalysisWindow, goal_state: d
     blocked = sum(1 for item in goal_state.values() if item.status == "blocked")
     active = sum(1 for item in goal_state.values() if item.status == "active")
 
-    block_reasons: dict[str, dict[str, object]] = {}
+    block_reasons: dict[str, dict[str, Any]] = {}
     for goal_id, item in sorted(goal_state.items()):
         if item.status == "blocked" and item.blocked_reason:
             # blocked_reason also carries evidence paths after the first '|'.
@@ -507,6 +507,8 @@ def _compute_adjustments(
             if new_weight != goal.weight:
                 adjustments.append(Adjustment(goal.goal_id, "weight", goal.weight, new_weight, "reduce_feature_churn_under_pressure", evidence_paths))
 
+    if not isinstance(top_block_reasons, list):
+        top_block_reasons = []
     for entry in top_block_reasons:
         if len(adjustments) >= max_goals_changed:
             break
@@ -516,7 +518,8 @@ def _compute_adjustments(
         count = int(entry.get("count", 0))
         if count < 2:
             continue
-        blocked_goal_ids = entry.get("goal_ids") if isinstance(entry.get("goal_ids"), list) else []
+        raw_blocked_goal_ids = entry.get("goal_ids")
+        blocked_goal_ids: list[Any] = raw_blocked_goal_ids if isinstance(raw_blocked_goal_ids, list) else []
         supporting_paths = tuple(str(path) for path in entry.get("evidence_paths", []) if isinstance(path, str))
         for goal in sorted_goals:
             if goal.goal_id not in blocked_goal_ids:
@@ -648,21 +651,26 @@ def _allocator_inputs_snapshot(root: Path) -> dict[str, object]:
 
 def _compute_allocation_for_snapshot(*, graph: GoalGraph, snapshot: dict[str, object]) -> AllocationDecision:
     budget_summary_raw = snapshot.get("risk_budget_summary") if isinstance(snapshot.get("risk_budget_summary"), dict) else {}
+    pressure_level = snapshot.get("pressure_level", 0)
+    if type(pressure_level) is not int:
+        raise ValueError("invalid_snapshot_pressure_level")
     budget = derive_risk_budget(
         posture=str(snapshot.get("posture", "balanced")),
-        pressure_level=int(snapshot.get("pressure_level", 0)),
+        pressure_level=pressure_level,
         operating_mode=str(snapshot.get("operating_mode", "normal")),
         quarantine_active=bool(snapshot.get("quarantine_active", False)),
     )
-    if isinstance(budget_summary_raw.get("router_k_max"), int):
-        budget.router_k_max = int(budget_summary_raw["router_k_max"])
-    if isinstance(budget_summary_raw.get("router_m_max"), int):
-        budget.router_m_max = int(budget_summary_raw["router_m_max"])
+    router_k_max = budget_summary_raw.get("router_k_max")
+    router_m_max = budget_summary_raw.get("router_m_max")
+    if type(router_k_max) is int:
+        budget.router_k_max = router_k_max
+    if type(router_m_max) is int:
+        budget.router_m_max = router_m_max
     return allocate_goals(
         graph=graph,
         budget=budget,
         operating_mode=str(snapshot.get("operating_mode", "normal")),
-        integrity_pressure_level=int(snapshot.get("pressure_level", 0)),
+        integrity_pressure_level=pressure_level,
         quarantine_active=bool(snapshot.get("quarantine_active", False)),
         posture=str(snapshot.get("posture", "balanced")),
     )
@@ -845,8 +853,11 @@ def _load_proposal(path: Path) -> GoalGraphAdjustmentProposal:
         for row in adjustments_raw
         if isinstance(row, dict)
     )
+    schema_version = payload.get("schema_version", 1)
+    if type(schema_version) is not int:
+        raise ValueError("invalid_adjustment_proposal_schema_version")
     return GoalGraphAdjustmentProposal(
-        schema_version=int(payload.get("schema_version", 1)),
+        schema_version=schema_version,
         proposal_id=str(payload.get("proposal_id", "proposal")),
         created_at=str(payload.get("created_at", _iso_now())),
         base_goal_graph_hash=str(payload.get("base_goal_graph_hash", "")),

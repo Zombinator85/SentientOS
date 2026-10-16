@@ -64,9 +64,9 @@ class GoalExecutor:
                 if task_run.status in {"partial", "failed"} or (
                         task_run.status == "skipped"
                         and (task_run.reason == "prior_attempt_outcome_unknown"
-                            or (task_run.reason or "").startswith(
-                                "prior_terminal_") and task_run.reason.endswith(
-                                    "_not_replayed"))):
+                            or ((task_run.reason or "").startswith(
+                                "prior_terminal_") and (task_run.reason or "").endswith(
+                                    "_not_replayed")))):
                     prior_goal_outcomes.setdefault(task_run.goal_id, set()).add(task_run.status)
         epistemic_review_goal_ids: set[str] = set()
         epistemic_projection_digest: str | None = None
@@ -151,7 +151,7 @@ class GoalExecutor:
                 for goal_id, statuses in sorted(prior_goal_outcomes.items())},
         }
         plan_id = _plan_id(state.created_at, state.goal_graph_hash, state.allocation_id,
-            evidence_binding=epistemic_binding)
+            evidence_binding={key: value for key, value in epistemic_binding.items()})
         context = "|".join(context_parts)
         if len(context) > 512:
             raise WorkPlanError("planning_evidence_context_bound_exceeded")
@@ -412,7 +412,7 @@ def _task(goal: Goal, kind: str, risk_cost: int, throughput_cost: int, *, destru
         expected_artifacts=expected, destructive=destructive, depends_on=depends_on)
 
 
-_SAFE_PLAN_COMMANDS: dict[str, tuple[str, str]] = {
+_SAFE_PLAN_COMMANDS: dict[str, tuple[str, tuple[str, ...]]] = {
     "diagnostic": ("python -m scripts.contract_drift", ("-m", "scripts.contract_drift")),
     "verify": ("python -m scripts.run_tests -q", ("-m", "scripts.run_tests", "-q")),
 }

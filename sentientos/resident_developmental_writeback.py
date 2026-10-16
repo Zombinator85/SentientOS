@@ -789,7 +789,7 @@ def _model_replacement_interpretation_projection(
                 and objective.get("scope") == "task_correctness_not_general_learning_or_weight_change"
                 and objective.get("model_behavior_posture") ==
                     "endpoint_execution_receipts_not_independent_model_attestation"):
-            summary["objective_evaluation"] = {
+            objective_evaluation: dict[str, Any] = {
                 "plan_digest": objective["plan_digest"],
                 "condition_score_digests": [compact_sha256(item) for item in score_digests],
                 "model_a_history_accuracy_delta": objective.get("model_a_history_accuracy_delta"),
@@ -801,7 +801,8 @@ def _model_replacement_interpretation_projection(
             summary["objective_task_commitment_posture"] = (
                 "salted_private_oracle_commitment:v1")
             if suite_assessment:
-                summary["objective_evaluation"].update({key: objective[key] for key in suite_fields})
+                objective_evaluation.update({key: objective[key] for key in suite_fields})
+            summary["objective_evaluation"] = objective_evaluation
         else:
             omitted = True
             summary["objective_evaluation_posture"] = (
@@ -1185,13 +1186,13 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
         isinstance(item.get("attempt_id"), str)
         and str(item.get("attempt_id")) in retained_attempt_ids
         for item in selected_receipts)
-    posture_fields = sorted({str(key) for item in measured_postures
-        for key in item["posture"]})
+    measurement_posture_fields = sorted({str(key) for posture_row in measured_postures
+        for key in posture_row["posture"]})
     measurement_posture_summary = {
         "scope": "retained_consumption_receipt_tail",
         "per_receipt_postures_digest": digest(measured_postures),
-        "posture_values": {key: sorted({str(item["posture"][key]) for item in measured_postures
-            if key in item["posture"]}) for key in posture_fields
+        "posture_values": {key: sorted({str(posture_row["posture"][key]) for posture_row in measured_postures
+            if key in posture_row["posture"]}) for key in measurement_posture_fields
             if key != "shared_host_cpu_gpu"},
     }
     compact_invocations = tuple({key: item.get(key) for key in
@@ -1602,7 +1603,8 @@ def _developmental_history_interpretation_projection(
             and row.get("condition_id") == "history_present"), None)
         probe_results = history_score.get("probe_results") if isinstance(history_score, Mapping) else None
         probes = descriptor.get("probe_inputs") if isinstance(descriptor, Mapping) else None
-        if (not isinstance(family_id, str) or not family_id or len(family_id) > 96
+        if (not isinstance(history_score, Mapping)
+                or not isinstance(family_id, str) or not family_id or len(family_id) > 96
                 or not isinstance(descriptor, Mapping)
                 or descriptor.get("task_family_id") != family_id
                 or original.get("task_family_posture") != "operator_declared_protocol_bound"
@@ -1611,6 +1613,8 @@ def _developmental_history_interpretation_projection(
                 or not isinstance(probes, (list, tuple)) or len(probes) != len(original["acquisition_examples"])
                 or not isinstance(probe_results, (list, tuple)) or len(probe_results) != len(probes)
                 or not isinstance(history_score.get("score_digest"), str)):
+            raise DevelopmentalWritebackError("developmental_history_task_family_binding_invalid")
+        if not isinstance(history_score, Mapping) or not isinstance(history_condition, Mapping):
             raise DevelopmentalWritebackError("developmental_history_task_family_binding_invalid")
         expected_examples: list[dict[str, Any]] = []
         lineage_fields = ("schema_version", "plan_digest", "task_digest", "output_digest",
