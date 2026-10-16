@@ -194,7 +194,11 @@ jobs:
         run: python -m build --wheel
 
       - name: Pre-commit
-        run: pre-commit run --all-files
+        run: |
+          pre-commit run --all-files || {
+            git status --short
+            exit 1
+          }
         env:
           SENTIENTOS_TEST_RUN_DIR: /tmp/sentientos-precommit-test-runs
           SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-precommit-audit-runtime
