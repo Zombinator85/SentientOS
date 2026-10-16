@@ -1,0 +1,118 @@
+{
+  "behavioral_invariants": [
+    "canonical planning stays in GoalPlanner and cannot execute",
+    "executor remains execution-only",
+    "no historical evidence or authority check was weakened",
+    "tests use isolated disposable governance roots"
+  ],
+  "failed_local_module_run": {
+    "cause": "read-only sandbox denied default /glow paths; per-test roots now isolate these writes",
+    "failed": 10,
+    "provenance_path": "glow/test_runs/provenance/20261016T174722Z_d8d7a219221c_6d3a24874c6743cd9b8cdde422dc90cf.json"
+  },
+  "local_verification": {
+    "compileall": true,
+    "continuation_custody_segments_verified": 272,
+    "exact_failure_test_passed": 1,
+    "git_diff_check": true,
+    "resident_developmental_cognition_failed": 0,
+    "resident_developmental_cognition_passed": 93,
+    "targeted_privilege_lint": true,
+    "task_acceptance_passed": 17,
+    "task_acceptance_required_nodes": 17
+  },
+  "sequence": 273,
+  "sequence_272_hosted_verification": {
+    "ci_followup_jobs": {
+      "docs": "success",
+      "helm-k8s-test": "success",
+      "self-check": "success"
+    },
+    "other_check_runs": {
+      "CI": {
+        "cause": "test called removed GoalExecutor.build_plan after planning moved to GoalPlanner",
+        "conclusion": "failure",
+        "failing_job": "Source validation (unprivileged)",
+        "failing_test": "tests/test_resident_developmental_cognition.py::test_incorrect_family_experience_remains_adverse_through_writeback_and_transfer",
+        "run_id": 38941589153
+      },
+      "Codex CI": {
+        "conclusion": "success",
+        "run_id": 38941589431
+      },
+      "Docker Image": {
+        "conclusion": "success",
+        "run_id": 38941589385
+      },
+      "Gradient null regression": {
+        "conclusion": "success",
+        "run_id": 38941589065
+      },
+      "Invariant Tests": {
+        "conclusion": "success",
+        "run_id": 38941589369
+      },
+      "Lint Benchmark": {
+        "conclusion": "success",
+        "run_id": 38941589529
+      },
+      "Release": {
+        "conclusion": "success",
+        "run_id": 38941589326
+      }
+    },
+    "required_quality_gate": {
+      "artifact_id": 12063407307,
+      "artifact_sha256": "61cbc9519d02d50ffcc4d8d55cb783f4a964b466d207411bdb2b1ecaf4ea6e8b",
+      "conclusion": "success",
+      "effective_uid": 0,
+      "privileged_audit_status": "passed",
+      "run_id": 38941589195,
+      "source_commit": "7585e7253bfc445b4b7b4fe6fd8a4e45b468a78b",
+      "source_tree": "c0793416a0a2e71d6336ff9c7bb6c7587baa6bbc"
+    }
+  },
+  "source_blobs": [
+    {
+      "bytes": 433230,
+      "git_blob_sha1": "f991b554b014d802fa198054ba6a46be46077186",
+      "path": "tests/test_resident_developmental_cognition.py",
+      "sha256": "8415532fc8952620e1f31a20a2bb5e77a404049e0374497912cf074b5bd06ff6"
+    },
+    {
+      "bytes": 3089,
+      "git_blob_sha1": "25f620d2271336b3ec385d0a8dcb66335657651b",
+      "path": "glow/test_runs/provenance/20261016T174546Z_d8d7a219221c_d33e25d943004e11a3392c7e6e5dbfb7.json",
+      "sha256": "96e8d67a0c30240b6b649090d701f6c162bc5ff01eb0f7b6575ca8a0a2bf33ed"
+    },
+    {
+      "bytes": 46117,
+      "git_blob_sha1": "21b4f0ce64f58c94f0fe36ff58a45dc5b199065c",
+      "path": "glow/test_runs/provenance/20261016T174722Z_d8d7a219221c_6d3a24874c6743cd9b8cdde422dc90cf.json",
+      "sha256": "4bfc035a487cfcc43b98423d9201716c66cfe2604fae20d15f3d139bdb82e023"
+    },
+    {
+      "bytes": 45862,
+      "git_blob_sha1": "12ab59bdf614d3685b6aa2348d86c9daa49329f1",
+      "path": "glow/test_runs/provenance/20261016T174928Z_d8d7a219221c_3f9cd9443eec495ab788b9fd2b6fe2e9.json",
+      "sha256": "a3745ffc1e75495ba225ddc8ab029c07f36fbe36b8afd438bc6469195c67a0ac"
+    },
+    {
+      "bytes": 5389,
+      "git_blob_sha1": "3fc137d097fc077e1be391ff3994d9ca8a3eab80",
+      "path": "work/task_acceptance.json",
+      "sha256": "69164127e3d2f534f4bcc550410fbc3b209b57bdde44fd127a5b925ef477dec9"
+    }
+  ],
+  "source_publication": {
+    "commit": "bbf0474bd62a29aef36da61429a7a218c6a04ec5",
+    "expected_parent": "bbf0474bd62a29aef36da61429a7a218c6a04ec5",
+    "force": false,
+    "remote_blob_readback_verified": true,
+    "remote_tree_sha": "c0793416a0a2e71d6336ff9c7bb6c7587baa6bbc",
+    "status": "source identity confirmed by GitHub-created tree, exact hosted checkout measurement, and remote blob reads",
+    "tree": "c0793416a0a2e71d6336ff9c7bb6c7587baa6bbc"
+  },
+  "test_provenance_path": "glow/test_runs/provenance/20261016T174928Z_d8d7a219221c_3f9cd9443eec495ab788b9fd2b6fe2e9.json",
+  "title": "Planner API migration and test isolation"
+}

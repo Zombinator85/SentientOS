@@ -65,6 +65,14 @@ from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner
 pytestmark = pytest.mark.no_legacy_skip
 
 
+@pytest.fixture(autouse=True)
+def _isolate_shared_runtime_roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep default daemon governance state inside each test's disposable root."""
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_RUNTIME_STATE_ROOT", str(tmp_path / "runtime-state"))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(tmp_path / "federation"))
+
+
 def snapshot(value: int = 1):
     return WorldStateBoardBuilder().build([
         {"source_id":"source-b", "source_kind":"audit_trust", "subject_id":"b", "stage":"observation", "disposition":"recorded", "observed_at":"2026-01-01T00:00:00+00:00", "payload":{"value":9}},
@@ -1886,7 +1894,8 @@ print(json.dumps({"stance": state.stance if state else None,
     assert later_outputs[0][0] != later_outputs[1][0]
     assert later_outputs[1][2] == recovered_state.state_digest
 
-    from sentientos.goal_executor import ExecutorState, GoalExecutor
+    from sentientos.goal_executor import ExecutorState
+    from sentientos.goal_planner import GoalPlanner
     from sentientos.goal_graph import Goal, GoalGraph
     from sentientos.risk_budget import RiskBudget
     from sentientos.work_allocator import AllocationDecision, allocate_goals
@@ -1903,7 +1912,7 @@ print(json.dumps({"stance": state.stance if state else None,
         operating_mode="normal", quarantine_active=False, allow_mutation=True,
         goal_graph_hash="beef" * 16, allocation_id="followup",
         risk_budget=planning_budget, prior_epistemic_projection=updated_projection)
-    planner = GoalExecutor(repo_root=planning_state.repo_root)
+    planner = GoalPlanner(repo_root=planning_state.repo_root)
     unconditioned_plan = planner.build_plan(planning_allocation,
         ExecutorState(repo_root=planning_state.repo_root,
             created_at=planning_state.created_at, context=planning_state.context,
