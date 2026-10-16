@@ -153,6 +153,37 @@ def test_concurrent_tasks_on_one_journal_serialize_in_sequence(tmp_path: Path) -
     assert [row["sequence"] for row in rows] == [1, 2]
 
 
+def test_stale_writer_detects_same_size_journal_change(tmp_path: Path) -> None:
+    plan = WorkPlan(1, "same-size-stale-journal-plan", "2026-01-01T00:00:00Z", "manual",
+        ("g1",), (
+            Task(1, "g1:one", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+            Task(1, "g1:two", "g1", "forge_propose", (), None, 0, 0, {}, (), False),
+        ))
+    journal = WorkPlanExecutionJournal(tmp_path, plan)
+    journal.start("g1:one")
+    original = journal.path.read_bytes()
+    changed = original.replace(b'"task_id":"g1:one"', b'"task_id":"g1:two"', 1)
+    assert len(changed) == len(original)
+    journal.path.write_bytes(changed)
+
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_stale_writer"):
+        journal.start("g1:two")
+    assert journal.path.read_bytes() == changed
+
+
+def test_incomplete_final_record_is_preserved_and_never_repaired(tmp_path: Path) -> None:
+    plan = _plan()
+    journal = WorkPlanExecutionJournal(tmp_path, plan)
+    journal.start("g1:propose")
+    with journal.path.open("ab") as handle:
+        handle.write(b'{"schema_version":2')
+    interrupted = journal.path.read_bytes()
+
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_bounds_invalid"):
+        WorkPlanExecutionJournal(tmp_path, plan)
+    assert journal.path.read_bytes() == interrupted
+
+
 def test_terminal_task_result_is_recovered_with_original_artifacts_and_times(tmp_path: Path) -> None:
     plan = _plan()
     result = TaskRun("g1:propose", "g1", "forge_propose", "success", None,
