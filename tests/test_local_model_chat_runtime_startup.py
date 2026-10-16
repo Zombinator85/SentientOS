@@ -245,6 +245,7 @@ while not Path(os.environ['TEST_RELEASE_CHILD']).exists() and time.monotonic() <
                                    serving_operation_id="serve-handoff")
     adapter = LocalModelChatServiceAdapter(config, installation_handle=handle)
     adapter._root = root
+    adapter._cwd = root
     adapter._launch_environment["PYTHONPATH"] = os.pathsep.join(
         (str(real_root), adapter._launch_environment["PYTHONPATH"]))
     adapter._environment = dict(adapter._launch_environment)
