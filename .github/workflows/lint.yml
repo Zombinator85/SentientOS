@@ -8,6 +8,7 @@ jobs:
     env:
       SENTIENTOS_HEADLESS: "1"
       SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/lint-governor
+      SENTIENTOS_FEDERATION_ROOT: .ci-runtime/lint-federation
     strategy:
       matrix:
         include:
@@ -54,6 +55,19 @@ jobs:
         run: python scripts/check_mypy_baseline.py
       - name: pytest airlock guard
         run: python scripts/pytest_airlock_guard.py
+      - name: FastAPI TestClient regression set
+        if: matrix.mode == 'core'
+        timeout-minutes: 5
+        run: |
+          python -m scripts.run_tests -q \
+            tests/test_dashboard_api.py \
+            tests/test_dashboard_drift_api.py \
+            tests/test_dashboard_pressure_api.py \
+            tests/test_dashboard_sse_reconnect_smoke.py \
+            tests/test_chat_service_lazy_loading.py \
+            tests/test_admin_status_endpoints.py \
+            tests/test_federation_stream.py \
+            tests/integration/test_fastapi_relay.py
       - name: pytest
         run: python -m scripts.run_tests
         env:

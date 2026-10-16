@@ -11,6 +11,7 @@ jobs:
     env:
       SENTIENTOS_HEADLESS: "1"
       SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/governor
+      SENTIENTOS_FEDERATION_ROOT: .ci-runtime/federation
       SENTIENTOS_CI_MIN_PASSED: "1"
       SENTIENTOS_CI_MAX_SKIP_RATE: "0.20"
       SENTIENTOS_CI_MAX_XFAIL_RATE: "0.10"
@@ -144,6 +145,7 @@ jobs:
     env:
       SENTIENTOS_HEADLESS: "1"
       SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/self-check-governor
+      SENTIENTOS_FEDERATION_ROOT: .ci-runtime/self-check-federation
     services:
       docker:
         image: docker:dind
