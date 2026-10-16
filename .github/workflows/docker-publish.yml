@@ -31,6 +31,8 @@ jobs:
 
       - name: Run pre-commit
         run: pre-commit run --all-files
+        env:
+          SENTIENTOS_TEST_RUN_DIR: /tmp/sentientos-docker-precommit-test-runs
 
       - name: Run tests
         run: python -m scripts.run_tests
