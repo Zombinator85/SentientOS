@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  PULSE_TRUST_EPOCH_ROOT: .ci-runtime/pulse-trust-epoch
+
 jobs:
   source-validation:
     name: Source validation (unprivileged)
