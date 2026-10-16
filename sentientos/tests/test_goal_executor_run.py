@@ -14,7 +14,7 @@ import sentientos.goal_executor as goal_executor
 from sentientos.goal_executor import ExecutorState, GoalExecutor
 from sentientos.risk_budget import RiskBudget
 from sentientos.work_plan import (Task, WorkPlan, persist_work_plan_evidence,
-    persist_work_run, work_plan_id_from_evidence)
+    load_work_run, persist_work_run, work_plan_id_from_evidence)
 from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 
 
@@ -133,6 +133,45 @@ def test_execute_rejects_changed_canonical_evidence_before_task_effect(
 
     assert calls == []
     assert not (tmp_path / "glow/forge/work_plan_journals").exists()
+
+
+def test_execution_run_persists_exact_verified_plan_evidence_digest(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    created_at = "2026-01-01T00:00:00Z"
+    evidence_binding = {"goal_graph_hash": "h", "allocation_artifact_path": "a",
+        "selected_reasons": [{"goal_id": "g1", "epistemic_positions": [
+            {"proposition_id": "p1", "identity": {"state_id": "s1"}}]}]}
+    plan = WorkPlan(1, work_plan_id_from_evidence(created_at, "h", "a",
+        evidence_binding), created_at, "canonical", ("g1",),
+        (Task(1, "t1", "g1", "forge_propose", (), None, 0, 0, {}, (), False),))
+    _, evidence_digest = persist_work_plan_evidence(tmp_path, plan, evidence_binding)
+    calls: list[str] = []
+    executor = GoalExecutor(repo_root=tmp_path)
+    monkeypatch.setattr(executor, "_execute_task",
+        lambda task: calls.append(task.task_id) or ("success", None, ()))
+
+    run = executor.execute_plan(plan, _state(tmp_path),
+        expected_evidence_digest=evidence_digest)
+    assert run.schema_version == 3
+    assert run.evidence_digest == evidence_digest
+    assert run.task_runs[0].status == "success"
+    assert calls == ["t1"]
+    run_path = tmp_path / persist_work_run(tmp_path, run)
+    persisted = json.loads(run_path.read_text(encoding="utf-8"))
+    assert persisted["schema_version"] == 3
+    assert persisted["evidence_digest"] == evidence_digest
+    assert load_work_run(tmp_path, plan, created_at=created_at) == run
+    assert executor.execute_plan(plan, _state(tmp_path),
+        expected_evidence_digest=evidence_digest) == run
+    assert calls == ["t1"]
+
+    persisted["evidence_digest"] = "f" * 64
+    run_path.write_text(json.dumps(persisted, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
+    with pytest.raises(goal_executor.WorkPlanError,
+            match="work_run_evidence_binding_mismatch"):
+        load_work_run(tmp_path, plan, created_at=created_at)
 
 
 def test_plan_command_rejects_shell_payload_without_launching(tmp_path: Path, monkeypatch) -> None:

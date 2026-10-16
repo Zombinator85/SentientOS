@@ -147,9 +147,10 @@ class WorkPlanRun:
     task_runs: tuple[TaskRun, ...]
     reason_stack: tuple[str, ...]
     plan_digest: str = ""
+    evidence_digest: str | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "schema_version": self.schema_version,
             "run_id": self.run_id,
             "plan_id": self.plan_id,
@@ -161,6 +162,9 @@ class WorkPlanRun:
             "reason_stack": list(self.reason_stack),
             "plan_digest": self.plan_digest,
         }
+        if self.schema_version == 3:
+            payload["evidence_digest"] = self.evidence_digest
+        return payload
 
 
 
@@ -449,10 +453,13 @@ def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object
 
 
 def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
-    if (not isinstance(run, WorkPlanRun) or run.schema_version != 2
+    if (not isinstance(run, WorkPlanRun) or run.schema_version not in {2, 3}
             or not isinstance(run.plan_digest, str) or len(run.plan_digest) != 64
             or any(character not in "0123456789abcdef" for character in run.plan_digest)):
         raise WorkPlanError("work_run_plan_binding_required")
+    if (run.schema_version == 2 and run.evidence_digest is not None
+            or run.schema_version == 3 and not _valid_digest(run.evidence_digest)):
+        raise WorkPlanError("work_run_evidence_binding_required")
     if run.run_id != f"run_{run.plan_digest}":
         raise WorkPlanError("work_run_identity_invalid")
     root = repo_root.resolve()
@@ -521,11 +528,17 @@ def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPl
         raise WorkPlanError("work_run_artifact_unreadable") from exc
     if isinstance(payload, dict) and payload.get("plan_digest") != plan.identity_digest():
         raise WorkPlanError("work_run_plan_identity_mismatch")
-    if (not isinstance(payload, dict) or set(payload) != {
+    version = payload.get("schema_version") if isinstance(payload, dict) else None
+    fields_v2 = {
             "schema_version", "run_id", "plan_id", "created_at", "status",
             "operating_mode", "quarantine_active", "task_runs", "reason_stack",
             "plan_digest"}
-            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 2
+    fields_v3 = fields_v2 | {"evidence_digest"}
+    if (not isinstance(payload, dict)
+            or type(version) is not int or version not in {2, 3}
+            or set(payload) != (fields_v2 if version == 2 else fields_v3)
+            or (version == 2 and payload.get("evidence_digest") is not None)
+            or (version == 3 and not _valid_digest(payload.get("evidence_digest")))
             or payload.get("run_id") != run_id or payload.get("plan_id") != plan.plan_id
             or payload.get("created_at") != created_at
             or not isinstance(payload.get("operating_mode"), str)
@@ -537,6 +550,10 @@ def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPl
             or len(payload["reason_stack"]) > 12
             or any(not isinstance(item, str) for item in payload["reason_stack"])):
         raise WorkPlanError("work_run_artifact_shape_invalid")
+    if version == 3:
+        evidence = load_work_plan_evidence(repo_root, plan)
+        if evidence.get("evidence_digest") != payload.get("evidence_digest"):
+            raise WorkPlanError("work_run_evidence_binding_mismatch")
     expected_task_fields = {"task_id", "goal_id", "kind", "status", "reason",
         "started_at", "finished_at", "duration_ms", "artifacts", "destructive"}
     task_runs: list[TaskRun] = []
@@ -576,9 +593,15 @@ def load_work_run(repo_root: Path, plan: WorkPlan, *, created_at: str) -> WorkPl
     canonical = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
     if raw != canonical:
         raise WorkPlanError("work_run_artifact_noncanonical")
-    return WorkPlanRun(2, run_id, plan.plan_id, created_at, expected_status,
+    return WorkPlanRun(version, run_id, plan.plan_id, created_at, expected_status,
         payload["operating_mode"], payload["quarantine_active"], tuple(task_runs),
-        tuple(payload["reason_stack"]), payload["plan_digest"])
+        tuple(payload["reason_stack"]), payload["plan_digest"],
+        payload.get("evidence_digest"))
+
+
+def _valid_digest(value: object) -> bool:
+    return (isinstance(value, str) and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value))
 
 
 def work_run_id(plan: WorkPlan, *, created_at: str) -> str:

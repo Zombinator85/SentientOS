@@ -42,6 +42,8 @@ class GoalExecutor:
         journal = WorkPlanExecutionJournal(self.repo_root, plan)
         persisted_run = load_work_run(self.repo_root, plan, created_at=state.created_at)
         if persisted_run is not None:
+            if persisted_run.evidence_digest != expected_evidence_digest:
+                raise WorkPlanError("work_run_evidence_binding_mismatch")
             for task_run in persisted_run.task_runs:
                 journal_state = journal.state(task_run.task_id)
                 journal_result = journal.result(task_run.task_id)
@@ -125,11 +127,12 @@ class GoalExecutor:
 
         run_id = work_run_id(plan, created_at=state.created_at)
         overall_status = _overall_status(task_runs)
-        return WorkPlanRun(schema_version=2, run_id=run_id, plan_id=plan.plan_id,
+        return WorkPlanRun(schema_version=3 if expected_evidence_digest is not None else 2,
+            run_id=run_id, plan_id=plan.plan_id,
             created_at=state.created_at, status=overall_status,
             operating_mode=state.operating_mode, quarantine_active=state.quarantine_active,
             task_runs=tuple(task_runs), reason_stack=tuple(reasons[:12]),
-            plan_digest=plan.identity_digest())
+            plan_digest=plan.identity_digest(), evidence_digest=expected_evidence_digest)
 
     def _execute_task(self, task: Task) -> tuple[str, str | None, tuple[str, ...]]:
         if task.kind in {"diagnostic", "verify"}:
