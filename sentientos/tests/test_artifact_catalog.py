@@ -39,6 +39,21 @@ def test_catalog_append_and_latest_recent(tmp_path: Path) -> None:
     assert quarantine["id"] == "inc-1"
 
 
+def test_goal_and_plan_run_links_survive_catalog_normalization(tmp_path: Path) -> None:
+    row = artifact_catalog.append_catalog_entry(
+        tmp_path, kind="work_run", artifact_id="run-1",
+        relative_path="glow/forge/work_runs/run-1.json", schema_name="",
+        schema_version=3,
+        links={"goal_ids": ["g2", "g1"], "work_plan_id": "plan-1",
+            "work_run_id": "run-1", "unrecognized": "drop"},
+    )
+
+    assert row["links"] == {
+        "goal_ids": ["g1", "g2"], "work_plan_id": "plan-1",
+        "work_run_id": "run-1",
+    }
+
+
 def test_linkage_incident_to_pack_to_run(tmp_path: Path) -> None:
     trace_payload = {
         "trace_id": "trace_1",

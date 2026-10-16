@@ -20,12 +20,8 @@ def test_checks_done_and_unknown(tmp_path: Path) -> None:
     unbound = eval_check("check_forge_last_run_ok", ctx)
     assert unbound.done is False
     assert "run_evidence_binding_missing" in unbound.reason_stack
-    bound_ctx = CompletionContext(tmp_path, "g1", "normal", 0, "balanced", False, {}, "r1", "a" * 64)
-    bound = eval_check("check_forge_last_run_ok", bound_ctx)
-    assert bound.done is True
-    assert bound.evidence_digest == "a" * 64
-    mismatch = CompletionContext(tmp_path, "g1", "normal", 0, "balanced", False, {}, "other", "a" * 64)
-    assert eval_check("check_forge_last_run_ok", mismatch).done is False
+    claimed_ctx = CompletionContext(tmp_path, "g1", "normal", 0, "balanced", False, {}, "r1", "a" * 64)
+    assert eval_check("check_forge_last_run_ok", claimed_ctx).done is False
     assert eval_check("check_witnesses_ok", ctx).status == "unknown"
 
 

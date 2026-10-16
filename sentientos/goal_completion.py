@@ -9,6 +9,7 @@ from typing import Protocol
 
 from sentientos import artifact_catalog
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, normalize
+from sentientos.work_plan import WorkPlanError, load_work_plan, load_work_run
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,20 +108,13 @@ class _ForgeLastRunOkCheck:
         summary = entry.get("summary") if isinstance(entry.get("summary"), dict) else {}
         status = str((payload or {}).get("status") or summary.get("status") or "unknown")
         gate_failures = int(summary.get("integrity_gate_failures", 0)) if isinstance(summary.get("integrity_gate_failures"), int) else 0
-        payload_run_id = str((payload or {}).get("run_id") or "")
-        payload_digest = (payload or {}).get("evidence_digest")
-        bound = (
-            ctx.work_run_id is not None
-            and ctx.work_run_id == payload_run_id
-            and _valid_digest(ctx.work_run_evidence_digest)
-            and ctx.work_run_evidence_digest == payload_digest
-            and (payload or {}).get("schema_version") == 3
-        )
+        evidence_digest = _validated_run_evidence(ctx, entry, payload)
+        bound = evidence_digest is not None
         done = status == "ok" and gate_failures == 0 and bound
         if not bound:
             reasons = tuple(sorted(set(reasons + ("run_evidence_binding_missing",))))
         reason_stack = tuple(sorted(set(reasons + (() if done else ("verify_failed",)))))
-        return _result(ctx.goal_id, self.name, now, done, 1.0 if done else 0.5, "ok" if done else "blocked", _evidence(entry), (), reason_stack, ctx.work_run_evidence_digest if bound else None)
+        return _result(ctx.goal_id, self.name, now, done, 1.0 if done else 0.5, "ok" if done else "blocked", _evidence(entry), (), reason_stack, evidence_digest)
 
 
 class _IntegrityBaselineCheck:
@@ -264,6 +258,52 @@ def persist_completion_result(repo_root: Path, result: CompletionResult, *, work
 
 def _valid_digest(value: object) -> bool:
     return isinstance(value, str) and len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
+def _validated_run_evidence(
+    ctx: CompletionContext,
+    run_entry: dict[str, object],
+    payload: dict[str, object] | None,
+) -> str | None:
+    """Reconstruct a persisted run through its canonical plan and evidence."""
+    if not isinstance(payload, dict) or payload.get("schema_version") != 3:
+        return None
+    run_id = payload.get("run_id")
+    plan_id = payload.get("plan_id")
+    digest = payload.get("evidence_digest")
+    if (not isinstance(run_id, str) or not isinstance(plan_id, str)
+            or not _valid_digest(digest)
+            or run_entry.get("id") != run_id
+            or (ctx.work_run_id is not None and ctx.work_run_id != run_id)
+            or (ctx.work_run_evidence_digest is not None
+                and ctx.work_run_evidence_digest != digest)):
+        return None
+    plan_entries = [
+        row for row in artifact_catalog.recent(ctx.repo_root, "work_plan", limit=1000)
+        if row.get("id") == plan_id
+    ]
+    plan_paths = {row.get("path") for row in plan_entries}
+    if not plan_entries or len(plan_paths) != 1:
+        return None
+    relative_path = next(iter(plan_paths))
+    if not isinstance(relative_path, str) or not relative_path:
+        return None
+    root = ctx.repo_root.resolve()
+    plan_path = (root / relative_path).resolve()
+    if not plan_path.is_relative_to(root):
+        return None
+    try:
+        plan = load_work_plan(plan_path)
+        if plan.plan_id != plan_id or ctx.goal_id not in plan.selected_goals:
+            return None
+        verified = load_work_run(root, plan, created_at=plan.created_at)
+    except (WorkPlanError, OSError, ValueError):
+        return None
+    if (verified is None or verified.schema_version != 3
+            or verified.run_id != run_id or verified.status != payload.get("status")
+            or verified.evidence_digest != digest):
+        return None
+    return digest
 
 
 def _result(goal_id: str, check_name: str, checked_at: str, done: bool, progress: float, status: str, evidence_paths: tuple[str, ...], notes: tuple[str, ...], reason_stack: tuple[str, ...], evidence_digest: str | None = None) -> CompletionResult:
