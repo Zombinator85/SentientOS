@@ -1,0 +1,132 @@
+{
+  "defect": {
+    "execution_run_artifacts_lacked_the_exact_validated_plan_evidence_digest": true,
+    "risk": "a later outcome consumer could not bind the persisted task run to the canonical history and decision evidence supplied to execution"
+  },
+  "evidence_path": "work/construction/evidence/0289-run-evidence-digest-lineage.json",
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "new_records_preserved": true,
+    "prior_chain_repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "implementation": {
+    "attempt_status_claims_goal_completion": false,
+    "legacy_schema_v2": "retained for runs without a required evidence digest",
+    "load": "revalidates immutable plan evidence before returning a v3 run",
+    "replay": "rejects a run whose evidence digest differs from the currently validated plan evidence",
+    "run_schema_v3": "persists the exact validated evidence digest for canonical runs"
+  },
+  "local_regression": {
+    "append_only_provenance": [
+      {
+        "file_sha256": "22ed01fcd9f1a82f78655ca3041dc861571ddebc247c91dbc873d7197abb54e3",
+        "git_sha": "8e4793d68fa3c14df8323924617013bfad1653e7",
+        "path": "glow/test_runs/provenance/20261016T213045Z_8e4793d68fa3_675640a2877944f0b3aadd3319738d8c.json",
+        "previous_provenance_hash": "9b0a4a680f77f2d9c60e4eeafa680d2cfbde4c7f396266b9c6b192546adc3ae2",
+        "provenance_hash": "69d5ff40ec102239f2d86392fc76c175f1c36a5e1c6b60af1312e50fc766d240",
+        "pytest_exit_code": 4,
+        "tests_collected": 0,
+        "tests_executed": 0,
+        "tests_failed": 0,
+        "tests_passed": 0,
+        "tests_skipped": 0,
+        "used_as_exact_source_verification": false,
+        "validation_status": "collection_failed"
+      },
+      {
+        "file_sha256": "c80117f234c1255cfed16794bbdf0076959b0806c2fa3852818858590b9b8dc0",
+        "git_sha": "8e4793d68fa3c14df8323924617013bfad1653e7",
+        "path": "glow/test_runs/provenance/20261016T213053Z_8e4793d68fa3_2ae2d2c59b2242a3974a6efa77d9f2ec.json",
+        "previous_provenance_hash": "69d5ff40ec102239f2d86392fc76c175f1c36a5e1c6b60af1312e50fc766d240",
+        "provenance_hash": "078b77dda8b4c372770c15a0396711680b7e922bbf2a028f52cab093d4a4a306",
+        "pytest_exit_code": 0,
+        "tests_collected": 36,
+        "tests_executed": 36,
+        "tests_failed": 0,
+        "tests_passed": 36,
+        "tests_skipped": 0,
+        "used_as_exact_source_verification": false,
+        "validation_status": "validation_complete"
+      },
+      {
+        "file_sha256": "acc05f883f36a8be14aef18a4bdd7a7b4571bb277817e8c283d099ef17d186aa",
+        "git_sha": "e7d874feb9c5aec7015d4c34f127a335336a9bcf",
+        "path": "glow/test_runs/provenance/20261016T213105Z_e7d874feb9c5_8f3fbd12ab2d434086fc37bfa6667407.json",
+        "previous_provenance_hash": "078b77dda8b4c372770c15a0396711680b7e922bbf2a028f52cab093d4a4a306",
+        "provenance_hash": "1725795eb315882114f9e9a42d00a5ab6a89ef676d4b3033d75c368ee082bc44",
+        "pytest_exit_code": 0,
+        "tests_collected": 36,
+        "tests_executed": 36,
+        "tests_failed": 0,
+        "tests_passed": 36,
+        "tests_skipped": 0,
+        "used_as_exact_source_verification": true,
+        "validation_status": "validation_complete"
+      }
+    ],
+    "command": "python -m scripts.run_tests -q sentientos/tests/test_goal_executor_run.py sentientos/tests/test_work_plan_load.py sentientos/tests/test_goal_completion_checks.py",
+    "compileall": "passed",
+    "construction_custody": "pending sequence 289 record append",
+    "diff_check": "passed",
+    "exact_source_binding": {
+      "git_sha": "e7d874feb9c5aec7015d4c34f127a335336a9bcf",
+      "git_tree": "eb1c60d608b1450cce6a2e7c86453b8dcce85678",
+      "previous_provenance_hash": "078b77dda8b4c372770c15a0396711680b7e922bbf2a028f52cab093d4a4a306",
+      "provenance_hash": "1725795eb315882114f9e9a42d00a5ab6a89ef676d4b3033d75c368ee082bc44",
+      "provenance_path": "glow/test_runs/provenance/20261016T213105Z_e7d874feb9c5_8f3fbd12ab2d434086fc37bfa6667407.json",
+      "provenance_sha256": "acc05f883f36a8be14aef18a4bdd7a7b4571bb277817e8c283d099ef17d186aa"
+    },
+    "mypy_baseline": {
+      "baseline_digest": "20201c39f7b73e3b9e07bd76d5454365a2204a120a9de96c4ab56a64bac748a9",
+      "matched_existing_errors": 1053,
+      "new_errors": 0,
+      "retired_error_records": 37,
+      "status": "mypy_baseline_improved",
+      "summary_path": "glow/test_runs/mypy_baseline_seq289.json",
+      "summary_sha256": "29a45c25131ff9ba0ee94bcd94f146c75366b76c0a7a15eec4d3c32b74146a73"
+    },
+    "run_artifacts": [
+      {
+        "path": "glow/test_runs/pytest_report_71a005868e5c4969bdce4286cfede3da.json",
+        "sha256": "b5f9613d02acff155d2b3040a2b045f6eda5905c3064d239814184af991a1b64"
+      },
+      {
+        "path": "glow/test_runs/pytest_junitxml_26e66bb37b7a44d8893a9518f0ca281d.xml",
+        "sha256": "5bfc8a1551ea1bd8f334662e8f4110a4aedf53a28078289240c54316a9b02c63"
+      }
+    ],
+    "summary_sha256": "acc05f883f36a8be14aef18a4bdd7a7b4571bb277817e8c283d099ef17d186aa",
+    "targeted_mypy": "passed: mypy --follow-imports=skip sentientos/work_plan.py sentientos/goal_executor.py",
+    "tests_collected": 36,
+    "tests_executed": 36,
+    "tests_failed": 0,
+    "tests_passed": 36,
+    "tests_skipped": 0,
+    "validation_status": "validation_complete"
+  },
+  "next_dependency": "Carry the bound evidence digest from execution run into goal-completion review while proving that run status alone cannot satisfy a goal completion check.",
+  "predecessor_segment_sha256": "f76e78eafb0413fefe17bbc456dcc003657a1bd98f6823ce1968a525758e6301",
+  "segment_path": "work/construction/segments/0289-run-evidence-digest-lineage.md",
+  "segment_sha256": "4e3db2e2fcd56728f9572bde5e3c441a9a2f51ccc651da01da52db05929893c6",
+  "sequence": 289,
+  "sequence_288_hosted_verification": {
+    "administrator_verified": true,
+    "ci_run_id": 38969716375,
+    "ci_status": "in_progress",
+    "effective_uid": 0,
+    "gate_artifact_sha256": "d97ea93b677af846fc30f81c7234dcf0c4cc8df42b938ffea3de5d649f9acd34",
+    "immutability_ok": true,
+    "invariant_run_id": 38969716467,
+    "invariant_status": "success",
+    "remote_candidate_commit": "4629a27e1e670e62b69bc12c3a0ae314adaefa7f",
+    "remote_tree": "76edab3a50dc8af3c1d89c47d72797093cbca17f",
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38969716396,
+    "strict_audit_ok": true
+  },
+  "source_commit": "e7d874feb9c5aec7015d4c34f127a335336a9bcf",
+  "source_tree": "eb1c60d608b1450cce6a2e7c86453b8dcce85678",
+  "title": "Bind persisted execution runs to exact canonical plan evidence"
+}

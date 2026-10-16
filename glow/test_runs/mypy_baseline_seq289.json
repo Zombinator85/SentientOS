@@ -1,0 +1,309 @@
+{
+  "affected_new_files": [],
+  "baseline": "vow/mypy_baseline.json",
+  "baseline_digest": "20201c39f7b73e3b9e07bd76d5454365a2204a120a9de96c4ab56a64bac748a9",
+  "drifted_files": [
+    "scripts/audit_immutability_verifier.py",
+    "scripts/quarantine_clear.py",
+    "scripts/verify_audits.py",
+    "sentientos/attestation_snapshot.py",
+    "sentientos/auto_remediation.py",
+    "sentientos/cathedral_forge.py",
+    "sentientos/consciousness/integration.py",
+    "sentientos/consciousness/sentience_kernel.py",
+    "sentientos/embodiment_proposal_diagnostic.py",
+    "sentientos/embodiment_proposal_review.py",
+    "sentientos/first_boot.py",
+    "sentientos/forge_daemon.py",
+    "sentientos/forge_index.py",
+    "sentientos/forge_queue.py",
+    "sentientos/integrity_controller.py",
+    "sentientos/integrity_pressure.py",
+    "sentientos/remediation_pack.py",
+    "sentientos/start.py",
+    "sentientos/strategic_adaptation.py"
+  ],
+  "matched_existing_errors": 1053,
+  "matched_with_location_drift": 101,
+  "mypy_command": [
+    "python",
+    "-m",
+    "mypy",
+    "--config-file",
+    "pyproject.toml",
+    "--python-version",
+    "3.11",
+    "--no-site-packages",
+    "--no-incremental",
+    "--hide-error-context",
+    "--no-color-output",
+    "--show-column-numbers",
+    "--show-error-codes",
+    "scripts/",
+    "sentientos/"
+  ],
+  "new_errors": 0,
+  "retired_error_records": [
+    {
+      "code": "call-overload",
+      "column": 31,
+      "line": 168,
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "path": "sentientos/attestation_snapshot.py"
+    },
+    {
+      "code": "arg-type",
+      "column": 32,
+      "line": 178,
+      "message": "Argument \"attention_hint\" to \"_update_self_model\" of \"SentienceKernel\" has incompatible type \"object\"; expected \"str | None\"",
+      "path": "sentientos/consciousness/sentience_kernel.py"
+    },
+    {
+      "code": "arg-type",
+      "column": 32,
+      "line": 197,
+      "message": "Argument \"attention_hint\" to \"_update_self_model\" of \"SentienceKernel\" has incompatible type \"object\"; expected \"str | None\"",
+      "path": "sentientos/consciousness/sentience_kernel.py"
+    },
+    {
+      "code": "arg-type",
+      "column": 40,
+      "line": 206,
+      "message": "Argument 2 to \"emit_goal_event\" of \"SentienceKernel\" has incompatible type \"object\"; expected \"str | None\"",
+      "path": "sentientos/consciousness/sentience_kernel.py"
+    },
+    {
+      "code": "arg-type",
+      "column": 28,
+      "line": 218,
+      "message": "Argument \"attention_hint\" to \"_update_self_model\" of \"SentienceKernel\" has incompatible type \"object\"; expected \"str | None\"",
+      "path": "sentientos/consciousness/sentience_kernel.py"
+    },
+    {
+      "code": "assignment",
+      "column": 34,
+      "line": 134,
+      "message": "Incompatible types in assignment (expression has type \"dict[str, str]\", variable has type \"dict[str, object] | None\")",
+      "path": "sentientos/first_boot.py"
+    },
+    {
+      "code": "no-redef",
+      "column": 9,
+      "line": 140,
+      "message": "Name \"summary\" already defined on line 133",
+      "path": "sentientos/first_boot.py"
+    },
+    {
+      "code": "assignment",
+      "column": 30,
+      "line": 168,
+      "message": "Incompatible types in assignment (expression has type \"list[dict[str, object]]\", target has type \"str\")",
+      "path": "sentientos/first_boot.py"
+    },
+    {
+      "code": "assignment",
+      "column": 28,
+      "line": 171,
+      "message": "Incompatible types in assignment (expression has type \"dict[str, object]\", target has type \"str\")",
+      "path": "sentientos/first_boot.py"
+    },
+    {
+      "code": "assignment",
+      "column": 33,
+      "line": 174,
+      "message": "Incompatible types in assignment (expression has type \"dict[str, object]\", target has type \"str\")",
+      "path": "sentientos/first_boot.py"
+    },
+    {
+      "code": "assignment",
+      "column": 29,
+      "line": 183,
+      "message": "Incompatible types in assignment (expression has type \"list[dict[str, Sequence[str]]]\", target has type \"str\")",
+      "path": "sentientos/first_boot.py"
+    },
+    {
+      "code": "assignment",
+      "column": 30,
+      "line": 201,
+      "message": "Incompatible types in assignment (expression has type \"dict[str, str]\", variable has type \"dict[str, object] | None\")",
+      "path": "sentientos/first_boot.py"
+    },
+    {
+      "code": "attr-defined",
+      "column": 127,
+      "line": 206,
+      "message": "\"object\" has no attribute \"get\"",
+      "path": "sentientos/forge_index.py"
+    },
+    {
+      "code": "attr-defined",
+      "column": 56,
+      "line": 390,
+      "message": "\"object\" has no attribute \"get\"",
+      "path": "sentientos/forge_index.py"
+    },
+    {
+      "code": "arg-type",
+      "column": 50,
+      "line": 147,
+      "message": "Argument 2 to \"_deterministic_progress\" has incompatible type \"list[CompletionResult]\"; expected \"list[object]\"",
+      "path": "sentientos/goal_executor.py"
+    },
+    {
+      "code": "arg-type",
+      "column": 50,
+      "line": 270,
+      "message": "Argument 1 to \"_goal_state_summary\" has incompatible type \"dict[str, GoalStateRecord]\"; expected \"dict[str, object]\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "attr-defined",
+      "column": 38,
+      "line": 314,
+      "message": "\"object\" has no attribute \"get\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "attr-defined",
+      "column": 20,
+      "line": 318,
+      "message": "\"object\" has no attribute \"get\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "call-overload",
+      "column": 70,
+      "line": 404,
+      "message": "No overload variant of \"list\" matches argument type \"object\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "call-overload",
+      "column": 72,
+      "line": 405,
+      "message": "No overload variant of \"list\" matches argument type \"object\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "assignment",
+      "column": 48,
+      "line": 406,
+      "message": "Incompatible types in assignment (expression has type \"object\", variable has type \"dict[str, object]\")",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "index",
+      "column": 37,
+      "line": 420,
+      "message": "Value of type \"object\" is not indexable",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "assignment",
+      "column": 35,
+      "line": 441,
+      "message": "Incompatible types in assignment (expression has type \"object\", variable has type \"str\")",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "assignment",
+      "column": 35,
+      "line": 442,
+      "message": "Incompatible types in assignment (expression has type \"object\", variable has type \"str | None\")",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "call-overload",
+      "column": 38,
+      "line": 443,
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "call-overload",
+      "column": 37,
+      "line": 589,
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "arg-type",
+      "column": 43,
+      "line": 590,
+      "message": "Argument 1 to \"len\" has incompatible type \"object\"; expected \"Sized\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "attr-defined",
+      "column": 16,
+      "line": 680,
+      "message": "\"object\" has no attribute \"get\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "attr-defined",
+      "column": 96,
+      "line": 681,
+      "message": "\"object\" has no attribute \"get\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "call-overload",
+      "column": 24,
+      "line": 859,
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "path": "sentientos/orchestrator.py"
+    },
+    {
+      "code": "call-overload",
+      "column": 24,
+      "line": 633,
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "path": "sentientos/strategic_adaptation.py"
+    },
+    {
+      "code": "index",
+      "column": 35,
+      "line": 638,
+      "message": "Value of type \"object\" is not indexable",
+      "path": "sentientos/strategic_adaptation.py"
+    },
+    {
+      "code": "index",
+      "column": 35,
+      "line": 640,
+      "message": "Value of type \"object\" is not indexable",
+      "path": "sentientos/strategic_adaptation.py"
+    },
+    {
+      "code": "call-overload",
+      "column": 34,
+      "line": 645,
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "path": "sentientos/strategic_adaptation.py"
+    },
+    {
+      "code": "call-overload",
+      "column": 24,
+      "line": 829,
+      "message": "No overload variant of \"int\" matches argument type \"object\"",
+      "path": "sentientos/strategic_adaptation.py"
+    },
+    {
+      "code": "attr-defined",
+      "column": 55,
+      "line": 849,
+      "message": "\"object\" has no attribute \"__iter__\"; maybe \"__dir__\" or \"__str__\"? (not iterable)",
+      "path": "sentientos/strategic_adaptation.py"
+    },
+    {
+      "code": "union-attr",
+      "column": 54,
+      "line": 156,
+      "message": "Item \"None\" of \"Any | dict[Any, Any] | None\" has no attribute \"items\"",
+      "path": "sentientos/work_plan.py"
+    }
+  ],
+  "retired_errors": 37,
+  "status": "mypy_baseline_improved"
+}

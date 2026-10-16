@@ -1,17 +1,17 @@
 # Active construction checkpoint
 
-Sequence 288 preserves exact deferred epistemic position identities in the durable goal-allocation artifact, matching the identities in the immutable canonical plan evidence. The daemon reconstruction test verified both artifacts retain state/event/evidence bindings and bounded omission identity. The exact source `5300ddc79d5aa79849fa004530f5d23a368f3f20` at tree `ac9cfe9c09ab748aba0359dcfab6c6ce8f6b4afe` passed the plan-only integration suite 5/5 with no skips or failures; compilation and diff checks passed. The repo-wide Mypy baseline ratchet reported zero new errors, with 1,053 matching existing records and 37 retired. A supplemental targeted run showed one unchanged parent error at the corresponding line.
+Sequence 289 binds persisted canonical execution runs to the exact validated plan evidence digest. Work-run schema v3 stores and revalidates that digest; replay rejects mismatch. Legacy schema-v2 runs remain supported without evidence binding. The affected executor, work-run loader, and completion-check suite passed 36/36 with no skips or failures on exact source `e7d874feb9c5aec7015d4c34f127a335336a9bcf`, tree `eb1c60d608b1450cce6a2e7c86453b8dcce85678`. Targeted Mypy and the repo-wide baseline ratchet passed with zero new errors; compilation, diff, and custody checks passed.
 
-Sequence 287’s Required Quality Gate passed on the exact remote tree with effective UID 0 and successful strict audit and immutability checks. Its Invariant Tests passed; its CI workflow is still running. Sequence 288 has not yet been remotely verified.
+Sequence 288’s Required Quality Gate passed on remote SHA `4629a27e1e670e62b69bc12c3a0ae314adaefa7f` and tree `76edab3a50dc8af3c1d89c47d72797093cbca17f`, with effective UID 0, strict audit and immutability success. Its Invariant Tests passed; its full CI remains in progress. Sequence 289’s hosted verification has not run yet.
 
-Historical append-only provenance remains incomplete after sequence 286 cleanup: nine payloads and one unidentified record were lost. This sequence preserves its new records and exact digests without claiming recovery of those earlier payloads.
+Historical append-only provenance remains incomplete after sequence 286 cleanup: nine payloads and one unidentified record were lost. Sequence 289 preserves new run evidence, including one earlier missing-path collection failure, without treating it as test success.
 
 Latest verified main: `d9fbac78dad9187065fcdeaf112bf641cf3508ea`
 Latest verified main tree: `71d300a7ddd35343b710e3e52b58e4b02962825a`
-Latest segment: `work/construction/segments/0288-allocation-artifact-position-lineage.md`
-Latest segment SHA-256: `f76e78eafb0413fefe17bbc456dcc003657a1bd98f6823ce1968a525758e6301`
-Evidence: `work/construction/evidence/0288-allocation-artifact-position-lineage.json`
-Evidence SHA-256: `36d699f1b05575c85d52db24bcfe40f5a9f5d1a0fa01303920e48add09d95adc`
-Sequence: 288
+Latest segment: `work/construction/segments/0289-run-evidence-digest-lineage.md`
+Latest segment SHA-256: `4e3db2e2fcd56728f9572bde5e3c441a9a2f51ccc651da01da52db05929893c6`
+Evidence: `work/construction/evidence/0289-run-evidence-digest-lineage.json`
+Evidence SHA-256: `cc4c8d09181dea5fb54a60198c5d2f91c39223f1f6b8687c31617f2dfff3457e`
+Sequence: 289
 
-Next: bind the exact verified work-plan evidence digest to the persisted execution outcome, keeping plans, attempts, and completed effects distinct.
+Next: carry the run evidence digest into completion review and prove that task-run status alone cannot satisfy a goal completion check.
