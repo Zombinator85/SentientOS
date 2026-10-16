@@ -47,3 +47,6 @@ sandbox_run_*.jsonl
 .privilege_lint.cache
 .privilege_lint.gitcache
 docs/_build/
+
+# Generated state from unprivileged CI and test runs
+.ci-runtime/

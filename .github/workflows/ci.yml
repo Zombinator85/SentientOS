@@ -205,7 +205,7 @@ jobs:
           SENTIENTOS_GOVERNOR_ROOT: /tmp/sentientos-precommit-governor
           SENTIENTOS_FEDERATION_ROOT: /tmp/sentientos-precommit-federation
           SENTIENTOS_CONTROL_KERNEL_ROOT: /tmp/sentientos-precommit-control-plane
-          SENTIENTOS_RUNTIME_STATE_ROOT: /tmp/sentientos-precommit-runtime
+          SENTIENTOS_RUNTIME_STATE_ROOT: .ci-runtime/precommit-runtime
           SENTIENTOS_DATA_DIR: /tmp/sentientos-precommit-data
           SENTIENTOS_HEARTBEAT_PATH: /tmp/sentientos-precommit-heartbeat.snap
 
