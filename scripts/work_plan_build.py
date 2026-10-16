@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from sentientos.goal_executor import ExecutorState, GoalExecutor
+from sentientos.goal_planner import ExecutorState, GoalPlanner
 from sentientos.goal_graph import goal_graph_hash, load_goal_graph
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.risk_budget import compute_risk_budget
@@ -39,7 +39,7 @@ def main() -> int:
         allocation_id="manual_allocation",
         risk_budget=budget,
     )
-    plan = GoalExecutor(repo_root=root).build_plan(allocation=allocation, state=state, graph=graph)
+    plan = GoalPlanner(repo_root=root).build_plan(allocation=allocation, state=state, graph=graph)
     print(json.dumps(plan.to_dict(), indent=2, sort_keys=True))
     return 0
 

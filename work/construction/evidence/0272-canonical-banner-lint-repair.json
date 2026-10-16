@@ -1,0 +1,72 @@
+{
+  "behavioral_invariants": [
+    "exact configured privilege banner is used",
+    "no privilege or immutability rule weakened",
+    "planning remains execution-free",
+    "hosted strict audit source binding is preserved"
+  ],
+  "prior_hosted_verification": {
+    "effective_uid": 0,
+    "privileged_audit_status": "passed",
+    "run_id": 38940845676,
+    "source_commit": "6e35bfa9195f4d9574efaaaaff36699255851a04",
+    "source_tree": "0ecb531de79f37aae39a9f369e5f90cb8557cd72",
+    "workflow": "Required Quality Gate",
+    "workflow_conclusion": "success"
+  },
+  "prior_lint_failure": {
+    "conclusion": "failure",
+    "repair": "regenerated module header from DEFAULT_BANNER_ASCII and verified the targeted file with the linter",
+    "run_id": 38940845330,
+    "task_cause": "hand-copied banner in test_work_plan_cli.py differed from the exact configured banner",
+    "workflow": "Lint Benchmark"
+  },
+  "sequence": 272,
+  "source_blobs": [
+    {
+      "bytes": 6284,
+      "git_blob_sha1": "12cbecef2f519ccd176265a79a935b618c117a2a",
+      "path": "sentientos/tests/test_work_plan_cli.py",
+      "sha256": "b9787289777c722a34260faabe2ca38816212be62144624a2e145a97f479b0db"
+    },
+    {
+      "bytes": 13708,
+      "git_blob_sha1": "f6de76125169d39b33cb6a66260975d440399aa9",
+      "path": "sentientos/tests/test_orchestrator_plan_only.py",
+      "sha256": "40fc6330f3278ee4e7a5ef7ff8fa1cb1a10fb35a2a028dbe1f61e011d180e494"
+    },
+    {
+      "bytes": 5389,
+      "git_blob_sha1": "3fc137d097fc077e1be391ff3994d9ca8a3eab80",
+      "path": "work/task_acceptance.json",
+      "sha256": "69164127e3d2f534f4bcc550410fbc3b209b57bdde44fd127a5b925ef477dec9"
+    },
+    {
+      "bytes": 61455,
+      "git_blob_sha1": "45971e752df9b4326a6377804945db3ea164e83e",
+      "path": "glow/test_runs/provenance/20261016T173645Z_d8d7a219221c_e02038ac43674912be862dfe6c1665dd.json",
+      "sha256": "c7dff6c9563e1ea31f2aa2053c7d0ce074fc84ad43bbdedbfe5bf6a978e0eb22"
+    }
+  ],
+  "source_publication": {
+    "commit": "4758d5a0da3cda802eeb9de055a95d81ce9293bf",
+    "expected_parent": "4758d5a0da3cda802eeb9de055a95d81ce9293bf",
+    "force": false,
+    "remote_blob_readback_verified": false,
+    "status": "publication identity recorded by subsequent append-only evidence",
+    "tree": "0ecb531de79f37aae39a9f369e5f90cb8557cd72"
+  },
+  "test_provenance_path": "glow/test_runs/provenance/20261016T173645Z_d8d7a219221c_e02038ac43674912be862dfe6c1665dd.json",
+  "title": "Canonical banner and lint repair",
+  "verification": {
+    "acceptance_nodes_failed": 0,
+    "acceptance_nodes_passed": 17,
+    "compileall": true,
+    "git_diff_check": true,
+    "hosted_seq272_checks": "pending",
+    "regression_failed": 0,
+    "regression_passed": 135,
+    "targeted_mypy": true,
+    "targeted_privilege_lint": true
+  }
+}

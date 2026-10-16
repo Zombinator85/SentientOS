@@ -1,0 +1,73 @@
+{
+  "behavioral_invariants": [
+    "privilege linter banner requirement retained",
+    "runtime governance fixture is isolated under temporary roots",
+    "planning test still proves execution and inference are absent",
+    "strict audits and immutability requirements unchanged"
+  ],
+  "prior_hosted_verification": {
+    "artifact_id": 12063010723,
+    "artifact_sha256": "12ffd5a21f3f5d070e7233563a090439a7d7c6c9b57307f4fb0b8fad8c1d7bb1",
+    "effective_uid": 0,
+    "privileged_audit_status": "passed",
+    "run_id": 38939810230,
+    "source_commit": "17bac534e6b558279d787e327820465be1b76d3b",
+    "source_tree": "bc378a8eedb8c716a985b228421a8d10e62cc00a",
+    "workflow": "Required Quality Gate",
+    "workflow_conclusion": "success"
+  },
+  "prior_lint_failure": {
+    "conclusion": "failure",
+    "repair": "added exact configured banner; reran privilege linter successfully",
+    "run_id": 38939810089,
+    "task_cause": "new sentientos/tests/test_work_plan_cli.py lacked required privilege banner",
+    "workflow": "Lint Benchmark"
+  },
+  "sequence": 271,
+  "source_blobs": [
+    {
+      "bytes": 6282,
+      "git_blob_sha1": "c62d91ad6d77e6deda95034a5e2c70f3d9aa5d23",
+      "path": "sentientos/tests/test_work_plan_cli.py",
+      "sha256": "a7c3ac54141595dff9476a60ebdaed8ee8375616e6856540ee5a461189ab95bc"
+    },
+    {
+      "bytes": 13708,
+      "git_blob_sha1": "f6de76125169d39b33cb6a66260975d440399aa9",
+      "path": "sentientos/tests/test_orchestrator_plan_only.py",
+      "sha256": "40fc6330f3278ee4e7a5ef7ff8fa1cb1a10fb35a2a028dbe1f61e011d180e494"
+    },
+    {
+      "bytes": 5389,
+      "git_blob_sha1": "a5ab903f089cef22d573501a07bce1bda8e48333",
+      "path": "work/task_acceptance.json",
+      "sha256": "78decd60314da3ee91da27441d56f2ff75b2f6c05ce911bb3326e810e5af2a5c"
+    },
+    {
+      "bytes": 61455,
+      "git_blob_sha1": "7fb5bc8e81d7360b4dbad81f3556233a487f81d5",
+      "path": "glow/test_runs/provenance/20261016T173115Z_d8d7a219221c_cbbbe72c3da94e48a0624b1b8aaf8628.json",
+      "sha256": "9c357647cea9ed75930c09299ee8afcd0184b6efc8aaae2c41ebfe91de556c64"
+    }
+  ],
+  "source_publication": {
+    "commit": "504065c1fefe3e6020281aa30cc97e23f449891c",
+    "expected_parent": "504065c1fefe3e6020281aa30cc97e23f449891c",
+    "force": false,
+    "remote_blob_readback_verified": false,
+    "status": "publication identity will be bound by subsequent append-only evidence",
+    "tree": "bc378a8eedb8c716a985b228421a8d10e62cc00a"
+  },
+  "test_provenance_path": "glow/test_runs/provenance/20261016T173115Z_d8d7a219221c_cbbbe72c3da94e48a0624b1b8aaf8628.json",
+  "title": "Isolated planning verification fixtures",
+  "verification": {
+    "acceptance_nodes_failed": 0,
+    "acceptance_nodes_passed": 17,
+    "compileall": true,
+    "hosted_repair_checks": "pending",
+    "privilege_linter": true,
+    "regression_failed": 0,
+    "regression_passed": 135,
+    "targeted_mypy": true
+  }
+}

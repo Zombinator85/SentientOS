@@ -13,7 +13,8 @@ import sentientos.goal_executor as goal_executor
 
 from sentientos.goal_executor import ExecutorState, GoalExecutor
 from sentientos.risk_budget import RiskBudget
-from sentientos.work_plan import Task, WorkPlan, persist_work_run
+from sentientos.work_plan import (Task, WorkPlan, persist_work_plan_evidence,
+    persist_work_run, work_plan_id_from_evidence)
 from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
 
 
@@ -81,6 +82,57 @@ def _state(tmp_path: Path, *, operating_mode: str = "normal", allow_mutation: bo
 
 def _single_task_plan(task: Task) -> WorkPlan:
     return WorkPlan(1, "p1", "2026-01-01T00:00:00Z", "manual", ("g1",), (task,))
+
+
+def test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    plan = _single_task_plan(Task(1, "t1", "g1", "forge_propose", (), None,
+        0, 0, {}, (), False))
+    calls: list[str] = []
+    executor = GoalExecutor(repo_root=tmp_path)
+    monkeypatch.setattr(executor, "_execute_task",
+        lambda task: calls.append(task.task_id) or ("success", None, ()))
+
+    with pytest.raises(goal_executor.WorkPlanError,
+                       match="work_run_lookup_plan_time_mismatch"):
+        executor.execute_plan(plan, replace(_state(tmp_path),
+            created_at="2026-01-02T00:00:00Z"))
+
+    assert calls == []
+    assert not (tmp_path / "glow/forge/work_plan_journals").exists()
+    assert not (tmp_path / "glow/forge/work_runs").exists()
+
+
+def test_execute_rejects_changed_canonical_evidence_before_task_effect(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    created_at = "2026-01-01T00:00:00Z"
+    evidence_binding = {"goal_graph_hash": "h", "allocation_artifact_path": "a"}
+    plan = WorkPlan(
+        1,
+        work_plan_id_from_evidence(created_at, "h", "a", evidence_binding),
+        created_at,
+        "canonical",
+        ("g1",),
+        (Task(1, "t1", "g1", "forge_propose", (), None, 0, 0, {}, (), False),),
+    )
+    evidence_path, evidence_digest = persist_work_plan_evidence(
+        tmp_path, plan, evidence_binding)
+    persisted_evidence = tmp_path / evidence_path
+    persisted_evidence.write_bytes(persisted_evidence.read_bytes() + b" ")
+
+    calls: list[str] = []
+    executor = GoalExecutor(repo_root=tmp_path)
+    monkeypatch.setattr(executor, "_execute_task",
+        lambda task: calls.append(task.task_id) or ("success", None, ()))
+    with pytest.raises(goal_executor.WorkPlanError,
+                       match="work_plan_evidence_noncanonical"):
+        executor.execute_plan(plan, _state(tmp_path),
+            expected_evidence_digest=evidence_digest)
+
+    assert calls == []
+    assert not (tmp_path / "glow/forge/work_plan_journals").exists()
 
 
 def test_plan_command_rejects_shell_payload_without_launching(tmp_path: Path, monkeypatch) -> None:

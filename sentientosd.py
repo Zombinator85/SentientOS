@@ -14,7 +14,10 @@ from contextlib import contextmanager, suppress
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator, Mapping, Sequence, cast
+from typing import TYPE_CHECKING, Any, Iterator, Mapping, Sequence, cast
+
+if TYPE_CHECKING:
+    from sentientos.orchestrator import GoalPlanningResult
 
 from sentientos.boot_ceremony import (
     BootAnnouncer,
@@ -2623,6 +2626,77 @@ class RuntimeMaintenanceSurfaces:
         self._refresh_feedback()
         return feedback
 
+    def plan_canonical_goals(self, *, tick_id: str) -> GoalPlanningResult:
+        """Build a canonical plan from this daemon's verified read-only owners.
+
+        This is an explicit planning operation, not part of the maintenance tick.
+        It never invokes the goal executor; callers must retain the separate
+        execution boundary and its current authority checks.
+        """
+        if self._epistemic_state_configuration_error is not None:
+            raise ValueError(self._epistemic_state_configuration_error)
+        projection_owner = None
+        maximum: int | None = None
+        if self._epistemic_state_config.get("cognitive_consumption_enabled") is True:
+            if self._epistemic_state_owner is None:
+                raise ValueError("epistemic_state_owner_required")
+            maximum_value = self._epistemic_state_config.get(
+                "max_cognitive_projection_count")
+            if (not isinstance(maximum_value, int)
+                    or isinstance(maximum_value, bool)):
+                raise ValueError("epistemic_projection_bound_required")
+            projection_owner = self._epistemic_state_owner
+            maximum = maximum_value
+        from sentientos.orchestrator import plan_goals
+        return plan_goals(
+            self._repo_root,
+            prior_epistemic_projection_owner=projection_owner,
+            prior_epistemic_projection_max_states=maximum,
+            target_model_identity_observer=self._resident_cognitive_invoker,
+            planning_time=tick_id,
+        )
+
+    def run_canonical_goal_planning(self, *, tick_id: str) -> dict[str, Any]:
+        """Record this tick's plan-only result for the next governed decision.
+
+        The epistemic owner admits only history strictly before ``tick_id``;
+        planning therefore cannot consume cognition written later in this same
+        maintenance pass. No task executor or model session is opened here.
+        """
+        try:
+            result = self.plan_canonical_goals(tick_id=tick_id)
+            plan = result.work_plan
+            feedback: dict[str, Any] = {
+                "status": "planned" if plan is not None else "empty",
+                "tick_id": tick_id,
+                "allocation_artifact_path": result.allocation_artifact_path,
+                "selected_goals": list(result.allocation.selected[:32]),
+                "deferred_goals": [
+                    {"goal_id": item.goal_id, "reason": item.reason}
+                    for item in result.allocation.deferred[:32]
+                ],
+                "work_plan_id": plan.plan_id if plan is not None else None,
+                "work_plan_path": result.work_plan_path,
+                "work_plan_evidence_path": result.work_plan_evidence_path,
+                "work_plan_evidence_digest": result.work_plan_evidence_digest,
+                "execution_performed": False,
+                "model_invoked": False,
+                "authority": False,
+            }
+        except Exception as exc:
+            feedback = {
+                "status": "degraded",
+                "reason": f"{type(exc).__name__}:{exc}"[:256],
+                "tick_id": tick_id,
+                "execution_performed": False,
+                "model_invoked": False,
+                "authority": False,
+            }
+        self._feedback.setdefault("surfaces", {})[
+            "canonical_goal_planning"] = feedback
+        self._refresh_feedback()
+        return feedback
+
     def run_resident_developmental_cognition(self, *, tick_id: str) -> dict[str, Any]:
         """Run one configured cycle after the same-tick World-State snapshot exists."""
         if self._resident_developmental_configuration_error is not None:
@@ -3233,6 +3307,12 @@ def _run_maintenance_tick(
         develop_epistemics = getattr(runtime_surfaces, "run_epistemic_development", None)
         if callable(develop_epistemics):
             develop_epistemics(tick_id=tick_id)
+        current_surface = "canonical_goal_planning"
+        current_correlation_id = f"{tick_id}:canonical_goal_planning"
+        if os.environ.get("SENTIENTOS_CANONICAL_GOAL_PLANNING_ENABLE", "0") == "1":
+            plan_goals = getattr(runtime_surfaces, "run_canonical_goal_planning", None)
+            if callable(plan_goals):
+                plan_goals(tick_id=tick_id)
         current_surface = "longitudinal_self_model"
         current_correlation_id = f"{tick_id}:longitudinal_self_model"
         reconcile_self_model = getattr(runtime_surfaces, "reconcile_longitudinal_self_model", None)

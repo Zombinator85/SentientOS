@@ -24,8 +24,11 @@ def test_journal_binds_task_events_to_exact_plan_identity(tmp_path: Path) -> Non
 
     changed = WorkPlan(1, plan.plan_id, plan.created_at, plan.context, plan.selected_goals,
         (Task(1, "g1:other", "g1", "forge_propose", (), None, 0, 0, {}, (), False),))
-    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_record_invalid"):
-        WorkPlanExecutionJournal(tmp_path, changed)
+    changed_journal = WorkPlanExecutionJournal(tmp_path, changed)
+
+    assert changed_journal.path != journal.path
+    assert changed_journal.state("g1:other") is None
+    assert journal.state("g1:propose") == "interrupted"
 
 
 def test_corrupted_journal_digest_fails_closed(tmp_path: Path) -> None:

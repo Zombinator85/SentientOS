@@ -6,10 +6,11 @@ import json
 import os
 from pathlib import Path
 import stat
-from typing import Any
+from typing import Any, Mapping
 
 
 WORK_PLAN_DIR = Path("glow/forge/work_plans")
+WORK_PLAN_EVIDENCE_DIR = Path("glow/forge/work_plan_evidence")
 WORK_PLAN_PULSE_PATH = Path("pulse/work_plans.jsonl")
 WORK_RUN_DIR = Path("glow/forge/work_runs")
 MAX_WORK_RUN_BYTES = 1_048_576
@@ -30,6 +31,24 @@ _OMISSION_KINDS_BY_REASON = {
 
 class WorkPlanError(ValueError):
     """A persisted plan is malformed or internally inconsistent."""
+
+
+def work_plan_id_from_evidence(
+    created_at: str, goal_graph_hash: str, allocation_id: str,
+    evidence_binding: Mapping[str, object],
+) -> str:
+    """Derive the stable plan ID from its graph, allocation, and rationale."""
+    if (not isinstance(created_at, str) or not isinstance(goal_graph_hash, str)
+            or not isinstance(allocation_id, str) or not isinstance(evidence_binding, Mapping)):
+        raise WorkPlanError("work_plan_evidence_shape_invalid")
+    short_graph_hash = goal_graph_hash[:8]
+    allocation_digest = hashlib.sha256(allocation_id.encode("utf-8")).hexdigest()[:6]
+    evidence_digest = hashlib.sha256(json.dumps(
+        evidence_binding, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")).hexdigest()[:10]
+    return (f"{created_at.replace(':', '-').replace('.', '-')}_"
+        f"{short_graph_hash}_{allocation_digest}_{evidence_digest}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +176,108 @@ def persist_work_plan(repo_root: Path, plan: WorkPlan) -> str:
             },
         )
     return str(plan_path.relative_to(root))
+
+
+def persist_work_plan_evidence(
+    repo_root: Path, plan: WorkPlan, evidence_binding: Mapping[str, object],
+) -> tuple[str, str]:
+    """Persist the immutable evidence binding that gives a canonical plan its rationale."""
+    if not isinstance(plan, WorkPlan) or not isinstance(evidence_binding, Mapping):
+        raise WorkPlanError("work_plan_evidence_shape_invalid")
+    try:
+        canonical_binding = json.dumps(
+            evidence_binding, sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        binding_bytes = canonical_binding.encode("utf-8")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise WorkPlanError("work_plan_evidence_shape_invalid") from exc
+    if len(binding_bytes) > 262_144:
+        raise WorkPlanError("work_plan_evidence_bounds_invalid")
+    graph_hash = evidence_binding.get("goal_graph_hash")
+    allocation_id = evidence_binding.get("allocation_artifact_path")
+    if (not isinstance(graph_hash, str) or not isinstance(allocation_id, str)
+            or work_plan_id_from_evidence(plan.created_at, graph_hash,
+                allocation_id, evidence_binding) != plan.plan_id):
+        raise WorkPlanError("work_plan_evidence_identity_mismatch")
+    basis: dict[str, object] = {
+        "schema_version": 1,
+        "plan_id": plan.plan_id,
+        "plan_digest": plan.identity_digest(),
+        "evidence_binding": json.loads(canonical_binding),
+    }
+    evidence_digest = hashlib.sha256(json.dumps(
+        basis, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")).hexdigest()
+    payload = {**basis, "evidence_digest": evidence_digest}
+    root = repo_root.resolve()
+    path = root / WORK_PLAN_EVIDENCE_DIR / (
+        f"evidence_{hashlib.sha256(plan.plan_id.encode('utf-8')).hexdigest()}.json")
+    _write_json_once(path, payload)
+    return str(path.relative_to(root)), evidence_digest
+
+
+def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object]:
+    """Read back and verify the immutable plan and rationale binding."""
+    if not isinstance(plan, WorkPlan):
+        raise WorkPlanError("work_plan_evidence_plan_invalid")
+    path = repo_root.resolve() / WORK_PLAN_EVIDENCE_DIR / (
+        f"evidence_{hashlib.sha256(plan.plan_id.encode('utf-8')).hexdigest()}.json")
+    try:
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 524_288:
+            raise WorkPlanError("work_plan_evidence_bounds_invalid")
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != metadata.st_dev
+                    or opened.st_ino != metadata.st_ino):
+                raise WorkPlanError("work_plan_evidence_changed_during_open")
+            raw = bytearray()
+            while len(raw) <= 524_288:
+                chunk = os.read(descriptor, min(65_536, 524_289 - len(raw)))
+                if not chunk:
+                    break
+                raw.extend(chunk)
+        finally:
+            os.close(descriptor)
+    except WorkPlanError:
+        raise
+    except (OSError, ValueError) as exc:
+        raise WorkPlanError("work_plan_evidence_unreadable") from exc
+    if len(raw) > 524_288:
+        raise WorkPlanError("work_plan_evidence_bounds_invalid")
+    try:
+        payload = json.loads(raw)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise WorkPlanError("work_plan_evidence_unreadable") from exc
+    fields = {"schema_version", "plan_id", "plan_digest", "evidence_binding",
+        "evidence_digest"}
+    if (not isinstance(payload, dict) or set(payload) != fields
+            or type(payload.get("schema_version")) is not int
+            or payload["schema_version"] != 1
+            or payload.get("plan_id") != plan.plan_id
+            or payload.get("plan_digest") != plan.identity_digest()
+            or not isinstance(payload.get("evidence_binding"), dict)
+            or not isinstance(payload.get("evidence_digest"), str)):
+        raise WorkPlanError("work_plan_evidence_identity_mismatch")
+    evidence_binding = payload["evidence_binding"]
+    graph_hash = evidence_binding.get("goal_graph_hash")
+    allocation_id = evidence_binding.get("allocation_artifact_path")
+    if (not isinstance(graph_hash, str) or not isinstance(allocation_id, str)
+            or work_plan_id_from_evidence(plan.created_at, graph_hash,
+                allocation_id, evidence_binding) != plan.plan_id):
+        raise WorkPlanError("work_plan_evidence_identity_mismatch")
+    basis = {key: payload[key] for key in fields if key != "evidence_digest"}
+    expected_digest = hashlib.sha256(json.dumps(
+        basis, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")).hexdigest()
+    if payload["evidence_digest"] != expected_digest:
+        raise WorkPlanError("work_plan_evidence_digest_mismatch")
+    canonical_bytes = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    if bytes(raw) != canonical_bytes:
+        raise WorkPlanError("work_plan_evidence_noncanonical")
+    return payload
 
 
 def persist_work_run(repo_root: Path, run: WorkPlanRun) -> str:
@@ -424,6 +545,9 @@ __all__ = [
     "load_work_plan",
     "load_work_run",
     "work_run_id",
+    "work_plan_id_from_evidence",
+    "load_work_plan_evidence",
     "persist_work_plan",
+    "persist_work_plan_evidence",
     "persist_work_run",
 ]

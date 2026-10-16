@@ -24,6 +24,13 @@ jobs:
           python -m pip install --only-binary=:all: -r requirements-codex.txt
           python -m pip install --no-deps -e .
           python -m pip check
+      - name: Run strict audits with actual Administrator authority
+        run: |
+          test "$(sudo -n id -u)" = "0"
+          sudo -n env "PATH=$PATH" "PYTHONPATH=$GITHUB_WORKSPACE" \
+            python scripts/run_privileged_audit_verification.py \
+              --expected-sha "$GITHUB_SHA" \
+              --output glow/audits/privileged_audit_verification.json
       - name: Prove imports are inert
         run: python scripts/verify_import_inertness.py --output glow/test_runs/quality_gate_import_smoke.json
       - name: Prove pytest bootstrap is privilege-inert
@@ -75,3 +82,9 @@ jobs:
             glow/test_runs/test_run_provenance.json
             glow/test_runs/quality_gate_acceptance_result.json
             glow/test_runs/test_trend_report.json
+            glow/audits/privileged_audit_verification.json
+            glow/audits/verify_audits_result.json
+            glow/audits/audit_immutability_result.json
+            glow/contracts/final_strict_audit_digest.json
+            glow/contracts/strict_audit_status.json
+            glow/contracts/strict_audit_breakdown.json

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from sentientos.goal_executor import GoalExecutor
 from sentientos.local_model_authority import digest_payload
 from sentientos.orchestrator import OrchestratorConfig, tick
 
@@ -49,8 +50,10 @@ def _seed_repo(root: Path) -> None:
     )
 
 
-def test_tick_emits_goal_allocation_artifact_and_trace(tmp_path: Path) -> None:
+def test_tick_emits_goal_allocation_artifact_and_trace(tmp_path: Path, monkeypatch) -> None:
     _seed_repo(tmp_path)
+    monkeypatch.setattr(GoalExecutor, "_execute_task",
+        lambda self, task: ("success", None, ()))
 
     result = tick(tmp_path, config=OrchestratorConfig(True, 300, False, False, False, False, False))
     report = json.loads((tmp_path / result.tick_report_path).read_text(encoding="utf-8"))
@@ -79,8 +82,12 @@ def test_tick_emits_goal_allocation_artifact_and_trace(tmp_path: Path) -> None:
     assert isinstance(index_payload["goal_graph_hash"], str)
 
 
-def test_tick_binds_read_only_target_model_observation_to_plan(tmp_path: Path) -> None:
+def test_tick_binds_read_only_target_model_observation_to_plan(
+    tmp_path: Path, monkeypatch,
+) -> None:
     _seed_repo(tmp_path)
+    monkeypatch.setattr(GoalExecutor, "_execute_task",
+        lambda self, task: ("success", None, ()))
 
     class Observer:
         calls = 0

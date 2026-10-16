@@ -193,6 +193,10 @@ def test_source_validation_verifies_exact_provenance_acceptance_nodes() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text()
     source_job = workflow.split("  source-validation:", 1)[1].split("\n  self-check:", 1)[0]
     assert "Verify exact resource-to-cognition acceptance nodes" in source_job
+    assert "Verify canonical planning and execution separation" in source_job
+    assert source_job.index("Run integrated resource-to-cognition lifecycle") < source_job.index(
+        "Verify exact resource-to-cognition acceptance nodes") < source_job.index(
+        "Verify canonical planning and execution separation")
     assert "python -m scripts.verify_task_acceptance" in source_job
     assert '"repository_sha": os.environ["GITHUB_SHA"]' in source_job
     assert "glow/test_runs/source_validation_acceptance.json" in source_job

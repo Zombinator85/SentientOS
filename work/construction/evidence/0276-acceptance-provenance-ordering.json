@@ -1,0 +1,73 @@
+{
+  "candidate_sequence_276_hosted_verification": "pending publication; not claimed",
+  "failure_analysis": {
+    "canonical_planning_acceptance": "passed",
+    "cause": "The new canonical planning test step overwrote glow/test_runs/test_run_provenance.json before the prior exact lifecycle acceptance verifier consumed it.",
+    "failed_step": "Verify exact resource-to-cognition acceptance nodes",
+    "hosted_run_id": 38946334430,
+    "lifecycle_assertion_failures": 0,
+    "required_nodes_selected": 0,
+    "root_gate": {
+      "archive_sha256": "040f9ac0734f5698b1005f9d5ad053926b972a75da688ab3b6120d6ce3d423bf",
+      "artifact_id": 12066800346,
+      "conclusion": "success",
+      "effective_uid": 0,
+      "run_id": 38946334527,
+      "source_tree": "10543720b7aca3205ee94516f6b848e2297e2969"
+    }
+  },
+  "local_verification": {
+    "construction_custody_segments_verified": 275,
+    "git_diff_check": true,
+    "workflow_and_acceptance_tests": {
+      "failed": 0,
+      "passed": 22,
+      "provenance_path": "glow/test_runs/provenance/20261016T182258Z_d8d7a219221c_d6d3807815ce4aeeb730436c548eaf29.json",
+      "skipped": 0,
+      "status": "passed"
+    },
+    "workflow_yaml_parse": true
+  },
+  "next_dependency": "F1-F8 after exact candidate workflow verification; preserve external-session and physical-outcome limitations",
+  "predecessor_segment_sha256": "33a10528b4d9f515571870a2b92a5d28b1a7c3569dc9ca5ec2059db67f7f2610",
+  "repair": {
+    "regression": "tests/test_github_hosted_acceptance_workflows.py asserts lifecycle invocation < its exact acceptance verifier < canonical planning suite.",
+    "workflow": "Move Verify canonical planning and execution separation after Verify exact resource-to-cognition acceptance nodes."
+  },
+  "segment_path": "work/construction/segments/0276-acceptance-provenance-ordering.md",
+  "segment_sha256": "1ac2840dc2c60c56776a4e5477adbf7d10a3246b91325bca55d80ee0a1c38145",
+  "sequence": 276,
+  "sequence_275_hosted_other_checks": {
+    "CI_docs": "success",
+    "CI_helm": "success",
+    "CI_self_check": "success",
+    "CI_source_validation": "failure_due_to_acceptance_provenance_order",
+    "Docker Image": {
+      "conclusion": "success",
+      "run_id": 38946334470
+    },
+    "Gradient null regression": {
+      "conclusion": "success",
+      "run_id": 38946334492
+    },
+    "Invariant Tests": {
+      "conclusion": "success",
+      "run_id": 38946334425
+    },
+    "Lint Benchmark": {
+      "conclusion": "success",
+      "run_id": 38946334449
+    },
+    "Release": {
+      "conclusion": "success",
+      "run_id": 38946334584
+    },
+    "Required Quality Gate": {
+      "conclusion": "success",
+      "run_id": 38946334527
+    }
+  },
+  "source_commit": "3c9c5e1eccf36511b85cda038f29fab5e562d018",
+  "source_tree": "10543720b7aca3205ee94516f6b848e2297e2969",
+  "title": "Preserve suite-specific hosted acceptance provenance"
+}
