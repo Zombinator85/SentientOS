@@ -1,0 +1,9 @@
+# Sequence 296 — Serialize journal writers and reject stale heads
+
+Sequence 295 bounded journal I/O, then a follow-up review found that the legacy-name discovery path still read its first row through an unbounded `read_bytes()`. Sequence 296 closes that compatibility-path gap using the same bounded, no-follow, locked reader and records the correction explicitly.
+
+Journal recovery now takes a shared POSIX file lock; append takes an exclusive lock. Each recovered journal binds its full byte count and digest, and append compares the current locked file to that identity before writing. A separate journal instance with a stale head fails closed rather than forking the hash chain. A reentrant in-process lock covers state validation, append, and state updates so concurrent operations on one instance serialize correctly. If the platform cannot provide the required flock, journal access fails closed.
+
+Regression tests verify oversized legacy history rejection, rejection of a stale competing writer without journal corruption, and ordered serialization of concurrent tasks using one instance. Together with the prior bounds and symlink cases, the focused journal, executor, and planner suites pass 37/37. Compilation, module Mypy, custody, and diff checks pass.
+
+The verified local source commit is `8b89042ef68ef1015c10426f2a5d68b7fbf17db2`; GitHub published the same tree `164e1b2dc0df2caf886bc836d5d822b6682d40d0` as `c8ec2112c32686ee7d1c6122e9b49b39499517ec`. CI `38977109536`, Required Quality Gate `38977109533`, and Invariant Tests `38977109517` all passed on that exact SHA. Gate artifact `12079233285` read back with the matching GitHub digest and confirms UID 0 Administrator, exact source/tree, unchanged source and repository identity, strict audit, and immutability. This work preserves journal schema, event identity, and append-only hash-chain semantics.

@@ -1,0 +1,56 @@
+{
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "implementation": {
+    "concurrent_instance_policy": "exclusive flock serializes append; a writer whose observed size or full-byte digest differs from the locked journal fails closed as stale",
+    "journal_semantics": "schema, task identities, and append-only hash-chain fields remain unchanged",
+    "legacy_probe_correction": "sequence 295's unbounded legacy-name discovery read is corrected; legacy probes now use the same bounded no-follow locked reader",
+    "recovery_lock": "shared POSIX flock protects bounded journal and legacy recovery; lock-unavailable environments fail closed",
+    "same_instance_policy": "a reentrant in-process lock covers task-state validation, append, and state update"
+  },
+  "local_verification": {
+    "affected_tests_collected": 37,
+    "affected_tests_failed": 0,
+    "affected_tests_passed": 37,
+    "affected_tests_skipped": 0,
+    "compileall": "passed",
+    "construction_custody": "construction_continuation_custody_ready; 295 segments verified",
+    "diff_check": "passed",
+    "mypy_changed_module": "passed"
+  },
+  "next_dependency": "Verify that an incomplete journal tail is preserved and rejected after an interrupted append, and that same-size journal drift is rejected by stale writers.",
+  "predecessor_evidence_sha256": "a4bb4c16cda672558fe76ae169292c7a0cbe58585f0a5d8e963bcb8eee95de64",
+  "predecessor_segment_sha256": "17ada774f299312f94c789470b9e66c4efdc6f9afcc275910aecfdf11ab238ab",
+  "remote_blob_readback": "changed source and test blobs independently read back byte-for-byte; remote ref SHA and tree matched candidate",
+  "remote_source_commit": "c8ec2112c32686ee7d1c6122e9b49b39499517ec",
+  "remote_tree": "164e1b2dc0df2caf886bc836d5d822b6682d40d0",
+  "segment_path": "work/construction/segments/0296-serialized-journal-writers.md",
+  "segment_sha256": "31383680be9626c4452bc8a93429e00e091dc44ce0c39baff7434d50dd0e3c5f",
+  "sequence": 296,
+  "sequence_296_hosted": {
+    "administrator_verified": true,
+    "ci": "success",
+    "ci_run_id": 38977109536,
+    "effective_uid": 0,
+    "expected_sha": "c8ec2112c32686ee7d1c6122e9b49b39499517ec",
+    "gate_artifact_id": 12079233285,
+    "gate_artifact_readback_sha256": "59cbf20f82875e1a2bc3f3c3ae57f279ade182475766df92ab6d13cbc64b4956",
+    "gate_artifact_sha256": "59cbf20f82875e1a2bc3f3c3ae57f279ade182475766df92ab6d13cbc64b4956",
+    "immutability_ok": true,
+    "invariant_run_id": 38977109517,
+    "invariants": "success",
+    "repository_identity_unchanged": true,
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38977109533,
+    "source_tree": "164e1b2dc0df2caf886bc836d5d822b6682d40d0",
+    "source_unchanged": true,
+    "strict_audit_ok": true
+  },
+  "source_commit": "8b89042ef68ef1015c10426f2a5d68b7fbf17db2",
+  "source_tree": "164e1b2dc0df2caf886bc836d5d822b6682d40d0",
+  "title": "Serialize journal writers and reject stale heads"
+}
