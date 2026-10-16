@@ -500,8 +500,12 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
             tick=event.tick, recorded_at=state.updated_at)
     source_ticks = list(event_ticks)
     if schema == COGNITIVE_PROJECTION_SCHEMA_V3:
-        source_ticks.extend(row["update_tick"] for row in
-            omission_manifest["omitted_state_identities"])
+        if not isinstance(omission_manifest, Mapping):
+            raise EpistemicStateError("epistemic_projection_omission_manifest_invalid")
+        omitted_identities = omission_manifest.get("omitted_state_identities")
+        if not isinstance(omitted_identities, (list, tuple)):
+            raise EpistemicStateError("epistemic_projection_omission_manifest_invalid")
+        source_ticks.extend(row["update_tick"] for row in omitted_identities)
     if max(source_ticks) != raw["source_tick"]:
         raise EpistemicStateError("epistemic_semantic_source_tick_mismatch")
     if (raw.get("evidence_only") is not False or raw.get("prior_position_only") is not True
@@ -516,6 +520,8 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
         "evidence_only": False, "prior_position_only": True, "current_truth": False,
         "authority": False, "policy": False, "goal": False})
     if schema == COGNITIVE_PROJECTION_SCHEMA_V3:
+        if not isinstance(omission_manifest, Mapping):
+            raise EpistemicStateError("epistemic_projection_omission_manifest_invalid")
         payload["omission_manifest"] = dict(omission_manifest)
     identity = _identity("epistemic-projection", payload)
     if (identity[0], identity[1]) != (raw.get("projection_id"), raw.get("projection_digest")):
@@ -1123,16 +1129,17 @@ class PersistentEpistemicStateOwner:
             events_by_id = {event.event_id: event for event in events}
             omitted_rows: list[dict[str, Any]] = []
             for state in omitted_states:
-                event = events_by_id.get(str(state.last_update_event_id))
-                if event is None or event.successor_state_digest != state.state_digest:
+                omitted_event = events_by_id.get(str(state.last_update_event_id))
+                if (omitted_event is None
+                        or omitted_event.successor_state_digest != state.state_digest):
                     raise EpistemicStateError("epistemic_projection_omitted_state_event_missing")
                 omitted_rows.append({
                     "proposition_id": state.proposition_id,
                     "state_id": state.state_id,
                     "state_digest": state.state_digest,
                     "generation": state.generation,
-                    "update_event_id": event.event_id,
-                    "update_tick": event.tick,
+                    "update_event_id": omitted_event.event_id,
+                    "update_tick": omitted_event.tick,
                     "stance": state.stance,
                     "dependency_unresolved": state.dependency_unresolved,
                     "freshness": state.freshness,
