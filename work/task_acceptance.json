@@ -1,8 +1,5 @@
 {
-  "schema_version": "sentientos.task_acceptance:v1",
-  "task_classification": "behavior_adding",
   "repository_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
-  "test_provenance_path": "glow/test_runs/provenance/20261016T173645Z_d8d7a219221c_e02038ac43674912be862dfe6c1665dd.json",
   "required_nodes": [
     {
       "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
@@ -73,6 +70,7 @@
       "rationale": "manual plan execution uses fresh integrity pressure and integrity admission before allowing mutation"
     }
   ],
+  "schema_version": "sentientos.task_acceptance:v1",
   "successful_path_nodes": [
     "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
     "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
@@ -81,5 +79,7 @@
     "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
     "tests/test_privileged_audit_verification.py::test_required_quality_gate_binds_root_audits_to_exact_checkout",
     "sentientos/tests/test_work_plan_cli.py::test_cli_execution_uses_current_integrity_pressure_to_bound_mutation"
-  ]
+  ],
+  "task_classification": "behavior_adding",
+  "test_provenance_path": "glow/test_runs/provenance/20261016T180828Z_d8d7a219221c_336ee0a0764745d2b11860d76bb30382.json"
 }

@@ -1,11 +1,11 @@
 {
   "active_checkpoint": "work/construction/active_checkpoint.md",
   "active_checkpoint_binding": {
-    "checkpoint_sha256": "385d726b096ce39bd3f45edf77f9c8b4fbebc6fc702d4e3a5a4c4705d4d246cb",
-    "latest_segment_sequence": 274,
-    "latest_segment_sha256": "ef5342b33cea7129f455ab931484b62aa8154b05ff0fb95202c6f477ea46947e",
-    "source_commit": "ff635c7160ad65c73c28cebec4f72101c6a3c6c5",
-    "source_tree": "db7d80bf4faf31b3426f5e4d2716cca12f7ee2da"
+    "checkpoint_sha256": "54b5cc6e798ff75a320e9efe0276392bbebbf58270c15453a38af4ffb6fadea2",
+    "latest_segment_sequence": 275,
+    "latest_segment_sha256": "33a10528b4d9f515571870a2b92a5d28b1a7c3569dc9ca5ec2059db67f7f2610",
+    "source_commit": "136086731c07959fa3d9dece1c264d92b3431f12",
+    "source_tree": "ae49772e271fe44ef1f9faca696215fa57a197c4"
   },
   "hosted_lifecycle_reconciliation": {
     "path": "work/hosted_lifecycle_reconciliation_20261012-a881ea4.json",
@@ -2896,6 +2896,18 @@
       "sha256": "ef5342b33cea7129f455ab931484b62aa8154b05ff0fb95202c6f477ea46947e",
       "source_commit": "ff635c7160ad65c73c28cebec4f72101c6a3c6c5",
       "source_tree": "db7d80bf4faf31b3426f5e4d2716cca12f7ee2da"
+    },
+    {
+      "bytes": 2827,
+      "evidence_bytes": 3316,
+      "evidence_path": "work/construction/evidence/0275-canonical-planning-execution-separation.json",
+      "evidence_sha256": "ed4e5d7459da4870c706fd00a8355b7b4d6e851eb52cc55d1e0ada4ef711c51f",
+      "path": "work/construction/segments/0275-canonical-planning-execution-separation.md",
+      "predecessor": "segment-sha256:ef5342b33cea7129f455ab931484b62aa8154b05ff0fb95202c6f477ea46947e",
+      "sequence": 275,
+      "sha256": "33a10528b4d9f515571870a2b92a5d28b1a7c3569dc9ca5ec2059db67f7f2610",
+      "source_commit": "136086731c07959fa3d9dece1c264d92b3431f12",
+      "source_tree": "ae49772e271fe44ef1f9faca696215fa57a197c4"
     }
   ],
   "source_acquisition": {

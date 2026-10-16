@@ -91,6 +91,71 @@ jobs:
             tests/test_github_hosted_acceptance_workflows.py \
             tests/test_import_inertness_verifier.py \
             tests/integrity/test_import_purity.py
+      - name: Verify canonical planning and execution separation
+        run: |
+          python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
+            sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor \
+            sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution \
+            sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation \
+            sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted \
+            sentientos/tests/test_goal_executor_run.py::test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal \
+            sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect \
+            sentientos/tests/test_orchestrator_goal_execution.py::test_tick_emits_work_plan_and_run_and_index_fields \
+            sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity \
+            sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy \
+            sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor \
+            sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free \
+            tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition \
+            tests/test_repository_mutation_custody_regression.py::test_runtime_handoff_emission_external_root_no_state_change_or_repo_dirty \
+            tests/test_privileged_audit_verification.py::test_privileged_audit_wrapper_rejects_non_root_before_running_checks \
+            tests/test_privileged_audit_verification.py::test_required_quality_gate_binds_root_audits_to_exact_checkout \
+            tests/test_privileged_audit_verification.py::test_root_audit_result_is_uploaded_with_quality_gate_evidence \
+            sentientos/tests/test_work_plan_cli.py::test_cli_execution_uses_current_integrity_pressure_to_bound_mutation
+          cp glow/test_runs/test_run_provenance.json \
+            glow/test_runs/canonical_planning_provenance.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
+              "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
+              "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+              "sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted",
+              "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal",
+              "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect",
+              "sentientos/tests/test_orchestrator_goal_execution.py::test_tick_emits_work_plan_and_run_and_index_fields",
+              "sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity",
+              "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy",
+              "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor",
+              "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
+              "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition",
+              "tests/test_repository_mutation_custody_regression.py::test_runtime_handoff_emission_external_root_no_state_change_or_repo_dirty",
+              "tests/test_privileged_audit_verification.py::test_privileged_audit_wrapper_rejects_non_root_before_running_checks",
+              "tests/test_privileged_audit_verification.py::test_required_quality_gate_binds_root_audits_to_exact_checkout",
+              "tests/test_privileged_audit_verification.py::test_root_audit_result_is_uploaded_with_quality_gate_evidence",
+              "sentientos/tests/test_work_plan_cli.py::test_cli_execution_uses_current_integrity_pressure_to_bound_mutation",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/canonical_planning_provenance.json",
+              "required_nodes": [
+                  {"node_id": node, "rationale": "canonical planning and execution separation regression"}
+                  for node in nodes
+              ],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/canonical_planning_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/canonical_planning_acceptance.json \
+            --provenance glow/test_runs/canonical_planning_provenance.json \
+            --output glow/test_runs/canonical_planning_acceptance_result.json
       - name: Verify exact resource-to-cognition acceptance nodes
         run: |
           python - <<'PYCODE'
@@ -142,6 +207,9 @@ jobs:
             glow/test_runs/world_state_contracts_provenance.json
             glow/test_runs/world_state_contracts_acceptance.json
             glow/test_runs/world_state_contracts_acceptance_result.json
+            glow/test_runs/canonical_planning_provenance.json
+            glow/test_runs/canonical_planning_acceptance.json
+            glow/test_runs/canonical_planning_acceptance_result.json
           if-no-files-found: ignore
 
   self-check:

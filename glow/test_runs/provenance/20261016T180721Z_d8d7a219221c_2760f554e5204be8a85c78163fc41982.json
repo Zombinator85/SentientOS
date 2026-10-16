@@ -1,0 +1,412 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted": 0,
+    "sentientos/tests/test_goal_executor_plan.py::test_build_plan_records_risk_budget_omissions": 0,
+    "sentientos/tests/test_goal_executor_plan.py::test_build_plan_records_throughput_budget_omissions": 0,
+    "sentientos/tests/test_goal_executor_plan.py::test_forge_apply_plan_declares_validation_and_proposal_dependencies": 0,
+    "sentientos/tests/test_goal_executor_plan.py::test_non_meaning_bearing_epistemic_projection_cannot_influence_planning": 0,
+    "sentientos/tests/test_goal_executor_plan.py::test_plan_records_unimplemented_task_kinds_without_executable_rows": 0,
+    "sentientos/tests/test_goal_executor_plan.py::test_prior_partial_or_unknown_outcome_informs_later_plan[partial-forge_apply_partial_success]": 0,
+    "sentientos/tests/test_goal_executor_plan.py::test_prior_partial_or_unknown_outcome_informs_later_plan[skipped-prior_attempt_outcome_unknown]": 0,
+    "sentientos/tests/test_goal_executor_plan.py::test_prior_plan_without_recovered_run_blocks_outcome_informed_planning": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_allowlisted_plan_command_timeout_is_a_failed_task": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_allowlisted_plan_command_uses_argv_without_shell": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_completed_task_is_not_reexecuted_when_same_plan_is_recovered": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_execute_quarantine_skips_destructive": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_execute_recovery_skips_destructive": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_failed_dependency_blocks_dependent_but_not_other_goals": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_forge_apply_kind_is_destructive_even_if_plan_claims_otherwise": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_dependency": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_interrupted_task_stays_unknown_while_independent_task_continues": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_partial_forge_outcome_is_durable_and_does_not_satisfy_dependency": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_plan_command_rejects_shell_payload_without_launching": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_same_plan_id_changed_definition_gets_distinct_execution_journal": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_terminal_task_replay_reuses_original_run_artifact": 0,
+    "sentientos/tests/test_goal_executor_run.py::test_unimplemented_plan_tasks_do_not_claim_success": 0,
+    "sentientos/tests/test_orchestrator_goal_completion_flow.py::test_tick_emits_completion_artifacts_and_index": 0,
+    "sentientos/tests/test_orchestrator_goal_execution.py::test_tick_emits_work_plan_and_run_and_index_fields": 0,
+    "sentientos/tests/test_orchestrator_goal_integration.py::test_tick_binds_read_only_target_model_observation_to_plan": 0,
+    "sentientos/tests/test_orchestrator_goal_integration.py::test_tick_emits_goal_allocation_artifact_and_trace": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwrites": 0,
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation": 0,
+    "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor": 0,
+    "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy": 0,
+    "sentientos/tests/test_work_plan_cli.py::test_cli_execution_uses_current_integrity_pressure_to_bound_mutation": 0,
+    "sentientos/tests/test_work_plan_execution_journal.py::test_corrupted_journal_digest_fails_closed": 0,
+    "sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity": 0,
+    "sentientos/tests/test_work_plan_execution_journal.py::test_legacy_v1_started_journal_remains_explicitly_unknown": 0,
+    "sentientos/tests/test_work_plan_execution_journal.py::test_terminal_task_result_is_recovered_with_original_artifacts_and_times": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_absent_resident_posture_preserves_historical_behavior": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_attestation_snapshot_world_state_source_requires_existing_opt_in": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_blocked_enabled_resident_posture_runs_zero_maintenance_ticks": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_blocked_resident_startup_never_starts_ungated_successor_owner": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_completed_history_preserves_historical_behavior": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_incomplete_transaction_fails_closed[1]": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_incomplete_transaction_fails_closed[4]": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_transition_marker_fails_closed": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_explicitly_disabled_resident_posture_preserves_historical_successor_behavior": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_governor_denial_prevents_daemon_loop_side_effects": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_integrity_controller_observation_is_bounded_context_only_and_opt_in": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_emits_handoff_without_git_or_mark_committed": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime[cycle-expected_counts1]": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime[expand-expected_counts0]": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime[guard-expected_counts2]": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime[monitor-expected_counts3]": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_forge_merge_failure_fail_stop_once_and_no_retry[forge_tick-_FailingForgeDaemonStub-_MergeTrainStub-1-0]": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_forge_merge_failure_fail_stop_once_and_no_retry[merge_tick-_ForgeDaemonStub-_FailingMergeTrainStub-1-1]": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_handoff_plan_failure_degrades_without_new_action": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_invokes_all_runtime_surfaces": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_overlapping_watchdog_and_wake_adoptions_start_neither": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_quarantine_incident_reconciliation_preserves_second_read_failure": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_runtime_surfaces_close_to_real_callable_paths": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_sentientosd_has_no_host_fulfillment_consumption_runtime_calls": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_sentientosd_has_no_host_fulfillment_executor_readiness_runtime_calls": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_startup_only_surfaces_are_not_callable_without_runtime_mediation": 0,
+    "tests/test_sentientosd_runtime_closure.py::test_successor_mode_uses_production_canonical_builder": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 36,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-construction-verified/glow/test_runs/pytest_junitxml_59a1d5a16b8b48cb98438d6e281c7bb8.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_build_plan_records_risk_budget_omissions",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_build_plan_records_throughput_budget_omissions",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_plan_records_unimplemented_task_kinds_without_executable_rows",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_forge_apply_plan_declares_validation_and_proposal_dependencies",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_prior_partial_or_unknown_outcome_informs_later_plan[partial-forge_apply_partial_success]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_prior_partial_or_unknown_outcome_informs_later_plan[skipped-prior_attempt_outcome_unknown]",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_prior_plan_without_recovered_run_blocks_outcome_informed_planning",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_plan.py::test_non_meaning_bearing_epistemic_projection_cannot_influence_planning",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_execute_recovery_skips_destructive",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_execute_quarantine_skips_destructive",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_plan_command_rejects_shell_payload_without_launching",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_allowlisted_plan_command_uses_argv_without_shell",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_terminal_task_replay_reuses_original_run_artifact",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_allowlisted_plan_command_timeout_is_a_failed_task",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_forge_apply_kind_is_destructive_even_if_plan_claims_otherwise",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_unimplemented_plan_tasks_do_not_claim_success",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_completed_task_is_not_reexecuted_when_same_plan_is_recovered",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_interrupted_task_stays_unknown_while_independent_task_continues",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_dependency",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_partial_forge_outcome_is_durable_and_does_not_satisfy_dependency",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_same_plan_id_changed_definition_gets_distinct_execution_journal",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_goal_executor_run.py::test_failed_dependency_blocks_dependent_but_not_other_goals",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_cli.py::test_cli_execution_uses_current_integrity_pressure_to_bound_mutation",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_goal_completion_flow.py::test_tick_emits_completion_artifacts_and_index",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_goal_execution.py::test_tick_emits_work_plan_and_run_and_index_fields",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_goal_integration.py::test_tick_emits_goal_allocation_artifact_and_trace",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_orchestrator_goal_integration.py::test_tick_binds_read_only_target_model_observation_to_plan",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_execution_journal.py::test_corrupted_journal_digest_fails_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_execution_journal.py::test_terminal_task_result_is_recovered_with_original_artifacts_and_times",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "sentientos/tests/test_work_plan_execution_journal.py::test_legacy_v1_started_journal_remains_explicitly_unknown",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "a34dbba8636f85a35fc9546facc76f0cb069957585975cdb3920c99e5c618cf5",
+  "provenance_hash": "9c5d172d7b4c701298a554926fd73baeca08e9a34999316f70c626a5b0edbcd0",
+  "pytest_args": [
+    "-m",
+    "legacy",
+    "-q",
+    "sentientos/tests/test_goal_executor_plan.py",
+    "sentientos/tests/test_goal_executor_run.py",
+    "sentientos/tests/test_orchestrator_plan_only.py",
+    "sentientos/tests/test_work_plan_cli.py",
+    "sentientos/tests/test_orchestrator_goal_completion_flow.py",
+    "sentientos/tests/test_orchestrator_goal_execution.py",
+    "sentientos/tests/test_orchestrator_goal_integration.py",
+    "sentientos/tests/test_work_plan_execution_journal.py",
+    "tests/test_sentientosd_runtime_closure.py"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/workspace/SentientOS-construction-verified",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "e4c76c2500ae4d0d9ce0560f20a5d2d5",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "sentientos/tests/test_goal_executor_plan.py::test_build_plan_is_deterministic_and_budgeted",
+    "sentientos/tests/test_goal_executor_plan.py::test_build_plan_records_risk_budget_omissions",
+    "sentientos/tests/test_goal_executor_plan.py::test_build_plan_records_throughput_budget_omissions",
+    "sentientos/tests/test_goal_executor_plan.py::test_plan_records_unimplemented_task_kinds_without_executable_rows",
+    "sentientos/tests/test_goal_executor_plan.py::test_forge_apply_plan_declares_validation_and_proposal_dependencies",
+    "sentientos/tests/test_goal_executor_plan.py::test_prior_partial_or_unknown_outcome_informs_later_plan[partial-forge_apply_partial_success]",
+    "sentientos/tests/test_goal_executor_plan.py::test_prior_partial_or_unknown_outcome_informs_later_plan[skipped-prior_attempt_outcome_unknown]",
+    "sentientos/tests/test_goal_executor_plan.py::test_prior_plan_without_recovered_run_blocks_outcome_informed_planning",
+    "sentientos/tests/test_goal_executor_plan.py::test_non_meaning_bearing_epistemic_projection_cannot_influence_planning",
+    "sentientos/tests/test_goal_executor_run.py::test_execute_recovery_skips_destructive",
+    "sentientos/tests/test_goal_executor_run.py::test_execute_quarantine_skips_destructive",
+    "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_plan_time_mismatch_before_any_effect_or_journal",
+    "sentientos/tests/test_goal_executor_run.py::test_execute_rejects_changed_canonical_evidence_before_task_effect",
+    "sentientos/tests/test_goal_executor_run.py::test_plan_command_rejects_shell_payload_without_launching",
+    "sentientos/tests/test_goal_executor_run.py::test_allowlisted_plan_command_uses_argv_without_shell",
+    "sentientos/tests/test_goal_executor_run.py::test_terminal_task_replay_reuses_original_run_artifact",
+    "sentientos/tests/test_goal_executor_run.py::test_allowlisted_plan_command_timeout_is_a_failed_task",
+    "sentientos/tests/test_goal_executor_run.py::test_forge_apply_kind_is_destructive_even_if_plan_claims_otherwise",
+    "sentientos/tests/test_goal_executor_run.py::test_unimplemented_plan_tasks_do_not_claim_success",
+    "sentientos/tests/test_goal_executor_run.py::test_completed_task_is_not_reexecuted_when_same_plan_is_recovered",
+    "sentientos/tests/test_goal_executor_run.py::test_interrupted_task_stays_unknown_while_independent_task_continues",
+    "sentientos/tests/test_goal_executor_run.py::test_interrupted_idempotent_check_retries_until_outcome_then_unblocks_dependency",
+    "sentientos/tests/test_goal_executor_run.py::test_partial_forge_outcome_is_durable_and_does_not_satisfy_dependency",
+    "sentientos/tests/test_goal_executor_run.py::test_same_plan_id_changed_definition_gets_distinct_execution_journal",
+    "sentientos/tests/test_goal_executor_run.py::test_failed_dependency_blocks_dependent_but_not_other_goals",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_goal_allocation_artifact_retry_is_idempotent_and_conflict_never_overwrites",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_planning_binds_verified_owner_and_observed_identity_without_execution",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_daemon_plan_feedback_is_non_authorizing_and_execution_free",
+    "sentientos/tests/test_orchestrator_plan_only.py::test_verified_prior_epistemic_position_changes_canonical_goal_allocation",
+    "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_plan_without_evidence_fails_before_execution_policy",
+    "sentientos/tests/test_work_plan_cli.py::test_canonical_cli_passes_verified_evidence_digest_to_executor",
+    "sentientos/tests/test_work_plan_cli.py::test_cli_execution_uses_current_integrity_pressure_to_bound_mutation",
+    "sentientos/tests/test_orchestrator_goal_completion_flow.py::test_tick_emits_completion_artifacts_and_index",
+    "sentientos/tests/test_orchestrator_goal_execution.py::test_tick_emits_work_plan_and_run_and_index_fields",
+    "sentientos/tests/test_orchestrator_goal_integration.py::test_tick_emits_goal_allocation_artifact_and_trace",
+    "sentientos/tests/test_orchestrator_goal_integration.py::test_tick_binds_read_only_target_model_observation_to_plan",
+    "sentientos/tests/test_work_plan_execution_journal.py::test_journal_binds_task_events_to_exact_plan_identity",
+    "sentientos/tests/test_work_plan_execution_journal.py::test_corrupted_journal_digest_fails_closed",
+    "sentientos/tests/test_work_plan_execution_journal.py::test_terminal_task_result_is_recovered_with_original_artifacts_and_times",
+    "sentientos/tests/test_work_plan_execution_journal.py::test_legacy_v1_started_journal_remains_explicitly_unknown",
+    "tests/test_sentientosd_runtime_closure.py::test_attestation_snapshot_world_state_source_requires_existing_opt_in",
+    "tests/test_sentientosd_runtime_closure.py::test_integrity_controller_observation_is_bounded_context_only_and_opt_in",
+    "tests/test_sentientosd_runtime_closure.py::test_quarantine_incident_reconciliation_preserves_second_read_failure",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_invokes_all_runtime_surfaces",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_orders_campaign_signal_world_state_and_cognition",
+    "tests/test_sentientosd_runtime_closure.py::test_runtime_surfaces_close_to_real_callable_paths",
+    "tests/test_sentientosd_runtime_closure.py::test_startup_only_surfaces_are_not_callable_without_runtime_mediation",
+    "tests/test_sentientosd_runtime_closure.py::test_governor_denial_prevents_daemon_loop_side_effects",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime[expand-expected_counts0]",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime[cycle-expected_counts1]",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime[guard-expected_counts2]",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_failure_surfaces_fail_stop_once_and_restore_runtime[monitor-expected_counts3]",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_forge_merge_failure_fail_stop_once_and_no_retry[forge_tick-_FailingForgeDaemonStub-_MergeTrainStub-1-0]",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_forge_merge_failure_fail_stop_once_and_no_retry[merge_tick-_ForgeDaemonStub-_FailingMergeTrainStub-1-1]",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_handoff_plan_failure_degrades_without_new_action",
+    "tests/test_sentientosd_runtime_closure.py::test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating",
+    "tests/test_sentientosd_runtime_closure.py::test_maintenance_tick_emits_handoff_without_git_or_mark_committed",
+    "tests/test_sentientosd_runtime_closure.py::test_sentientosd_has_no_host_fulfillment_consumption_runtime_calls",
+    "tests/test_sentientosd_runtime_closure.py::test_sentientosd_has_no_host_fulfillment_executor_readiness_runtime_calls",
+    "tests/test_sentientosd_runtime_closure.py::test_overlapping_watchdog_and_wake_adoptions_start_neither",
+    "tests/test_sentientosd_runtime_closure.py::test_successor_mode_uses_production_canonical_builder",
+    "tests/test_sentientosd_runtime_closure.py::test_blocked_resident_startup_never_starts_ungated_successor_owner",
+    "tests/test_sentientosd_runtime_closure.py::test_blocked_enabled_resident_posture_runs_zero_maintenance_ticks",
+    "tests/test_sentientosd_runtime_closure.py::test_explicitly_disabled_resident_posture_preserves_historical_successor_behavior",
+    "tests/test_sentientosd_runtime_closure.py::test_absent_resident_posture_preserves_historical_behavior",
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_transition_marker_fails_closed",
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_incomplete_transaction_fails_closed[1]",
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_incomplete_transaction_fails_closed[4]",
+    "tests/test_sentientosd_runtime_closure.py::test_disabled_resident_posture_with_completed_history_preserves_historical_behavior"
+  ],
+  "selection_flags": [
+    "-m",
+    "sentientos/tests/test_goal_executor_plan.py",
+    "sentientos/tests/test_goal_executor_run.py",
+    "sentientos/tests/test_orchestrator_plan_only.py",
+    "sentientos/tests/test_work_plan_cli.py",
+    "sentientos/tests/test_orchestrator_goal_completion_flow.py",
+    "sentientos/tests/test_orchestrator_goal_execution.py",
+    "sentientos/tests/test_orchestrator_goal_integration.py",
+    "sentientos/tests/test_work_plan_execution_journal.py",
+    "tests/test_sentientosd_runtime_closure.py"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 36,
+  "tests_executed": 36,
+  "tests_failed": 0,
+  "tests_passed": 36,
+  "tests_selected": 70,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-16T18:07:21.096815+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}

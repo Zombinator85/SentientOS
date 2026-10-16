@@ -1,0 +1,67 @@
+{
+  "append_only_test_note": "The initial malformed runner invocation and filtered test selection remain in local provenance; only the later exact selection is accepted.",
+  "candidate_hosted_verification": "pending publication; not claimed",
+  "completion_assessment": {
+    "completed": true,
+    "evidence": [
+      "canonical GoalPlanner import and composition do not load sentientos.goal_executor",
+      "daemon planning uses the configured bounded owner projection and read-only model identity observer without executor or model invocation",
+      "plan feedback is explicitly non-authorizing and execution-free",
+      "canonical execution verifies plan rationale before policy reads and rejects mismatched plan timestamps before effects or journals",
+      "execution derives current integrity pressure and integrity admission before mutation eligibility",
+      "allocation retries and full-plan journals preserve immutable identities",
+      "a dedicated hosted CI acceptance step binds exact 17-node regression evidence to GITHUB_SHA"
+    ],
+    "node": "E1-E8 follow-up: canonical planning/execution and verified evidence boundary"
+  },
+  "hosted_verification_of_parent": {
+    "CI": {
+      "conclusion": "success",
+      "run_id": 38944350888
+    },
+    "Required Quality Gate": {
+      "artifact_archive_sha256": "f0cdb64fd613c4b62c475f35ba9e3101db0c2238699aaa2513355e243c60de58",
+      "artifact_id": 12065390336,
+      "conclusion": "success",
+      "effective_uid": 0,
+      "run_id": 38944350727
+    },
+    "all_hosted_jobs_green": true,
+    "source_commit": "136086731c07959fa3d9dece1c264d92b3431f12",
+    "source_tree": "ae49772e271fe44ef1f9faca696215fa57a197c4"
+  },
+  "local_verification": {
+    "canonical_planning_acceptance": {
+      "failed": 0,
+      "passed": 17,
+      "provenance_git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+      "provenance_path": "glow/test_runs/provenance/20261016T180828Z_d8d7a219221c_336ee0a0764745d2b11860d76bb30382.json",
+      "skipped": 0,
+      "status": "task_acceptance_ready"
+    },
+    "compileall": true,
+    "construction_custody_segments_verified": 274,
+    "git_diff_check": true,
+    "related_modules": {
+      "failed": 0,
+      "passed": 36,
+      "provenance_path": "glow/test_runs/provenance/20261016T180721Z_d8d7a219221c_2760f554e5204be8a85c78163fc41982.json",
+      "status": "passed"
+    },
+    "workflow_contract_tests": {
+      "failed": 0,
+      "passed": 22,
+      "provenance_path": "glow/test_runs/provenance/20261016T180946Z_d8d7a219221c_9c1ec2804af841169978af739e222d1b.json",
+      "status": "passed"
+    },
+    "workflow_yaml_parse": true
+  },
+  "next_dependency": "F1-F8: multi-episode strategy correction, negative transfer, applicability, historical relevance, and model-identity continuity; preserve external-session limitations",
+  "predecessor_segment_sha256": "ef5342b33cea7129f455ab931484b62aa8154b05ff0fb95202c6f477ea46947e",
+  "segment_path": "work/construction/segments/0275-canonical-planning-execution-separation.md",
+  "segment_sha256": "33a10528b4d9f515571870a2b92a5d28b1a7c3569dc9ca5ec2059db67f7f2610",
+  "sequence": 275,
+  "source_commit": "136086731c07959fa3d9dece1c264d92b3431f12",
+  "source_tree": "ae49772e271fe44ef1f9faca696215fa57a197c4",
+  "title": "Canonical planning and execution separation"
+}

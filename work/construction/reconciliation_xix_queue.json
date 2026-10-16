@@ -37,10 +37,11 @@
     "E1-E8 partial: seq267 requires proposition-scoped family applicability, exact protocol model identity, and an identity observation fresh at plan creation; both allocation and executor fail closed on missing, stale, or changed identity, and plan identity binds scopes, omissions, prior-run digest, and no-replay outcomes.",
     "E1-E8 partial: seq268 wires a read-only current-serving-identity observation into orchestrator allocation and canonical plan creation; digest and timestamp are retained without session acquisition or model invocation.",
     "E1-E8 partial: seq269 preserves bounded comparison outcomes and measurement identities in downstream cognition, with source digest binding and same-model/drift gates intact; next connect daemon prior-projection owner to canonical planning.",
-    "E1-E8: sequences 270-273 connect the daemon verified prior-projection owner to canonical allocation/planning; source identity, applicability and drift remain enforced, planning feedback stays non-authorizing and execution-free, and the integrated resource-to-cognition lifecycle passes hosted acceptance."
+    "E1-E8: sequences 270-273 connect the daemon verified prior-projection owner to canonical allocation/planning; source identity, applicability and drift remain enforced, planning feedback stays non-authorizing and execution-free, and the integrated resource-to-cognition lifecycle passes hosted acceptance.",
+    "E1-E8 follow-up: canonical planning and task execution are separate modules and daemon surfaces; plan evidence is revalidated before explicit execution, current integrity policy is recomputed, and a hosted 17-node exact acceptance gate binds results to the candidate SHA."
   ],
-  "current_source_commit": "ff635c7160ad65c73c28cebec4f72101c6a3c6c5",
-  "current_source_tree": "db7d80bf4faf31b3426f5e4d2716cca12f7ee2da",
+  "current_source_commit": "136086731c07959fa3d9dece1c264d92b3431f12",
+  "current_source_tree": "ae49772e271fe44ef1f9faca696215fa57a197c4",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -48,7 +49,7 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 274,
+  "last_checkpoint_sequence": 275,
   "next_executable_nodes": [
     {
       "node": "F1-F8",
