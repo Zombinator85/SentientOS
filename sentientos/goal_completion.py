@@ -60,7 +60,8 @@ class CompletionContext:
     def latest_for_goal(self, kind: str) -> dict[str, object] | None:
         rows = artifact_catalog.recent(self.repo_root, kind, limit=100)
         for row in reversed(rows):
-            links = row.get("links") if isinstance(row.get("links"), dict) else {}
+            raw_links = row.get("links")
+            links: dict[str, object] = raw_links if isinstance(raw_links, dict) else {}
             goal_ids = links.get("goal_ids")
             if (str(links.get("goal_id") or "") == self.goal_id
                     or isinstance(goal_ids, list) and self.goal_id in goal_ids):
@@ -105,10 +106,12 @@ class _ForgeLastRunOkCheck:
         # validating it against canonical plan evidence.
         payload = artifact_catalog.load_catalog_artifact(ctx.repo_root, entry)
         reasons: tuple[str, ...] = () if payload is not None else ("artifact_missing",)
-        summary = entry.get("summary") if isinstance(entry.get("summary"), dict) else {}
-        status = str((payload or {}).get("status") or summary.get("status") or "unknown")
+        run_payload: dict[str, object] = payload if isinstance(payload, dict) else {}
+        raw_summary = entry.get("summary")
+        summary: dict[str, object] = raw_summary if isinstance(raw_summary, dict) else {}
+        status = str(run_payload.get("status") or summary.get("status") or "unknown")
         gate_failures = int(summary.get("integrity_gate_failures", 0)) if isinstance(summary.get("integrity_gate_failures"), int) else 0
-        evidence_digest = _validated_run_evidence(ctx, entry, payload)
+        evidence_digest = _validated_run_evidence(ctx, entry, run_payload)
         bound = evidence_digest is not None
         done = status == "ok" and gate_failures == 0 and bound
         if not bound:
@@ -263,7 +266,7 @@ def _valid_digest(value: object) -> bool:
 def _validated_run_evidence(
     ctx: CompletionContext,
     run_entry: dict[str, object],
-    payload: dict[str, object] | None,
+    payload: dict[str, object],
 ) -> str | None:
     """Reconstruct a persisted run through its canonical plan and evidence."""
     if not isinstance(payload, dict) or payload.get("schema_version") != 3:
@@ -272,7 +275,7 @@ def _validated_run_evidence(
     plan_id = payload.get("plan_id")
     digest = payload.get("evidence_digest")
     if (not isinstance(run_id, str) or not isinstance(plan_id, str)
-            or not _valid_digest(digest)
+            or not isinstance(digest, str) or not _valid_digest(digest)
             or run_entry.get("id") != run_id
             or (ctx.work_run_id is not None and ctx.work_run_id != run_id)
             or (ctx.work_run_evidence_digest is not None
