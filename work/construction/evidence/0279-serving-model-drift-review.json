@@ -1,0 +1,63 @@
+{
+  "behavioral_boundary": {
+    "executor_invoked": false,
+    "historical_model_identity_remains_in_scope": true,
+    "independent_goal_remains_selected": true,
+    "model_invoked": false,
+    "observed_model_identity_change_changes_projection_digest": true,
+    "persistent_epistemic_state_mutated_by_planning": false,
+    "scoped_goal_deferred_for_review": true
+  },
+  "hosted_candidate_verification": "pending exact-source PR checks",
+  "local_verification": {
+    "corrected_focused_case": {
+      "failed": 0,
+      "passed": 1,
+      "provenance_path": "glow/test_runs/provenance/20261016T190511Z_d8d7a219221c_003f726cb1fb40239d087f29fbdb0597.json",
+      "status": "passed"
+    },
+    "diff_check": true,
+    "initial_assertion_failure": {
+      "cause": "The observed serving-model identity is part of the canonical projection binding, so replacing it correctly changed the projection digest. The implementation remained read-only and scoped.",
+      "provenance_path": "glow/test_runs/provenance/20261016T190456Z_d8d7a219221c_177e5acf622d4de98b2f6795e15dc4bd.json",
+      "status": "failed_test_expectation"
+    },
+    "resident_developmental_cognition_module": {
+      "failed": 0,
+      "passed": 93,
+      "provenance_path": "glow/test_runs/provenance/20261016T190650Z_d8d7a219221c_1f0fa2fd37a248ff967b96814b1703a0.json",
+      "status": "passed"
+    },
+    "source_identity_limit": "Local runner records bind to stale HEAD d8d7a219221cd94240accf7991fe353b14f6a84e; local checks are exploratory and do not establish candidate identity."
+  },
+  "next_dependency": "Connect identity-bound multi-episode outcomes, preserving adverse outcomes and omission identity, to later scoped decisions after owner reconstruction.",
+  "predecessor_segment_sha256": "db17843b5a1972443999c88a41df3e221808bb4fc2f1224ff81e44773fd42b5b",
+  "segment_path": "work/construction/segments/0279-serving-model-drift-review.md",
+  "sequence": 279,
+  "sequence_278_main_push_verification": {
+    "ci_conclusion": "success",
+    "ci_run": 38951638847,
+    "codex_ci_conclusion": "success",
+    "codex_ci_run": 38951639082,
+    "docker_conclusion": "success",
+    "docker_run": 38951639050,
+    "docs_deploy_conclusion": "success",
+    "docs_deploy_run": 38951638882,
+    "invariant_conclusion": "success",
+    "invariant_run": 38951638745,
+    "required_acceptance": "passed in hosted CI",
+    "required_quality_gate_conclusion": "success",
+    "required_quality_gate_run": 38951638898,
+    "root_audit": {
+      "artifact_id": 12069002281,
+      "artifact_sha256": "6f30146b1a7045203e50ac93bbb95e4fa0ffcbe6e738edb83c8f060fa0482d62",
+      "effective_uid": 0,
+      "source_commit": "2ee98c76af4d9389cbdb991af106a05a381d267a",
+      "source_tree": "85f99979f5a5e675830d30695e5df5b6ee3443f4",
+      "status": "passed"
+    }
+  },
+  "source_commit": "2ee98c76af4d9389cbdb991af106a05a381d267a",
+  "source_tree": "85f99979f5a5e675830d30695e5df5b6ee3443f4",
+  "title": "Keep historical review bound across serving-model drift"
+}

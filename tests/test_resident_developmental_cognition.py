@@ -3622,6 +3622,39 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         recovered_state_before_plan)
     assert list((planning_root / "glow/forge/work_runs").glob("run_*.json")) == []
 
+    # A verified history bound to the former serving identity stays review
+    # scoped when the live identity changes. The mismatch must be visible in
+    # plan evidence and cannot silently make the historical proposition apply
+    # to a replacement model.
+    prior_identity_digest = "sha256:" + digest_payload(fake.active_model_identity)
+    fake.active_model_identity = {"provider": "fixture", "model": "replacement-model"}
+    replacement_identity_digest = "sha256:" + digest_payload(fake.active_model_identity)
+    assert replacement_identity_digest != prior_identity_digest
+    drift_time = "2026-10-16T10:02:00+00:00"
+    after_identity_drift = planning_surfaces.plan_canonical_goals(tick_id=drift_time)
+    assert "history-sensitive" not in after_identity_drift.allocation.selected
+    assert "independent" in after_identity_drift.allocation.selected
+    assert {item.goal_id: item.reason
+        for item in after_identity_drift.allocation.deferred}["history-sensitive"] == (
+            "epistemic_applicability_unresolved")
+    assert after_identity_drift.work_plan is not None
+    assert after_identity_drift.work_plan.selected_goals == ("independent",)
+    assert after_identity_drift.work_plan_evidence_path is not None
+    drift_evidence = json.loads((planning_root /
+        after_identity_drift.work_plan_evidence_path).read_text(encoding="utf-8"))
+    drift_binding = drift_evidence["evidence_binding"]
+    assert drift_binding["projection_digest"] != planning_evidence[
+        "evidence_binding"]["projection_digest"]
+    assert drift_binding["review_scopes"][proposition.proposition_id][
+        "active_model_identity_digest"] == prior_identity_digest
+    assert drift_binding["target_active_model_identity_digest"] == (
+        replacement_identity_digest)
+    assert drift_binding["goal_applicability"]["history-sensitive"] == (
+        "epistemic_applicability_unresolved")
+    assert recovered_epistemics.current_state(proposition.proposition_id) == (
+        recovered_state_before_plan)
+    assert list((planning_root / "glow/forge/work_runs").glob("run_*.json")) == []
+
     state = restarted._state()
     intent = next(row for row in state["incomplete_ticks"]
         if row.get("tick_id") == "final-score-recovery-trial")
