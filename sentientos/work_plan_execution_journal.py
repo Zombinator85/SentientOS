@@ -6,8 +6,10 @@ import json
 import os
 from pathlib import Path
 import stat
+import threading
 from typing import Any
 
+from sentientos.platform_fcntl import fcntl as posix_fcntl, require_flock
 from sentientos.work_plan import TaskRun, WorkPlan
 
 
@@ -37,17 +39,31 @@ class WorkPlanExecutionJournal:
         self.path = journal_root / journal_name
         legacy_name = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest() + ".jsonl"
         legacy_path = journal_root / legacy_name
-        if not self.path.exists() and legacy_path.exists():
+        try:
+            self.path.lstat()
+            current_path_exists = True
+        except FileNotFoundError:
+            current_path_exists = False
+        except OSError as exc:
+            raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
+        if not current_path_exists:
             try:
-                legacy_raw = legacy_path.read_bytes()
-                first_row = json.loads(legacy_raw.splitlines()[0]) if legacy_raw else None
-            except (OSError, UnicodeError, json.JSONDecodeError, IndexError) as exc:
+                legacy_metadata = legacy_path.lstat()
+            except FileNotFoundError:
+                legacy_metadata = None
+            except OSError as exc:
                 raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
-            if not isinstance(first_row, dict) or not isinstance(
-                    first_row.get("plan_digest"), str):
-                raise WorkPlanJournalError("work_plan_journal_record_invalid")
-            if first_row["plan_digest"] == self.plan_digest:
-                self.path = legacy_path
+            if legacy_metadata is not None:
+                legacy_raw = _read_journal_path(legacy_path, legacy_metadata)
+                try:
+                    first_row = json.loads(legacy_raw.splitlines()[0]) if legacy_raw else None
+                except (UnicodeError, json.JSONDecodeError, IndexError) as exc:
+                    raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
+                if not isinstance(first_row, dict) or not isinstance(
+                        first_row.get("plan_digest"), str):
+                    raise WorkPlanJournalError("work_plan_journal_record_invalid")
+                if first_row["plan_digest"] == self.plan_digest:
+                    self.path = legacy_path
         self._known_task_ids = {task.task_id for task in plan.tasks}
         self._tasks = {task.task_id: task for task in plan.tasks}
         if len(self._known_task_ids) != len(plan.tasks):
@@ -65,6 +81,9 @@ class WorkPlanExecutionJournal:
         self._attempts: dict[str, int] = {}
         self._sequence = 0
         self._head = ZERO_DIGEST
+        self._file_size = 0
+        self._file_digest = hashlib.sha256(b"").hexdigest()
+        self._thread_lock = threading.RLock()
         self._recover()
 
     def state(self, task_id: str) -> str | None:
@@ -79,39 +98,42 @@ class WorkPlanExecutionJournal:
         return self._results.get(task_id)
 
     def start(self, task_id: str) -> None:
-        if task_id not in self._known_task_ids or task_id in self._states:
-            raise WorkPlanJournalError("work_plan_journal_start_conflict")
-        self._append(task_id, "started", None, None, None)
-        self._states[task_id] = "interrupted"
-        self._attempts[task_id] = 1
+        with self._thread_lock:
+            if task_id not in self._known_task_ids or task_id in self._states:
+                raise WorkPlanJournalError("work_plan_journal_start_conflict")
+            self._append(task_id, "started", None, None, None)
+            self._states[task_id] = "interrupted"
+            self._attempts[task_id] = 1
 
     def retry_start(self, task_id: str) -> None:
         """Record an idempotent diagnostic/verification replay after interruption."""
-        task = self._tasks.get(task_id)
-        if (task is None or self._states.get(task_id) != "interrupted"
-                or task.kind not in _RETRYABLE_TASK_KINDS or task.destructive):
-            raise WorkPlanJournalError("work_plan_journal_retry_not_allowed")
-        attempt = self._attempts.get(task_id, 0) + 1
-        self._append(task_id, "retry_started", None, None, None, attempt=attempt)
-        self._attempts[task_id] = attempt
+        with self._thread_lock:
+            task = self._tasks.get(task_id)
+            if (task is None or self._states.get(task_id) != "interrupted"
+                    or task.kind not in _RETRYABLE_TASK_KINDS or task.destructive):
+                raise WorkPlanJournalError("work_plan_journal_retry_not_allowed")
+            attempt = self._attempts.get(task_id, 0) + 1
+            self._append(task_id, "retry_started", None, None, None, attempt=attempt)
+            self._attempts[task_id] = attempt
 
     def attempt_count(self, task_id: str) -> int:
         return self._attempts.get(task_id, 0)
 
     def finish(self, task_id: str, *, status: str, reason: str | None,
             result: TaskRun | None = None) -> None:
-        if (self._states.get(task_id) != "interrupted"
-                or status not in {"success", "failed", "skipped", "partial"}
-                or (reason is not None and not isinstance(reason, str))
-                or (status == "partial" and (not isinstance(reason, str) or not reason))
-                or result is None or not self._valid_task_result(task_id, result)
-                or result.status != status or result.reason != reason):
-            raise WorkPlanJournalError("work_plan_journal_finish_conflict")
-        self._append(task_id, "finished", status, reason,
-            result.to_dict() if result is not None else None)
-        self._states[task_id] = status
-        if result is not None:
-            self._results[task_id] = result
+        with self._thread_lock:
+            if (self._states.get(task_id) != "interrupted"
+                    or status not in {"success", "failed", "skipped", "partial"}
+                    or (reason is not None and not isinstance(reason, str))
+                    or (status == "partial" and (not isinstance(reason, str) or not reason))
+                    or result is None or not self._valid_task_result(task_id, result)
+                    or result.status != status or result.reason != reason):
+                raise WorkPlanJournalError("work_plan_journal_finish_conflict")
+            self._append(task_id, "finished", status, reason,
+                result.to_dict() if result is not None else None)
+            self._states[task_id] = status
+            if result is not None:
+                self._results[task_id] = result
 
     def _valid_task_result(self, task_id: str, result: TaskRun) -> bool:
         task = self._tasks.get(task_id)
@@ -161,32 +183,7 @@ class WorkPlanExecutionJournal:
             return
         except OSError as exc:
             raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_JOURNAL_BYTES:
-            raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
-        try:
-            descriptor = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        except OSError as exc:
-            raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
-        try:
-            opened = os.fstat(descriptor)
-            if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != metadata.st_dev
-                    or opened.st_ino != metadata.st_ino or opened.st_size > MAX_JOURNAL_BYTES):
-                raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
-            chunks: list[bytes] = []
-            remaining = MAX_JOURNAL_BYTES + 1
-            while remaining:
-                chunk = os.read(descriptor, min(65_536, remaining))
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                remaining -= len(chunk)
-            raw = b"".join(chunks)
-        except OSError as exc:
-            raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
-        finally:
-            os.close(descriptor)
-        if len(raw) > MAX_JOURNAL_BYTES:
-            raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+        raw = _read_journal_path(self.path, metadata)
         if not raw.endswith(b"\n"):
             raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
         for line in raw.splitlines():
@@ -252,6 +249,8 @@ class WorkPlanExecutionJournal:
                     self._results[task_id] = task_result
             self._sequence += 1
             self._head = row["digest"]
+        self._file_size = len(raw)
+        self._file_digest = hashlib.sha256(raw).hexdigest()
 
     def _append(self, task_id: str, event: str, status: str | None,
             reason: str | None, task_result: dict[str, Any] | None,
@@ -269,16 +268,27 @@ class WorkPlanExecutionJournal:
             semantic["attempt"] = attempt
         row = {**semantic, "digest": hashlib.sha256(_canonical(semantic)).hexdigest()}
         encoded = _canonical(row) + b"\n"
-        flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        flags = os.O_RDWR | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
         try:
             descriptor = os.open(self.path, flags, 0o600)
             try:
+                try:
+                    require_flock()
+                    posix_fcntl.flock(descriptor, posix_fcntl.LOCK_EX)
+                except OSError as exc:
+                    raise WorkPlanJournalError("work_plan_journal_lock_unavailable") from exc
                 metadata = os.fstat(descriptor)
                 path_metadata = self.path.lstat()
                 if (not stat.S_ISREG(metadata.st_mode) or not stat.S_ISREG(path_metadata.st_mode)
                         or metadata.st_dev != path_metadata.st_dev
-                        or metadata.st_ino != path_metadata.st_ino
-                        or metadata.st_size + len(encoded) > MAX_JOURNAL_BYTES):
+                        or metadata.st_ino != path_metadata.st_ino):
+                    raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+                current_bytes = _read_descriptor_bounded(descriptor)
+                if (len(current_bytes) != self._file_size
+                        or hashlib.sha256(current_bytes).hexdigest() != self._file_digest):
+                    raise WorkPlanJournalError("work_plan_journal_stale_writer")
+                if (metadata.st_size != len(current_bytes)
+                        or len(current_bytes) + len(encoded) > MAX_JOURNAL_BYTES):
                     raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
                 view = memoryview(encoded)
                 while view:
@@ -295,10 +305,52 @@ class WorkPlanExecutionJournal:
             raise WorkPlanJournalError("work_plan_journal_write_failed") from exc
         self._sequence += 1
         self._head = row["digest"]
+        self._file_size += len(encoded)
+        self._file_digest = hashlib.sha256(current_bytes + encoded).hexdigest()
 
 
 def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _read_descriptor_bounded(descriptor: int) -> bytes:
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    chunks: list[bytes] = []
+    remaining = MAX_JOURNAL_BYTES + 1
+    while remaining:
+        chunk = os.read(descriptor, min(65_536, remaining))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    raw = b"".join(chunks)
+    if len(raw) > MAX_JOURNAL_BYTES:
+        raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+    return raw
+
+
+def _read_journal_path(path: Path, metadata: os.stat_result) -> bytes:
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > MAX_JOURNAL_BYTES:
+        raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as exc:
+        raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
+    try:
+        try:
+            require_flock()
+            posix_fcntl.flock(descriptor, posix_fcntl.LOCK_SH)
+        except OSError as exc:
+            raise WorkPlanJournalError("work_plan_journal_lock_unavailable") from exc
+        opened = os.fstat(descriptor)
+        if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != metadata.st_dev
+                or opened.st_ino != metadata.st_ino or opened.st_size > MAX_JOURNAL_BYTES):
+            raise WorkPlanJournalError("work_plan_journal_bounds_invalid")
+        return _read_descriptor_bounded(descriptor)
+    except OSError as exc:
+        raise WorkPlanJournalError("work_plan_journal_unreadable") from exc
+    finally:
+        os.close(descriptor)
 
 
 def _is_digest(value: Any) -> bool:
