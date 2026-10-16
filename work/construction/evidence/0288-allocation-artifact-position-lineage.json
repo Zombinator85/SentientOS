@@ -1,0 +1,102 @@
+{
+  "defect": {
+    "durable_allocation_artifact_omitted_deferred_position_identity": true,
+    "risk": "a later reviewer could not trace deferred goals from the canonical allocation artifact to their exact prior state, event, and evidence bindings"
+  },
+  "evidence_path": "work/construction/evidence/0288-allocation-artifact-position-lineage.json",
+  "historical_provenance_limitation": {
+    "known_deleted_payloads": 9,
+    "new_records_preserved": true,
+    "prior_chain_repaired": false,
+    "status": "incomplete_after_sequence_286_finalizer_cleanup",
+    "unidentified_deleted_payloads": 1
+  },
+  "implementation": {
+    "durable_deferred_rows": "persist goal-scoped epistemic position identities, posture, and exact bounded omission identity",
+    "plan_evidence_and_allocation_artifact": "both retain identical deferred position bindings",
+    "planning_or_deferral_claims_execution_success": false,
+    "selection_order_or_budget_changed": false,
+    "task_execution_or_authority_changed": false
+  },
+  "local_regression": {
+    "command": "python -m scripts.run_tests -q sentientos/tests/test_orchestrator_plan_only.py",
+    "compilation": "passed",
+    "construction_custody": "pending sequence 288 record append",
+    "diff_check": "passed",
+    "exact_source_binding": {
+      "git_sha": "5300ddc79d5aa79849fa004530f5d23a368f3f20",
+      "git_tree": "ac9cfe9c09ab748aba0359dcfab6c6ce8f6b4afe",
+      "previous_provenance_hash": "5c9a7e6283a9b325ca58cb7f64aa9762d7367b24a9b73d5a815249925cdba184",
+      "provenance_file_sha256": "ec507d137f55e436de3dcce2b5a5ba504d4d1a16805210da811a48d717669778",
+      "provenance_hash": "9b0a4a680f77f2d9c60e4eeafa680d2cfbde4c7f396266b9c6b192546adc3ae2",
+      "provenance_path": "glow/test_runs/provenance/20261016T212608Z_5300ddc79d5a_9132451634c74a00b0577da704dd0e51.json"
+    },
+    "mypy_baseline": {
+      "baseline_digest": "20201c39f7b73e3b9e07bd76d5454365a2204a120a9de96c4ab56a64bac748a9",
+      "matched_existing_errors": 1053,
+      "new_errors": 0,
+      "retired_error_records": 37,
+      "status": "mypy_baseline_improved",
+      "summary_sha256": "29a45c25131ff9ba0ee94bcd94f146c75366b76c0a7a15eec4d3c32b74146a73"
+    },
+    "provenance": {
+      "file_sha256": "ec507d137f55e436de3dcce2b5a5ba504d4d1a16805210da811a48d717669778",
+      "git_sha": "5300ddc79d5aa79849fa004530f5d23a368f3f20",
+      "path": "glow/test_runs/provenance/20261016T212608Z_5300ddc79d5a_9132451634c74a00b0577da704dd0e51.json",
+      "previous_provenance_hash": "5c9a7e6283a9b325ca58cb7f64aa9762d7367b24a9b73d5a815249925cdba184",
+      "provenance_hash": "9b0a4a680f77f2d9c60e4eeafa680d2cfbde4c7f396266b9c6b192546adc3ae2",
+      "pytest_exit_code": 0,
+      "tests_collected": 5,
+      "tests_executed": 5,
+      "tests_failed": 0,
+      "tests_passed": 5,
+      "tests_skipped": 0,
+      "validation_status": "validation_complete"
+    },
+    "run_artifacts": [
+      {
+        "path": "glow/test_runs/pytest_report_df61ff74153e4286aff68aa0bf01e7fa.json",
+        "sha256": "e08d5fee2d38d2a45f337216a667976e355c1c850dd2c0ee5779f18197781787"
+      },
+      {
+        "path": "glow/test_runs/pytest_junitxml_7e0790c1cb6d40bbba297164433e5203.xml",
+        "sha256": "4795ccc50984e35df0afa8646decd1fce7177e76e9f97da961877734b6990574"
+      }
+    ],
+    "summary_sha256": "ec507d137f55e436de3dcce2b5a5ba504d4d1a16805210da811a48d717669778",
+    "targeted_mypy": {
+      "error": "no-any-return at sentientos/orchestrator.py:1225",
+      "parent_comparison": "the parent source reports the same no-any-return at its corresponding line; repo-wide baseline confirms zero new errors",
+      "result": "preexisting_error_confirmed"
+    },
+    "tests_collected": 5,
+    "tests_executed": 5,
+    "tests_failed": 0,
+    "tests_passed": 5,
+    "tests_skipped": 0,
+    "validation_status": "validation_complete"
+  },
+  "next_dependency": "Bind the exact verified work-plan evidence digest to the persisted execution outcome and require outcome consumers to distinguish planning evidence from actual task execution and completion.",
+  "predecessor_segment_sha256": "b0eb0ee931628be08e544aff29af6d3ff4baf0b1928249945ab71c37021e484f",
+  "segment_path": "work/construction/segments/0288-allocation-artifact-position-lineage.md",
+  "segment_sha256": "42c1ad1a93e2fd5aa757ec9e4d5e9164a3e3456e2d82f2f697ff745b63bac42e",
+  "sequence": 288,
+  "sequence_287_hosted_verification": {
+    "administrator_verified": true,
+    "ci_run_id": 38969161917,
+    "ci_status": "in_progress",
+    "effective_uid": 0,
+    "gate_artifact_sha256": "3647946a747cea6077f63336db88bcf49e36d0a600264eca1b16573a6db08a26",
+    "immutability_ok": true,
+    "invariant_run_id": 38969161560,
+    "invariant_status": "success",
+    "remote_candidate_commit": "02de64ffe4b3fa91b4413a826a6d8be4849e0039",
+    "remote_tree": "8b849b2f599a2be884429132345e4a2eb789f38e",
+    "required_quality_gate": "success",
+    "required_quality_gate_run_id": 38969161928,
+    "strict_audit_ok": true
+  },
+  "source_commit": "5300ddc79d5aa79849fa004530f5d23a368f3f20",
+  "source_tree": "ac9cfe9c09ab748aba0359dcfab6c6ce8f6b4afe",
+  "title": "Retain deferred epistemic position lineage in durable allocation output"
+}
