@@ -249,6 +249,80 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
         reports = get_recent_drift_reports(limit=limit)
         return [dict(report) for report in reports]
 
+    @app.get("/api/drift/stream")
+    async def drift_stream(
+        request: Request,
+        since_date: str | None = None,
+        limit: str | None = None,
+    ) -> StreamingResponse:
+        bounded_limit = _parse_limit(limit, 7, _MAX_DRIFT_RANGE, "limit")
+        header_since_date = _parse_last_event_id(request.headers.get("last-event-id"))
+        query_since_date = _parse_last_event_id(since_date)
+        effective_since_date = header_since_date or query_since_date
+        normalized_since_date = None
+        if effective_since_date is not None:
+            try:
+                normalized_since_date = normalize_drift_date(effective_since_date)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+        adapter = DriftEventStream(
+            replay_policy=ReplayPolicy(max_replay_items=_MAX_DRIFT_RANGE, max_replay_bytes=512_000),
+            max_replay_lines=_MAX_DRIFT_REPLAY_LINES,
+        )
+        replay = adapter.replay(normalized_since_date, bounded_limit)
+        seen_ids = {envelope.event_id for envelope in replay}
+
+        async def stream() -> AsyncGenerator[str, None]:
+            stop = False
+
+            async def monitor_disconnect() -> None:
+                nonlocal stop
+                while not stop:
+                    if await request.is_disconnected():
+                        stop = True
+                        break
+                    await asyncio.sleep(0.1)
+
+            monitor = asyncio.create_task(monitor_disconnect())
+            try:
+                for envelope in replay:
+                    upgraded = upgrade_envelope(envelope.as_dict())
+                    event_id = upgraded.get("event_id")
+                    event_type = upgraded.get("event_type")
+                    yield _format_sse(
+                        upgraded,
+                        event_id=_as_string(event_id) if event_id is not None else None,
+                        event_type=_as_string(event_type) if event_type is not None else None,
+                    )
+                for item in adapter.tail(normalized_since_date, should_stop=lambda: stop):
+                    if stop:
+                        break
+                    if isinstance(item, str):
+                        yield item
+                        continue
+                    if item.event_id in seen_ids:
+                        continue
+                    seen_ids.add(item.event_id)
+                    upgraded = upgrade_envelope(item.as_dict())
+                    event_id = upgraded.get("event_id")
+                    event_type = upgraded.get("event_type")
+                    yield _format_sse(
+                        upgraded,
+                        event_id=_as_string(event_id) if event_id is not None else None,
+                        event_type=_as_string(event_type) if event_type is not None else None,
+                    )
+            finally:
+                stop = True
+                monitor.cancel()
+
+        headers = {
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+        return StreamingResponse(stream(), media_type="text/event-stream", headers=headers)
+
+
     @app.get("/api/drift/{date_str}")
     def drift_by_date(date_str: str) -> Dict[str, object]:
         try:
@@ -420,77 +494,5 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
         }
         return StreamingResponse(stream(), media_type="text/event-stream", headers=headers)
 
-    @app.get("/api/drift/stream")
-    async def drift_stream(
-        request: Request,
-        since_date: str | None = None,
-        limit: str | None = None,
-    ) -> StreamingResponse:
-        bounded_limit = _parse_limit(limit, 7, _MAX_DRIFT_RANGE, "limit")
-        header_since_date = _parse_last_event_id(request.headers.get("last-event-id"))
-        query_since_date = _parse_last_event_id(since_date)
-        effective_since_date = header_since_date or query_since_date
-        normalized_since_date = None
-        if effective_since_date is not None:
-            try:
-                normalized_since_date = normalize_drift_date(effective_since_date)
-            except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-        adapter = DriftEventStream(
-            replay_policy=ReplayPolicy(max_replay_items=_MAX_DRIFT_RANGE, max_replay_bytes=512_000),
-            max_replay_lines=_MAX_DRIFT_REPLAY_LINES,
-        )
-        replay = adapter.replay(normalized_since_date, bounded_limit)
-        seen_ids = {envelope.event_id for envelope in replay}
-
-        async def stream() -> AsyncGenerator[str, None]:
-            stop = False
-
-            async def monitor_disconnect() -> None:
-                nonlocal stop
-                while not stop:
-                    if await request.is_disconnected():
-                        stop = True
-                        break
-                    await asyncio.sleep(0.1)
-
-            monitor = asyncio.create_task(monitor_disconnect())
-            try:
-                for envelope in replay:
-                    upgraded = upgrade_envelope(envelope.as_dict())
-                    event_id = upgraded.get("event_id")
-                    event_type = upgraded.get("event_type")
-                    yield _format_sse(
-                        upgraded,
-                        event_id=_as_string(event_id) if event_id is not None else None,
-                        event_type=_as_string(event_type) if event_type is not None else None,
-                    )
-                for item in adapter.tail(normalized_since_date, should_stop=lambda: stop):
-                    if stop:
-                        break
-                    if isinstance(item, str):
-                        yield item
-                        continue
-                    if item.event_id in seen_ids:
-                        continue
-                    seen_ids.add(item.event_id)
-                    upgraded = upgrade_envelope(item.as_dict())
-                    event_id = upgraded.get("event_id")
-                    event_type = upgraded.get("event_type")
-                    yield _format_sse(
-                        upgraded,
-                        event_id=_as_string(event_id) if event_id is not None else None,
-                        event_type=_as_string(event_type) if event_type is not None else None,
-                    )
-            finally:
-                stop = True
-                monitor.cancel()
-
-        headers = {
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
-        return StreamingResponse(stream(), media_type="text/event-stream", headers=headers)
 
     return app
