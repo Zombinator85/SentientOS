@@ -14,6 +14,10 @@ WORK_PLAN_EVIDENCE_DIR = Path("glow/forge/work_plan_evidence")
 WORK_PLAN_PULSE_PATH = Path("pulse/work_plans.jsonl")
 WORK_RUN_DIR = Path("glow/forge/work_runs")
 MAX_WORK_RUN_BYTES = 1_048_576
+MAX_WORK_PLAN_EVIDENCE_INLINE_BINDING_BYTES = 262_144
+MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_BYTES = 12_582_912
+MAX_WORK_PLAN_EVIDENCE_FILE_BYTES = 524_288
+MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES = 12_582_912
 _PLAN_FIELDS = {"schema_version", "plan_id", "created_at", "context", "selected_goals", "tasks"}
 _TASK_FIELDS = {"schema_version", "task_id", "goal_id", "kind", "commands", "callable_ref",
     "risk_cost", "throughput_cost", "preconditions", "expected_artifacts", "destructive",
@@ -192,7 +196,10 @@ def persist_work_plan_evidence(
         binding_bytes = canonical_binding.encode("utf-8")
     except (TypeError, ValueError, UnicodeError) as exc:
         raise WorkPlanError("work_plan_evidence_shape_invalid") from exc
-    if len(binding_bytes) > 262_144:
+    binding_is_external = len(binding_bytes) > MAX_WORK_PLAN_EVIDENCE_INLINE_BINDING_BYTES
+    if binding_is_external and (
+            len(binding_bytes) > MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_BYTES
+            or not _has_epistemic_projection_identity(evidence_binding)):
         raise WorkPlanError("work_plan_evidence_bounds_invalid")
     graph_hash = evidence_binding.get("goal_graph_hash")
     allocation_id = evidence_binding.get("allocation_artifact_path")
@@ -209,33 +216,108 @@ def persist_work_plan_evidence(
     evidence_digest = hashlib.sha256(json.dumps(
         basis, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     ).encode("utf-8")).hexdigest()
-    payload = {**basis, "evidence_digest": evidence_digest}
     root = repo_root.resolve()
-    path = root / WORK_PLAN_EVIDENCE_DIR / (
-        f"evidence_{hashlib.sha256(plan.plan_id.encode('utf-8')).hexdigest()}.json")
+    plan_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
+    path = root / WORK_PLAN_EVIDENCE_DIR / f"evidence_{plan_key}.json"
+    if binding_is_external:
+        sidecar_path = root / WORK_PLAN_EVIDENCE_DIR / f"binding_{plan_key}.json"
+        _write_bytes_once(sidecar_path, binding_bytes)
+        payload: dict[str, object] = {
+            "schema_version": 2,
+            "plan_id": plan.plan_id,
+            "plan_digest": plan.identity_digest(),
+            "evidence_binding_reference": {
+                "schema_version": "sentientos.work_plan_evidence_binding_reference:v1",
+                "sha256": hashlib.sha256(binding_bytes).hexdigest(),
+                "byte_count": len(binding_bytes),
+            },
+            "evidence_digest": evidence_digest,
+        }
+    else:
+        payload = {**basis, "evidence_digest": evidence_digest}
     _write_json_once(path, payload)
     return str(path.relative_to(root)), evidence_digest
 
 
-def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object]:
-    """Read back and verify the immutable plan and rationale binding."""
-    if not isinstance(plan, WorkPlan):
-        raise WorkPlanError("work_plan_evidence_plan_invalid")
-    path = repo_root.resolve() / WORK_PLAN_EVIDENCE_DIR / (
-        f"evidence_{hashlib.sha256(plan.plan_id.encode('utf-8')).hexdigest()}.json")
+def _has_epistemic_projection_identity(evidence_binding: Mapping[str, object]) -> bool:
+    projection_digest = evidence_binding.get("projection_digest")
+    review_scopes = evidence_binding.get("review_scopes")
+    if not (
+        isinstance(projection_digest, str)
+        and len(projection_digest) == 71
+        and projection_digest.startswith("sha256:")
+        and all(character in "0123456789abcdef" for character in projection_digest[7:])
+        and isinstance(review_scopes, Mapping)
+    ):
+        return False
+    manifest = evidence_binding.get("projection_omission_manifest")
+    if manifest is None:
+        return not any(
+            isinstance(scope, Mapping)
+            and scope.get("omitted_from_prior_projection") is True
+            for scope in review_scopes.values()
+        )
+    if not isinstance(manifest, Mapping):
+        return False
+    rows = manifest.get("omitted_state_identities")
+    selected_count = manifest.get("selected_state_count")
+    available_count = manifest.get("available_prior_state_count")
+    if (manifest.get("schema_version") !=
+            "sentientos.epistemic_projection_omission_manifest:v1"
+            or not isinstance(rows, (list, tuple))
+            or type(manifest.get("omitted_state_count")) is not int
+            or manifest.get("omitted_state_count") != len(rows)
+            or type(selected_count) is not int
+            or type(available_count) is not int
+            or selected_count + len(rows) != available_count):
+        return False
+    digest = hashlib.sha256(json.dumps(
+        rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+    ).encode("utf-8")).hexdigest()
+    if manifest.get("omitted_identity_digest") != "sha256:" + digest:
+        return False
+    omitted_by_proposition: dict[str, Mapping[str, object]] = {}
+    for row in rows:
+        if not isinstance(row, Mapping):
+            return False
+        proposition_id = row.get("proposition_id")
+        if not isinstance(proposition_id, str) or proposition_id in omitted_by_proposition:
+            return False
+        omitted_by_proposition[proposition_id] = row
+    scoped_omissions: dict[str, Mapping[str, object]] = {}
+    for proposition_id, scope in review_scopes.items():
+        if isinstance(scope, Mapping) and scope.get("omitted_from_prior_projection") is True:
+            if not isinstance(proposition_id, str):
+                return False
+            scoped_omissions[proposition_id] = scope
+    if set(omitted_by_proposition) != set(scoped_omissions):
+        return False
+    return all(
+        isinstance(proposition_id, str)
+        and isinstance(scope, Mapping)
+        and isinstance(scope.get("omitted_state_identity"), Mapping)
+        and json.dumps(scope["omitted_state_identity"], sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False)
+        == json.dumps(omitted_by_proposition[proposition_id], sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False)
+        for proposition_id, scope in scoped_omissions.items()
+    )
+
+
+def _read_bounded_regular_file(path: Path, *, maximum: int, error_prefix: str) -> bytes:
     try:
         metadata = path.lstat()
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > 524_288:
-            raise WorkPlanError("work_plan_evidence_bounds_invalid")
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > maximum:
+            raise WorkPlanError(f"{error_prefix}_bounds_invalid")
         descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         try:
             opened = os.fstat(descriptor)
             if (not stat.S_ISREG(opened.st_mode) or opened.st_dev != metadata.st_dev
-                    or opened.st_ino != metadata.st_ino):
-                raise WorkPlanError("work_plan_evidence_changed_during_open")
+                    or opened.st_ino != metadata.st_ino or opened.st_size > maximum):
+                raise WorkPlanError(f"{error_prefix}_changed_during_open")
             raw = bytearray()
-            while len(raw) <= 524_288:
-                chunk = os.read(descriptor, min(65_536, 524_289 - len(raw)))
+            while len(raw) <= maximum:
+                chunk = os.read(descriptor, min(65_536, maximum + 1 - len(raw)))
                 if not chunk:
                     break
                 raw.extend(chunk)
@@ -244,13 +326,100 @@ def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object
     except WorkPlanError:
         raise
     except (OSError, ValueError) as exc:
-        raise WorkPlanError("work_plan_evidence_unreadable") from exc
-    if len(raw) > 524_288:
-        raise WorkPlanError("work_plan_evidence_bounds_invalid")
+        raise WorkPlanError(f"{error_prefix}_unreadable") from exc
+    if len(raw) > maximum:
+        raise WorkPlanError(f"{error_prefix}_bounds_invalid")
+    return bytes(raw)
+
+
+def _write_bytes_once(path: Path, value: bytes) -> bool:
+    """Publish one immutable evidence binding sidecar without following links."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     try:
-        payload = json.loads(raw)
+        descriptor = os.open(path, flags, 0o600)
+    except FileExistsError:
+        existing = _read_bounded_regular_file(
+            path, maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
+            error_prefix="work_plan_evidence_binding_sidecar")
+        if existing != value:
+            raise WorkPlanError("work_plan_evidence_binding_sidecar_identity_conflict")
+        return False
+    except OSError as exc:
+        raise WorkPlanError("work_plan_evidence_binding_sidecar_write_failed") from exc
+    try:
+        remaining = memoryview(value)
+        while remaining:
+            written = os.write(descriptor, remaining)
+            if written <= 0:
+                raise OSError("short_write")
+            remaining = remaining[written:]
+    except OSError as exc:
+        raise WorkPlanError("work_plan_evidence_binding_sidecar_write_failed") from exc
+    finally:
+        os.close(descriptor)
+    return True
+
+
+def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object]:
+    """Read back and verify the immutable plan and rationale binding."""
+    if not isinstance(plan, WorkPlan):
+        raise WorkPlanError("work_plan_evidence_plan_invalid")
+    plan_key = hashlib.sha256(plan.plan_id.encode("utf-8")).hexdigest()
+    evidence_dir = repo_root.resolve() / WORK_PLAN_EVIDENCE_DIR
+    path = evidence_dir / f"evidence_{plan_key}.json"
+    raw = _read_bounded_regular_file(
+        path, maximum=MAX_WORK_PLAN_EVIDENCE_FILE_BYTES,
+        error_prefix="work_plan_evidence")
+    try:
+        stored_payload = json.loads(raw)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise WorkPlanError("work_plan_evidence_unreadable") from exc
+    if (not isinstance(stored_payload, dict)
+            or raw != (json.dumps(stored_payload, indent=2, sort_keys=True) + "\n").encode("utf-8")):
+        raise WorkPlanError("work_plan_evidence_noncanonical")
+    if isinstance(stored_payload, dict) and stored_payload.get("schema_version") == 2:
+        reference = stored_payload.get("evidence_binding_reference")
+        if (set(stored_payload) != {"schema_version", "plan_id", "plan_digest",
+                "evidence_binding_reference", "evidence_digest"}
+                or stored_payload.get("plan_id") != plan.plan_id
+                or stored_payload.get("plan_digest") != plan.identity_digest()
+                or not isinstance(reference, dict)
+                or set(reference) != {"schema_version", "sha256", "byte_count"}
+                or reference.get("schema_version") !=
+                    "sentientos.work_plan_evidence_binding_reference:v1"
+                or not isinstance(reference.get("sha256"), str)
+                or type(reference.get("byte_count")) is not int
+                or reference["byte_count"] < 1
+                or reference["byte_count"] >
+                    MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES):
+            raise WorkPlanError("work_plan_evidence_binding_reference_invalid")
+        sidecar_path = evidence_dir / f"binding_{plan_key}.json"
+        sidecar = _read_bounded_regular_file(
+            sidecar_path, maximum=MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_FILE_BYTES,
+            error_prefix="work_plan_evidence_binding_sidecar")
+        if (len(sidecar) != reference["byte_count"]
+                or hashlib.sha256(sidecar).hexdigest() != reference["sha256"]):
+            raise WorkPlanError("work_plan_evidence_binding_sidecar_digest_mismatch")
+        try:
+            evidence_binding = json.loads(sidecar.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise WorkPlanError("work_plan_evidence_binding_sidecar_unreadable") from exc
+        if (not isinstance(evidence_binding, dict)
+                or sidecar != json.dumps(evidence_binding, sort_keys=True,
+                    separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+                or len(sidecar) > MAX_EPISTEMIC_WORK_PLAN_EVIDENCE_BINDING_BYTES
+                or not _has_epistemic_projection_identity(evidence_binding)):
+            raise WorkPlanError("work_plan_evidence_binding_sidecar_noncanonical")
+        payload: dict[str, object] = {
+            "schema_version": 1,
+            "plan_id": stored_payload.get("plan_id"),
+            "plan_digest": stored_payload.get("plan_digest"),
+            "evidence_binding": evidence_binding,
+            "evidence_digest": stored_payload.get("evidence_digest"),
+        }
+    else:
+        payload = stored_payload
     fields = {"schema_version", "plan_id", "plan_digest", "evidence_binding",
         "evidence_digest"}
     if (not isinstance(payload, dict) or set(payload) != fields
@@ -261,7 +430,9 @@ def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object
             or not isinstance(payload.get("evidence_binding"), dict)
             or not isinstance(payload.get("evidence_digest"), str)):
         raise WorkPlanError("work_plan_evidence_identity_mismatch")
-    evidence_binding = payload["evidence_binding"]
+    evidence_binding = payload.get("evidence_binding")
+    if not isinstance(evidence_binding, Mapping):
+        raise WorkPlanError("work_plan_evidence_identity_mismatch")
     graph_hash = evidence_binding.get("goal_graph_hash")
     allocation_id = evidence_binding.get("allocation_artifact_path")
     if (not isinstance(graph_hash, str) or not isinstance(allocation_id, str)
@@ -274,9 +445,6 @@ def load_work_plan_evidence(repo_root: Path, plan: WorkPlan) -> dict[str, object
     ).encode("utf-8")).hexdigest()
     if payload["evidence_digest"] != expected_digest:
         raise WorkPlanError("work_plan_evidence_digest_mismatch")
-    canonical_bytes = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
-    if bytes(raw) != canonical_bytes:
-        raise WorkPlanError("work_plan_evidence_noncanonical")
     return payload
 
 
