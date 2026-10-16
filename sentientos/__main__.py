@@ -1,5 +1,13 @@
-"""SentientOS package entrypoint."""
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
 from __future__ import annotations
+"""SentientOS package entrypoint."""
 
 import argparse
 import json

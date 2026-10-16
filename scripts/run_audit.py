@@ -3,11 +3,19 @@
 # | |__) | |_   _  __ _ _ _ __   __ _
 # |  ___/| | | | |/ _` | | '_ \ / _` |
 # | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
+from __future__ import annotations
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
 # |_|    |_|\__,_|\__, |_|_| |_|\__, |
 #                  __/ |         __/ |
 #                 |___/         |___/
 
-from __future__ import annotations
 """Sanctuary Privilege Routine: Do not remove. See doctrine for details."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 

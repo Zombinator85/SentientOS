@@ -1,6 +1,14 @@
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
+from __future__ import annotations
 """Inspect or reset mood persistence state."""
 
-from __future__ import annotations
 
 import argparse
 import json

@@ -5,7 +5,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 """Automated script to migrate NeosVR references to Resonite."""
-from __future__ import annotations
 
 import argparse
 import os

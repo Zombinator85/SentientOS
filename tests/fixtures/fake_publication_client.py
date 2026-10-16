@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
+from __future__ import annotations
 import argparse, hashlib, json, os, sys
 from pathlib import Path
 

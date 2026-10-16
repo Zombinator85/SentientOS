@@ -12,7 +12,6 @@ Presence pulse is captured to color the ritual log.
 Example:
     python avatar_federation_blessing.py import avatar.tar.gz ./avatars alice
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse

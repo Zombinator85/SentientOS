@@ -48,21 +48,11 @@ evidence.
 - [architecture/guarded_executor_path_packet.md](architecture/guarded_executor_path_packet.md) — metadata-only guarded executor path packet for later guarded invocation packet review.
 
 ```{toctree}
-:maxdepth: 2
-
-api/index
-EXPERIMENTAL_FEATURES
-```
-
-```{toctree}
 :hidden:
 :glob:
 
 *
 **/*
-!index
-!api/index
-!EXPERIMENTAL_FEATURES
 ```
 
 ## Documentation build dependency contract

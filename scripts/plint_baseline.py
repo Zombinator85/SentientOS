@@ -19,7 +19,7 @@ from privilege_lint.runner import parallel_validate
 
 def main() -> None:
     linter = PrivilegeLinter()
-    files = iter_py_files([str(Path.cwd())])
+    files = iter_py_files([str(Path.cwd())], file_globs=linter.config.file_globs)
     issues = parallel_validate(linter, files)
     baseline = {msg: True for msg in sorted(issues)}
     Path(".plint_baseline.json").write_text(json.dumps(baseline, indent=2))

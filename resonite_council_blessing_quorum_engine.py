@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Council Blessing & Quorum Engine
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 

@@ -1,5 +1,12 @@
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 avatar_gallery_cli.py — CLI tool to display the avatar invocation gallery.
@@ -7,6 +14,7 @@ avatar_gallery_cli.py — CLI tool to display the avatar invocation gallery.
 Usage:
     python -m scripts.avatar_gallery_cli --help
 """
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 from logging_config import resolve_log_path
 import argparse
 import json

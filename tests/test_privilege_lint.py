@@ -1,5 +1,13 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
 from __future__ import annotations
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 
 
@@ -88,7 +96,7 @@ def test_missing_admin_call(tmp_path: Path) -> None:
     linter = pl.PrivilegeLinter()
     issues = linter.validate(path)
 
-    
+
 def test_read_only_mode_skips_privilege_gates_and_does_not_write_reports(monkeypatch, tmp_path: Path) -> None:
     import privilege_lint_cli as cli
 
@@ -117,3 +125,27 @@ def test_mutating_lint_still_checks_privilege_before_scanning(monkeypatch, tmp_p
     with pytest.raises(PermissionError, match="approval required"):
         cli.main([str(tmp_path), "--fix", "--quiet"])
     assert calls == ["admin", "approval"]
+
+
+def test_configured_file_globs_bound_source_scan(tmp_path: Path) -> None:
+    from privilege_lint_cli import iter_py_files
+
+    cli = tmp_path / "tool_cli.py"
+    cli.write_text("pass\n", encoding="utf-8")
+    module = tmp_path / "ordinary_module.py"
+    module.write_text("import argparse\n", encoding="utf-8")
+
+    selected = iter_py_files([str(tmp_path)], file_globs=["*_cli.py"])
+    assert selected == [cli]
+
+
+def test_nested_docstring_does_not_block_module_imports(tmp_path: Path) -> None:
+    path = tmp_path / "tool_cli.py"
+    path.write_text(
+        "\n".join(
+            pl.BANNER_ASCII
+            + [pl.FUTURE_IMPORT, "import os", "def main():", "    \"\"\"nested documentation\"\"\"", "    return os.name"]
+        ),
+        encoding="utf-8",
+    )
+    assert pl.PrivilegeLinter().validate(path) == []

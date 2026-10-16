@@ -7,7 +7,6 @@ require_lumos_approval()
 """Consent Dashboard & Ritual CLI
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse

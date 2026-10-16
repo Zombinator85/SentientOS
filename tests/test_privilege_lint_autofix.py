@@ -33,7 +33,49 @@ def test_autofix_moves_future(tmp_path: Path) -> None:
 def test_directory_scan(tmp_path: Path) -> None:
     sub = tmp_path / "pkg"
     sub.mkdir()
-    f = sub / "bad.py"
+    f = sub / "bad_cli.py"
     f.write_text("import os\n'\"doc\"'\n", encoding="utf-8")
-    rc = pl.main([str(tmp_path), "--quiet"])
+    rc = pl.main([str(tmp_path), "--read-only", "--quiet"])
     assert rc == 1
+
+
+def test_autofix_deduplicates_future_import_and_preserves_syntax(tmp_path: Path) -> None:
+    file = tmp_path / "tool_cli.py"
+    file.write_text(
+        '"""module documentation"""\n'
+        "from __future__ import annotations\n"
+        "import argparse\n"
+        "from __future__ import annotations\n",
+        encoding="utf-8",
+    )
+    linter = pl.PrivilegeLinter()
+    assert linter.apply_fix(file)
+    source = file.read_text(encoding="utf-8")
+    compile(source, str(file), "exec")
+    assert source.count(pl.FUTURE_IMPORT) == 1
+
+
+def test_autofix_inserts_future_import_when_missing(tmp_path: Path) -> None:
+    file = tmp_path / "tool_cli.py"
+    file.write_text("import argparse\n", encoding="utf-8")
+    linter = pl.PrivilegeLinter()
+    assert linter.apply_fix(file)
+    source = file.read_text(encoding="utf-8")
+    compile(source, str(file), "exec")
+    assert source.count(pl.FUTURE_IMPORT) == 1
+    assert linter.validate(file) == []
+
+
+def test_autofix_moves_module_docstring_before_imports(tmp_path: Path) -> None:
+    file = tmp_path / "tool_cli.py"
+    file.write_text(
+        "import argparse\n"
+        '"""module documentation\nmore details\n"""\n'
+        "from __future__ import annotations\n",
+        encoding="utf-8",
+    )
+    linter = pl.PrivilegeLinter()
+    assert linter.apply_fix(file)
+    source = file.read_text(encoding="utf-8")
+    compile(source, str(file), "exec")
+    assert linter.validate(file) == []

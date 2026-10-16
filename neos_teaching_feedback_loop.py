@@ -4,8 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-from __future__ import annotations
 from logging_config import get_log_path
 
 

@@ -5,7 +5,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 """Resonite asset migration utility."""
-from __future__ import annotations
 
 import argparse
 from pathlib import Path

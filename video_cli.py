@@ -1,3 +1,12 @@
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
+from __future__ import annotations
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 video_cli.py — CLI utility to record and export memory visuals.
@@ -5,7 +14,6 @@ video_cli.py — CLI utility to record and export memory visuals.
 Usage:
     python -m scripts.video_cli --help
 """
-from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 from scripts.auto_approve import prompt_yes_no

@@ -1,9 +1,18 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/
 from __future__ import annotations
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 import ast
 import argparse
 import datetime
+import fnmatch
 import hashlib
 import json
 import os
@@ -111,38 +120,18 @@ def validate_banner_order(
 
     idx += 1
 
-    # Determine end of module docstring, if any
+    # Only a module-level string expression is documentation for import order.
+    # Scanning arbitrary triple-quoted strings also catches function bodies and
+    # fixtures, producing false positives for valid CLI modules.
     doc_end = None
     try:
         mod = ast.parse("\n".join(lines))
-        doc = ast.get_docstring(mod)
-        if doc is None:
-            raise IndexError
         for node in mod.body:
             if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
-                end_lineno = node.end_lineno or 0
-                doc_end = end_lineno - 1
+                doc_end = (node.end_lineno or node.lineno) - 1
                 break
-    except IndexError:
-        doc_end = None
     except Exception:
         doc_end = None
-
-    if doc_end is None:
-        for i in range(idx, len(lines)):
-            s = lines[i].lstrip()
-            if s.startswith(('"""', "'''")):
-                quote = s[:3]
-                if s.count(quote) >= 2 and s.rstrip().endswith(quote):
-                    doc_end = i
-                else:
-                    for j in range(i + 1, len(lines)):
-                        if lines[j].rstrip().endswith(quote):
-                            doc_end = j
-                            break
-                if doc_end is None:
-                    doc_end = len(lines) - 1
-                break
 
     if doc_end is None:
         doc_end = idx - 1
@@ -297,42 +286,43 @@ class PrivilegeLinter:
             banner_end = insert_at + len(self.banner) - 1
 
         if FUTURE_IMPORT in lines:
+            first = lines.index(FUTURE_IMPORT)
+            lines = [
+                line
+                for index, line in enumerate(lines)
+                if line != FUTURE_IMPORT or index == first
+            ]
             idx = lines.index(FUTURE_IMPORT)
             if idx != banner_end + 1:
                 line = lines.pop(idx)
                 if idx < banner_end + 1:
                     banner_end -= 1
                 lines.insert(banner_end + 1, line)
+        else:
+            lines.insert(banner_end + 1, FUTURE_IMPORT)
 
-        # recalc docstring after banner/future adjustments
+        # Put any module-level documentation block after the banner/future import
+        # and before ordinary imports. The historical autofixer only recognized
+        # ast.get_docstring(), which misses a docstring preceded by imports and
+        # could leave the linter's declared ordering violation in place.
         try:
             mod = ast.parse("\n".join(lines))
-            doc = ast.get_docstring(mod)
             doc_start = doc_end = None
-            if doc is not None:
-                for node in mod.body:
-                    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
-                        doc_start = node.lineno - 1
-                        end_lineno = node.end_lineno or 0
-                        doc_end = end_lineno - 1
-                        break
+            for node in mod.body:
+                if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+                    doc_start = node.lineno - 1
+                    doc_end = (node.end_lineno or node.lineno) - 1
+                    break
         except Exception:
             doc_start = doc_end = None
 
-        if doc_start is not None:
-            move_lines: list[str] = []
-            remove_idx: list[int] = []
-            for i in range(doc_start):
-                if _IMPORT_RE.match(lines[i]) and lines[i].strip() != FUTURE_IMPORT:
-                    move_lines.append(lines[i])
-                    remove_idx.append(i)
-            for i in reversed(remove_idx):
-                lines.pop(i)
-            if move_lines and doc_end is not None:
-                doc_end = doc_end - len([i for i in remove_idx if i <= doc_end])
-                insert_pos = doc_end + 1
-                for off, line in enumerate(move_lines):
-                    lines.insert(insert_pos + off, line)
+        if doc_start is not None and doc_end is not None:
+            future_end = lines.index(FUTURE_IMPORT) + 1
+            if doc_start > future_end:
+                doc_block = lines[doc_start : doc_end + 1]
+                del lines[doc_start : doc_end + 1]
+                future_end = lines.index(FUTURE_IMPORT) + 1
+                lines[future_end:future_end] = doc_block
 
         if self.config.enforce_import_sort:
             apply_fix_imports(lines, self.project_root)
@@ -378,7 +368,9 @@ def validate_admin_call(lines: list[str], path: Path) -> list[str]:
     return []
 
 
-def iter_py_files(paths: list[str]) -> list[Path]:
+def iter_py_files(
+    paths: list[str], file_globs: list[str] | None = None
+) -> list[Path]:
     result: list[Path] = []
     for p in paths:
         path = Path(p)
@@ -389,7 +381,12 @@ def iter_py_files(paths: list[str]) -> list[Path]:
                     if not f.endswith(".py"):
                         continue
                     fp = Path(root) / f
-                    if "tests" in fp.parts and not _contains_cli_hint(fp):
+                    if "tests" in fp.parts:
+                        if not _contains_cli_hint(fp):
+                            continue
+                    elif file_globs is not None and not any(
+                        fnmatch.fnmatchcase(f, pattern) for pattern in file_globs
+                    ):
                         continue
                     result.append(fp)
         elif path.is_file() and path.suffix == ".py":
@@ -432,7 +429,7 @@ def run_lint(
     if no_cache:
         linter.cache.enabled = False
 
-    files = iter_py_files(targets)
+    files = iter_py_files(targets, file_globs=linter.config.file_globs)
     js_files = (
         iter_ext_files(targets, {".js", ".ts"}) if linter.config.js_enabled else []
     )
