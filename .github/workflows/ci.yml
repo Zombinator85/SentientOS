@@ -202,6 +202,12 @@ jobs:
         env:
           SENTIENTOS_TEST_RUN_DIR: /tmp/sentientos-precommit-test-runs
           SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-precommit-audit-runtime
+          SENTIENTOS_GOVERNOR_ROOT: /tmp/sentientos-precommit-governor
+          SENTIENTOS_FEDERATION_ROOT: /tmp/sentientos-precommit-federation
+          SENTIENTOS_CONTROL_KERNEL_ROOT: /tmp/sentientos-precommit-control-plane
+          SENTIENTOS_RUNTIME_STATE_ROOT: /tmp/sentientos-precommit-runtime
+          SENTIENTOS_DATA_DIR: /tmp/sentientos-precommit-data
+          SENTIENTOS_HEARTBEAT_PATH: /tmp/sentientos-precommit-heartbeat.snap
 
       - name: Privilege lint
         run: python -m privilege_lint_cli --read-only --quiet .
