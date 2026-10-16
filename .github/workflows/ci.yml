@@ -152,6 +152,7 @@ jobs:
       SENTIENTOS_HEADLESS: "1"
       SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/self-check-governor
       SENTIENTOS_FEDERATION_ROOT: .ci-runtime/self-check-federation
+      SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-self-check-audit-runtime
       DOCKER_HOST: tcp://localhost:2375
       DOCKER_TLS_CERTDIR: ""
     steps:
