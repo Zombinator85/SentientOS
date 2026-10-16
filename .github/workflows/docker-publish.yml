@@ -34,6 +34,14 @@ jobs:
         env:
           SENTIENTOS_TEST_RUN_DIR: /tmp/sentientos-docker-precommit-test-runs
 
+      - name: Capture pre-commit working tree changes
+        if: always()
+        run: |
+          git status --short
+          git diff --stat
+          git diff --name-only
+          git diff --cached --name-only
+
       - name: Run tests
         run: python -m scripts.run_tests
         env:
