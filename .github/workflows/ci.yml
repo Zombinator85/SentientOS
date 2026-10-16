@@ -323,7 +323,7 @@ jobs:
                 break
               fi
             done
-            ngrok_id="$(docker compose --project-name sentientos-ci ps -q ngrok)"
+            ngrok_id="$(docker compose --project-name sentientos-ci ps --all -q ngrok)"
             if [ -z "$ngrok_id" ]; then
               healthy=0
             else
