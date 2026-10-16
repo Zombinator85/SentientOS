@@ -13,6 +13,10 @@ env:
   SENTIENTOS_GOVERNOR_ROOT: .ci-runtime/docker-governor
   SENTIENTOS_FEDERATION_ROOT: .ci-runtime/docker-federation
   SENTIENTOS_AUDIT_RUNTIME_DIR: /tmp/sentientos-docker-audit-runtime
+  SENTIENTOS_CONTROL_KERNEL_ROOT: /tmp/sentientos-docker-control-kernel
+  SENTIENTOS_RUNTIME_STATE_ROOT: /tmp/sentientos-docker-runtime-state
+  SENTIENTOS_DATA_DIR: /tmp/sentientos-docker-data
+  SENTIENTOS_HEARTBEAT_PATH: /tmp/sentientos-docker-pulse/heartbeat.snap
 
 jobs:
   build:
@@ -39,7 +43,7 @@ jobs:
       - name: Capture pre-commit working tree changes
         if: always()
         run: |
-          git status --short
+          git status --short --untracked-files=all
           git diff --stat
           git diff --name-only
           git diff --cached --name-only
