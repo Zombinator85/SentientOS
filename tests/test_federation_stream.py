@@ -13,7 +13,7 @@ def test_federation_stream(tmp_path, monkeypatch):
     monkeypatch.setattr(federation_stream_api, "require_admin_banner", lambda: None)
     monkeypatch.setattr(federation_stream_api, "require_lumos_approval", lambda: None)
 
-    def finite_stream(path: Path):
+    def finite_stream(path: Path = log):
         for record in path.read_text(encoding="utf-8").splitlines():
             yield f"data: {record}\n\n"
 

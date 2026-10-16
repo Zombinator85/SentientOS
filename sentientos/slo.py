@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
@@ -229,7 +230,7 @@ def to_dict(statuses: Sequence[SLOStatus]) -> list[dict[str, object]]:
                 "target": status.definition.target,
                 "direction": status.definition.direction,
                 "unit": status.definition.unit,
-                "value": status.value,
+                "value": status.value if math.isfinite(status.value) else None,
                 "ok": status.ok,
                 "message": status.message,
             }

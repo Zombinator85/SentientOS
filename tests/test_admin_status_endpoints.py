@@ -14,6 +14,8 @@ def test_admin_status_and_metrics(tmp_path, monkeypatch):
     assert status.status_code == 200
     body = status.json()
     assert "modules" in body
+    unavailable = [item for item in body["slos"] if item["name"] == "hungry_eyes_retrain_freshness"]
+    assert unavailable and unavailable[0]["value"] is None
 
     metrics = client.get("/admin/metrics")
     assert metrics.status_code == 200
