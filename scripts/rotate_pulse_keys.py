@@ -32,7 +32,7 @@ def rotate(*, dry_run: bool, reason: str, actor: str) -> dict[str, object]:
     manager = get_manager()
     state = manager.load_state()
     current = str(state.get("active_epoch_id") or "epoch-0001")
-    transition_counter = int(state.get("transition_counter", 0)) + 1
+    transition_counter = int(state.get("transition_counter", 0)) + 1  # invariant-allow: epoch-transition
     new_epoch = f"epoch-{transition_counter+1:04d}"
     key_root = Path("/vow/keys") if Path("/vow").exists() else Path("vow/keys")
     priv = key_root / f"ed25519_private_{new_epoch}.key"

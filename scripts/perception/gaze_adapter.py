@@ -271,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--privacy-class", default="internal", choices=PRIVACY_CHOICES)
     parser.add_argument("--retain-raw", action="store_true", default=False)
     parser.add_argument("--raw-output-dir", default="glow/perception/quarantine/gaze_raw")
-    parser.add_argument("--iterations", type=int, default=1, help="number of captures; 0 means run forever")
+    parser.add_argument("--iterations", type=int, default=1, help="number of captures; 0 means capture until interrupted")
     parser.add_argument("--seconds", type=float, default=None, help="capture budget in seconds")
     parser.add_argument("--output-log", default="glow/perception/perception_gaze_events.jsonl")
     parser.add_argument("--screen-width", type=int, default=None)

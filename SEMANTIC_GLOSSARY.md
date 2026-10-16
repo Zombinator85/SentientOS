@@ -45,3 +45,4 @@
 - **Activation** — Selection of an exact commissioned model identity; not loading or inference.
 - **Serving** — Bounded custody of a loaded model; not inference admission.
 - **Inference admission** — Separate permission for an exact generation-bound invocation; not implied by serving.
+- **Epoch transition counter** — Monotonic sequence used only to assign unique pulse trust epoch identifiers; it is not a reward, optimization, or runtime accumulation signal.

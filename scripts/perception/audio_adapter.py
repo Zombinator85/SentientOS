@@ -271,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--retain-raw", action="store_true", default=False)
     parser.add_argument("--raw-output-dir", default="glow/perception/quarantine/audio_raw")
     parser.add_argument("--device-hint", default=None)
-    parser.add_argument("--iterations", type=int, default=1, help="number of windows to capture; 0 means run forever")
+    parser.add_argument("--iterations", type=int, default=1, help="number of windows to capture; 0 means capture until interrupted")
     parser.add_argument("--output-log", default="glow/perception/perception_audio_events.jsonl")
     args = parser.parse_args(argv)
 
