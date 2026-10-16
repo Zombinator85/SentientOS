@@ -2061,6 +2061,12 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             "omitted_packet_count": len(omitted),
             "omitted_packets_digest": _digest(list(omitted)),
             "omission_reason": "inference_input_budget" if omitted else None}
+        # A v3 owner projection also identifies propositions omitted by the
+        # projection's state bound. Keep that owner-level manifest in the
+        # exact inference context; the prompt digest and projection digest
+        # then bind both what the model received and what the owner withheld.
+        if projection.omission_manifest is not None:
+            prior["projection_omission_manifest"] = dict(projection.omission_manifest)
         candidate = {**dict(context), "prior_epistemic_state": prior}
         candidate_prompt = json.dumps(candidate, sort_keys=True, separators=(",", ":"))
         if len(candidate_prompt) <= MAX_RESIDENT_COGNITION_INPUT_CHARS:
@@ -2147,7 +2153,8 @@ def _validate_epistemic_observation_binding(value: Mapping[str, Any]) -> None:
         if (status != "canonical_definition_unavailable" or ids or digests or omitted
                 or value.get("epistemic_projection_present") is not True):
             raise ResidentDevelopmentalCognitionError("cognition_epistemic_legacy_binding_invalid")
-    elif schema == "sentientos.epistemic_cognitive_projection:v2":
+    elif schema in {"sentientos.epistemic_cognitive_projection:v2",
+            "sentientos.epistemic_cognitive_projection:v3"}:
         if (status not in {"all_meanings_delivered",
                 "complete_packets_selected_with_budget_omissions"}
                 or (status == "all_meanings_delivered" and omitted)

@@ -34,6 +34,18 @@ def review_required_applicability(
         if (packet["state"]["stance"] not in {"provisionally_supported", "supported"}
             or packet["state"]["dependency_unresolved"]
             or packet["state"]["freshness"] != "current")}
+    omission_manifest = getattr(projection, "omission_manifest", None)
+    if omission_manifest is not None:
+        for omitted in omission_manifest.get("omitted_state_identities", ()):
+            proposition_id = omitted.get("proposition_id")
+            if not isinstance(proposition_id, str) or not proposition_id:
+                raise EpistemicPlanningError("epistemic_planning_omission_identity_invalid")
+            if proposition_id in review_scopes:
+                raise EpistemicPlanningError("epistemic_planning_omission_identity_collision")
+            review_scopes[proposition_id] = {
+                "omitted_from_prior_projection": True,
+                "omitted_state_identity": dict(omitted),
+            }
     return projection.projection_digest, review_scopes
 
 
@@ -47,6 +59,8 @@ def epistemic_review_reason_for_goal(tags: Sequence[str],
     for proposition_id, scope in review_scopes.items():
         if f"epistemic_proposition:{proposition_id}" not in tag_set:
             continue
+        if scope.get("omitted_from_prior_projection") is True:
+            return "epistemic_applicability_unresolved"
         family_id = scope.get("task_family_id")
         identity_digest = scope.get("active_model_identity_digest")
         if family_id is not None:

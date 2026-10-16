@@ -218,10 +218,24 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         context_scope={"fixture": "plan-only"}, proposition_class="predictive",
         statement="The historical position is scoped to one canonical goal.",
     )
+    additional_proposition = make_proposition(
+        namespace="embodiment", subject="planning:omitted-fixture",
+        predicate="bounded_history_omitted", object_value={"goal_id": "g_omitted"},
+        polarity="negative", qualifiers={"fixture": "plan-only-omission"},
+        temporal_scope={"kind": "bounded_planning_fixture"},
+        context_scope={"fixture": "plan-only-omission"},
+        proposition_class="predictive",
+        statement="This position may be omitted by the prior projection bound.",
+    )
+    proposition, omitted_proposition = sorted(
+        (proposition, additional_proposition), key=lambda item: item.proposition_id)
     persist_goal_graph(tmp_path, GoalGraph(schema_version=1, goals=(
         Goal("g_experienced", "history-scoped goal", 10.0, 100, (),
             "task:forge_propose", 1, 1,
             ("integrity", f"epistemic_proposition:{proposition.proposition_id}"), True),
+        Goal("g_omitted", "omitted history goal", 8.0, 1, (),
+            "task:forge_propose", 1, 1,
+            ("integrity", f"epistemic_proposition:{omitted_proposition.proposition_id}"), True),
         Goal("g_baseline", "unscoped goal", 1.0, 1, (),
             "task:forge_propose", 1, 1, ("integrity",), True),
     )))
@@ -237,6 +251,7 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     owner = PersistentEpistemicStateOwner(
         tmp_path / "epistemic", allowed_namespaces=["embodiment"])
     owner.register_proposition(proposition)
+    owner.register_proposition(omitted_proposition)
     owner.commit_update(
         proposition_id=proposition.proposition_id,
         expected_predecessor_digest=None, stance="unknown",
@@ -244,7 +259,16 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         correlation_id="prior-review-position", tick=1,
         recorded_at="2026-10-16T08:00:00Z",
     )
+    owner.commit_update(
+        proposition_id=omitted_proposition.proposition_id,
+        expected_predecessor_digest=None, stance="provisionally_contradicted",
+        reason="initialization", active_binding_ids=(),
+        correlation_id="prior-omitted-position", tick=2,
+        recorded_at="2026-10-16T08:00:01Z",
+    )
     state_before_planning = owner.current_state(proposition.proposition_id)
+    omitted_state_before_planning = owner.current_state(omitted_proposition.proposition_id)
+    assert state_before_planning is not None and omitted_state_before_planning is not None
 
     class ServingObserver:
         def __init__(self) -> None:
@@ -271,7 +295,7 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         epistemic_state_owner=owner,
         epistemic_state_config={
             "status": "configured", "cognitive_consumption_enabled": True,
-            "max_cognitive_projection_count": 4,
+            "max_cognitive_projection_count": 1,
         },
         resident_cognitive_invoker=observer,
     )
@@ -279,9 +303,12 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         tick_id="2026-10-16T09:01:00+00:00")
 
     assert "g_experienced" not in with_history.allocation.selected
+    assert "g_omitted" not in with_history.allocation.selected
     assert "g_baseline" in with_history.allocation.selected
     assert {item.goal_id: item.reason for item in with_history.allocation.deferred}[
         "g_experienced"] == "epistemic_review_required"
+    assert {item.goal_id: item.reason for item in with_history.allocation.deferred}[
+        "g_omitted"] == "epistemic_applicability_unresolved"
     assert with_history.work_plan is not None
     assert with_history.work_plan.selected_goals == ("g_baseline",)
     assert with_history.work_plan_evidence_path is not None
@@ -300,11 +327,23 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     assert evidence["evidence_binding"]["review_scopes"]
     assert evidence["evidence_binding"]["goal_applicability"]["g_experienced"] == (
         "epistemic_review_required")
-    assert evidence["evidence_binding"]["deferred_goals"] == [
-        {"goal_id": "g_experienced", "reason": "epistemic_review_required"}]
+    omission_manifest = evidence["evidence_binding"]["projection_omission_manifest"]
+    assert omission_manifest["omitted_state_count"] == 1
+    assert omission_manifest["omitted_state_identities"][0]["proposition_id"] == (
+        omitted_proposition.proposition_id)
+    assert omission_manifest["omitted_state_identities"][0]["state_digest"] == (
+        omitted_state_before_planning.state_digest)
+    assert evidence["evidence_binding"]["goal_applicability"]["g_omitted"] == (
+        "epistemic_applicability_unresolved")
+    assert {item["goal_id"]: item["reason"]
+        for item in evidence["evidence_binding"]["deferred_goals"]} == {
+            "g_experienced": "epistemic_review_required",
+            "g_omitted": "epistemic_applicability_unresolved"}
     assert observer.calls == 1
     state_after_planning = owner.current_state(proposition.proposition_id)
     assert state_after_planning == state_before_planning
+    assert owner.current_state(omitted_proposition.proposition_id) == (
+        omitted_state_before_planning)
     evidence_binding = dict(evidence["evidence_binding"])
     assert persist_work_plan_evidence(tmp_path, with_history.work_plan,
         evidence_binding) == (with_history.work_plan_evidence_path,
