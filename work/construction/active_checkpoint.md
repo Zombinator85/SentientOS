@@ -1,17 +1,19 @@
 # Active construction checkpoint
 
-Sequence 289 binds persisted canonical execution runs to the exact validated plan evidence digest. Work-run schema v3 stores and revalidates that digest; replay rejects mismatch. Legacy schema-v2 runs remain supported without evidence binding. The affected executor, work-run loader, and completion-check suite passed 36/36 with no skips or failures on exact source `e7d874feb9c5aec7015d4c34f127a335336a9bcf`, tree `eb1c60d608b1450cce6a2e7c86453b8dcce85678`. Targeted Mypy and the repo-wide baseline ratchet passed with zero new errors; compilation, diff, and custody checks passed.
+Sequence 290 makes goal completion evidence durable across restart. Review locates the exact persisted plan and revalidates the schema-v3 work run against immutable plan evidence before accepting completion. Status-only runs remain incomplete. Catalog links retain goal and plan/run identities. The affected seven suites pass 36/36 with no skips or failures on exact source tree `0bc4b0d650c353988c4e7ded9ea744816f5c6af8`. Compilation and diff checks pass; targeted Mypy has no new diagnostics compared with the parent. On exact remote candidate `28e148899157d445c04b5e55010e0d0a1ee896d7`, the Required Quality Gate and Invariant Tests pass; the gate artifact confirms effective UID 0, strict audit, immutability, exact source binding, and unchanged source. Full CI remains in progress.
 
-Sequence 288’s Required Quality Gate passed on remote SHA `4629a27e1e670e62b69bc12c3a0ae314adaefa7f` and tree `76edab3a50dc8af3c1d89c47d72797093cbca17f`, with effective UID 0, strict audit and immutability success. Its Invariant Tests passed; its full CI remains in progress. Sequence 289’s hosted verification has not run yet.
+Sequence 289 is fully verified on remote `f376907fdb3512c5e92c8de9e8dfa33d13f7c885` / tree `e7aa8ca59e241bb8b1905c9d8d7ad84f267e447f`: CI, Required Quality Gate, and Invariant Tests passed. Its root audit artifact confirms effective UID 0, strict audit, immutability, exact source binding, and unchanged source.
 
-Historical append-only provenance remains incomplete after sequence 286 cleanup: nine payloads and one unidentified record were lost. Sequence 289 preserves new run evidence, including one earlier missing-path collection failure, without treating it as test success.
+The historical provenance gap from sequence 286 remains unresolved: nine known payloads and one unidentified record are missing. The sandbox-native runner's install bootstrap also remains limited by denied package-index networking; direct pytest and hosted Actions provide verification.
 
 Latest verified main: `d9fbac78dad9187065fcdeaf112bf641cf3508ea`
 Latest verified main tree: `71d300a7ddd35343b710e3e52b58e4b02962825a`
-Latest segment: `work/construction/segments/0289-run-evidence-digest-lineage.md`
-Latest segment SHA-256: `4e3db2e2fcd56728f9572bde5e3c441a9a2f51ccc651da01da52db05929893c6`
-Evidence: `work/construction/evidence/0289-run-evidence-digest-lineage.json`
-Evidence SHA-256: `cc4c8d09181dea5fb54a60198c5d2f91c39223f1f6b8687c31617f2dfff3457e`
-Sequence: 289
+Verified source commit: `ab48a787a6ee7d979a068fdfef23a26e37b65cd2`
+Verified source tree: `0bc4b0d650c353988c4e7ded9ea744816f5c6af8`
+Latest segment: `work/construction/segments/0290-reconstructed-completion-evidence.md`
+Latest segment SHA-256: `b512fade8d7bb898169d63d51b85ba3a038339d78df7b09dd2506e50df5d4b51`
+Evidence: `work/construction/evidence/0290-reconstructed-completion-evidence.json`
+Evidence SHA-256: `fd951a93c4700201d2f438d6274acb9315bee9a988dee89609bf8d941d077dd1`
+Sequence: 290
 
-Next: carry the run evidence digest into completion review and prove that task-run status alone cannot satisfy a goal completion check.
+Next: carry verified completion evidence into later developmental adaptation and prove that reconstructed completion changes canonical allocation.
