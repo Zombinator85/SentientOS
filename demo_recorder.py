@@ -16,7 +16,7 @@ import time
 import wave
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 try:
     import numpy as np  # type: ignore
@@ -39,7 +39,6 @@ except Exception:  # pragma: no cover - optional
     Image = None  # type: ignore
 
 from parliament_bus import bus
-from sentientos.parliament_bus import Turn
 
 DEMO_DIR = Path("demos")
 
@@ -58,7 +57,7 @@ class DemoRecorder:
     def __init__(self) -> None:
         self.frames: List[Path] = []
         self.audio_frames: List[np.ndarray] = [] if np is not None else []
-        self.turns: List[Turn] = []
+        self.turns: List[dict[str, Any]] = []
         self.sample_rate = 44100
         self._running = False
         self._screen_thread: threading.Thread | None = None
@@ -170,7 +169,8 @@ class DemoRecorder:
             for idx, t in enumerate(self.turns, 1):
                 start = (idx - 1) * 2
                 end = start + 2
-                f.write(f"{idx}\n00:00:{start:02d},000 --> 00:00:{end:02d},000\n{t.text}\n\n")
+                text = t.get("reply") or t.get("text") or t.get("message") or ""
+                f.write(f"{idx}\n00:00:{start:02d},000 --> 00:00:{end:02d},000\n{text}\n\n")
         command = [
             "ffmpeg", "-y", "-r", "1", "-i", frame_pattern,
             "-i", str(audio_file),

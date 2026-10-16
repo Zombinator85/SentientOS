@@ -79,3 +79,20 @@ def test_demo_recorder_headless_uses_synthetic_frame(tmp_path, monkeypatch):
     assert out.name.endswith(".mp4")
     assert "-vf" not in commands[0]
     assert list((tmp_path / f".demo_{out.stem}").glob("frame_*.ppm"))
+
+
+def test_demo_recorder_exports_dict_event_subtitles(tmp_path, monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
+    monkeypatch.chdir(tmp_path)
+    rec = dr_mod.DemoRecorder()
+    commands = []
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: commands.append(args[0]))
+
+    rec.start()
+    rec.stop()
+    rec.turns.append({"reply": "The simulated council responds."})
+    out = rec.export()
+
+    assert "-vf" in commands[0]
+    subtitle = next((tmp_path / f".demo_{out.stem}").glob("subs.srt"))
+    assert "The simulated council responds." in subtitle.read_text(encoding="utf-8")
