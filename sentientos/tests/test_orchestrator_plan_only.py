@@ -244,10 +244,39 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         correlation_id="prior-review-position", tick=1,
         recorded_at="2026-10-16T08:00:00Z",
     )
-    with_history = plan_goals(
-        tmp_path, prior_epistemic_projection_owner=owner,
-        prior_epistemic_projection_max_states=4,
-        planning_time="2026-10-16T09:01:00+00:00")
+    state_before_planning = owner.current_state(proposition.proposition_id)
+
+    class ServingObserver:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def observed_current_model_identity(self):
+            self.calls += 1
+            return {"provider": "fixture", "model": "current"}
+
+        def current_session(self):
+            raise AssertionError("planning must not acquire a serving session")
+
+        def invoke(self, *_args, **_kwargs):
+            raise AssertionError("planning must not invoke a model")
+
+    observer = ServingObserver()
+
+    def forbidden_execute(*_args, **_kwargs):
+        raise AssertionError("canonical planning must not execute goals")
+
+    monkeypatch.setattr(GoalExecutor, "execute_plan", forbidden_execute)
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path,
+        epistemic_state_owner=owner,
+        epistemic_state_config={
+            "status": "configured", "cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 4,
+        },
+        resident_cognitive_invoker=observer,
+    )
+    with_history = surfaces.plan_canonical_goals(
+        tick_id="2026-10-16T09:01:00+00:00")
 
     assert "g_experienced" not in with_history.allocation.selected
     assert "g_baseline" in with_history.allocation.selected
@@ -273,6 +302,9 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         "epistemic_review_required")
     assert evidence["evidence_binding"]["deferred_goals"] == [
         {"goal_id": "g_experienced", "reason": "epistemic_review_required"}]
+    assert observer.calls == 1
+    state_after_planning = owner.current_state(proposition.proposition_id)
+    assert state_after_planning == state_before_planning
     evidence_binding = dict(evidence["evidence_binding"])
     assert persist_work_plan_evidence(tmp_path, with_history.work_plan,
         evidence_binding) == (with_history.work_plan_evidence_path,
