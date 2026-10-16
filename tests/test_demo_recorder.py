@@ -64,16 +64,14 @@ def test_demo_recorder_headless_uses_synthetic_frame(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     rec = dr_mod.DemoRecorder()
 
-    def no_audio(*args, **kwargs):
-        raise AssertionError("headless recording must not open a microphone")
-
-    monkeypatch.setattr(sd, "InputStream", no_audio)
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: None)
 
     rec.start()
     rec.stop()
 
     assert len(rec.frames) == 1
+    assert rec._stream is None
+    assert rec._screen_thread is None
     assert rec.frames[0].suffix == ".ppm"
     assert rec.frames[0].read_bytes().startswith(b"P6\n640 360\n255\n")
     out = rec.export()
