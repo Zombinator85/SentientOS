@@ -3484,6 +3484,44 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert state is not None
     assert state.stance == "provisionally_supported"
     assert state.dependency_unresolved is True
+
+    # A second, independently scored episode in the same family contradicts
+    # the first. The governed runtime must retain both exact run identities,
+    # advance to a contested position, and preserve that conflict across owner
+    # reconstruction rather than letting the newest episode erase history.
+    fake.objective_mode = "degrade"
+    adverse_cycle = restarted.run_tick(snapshot=snapshot(43),
+        tick_id="final-score-recovery-adverse-trial")
+    assert adverse_cycle.written_record_id
+    adverse_run_id = adverse_cycle.changed_cognition_measurement_id
+    assert isinstance(adverse_run_id, str) and adverse_run_id
+    adverse_run = restarted.experiments.load_run(adverse_run_id)
+    assert adverse_run["objective_evaluation"]["history_correct_probe_delta"] == -1
+    assert adverse_run["protocol"]["objective_task_descriptor"]["task_family_id"] == (
+        "integer_affine_prediction")
+    adverse_recorded_at = max(datetime.fromisoformat(row["observed_at"].replace("Z", "+00:00"))
+        for row in adverse_run["conditions"]) + timedelta(seconds=1)
+    adverse_feedback = runtime.process_verified_task_family_run(
+        experiment_store=restarted.experiments, run_id=adverse_run_id,
+        expected_run_digest=adverse_run["run_digest"], rule_id=rule.rule_id,
+        tick=2, recorded_at=adverse_recorded_at.isoformat())
+    assert adverse_feedback.status == "state_advanced"
+    assert len(adverse_feedback.evidence_receipt_ids) == 1
+    assert len(adverse_feedback.state_receipt_ids) == 1
+    request_count_after_adverse_episode = len(fake.requests)
+    refs = (*refs, (adverse_run_id, adverse_run["run_digest"]))
+    assert len(epistemic_ledger.load()[0]) == 4
+    state = epistemics.current_state(proposition.proposition_id)
+    assert state is not None and state.stance == "contested"
+    assert state.dependency_unresolved is True
+    all_outcome_bindings = epistemics.bindings(proposition.proposition_id)
+    assert len(all_outcome_bindings) == 2
+    assert {binding.source_artifact_id for binding in all_outcome_bindings} == {
+        run_id, adverse_run_id}
+    assert {binding.evidence_relation for binding in all_outcome_bindings} == {
+        "supports", "contradicts"}
+    assert {binding.reliability_posture for binding in all_outcome_bindings} == {
+        "bounded_preregistered_task_family_outcome_not_external_observation"}
     recovered_epistemics = PersistentEpistemicStateOwner(tmp_path / "epistemics",
         allowed_namespaces=("operator",))
     recovered_controller = ResidentEpistemicStateMutationController(
@@ -3495,7 +3533,9 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert recovered_controller.verify_receipts()["status"] == "verified"
     recovered_state = recovered_epistemics.current_state(proposition.proposition_id)
     assert recovered_state == state
-    assert recovered_epistemics.bindings(proposition.proposition_id) == (outcome_binding,)
+    recovered_bindings = recovered_epistemics.bindings(proposition.proposition_id)
+    assert {binding.binding_id for binding in recovered_bindings} == {
+        binding.binding_id for binding in all_outcome_bindings}
     recovered_runtime = ResidentEpistemicDevelopmentRuntime(
         config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
         owner=recovered_epistemics, mutation_controller=recovered_controller,
@@ -3504,14 +3544,20 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         admission_ledger=epistemic_ledger)
     trace = recovered_runtime.trace_proposition(
         proposition_id=proposition.proposition_id,
-        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=1, cognitive_tick=2)
-    assert trace["evidence"][0]["source_run_id"] == run_id
-    assert trace["evidence"][0]["source_digest"] == run_digest
-    assert trace["evidence"][0]["observation_time"] == outcome_binding.observation_time
-    assert trace["states"][0]["generation"] == 0
+        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=2, cognitive_tick=3)
+    trace_evidence = {item["source_run_id"]: item for item in trace["evidence"]}
+    assert trace_evidence[run_id]["source_digest"] == run_digest
+    assert trace_evidence[run_id]["observation_time"] == outcome_binding.observation_time
+    assert trace_evidence[adverse_run_id]["source_digest"] == adverse_run["run_digest"]
+    assert {item["relation"] for item in trace["evidence"]} == {"supports", "contradicts"}
+    assert {item["dependency_kind"] for item in trace["evidence"]} == {"unknown_dependency"}
+    assert [(item["generation"], item["stance"]) for item in trace["states"]] == [
+        (0, "provisionally_supported"), (1, "contested")]
+    assert [item["generation"] for item in trace["events"]] == [0, 1]
     assert trace["events"][0]["prior_state_digest"] is None
-    assert trace["events"][0]["successor_state_digest"] == state.state_digest
-    assert len(trace["mutation_receipts"]) == 2
+    assert trace["events"][1]["prior_state_digest"] == trace["states"][0]["state_digest"]
+    assert trace["events"][1]["successor_state_digest"] == state.state_digest
+    assert len(trace["mutation_receipts"]) == 4
     assert trace["resulting_prior_projection"]["state_digests"] == [state.state_digest]
     assert trace["truth"] is False and trace["authority"] is False
     with pytest.raises(EpistemicDevelopmentError, match="selection_invalid"):
@@ -3520,12 +3566,13 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     later, later_fake = owner(tmp_path / "later-cognition", invoker=FakeInvoker())
     later.run_tick(snapshot=snapshot(), tick_id="after-admitted-task-family-outcome",
         prior_epistemic_state=recovered_epistemics.cognitive_projection(
-            max_states=1, current_tick=2))
+            max_states=1, current_tick=3))
     later_request = next(item for item in later_fake.requests
         if item.purpose == "resident_developmental_retrieval_cognition")
     later_packets = json.loads(later_request.prompt)["prior_epistemic_state"]["semantic_packets"]
     assert len(later_packets) == 1
     assert later_packets[0]["state"]["state_digest"] == state.state_digest
+    assert later_packets[0]["state"]["stance"] == "contested"
     assert later_packets[0]["evidence_posture"]["dependency_unresolved"] is True
     from sentientos.causal_introspection import CaptureContext, IntrospectionConfig
     from sentientosd import RuntimeMaintenanceSurfaces, _compose_causal_introspection
@@ -3544,8 +3591,8 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     [epistemic_projection] = captured.projections
     observations = {item.observation_key: item.bounded_value
         for item in epistemic_projection.observations}
-    assert observations["state_count"] == 1
-    assert observations["evidence_binding_count"] == 1
+    assert observations["state_count"] == 2
+    assert observations["evidence_binding_count"] == 2
     assert observations["mutation_recovery_status"] == "verified"
     assert epistemic_projection.posture.current_truth is False
     assert epistemic_projection.posture.authority is False
@@ -3553,10 +3600,11 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         "policy": False, "goal": False, "permission": False, "effect_admission": False,
         "adoption": False, "memory_retention": False, "truth_oracle": False}
     projected = restarted.experiments.world_state_records(run_refs=refs)
-    assert len(projected) == 1
-    assert projected[0]["payload"]["objective_evaluation"] == run["objective_evaluation"]
+    assert len(projected) == 2
+    assert {row["payload"]["objective_evaluation"]["history_correct_probe_delta"]
+        for row in projected} == {3, -1}
     assert "output_text" not in json.dumps(projected)
-    assert len(fake.requests) == request_count
+    assert len(fake.requests) == request_count_after_adverse_episode
 
     # Carry the recovered run's admitted, dependency-unresolved position into
     # canonical planning. It must change allocation only inside its declared
@@ -3663,7 +3711,7 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         "complete_scored_run_recovered_without_inference_replay")
     with pytest.raises(ResidentDevelopmentalCognitionError, match="tick_already_completed"):
         restarted.run_tick(snapshot=snapshot(), tick_id="final-score-recovery-trial")
-    assert len(fake.requests) == request_count
+    assert len(fake.requests) == request_count_after_adverse_episode
 
 
 def test_operator_staging_requires_read_only_checkpointed_admitted_history(tmp_path: Path) -> None:

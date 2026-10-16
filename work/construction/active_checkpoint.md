@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 279 extends verified recovered-outcome planning through serving-model drift. A changed live identity changes the canonical projection digest; the prior task-family/model scope remains bound to the original identity, so only the scoped goal is deferred as unresolved applicability. Independent work remains planned and the persistent state remains unchanged.
+Sequence 280 binds two independently scored same-family episodes to one governed epistemic lineage. Positive and adverse run identities remain present after reconstruction; their mixed stance reaches canonical planning as unresolved, scoped evidence. Only the matching goal is deferred for review, independent work remains selected, and planning is execution-free. The local fixture covers restart receipts and next-tick delivery.
 
-Local focused verification passed 1/1 and the full developmental cognition module passed 93/93 after correcting a test expectation about the projection identity binding. Provenance records identify stale local HEAD `d8d7a219221cd94240accf7991fe353b14f6a84e`; exact candidate hosted verification is pending.
+The focused recovery case passed 1/1, resident developmental cognition passed 93/93, and canonical plan-only tests passed 5/5. Failed-first records are retained. Local source identity is stale (`d8d7a219221cd94240accf7991fe353b14f6a84e`), so exact candidate hosted verification is pending.
 
-Latest verified main commit: `2ee98c76af4d9389cbdb991af106a05a381d267a`
-Latest verified main tree: `85f99979f5a5e675830d30695e5df5b6ee3443f4`
-Latest segment: work/construction/segments/0279-serving-model-drift-review.md
-Latest segment SHA-256: `f1d915446ad7c45441a8dbc320ee5667387d79a460e49dad6229dd0b2e63c993`
-Evidence: work/construction/evidence/0279-serving-model-drift-review.json
+Latest verified main commit: `44ba4f532459cac4c99c025bbe86afe1cea12601`
+Latest verified main tree: `f223dd4ced7e305f7e66730a304eaff35e22a47c`
+Latest segment: work/construction/segments/0280-multi-episode-outcome-planning.md
+Latest segment SHA-256: `057623519d33aa1145db6a413d9da8e618f3f872ab3c27f03057d6cf70d434a2`
+Evidence: work/construction/evidence/0280-multi-episode-outcome-planning.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 279
+Sequence: 280
 
-Next: publish this scoped model-drift regression for exact-source hosted verification, then continue F1-F8. External serving sessions and physical outcomes remain unverified.
+Next: publish this mixed-outcome increment for exact-source hosted checks, then carry explicit omitted-event identities into later scoped decisions. External inference performance and physical outcomes remain unverified.

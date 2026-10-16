@@ -1,6 +1,7 @@
 {
   "completed_accomplishments": [
-    "X: a changed observed serving-model identity changes the canonical projection binding; original history scope remains explicit, the mismatched scoped goal is deferred for review, independent work remains selected, and planning leaves epistemic owner state unchanged."
+    "X: a changed observed serving-model identity changes the canonical projection binding; original history scope remains explicit, the mismatched scoped goal is deferred for review, independent work remains selected, and planning leaves epistemic owner state unchanged.",
+    "X: two receipt-verified same-family scoring episodes, positive and adverse, advance to a contested epistemic position that survives owner reconstruction and defers only the matching canonical goal for review while independent work remains planned."
   ],
   "completed_nodes": [
     "A2/A4-A6: explicitly selected owner-recovered campaign outcomes retain provenance, classify routes, detect cross-campaign adverse/positive contradictions, and fail closed on selection-config tampering; recovery was verified in a fresh process.",
@@ -46,8 +47,8 @@
     "X: a real PersistentEpistemicStateOwner is composed through RuntimeMaintenanceSurfaces canonical planning; its verified prior position changes goal selection, owner state remains unchanged, and model/executor execution is forbidden.",
     "X: a recovered deterministic task-family score was bound through governed epistemic mutation and fresh owner reconstruction to canonical daemon planning; dependency-unresolved evidence defers only the explicitly scoped goal for review, leaving independent work selected with no model or executor effects."
   ],
-  "current_source_commit": "2ee98c76af4d9389cbdb991af106a05a381d267a",
-  "current_source_tree": "85f99979f5a5e675830d30695e5df5b6ee3443f4",
+  "current_source_commit": "44ba4f532459cac4c99c025bbe86afe1cea12601",
+  "current_source_tree": "f223dd4ced7e305f7e66730a304eaff35e22a47c",
   "external_blockers": [
     "Production issuer authentication and real adopted maintenance outcomes require separately authorized external evidence."
   ],
@@ -55,12 +56,12 @@
     "Observational association test expects obsolete production_ready=true.",
     "Epistemic adapter test omits the now-required owner argument."
   ],
-  "last_checkpoint_sequence": 279,
+  "last_checkpoint_sequence": 280,
   "next_executable_nodes": [
     {
       "node": "F1-F8",
       "program": "F",
-      "work": "Connect identity-bound multi-episode outcomes to later scoped decisions after owner reconstruction; preserve positive and adverse outcomes, omitted-event identity, source/model applicability, and fixture-only limits."
+      "work": "Carry explicit omitted-event identities with positive and adverse identity-bound multi-episode outcomes into later scoped decisions after owner reconstruction; preserve exact family/model scope and fixture-only limits."
     },
     {
       "node": "B4-B8",
