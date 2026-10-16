@@ -23,7 +23,7 @@ The handoff schema records `repository_mutation_authorized=false`,
 `updater.py` / `sentientos-updater` remains an explicit operator-invoked legacy
 utility, not a default daemon authority path.
 
-### Repository mutation custody v2 sealing
+## Repository mutation custody v2 sealing
 
 Repository mutation handoffs now use `repository-mutation-handoff.v2`. A ready v2
 handoff is metadata-only and requires an approved proposal, a ledger entry,

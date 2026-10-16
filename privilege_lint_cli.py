@@ -524,9 +524,12 @@ def run_lint(
 
 
 def main(argv: list[str] | None = None) -> int:
-    require_admin_banner()
-    require_lumos_approval()
     ap = argparse.ArgumentParser(description="Privilege banner linter")
+    ap.add_argument(
+        "--read-only",
+        action="store_true",
+        help="Run static checks without cache, report, or source writes",
+    )
     ap.add_argument("paths", nargs="*", default=[str(Path(__file__).resolve().parent)])
     ap.add_argument("--fix", action="store_true", help="Rewrite files in place")
     ap.add_argument("--quiet", action="store_true", help="Suppress output")
@@ -546,15 +549,27 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sarif", type=str, default=None, help="Write SARIF report")
     args = ap.parse_args(argv)
 
+    if args.read_only:
+        if args.fix or args.report_json or args.sarif:
+            ap.error("--read-only cannot be combined with --fix, --report-json, or --sarif")
+    else:
+        require_admin_banner()
+        require_lumos_approval()
+
     result = run_lint(
         args.paths,
         fix=args.fix,
         quiet=args.quiet,
         max_workers=args.max_workers,
         show_hints=args.show_hints,
-        no_cache=args.no_cache,
+        no_cache=args.no_cache or args.read_only,
         mypy=args.mypy,
     )
+
+    if args.read_only:
+        if result.issues and (not args.quiet or args.show_hints):
+            print("\n".join(result.issues))
+        return 1 if result.issues else 0
 
     if args.fix:
         if not args.quiet:

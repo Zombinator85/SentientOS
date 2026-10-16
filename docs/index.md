@@ -51,7 +51,18 @@ evidence.
 :maxdepth: 2
 
 api/index
-experimental_features
+EXPERIMENTAL_FEATURES
+```
+
+```{toctree}
+:hidden:
+:glob:
+
+*
+**/*
+!index
+!api/index
+!EXPERIMENTAL_FEATURES
 ```
 
 ## Documentation build dependency contract
@@ -89,7 +100,7 @@ the next-tick World-State firewall.
 
 ## Cold-start current-state path
 
-Read, in order: the repository [README](../README.md), [one-page thesis](../one_pager.md),
+Read, in order: the repository [README](https://github.com/Zombinator85/SentientOS/blob/main/README.md), [one-page thesis](https://github.com/Zombinator85/SentientOS/blob/main/one_pager.md),
 [public technical overview](architecture/public_technical_overview.md), [project
 thesis](architecture/sentientos_project_thesis.md), [whole-system maturity
 report](architecture/whole_system_maturity_report.md), [trajectory and open

@@ -192,7 +192,7 @@ jobs:
         run: pre-commit run --all-files
 
       - name: Privilege lint
-        run: python privilege_lint.py
+        run: python -m privilege_lint_cli --read-only --quiet .
 
       - name: Invariant lint
         run: python scripts/invariant_lint.py

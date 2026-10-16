@@ -33,7 +33,7 @@ def test_missing_docstring(tmp_path: Path) -> None:
 
 
 def test_bad_future_position(tmp_path: Path) -> None:
-    path = tmp_path / "tool.py"
+    path = tmp_path / "tool_cli.py"
     content = "\n".join(pl.BANNER_ASCII + [
         '"""doc"""',
         pl.FUTURE_IMPORT,
@@ -50,7 +50,7 @@ def test_main_block_in_tests_scanned(tmp_path: Path) -> None:
     tests_dir.mkdir()
     f = tests_dir / "cli.py"
     f.write_text('if __name__ == "__main__":\n    pass\n', encoding="utf-8")
-    rc = pl.main([str(tmp_path), "--quiet"])
+    rc = pl.main([str(tmp_path), "--read-only", "--quiet"])
     assert rc == 1
 
 
@@ -59,7 +59,7 @@ def test_argparse_usage_in_tests_scanned(tmp_path: Path) -> None:
     tests_dir.mkdir()
     f = tests_dir / "cli.py"
     f.write_text('import argparse\nargparse.ArgumentParser()\n', encoding="utf-8")
-    rc = pl.main([str(tmp_path), "--quiet"])
+    rc = pl.main([str(tmp_path), "--read-only", "--quiet"])
     assert rc == 1
 
 
@@ -87,3 +87,33 @@ def test_missing_admin_call(tmp_path: Path) -> None:
     path.write_text("\n".join(content), encoding="utf-8")
     linter = pl.PrivilegeLinter()
     issues = linter.validate(path)
+
+    
+def test_read_only_mode_skips_privilege_gates_and_does_not_write_reports(monkeypatch, tmp_path: Path) -> None:
+    import privilege_lint_cli as cli
+
+    def denied() -> None:
+        raise AssertionError("read-only lint must not request privilege")
+
+    monkeypatch.setattr(cli, "require_admin_banner", denied)
+    monkeypatch.setattr(cli, "require_lumos_approval", denied)
+    assert cli.main([str(tmp_path), "--read-only", "--quiet"]) == 0
+    assert not (tmp_path / ".git" / ".privilege_lint.gitcache").exists()
+
+
+def test_mutating_lint_still_checks_privilege_before_scanning(monkeypatch, tmp_path: Path) -> None:
+    import privilege_lint_cli as cli
+
+    calls: list[str] = []
+
+    def deny_after_admin() -> None:
+        calls.append("approval")
+        raise PermissionError("approval required")
+
+    monkeypatch.setattr(cli, "require_admin_banner", lambda: calls.append("admin"))
+    monkeypatch.setattr(cli, "require_lumos_approval", deny_after_admin)
+    monkeypatch.setattr(cli, "run_lint", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("scan should be blocked by guard")))
+    import pytest
+    with pytest.raises(PermissionError, match="approval required"):
+        cli.main([str(tmp_path), "--fix", "--quiet"])
+    assert calls == ["admin", "approval"]

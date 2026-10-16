@@ -46,7 +46,7 @@ shutdown.
 
 
 ## Codex landing doctrine and templates
-- Root doctrine: [`AGENTS.md` Codex operating instructions](../AGENTS.md)
+- Root doctrine: [`AGENTS.md` Codex operating instructions](https://github.com/Zombinator85/SentientOS/blob/main/AGENTS.md)
 - Whole-system task template: [`docs/development/codex_whole_system_task_template.md`](development/codex_whole_system_task_template.md)
 - Narrow-repair template: [`docs/development/codex_narrow_repair_task_template.md`](development/codex_narrow_repair_task_template.md)
 - Validation/landing contract: [`docs/development/codex_validation_and_landing_contract.md`](development/codex_validation_and_landing_contract.md)

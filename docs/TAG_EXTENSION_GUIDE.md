@@ -4,17 +4,16 @@ This guide explains how to propose new emotional or core value tags for the Sent
 
 | Quickstart Do | Quickstart Don't |
 |---------------|-----------------|
-| Read the [Code of Conduct](../CODE_OF_CONDUCT.md)* | Skip the privilege lint |
+| Read the [contributor expectations](https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md)* | Skip the privilege lint |
 | Provide a clear example | Omit reviewer sign-off |
 | Link to an issue | Forget documentation |
-\*Link placeholder
 
 ## Purpose & Principles
 - Keep the emotional tag list concise and respectful.
 - Ensure every tag improves clarity for memory search and reflection.
 
 ## Step-by-Step Tag Addition
-1. Review [CONTRIBUTING.md](../CONTRIBUTING.md) and existing tags in `tags.py`.
+1. Review [CONTRIBUTING.md](https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTING.md) and existing tags in `tags.py`.
 2. Open a new issue using the **New Tag Proposal** template.
 3. Create a branch and update `tags.py` with the new tag.
 4. Add an entry in `docs/TAG_EXTENSION_GUIDE.md` if special notes apply.

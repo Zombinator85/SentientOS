@@ -19,7 +19,7 @@ jobs:
         env:
           LUMOS_AUTO_APPROVE: '1'
       - name: Privilege lint
-        run: python privilege_lint.py
+        run: python -m privilege_lint_cli --read-only --quiet .
         env:
           LUMOS_AUTO_APPROVE: '1'
       - name: Run mypy

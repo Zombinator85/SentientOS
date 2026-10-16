@@ -219,3 +219,14 @@ def test_quarantined_world_state_bridge_runs_as_separate_exact_acceptance() -> N
         "tests/test_resource_invocation_process_generation_integration.py::test_parent_child_resource_invocation_generation_reaches_world_state",
     ):
         assert node in source_job
+
+    
+def test_privilege_lint_workflows_use_read_only_mode() -> None:
+    for path in (
+        ".github/workflows/ci.yml",
+        ".github/workflows/lint.yml",
+        ".github/workflows/nightly-self-check.yml",
+    ):
+        workflow = (ROOT / path).read_text()
+        assert "python -m privilege_lint_cli --read-only --quiet ." in workflow
+        assert "run: python privilege_lint.py" not in workflow

@@ -33,7 +33,7 @@ the current file contents.
 If `verify_audits.py` reports a broken chain, pause commits and create an **Audit or Ethics Concern** issue. Include the `.bad` file and any recovered entries so maintainers can reconstruct the log.
 
 ## Participate
-Anyone can request an audit by filing an issue or contacting maintainers listed in [CONTRIBUTORS.md](../CONTRIBUTORS.md).
+Anyone can request an audit by filing an issue or contacting maintainers listed in [CONTRIBUTORS.md](https://github.com/Zombinator85/SentientOS/blob/main/CONTRIBUTORS.md).
 
 ### Sample Audit Recovery Report
 ```
