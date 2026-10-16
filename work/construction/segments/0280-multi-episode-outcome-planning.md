@@ -1,0 +1,11 @@
+# Sequence 280 — Carry mixed multi-episode outcomes into later planning
+
+Starting from merged main `44ba4f532459cac4c99c025bbe86afe1cea12601`, this increment extends the recovered-outcome path from one scored task-family episode to two episodes in the same declared family and model scope. The first deterministically scored fixture run supports the history-conditioned result. A second independently scored fixture episode produces an adverse history result. The governed epistemic runtime retains both run digests and both evidence relations, advances to a contested state, and preserves the source chronology through owner reconstruction and receipt verification.
+
+A later prior projection carries that contested position into canonical planning. Only the goal tagged for the exact task family and serving-model scope is deferred for review; independent work remains selected. The fixture checks the exact two source run identities, mutation receipts, state generations, later-tick delivery boundary, no replay of either completed inference, and no executor or model-session effects from planning. The evidence remains dependency-unresolved and fixture scoped; it does not claim external model learning or physical outcomes.
+
+Verification: the focused recovery case passed 1/1, the resident developmental cognition module passed 93/93, and canonical plan-only tests passed 5/5. Several failing-first test records are retained while the fixture was corrected to use the run identity returned by the cycle, the signed correct-probe delta, tick-3 delivery, cumulative introspection counts, and a post-second-episode no-replay count. All local provenance identifies stale HEAD `d8d7a219221cd94240accf7991fe353b14f6a84e`, so exact-source hosted verification is pending.
+
+Merged sequence 279 is verified at main commit `44ba4f532459cac4c99c025bbe86afe1cea12601`, tree `f223dd4ced7e305f7e66730a304eaff35e22a47c`. Its PR checks passed; main push CI, Required Quality Gate, Docker, Codex, invariants, and docs deployment passed. The root artifact records effective UID 0 and exact main commit/tree.
+
+Next: extend F1-F8 to carry explicit omitted-event identities alongside these multi-episode outcomes into later scoped strategy or goal decisions, preserving positive and adverse results, model applicability, restart recovery, and the fixture-only limit.

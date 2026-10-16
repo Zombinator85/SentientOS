@@ -1,0 +1,134 @@
+{
+  "hosted_candidate_verification": "pending exact-source PR checks",
+  "local_verification": {
+    "diff_check": true,
+    "runs": [
+      {
+        "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+        "path": "glow/test_runs/provenance/20261016T191946Z_d8d7a219221c_d5a5e6d973254103a74265796dc8e9b5.json",
+        "pytest_args": [
+          "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+          "-q"
+        ],
+        "tests_failed": 1,
+        "tests_passed": 0
+      },
+      {
+        "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+        "path": "glow/test_runs/provenance/20261016T192003Z_d8d7a219221c_c930347f2b8f4e6f966bd50808c99fc7.json",
+        "pytest_args": [
+          "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+          "-q"
+        ],
+        "tests_failed": 1,
+        "tests_passed": 0
+      },
+      {
+        "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+        "path": "glow/test_runs/provenance/20261016T192024Z_d8d7a219221c_146d668c6b9e440ea0e3bcbab57148ab.json",
+        "pytest_args": [
+          "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+          "-q"
+        ],
+        "tests_failed": 1,
+        "tests_passed": 0
+      },
+      {
+        "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+        "path": "glow/test_runs/provenance/20261016T192039Z_d8d7a219221c_61856f32c6114bcd8e33ca256df57a1a.json",
+        "pytest_args": [
+          "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+          "-q"
+        ],
+        "tests_failed": 1,
+        "tests_passed": 0
+      },
+      {
+        "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+        "path": "glow/test_runs/provenance/20261016T192050Z_d8d7a219221c_71dabcf171d540a29cad1e4f737581d8.json",
+        "pytest_args": [
+          "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+          "-q"
+        ],
+        "tests_failed": 1,
+        "tests_passed": 0
+      },
+      {
+        "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+        "path": "glow/test_runs/provenance/20261016T192109Z_d8d7a219221c_a6e3ea41d5554f12b8148441d21b9c5e.json",
+        "pytest_args": [
+          "tests/test_resident_developmental_cognition.py::test_final_score_checkpoints_recover_run_after_precommit_interruption",
+          "-q"
+        ],
+        "tests_failed": 0,
+        "tests_passed": 1
+      },
+      {
+        "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+        "path": "glow/test_runs/provenance/20261016T192248Z_d8d7a219221c_971bf883744b487284a394744bd689af.json",
+        "pytest_args": [
+          "tests/test_resident_developmental_cognition.py",
+          "-q"
+        ],
+        "tests_failed": 0,
+        "tests_passed": 93
+      },
+      {
+        "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+        "path": "glow/test_runs/provenance/20261016T192253Z_d8d7a219221c_e095876564f94e26ae268da712876311.json",
+        "pytest_args": [
+          "sentientos/tests/test_orchestrator_plan_only.py",
+          "-q"
+        ],
+        "tests_failed": 0,
+        "tests_passed": 5
+      }
+    ],
+    "source_identity_limit": "Every local runner record identifies stale HEAD d8d7a219221cd94240accf7991fe353b14f6a84e; local runs are exploratory only."
+  },
+  "multi_episode_boundary": {
+    "both_run_digests_retained": true,
+    "dependency_unresolved": true,
+    "epistemic_stance_after_both": "contested",
+    "external_learning_claimed": false,
+    "independent_goal_remains_selected": true,
+    "later_tick_projection_delivered": true,
+    "model_or_executor_invoked_by_planning": false,
+    "mutation_receipts_verified_after_restart": true,
+    "physical_outcome_claimed": false,
+    "positive_and_adverse_outcomes_preserved": true,
+    "same_operator_declared_task_family": true,
+    "scoped_goal_deferred_for_review": true,
+    "selected_runs": 2
+  },
+  "next_dependency": "Carry explicit omitted-event identities with positive/adverse multi-episode outcomes into later scoped decisions, then verify restart and identity boundaries.",
+  "predecessor_segment_sha256": "f1d915446ad7c45441a8dbc320ee5667387d79a460e49dad6229dd0b2e63c993",
+  "segment_path": "work/construction/segments/0280-multi-episode-outcome-planning.md",
+  "sequence": 280,
+  "sequence_279_main_push_verification": {
+    "ci_conclusion": "success",
+    "ci_run": 38953532303,
+    "codex_ci_conclusion": "success",
+    "codex_ci_run": 38953532840,
+    "docker_conclusion": "success",
+    "docker_run": 38953532164,
+    "docs_deploy_conclusion": "success",
+    "docs_deploy_run": 38953532376,
+    "invariant_conclusion": "success",
+    "invariant_run": 38953532351,
+    "required_acceptance": "resource-to-cognition lifecycle and canonical planning/execution separation passed",
+    "required_quality_gate_conclusion": "success",
+    "required_quality_gate_run": 38953532498,
+    "root_audit": {
+      "artifact_id": 12069710842,
+      "artifact_sha256": "98f676381ffeaba9e9831aa5db5445db4803d3601c5357ec1a879950cb8bf727",
+      "effective_uid": 0,
+      "source_commit": "44ba4f532459cac4c99c025bbe86afe1cea12601",
+      "source_tree": "f223dd4ced7e305f7e66730a304eaff35e22a47c",
+      "status": "passed"
+    }
+  },
+  "source_commit": "44ba4f532459cac4c99c025bbe86afe1cea12601",
+  "source_tree": "f223dd4ced7e305f7e66730a304eaff35e22a47c",
+  "title": "Carry mixed multi-episode outcomes into later planning"
+}
