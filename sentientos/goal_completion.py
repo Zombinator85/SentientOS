@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -225,7 +226,58 @@ def eval_check(name: str, ctx: CompletionContext) -> CompletionResult:
     now = _iso_now()
     if check is None:
         return _result(ctx.goal_id, name, now, False, 0.0, "error", (), (), ("unknown_check",))
-    return check.eval(ctx)
+    result = check.eval(ctx)
+    if not result.done or result.evidence_digest is not None:
+        return result
+    evidence_digest = _completion_evidence_digest(ctx, result)
+    if evidence_digest is None:
+        return _result(
+            result.goal_id, result.check_name, result.checked_at, False,
+            result.progress, "blocked", result.evidence_paths, result.notes,
+            tuple(sorted(set(result.reason_stack + (
+                "completion_evidence_binding_missing",)))),
+        )
+    return _result(
+        result.goal_id, result.check_name, result.checked_at, True,
+        result.progress, result.status, result.evidence_paths, result.notes,
+        result.reason_stack, evidence_digest,
+    )
+
+
+def _completion_evidence_digest(
+    ctx: CompletionContext, result: CompletionResult,
+) -> str | None:
+    """Bind non-run completion results to the exact referenced artifact bytes."""
+    root = ctx.repo_root.resolve()
+    artifacts: list[dict[str, str]] = []
+    for relative_path in result.evidence_paths:
+        candidate = (root / relative_path).resolve()
+        if not candidate.is_relative_to(root) or not candidate.is_file():
+            return None
+        content_hasher = hashlib.sha256()
+        try:
+            with candidate.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    content_hasher.update(chunk)
+        except OSError:
+            return None
+        content_digest = content_hasher.hexdigest()
+        artifacts.append({"path": relative_path, "sha256": content_digest})
+    if not artifacts:
+        return None
+    binding = {
+        "schema": "sentientos.goal_completion_evidence.v1",
+        "goal_id": result.goal_id,
+        "check_name": result.check_name,
+        "done": result.done,
+        "status": result.status,
+        "progress": round(max(0.0, min(1.0, result.progress)), 3),
+        "reason_stack": list(result.reason_stack),
+        "artifacts": artifacts,
+    }
+    canonical = json.dumps(binding, sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def persist_completion_result(repo_root: Path, result: CompletionResult, *, work_run_id: str | None = None, incident_id: str | None = None) -> str:
