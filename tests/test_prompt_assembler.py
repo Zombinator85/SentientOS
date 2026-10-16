@@ -5,16 +5,34 @@ from __future__ import annotations
 
 import os
 import sys
+from types import SimpleNamespace
+
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import prompt_assembler as pa
-import user_profile as up
-import memory_manager as mm
+
+@pytest.fixture
+def prompt_modules(monkeypatch):
+    """Load guarded modules only after isolating their operator gates.
+
+    These tests exercise prompt and memory behavior. Privilege boundary
+    behavior is covered separately by import-boundary and CLI safety tests.
+    """
+    import sentientos.privilege as privilege
+
+    monkeypatch.setattr(privilege, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(privilege, "require_lumos_approval", lambda: None)
+
+    import prompt_assembler as pa
+    import user_profile as up
+    import memory_manager as mm
+
+    return SimpleNamespace(pa=pa, up=up, mm=mm)
 
 
-def test_assemble_prompt_includes_profile_and_memory(tmp_path, monkeypatch):
+def test_assemble_prompt_includes_profile_and_memory(tmp_path, monkeypatch, prompt_modules):
+    pa, up, mm = prompt_modules.pa, prompt_modules.up, prompt_modules.mm
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     # reload modules with new env
     from importlib import reload
@@ -30,7 +48,8 @@ def test_assemble_prompt_includes_profile_and_memory(tmp_path, monkeypatch):
     assert "name: Allen" in prompt
 
 
-def test_prompt_includes_reflection(tmp_path, monkeypatch):
+def test_prompt_includes_reflection(tmp_path, monkeypatch, prompt_modules):
+    pa, up, mm = prompt_modules.pa, prompt_modules.up, prompt_modules.mm
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
     reload(up)
@@ -43,7 +62,8 @@ def test_prompt_includes_reflection(tmp_path, monkeypatch):
     assert "ACTION FEEDBACK" in prompt
 
 
-def test_plan_order_ignores_affect_metadata(monkeypatch):
+def test_plan_order_ignores_affect_metadata(monkeypatch, prompt_modules):
+    pa = prompt_modules.pa
     from importlib import reload
 
     reload(pa)
@@ -69,7 +89,8 @@ def test_plan_order_ignores_affect_metadata(monkeypatch):
     assert "presentation" not in prompt_with_affect
 
 
-def test_prompt_inputs_repeat_without_leak(monkeypatch):
+def test_prompt_inputs_repeat_without_leak(monkeypatch, prompt_modules):
+    pa = prompt_modules.pa
     from importlib import reload
 
     reload(pa)
@@ -95,7 +116,8 @@ def test_prompt_inputs_repeat_without_leak(monkeypatch):
     assert calls[0] == calls[1]
 
 
-def test_prompt_hard_guard_strips_and_rejects_metadata(monkeypatch):
+def test_prompt_hard_guard_strips_and_rejects_metadata(monkeypatch, prompt_modules):
+    pa = prompt_modules.pa
     from importlib import reload
 
     reload(pa)

@@ -15,7 +15,13 @@ class Dummy:
     def __init__(self, ret=0):
         self.returncode = ret
 
+def _stub_privilege_for_unit_test(monkeypatch):
+    import sentientos.privilege as privilege
+    monkeypatch.setattr(privilege, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(privilege, "require_lumos_approval", lambda: None)
+
 def test_ci_success(monkeypatch):
+    _stub_privilege_for_unit_test(monkeypatch)
     calls = []
     def fake_run(cmd, shell=True, check=True, **kw):
         calls.append(cmd)
@@ -28,6 +34,7 @@ def test_ci_success(monkeypatch):
     assert "python -m pip install -e ." in calls
 
 def test_ci_failure(monkeypatch):
+    _stub_privilege_for_unit_test(monkeypatch)
     import subprocess as sp
     def fake_run(cmd, shell=True, check=True, **kw):
         raise sp.CalledProcessError(1, cmd)

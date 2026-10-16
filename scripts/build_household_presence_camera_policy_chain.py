@@ -1,5 +1,5 @@
-from typing import Any
 from __future__ import annotations
+from typing import Any
 import argparse, json
 from pathlib import Path
 from sentientos.household_presence_camera_policy_chain import build_default_policy, evaluate_policy_chain, validate_policy

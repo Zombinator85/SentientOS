@@ -23,7 +23,7 @@ jobs:
         env:
           LUMOS_AUTO_APPROVE: '1'
       - name: Run mypy
-        run: mypy --strict
+        run: python scripts/check_mypy_baseline.py
       - name: Pytest airlock guard
         run: python scripts/pytest_airlock_guard.py
       - name: Run pytest

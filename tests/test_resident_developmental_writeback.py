@@ -151,6 +151,7 @@ def test_recovery_rejects_duplicate_source_binding_after_identity_reconstruction
     tampered_path.write_text(
         json.dumps(asdict(tampered_record), sort_keys=True, indent=2) + "\n",
         encoding="utf-8")
+    tampered_path.chmod(0o600)
     with pytest.raises(DevelopmentalWritebackError, match="candidate_source_binding_invalid"):
         ctrl.inspect_completed_records()
 

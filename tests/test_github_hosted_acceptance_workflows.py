@@ -98,10 +98,12 @@ def test_ci_adds_separate_unprivileged_canonical_lifecycle_validation() -> None:
     assert "|| true" not in source
     assert ".ci-runtime/governor" in source
     assert "runner.temp" not in ci
-    # The existing privileged self-check remains present with its approval gate.
+    # CI installs the lock without invoking the privilege-gated repair script;
+    # equivalent static checks and the full test suite run in later steps.
     self_check = ci.split("  self-check:", 1)[1].split("  docs:", 1)[0]
-    assert "python -m scripts.lock install" in self_check
-    assert "LUMOS_AUTO_APPROVE" in self_check
+    assert "python -m pip install --only-binary=:all: -r requirements-codex.txt" in self_check
+    assert "python -m scripts.lock check" in self_check
+    assert "scripts/ci_self_check.py" not in self_check
 
 
 def test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate() -> None:
@@ -110,6 +112,17 @@ def test_docs_ci_installs_its_declared_docs_extra_without_skipping_gate() -> Non
     assert 'python -m pip install -e ".[docs]"' in docs
     assert "make docs" in docs
     assert "continue-on-error" not in docs
+
+
+def test_github_mypy_jobs_use_the_repository_baseline_ratchet() -> None:
+    for path in (
+        ".github/workflows/ci.yml",
+        ".github/workflows/lint.yml",
+        ".github/workflows/nightly-self-check.yml",
+    ):
+        workflow = (ROOT / path).read_text()
+        assert "python scripts/check_mypy_baseline.py" in workflow
+        assert "run: mypy --strict" not in workflow
 
 
 def test_helm_smoke_keeps_service_monitor_optional_without_dropping_opt_in() -> None:

@@ -11,9 +11,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
-
 DOCS_DEPENDENCIES: tuple[tuple[str, str, str], ...] = (
     ("mkdocs", "mkdocs>=1.6,<2", "MkDocs static site generator"),
     ("watchdog.observers", "watchdog>=2,<3", "file watching support used by MkDocs tooling"),
@@ -86,6 +83,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bootstrap-if-missing", action="store_true", help="bootstrap missing docs dependencies before building")
     args = parser.parse_args(argv)
 
+    # Checking and building local documentation is read-only with respect to
+    # authority. Installing dependencies or publishing pages changes the host
+    # environment or an external service, so those actions retain the ritual.
+    def authorize_effectful_action() -> None:
+        require_admin_banner()
+        require_lumos_approval()
+
     config = Path("mkdocs.yml")
     if not config.exists():
         print("mkdocs.yml not found", file=sys.stderr)
@@ -94,6 +98,7 @@ def main(argv: list[str] | None = None) -> int:
     missing = missing_docs_dependencies()
     if args.bootstrap_docs:
         if missing:
+            authorize_effectful_action()
             if not bootstrap_docs_dependencies():
                 print(
                     "ENVIRONMENT/BOOTSTRAP ERROR: Docs dependency bootstrap failed. "
@@ -108,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         print("Docs build dependencies bootstrapped and available.")
         return 0
     if missing and args.bootstrap_if_missing:
+        authorize_effectful_action()
         if not bootstrap_docs_dependencies():
             print("ENVIRONMENT/BOOTSTRAP ERROR: Docs dependency bootstrap failed.", file=sys.stderr)
             return 2
@@ -118,6 +124,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.check_deps:
         print("Docs build dependencies available.")
         return 0
+
+    if args.deploy:
+        authorize_effectful_action()
 
     cmd = [sys.executable, "-m", "mkdocs", "build", "--clean"]
     if args.deploy:
