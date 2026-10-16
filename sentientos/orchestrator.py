@@ -1161,7 +1161,9 @@ def _emit_goal_allocation_artifact(
         "strategic_posture": posture,
         "goal_graph_hash": goal_graph_hash_value,
         "selected_goals": list(allocation.selected),
-        "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred],
+        "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason,
+            "epistemic_positions": list(item.epistemic_positions)}
+            for item in allocation.deferred],
         "selection_reasons": list(allocation.selected_reasons),
         "budget_summary": allocation.budget_summary,
         "target_active_model_identity_digest": target_identity_digest,

@@ -339,6 +339,25 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
         for item in evidence["evidence_binding"]["deferred_goals"]} == {
             "g_experienced": "epistemic_review_required",
             "g_omitted": "epistemic_applicability_unresolved"}
+    deferred_evidence = {item["goal_id"]: item["epistemic_positions"]
+        for item in evidence["evidence_binding"]["deferred_goals"]}
+    experienced_position = deferred_evidence["g_experienced"][0]
+    experienced_scope = evidence["evidence_binding"]["review_scopes"][
+        proposition.proposition_id]
+    assert experienced_position["proposition_id"] == proposition.proposition_id
+    assert experienced_position["identity"] == experienced_scope["position_identity"]
+    assert experienced_position["posture"] == "review_required"
+    omitted_position = deferred_evidence["g_omitted"][0]
+    assert omitted_position["proposition_id"] == omitted_proposition.proposition_id
+    assert omitted_position["omitted_state_identity"]["state_id"] == (
+        omitted_state_before_planning.state_id)
+    assert omitted_position["omitted_state_identity"]["state_digest"] == (
+        omitted_state_before_planning.state_digest)
+    allocation_artifact = json.loads((tmp_path /
+        with_history.allocation_artifact_path).read_text(encoding="utf-8"))
+    allocation_deferred = {item["goal_id"]: item["epistemic_positions"]
+        for item in allocation_artifact["deferred_goals"]}
+    assert allocation_deferred == deferred_evidence
     assert observer.calls == 1
     state_after_planning = owner.current_state(proposition.proposition_id)
     assert state_after_planning == state_before_planning
