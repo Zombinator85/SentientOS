@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 278 connects a recovered, receipt-bound developmental outcome to canonical daemon planning. After fresh persistent-owner reconstruction, its dependency-unresolved proposition changes allocation only within the declared task-family and serving-model scope: the scoped goal is deferred for review, independent work remains selected, and planning creates no execution effects.
+Sequence 279 extends verified recovered-outcome planning through serving-model drift. A changed live identity changes the canonical projection digest; the prior task-family/model scope remains bound to the original identity, so only the scoped goal is deferred as unresolved applicability. Independent work remains planned and the persistent state remains unchanged.
 
-The final focused test passed 1/1 and the full resident developmental cognition module passed 93/93 locally after correcting a fixture collision between immutable allocation timestamps. Both failed-first and passing provenance records are retained. Local HEAD is stale d8d7a219221cd94240accf7991fe353b14f6a84e, so these are exploratory; hosted exact-source CI and UID-0 audit remain pending.
+Local focused verification passed 1/1 and the full developmental cognition module passed 93/93 after correcting a test expectation about the projection identity binding. Provenance records identify stale local HEAD `d8d7a219221cd94240accf7991fe353b14f6a84e`; exact candidate hosted verification is pending.
 
-Latest verified main commit: `80ffe95b2a6470063e45781d312b2ff56fc46451`
-Latest verified main tree: `3b9a6cc9069c8c77adfe5eb061d2606c5d5e0a4a`
-Latest segment: work/construction/segments/0278-recovered-outcome-to-canonical-planning.md
-Latest segment SHA-256: `db17843b5a1972443999c88a41df3e221808bb4fc2f1224ff81e44773fd42b5b`
-Evidence: work/construction/evidence/0278-recovered-outcome-to-canonical-planning.json
+Latest verified main commit: `2ee98c76af4d9389cbdb991af106a05a381d267a`
+Latest verified main tree: `85f99979f5a5e675830d30695e5df5b6ee3443f4`
+Latest segment: work/construction/segments/0279-serving-model-drift-review.md
+Latest segment SHA-256: `f1d915446ad7c45441a8dbc320ee5667387d79a460e49dad6229dd0b2e63c993`
+Evidence: work/construction/evidence/0279-serving-model-drift-review.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 278
+Sequence: 279
 
-Next: publish and run exact-source hosted lifecycle, planning acceptance and privileged audit, then continue F1-F8. External sessions and physical outcomes remain unverified.
+Next: publish this scoped model-drift regression for exact-source hosted verification, then continue F1-F8. External serving sessions and physical outcomes remain unverified.

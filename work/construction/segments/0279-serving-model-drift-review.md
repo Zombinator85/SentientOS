@@ -1,0 +1,9 @@
+# Sequence 279 — Keep historical review bound across serving-model drift
+
+Sequence 278 is now merged and verified on main at `2ee98c76af4d9389cbdb991af106a05a381d267a`, tree `85f99979f5a5e675830d30695e5df5b6ee3443f4`. Its push workflows passed: integrated CI, Docker, Required Quality Gate, invariants, docs deployment, and Codex CI. The root job log records effective UID 0 and exact source commit/tree.
+
+This increment extends the recovered developmental-outcome path through a serving identity change. It verifies that the dependency-unresolved history remains bound to its original task family and model identity. When a different live serving model is observed, the planner records a new projection digest and the model mismatch, defers only the scoped goal as `epistemic_applicability_unresolved`, keeps independent work selected, and leaves the persistent epistemic state unchanged. No model session or executor is invoked.
+
+The first local attempt incorrectly expected the projection digest to remain constant across model replacement. The observed identity is part of the canonical projection binding, so the correct behavior is for the projection digest to change while history scope and owner state remain stable. The corrected focused case passed 1/1; the full resident developmental cognition module passed 93/93. Both runs identify stale local HEAD `d8d7a219221cd94240accf7991fe353b14f6a84e`; these results are exploratory pending exact-source hosted verification. Failed-first and repaired provenance are retained.
+
+Next: advance F1-F8 by connecting identity-bound multi-episode outcomes, including adverse outcomes and omitted-event identity, to later scoped strategy or goal decisions after owner reconstruction. Keep source identity, model identity, applicability, and review boundaries exact.
