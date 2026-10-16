@@ -344,6 +344,44 @@ def test_verified_prior_epistemic_position_changes_canonical_goal_allocation(
     assert state_after_planning == state_before_planning
     assert owner.current_state(omitted_proposition.proposition_id) == (
         omitted_state_before_planning)
+
+    reconstructed_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=["embodiment"])
+    assert reconstructed_owner.current_state(omitted_proposition.proposition_id) == (
+        omitted_state_before_planning)
+    complete_surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path, epistemic_state_owner=reconstructed_owner,
+        epistemic_state_config={
+            "status": "configured", "cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 2,
+        },
+        resident_cognitive_invoker=observer,
+    )
+    after_reconstruction = complete_surfaces.plan_canonical_goals(
+        tick_id="2026-10-16T09:02:00+00:00")
+    assert "g_omitted" not in after_reconstruction.allocation.selected
+    assert {item.goal_id: item.reason for item in after_reconstruction.allocation.deferred}[
+        "g_omitted"] == "epistemic_review_required"
+    assert after_reconstruction.work_plan is not None
+    assert after_reconstruction.work_plan_evidence_path is not None
+    recovered_evidence = json.loads((tmp_path /
+        after_reconstruction.work_plan_evidence_path).read_text(encoding="utf-8"))
+    recovered_binding = recovered_evidence["evidence_binding"]
+    assert "projection_omission_manifest" not in recovered_binding
+    assert recovered_binding["projection_digest"] != evidence["evidence_binding"][
+        "projection_digest"]
+    recovered_scope = recovered_binding["review_scopes"][
+        omitted_proposition.proposition_id]
+    assert recovered_scope == dict(omitted_proposition.context_scope)
+    assert recovered_scope.get("omitted_from_prior_projection") is not True
+    assert recovered_binding["goal_applicability"]["g_omitted"] == (
+        "epistemic_review_required")
+    assert owner.current_state(omitted_proposition.proposition_id) == (
+        omitted_state_before_planning)
+    assert reconstructed_owner.current_state(omitted_proposition.proposition_id) == (
+        omitted_state_before_planning)
+    assert observer.calls == 2
+
     evidence_binding = dict(evidence["evidence_binding"])
     assert persist_work_plan_evidence(tmp_path, with_history.work_plan,
         evidence_binding) == (with_history.work_plan_evidence_path,

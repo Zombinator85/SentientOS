@@ -1,0 +1,93 @@
+{
+  "behavior_contract": {
+    "bounded_projection_omission_reason": "epistemic_applicability_unresolved",
+    "canonical_planning_remains_execution_free": true,
+    "complete_projection_restores_scope": true,
+    "contested_outcome_remains_review_required": true,
+    "omitted_state_and_event_identity_preserved": true,
+    "owner_state_unchanged_by_planning": true,
+    "positive_and_adverse_binding_identities_preserved": true
+  },
+  "local_provenance_audit": {
+    "continuity_issue": {
+      "current_file": "glow/test_runs/provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+      "issue": "history-gap",
+      "prior_file": "glow/test_runs/provenance/20261009T131811Z_a2fbcc46aea4_cc19f20f85884e3c9543a2f008a779c3.json"
+    },
+    "focused_window_alerts": [
+      "tests_executed_collapse",
+      "tests_passed_collapse"
+    ],
+    "history_rewritten": false,
+    "integrity_issues": [
+      {
+        "file": "glow/test_runs/provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+        "issue": "prev-mismatch"
+      }
+    ],
+    "latest_local_record": {
+      "content_sha256": "654bbb98b4d7a909d8b8e61c039e8d018b2297ab48badc3a2c7815821052e45d",
+      "path": "glow/test_runs/provenance/20261016T200528Z_16cadc3ada34_ba397ce64ca648e79363382803a8e0b3.json",
+      "previous_provenance_hash": "fa2702d8f524273cd183dd797b21c3d1e60c32cea370463873e49478f28f4b9e",
+      "provenance_hash": "8791c95add2389310fdd924b9f9a70786c1fff3e41e22392c3f084fc8985e546",
+      "tests_failed": 0
+    },
+    "overall_status": "INTEGRITY_BROKEN"
+  },
+  "local_regression": {
+    "command": "python -m scripts.run_tests -q tests/test_persistent_epistemic_state.py sentientos/tests/test_epistemic_planning.py sentientos/tests/test_orchestrator_plan_only.py",
+    "compilation": "passed",
+    "diff_check": "passed",
+    "initial_fixture_vocabulary_failure_preserved": "glow/test_runs/provenance/20261016T200350Z_16cadc3ada34_675bfdc202cd45bc94840bd9b1776fef.json",
+    "provenance_hash": "8791c95add2389310fdd924b9f9a70786c1fff3e41e22392c3f084fc8985e546",
+    "provenance_path": "glow/test_runs/provenance/20261016T200528Z_16cadc3ada34_ba397ce64ca648e79363382803a8e0b3.json",
+    "source_binding": "exploratory_dirty_checkout_based_on_main_16cadc3ada34c59e008edb11a48820e2c1d97550",
+    "tests_collected": 23,
+    "tests_executed": 22,
+    "tests_failed": 0,
+    "tests_passed": 22,
+    "tests_skipped": 1,
+    "validation_status": "validation_complete"
+  },
+  "next_dependency": "Continue F1-F8 through owner-to-owner developmental outcomes and actual canonical allocation with positive/adverse source- and model-bound episodes.",
+  "post_merge_privileged_verification": {
+    "artifact_digest_independently_verified": true,
+    "artifact_id": 12071682254,
+    "artifact_sha256": "sha256:85500b7cb036aa8829880526bed744394d6861049b5032354e0f0e6072010ac3",
+    "effective_uid": 0,
+    "immutability_exit_code": 0,
+    "immutability_ok": true,
+    "repository_identity_unchanged": true,
+    "required_gate_job_id": 117168949495,
+    "source_commit": "16cadc3ada34c59e008edb11a48820e2c1d97550",
+    "source_tree": "48ae62dff32c71b91c263e8693a4b796b1f44955",
+    "source_unchanged": true,
+    "strict_audit_exit_code": 0,
+    "strict_audit_ok": true,
+    "workflow_run_id": 38958982833
+  },
+  "post_merge_workflows": {
+    "ci_integrated_resource_cognition_and_planning": "success",
+    "codex_ci": "success",
+    "docker_image": "success",
+    "docs_deploy": "success",
+    "forge_smoke": "skipped_by_workflow_policy",
+    "invariant_tests": "success",
+    "required_quality_gate": "success"
+  },
+  "predecessor_segment_sha256": "d2651f2e60782d9cb344b15a7a5f93b08e79a2d723fd501fdac31d278b455f01",
+  "segment_path": "work/construction/segments/0282-reconstructed-omission-applicability.md",
+  "segment_sha256": "28e5a75073da69bacd18f9d368f0f8429af936b3fa2eb4787736255e313c5f93",
+  "sequence": 282,
+  "sequence_281_merge": {
+    "feature_commit": "a6d0abaafff389252021c2bba6df22ecb2e575f7",
+    "merge_commit": "16cadc3ada34c59e008edb11a48820e2c1d97550",
+    "merge_tree": "48ae62dff32c71b91c263e8693a4b796b1f44955",
+    "mypy_repair_commit": "9f358fdb2ab7c4dddce1ad70154919192b9c9ddc",
+    "preserved_commit_history": true,
+    "pull_request": 2272
+  },
+  "source_commit": "16cadc3ada34c59e008edb11a48820e2c1d97550",
+  "source_tree": "48ae62dff32c71b91c263e8693a4b796b1f44955",
+  "title": "Recover scoped applicability after projection reconstruction"
+}

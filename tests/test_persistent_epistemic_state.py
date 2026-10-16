@@ -140,6 +140,96 @@ def test_owner_projection_is_verified_latest_bounded_deterministic_and_empty(tmp
     with pytest.raises(EpistemicStateError): owner.cognitive_projection(max_states=2)
 
 
+def test_reconstructed_omission_can_be_resolved_without_losing_scored_outcomes(tmp_path):
+    from sentientos.epistemic_planning import (
+        epistemic_review_reason_for_goal, review_required_applicability,
+    )
+
+    identity_digest = "sha256:" + "c" * 64
+    candidates = [
+        proposition(task_family_id="positive-adverse-history-a",
+            active_model_identity_digest=identity_digest),
+        proposition(task_family_id="positive-adverse-history-b",
+            active_model_identity_digest=identity_digest),
+    ]
+    selected_proposition, omitted_proposition = sorted(
+        candidates, key=lambda item: item.proposition_id)
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    for proposition_value in candidates:
+        owner.register_proposition(proposition_value)
+
+    positive = binding(omitted_proposition, "a" * 64, "supports")
+    adverse = binding(omitted_proposition, "b" * 64, "contradicts")
+    owner.bind_evidence(positive)
+    owner.bind_evidence(adverse)
+    supported, _ = owner.commit_update(
+        proposition_id=omitted_proposition.proposition_id,
+        expected_predecessor_digest=None, stance="provisionally_supported",
+        reason="initialization", active_binding_ids=[positive.binding_id],
+        added_binding_ids=[positive.binding_id], correlation_id="positive-episode",
+        tick=1, recorded_at="2026-01-01T00:00:00Z")
+    contested, adverse_event = owner.commit_update(
+        proposition_id=omitted_proposition.proposition_id,
+        expected_predecessor_digest=supported.state_digest, stance="contested",
+        reason="contradiction_arrival",
+        active_binding_ids=[positive.binding_id, adverse.binding_id],
+        added_binding_ids=[adverse.binding_id], correlation_id="adverse-episode",
+        tick=2, recorded_at="2026-01-01T00:00:01Z")
+
+    owner.commit_update(
+        proposition_id=selected_proposition.proposition_id,
+        expected_predecessor_digest=None, stance="unknown", reason="initialization",
+        active_binding_ids=[], correlation_id="selected-position", tick=3,
+        recorded_at="2026-01-01T00:00:02Z")
+
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    assert recovered_owner.verify()["updates"] == 3
+    reconstructed_state = recovered_owner.current_state(omitted_proposition.proposition_id)
+    assert reconstructed_state == contested
+    bounded = recovered_owner.cognitive_projection(max_states=1, current_tick=10)
+    assert bounded is not None and bounded.omission_manifest is not None
+    [omitted_identity] = bounded.omission_manifest["omitted_state_identities"]
+    assert omitted_identity["proposition_id"] == omitted_proposition.proposition_id
+    assert omitted_identity["state_id"] == contested.state_id
+    assert omitted_identity["state_digest"] == contested.state_digest
+    assert omitted_identity["update_event_id"] == adverse_event.event_id
+
+    goal_tags = (
+        f"epistemic_proposition:{omitted_proposition.proposition_id}",
+        f"epistemic_task_family:{omitted_proposition.context_scope['task_family_id']}",
+        f"epistemic_active_model_identity_digest:{identity_digest}",
+    )
+    _, bounded_review = review_required_applicability(bounded)
+    assert epistemic_review_reason_for_goal(
+        goal_tags, bounded_review,
+        target_active_model_identity_digest=identity_digest,
+        target_identity_observed_at="tick-10", planning_time="tick-10",
+    ) == "epistemic_applicability_unresolved"
+
+    complete = recovered_owner.cognitive_projection(max_states=2, current_tick=11)
+    assert complete is not None and complete.omission_manifest is None
+    assert omitted_proposition.proposition_id in complete.proposition_ids
+    position = complete.proposition_ids.index(omitted_proposition.proposition_id)
+    assert complete.state_ids[position] == contested.state_id
+    assert complete.state_digests[position] == contested.state_digest
+    assert complete.states[position]["stance"] == "contested"
+    assert set(complete.states[position]["support_binding_ids"]) == {positive.binding_id}
+    assert set(complete.states[position]["contradiction_binding_ids"]) == {adverse.binding_id}
+    assert {event["event_id"] for event in complete.update_events[position]} == {
+        event.event_id for event in recovered_owner.update_events(
+            omitted_proposition.proposition_id)}
+    assert {binding_row["binding_id"] for binding_row in
+        complete.active_evidence_bindings[position]} == {positive.binding_id, adverse.binding_id}
+
+    _, complete_review = review_required_applicability(complete)
+    assert epistemic_review_reason_for_goal(
+        goal_tags, complete_review,
+        target_active_model_identity_digest=identity_digest,
+        target_identity_observed_at="tick-11", planning_time="tick-11",
+    ) == "epistemic_review_required"
+
+
 def test_owner_projection_carries_exact_canonical_proposition_and_evidence_lineage(tmp_path):
     owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
     propositions = [make_proposition(namespace="embodiment", subject="robot:g7",
