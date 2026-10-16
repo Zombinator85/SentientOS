@@ -24,7 +24,8 @@ from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (WorkPlanError, load_work_plan_evidence,
     TaskRun, WorkPlan, WorkPlanRun, persist_work_plan,
     persist_work_plan_evidence, persist_work_run, work_run_id)
-from sentientos.work_plan_execution_journal import WorkPlanExecutionJournal
+from sentientos.work_plan_execution_journal import (WorkPlanExecutionJournal,
+    WorkPlanJournalError)
 from sentientos.risk_budget import RiskBudget
 from sentientosd import HostResourceRuntimeCoordinator, RuntimeMaintenanceSurfaces
 
@@ -242,6 +243,18 @@ def test_canonical_planning_uses_reconstructed_adverse_run_for_review_gate(
     assert binding["no_replay_goal_outcomes"] == {"g1": ["failed"]}
     assert binding["prior_run_digest"] is not None
     assert binding["prior_run_journal_digest"] == prior_journal.head_digest
+
+    journal_bytes = prior_journal.path.read_bytes()
+    assert b'"status":"failed"' in journal_bytes
+    prior_journal.path.write_bytes(
+        journal_bytes.replace(b'"status":"failed"', b'"status":"success"', 1))
+    with pytest.raises(WorkPlanJournalError, match="work_plan_journal_digest_mismatch"):
+        _plan_goal_work(root=tmp_path, graph=graph, budget=budget,
+            operating_mode="normal", pressure_level=0, quarantine_active=False,
+            posture="balanced", mutation_allowed=True,
+            prior_epistemic_projection=None, target_model_identity_observer=None,
+            planning_time="2026-10-16T10:00:00Z",
+            catalog_timestamp="2026-10-16T10:00:00Z", context="orchestrator_tick")
 
 
 def test_legacy_prior_run_is_unknown_instead_of_clean(tmp_path: Path) -> None:
