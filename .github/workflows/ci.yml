@@ -91,6 +91,42 @@ jobs:
             tests/test_github_hosted_acceptance_workflows.py \
             tests/test_import_inertness_verifier.py \
             tests/integrity/test_import_purity.py
+      - name: Verify exact resource-to-cognition acceptance nodes
+        run: |
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+
+          nodes = [
+              "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_skip_without_claiming_a_call",
+              "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_xfail_as_xfailed_not_skipped",
+              "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
+              "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
+              "tests/test_task_acceptance_verifier.py::test_setup_phase_skip_cannot_satisfy_a_required_call_node",
+              "tests/test_local_model_chat_recovery.py::test_restart_preserves_resource_provisioning_identity",
+              "tests/test_resident_epistemic_development.py::test_restart_between_evidence_and_state_deduplicates_and_continues",
+              "tests/test_resident_developmental_writeback.py::test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart",
+              "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
+              "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them",
+              "tests/test_developmental_model_replacement_experiment.py::test_serving_receipt_references_survive_controlled_run_recovery",
+          ]
+          manifest = {
+              "schema_version": "sentientos.task_acceptance:v1",
+              "task_classification": "behavior_adding",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "test_provenance_path": "glow/test_runs/test_run_provenance.json",
+          "required_nodes": [{"node_id": node, "rationale": "source-validation must exercise the exact resource-to-cognition and provenance handoff"} for node in nodes],
+              "successful_path_nodes": nodes,
+          }
+          Path("glow/test_runs/source_validation_acceptance.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+          )
+          PYCODE
+          python -m scripts.verify_task_acceptance \
+            --manifest glow/test_runs/source_validation_acceptance.json \
+            --provenance glow/test_runs/test_run_provenance.json \
+            --output glow/test_runs/source_validation_acceptance_result.json
       - name: Verify canonical planning and execution separation
         run: |
           python -m scripts.run_tests -- -m "legacy or no_legacy_skip" -q \
@@ -156,42 +192,6 @@ jobs:
             --manifest glow/test_runs/canonical_planning_acceptance.json \
             --provenance glow/test_runs/canonical_planning_provenance.json \
             --output glow/test_runs/canonical_planning_acceptance_result.json
-      - name: Verify exact resource-to-cognition acceptance nodes
-        run: |
-          python - <<'PYCODE'
-          import json
-          import os
-          from pathlib import Path
-
-          nodes = [
-              "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_skip_without_claiming_a_call",
-              "tests/test_pytest_collection_reporter.py::test_reporter_records_setup_xfail_as_xfailed_not_skipped",
-              "tests/test_run_tests_failure_digest.py::test_successful_run_removes_prior_failure_digest",
-              "tests/test_run_tests_bootstrap_airlock.py::test_minimal_airlock_pytest_constraint_matches_project_declaration",
-              "tests/test_task_acceptance_verifier.py::test_setup_phase_skip_cannot_satisfy_a_required_call_node",
-              "tests/test_local_model_chat_recovery.py::test_restart_preserves_resource_provisioning_identity",
-              "tests/test_resident_epistemic_development.py::test_restart_between_evidence_and_state_deduplicates_and_continues",
-              "tests/test_resident_developmental_writeback.py::test_successful_selected_evidence_candidate_admitted_append_receipt_retrieval_and_restart",
-              "tests/test_resident_developmental_cognition.py::test_restart_tick_n_plus_one_retrieves_prior_history_for_cognition",
-              "tests/test_resident_developmental_cognition.py::test_real_invoker_retains_distinct_lessons_and_later_tick_reads_them",
-              "tests/test_developmental_model_replacement_experiment.py::test_serving_receipt_references_survive_controlled_run_recovery",
-          ]
-          manifest = {
-              "schema_version": "sentientos.task_acceptance:v1",
-              "task_classification": "behavior_adding",
-              "repository_sha": os.environ["GITHUB_SHA"],
-              "test_provenance_path": "glow/test_runs/test_run_provenance.json",
-          "required_nodes": [{"node_id": node, "rationale": "source-validation must exercise the exact resource-to-cognition and provenance handoff"} for node in nodes],
-              "successful_path_nodes": nodes,
-          }
-          Path("glow/test_runs/source_validation_acceptance.json").write_text(
-              json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-          )
-          PYCODE
-          python -m scripts.verify_task_acceptance \
-            --manifest glow/test_runs/source_validation_acceptance.json \
-            --provenance glow/test_runs/test_run_provenance.json \
-            --output glow/test_runs/source_validation_acceptance_result.json
       - name: Upload canonical test evidence
         if: always()
         uses: actions/upload-artifact@v4

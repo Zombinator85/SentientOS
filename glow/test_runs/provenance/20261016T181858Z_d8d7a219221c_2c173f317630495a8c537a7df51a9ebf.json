@@ -1,0 +1,101 @@
+{
+  "allow_no_tests": false,
+  "allow_nonexecution": false,
+  "behavioral_witness_count": 0,
+  "behavioral_witness_counts_by_node": {
+    "tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit": 0,
+    "tests/test_developmental_model_replacement_experiment.py::test_model_identity_drift_and_a_restoration_mismatch_fail_closed": 0,
+    "tests/test_embodied_consequence.py::test_multitrial_multi_event_transfer_scores_two_distinct_decision_bases": 0
+  },
+  "behavioral_witness_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  "behavioral_witness_reporter_status": "complete",
+  "behavioral_witnesses": [],
+  "budget_allow_violation": false,
+  "budget_thresholds": {
+    "max_skip_rate": 0.2,
+    "max_xfail_rate": 0.1,
+    "min_passed": 1
+  },
+  "budget_violations": [],
+  "bypass_env": false,
+  "call_phase_outcome_count": 3,
+  "canonical_requirements_path": "requirements-codex.txt",
+  "collection_completed": true,
+  "collection_error": false,
+  "collection_started": true,
+  "editable_ok": true,
+  "editable_reason": "module-path-fallback",
+  "execution_mode": "execute",
+  "full_capability_dependencies_requested": false,
+  "git_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
+  "hash_algo": "sha256",
+  "install_attempted_modes": [],
+  "install_fallback_reason": null,
+  "install_mode": "none",
+  "install_performed": false,
+  "junitxml_path": "/workspace/SentientOS-construction-verified/glow/test_runs/pytest_junitxml_549bbc9d3f014c2286cde46b7ff0cb62.xml",
+  "metrics_status": "ok",
+  "node_outcomes": [
+    {
+      "node_id": "tests/test_embodied_consequence.py::test_multitrial_multi_event_transfer_scores_two_distinct_decision_bases",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_model_replacement_experiment.py::test_model_identity_drift_and_a_restoration_mismatch_fail_closed",
+      "outcome": "passed",
+      "phase": "call"
+    },
+    {
+      "node_id": "tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit",
+      "outcome": "passed",
+      "phase": "call"
+    }
+  ],
+  "non_execution_flags": [],
+  "prev_provenance_hash": "ac3a1eb82fef457a4373c422e7394f5ab93468b558d22d065a97a71f8186d0e4",
+  "provenance_hash": "3601167f37b5618a3830ee55bc8166e8990a00e149875057f40aea29b1e59b87",
+  "pytest_args": [
+    "-m",
+    "legacy or no_legacy_skip",
+    "-q",
+    "tests/test_embodied_consequence.py::test_multitrial_multi_event_transfer_scores_two_distinct_decision_bases",
+    "tests/test_developmental_model_replacement_experiment.py::test_model_identity_drift_and_a_restoration_mismatch_fail_closed",
+    "tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit"
+  ],
+  "pytest_exit_code": 0,
+  "python": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python",
+  "repo_root": "/workspace/SentientOS-construction-verified",
+  "reporter_error": null,
+  "reporter_loaded": true,
+  "reporter_ok": true,
+  "reporter_status": "complete",
+  "run_id": "5a9aa762086c45e49497d86be967e512",
+  "run_intent": "targeted",
+  "schema_version": 1,
+  "selected_node_ids": [
+    "tests/test_embodied_consequence.py::test_multitrial_multi_event_transfer_scores_two_distinct_decision_bases",
+    "tests/test_developmental_model_replacement_experiment.py::test_model_identity_drift_and_a_restoration_mismatch_fail_closed",
+    "tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit"
+  ],
+  "selection_flags": [
+    "-m",
+    "tests/test_embodied_consequence.py::test_multitrial_multi_event_transfer_scores_two_distinct_decision_bases",
+    "tests/test_developmental_model_replacement_experiment.py::test_model_identity_drift_and_a_restoration_mismatch_fail_closed",
+    "tests/test_developmental_history_intervention_experiment.py::test_same_tick_history_exclusion_remains_explicit"
+  ],
+  "session_finish_reached": true,
+  "skip_rate": 0.0,
+  "tests_collected": 3,
+  "tests_executed": 3,
+  "tests_failed": 0,
+  "tests_passed": 3,
+  "tests_selected": 3,
+  "tests_skipped": 0,
+  "tests_xfailed": 0,
+  "tests_xpassed": 0,
+  "timestamp": "2026-10-16T18:18:58.520165+00:00",
+  "validation_complete": true,
+  "validation_status": "validation_complete",
+  "xfail_rate": 0.0
+}
