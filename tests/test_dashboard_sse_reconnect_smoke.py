@@ -167,7 +167,7 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     monkeypatch.setattr(dashboard_api.DriftEventStream, "tail", lambda self, start_cursor, *, should_stop: iter(()))
     client = TestClient(dashboard_api.create_app())
     response = client.get("/api/drift/stream?limit=2")
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     first_batch = _collect_sse_events(response, 1)
     assert first_batch, response.text
 
@@ -178,7 +178,7 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     _write_drift_event(log_path, "MOTION_STARVATION", "2024-01-03")
 
     response = client.get(f"/api/drift/stream?limit=2&since_date={last_date}")
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     second_batch = _collect_sse_events(response, 1)
     assert second_batch, response.text
 
