@@ -10,16 +10,18 @@ from types import SimpleNamespace
 
 import pytest
 
+from sentientos.control_plane_kernel import ControlPlaneKernel
 from sentientos.goal_executor import GoalExecutor, GoalPlanner
 from sentientos.goal_graph import Goal, GoalGraph, persist_goal_graph
 from sentientos.orchestrator import (GoalPlanningResult,
     _emit_goal_allocation_artifact, plan_goals)
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
     make_proposition)
+from sentientos.runtime_governor import RuntimeGovernor
 from sentientos.work_allocator import AllocationDecision
 from sentientos.work_plan import (WorkPlanError, load_work_plan_evidence,
     WorkPlan, persist_work_plan_evidence)
-from sentientosd import RuntimeMaintenanceSurfaces
+from sentientosd import HostResourceRuntimeCoordinator, RuntimeMaintenanceSurfaces
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -158,7 +160,18 @@ def test_daemon_planning_binds_verified_owner_and_observed_identity_without_exec
 def test_daemon_plan_feedback_is_non_authorizing_and_execution_free(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    surfaces = RuntimeMaintenanceSurfaces(tmp_path)
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    kernel = ControlPlaneKernel(
+        runtime_governor=RuntimeGovernor(),
+        decisions_path=tmp_path / "decisions.jsonl",
+    )
+    monkeypatch.setattr("sentientos.control_plane_kernel._KERNEL", kernel)
+    surfaces = RuntimeMaintenanceSurfaces(
+        tmp_path,
+        runtime_state_root=tmp_path / "runtime",
+        host_resource_runtime=HostResourceRuntimeCoordinator(
+            kernel=kernel, runtime_state_root=tmp_path / "runtime"),
+    )
     allocation = AllocationDecision(
         selected=("g1",), deferred=(), selected_reasons=(),
         budget_summary={"risk_spent": 0, "risk_cap": 1,

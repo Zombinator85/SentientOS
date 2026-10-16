@@ -2,7 +2,7 @@
   "schema_version": "sentientos.task_acceptance:v1",
   "task_classification": "behavior_adding",
   "repository_sha": "d8d7a219221cd94240accf7991fe353b14f6a84e",
-  "test_provenance_path": "glow/test_runs/provenance/20261016T171647Z_d8d7a219221c_64a2a26abfb94acf85cc707d1605027b.json",
+  "test_provenance_path": "glow/test_runs/provenance/20261016T173115Z_d8d7a219221c_cbbbe72c3da94e48a0624b1b8aaf8628.json",
   "required_nodes": [
     {
       "node_id": "sentientos/tests/test_orchestrator_plan_only.py::test_canonical_plan_import_and_composition_do_not_load_goal_executor",

@@ -1,15 +1,15 @@
 # Active construction checkpoint
 
-Sequence 270 separates canonical planning from execution and makes the execution CLI re-evaluate current integrity pressure and authority gates. The required GitHub quality gate now invokes the unchanged strict audits as actual root and binds the resulting report to exact source identity. Hosted administrator execution is pending publication and must pass before the infrastructure path is considered verified.
+Sequence 271 fixes a CI-detected privilege-banner issue and isolates the canonical planning test from host `/glow` state. Sequence 270's required hosted root gate passed both strict audits at UID 0 on the exact candidate tree. Sequence 271's hosted rerun is pending publication.
 
-Latest source commit: `d8d7a219221cd94240accf7991fe353b14f6a84e`
-Latest source tree: `ca6ba47b4857606b0a368863c695dba45b8eb6f0`
-Latest segment: work/construction/segments/0270-privileged-hosted-audit-path.md
-Latest segment SHA-256: `ef71c684bb605e37e902d1e50625c359d6c13cbbbd88a31be91a2211b5784944`
-Evidence: work/construction/evidence/0270-privileged-hosted-audit-path.json
+Latest source commit: `504065c1fefe3e6020281aa30cc97e23f449891c`
+Latest source tree: `bc378a8eedb8c716a985b228421a8d10e62cc00a`
+Latest segment: work/construction/segments/0271-isolated-planning-test-governance.md
+Latest segment SHA-256: `f44891e5d697d4c0a45e80e5db6add777a0beba2c81cdb0825c40a68839a7596`
+Evidence: work/construction/evidence/0271-isolated-planning-test-governance.json
 Queue: work/construction/reconciliation_xix_queue.json
-Sequence: 270
+Sequence: 271
 
-Validation: 135 focused regression tests and all 17 exact acceptance nodes passed; compileall and targeted CLI mypy passed. The actual root audits remain pending the required hosted workflow.
+Validation: 135 focused regression tests and all 17 exact acceptance nodes passed. The privilege linter, compilation, and targeted CLI mypy passed.
 
-Next: publish this bounded increment with source-to-verification binding, inspect the required hosted root audit results and remediate any real failures without weakening the gates, then continue the next architecture dependency.
+Next: publish the repair, verify every hosted check, and append the exact hosted source/audit identities before continuing construction.
