@@ -306,7 +306,32 @@ jobs:
         run: docker compose --project-name sentientos-ci up --build -d
 
       - name: Wait for service health
-        run: python scripts/wait_for_health.py --url http://localhost:5000/status --max-wait 60
+        run: |
+          services=(relay bridge1 bridge2 bridge3 ngrok)
+          deadline=$((SECONDS + 60))
+          while (( SECONDS < deadline )); do
+            healthy=1
+            for service in "${services[@]}"; do
+              container_id="$(docker compose --project-name sentientos-ci ps -q "$service")"
+              if [ -z "$container_id" ]; then
+                healthy=0
+                break
+              fi
+              status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing-healthcheck{{end}}' "$container_id" 2>/dev/null || true)"
+              if [ "$status" != "healthy" ]; then
+                healthy=0
+                break
+              fi
+            done
+            if [ "$healthy" -eq 1 ]; then
+              docker compose --project-name sentientos-ci ps
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --project-name sentientos-ci ps
+          docker compose --project-name sentientos-ci logs --no-color --tail=50
+          exit 1
 
       - name: Mypy baseline ratchet
         run: python scripts/check_mypy_baseline.py
